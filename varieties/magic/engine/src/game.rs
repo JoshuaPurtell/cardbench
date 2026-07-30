@@ -593,7 +593,8 @@ impl Game {
     /// Every condition is preflighted before an object, life total, mana pool,
     /// pass sequence, or event changes. A creature's tap ability observes this
     /// engine slice's summoning-sickness boundary; the current substrate has no
-    /// haste exception.
+    /// haste exception. Controller damage is an ability result rather than a
+    /// life-payment cost, so it remains legal even when it will cause a loss.
     #[allow(clippy::too_many_lines)] // One method keeps the activation transaction atomic and auditable.
     pub fn activate_bound_mana_ability(
         &mut self,
@@ -713,6 +714,14 @@ impl Game {
                     amount,
                 });
             }
+            if let Some(amount) = ability.controller_damage {
+                self.players[player.0].life -= i64::from(amount);
+                self.record_event(GameEvent::DamageDealtToPlayer {
+                    source: activation.source,
+                    player,
+                    amount: i32::from(amount),
+                });
+            }
         } else {
             let color = color.expect("single-color mana ability output was preflighted");
             self.players[player.0].mana_pool.add(color, ability.amount);
@@ -733,6 +742,14 @@ impl Game {
                 color,
                 amount: ability.amount,
             });
+            if let Some(amount) = ability.controller_damage {
+                self.players[player.0].life -= i64::from(amount);
+                self.record_event(GameEvent::DamageDealtToPlayer {
+                    source: activation.source,
+                    player,
+                    amount: i32::from(amount),
+                });
+            }
         }
         self.consecutive_passes = 0;
         self.priority = player;
@@ -2955,6 +2972,11 @@ impl Game {
         if ability.life_payment == Some(0) {
             return Err(RulesError::IllegalAction(
                 "mana ability life payment must be positive when present",
+            ));
+        }
+        if ability.controller_damage == Some(0) {
+            return Err(RulesError::IllegalAction(
+                "mana ability controller damage must be positive when present",
             ));
         }
         if matches!(&ability.output, ManaAbilityOutput::Choice(colors) if colors.is_empty()) {

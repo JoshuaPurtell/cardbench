@@ -122,8 +122,12 @@ Oracle Magic rules coverage.
   listed color. A successful bound mana ability never enters the stack, emits
   `BoundManaAbilityActivated` then any `ManaAbilityLifePaid` and `ManaAdded`
   receipts, resets consecutive passes, and leaves priority with its activator.
-  Every rejection—including a full mana pool, invalid choice, untapped-source
-  requirement, unaffordable life payment, or terminal game—is atomic.
+  A positive optional controller-damage result is distinct from a life-payment
+  cost: it is legal even when it causes loss, follows the mana receipt as a
+  source-aware `DamageDealtToPlayer`, and then state-based actions determine
+  elimination. Every rejection—including a full mana pool, invalid choice,
+  untapped-source requirement, unaffordable life payment, or terminal game—is
+  atomic.
 - Per-color floating mana amounts are bounded `u8` values, but generic-cost
   payment sums all five colors in a widened `u16` total. The compatibility
   `ManaPool::total` policy view is saturated at `u8::MAX`; it is never used to

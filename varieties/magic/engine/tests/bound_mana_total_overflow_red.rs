@@ -45,6 +45,7 @@ fn paid_mana_bundle_does_not_panic_when_generic_payment_sums_large_color_pools()
                 },
                 amount: 0,
                 life_payment: None,
+                controller_damage: None,
             },
         }],
     )

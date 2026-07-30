@@ -79,6 +79,7 @@ fn binding(
             output,
             amount,
             life_payment,
+            controller_damage: None,
         },
     }
 }
@@ -489,4 +490,176 @@ fn a_bound_ability_source_must_be_on_the_battlefield() {
     assert!(game.event_log.is_empty());
     game.validate_invariants()
         .expect("wrong-zone rejection preserves invariants");
+}
+
+#[test]
+fn controller_damage_is_source_aware_non_stack_and_not_a_life_payment() {
+    let player = PlayerId(0);
+    let mut game = Game::new_with_mana_abilities(
+        definitions(),
+        2,
+        [ManaAbilityBinding {
+            card_definition: RELIC,
+            ability: ActivatedManaAbility {
+                id: "black-with-damage",
+                tap_cost: true,
+                output: ManaAbilityOutput::Fixed(Color::Black),
+                amount: 1,
+                life_payment: None,
+                controller_damage: Some(1),
+            },
+        }],
+    )
+    .expect("valid controller-damage mana ability initializes");
+    let source = game
+        .put_on_battlefield(player, RELIC)
+        .expect("source begins on the battlefield");
+    game.begin_game().expect("fixture reaches upkeep priority");
+    game.clear_event_log();
+
+    game.activate_bound_mana_ability(
+        player,
+        ManaAbilityActivation {
+            source,
+            ability_id: "black-with-damage",
+            chosen_color: None,
+        },
+    )
+    .expect("damage is an ability result, not an impossible life cost");
+
+    assert!(
+        game.stack.is_empty(),
+        "mana abilities never enter the stack"
+    );
+    assert_eq!(game.player(player).expect("controller exists").life, 19);
+    assert_eq!(
+        game.player(player)
+            .expect("controller exists")
+            .mana_pool
+            .amount(Color::Black),
+        1
+    );
+    assert_eq!(
+        game.event_log,
+        vec![
+            GameEvent::BoundManaAbilityActivated {
+                player,
+                source,
+                ability: "black-with-damage",
+                color: Color::Black,
+                amount: 1,
+                tapped: true,
+                life_payment: None,
+            },
+            GameEvent::ManaAdded {
+                player,
+                color: Color::Black,
+                amount: 1,
+            },
+            GameEvent::DamageDealtToPlayer {
+                source,
+                player,
+                amount: 1,
+            },
+        ]
+    );
+    assert!(
+        !game
+            .event_log
+            .iter()
+            .any(|event| matches!(event, GameEvent::ManaAbilityLifePaid { .. })),
+        "damage must not be reported as a life-payment cost"
+    );
+
+    let events_before = game.event_log.clone();
+    assert_eq!(
+        game.activate_bound_mana_ability(
+            player,
+            ManaAbilityActivation {
+                source,
+                ability_id: "black-with-damage",
+                chosen_color: None,
+            },
+        ),
+        Err(RulesError::IllegalAction(
+            "mana ability requires an untapped source"
+        ))
+    );
+    assert_eq!(game.event_log, events_before);
+    game.validate_invariants()
+        .expect("controller-damage mana ability preserves invariants");
+}
+
+#[test]
+fn controller_damage_may_cause_loss_after_mana_receipt_and_state_based_actions() {
+    let player = PlayerId(0);
+    let opponent = PlayerId(1);
+    let mut game = Game::new_with_mana_abilities(
+        definitions(),
+        2,
+        [ManaAbilityBinding {
+            card_definition: RELIC,
+            ability: ActivatedManaAbility {
+                id: "lethal-black",
+                tap_cost: false,
+                output: ManaAbilityOutput::Fixed(Color::Black),
+                amount: 1,
+                life_payment: None,
+                controller_damage: Some(20),
+            },
+        }],
+    )
+    .expect("lethal controller-damage ability initializes");
+    let source = game
+        .put_on_battlefield(player, RELIC)
+        .expect("source begins on the battlefield");
+    game.begin_game().expect("fixture reaches upkeep priority");
+    game.clear_event_log();
+
+    game.activate_bound_mana_ability(
+        player,
+        ManaAbilityActivation {
+            source,
+            ability_id: "lethal-black",
+            chosen_color: None,
+        },
+    )
+    .expect("source-dealt damage may reduce its controller to zero life");
+
+    assert_eq!(game.winner(), Some(opponent));
+    assert_eq!(
+        game.event_log.iter().take(3).collect::<Vec<_>>(),
+        vec![
+            &GameEvent::BoundManaAbilityActivated {
+                player,
+                source,
+                ability: "lethal-black",
+                color: Color::Black,
+                amount: 1,
+                tapped: false,
+                life_payment: None,
+            },
+            &GameEvent::ManaAdded {
+                player,
+                color: Color::Black,
+                amount: 1,
+            },
+            &GameEvent::DamageDealtToPlayer {
+                source,
+                player,
+                amount: 20,
+            },
+        ]
+    );
+    assert!(game.event_log.iter().any(|event| {
+        matches!(event, GameEvent::PlayerLost { player: lost, .. } if *lost == player)
+    }));
+    assert!(matches!(
+        game.event_log.last(),
+        Some(GameEvent::GameEnded {
+            winner: Some(winner)
+        }) if *winner == opponent
+    ));
+    game.validate_invariants()
+        .expect("lethal controller damage completes its SBA lifecycle");
 }

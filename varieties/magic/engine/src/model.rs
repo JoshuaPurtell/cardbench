@@ -77,8 +77,9 @@ pub enum ManaAbilityOutput {
 /// An expansion-neutral activated mana ability bound to a card definition.
 ///
 /// This represents only the activation substrate: an optional tap cost, an
-/// optional life payment, and either a chosen/fixed mana quantity or a paid
-/// fixed bundle. It does not encode card names or printed rules text.
+/// optional life-payment cost, an optional source-dealt controller-damage
+/// result, and either a chosen/fixed mana quantity or a paid fixed bundle. It
+/// does not encode card names or printed rules text.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ActivatedManaAbility {
     /// Stable identifier unique within its bound card definition.
@@ -91,6 +92,11 @@ pub struct ActivatedManaAbility {
     pub amount: u8,
     /// An optional, positive life payment made by the controller as a cost.
     pub life_payment: Option<u8>,
+    /// Optional, positive damage dealt by this mana ability's source to its
+    /// controller as the ability resolves without using the stack. Unlike a
+    /// life payment, this is not a cost: it may reduce a player to zero life
+    /// and is recorded as source-aware damage before state-based actions.
+    pub controller_damage: Option<u8>,
 }
 
 /// Binds one generic mana ability to every permanent with a catalog definition.

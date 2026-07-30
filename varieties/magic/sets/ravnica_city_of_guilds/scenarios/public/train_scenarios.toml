@@ -4729,6 +4729,140 @@ event_markers = ["SpellCast", "PriorityPassed", "SpellResolved"]
 digest = "fnv1a64:b3acee0b8c63b96d"
 
 [[scenario]]
+id = "rav_elves_of_deep_shadow_complete_mana_ability"
+seed = 0
+description = "Advance past Elves of Deep Shadow's summoning-sickness turn, activate its complete non-stack tap ability for black mana and source-aware controller damage, then reject a second activation while tapped."
+
+[[scenario.card]]
+label = "elves"
+owner = 0
+definition = "RAV-ELVES-OF-DEEP-SHADOW"
+zone = "battlefield"
+
+# Player 1 needs one card for its real turn-two draw step.
+[[scenario.card]]
+label = "turn_two_draw"
+owner = 1
+definition = "RAV-FOREST"
+zone = "library"
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+# Finish player 0's first turn. An empty attack declaration skips blockers and
+# combat damage in the supported combat slice.
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "declare_attackers"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "draw"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "activate_bound_mana_ability"
+player = 0
+card = "elves"
+ability = "produce-black-and-damage-controller"
+
+[[scenario.action]]
+kind = "activate_bound_mana_ability"
+player = 0
+card = "elves"
+ability = "produce-black-and-damage-controller"
+expected_error = "untapped source"
+
+[scenario.expected]
+life = [19, 20]
+zones = ["elves:battlefield", "turn_two_draw:hand"]
+powers = ["elves:1"]
+toughnesses = ["elves:1"]
+tapped = ["elves:true"]
+mana = ["0:black:1"]
+stack_size = 0
+priority = 0
+event_markers = ["StepBegan", "BoundManaAbilityActivated", "ManaAdded", "DamageDealtToPlayer"]
+event_absent = ["ManaAbilityLifePaid"]
+digest = "fnv1a64:82956a3c643de2b8"
+
+[[scenario]]
 id = "rav_easy_blue_creature_chassis_wave_five"
 seed = 0
 description = "Cast Drake Familiar, Drift of Phantasms, Ethereal Usher, and Grozoth with exact blue costs, then verify only base P/T. Their printed keywords, triggers, and transmute behavior are deliberately omitted."
