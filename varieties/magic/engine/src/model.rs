@@ -211,17 +211,22 @@ impl ManaPool {
     }
 
     pub(crate) fn pay(&mut self, cost: &ManaCost) -> Result<(), String> {
-        let mut required = [0_u8; 5];
+        // A cost may repeat one colored symbol more often than this bounded
+        // pool can represent. Count in a widened type so the requirement never
+        // saturates into a cheaper payable cost.
+        let mut required = [0_u16; 5];
         for color in &cost.colored {
             required[color.index()] = required[color.index()].saturating_add(1);
         }
         for color in Color::ALL {
-            if self.amount(color) < required[color.index()] {
+            if u16::from(self.amount(color)) < required[color.index()] {
                 return Err(format!("missing {color:?} mana"));
             }
         }
         for color in Color::ALL {
-            self.amounts[color.index()] -= required[color.index()];
+            let spent = u8::try_from(required[color.index()])
+                .expect("a payable bounded colored cost fits its source pool");
+            self.amounts[color.index()] -= spent;
         }
         if self.total_exact() < u16::from(cost.generic) {
             return Err("missing generic mana".to_owned());
