@@ -31,6 +31,9 @@ impl CodePolicy for DimirTransmuteHelixPolicy {
         if let Some(action) = counterspell_response(view, self.player) {
             return action;
         }
+        if let Some(action) = prepare_counterspell_response(view, self.player) {
+            return action;
+        }
         match view.step {
             Step::DeclareAttackers
                 if view.active_player == self.player && !view.attackers_declared =>
@@ -128,6 +131,41 @@ fn counterspell_response(view: &GameView, player: PlayerId) -> Option<PolicyActi
                 || spell.card_types.contains(&CardType::Sorcery))
     })?;
     Some(cast(muddle, Target::Spell(target.id)))
+}
+
+/// Mana abilities are legal responses. Prepare the explicit `UU` payment only
+/// when the policy can complete it against a visible opposing spell, rather
+/// than passing away a real counter window or floating mana without a use.
+fn prepare_counterspell_response(view: &GameView, player: PlayerId) -> Option<PolicyAction> {
+    if view.priority != player || view.stack_depth == 0 || can_pay_muddle(view) {
+        return None;
+    }
+    card_in_hand(view, "RAV-MUDDLE-THE-MIXTURE")?;
+    view.stack_spells.iter().find(|spell| {
+        spell.controller != player
+            && (spell.card_types.contains(&CardType::Instant)
+                || spell.card_types.contains(&CardType::Sorcery))
+    })?;
+    let available_blue = view.mana_pool.amount(Color::Blue)
+        + u8::try_from(
+            view.own_battlefield
+                .iter()
+                .filter(|card| {
+                    !card.tapped
+                        && card.card_types.contains(&CardType::Land)
+                        && card.mana_colors.contains(&Color::Blue)
+                })
+                .count(),
+        )
+        .ok()?;
+    if available_blue < 2 {
+        return None;
+    }
+    let land = select_battlefield_land(view, Some(Color::Blue))?;
+    Some(PolicyAction::ActivateManaAbility {
+        land: land.id,
+        color: Color::Blue,
+    })
 }
 
 fn cast(card: ObjectId, target: Target) -> PolicyAction {
@@ -382,7 +420,8 @@ mod tests {
     #[test]
     fn activates_available_blue_mana_before_countering_a_stack_spell() {
         let mut game = Game::new(card_definitions(), 2).expect("RAV game");
-        game.add_card(PlayerId(0), "RAV-MUDDLE-THE-MIXTURE", Zone::Hand)
+        let muddle = game
+            .add_card(PlayerId(0), "RAV-MUDDLE-THE-MIXTURE", Zone::Hand)
             .expect("Muddle in hand");
         game.put_on_battlefield(PlayerId(0), "RAV-ISLAND")
             .expect("first untapped Island");
@@ -408,14 +447,41 @@ mod tests {
             .expect("the opponent passes after casting");
 
         let mut policy = DimirTransmuteHelixPolicy::new(PlayerId(0));
-        let view = game
-            .view_for_player(PlayerId(0))
-            .expect("counterspell response view");
-        let action = policy.propose_move(&view);
-        assert!(
-            matches!(action, PolicyAction::ActivateManaAbility { color: Color::Blue, .. }),
-            "an untapped pair of Islands must be used before giving up a legal Muddle response; action: {action:?}; events: {:?}; view: {view:?}",
-            game.event_log
+        for activation in 1..=2 {
+            let view = game
+                .view_for_player(PlayerId(0))
+                .expect("counterspell response view");
+            let action = policy.propose_move(&view);
+            assert!(
+                matches!(
+                    action,
+                    PolicyAction::ActivateManaAbility {
+                        color: Color::Blue,
+                        ..
+                    }
+                ),
+                "an untapped pair of Islands must be used before giving up a legal Muddle response; action: {action:?}; events: {:?}; view: {view:?}",
+                game.event_log
+            );
+            game.submit_policy_move(PlayerId(0), policy.id(), action)
+                .unwrap_or_else(|error| {
+                    panic!("counterspell mana activation {activation} failed: {error}")
+                });
+        }
+        let action = policy.propose_move(
+            &game
+                .view_for_player(PlayerId(0))
+                .expect("fully funded counterspell response view"),
         );
+        assert_eq!(action, cast(muddle, Target::Spell(char)));
+        game.submit_policy_move(PlayerId(0), policy.id(), action)
+            .expect("policy submits Muddle after funding it");
+        resolve_top_of_stack(&mut game);
+        assert!(game.event_log.iter().any(|event| matches!(
+            event,
+            cardbench_magic_engine::GameEvent::SpellCountered { card, .. } if *card == char
+        )));
+        game.validate_invariants()
+            .expect("funded policy counterspell preserves engine invariants");
     }
 }
