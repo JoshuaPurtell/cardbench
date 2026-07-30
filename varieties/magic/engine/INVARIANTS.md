@@ -68,6 +68,9 @@ Oracle Magic rules coverage.
   still in the game has passed in sequence, the top stack object resolves; if
   the stack is empty, the game advances exactly one step. Stack resolution is
   last-in, first-out.
+- Only instants in the implemented spell slice may be cast outside their
+  controller's main phase or while the stack is nonempty. Sorceries and
+  permanent spells observe sorcery timing.
 - Turn numbers are never zero, and the consecutive-pass counter is always
   below the number of surviving players outside its atomic resolution/step
   transition. A draw-replacement marker can exist only for the active player

@@ -993,11 +993,11 @@ impl Game {
                 "this spell's front-face effect is unsupported; report an engine weakness",
             ));
         }
-        if definition.is_permanent()
+        if !definition.card_types.contains(&CardType::Instant)
             && (player != self.active_player || !self.step.is_main() || !self.stack.is_empty())
         {
             return Err(RulesError::IllegalAction(
-                "non-instant permanent spells require your main phase with an empty stack",
+                "non-instant spells require your main phase with an empty stack",
             ));
         }
         if self.object(request.card)?.owner != player {
