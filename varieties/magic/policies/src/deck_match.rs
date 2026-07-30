@@ -12,7 +12,10 @@
 use cardbench_magic_engine::{Game, GameEvent, PlayerId, PolicyAction, PolicyMoveKind, RulesError};
 use cardbench_magic_rav::{DeckFixture, card_definitions, event_digest, load_reference_decks};
 
-use crate::{BorosTempoPolicy, CodePolicy, SelesnyaConvokePolicy};
+use crate::{
+    BorosCharControlPolicy, BorosTempoPolicy, CodePolicy, SelesnyaConvokePolicy,
+    SelesnyaSiegePolicy,
+};
 
 /// Stable identifier for the public two-deck development match.
 pub const RAV_DECK_MATCH_ID: &str = "rav_boros_vs_selesnya_full_deck";
@@ -36,7 +39,10 @@ impl Default for DeckMatchConfig {
             shuffle_seed: 73,
             opening_hand_size: 7,
             max_policy_moves: 5_000,
-            max_turns: 80,
+            // A sixty-card two-player game can legitimately reach turn 108
+            // before a player loses to an empty library. Leave room for that
+            // fail-closed result instead of mistaking it for a policy stall.
+            max_turns: 120,
         }
     }
 }
@@ -121,6 +127,33 @@ pub struct DeckMatchSweepResult {
     pub engine_findings: Vec<EngineFinding>,
 }
 
+/// A fail-closed public engine probe. Unlike a convenience sweep, it rejects any
+/// invariant finding, capability gap, policy rejection, or bounded non-winner.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EngineTournamentResult {
+    pub id: &'static str,
+    pub matches: Vec<DeckMatchResult>,
+    pub failures: Vec<EngineTournamentFailure>,
+}
+
+impl EngineTournamentResult {
+    #[must_use]
+    pub fn passed(&self) -> bool {
+        self.failures.is_empty()
+    }
+}
+
+/// A failed full-deck probe, deliberately retaining policy failures separately
+/// from actual engine findings so triage is honest.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum EngineTournamentFailure {
+    EngineFinding(EngineFinding),
+    NonWinningTermination {
+        shuffle_seed: u64,
+        termination: DeckMatchTermination,
+    },
+}
+
 /// Runs the two public RAV reference decks from shuffled libraries until one player
 /// loses or a deliberate development bound is reached.
 ///
@@ -128,8 +161,18 @@ pub struct DeckMatchSweepResult {
 /// tied to a single fixed event digest. The catalog, policy, or rules slice may grow
 /// while the public setup contract remains valid. Determinism is asserted by tests
 /// through replaying the same configuration.
-#[allow(clippy::too_many_lines)] // The explicit loop is the readable policy-to-engine audit trail.
 pub fn run_rav_full_deck_match(config: DeckMatchConfig) -> Result<DeckMatchResult, String> {
+    run_rav_deck_matchup(config, "rav_boros_helix", "rav_selesnya_convoke")
+}
+
+/// Runs any two shown RAV deck fixtures against their declared Rust policies.
+/// Both deck ids must be present in the public reference-deck index.
+#[allow(clippy::too_many_lines)] // The explicit loop is the readable policy-to-engine audit trail.
+pub fn run_rav_deck_matchup(
+    config: DeckMatchConfig,
+    deck_p0_id: &str,
+    deck_p1_id: &str,
+) -> Result<DeckMatchResult, String> {
     if config.opening_hand_size == 0 {
         return Err("full-deck match requires a nonzero opening hand size".to_owned());
     }
@@ -138,20 +181,21 @@ pub fn run_rav_full_deck_match(config: DeckMatchConfig) -> Result<DeckMatchResul
     }
 
     let decks = load_reference_decks().map_err(|error| error.to_string())?;
-    let [boros_deck, selesnya_deck] = expected_decks(&decks)?;
+    let deck_p0 = expected_deck(&decks, deck_p0_id)?;
+    let deck_p1 = expected_deck(&decks, deck_p1_id)?;
     let mut game = Game::new(card_definitions(), 2).map_err(rules_error)?;
     game.set_shuffle_seed(config.shuffle_seed);
-    game.load_deck_into_library(PlayerId(0), &boros_deck.deck)
+    game.load_deck_into_library(PlayerId(0), &deck_p0.deck)
         .map_err(rules_error)?;
-    game.load_deck_into_library(PlayerId(1), &selesnya_deck.deck)
+    game.load_deck_into_library(PlayerId(1), &deck_p1.deck)
         .map_err(rules_error)?;
     game.draw_opening_hand(PlayerId(0), config.opening_hand_size)
         .map_err(rules_error)?;
     game.draw_opening_hand(PlayerId(1), config.opening_hand_size)
         .map_err(rules_error)?;
     let mut policies: [Box<dyn CodePolicy>; 2] = [
-        policy_for(PlayerId(0), &boros_deck.policy)?,
-        policy_for(PlayerId(1), &selesnya_deck.policy)?,
+        policy_for(PlayerId(0), &deck_p0.policy)?,
+        policy_for(PlayerId(1), &deck_p1.policy)?,
     ];
     let mut attempted_policy_moves = 0;
     let mut accepted_policy_moves = 0;
@@ -273,22 +317,19 @@ pub fn run_rav_full_deck_match(config: DeckMatchConfig) -> Result<DeckMatchResul
     ))
 }
 
-fn expected_decks(decks: &[DeckFixture]) -> Result<[&DeckFixture; 2], String> {
-    let boros = decks
+fn expected_deck<'a>(decks: &'a [DeckFixture], id: &str) -> Result<&'a DeckFixture, String> {
+    decks
         .iter()
-        .find(|deck| deck.id == "rav_boros_helix")
-        .ok_or_else(|| "reference deck fixture `rav_boros_helix` is missing".to_owned())?;
-    let selesnya = decks
-        .iter()
-        .find(|deck| deck.id == "rav_selesnya_convoke")
-        .ok_or_else(|| "reference deck fixture `rav_selesnya_convoke` is missing".to_owned())?;
-    Ok([boros, selesnya])
+        .find(|deck| deck.id == id)
+        .ok_or_else(|| format!("reference deck fixture `{id}` is missing"))
 }
 
 fn policy_for(player: PlayerId, id: &str) -> Result<Box<dyn CodePolicy>, String> {
     match id {
         "rav.boros-tempo.v1" => Ok(Box::new(BorosTempoPolicy::new(player))),
+        "rav.boros-char-control.v1" => Ok(Box::new(BorosCharControlPolicy::new(player))),
         "rav.selesnya-convoke.v1" => Ok(Box::new(SelesnyaConvokePolicy::new(player))),
+        "rav.selesnya-siege.v1" => Ok(Box::new(SelesnyaSiegePolicy::new(player))),
         _ => Err(format!("public deck specifies unknown Rust policy `{id}`")),
     }
 }
@@ -317,6 +358,35 @@ pub fn run_rav_full_deck_sweep(
         id: "rav_boros_vs_selesnya_full_deck_sweep",
         matches,
         engine_findings,
+    })
+}
+
+/// Runs a fail-closed multi-seed engine probe. An invariant violation is an
+/// `EngineBug`; an explicit weakness report is a `CapabilityGap`; and a policy
+/// rejection or runner bound fails the probe without being falsely classified as
+/// an engine defect.
+pub fn run_rav_engine_tournament(
+    seeds: impl IntoIterator<Item = u64>,
+) -> Result<EngineTournamentResult, String> {
+    let sweep = run_rav_full_deck_sweep(seeds)?;
+    let mut failures: Vec<_> = sweep
+        .engine_findings
+        .iter()
+        .cloned()
+        .map(EngineTournamentFailure::EngineFinding)
+        .collect();
+    for result in &sweep.matches {
+        if !matches!(result.termination, DeckMatchTermination::Winner(_)) {
+            failures.push(EngineTournamentFailure::NonWinningTermination {
+                shuffle_seed: result.config.shuffle_seed,
+                termination: result.termination.clone(),
+            });
+        }
+    }
+    Ok(EngineTournamentResult {
+        id: "rav_boros_vs_selesnya_engine_tournament",
+        matches: sweep.matches,
+        failures,
     })
 }
 
@@ -442,5 +512,45 @@ mod tests {
         let sweep = run_rav_full_deck_sweep([73, 74]).expect("two-seed full deck sweep");
         assert_eq!(sweep.matches.len(), 2);
         assert!(sweep.engine_findings.is_empty());
+    }
+
+    #[test]
+    fn added_char_and_siege_decks_complete_a_real_shuffled_match() {
+        let first = run_rav_deck_matchup(
+            DeckMatchConfig::default(),
+            "rav_boros_char_control",
+            "rav_selesnya_siege",
+        )
+        .expect("Char versus Siege match");
+        let second = run_rav_deck_matchup(
+            DeckMatchConfig::default(),
+            "rav_boros_char_control",
+            "rav_selesnya_siege",
+        )
+        .expect("deterministic Char versus Siege replay");
+        assert_eq!(first, second);
+        assert!(first.is_clean_completion(), "{first:#?}");
+        assert!(matches!(first.termination, DeckMatchTermination::Winner(_)));
+        for marker in [
+            "DeckLoaded",
+            "ManaAbilityActivated",
+            "SpellCast",
+            "AttackersDeclared",
+            "BlockersDeclared",
+            "DamageDealtToPlayer",
+            "PlayerLost",
+        ] {
+            assert!(
+                first.event_log.iter().any(|event| event.contains(marker)),
+                "Char versus Siege trace is missing `{marker}`"
+            );
+        }
+    }
+
+    #[test]
+    fn sixteen_seed_tournament_fails_closed_on_all_engine_or_policy_errors() {
+        let tournament = run_rav_engine_tournament(0..16).expect("sixteen-seed engine probe");
+        assert_eq!(tournament.matches.len(), 16);
+        assert!(tournament.passed(), "{tournament:#?}");
     }
 }

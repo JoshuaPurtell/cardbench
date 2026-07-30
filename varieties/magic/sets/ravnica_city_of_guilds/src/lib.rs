@@ -349,12 +349,35 @@ pub fn validate_shown_deck_pool() -> Result<(), ManifestValidationError> {
     Ok(())
 }
 
-/// Loads and validates the two public, CardBench-authored reference decks used by
-/// the Rust policy development match.
+/// Loads and validates the public, CardBench-authored reference decks used by
+/// the Rust policy development matches. The shown deck index is the source of
+/// truth, so adding another public deck does not require changing Rust loader code.
 pub fn load_reference_decks() -> Result<Vec<DeckFixture>, ManifestValidationError> {
-    ["rav_boros_helix.toml", "rav_selesnya_convoke.toml"]
-        .into_iter()
-        .map(load_deck_fixture)
+    let index_path = set_root().join("decks/reference_decks.toml");
+    let index = fs::read_to_string(&index_path)
+        .map_err(|error| ManifestValidationError(format!("{}: {error}", index_path.display())))?;
+    let mut filenames = Vec::new();
+    for line in index.lines().map(str::trim) {
+        if let Some(path) = line.strip_prefix("path = ") {
+            let filename = path.trim_matches('"');
+            if filename.contains('/') || filename.is_empty() {
+                return Err(ManifestValidationError(format!(
+                    "{}: deck path must be a nonempty filename",
+                    index_path.display()
+                )));
+            }
+            filenames.push(filename.to_owned());
+        }
+    }
+    if filenames.is_empty() {
+        return Err(ManifestValidationError(format!(
+            "{}: reference deck index has no deck paths",
+            index_path.display()
+        )));
+    }
+    filenames
+        .iter()
+        .map(|filename| load_deck_fixture(filename))
         .collect()
 }
 
@@ -718,11 +741,11 @@ mod tests {
     fn all_block_manifests_are_formal_and_consistent() {
         validate_block_manifests().expect("Ravnica block manifests should validate");
         validate_shown_deck_pool().expect("shown RAV deck pool should be legal");
-        assert_eq!(
+        assert!(
             load_reference_decks()
                 .expect("reference RAV decks should be legal")
-                .len(),
-            2
+                .len()
+                >= 2
         );
     }
 

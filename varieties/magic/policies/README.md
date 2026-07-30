@@ -28,6 +28,7 @@ Run the fixture match with:
 cargo run -p cardbench-magic-policies --bin rav-policy-match
 cargo run -p cardbench-magic-policies --bin rav-deck-match
 cargo run -p cardbench-magic-policies --bin rav-deck-sweep
+cargo run -p cardbench-magic-policies --bin rav-engine-tournament
 ```
 
 The checked-in contract is [`reference_match.toml`](reference_match.toml). It
@@ -45,3 +46,8 @@ public seeds and promotes only engine findings to its summary:
 Policy rejection and configured runner limits are reported separately; neither
 is evidence of an engine defect by itself. The combat regression suite documents
 and prevents the previously discovered stale-dead-blocker invariant bug.
+
+`rav-engine-tournament` is stricter: it runs sixteen public seeds and fails for
+every invariant violation, capability gap, policy rejection, or bounded
+non-winner. It is the command to use when the goal is engine bug discovery,
+not merely observing policy behavior.

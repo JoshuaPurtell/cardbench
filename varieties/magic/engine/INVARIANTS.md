@@ -10,6 +10,9 @@ Oracle Magic rules coverage.
 
 - A game has at least two seated players; `PlayerId(n)` is the player at seat
   `n`, and both active player and priority holder name existing seats.
+- A game ends only when zero or one players remain. In a continuing
+  multiplayer game, an eliminated player is skipped by turn order and may not
+  hold priority or submit an action.
 - Every object exists in exactly one player zone or exactly once as the card of
   a stack object. An object cannot be in two zones, or on both the stack and in
   a zone.
@@ -26,8 +29,12 @@ Oracle Magic rules coverage.
   or submit an engine-weakness report. A rejected proposal has no accepted
   `PolicyMoveSubmitted` event.
 - A legal non-pass action resets the pass sequence. Once every seated player
-  has passed in sequence, the top stack object resolves; if the stack is empty,
-  the game advances exactly one step. Stack resolution is last-in, first-out.
+  still in the game has passed in sequence, the top stack object resolves; if
+  the stack is empty, the game advances exactly one step. Stack resolution is
+  last-in, first-out.
+- Once the game has ended, gameplay actions and public draw replacements are
+  rejected without changing zones or emitting accepted-action events. Setup
+  hooks remain deliberately separate from gameplay methods.
 - Mana pools clear on each step change. Land plays are limited to one per
   player turn and only occur during that player's main phase with an empty
   stack. The active player's land-play count resets at that player's untap
@@ -36,6 +43,9 @@ Oracle Magic rules coverage.
   new untap step, the active player rotates and the turn increments. The first
   player skips the first-turn draw, as implemented by this two-or-more-player
   substrate.
+- Opening-hand drawing preflights the requested count. It is an all-or-error
+  setup transaction: a short library cannot partially draw cards and then
+  claim a larger `OpeningHandDrawn` event.
 
 ## Combat
 
@@ -53,6 +63,10 @@ Oracle Magic rules coverage.
   Multi-block assignment, alternative combat restrictions, and other
   unsupported combat rules must be reported as capability gaps rather than
   approximated.
+- A declared participant may leave the battlefield after damage. Historical
+  combat bookkeeping may therefore retain a nontoken object in another zone or
+  a token identifier that no longer names an object until combat ends; neither
+  case corrupts zone ownership.
 
 ## Effects and state-based actions
 
@@ -65,6 +79,16 @@ Oracle Magic rules coverage.
   auditable event.
 - Card and mechanic implementations may only claim the semantic fragments
   listed in their `supported_rules`. Unsupported text is not silently inferred.
+- A nonpermanent card with no supported cast effect is rejected at cast time;
+  callers must submit an explicit capability report instead of receiving a
+  successful no-op resolution. Transmute observes sorcery timing. Dredge is
+  accepted only as the replacement selected by `draw_card` for a pending draw.
+
+## Deck construction
+
+- Nonbasic copy limits aggregate mainboard and sideboard entries, including
+  duplicate entries. Basic lands remain exempt. Mainboard minimum and sideboard
+  maximum constraints are checked independently.
 
 ## Checking and reporting a weakness
 
