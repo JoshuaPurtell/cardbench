@@ -316,6 +316,7 @@ fn execute_scenario(specification: &ScenarioSpec) -> Result<ScenarioResult, Stri
     game.clear_event_log();
     for action in &specification.actions {
         execute_action(&mut game, &labels, action)?;
+        game.validate_invariants().map_err(rules_error)?;
     }
     assert_expected_state(specification, &game, &labels)?;
     let event_log = game.canonical_event_log();

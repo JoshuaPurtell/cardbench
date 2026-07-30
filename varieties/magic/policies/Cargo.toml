@@ -20,3 +20,11 @@ path = "src/lib.rs"
 [[bin]]
 name = "rav-policy-match"
 path = "src/bin/rav_policy_match.rs"
+
+[[bin]]
+name = "rav-deck-match"
+path = "src/bin/rav_deck_match.rs"
+
+[[bin]]
+name = "rav-deck-sweep"
+path = "src/bin/rav_deck_sweep.rs"

@@ -14,7 +14,7 @@ pub use game::{
     RulesError,
 };
 pub use model::{
-    CardDefinition, CardObject, CardType, Characteristics, Color, ContinuousChange,
+    CardDefinition, CardObject, CardType, Characteristics, Color, CombatBlock, ContinuousChange,
     ContinuousEffect, DeckEntry, DeckList, DeckRules, DeckValidationError, Duration, Effect,
     GameEvent, Keyword, Layer, ManaCost, ManaPool, ObjectId, PlayerId, PlayerState, PolicyMoveKind,
     StackObject, Step, Target, TargetRequirement, TokenSpec, Zone,

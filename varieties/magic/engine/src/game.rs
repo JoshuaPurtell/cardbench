@@ -3,9 +3,9 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 
 use crate::{
-    CardDefinition, CardObject, CardType, Characteristics, Color, ContinuousChange,
-    ContinuousEffect, Duration, Effect, GameEvent, ObjectId, PlayerId, PlayerState, PolicyMoveKind,
-    StackObject, Step, Target, TargetRequirement, TokenSpec, Zone,
+    CardDefinition, CardObject, CardType, Characteristics, Color, CombatBlock, ContinuousChange,
+    ContinuousEffect, DeckList, Duration, Effect, GameEvent, Keyword, ObjectId, PlayerId,
+    PlayerState, PolicyMoveKind, StackObject, Step, Target, TargetRequirement, TokenSpec, Zone,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -80,6 +80,10 @@ pub enum PolicyAction {
     Cast(CastRequest),
     PassPriority,
     PlayLand { card: ObjectId },
+    ActivateManaAbility { land: ObjectId, color: Color },
+    DeclareAttackers { attackers: Vec<ObjectId> },
+    DeclareBlockers { assignments: Vec<CombatBlock> },
+    ReportEngineWeakness { code: String, detail: String },
 }
 
 impl PolicyAction {
@@ -89,6 +93,10 @@ impl PolicyAction {
             Self::Cast(_) => PolicyMoveKind::Cast,
             Self::PassPriority => PolicyMoveKind::PassPriority,
             Self::PlayLand { .. } => PolicyMoveKind::PlayLand,
+            Self::ActivateManaAbility { .. } => PolicyMoveKind::ActivateManaAbility,
+            Self::DeclareAttackers { .. } => PolicyMoveKind::DeclareAttackers,
+            Self::DeclareBlockers { .. } => PolicyMoveKind::DeclareBlockers,
+            Self::ReportEngineWeakness { .. } => PolicyMoveKind::ReportEngineWeakness,
         }
     }
 }
@@ -101,7 +109,9 @@ pub struct CardView {
     pub controller: PlayerId,
     pub tapped: bool,
     pub colors: BTreeSet<Color>,
+    pub mana_colors: BTreeSet<Color>,
     pub card_types: BTreeSet<CardType>,
+    pub can_attack: bool,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -109,14 +119,30 @@ pub struct GameView {
     pub player: PlayerId,
     pub active_player: PlayerId,
     pub priority: PlayerId,
+    /// The player expected to make the next policy decision. It differs from
+    /// `priority` only for turn-based declaration actions.
+    pub decision_player: PlayerId,
     pub step: Step,
+    pub turn: u32,
     pub own_life: i16,
     pub opponent_life: Vec<(PlayerId, i16)>,
     pub mana_pool: crate::ManaPool,
+    pub lands_played: u8,
     pub hand: Vec<CardView>,
     pub own_battlefield: Vec<CardView>,
     pub opponent_battlefield: Vec<CardView>,
+    pub combat_attackers: Vec<CardView>,
+    pub attackers_declared: bool,
+    pub blockers_declared: bool,
     pub stack_depth: usize,
+}
+
+#[derive(Clone, Debug, Default)]
+struct CombatState {
+    attackers: Vec<ObjectId>,
+    blockers: BTreeMap<ObjectId, ObjectId>,
+    attackers_declared: bool,
+    blockers_declared: bool,
 }
 
 /// A deterministic, two-or-more-player Magic game state.
@@ -140,6 +166,7 @@ pub struct Game {
     next_timestamp: u64,
     consecutive_passes: usize,
     shuffle_seed: u64,
+    combat: Option<CombatState>,
 }
 
 impl Game {
@@ -176,6 +203,7 @@ impl Game {
             next_timestamp: 1,
             consecutive_passes: 0,
             shuffle_seed: 0,
+            combat: None,
         };
         game.event_log.push(GameEvent::StepBegan {
             turn: game.turn,
@@ -264,6 +292,57 @@ impl Game {
         Ok(())
     }
 
+    /// Expands one public deck list into a player's library and shuffles it with
+    /// the configured deterministic seed. A caller validates format legality
+    /// before loading; the engine enforces only catalog and zone ownership here.
+    pub fn load_deck_into_library(
+        &mut self,
+        player: PlayerId,
+        deck: &DeckList,
+    ) -> Result<(), RulesError> {
+        let state = self.player(player)?;
+        if !state.library.is_empty()
+            || !state.hand.is_empty()
+            || !state.battlefield.is_empty()
+            || !state.graveyard.is_empty()
+            || !state.exile.is_empty()
+        {
+            return Err(RulesError::IllegalAction(
+                "a deck may be loaded only into an empty player state",
+            ));
+        }
+        let mut cards = 0_u16;
+        for entry in &deck.mainboard {
+            let definition = self
+                .catalog
+                .get(entry.card.as_str())
+                .ok_or(RulesError::UnknownDefinition(
+                    "deck card missing from catalog",
+                ))?
+                .id;
+            for _ in 0..entry.count {
+                self.add_card(player, definition, Zone::Library)?;
+                cards = cards.saturating_add(1);
+            }
+        }
+        self.event_log.push(GameEvent::DeckLoaded { player, cards });
+        self.shuffle_library(player);
+        self.event_log
+            .push(GameEvent::LibraryShuffled { player, cards });
+        self.validate_invariants()
+    }
+
+    /// Draws a numbered opening hand from a previously loaded library.
+    pub fn draw_opening_hand(&mut self, player: PlayerId, cards: u8) -> Result<(), RulesError> {
+        self.player(player)?;
+        for _ in 0..cards {
+            self.draw_card(player, None)?;
+        }
+        self.event_log
+            .push(GameEvent::OpeningHandDrawn { player, cards });
+        self.validate_invariants()
+    }
+
     /// Scenario setup hook for a permanent that began the measured sequence tapped.
     /// It neither represents an in-game action nor writes to the event log.
     pub fn set_tapped_for_setup(&mut self, card: ObjectId, tapped: bool) -> Result<(), RulesError> {
@@ -289,6 +368,47 @@ impl Game {
             amount,
         });
         Ok(())
+    }
+
+    /// Activates a basic intrinsic mana ability. It is an expansion-neutral mana
+    /// action: it does not use the stack but requires priority and taps its source.
+    pub fn activate_mana_ability(
+        &mut self,
+        player: PlayerId,
+        land: ObjectId,
+        color: Color,
+    ) -> Result<(), RulesError> {
+        self.require_priority(player)?;
+        self.require_zone(land, Zone::Battlefield)?;
+        let object = self.object(land)?;
+        if object.controller != player || object.tapped {
+            return Err(RulesError::IllegalAction(
+                "mana ability requires an untapped land you control",
+            ));
+        }
+        let definition = self.card_definition(land)?;
+        if !definition.is_land() || !definition.mana_colors.contains(&color) {
+            return Err(RulesError::IllegalAction(
+                "that land cannot produce the requested color",
+            ));
+        }
+        self.objects
+            .get_mut(&land)
+            .ok_or(RulesError::UnknownCard(land))?
+            .tapped = true;
+        self.players[player.0].mana_pool.add(color, 1);
+        self.event_log.push(GameEvent::ManaAbilityActivated {
+            player,
+            land,
+            color,
+        });
+        self.event_log.push(GameEvent::ManaAdded {
+            player,
+            color,
+            amount: 1,
+        });
+        self.consecutive_passes = 0;
+        self.validate_invariants()
     }
 
     #[must_use]
@@ -345,17 +465,37 @@ impl Game {
                     .collect::<Result<Vec<_>, _>>()?,
             );
         }
+        let (combat_attackers, attackers_declared, blockers_declared) =
+            if let Some(combat) = &self.combat {
+                (
+                    combat
+                        .attackers
+                        .iter()
+                        .map(|card| self.card_view(*card))
+                        .collect::<Result<Vec<_>, _>>()?,
+                    combat.attackers_declared,
+                    combat.blockers_declared,
+                )
+            } else {
+                (Vec::new(), false, false)
+            };
         Ok(GameView {
             player,
             active_player: self.active_player,
             priority: self.priority,
+            decision_player: self.policy_decision_player(),
             step: self.step,
+            turn: self.turn,
             own_life: state.life,
             opponent_life,
             mana_pool: state.mana_pool.clone(),
+            lands_played: state.lands_played,
             hand,
             own_battlefield,
             opponent_battlefield,
+            combat_attackers,
+            attackers_declared,
+            blockers_declared,
             stack_depth: self.stack.len(),
         })
     }
@@ -373,13 +513,25 @@ impl Game {
             PolicyAction::Cast(request) => self.cast_spell(player, request)?,
             PolicyAction::PassPriority => self.pass_priority(player)?,
             PolicyAction::PlayLand { card } => self.play_land(player, card)?,
+            PolicyAction::ActivateManaAbility { land, color } => {
+                self.activate_mana_ability(player, land, color)?;
+            }
+            PolicyAction::DeclareAttackers { attackers } => {
+                self.declare_attackers(player, &attackers)?;
+            }
+            PolicyAction::DeclareBlockers { assignments } => {
+                self.declare_blockers(player, &assignments)?;
+            }
+            PolicyAction::ReportEngineWeakness { code, detail } => {
+                self.report_engine_weakness(player, code, detail)?;
+            }
         }
         self.event_log.push(GameEvent::PolicyMoveSubmitted {
             player,
             policy: policy.into(),
             kind,
         });
-        Ok(())
+        self.validate_invariants()
     }
 
     pub fn characteristics(&self, card: ObjectId) -> Result<Characteristics, RulesError> {
@@ -479,7 +631,148 @@ impl Game {
         }
         self.players[player.0].lands_played += 1;
         self.move_to_zone(card, Zone::Battlefield)?;
+        self.consecutive_passes = 0;
         self.check_state_based_actions()?;
+        self.validate_invariants()
+    }
+
+    /// Performs the turn-based action of declaring attackers in the current combat.
+    pub fn declare_attackers(
+        &mut self,
+        player: PlayerId,
+        attackers: &[ObjectId],
+    ) -> Result<(), RulesError> {
+        self.require_priority(player)?;
+        if self.step != Step::DeclareAttackers || player != self.active_player {
+            return Err(RulesError::IllegalAction(
+                "only the active player may declare attackers in this step",
+            ));
+        }
+        if self
+            .combat
+            .as_ref()
+            .is_none_or(|combat| combat.attackers_declared)
+        {
+            return Err(RulesError::IllegalAction("attackers were already declared"));
+        }
+        let mut seen = BTreeSet::new();
+        for attacker in attackers {
+            if !seen.insert(*attacker) {
+                return Err(RulesError::IllegalAction("an attacker was declared twice"));
+            }
+            self.require_zone(*attacker, Zone::Battlefield)?;
+            let object = self.object(*attacker)?;
+            let characteristics = self.characteristics(*attacker)?;
+            if object.controller != player
+                || object.tapped
+                || object.entered_turn >= self.turn
+                || !characteristics.card_types.contains(&CardType::Creature)
+                || characteristics.keywords.contains(&Keyword::Defender)
+            {
+                return Err(RulesError::IllegalAction("illegal attacker"));
+            }
+        }
+        for attacker in attackers {
+            self.objects
+                .get_mut(attacker)
+                .ok_or(RulesError::UnknownCard(*attacker))?
+                .tapped = true;
+        }
+        let combat = self
+            .combat
+            .as_mut()
+            .ok_or(RulesError::IllegalAction("combat was not initialized"))?;
+        combat.attackers = attackers.to_vec();
+        combat.attackers_declared = true;
+        self.event_log.push(GameEvent::AttackersDeclared {
+            player,
+            attackers: attackers.to_vec(),
+        });
+        self.consecutive_passes = 0;
+        self.validate_invariants()
+    }
+
+    /// Performs the turn-based action of assigning zero or one blocker to each
+    /// attacker in the initial combat slice.
+    pub fn declare_blockers(
+        &mut self,
+        player: PlayerId,
+        assignments: &[CombatBlock],
+    ) -> Result<(), RulesError> {
+        if self.step != Step::DeclareBlockers || player == self.active_player {
+            return Err(RulesError::IllegalAction(
+                "only the defending player may declare blockers in this step",
+            ));
+        }
+        let combat = self
+            .combat
+            .as_ref()
+            .ok_or(RulesError::IllegalAction("combat was not initialized"))?;
+        if !combat.attackers_declared || combat.blockers_declared {
+            return Err(RulesError::IllegalAction("blockers cannot be declared now"));
+        }
+        if player != self.next_player(self.active_player) {
+            return Err(RulesError::IllegalAction(
+                "only the defending player may declare blockers",
+            ));
+        }
+        let mut attackers = BTreeSet::new();
+        let mut blockers = BTreeSet::new();
+        for assignment in assignments {
+            if !combat.attackers.contains(&assignment.attacker)
+                || !attackers.insert(assignment.attacker)
+                || !blockers.insert(assignment.blocker)
+            {
+                return Err(RulesError::IllegalAction("invalid blocker assignment"));
+            }
+            self.require_zone(assignment.blocker, Zone::Battlefield)?;
+            let object = self.object(assignment.blocker)?;
+            if object.controller != player
+                || object.tapped
+                || !self
+                    .characteristics(assignment.blocker)?
+                    .card_types
+                    .contains(&CardType::Creature)
+            {
+                return Err(RulesError::IllegalAction("illegal blocker"));
+            }
+        }
+        let combat = self
+            .combat
+            .as_mut()
+            .ok_or(RulesError::IllegalAction("combat was not initialized"))?;
+        for assignment in assignments {
+            combat
+                .blockers
+                .insert(assignment.attacker, assignment.blocker);
+        }
+        combat.blockers_declared = true;
+        self.event_log.push(GameEvent::BlockersDeclared {
+            player,
+            assignments: assignments
+                .iter()
+                .map(|assignment| (assignment.attacker, assignment.blocker))
+                .collect(),
+        });
+        self.consecutive_passes = 0;
+        self.priority = self.active_player;
+        self.validate_invariants()
+    }
+
+    /// Records an observed capability gap without pretending an unsupported rules
+    /// interaction succeeded. Policies use this to fail loudly and reproducibly.
+    pub fn report_engine_weakness(
+        &mut self,
+        player: PlayerId,
+        code: impl Into<String>,
+        detail: impl Into<String>,
+    ) -> Result<(), RulesError> {
+        self.require_priority(player)?;
+        self.event_log.push(GameEvent::EngineWeaknessRevealed {
+            player,
+            code: code.into(),
+            detail: detail.into(),
+        });
         Ok(())
     }
 
@@ -489,6 +782,13 @@ impl Game {
         let definition = self.card_definition(request.card)?.clone();
         if definition.is_land() {
             return Err(RulesError::IllegalAction("lands are played, not cast"));
+        }
+        if definition.is_permanent()
+            && (player != self.active_player || !self.step.is_main() || !self.stack.is_empty())
+        {
+            return Err(RulesError::IllegalAction(
+                "non-instant permanent spells require your main phase with an empty stack",
+            ));
         }
         if self.object(request.card)?.owner != player {
             return Err(RulesError::IllegalAction(
@@ -531,6 +831,31 @@ impl Game {
 
     pub fn pass_priority(&mut self, player: PlayerId) -> Result<(), RulesError> {
         self.require_priority(player)?;
+        if self.step == Step::DeclareAttackers
+            && self
+                .combat
+                .as_ref()
+                .is_some_and(|combat| !combat.attackers_declared)
+        {
+            // Direct scenario callers historically advance an empty combat by
+            // passing priority. Preserve that concise setup path while policy
+            // runs use `DeclareAttackers` and receive an explicit event.
+            self.combat
+                .as_mut()
+                .ok_or(RulesError::IllegalAction("combat was not initialized"))?
+                .attackers_declared = true;
+        }
+        if self.step == Step::DeclareBlockers
+            && self
+                .combat
+                .as_ref()
+                .is_some_and(|combat| !combat.blockers_declared)
+        {
+            self.combat
+                .as_mut()
+                .ok_or(RulesError::IllegalAction("combat was not initialized"))?
+                .blockers_declared = true;
+        }
         self.event_log.push(GameEvent::PriorityPassed { player });
         self.consecutive_passes += 1;
         self.priority = self.next_player(player);
@@ -700,6 +1025,135 @@ impl Game {
             .iter()
             .map(|event| format!("{event:?}"))
             .collect()
+    }
+
+    #[must_use]
+    pub fn is_game_over(&self) -> bool {
+        self.players.iter().any(|player| player.lost)
+    }
+
+    #[must_use]
+    pub fn winner(&self) -> Option<PlayerId> {
+        let remaining: Vec<_> = self
+            .players
+            .iter()
+            .filter(|player| !player.lost)
+            .map(|player| player.id)
+            .collect();
+        (remaining.len() == 1).then_some(remaining[0])
+    }
+
+    /// Returns the player who must provide the next policy decision. During
+    /// declaration steps this is the turn-based actor rather than the player who
+    /// will receive priority afterwards.
+    #[must_use]
+    pub fn next_policy_player(&self) -> PlayerId {
+        self.policy_decision_player()
+    }
+
+    /// Validates the non-negotiable internal facts relied on by all rule methods.
+    /// It is public so development runners and scenario tests can fail at the first
+    /// corrupted state rather than report a misleading later rules error.
+    pub fn validate_invariants(&self) -> Result<(), RulesError> {
+        if self.players.len() < 2
+            || self.players.get(self.active_player.0).is_none()
+            || self.players.get(self.priority.0).is_none()
+        {
+            return Err(RulesError::IllegalAction("invalid seated-player state"));
+        }
+        let mut locations = BTreeMap::<ObjectId, Zone>::new();
+        for player in &self.players {
+            if self.players.get(player.id.0).is_none() || self.players[player.id.0].id != player.id
+            {
+                return Err(RulesError::IllegalAction("player id does not match seat"));
+            }
+            for (zone, cards) in [
+                (Zone::Library, &player.library),
+                (Zone::Hand, &player.hand),
+                (Zone::Battlefield, &player.battlefield),
+                (Zone::Graveyard, &player.graveyard),
+                (Zone::Exile, &player.exile),
+            ] {
+                for card in cards {
+                    if locations.insert(*card, zone).is_some() {
+                        return Err(RulesError::IllegalAction(
+                            "card appears in more than one zone",
+                        ));
+                    }
+                    let object = self.object(*card)?;
+                    if object.id != *card {
+                        return Err(RulesError::IllegalAction("object id key mismatch"));
+                    }
+                    if (zone == Zone::Battlefield && object.controller != player.id)
+                        || (zone != Zone::Battlefield && object.owner != player.id)
+                    {
+                        return Err(RulesError::IllegalAction(
+                            "card is in the wrong player's zone",
+                        ));
+                    }
+                    if let Some(definition) = object.definition
+                        && !self.catalog.contains_key(definition)
+                    {
+                        return Err(RulesError::UnknownDefinition(definition));
+                    }
+                }
+            }
+        }
+        let mut stack_cards = BTreeSet::new();
+        for stack_object in &self.stack {
+            if !stack_cards.insert(stack_object.card) || locations.contains_key(&stack_object.card)
+            {
+                return Err(RulesError::IllegalAction(
+                    "stack card must not also exist in a zone",
+                ));
+            }
+            self.object(stack_object.card)?;
+            self.player(stack_object.controller)?;
+        }
+        for card in self.objects.keys() {
+            if !locations.contains_key(card) && !stack_cards.contains(card) {
+                return Err(RulesError::IllegalAction("object has no game location"));
+            }
+        }
+        if let Some(combat) = &self.combat {
+            if !matches!(
+                self.step,
+                Step::DeclareAttackers
+                    | Step::DeclareBlockers
+                    | Step::CombatDamage
+                    | Step::EndOfCombat
+            ) {
+                return Err(RulesError::IllegalAction(
+                    "combat state exists outside combat",
+                ));
+            }
+            let mut attackers = BTreeSet::new();
+            let mut blockers = BTreeSet::new();
+            let declarations_are_current =
+                matches!(self.step, Step::DeclareAttackers | Step::DeclareBlockers);
+            for attacker in &combat.attackers {
+                if !attackers.insert(*attacker)
+                    || (declarations_are_current
+                        && (self.zone_of(*attacker) != Some(Zone::Battlefield)
+                            || self.object(*attacker)?.controller != self.active_player))
+                {
+                    return Err(RulesError::IllegalAction("invalid combat attacker state"));
+                }
+                self.object(*attacker)?;
+            }
+            for (attacker, blocker) in &combat.blockers {
+                if !attackers.contains(attacker)
+                    || !blockers.insert(*blocker)
+                    || (declarations_are_current
+                        && (self.zone_of(*blocker) != Some(Zone::Battlefield)
+                            || self.object(*blocker)?.controller == self.active_player))
+                {
+                    return Err(RulesError::IllegalAction("invalid combat blocker state"));
+                }
+                self.object(*blocker)?;
+            }
+        }
+        Ok(())
     }
 
     fn pay_cost_with_convoke(
@@ -982,6 +1436,9 @@ impl Game {
     }
 
     fn advance_step(&mut self) -> Result<(), RulesError> {
+        for player in &mut self.players {
+            player.mana_pool.clear();
+        }
         self.step = self.step.next();
         if self.step == Step::Untap {
             self.active_player = self.next_player(self.active_player);
@@ -992,6 +1449,9 @@ impl Game {
     }
 
     fn start_step(&mut self) -> Result<(), RulesError> {
+        if self.step == Step::CombatDamage {
+            self.resolve_combat_damage()?;
+        }
         match self.step {
             Step::Untap => {
                 self.players[self.active_player.0].lands_played = 0;
@@ -1014,7 +1474,17 @@ impl Game {
                     });
                 }
             }
-            Step::Draw => self.draw_card(self.active_player, None)?,
+            Step::Draw => {
+                if self.turn != 1 || self.active_player != PlayerId(0) {
+                    self.draw_card(self.active_player, None)?;
+                }
+            }
+            Step::DeclareAttackers => {
+                self.combat = Some(CombatState::default());
+            }
+            Step::EndOfCombat => {
+                self.combat = None;
+            }
             Step::Cleanup => {
                 for card in self.all_battlefield_cards() {
                     self.objects
@@ -1033,6 +1503,64 @@ impl Game {
             active_player: self.active_player,
             step: self.step,
         });
+        Ok(())
+    }
+
+    fn resolve_combat_damage(&mut self) -> Result<(), RulesError> {
+        let combat = self.combat.clone().ok_or(RulesError::IllegalAction(
+            "combat damage without combat state",
+        ))?;
+        if !combat.attackers_declared || !combat.blockers_declared {
+            return Err(RulesError::IllegalAction(
+                "combat damage before attackers and blockers were declared",
+            ));
+        }
+        let defending_player = self.next_player(self.active_player);
+        let mut permanent_damage = Vec::new();
+        let mut player_damage = Vec::new();
+        for attacker in combat.attackers {
+            if self.zone_of(attacker) != Some(Zone::Battlefield) {
+                continue;
+            }
+            let attacker_power = self
+                .characteristics(attacker)?
+                .power
+                .ok_or(RulesError::IllegalAction("attacker lacks power"))?;
+            if let Some(blocker) = combat.blockers.get(&attacker).copied() {
+                if self.zone_of(blocker) != Some(Zone::Battlefield) {
+                    player_damage.push((attacker, defending_player, attacker_power));
+                    continue;
+                }
+                let blocker_power = self
+                    .characteristics(blocker)?
+                    .power
+                    .ok_or(RulesError::IllegalAction("blocker lacks power"))?;
+                permanent_damage.push((attacker, blocker, attacker_power));
+                permanent_damage.push((blocker, attacker, blocker_power));
+            } else {
+                player_damage.push((attacker, defending_player, attacker_power));
+            }
+        }
+        for (source, permanent, amount) in permanent_damage {
+            self.objects
+                .get_mut(&permanent)
+                .ok_or(RulesError::UnknownCard(permanent))?
+                .damage += amount;
+            self.event_log.push(GameEvent::DamageDealtToPermanent {
+                source,
+                permanent,
+                amount,
+            });
+        }
+        for (source, player, amount) in player_damage {
+            self.players[player.0].life -= amount;
+            self.event_log.push(GameEvent::DamageDealtToPlayer {
+                source,
+                player,
+                amount,
+            });
+        }
+        self.check_state_based_actions()?;
         Ok(())
     }
 
@@ -1156,6 +1684,18 @@ impl Game {
         PlayerId((player.0 + 1) % self.players.len())
     }
 
+    fn policy_decision_player(&self) -> PlayerId {
+        match (&self.combat, self.step) {
+            (Some(combat), Step::DeclareAttackers) if !combat.attackers_declared => {
+                self.active_player
+            }
+            (Some(combat), Step::DeclareBlockers) if !combat.blockers_declared => {
+                self.next_player(self.active_player)
+            }
+            _ => self.priority,
+        }
+    }
+
     fn all_battlefield_cards(&self) -> Vec<ObjectId> {
         self.players
             .iter()
@@ -1166,13 +1706,25 @@ impl Game {
     fn card_view(&self, card: ObjectId) -> Result<CardView, RulesError> {
         let object = self.object(card)?;
         let characteristics = self.characteristics(card)?;
+        let mana_colors = object
+            .definition
+            .and_then(|definition| self.catalog.get(definition))
+            .map_or_else(BTreeSet::new, |definition| definition.mana_colors.clone());
+        let can_attack = object.controller == self.active_player
+            && self.zone_of(card) == Some(Zone::Battlefield)
+            && !object.tapped
+            && object.entered_turn < self.turn
+            && characteristics.card_types.contains(&CardType::Creature)
+            && !characteristics.keywords.contains(&Keyword::Defender);
         Ok(CardView {
             id: card,
             definition: object.definition,
             controller: object.controller,
             tapped: object.tapped,
             colors: characteristics.colors,
+            mana_colors,
             card_types: characteristics.card_types,
+            can_attack,
         })
     }
 

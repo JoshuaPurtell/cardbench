@@ -93,6 +93,11 @@ impl ManaPool {
         self.amounts.iter().copied().sum()
     }
 
+    /// Empties floating mana at a step or phase boundary.
+    pub fn clear(&mut self) {
+        self.amounts = [0; 5];
+    }
+
     pub(crate) fn pay(&mut self, cost: &ManaCost) -> Result<(), String> {
         let mut required = [0_u8; 5];
         for color in &cost.colored {
@@ -217,6 +222,9 @@ pub struct CardDefinition {
     pub set_code: &'static str,
     pub mana_cost: ManaCost,
     pub colors: BTreeSet<Color>,
+    /// Colors a land's intrinsic mana ability can produce in this engine slice.
+    /// Nonlands leave this empty.
+    pub mana_colors: BTreeSet<Color>,
     pub card_types: BTreeSet<CardType>,
     /// Basic lands are exempt from the normal four-copy deck construction limit.
     pub is_basic_land: bool,
@@ -475,6 +483,19 @@ pub enum PolicyMoveKind {
     Cast,
     PassPriority,
     PlayLand,
+    ActivateManaAbility,
+    DeclareAttackers,
+    DeclareBlockers,
+    ReportEngineWeakness,
+}
+
+/// One blocker assigned to one attacker. This initial combat substrate permits one
+/// blocker per attacker; cards requiring multi-block assignment are reported as a
+/// capability gap rather than being approximated.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct CombatBlock {
+    pub attacker: ObjectId,
+    pub blocker: ObjectId,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -573,6 +594,23 @@ pub enum GameEvent {
         color: Color,
         amount: u8,
     },
+    ManaAbilityActivated {
+        player: PlayerId,
+        land: ObjectId,
+        color: Color,
+    },
+    DeckLoaded {
+        player: PlayerId,
+        cards: u16,
+    },
+    LibraryShuffled {
+        player: PlayerId,
+        cards: u16,
+    },
+    OpeningHandDrawn {
+        player: PlayerId,
+        cards: u8,
+    },
     SpellCast {
         player: PlayerId,
         card: ObjectId,
@@ -617,6 +655,19 @@ pub enum GameEvent {
     PermanentsUntapped {
         player: PlayerId,
         cards: Vec<ObjectId>,
+    },
+    AttackersDeclared {
+        player: PlayerId,
+        attackers: Vec<ObjectId>,
+    },
+    BlockersDeclared {
+        player: PlayerId,
+        assignments: Vec<(ObjectId, ObjectId)>,
+    },
+    EngineWeaknessRevealed {
+        player: PlayerId,
+        code: String,
+        detail: String,
     },
     StateBasedAction {
         card: ObjectId,
