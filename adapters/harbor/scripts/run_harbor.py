@@ -260,6 +260,19 @@ def copy_workspace(destination: Path) -> None:
     assert_no_sealed_leak(destination)
 
 
+def prune_workspace_cache(workspace: Path) -> None:
+    """Drop the cargo target tree the agent built inside its own workspace.
+
+    ``benchmark_ai`` roots its build cache at the repo it is invoked from, so an
+    agent that compiles to test its policy leaves ~1GB under ``workspace/.cache``
+    — per job. A ten-lane board would retain ~10GB of rebuildable object files
+    in the results directory.
+    """
+    cache = workspace / ".cache"
+    if cache.is_dir():
+        shutil.rmtree(cache, ignore_errors=True)
+
+
 def assert_no_sealed_leak(workspace: Path) -> None:
     """Fail closed if any sealed heldout asset reached the agent workspace."""
     leaked = sorted(
@@ -316,7 +329,15 @@ def run_codex(
         "submission_path": str(candidate_rel),
         "codex_auth_json_b64": base64.b64encode(auth.read_bytes()).decode("ascii"),
         "codex_auth_source": "host_codex_auth_json",
-        "env": {"CARDBENCH_WORKSPACE_ROOT": str(workspace)},
+        "env": {
+            "CARDBENCH_WORKSPACE_ROOT": str(workspace),
+            # The bundle verifier scores the sealed heldout split, which is
+            # absent from the workspace by design, so it needs the host
+            # checkout. It also writes straight to the authority directory the
+            # receipt reads, which is why no second scoring pass is needed.
+            "CARDBENCH_REPO_ROOT": str(REPO),
+            "CARDBENCH_VERIFIER_OUT": str(output / "logs" / "verifier"),
+        },
     }
     rollout = output / "rollout.json"
     rollout.write_text(json.dumps(payload, indent=2) + "\n")
@@ -334,6 +355,7 @@ def run_codex(
         ]
     )
     candidate = workspace / candidate_rel
+    verifier_result = output / "logs" / "verifier" / "result.json"
     if candidate.exists():
         if family == "code_policy":
             subprocess.run(
@@ -348,18 +370,25 @@ def run_codex(
                     split="train",
                 )
             )
-        scored = subprocess.run(
-            score_command(
-                family,
-                candidate,
-                output,
-                instance=instance,
-                expansion=expansion,
-                variant=variant,
-                suite=suite,
+        if verifier_result.exists():
+            # The bundle's tests/test.sh already scored the authority split into
+            # this directory. Re-running it would cost another compile plus a
+            # full heldout sweep for an identical answer.
+            verify_rc = 0 if json.loads(verifier_result.read_text()).get("passed") else 1
+        else:
+            scored = subprocess.run(
+                score_command(
+                    family,
+                    candidate,
+                    output,
+                    instance=instance,
+                    expansion=expansion,
+                    variant=variant,
+                    suite=suite,
+                )
             )
-        )
-        verify_rc = scored.returncode
+            verify_rc = scored.returncode
+        prune_workspace_cache(workspace)
     else:
         verify_rc = 1
         verifier_dir = output / "logs" / "verifier"
