@@ -12,3 +12,13 @@ path = "rav_boros_helix.toml"
 id = "rav_selesnya_convoke"
 policy = "rav.selesnya-convoke.v1"
 path = "rav_selesnya_convoke.toml"
+
+[[deck]]
+id = "rav_boros_char_control"
+policy = "rav.boros-char-control.v1"
+path = "rav_boros_char_control.toml"
+
+[[deck]]
+id = "rav_selesnya_siege"
+policy = "rav.selesnya-siege.v1"
+path = "rav_selesnya_siege.toml"

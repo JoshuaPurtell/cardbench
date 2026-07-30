@@ -373,10 +373,13 @@ impl DeckList {
             }
         }
         for entry in &self.sideboard {
-            if !catalog.contains_key(entry.card.as_str()) {
-                return Err(DeckValidationError::UnknownCard(entry.card.clone()));
-            }
+            let definition = catalog
+                .get(entry.card.as_str())
+                .ok_or_else(|| DeckValidationError::UnknownCard(entry.card.clone()))?;
             sideboard_total += u16::from(entry.count);
+            if !definition.is_basic_land {
+                *copies.entry(definition.id).or_default() += u16::from(entry.count);
+            }
         }
         if mainboard_total < rules.minimum_mainboard_size {
             return Err(DeckValidationError::MainboardTooSmall {

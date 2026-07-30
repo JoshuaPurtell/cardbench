@@ -28,3 +28,11 @@ path = "src/bin/rav_deck_match.rs"
 [[bin]]
 name = "rav-deck-sweep"
 path = "src/bin/rav_deck_sweep.rs"
+
+[[bin]]
+name = "rav-engine-tournament"
+path = "src/bin/rav_engine_tournament.rs"
+
+[[bin]]
+name = "rav-engine-audit"
+path = "src/bin/rav_engine_audit.rs"

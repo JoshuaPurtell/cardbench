@@ -167,6 +167,9 @@ pub struct Game {
     consecutive_passes: usize,
     shuffle_seed: u64,
     combat: Option<CombatState>,
+    /// Set only while `draw_card` delegates a pending draw replacement to
+    /// `dredge`. This prevents dredge from becoming a free graveyard action.
+    pending_draw_replacement: Option<PlayerId>,
 }
 
 impl Game {
@@ -204,6 +207,7 @@ impl Game {
             consecutive_passes: 0,
             shuffle_seed: 0,
             combat: None,
+            pending_draw_replacement: None,
         };
         game.event_log.push(GameEvent::StepBegan {
             turn: game.turn,
@@ -335,6 +339,12 @@ impl Game {
     /// Draws a numbered opening hand from a previously loaded library.
     pub fn draw_opening_hand(&mut self, player: PlayerId, cards: u8) -> Result<(), RulesError> {
         self.player(player)?;
+        self.require_game_in_progress()?;
+        if self.players[player.0].library.len() < usize::from(cards) {
+            return Err(RulesError::IllegalAction(
+                "opening hand requires enough cards in library",
+            ));
+        }
         for _ in 0..cards {
             self.draw_card(player, None)?;
         }
@@ -755,7 +765,7 @@ impl Game {
                 .collect(),
         });
         self.consecutive_passes = 0;
-        self.priority = self.active_player;
+        self.priority = self.priority_after_resolution();
         self.validate_invariants()
     }
 
@@ -782,6 +792,11 @@ impl Game {
         let definition = self.card_definition(request.card)?.clone();
         if definition.is_land() {
             return Err(RulesError::IllegalAction("lands are played, not cast"));
+        }
+        if !definition.is_permanent() && definition.effects.is_empty() {
+            return Err(RulesError::IllegalAction(
+                "this spell's front-face effect is unsupported; report an engine weakness",
+            ));
         }
         if definition.is_permanent()
             && (player != self.active_player || !self.step.is_main() || !self.stack.is_empty())
@@ -859,7 +874,7 @@ impl Game {
         self.event_log.push(GameEvent::PriorityPassed { player });
         self.consecutive_passes += 1;
         self.priority = self.next_player(player);
-        if self.consecutive_passes == self.players.len() {
+        if self.consecutive_passes == self.remaining_player_count() {
             self.consecutive_passes = 0;
             if self.stack.is_empty() {
                 self.advance_step()?;
@@ -876,12 +891,16 @@ impl Game {
         dredge: Option<ObjectId>,
     ) -> Result<(), RulesError> {
         self.player(player)?;
+        self.require_game_in_progress()?;
         if let Some(card) = dredge {
-            self.dredge(player, card)?;
-            return Ok(());
+            self.pending_draw_replacement = Some(player);
+            let result = self.dredge(player, card);
+            self.pending_draw_replacement = None;
+            return result;
         }
         let Some(card) = self.players[player.0].library.pop() else {
             self.lose_player(player, "attempted to draw from an empty library");
+            self.normalize_priority_after_elimination();
             return Ok(());
         };
         self.players[player.0].hand.push(card);
@@ -893,6 +912,12 @@ impl Game {
     }
 
     pub fn dredge(&mut self, player: PlayerId, card: ObjectId) -> Result<(), RulesError> {
+        self.require_game_in_progress()?;
+        if self.pending_draw_replacement != Some(player) {
+            return Err(RulesError::IllegalAction(
+                "dredge may only replace a pending draw",
+            ));
+        }
         self.require_zone(card, Zone::Graveyard)?;
         if self.object(card)?.owner != player {
             return Err(RulesError::IllegalAction(
@@ -942,6 +967,11 @@ impl Game {
         found: ObjectId,
     ) -> Result<(), RulesError> {
         self.require_priority(player)?;
+        if player != self.active_player || !self.step.is_main() || !self.stack.is_empty() {
+            return Err(RulesError::IllegalAction(
+                "transmute is allowed only during your main phase with an empty stack",
+            ));
+        }
         self.require_zone(card, Zone::Hand)?;
         self.require_zone(found, Zone::Library)?;
         if self.object(card)?.owner != player || self.object(found)?.owner != player {
@@ -1014,6 +1044,7 @@ impl Game {
                 }
             }
             if !changed {
+                self.normalize_priority_after_elimination();
                 return Ok(());
             }
         }
@@ -1029,7 +1060,7 @@ impl Game {
 
     #[must_use]
     pub fn is_game_over(&self) -> bool {
-        self.players.iter().any(|player| player.lost)
+        self.players.iter().filter(|player| !player.lost).count() <= 1
     }
 
     #[must_use]
@@ -1054,12 +1085,18 @@ impl Game {
     /// Validates the non-negotiable internal facts relied on by all rule methods.
     /// It is public so development runners and scenario tests can fail at the first
     /// corrupted state rather than report a misleading later rules error.
+    #[allow(clippy::too_many_lines)] // One ordered audit keeps the invariant contract reviewable.
     pub fn validate_invariants(&self) -> Result<(), RulesError> {
         if self.players.len() < 2
             || self.players.get(self.active_player.0).is_none()
             || self.players.get(self.priority.0).is_none()
         {
             return Err(RulesError::IllegalAction("invalid seated-player state"));
+        }
+        if !self.is_game_over() && self.players[self.priority.0].lost {
+            return Err(RulesError::IllegalAction(
+                "a continuing game assigned priority to an eliminated player",
+            ));
         }
         let mut locations = BTreeMap::<ObjectId, Zone>::new();
         for player in &self.players {
@@ -1139,7 +1176,9 @@ impl Game {
                 {
                     return Err(RulesError::IllegalAction("invalid combat attacker state"));
                 }
-                self.object(*attacker)?;
+                if self.zone_of(*attacker).is_some() {
+                    self.object(*attacker)?;
+                }
             }
             for (attacker, blocker) in &combat.blockers {
                 if !attackers.contains(attacker)
@@ -1150,7 +1189,9 @@ impl Game {
                 {
                     return Err(RulesError::IllegalAction("invalid combat blocker state"));
                 }
-                self.object(*blocker)?;
+                if self.zone_of(*blocker).is_some() {
+                    self.object(*blocker)?;
+                }
             }
         }
         Ok(())
@@ -1271,7 +1312,7 @@ impl Game {
             });
             self.move_to_graveyard_or_remove_token(stack_object.card)?;
             self.check_state_based_actions()?;
-            self.priority = self.active_player;
+            self.priority = self.priority_after_resolution();
             return Ok(());
         }
         for effect in &stack_object.effects {
@@ -1291,7 +1332,7 @@ impl Game {
             self.move_to_graveyard_or_remove_token(stack_object.card)?;
         }
         self.check_state_based_actions()?;
-        self.priority = self.active_player;
+        self.priority = self.priority_after_resolution();
         Ok(())
     }
 
@@ -1444,7 +1485,7 @@ impl Game {
             self.active_player = self.next_player(self.active_player);
             self.turn += 1;
         }
-        self.priority = self.active_player;
+        self.priority = self.priority_after_resolution();
         self.start_step()
     }
 
@@ -1670,6 +1711,10 @@ impl Game {
 
     fn require_priority(&self, player: PlayerId) -> Result<(), RulesError> {
         self.player(player)?;
+        self.require_game_in_progress()?;
+        if self.players[player.0].lost {
+            return Err(RulesError::IllegalAction("an eliminated player cannot act"));
+        }
         if player == self.priority {
             Ok(())
         } else {
@@ -1681,12 +1726,47 @@ impl Game {
     }
 
     fn next_player(&self, player: PlayerId) -> PlayerId {
-        PlayerId((player.0 + 1) % self.players.len())
+        for offset in 1..=self.players.len() {
+            let candidate = PlayerId((player.0 + offset) % self.players.len());
+            if !self.players[candidate.0].lost {
+                return candidate;
+            }
+        }
+        player
+    }
+
+    fn remaining_player_count(&self) -> usize {
+        self.players.iter().filter(|player| !player.lost).count()
+    }
+
+    fn priority_after_resolution(&self) -> PlayerId {
+        if self.players[self.active_player.0].lost {
+            self.next_player(self.active_player)
+        } else {
+            self.active_player
+        }
+    }
+
+    fn normalize_priority_after_elimination(&mut self) {
+        if !self.is_game_over() && self.players[self.priority.0].lost {
+            self.priority = self.next_player(self.priority);
+            self.consecutive_passes = 0;
+        }
+    }
+
+    fn require_game_in_progress(&self) -> Result<(), RulesError> {
+        if self.is_game_over() {
+            Err(RulesError::IllegalAction("the game has already ended"))
+        } else {
+            Ok(())
+        }
     }
 
     fn policy_decision_player(&self) -> PlayerId {
         match (&self.combat, self.step) {
-            (Some(combat), Step::DeclareAttackers) if !combat.attackers_declared => {
+            (Some(combat), Step::DeclareAttackers)
+                if !combat.attackers_declared && !self.players[self.active_player.0].lost =>
+            {
                 self.active_player
             }
             (Some(combat), Step::DeclareBlockers) if !combat.blockers_declared => {

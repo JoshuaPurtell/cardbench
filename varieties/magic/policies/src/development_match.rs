@@ -33,8 +33,9 @@ pub struct PolicyMatchResult {
 pub fn run_rav_reference_match() -> Result<PolicyMatchResult, String> {
     validate_reference_match_fixture()?;
     let decks = load_reference_decks().map_err(|error| error.to_string())?;
-    if decks.len() != 2 || decks[0].id != "rav_boros_helix" || decks[1].id != "rav_selesnya_convoke"
-    {
+    let boros = decks.iter().find(|deck| deck.id == "rav_boros_helix");
+    let selesnya = decks.iter().find(|deck| deck.id == "rav_selesnya_convoke");
+    if boros.is_none() || selesnya.is_none() {
         return Err("reference policy match requires the two named RAV deck fixtures".to_owned());
     }
     let mut game = Game::new(card_definitions(), 2).map_err(rules_error)?;

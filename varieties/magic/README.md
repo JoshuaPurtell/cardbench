@@ -13,6 +13,7 @@ cargo run -p cardbench-magic-rav --bin rav-engine-parity
 cargo run -p cardbench-magic-policies --bin rav-policy-match
 cargo run -p cardbench-magic-policies --bin rav-deck-match
 cargo run -p cardbench-magic-policies --bin rav-deck-sweep
+cargo run -p cardbench-magic-policies --bin rav-engine-tournament
 ```
 
 The last command validates the original Ravnica-block manifests and public deck
@@ -122,6 +123,11 @@ separate match outcomes; they are not mislabeled as engine defects. The current
 four-seed sweep has zero engine findings. A combat/SBA invariant defect found
 during development—dead blockers remained referenced by the combat assignment
 after lethal damage—has a permanent regression test and is fixed.
+
+`rav-engine-tournament` is the fail-closed broader probe. It runs seeds `0..16`
+and exits nonzero for every invariant violation, explicit capability gap,
+rejected policy move, or bounded non-winner. Its present baseline has sixteen
+completed games and zero failures.
 
 ## Provenance and rights
 
