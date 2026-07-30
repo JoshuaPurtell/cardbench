@@ -6,7 +6,16 @@
 
 #![forbid(unsafe_code)]
 
+mod catalog;
 mod scenarios;
+
+pub use catalog::{
+    CardSemanticStatus, CatalogCard, CatalogResolutionError, CatalogValidationError,
+    RAV_MAIN_SET_BASIC_LAND_PRINTING_COUNT, RAV_MAIN_SET_CATALOG_MANIFEST,
+    RAV_MAIN_SET_EXPECTED_PRINTING_COUNT, RAV_MAIN_SET_EXPECTED_UNIQUE_NAME_COUNT,
+    executable_definition_id_for_collector, parse_rav_main_set_catalog, rav_main_set_catalog,
+    validate_rav_main_set_catalog,
+};
 
 use std::collections::BTreeSet;
 use std::fs;
@@ -201,6 +210,63 @@ pub fn card_definitions() -> Vec<CardDefinition> {
         basic_land("RAV-MOUNTAIN", "Mountain", Color::Red),
         basic_land("RAV-FOREST", "Forest", Color::Green),
     ]
+}
+
+/// Ensures that complete catalog coverage cannot quietly change the executable
+/// boundary. Every executable definition must be explicitly referenced by a catalog
+/// printing with the same name, and every catalog-only printing must stay absent
+/// from the game-definition map.
+pub fn validate_rav_catalog_executable_boundary() -> Result<(), CatalogValidationError> {
+    validate_rav_main_set_catalog()?;
+    let definitions = card_definitions();
+    let definitions_by_id = definitions
+        .iter()
+        .map(|definition| (definition.id, definition))
+        .collect::<std::collections::BTreeMap<_, _>>();
+    if definitions_by_id.len() != definitions.len() {
+        return Err(CatalogValidationError(
+            "RAV executable definitions contain a duplicate id".to_owned(),
+        ));
+    }
+    let executable_definition_names = definitions
+        .iter()
+        .map(|definition| definition.name)
+        .collect::<BTreeSet<_>>();
+    let mut catalog_definition_ids = BTreeSet::new();
+    for card in rav_main_set_catalog() {
+        match card.semantic_status {
+            CardSemanticStatus::ExecutableCompatibilitySlice { definition_id } => {
+                let definition = definitions_by_id.get(definition_id).ok_or_else(|| {
+                    CatalogValidationError(format!(
+                        "RAV #{} `{}` maps to missing executable definition `{definition_id}`",
+                        card.collector_number, card.name
+                    ))
+                })?;
+                if definition.name != card.name {
+                    return Err(CatalogValidationError(format!(
+                        "RAV #{} catalog name `{}` does not match executable `{definition_id}` name `{}`",
+                        card.collector_number, card.name, definition.name
+                    )));
+                }
+                catalog_definition_ids.insert(definition_id);
+            }
+            CardSemanticStatus::CatalogOnly { .. } => {
+                if executable_definition_names.contains(card.name) {
+                    return Err(CatalogValidationError(format!(
+                        "RAV #{} `{}` is catalog-only but is present in executable definitions",
+                        card.collector_number, card.name
+                    )));
+                }
+            }
+        }
+    }
+    let definition_ids = definitions_by_id.into_keys().collect::<BTreeSet<_>>();
+    if catalog_definition_ids != definition_ids {
+        return Err(CatalogValidationError(
+            "RAV executable definitions and catalog executable mappings differ".to_owned(),
+        ));
+    }
+    Ok(())
 }
 
 #[must_use]
@@ -741,6 +807,8 @@ mod tests {
     fn all_block_manifests_are_formal_and_consistent() {
         validate_block_manifests().expect("Ravnica block manifests should validate");
         validate_shown_deck_pool().expect("shown RAV deck pool should be legal");
+        validate_rav_catalog_executable_boundary()
+            .expect("full RAV catalog must preserve the executable boundary");
         assert!(
             load_reference_decks()
                 .expect("reference RAV decks should be legal")

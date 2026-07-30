@@ -8,7 +8,8 @@ use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
     CardDefinition, CardType, CastRequest, Color, ContinuousChange, Duration, Effect, Game,
-    GameEvent, ManaCost, ObjectId, PlayerId, RulesError, Target, TargetRequirement, Zone,
+    GameEvent, Keyword, ManaCost, ObjectId, PlayerId, PolicyAction, PolicyMoveKind, RulesError,
+    Target, TargetRequirement, Zone,
 };
 
 const RED_BOLT: &str = "TEST-RED-BOLT";
@@ -17,6 +18,8 @@ const BIGGER_PING: &str = "TEST-BIGGER-PING";
 const SHRINK: &str = "TEST-SHRINK";
 const SOURCE: &str = "TEST-SOURCE";
 const BODY: &str = "TEST-BODY";
+const TRANSMUTER: &str = "TEST-TRANSMUTER";
+const TUTOR_TARGET: &str = "TEST-TUTOR-TARGET";
 
 fn colors(colors: impl IntoIterator<Item = Color>) -> BTreeSet<Color> {
     colors.into_iter().collect()
@@ -98,6 +101,25 @@ fn definitions() -> Vec<CardDefinition> {
         ),
         creature(SOURCE, 2, 2),
         creature(BODY, 1, 1),
+        CardDefinition {
+            id: TRANSMUTER,
+            name: TRANSMUTER,
+            set_code: "TST",
+            mana_cost: ManaCost::with_colors(0, [Color::Blue, Color::Blue]),
+            colors: colors([Color::Blue]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Instant]),
+            is_basic_land: false,
+            supported_rules: &["transmute"],
+            power: None,
+            toughness: None,
+            keywords: vec![Keyword::Transmute(ManaCost::with_colors(
+                1,
+                [Color::Blue, Color::Blue],
+            ))],
+            effects: vec![],
+        },
+        instant(TUTOR_TARGET, ManaCost::new(2), vec![]),
     ]
 }
 
@@ -107,8 +129,35 @@ fn assert_invariants(game: &Game) {
 }
 
 fn pass_all_survivors(game: &mut Game) {
+    if game.step == cardbench_magic_engine::Step::DeclareAttackers
+        && !game
+            .view_for_player(game.next_policy_player())
+            .expect("combat view")
+            .attackers_declared
+    {
+        game.declare_attackers(game.next_policy_player(), &[])
+            .expect("empty attackers are explicit");
+    }
+    if game.step == cardbench_magic_engine::Step::DeclareBlockers
+        && !game
+            .view_for_player(game.next_policy_player())
+            .expect("combat view")
+            .blockers_declared
+    {
+        game.declare_blockers(game.next_policy_player(), &[])
+            .expect("empty blockers are explicit");
+    }
     let passes = game.players.iter().filter(|player| !player.lost).count();
     for _ in 0..passes {
+        if game
+            .view_for_player(game.next_policy_player())
+            .expect("draw view")
+            .draw_replacement_pending
+        {
+            let player = game.next_policy_player();
+            game.resolve_pending_draw(player, None)
+                .expect("take the ordinary draw");
+        }
         let player = game.priority;
         game.pass_priority(player)
             .expect("the current living priority holder can pass");
@@ -163,6 +212,67 @@ fn rejected_cast_is_atomic_and_does_not_contaminate_the_event_log() {
     assert_eq!(game.event_log, before_events);
     assert_eq!(game.object(card).expect("card exists"), &before_object);
     assert_eq!(game.zone_of(card), Some(Zone::Hand));
+    assert_invariants(&game);
+}
+
+#[test]
+fn policy_submitted_transmute_uses_the_audited_engine_path() {
+    let player = PlayerId(0);
+    let mut game = Game::new(definitions(), 2).expect("game initializes");
+    let transmuter = game
+        .add_card(player, TRANSMUTER, Zone::Hand)
+        .expect("transmute card enters hand");
+    let found = game
+        .add_card(player, TUTOR_TARGET, Zone::Library)
+        .expect("matching mana-value card enters library");
+    let opponent_library_card = game
+        .add_card(PlayerId(1), TUTOR_TARGET, Zone::Library)
+        .expect("opponent matching card remains private");
+    game.grant_mana(player, Color::Blue, 2)
+        .expect("setup blue mana");
+    game.grant_mana(player, Color::Green, 1)
+        .expect("setup generic payment mana");
+
+    let view = game
+        .view_for_player(player)
+        .expect("controller receives transmute search choices");
+    let search = view
+        .transmute_searches
+        .iter()
+        .find(|search| search.card == transmuter)
+        .expect("transmute card has a candidate projection");
+    assert_eq!(search.candidates.len(), 1);
+    assert_eq!(search.candidates[0].id, found);
+    assert_ne!(search.candidates[0].id, opponent_library_card);
+
+    game.submit_policy_move(
+        player,
+        "engine-transmute-contract",
+        PolicyAction::Transmute {
+            card: transmuter,
+            found: search.candidates[0].id,
+        },
+    )
+    .expect("legal transmute is accepted through policy submission");
+
+    assert_eq!(game.zone_of(transmuter), Some(Zone::Graveyard));
+    assert_eq!(game.zone_of(found), Some(Zone::Hand));
+    assert!(game.event_log.iter().any(|event| {
+        matches!(
+            event,
+            GameEvent::Transmuted { discarded, found: selected, .. }
+                if *discarded == transmuter && *selected == found
+        )
+    }));
+    assert!(game.event_log.iter().any(|event| {
+        matches!(
+            event,
+            GameEvent::PolicyMoveSubmitted {
+                kind: PolicyMoveKind::Transmute,
+                ..
+            }
+        )
+    }));
     assert_invariants(&game);
 }
 
@@ -356,10 +466,6 @@ fn multiplayer_priority_skips_eliminated_players_and_ends_with_one_survivor() {
     ));
     assert_invariants(&game);
 
-    pass_all_survivors(&mut game);
-    assert_eq!(game.priority, second, "priority never returns to the loser");
-    assert_invariants(&game);
-
     game.draw_card(second, None)
         .expect("second empty draw leaves one survivor");
     assert!(game.is_game_over());
@@ -367,5 +473,21 @@ fn multiplayer_priority_skips_eliminated_players_and_ends_with_one_survivor() {
     // Once only one player remains, the game is terminal and no player receives
     // another priority decision. The non-terminal assertions above verify that
     // priority skipped the first eliminated player.
+    assert_invariants(&game);
+}
+
+#[test]
+fn simultaneous_player_losses_end_without_a_winner_or_a_panic() {
+    let mut game = Game::new(definitions(), 2).expect("game initializes");
+    for player in &mut game.players {
+        player.life = 0;
+    }
+
+    game.check_state_based_actions()
+        .expect("simultaneous state-based losses are processed");
+
+    assert!(game.is_game_over());
+    assert_eq!(game.winner(), None);
+    assert!(game.players.iter().all(|player| player.lost));
     assert_invariants(&game);
 }

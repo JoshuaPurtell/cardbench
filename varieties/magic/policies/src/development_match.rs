@@ -149,7 +149,11 @@ fn submit_policy_move<P: CodePolicy>(
     player: PlayerId,
 ) -> Result<(), String> {
     let view = game.view_for_player(player).map_err(rules_error)?;
-    let action = policy.propose_move(&view);
+    let action = if view.draw_replacement_pending {
+        policy.propose_draw_replacement(&view)
+    } else {
+        policy.propose_move(&view)
+    };
     game.submit_policy_move(player, policy.id(), action)
         .map_err(|error| {
             format!(

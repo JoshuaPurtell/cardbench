@@ -1,0 +1,33 @@
+schema_version = "cardbench.magic.deck.v1"
+id = "rav_golgari_dredge_grind"
+name = "RAV Golgari Dredge Grind Development"
+set = "RAV"
+format = "ravnica-block"
+policy = "rav.golgari-dredge-grind.v1"
+source = "CardBench-authored development deck; not a reproduction of a commercial decklist."
+
+# A black-green, board-first fixture that retains Brownscale's executable dredge
+# metadata while exercising cast, removal, token, combat, and draw-replacement
+# engine paths. It intentionally contains only the public executable RAV slice.
+[[mainboard]]
+card = "RAV-FOREST"
+count = 25
+
+[[mainboard]]
+card = "RAV-SWAMP"
+count = 23
+
+[[mainboard]]
+card = "RAV-GOLGARI-BROWNSCALE"
+count = 4
+
+[[mainboard]]
+card = "RAV-LAST-GASP"
+count = 4
+
+[[mainboard]]
+card = "RAV-SCATTER-THE-SEEDS"
+count = 4
+
+[sideboard]
+count = 0

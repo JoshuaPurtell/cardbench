@@ -1,7 +1,7 @@
 # RAV Rust policy fixtures
 
 This crate is the public development surface for `cardbench/magic/code_policy`.
-It contains six deterministic Rust policies:
+It contains fifteen deterministic Rust policies. The original six are:
 
 - `rav.boros-tempo.v1` develops lands/mana, prioritizes `Lightning Helix` and
   `Char`, and completes combat declarations.
@@ -16,10 +16,21 @@ It contains six deterministic Rust policies:
 - `rav.selesnya-radiance-tokens.v1` is a three-color development fixture for
   tokens, convoke, Rally radiance, continuous layers, and combat.
 
+The wider corpus adds Boros convoke/burn, radiance assault, and token rally;
+Golgari dredge/grind and Wurm pressure; three-color radiance/convoke assault;
+and three Dimir transmute variants. Each policy has a separately declared,
+public 60-card deck in the RAV deck index.
+
 Policies do not mutate `Game`. They inspect `GameView`, return `PolicyAction`,
 and submit it through `Game::submit_policy_move`. A successful submission adds a
 `PolicyMoveSubmitted` event in the same canonical log as the resulting cast,
 priority, resolution, damage, life, and token events.
+
+At a normal Draw step, the engine pauses at a mandatory replacement-decision
+boundary rather than treating that decision as priority. The default policy
+chooses `PolicyAction::Draw { dredge: None }`; Golgari dredge/grind instead
+chooses its visible, legal Golgari Brownscale Dredge candidate. Both outcomes
+are canonical event-log entries and are checked by the engine invariants.
 
 If an interaction cannot be expressed by the currently implemented engine
 slice, a policy must return `PolicyAction::ReportEngineWeakness { code, detail }`
@@ -59,11 +70,16 @@ and prevents the previously discovered stale-dead-blocker invariant bug.
 
 `rav-engine-tournament` is stricter: it runs sixteen public seeds and fails for
 every invariant violation, capability gap, policy rejection, or bounded
-non-winner. It is the command to use when the goal is engine bug discovery,
-not merely observing policy behavior.
+incomplete run. A rules-valid draw is a completed game. It is the command to
+use when the goal is engine bug discovery, not merely observing policy behavior.
 
 `rav-reference-deck-matrix` runs every ordered pair of indexed public decks
 across eight deterministic seeds, preserving deck IDs and digests on each
-trace. `rav-engine-audit` adds adversarial public-API probes and a shorter
-interactive matrix; both fail closed when an invariant, policy, or coverage
-problem is discovered.
+trace. To preserve reviewable canonical events rather than only console output,
+run `RAV_MATRIX_OUTPUT_ROOT=artifacts/review cargo run -p
+cardbench-magic-policies --bin rav-reference-deck-matrix`. This writes one
+event log per game plus `event-log-manifest.tsv` and `matrix-summary.txt`.
+`RAV_MATRIX_SEED_COUNT` and `RAV_MATRIX_SUMMARY_ONLY=1` make bounded review
+passes practical. `rav-engine-audit` adds adversarial public-API probes and a
+shorter interactive matrix; both fail closed when an invariant, policy, or
+coverage problem is discovered.

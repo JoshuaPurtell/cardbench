@@ -1,0 +1,40 @@
+schema_version = "cardbench.magic.deck.v1"
+id = "rav_boros_token_rally"
+name = "RAV Boros Token Rally Development"
+set = "RAV"
+format = "ravnica-block"
+policy = "rav.boros-token-rally.v1"
+source = "CardBench-authored public development deck; not a reproduction of a commercial decklist."
+
+# This fixture uses only cataloged RAV cards. Green is an explicit development
+# splash for token production, while red-white supplies Rally and Helix lines.
+[[mainboard]]
+card = "RAV-GOLGARI-BROWNSCALE"
+count = 4
+
+[[mainboard]]
+card = "RAV-SCATTER-THE-SEEDS"
+count = 4
+
+[[mainboard]]
+card = "RAV-RALLY-THE-RIGHTEOUS"
+count = 4
+
+[[mainboard]]
+card = "RAV-LIGHTNING-HELIX"
+count = 4
+
+[[mainboard]]
+card = "RAV-FOREST"
+count = 14
+
+[[mainboard]]
+card = "RAV-PLAINS"
+count = 14
+
+[[mainboard]]
+card = "RAV-MOUNTAIN"
+count = 16
+
+[sideboard]
+count = 0

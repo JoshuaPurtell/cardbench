@@ -13,8 +13,11 @@ use cardbench_magic_engine::{Game, GameEvent, PlayerId, PolicyAction, PolicyMove
 use cardbench_magic_rav::{DeckFixture, card_definitions, event_digest, load_reference_decks};
 
 use crate::{
-    BorosCharControlPolicy, BorosTempoPolicy, CodePolicy, GolgariAttritionPolicy,
-    SelesnyaConvokePolicy, SelesnyaRadianceTokensPolicy, SelesnyaSiegePolicy,
+    BorosCharControlPolicy, BorosConvokeBurnPolicy, BorosRadianceAssaultPolicy, BorosTempoPolicy,
+    BorosTokenRallyPolicy, CodePolicy, DimirTransmuteAttritionPolicy, DimirTransmuteConvokePolicy,
+    DimirTransmuteHelixPolicy, GolgariAttritionPolicy, GolgariDredgeGrindPolicy,
+    GolgariWurmPressPolicy, RadianceConvokeAssaultPolicy, SelesnyaConvokePolicy,
+    SelesnyaRadianceTokensPolicy, SelesnyaSiegePolicy,
 };
 
 /// Stable identifier for the public two-deck development match.
@@ -54,6 +57,9 @@ impl Default for DeckMatchConfig {
 pub enum DeckMatchTermination {
     /// State-based actions left exactly one player in the game.
     Winner(PlayerId),
+    /// State-based actions removed every player simultaneously. This is a
+    /// valid completed draw, not an engine or policy failure.
+    Draw,
     /// The runner stopped a non-terminal game before another move could be accepted.
     MoveLimit { limit: u32 },
     /// The runner stopped a non-terminal game before another turn could start.
@@ -134,7 +140,8 @@ pub struct DeckMatchSweepResult {
 }
 
 /// A fail-closed public engine probe. Unlike a convenience sweep, it rejects any
-/// invariant finding, capability gap, policy rejection, or bounded non-winner.
+/// invariant finding, capability gap, policy rejection, or bounded incomplete
+/// run. A rules-valid draw is a completed game.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct EngineTournamentResult {
     pub id: &'static str,
@@ -149,12 +156,12 @@ impl EngineTournamentResult {
     }
 }
 
-/// A failed full-deck probe, deliberately retaining policy failures separately
-/// from actual engine findings so triage is honest.
+/// An incomplete full-deck probe, deliberately retaining policy failures
+/// separately from actual engine findings so triage is honest.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum EngineTournamentFailure {
     EngineFinding(EngineFinding),
-    NonWinningTermination {
+    IncompleteTermination {
         deck_ids: [String; 2],
         shuffle_seed: u64,
         termination: DeckMatchTermination,
@@ -201,6 +208,7 @@ pub fn run_rav_deck_matchup(
         .map_err(rules_error)?;
     game.draw_opening_hand(PlayerId(1), config.opening_hand_size)
         .map_err(rules_error)?;
+    game.begin_game().map_err(rules_error)?;
     let mut policies: [Box<dyn CodePolicy>; 2] = [
         policy_for(PlayerId(0), &deck_p0.policy)?,
         policy_for(PlayerId(1), &deck_p1.policy)?,
@@ -234,15 +242,7 @@ pub fn run_rav_deck_matchup(
             if let Some(winner) = game.winner() {
                 break DeckMatchTermination::Winner(winner);
             }
-            let detail = "game ended without exactly one surviving player".to_owned();
-            engine_findings.push(EngineFinding {
-                kind: EngineFindingKind::EngineBug,
-                shuffle_seed: config.shuffle_seed,
-                player: None,
-                code: "game-over-without-single-winner".to_owned(),
-                detail: detail.clone(),
-            });
-            break DeckMatchTermination::InvariantViolation { detail };
+            break DeckMatchTermination::Draw;
         }
         if game.turn > config.max_turns {
             break DeckMatchTermination::TurnLimit {
@@ -263,7 +263,11 @@ pub fn run_rav_deck_matchup(
             .get_mut(player.0)
             .ok_or_else(|| format!("no policy installed for seated player {}", player.0))?;
         let policy_id = policy.id().to_owned();
-        let action = policy.propose_move(&view);
+        let action = if view.draw_replacement_pending {
+            policy.propose_draw_replacement(&view)
+        } else {
+            policy.propose_move(&view)
+        };
         let action_kind = action.kind();
         let reports_weakness = match &action {
             PolicyAction::ReportEngineWeakness { code, .. } => Some(code.clone()),
@@ -338,7 +342,20 @@ fn policy_for(player: PlayerId, id: &str) -> Result<Box<dyn CodePolicy>, String>
     match id {
         "rav.boros-tempo.v1" => Ok(Box::new(BorosTempoPolicy::new(player))),
         "rav.boros-char-control.v1" => Ok(Box::new(BorosCharControlPolicy::new(player))),
+        "rav.boros-convoke-burn.v1" => Ok(Box::new(BorosConvokeBurnPolicy::new(player))),
+        "rav.boros-radiance-assault.v1" => Ok(Box::new(BorosRadianceAssaultPolicy::new(player))),
+        "rav.boros-token-rally.v1" => Ok(Box::new(BorosTokenRallyPolicy::new(player))),
+        "rav.dimir-transmute-attrition.v1" => {
+            Ok(Box::new(DimirTransmuteAttritionPolicy::new(player)))
+        }
+        "rav.dimir-transmute-convoke.v1" => Ok(Box::new(DimirTransmuteConvokePolicy::new(player))),
+        "rav.dimir-transmute-helix.v1" => Ok(Box::new(DimirTransmuteHelixPolicy::new(player))),
         "rav.golgari-attrition.v1" => Ok(Box::new(GolgariAttritionPolicy::new(player))),
+        "rav.golgari-dredge-grind.v1" => Ok(Box::new(GolgariDredgeGrindPolicy::new(player))),
+        "rav.golgari-wurm-press.v1" => Ok(Box::new(GolgariWurmPressPolicy::new(player))),
+        "rav.radiance-convoke-assault.v1" => {
+            Ok(Box::new(RadianceConvokeAssaultPolicy::new(player)))
+        }
         "rav.selesnya-convoke.v1" => Ok(Box::new(SelesnyaConvokePolicy::new(player))),
         "rav.selesnya-radiance-tokens.v1" => {
             Ok(Box::new(SelesnyaRadianceTokensPolicy::new(player)))
@@ -392,7 +409,8 @@ pub fn run_rav_engine_tournament(
 
 /// Runs every ordered pair of public reference decks across each supplied
 /// shuffle seed. The result fails closed on every engine finding, capability
-/// report, rejected policy action, or non-winning bounded run.
+/// report, rejected policy action, or bounded incomplete run. A rules-valid
+/// draw is a normal completed result.
 pub fn run_rav_reference_deck_matrix(
     seeds: impl IntoIterator<Item = u64>,
 ) -> Result<EngineTournamentResult, String> {
@@ -451,8 +469,11 @@ fn fail_closed_tournament(
         .map(EngineTournamentFailure::EngineFinding)
         .collect();
     for result in &matches {
-        if !matches!(result.termination, DeckMatchTermination::Winner(_)) {
-            failures.push(EngineTournamentFailure::NonWinningTermination {
+        if !matches!(
+            result.termination,
+            DeckMatchTermination::Winner(_) | DeckMatchTermination::Draw
+        ) {
+            failures.push(EngineTournamentFailure::IncompleteTermination {
                 deck_ids: result.deck_ids.clone(),
                 shuffle_seed: result.config.shuffle_seed,
                 termination: result.termination.clone(),
@@ -548,9 +569,9 @@ mod tests {
         assert_eq!(first.termination, DeckMatchTermination::Winner(PlayerId(1)));
         assert_eq!(first.winner, Some(PlayerId(1)));
         assert_eq!(first.turns, 30);
-        assert_eq!(first.accepted_policy_moves, 957);
+        assert_eq!(first.accepted_policy_moves, 759);
         assert_eq!(first.life, [-2, 10]);
-        assert_eq!(first.digest, "fnv1a64:d578c3d3df34e81e");
+        assert_eq!(first.digest, "fnv1a64:1335e960a109682d");
         for marker in [
             "DeckLoaded",
             "LibraryShuffled",
@@ -643,7 +664,30 @@ mod tests {
         assert!(matrix.passed(), "{matrix:#?}");
         assert!(matrix.matches.iter().all(|match_result| {
             match_result.deck_ids[0] != match_result.deck_ids[1]
-                && matches!(match_result.termination, DeckMatchTermination::Winner(_))
+                && matches!(
+                    match_result.termination,
+                    DeckMatchTermination::Winner(_) | DeckMatchTermination::Draw
+                )
         }));
+    }
+
+    #[test]
+    fn fail_closed_tournament_accepts_a_rules_valid_simultaneous_loss_draw() {
+        let draw = DeckMatchResult {
+            id: RAV_DECK_MATCH_ID,
+            deck_ids: ["fixture-a".to_owned(), "fixture-b".to_owned()],
+            config: DeckMatchConfig::default(),
+            termination: DeckMatchTermination::Draw,
+            winner: None,
+            life: [0, 0],
+            turns: 1,
+            attempted_policy_moves: 0,
+            accepted_policy_moves: 0,
+            engine_findings: vec![],
+            event_log: vec!["GameEnded { winner: None }".to_owned()],
+            digest: "fixture".to_owned(),
+        };
+        let tournament = fail_closed_tournament("draw-regression", vec![draw], vec![]);
+        assert!(tournament.passed(), "{tournament:#?}");
     }
 }

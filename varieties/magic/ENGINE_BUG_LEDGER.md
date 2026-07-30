@@ -20,10 +20,31 @@ from `varieties/magic`; the audit exits nonzero while an item remains open.
 | `unsupported-spell-front-face-resolves-as-noop` | Engine/card-coverage defect | Fixed; regression verified | Muddle the Mixture casts and resolves with no supported front-face effect instead of surfacing a capability gap. |
 | `combat-state-breaks-after-token-dies` | Engine invariant defect | Fixed; regression verified | A token blocker dies, is removed, and stale combat state then fails `validate_invariants()`. |
 | `combat-view-breaks-after-token-dies` | Engine view/invariant defect | Fixed; regression verified | A token dies in combat, remains in historical combat state, and `GameView` dereferences its removed object. |
+| `transmute-policy-view-hides-all-legal-search-targets` | Engine policy-view defect | Fixed; regression verified | A whole-deck policy can activate transmute only by naming a hidden library object ID, but its `GameView` exposes no legal candidate. |
+| `deck-load-rejection-partially-mutates-library` | Engine setup-transaction defect | Fixed; regression verified | A deck with valid entries before an unknown card returns an error after placing the valid cards into the library. |
+| `permanent-continuous-effect-outlives-source` | Engine invariant/effect-lifetime defect | Fixed; regression verified | State-based actions can kill a permanent-effect source while retaining its continuous effect, leaving a successful transition that fails the invariant audit. |
+| `blocked-attacker-damages-player-after-blocker-leaves` | Engine combat-rules defect | Fixed; regression verified | A creature blocked before its blocker leaves combat is incorrectly treated as unblocked and deals player damage. |
+| `zero-survivor-winner-query-panics` | Engine terminal-state defect | Fixed; regression verified | Simultaneous player losses leave no survivors and `Game::winner()` indexes an empty survivor list instead of returning no winner. |
+| `step-marker-follows-automatic-work` | Event/state-machine defect | Fixed; regression verified | Draw, untap, and combat damage are emitted before the `StepBegan` event that must delimit them. |
+| `setup-is-logged-after-turn-one-main` | Turn-start/event defect | Fixed; regression verified | A full-deck log begins at turn-one precombat main and only then loads decks and opening hands. |
+| `untap-and-cleanup-grant-priority` | Engine turn-rules defect | Fixed; regression verified | Policies can pass, cast, or activate mana in Untap and ordinary Cleanup. |
+| `first-draw-skipped-in-multiplayer` | Engine turn-rules defect | Fixed; regression verified | Player zero incorrectly skips the first draw in a three-player game. |
+| `empty-combat-enters-blockers-and-damage` | Engine combat-rules defect | Fixed; regression verified | No declared attackers still reaches Declare Blockers and Combat Damage. |
+| `pass-priority-creates-hidden-combat-declarations` | Engine transition/audit defect | Fixed; regression verified | A pass silently sets attacker/blocker declaration state without the turn-based action or its event. |
+| `active-player-loss-deadlocks-combat` | Engine multiplayer-transition defect | Fixed; regression verified | A departed active player leaves a declaration step that no living player can legally perform. |
+| `player-loss-leaves-owned-objects-in-game` | Engine multiplayer-zone defect | Fixed; regression verified | A player leaves a continuing multiplayer game but retains hand, library, battlefield, and stack objects. |
+| `token-sba-has-no-terminal-lifecycle-event` | Event/zone-accounting defect | Fixed; regression verified | A token is removed by SBA without a `TokenCeasedToExist` receipt. |
+| `transmute-shuffle-is-not-auditable` | Event/audit defect | Fixed; regression verified | Transmute changes a library's order but logs no `LibraryShuffled` receipt. |
+| `terminal-game-has-no-end-event` | Event terminal-state defect | Fixed; regression verified | Logs have `PlayerLost` but no canonical terminal winner/draw event. |
+| `game-ended-precedes-terminal-policy-receipt` | Event chronology defect | Fixed; regression verified | A passing policy move causes automatic loss, yet its acceptance receipt follows `GameEnded`. |
+| `policy-cannot-choose-draw-replacement` | Policy/state-machine coverage defect | Fixed; regression verified | A full policy game could not choose Dredge at its draw-replacement boundary, so `Dredged` was absent from the event corpus despite direct API coverage. |
+| `valid-draw-misclassified-as-matrix-failure` | Policy-harness result-classification defect | Fixed; regression verified | Two Char resolutions in the eight-seed corpus reduced both players to zero in one SBA pass; the engine correctly logged `GameEnded { winner: None }`, but the matrix treated the valid completed draw as a failure. |
+| `reference-dimir-convoke-is-64-cards` | Deck-fixture defect | Fixed; regression verified | A declared 60-card probe contains 64 cards, weakening matrix comparability. |
+| `public-game-fields-can-bypass-transition-machine` | Engine API encapsulation weakness | Open; explicitly bounded | Several authored-fixture fields are public; a hostile caller can construct a shape-valid state without using a legal transition. `validate_invariants` detects invalid shapes but cannot establish transition provenance. |
 
 ## Non-engine result retained for policy work
 
-`policy-matrix-nonwinning-run` was not classified as an engine defect. The
+`policy-matrix-incomplete-run` is not classified as an engine defect. The
 `rav_boros_char_control` versus `rav_selesnya_convoke` pairing reached the old
 80-turn development bound for shuffle seed 4 without an invariant failure. The
 bound is now 120 turns, which permits the normal empty-library end condition in
@@ -39,7 +60,7 @@ finding reopens discovery before claims of a clean engine run.
 
 ## Regression evidence
 
-After the corrective batch, the repeated audit completed with
+After the initial corrective batch, the repeated audit completed with
 `finding_count=0` over its public API probes and 64 shuffled policy matches
 (four deck/policy pairings × 16 seeds). The original 16-seed fail-closed
 tournament reported `failure_count=0`; `cargo test --workspace`, strict
@@ -48,7 +69,42 @@ Clippy, and Harbor's public 11-scenario engine verifier also passed.
 ## Expansion-round evidence
 
 The broader six-deck policy matrix discovered and fixed the token-combat view
-defect above. Its repeated public campaign now runs 90 ordered full-deck games
+defect above. Its repeated public campaign ran 90 ordered full-deck games
 (six fixtures × five opponents × three deterministic seeds) with
-`finding_count=0`. The dedicated wider run completed all 240 traces (six
-fixtures × five opponents × eight seeds) with `failure_count=0`.
+`finding_count=0`. That historical campaign is retained as baseline evidence;
+the current fifteen-deck corpus is recorded with its own canonical event-log
+manifest rather than overwriting that result.
+
+## Invariant-expansion evidence
+
+The invariant expansion now includes twelve broad public-API contract tests,
+seven event-log contracts, five turn-state-machine contracts, seven zone/SBA
+contracts, and three deterministic stateful property tests. The property tests
+execute 64 three-player traces, each with 199 accepted and 33 intentionally
+rejected policy actions, checking the invariant audit and every player view
+after every attempt. Rules review of the initial 210-log corpus surfaced the
+fixed turn, event, token, and multiplayer-transition defects above; the new
+tests make those transitions fail closed rather than merely documenting them.
+The draw-replacement ABI is additionally exercised through a real three-player
+policy submission: its canonical trace contains `Dredged` followed by a
+`PolicyMoveSubmitted { kind: Draw }` receipt. The open public-field boundary
+remains a deliberate limitation of the fixture-oriented API, not a waived
+invariant failure.
+
+## Eight-seed event-log review
+
+After the draw-replacement and valid-draw corrections, the full public matrix
+ran all fifteen ordered-deck policies against one another for seeds 0 through
+7: 1,680 games, 1,213,213 accepted policy moves, and 3,417,010 logged
+events. It completed with `failure_count=0`; 794 games were won by seat zero,
+884 by seat one, and two were rules-valid simultaneous-loss draws. The corpus
+contains 232 `Dredged` events in 102 games, 773 `Transmuted` events, 2,315
+`TokenCeasedToExist` events, and 1,509 `ContinuousEffectExpired` events.
+
+Manifest/header counts matched every log, every trace ended in exactly one
+`GameEnded` record, and aggregate event checks found zero priority passes in
+automatic Untap/Cleanup steps and zero empty-attacker combats that entered
+blockers or damage. The corpus did not naturally produce
+`SpellCounteredByRules` or `EngineWeaknessRevealed`; those are retained as
+targeted public invariant/reporting tests rather than misrepresented as
+whole-deck coverage.

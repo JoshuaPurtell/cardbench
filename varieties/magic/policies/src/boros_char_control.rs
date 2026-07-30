@@ -280,12 +280,13 @@ mod tests {
         assert_eq!(pass, PolicyAction::PassPriority);
         game.submit_policy_move(PlayerId(1), defending_policy.id(), pass)
             .expect("defender priority pass");
-        assert_eq!(game.step, Step::DeclareBlockers);
-        assert_eq!(
-            defending_policy.propose_move(&game.view_for_player(PlayerId(1)).expect("view")),
-            PolicyAction::DeclareBlockers {
-                assignments: vec![],
-            }
+        assert_eq!(game.step, Step::EndOfCombat);
+        assert!(
+            !game
+                .canonical_event_log()
+                .iter()
+                .any(|event| event.contains("BlockersDeclared")),
+            "CR 508.8 skips blockers when no attackers were declared"
         );
     }
 }

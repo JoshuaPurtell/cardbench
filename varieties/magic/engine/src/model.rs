@@ -484,6 +484,8 @@ pub enum Zone {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum PolicyMoveKind {
     Cast,
+    Draw,
+    Transmute,
     PassPriority,
     PlayLand,
     ActivateManaAbility,
@@ -539,6 +541,13 @@ impl Step {
     #[must_use]
     pub const fn is_main(self) -> bool {
         matches!(self, Self::PrecombatMain | Self::PostcombatMain)
+    }
+
+    /// Untap and ordinary cleanup are automatic turn-based steps in this
+    /// substrate. No player may receive priority while either is stable.
+    #[must_use]
+    pub const fn grants_priority(self) -> bool {
+        !matches!(self, Self::Untap | Self::Cleanup)
     }
 }
 
@@ -650,7 +659,19 @@ pub enum GameEvent {
         player: PlayerId,
         token: ObjectId,
     },
+    TokenCeasedToExist {
+        token: ObjectId,
+    },
+    ObjectLeftGame {
+        object: ObjectId,
+        owner: PlayerId,
+    },
     ContinuousEffectCreated {
+        source: ObjectId,
+        target: ObjectId,
+        layer: Layer,
+    },
+    ContinuousEffectExpired {
         source: ObjectId,
         target: ObjectId,
         layer: Layer,
@@ -679,6 +700,9 @@ pub enum GameEvent {
     PlayerLost {
         player: PlayerId,
         reason: &'static str,
+    },
+    GameEnded {
+        winner: Option<PlayerId>,
     },
     Dredged {
         player: PlayerId,

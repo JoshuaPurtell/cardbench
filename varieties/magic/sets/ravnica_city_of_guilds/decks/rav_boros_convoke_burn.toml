@@ -1,0 +1,44 @@
+schema_version = "cardbench.magic.deck.v1"
+id = "rav_boros_convoke_burn"
+name = "RAV Boros Convoke Burn Development"
+set = "RAV"
+format = "ravnica-block"
+policy = "rav.boros-convoke-burn.v1"
+source = "CardBench-authored public development deck; not a reproduction of a commercial decklist."
+
+# A broad stress fixture combining spell damage, green creature development,
+# convoke, token creation, combat, and radiance-adjacent red-white mana.
+[[mainboard]]
+card = "RAV-GOLGARI-BROWNSCALE"
+count = 4
+
+[[mainboard]]
+card = "RAV-SCATTER-THE-SEEDS"
+count = 4
+
+[[mainboard]]
+card = "RAV-SIEGE-WURM"
+count = 4
+
+[[mainboard]]
+card = "RAV-LIGHTNING-HELIX"
+count = 4
+
+[[mainboard]]
+card = "RAV-CHAR"
+count = 4
+
+[[mainboard]]
+card = "RAV-FOREST"
+count = 16
+
+[[mainboard]]
+card = "RAV-PLAINS"
+count = 10
+
+[[mainboard]]
+card = "RAV-MOUNTAIN"
+count = 14
+
+[sideboard]
+count = 0

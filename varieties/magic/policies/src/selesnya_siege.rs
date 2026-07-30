@@ -284,6 +284,24 @@ mod tests {
         game.add_card(PlayerId(1), "RAV-FOREST", Zone::Library)
             .expect("player one draw card");
         while !(game.turn == 3 && game.step == Step::DeclareAttackers) {
+            if game.step == Step::DeclareAttackers
+                && !game
+                    .view_for_player(game.next_policy_player())
+                    .expect("combat view")
+                    .attackers_declared
+            {
+                game.declare_attackers(game.active_player, &[])
+                    .expect("empty declarations are explicit turn actions");
+            }
+            if game
+                .view_for_player(game.next_policy_player())
+                .expect("draw decision view")
+                .draw_replacement_pending
+            {
+                let player = game.next_policy_player();
+                game.resolve_pending_draw(player, None)
+                    .expect("take ordinary draw");
+            }
             let priority = game.priority;
             game.pass_priority(priority)
                 .expect("advance to player zero combat");
@@ -301,6 +319,15 @@ mod tests {
         game.submit_policy_move(PlayerId(0), attacker_policy.id(), attack)
             .expect("attack declaration must be legal");
         for _ in 0..2 {
+            if game
+                .view_for_player(game.next_policy_player())
+                .expect("draw decision view")
+                .draw_replacement_pending
+            {
+                let player = game.next_policy_player();
+                game.resolve_pending_draw(player, None)
+                    .expect("take ordinary draw");
+            }
             let priority = game.priority;
             game.pass_priority(priority)
                 .expect("advance to blockers declaration");

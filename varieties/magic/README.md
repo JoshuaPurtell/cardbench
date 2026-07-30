@@ -80,10 +80,11 @@ setup, actions, state assertions, event markers, and a fixed digest. They cover:
 
 ## Rust policy development match
 
-Six public 60-card RAV fixture decks live in
-`sets/ravnica_city_of_guilds/decks/`: Boros Helix, Boros Char Control, Selesnya
-Convoke, Selesnya Siege, Golgari Attrition, and a three-color Radiance Tokens
-development fixture. Their matching Rust policies live in `policies/`. Policies
+Fifteen public 60-card RAV fixture decks live in
+`sets/ravnica_city_of_guilds/decks/`. They cover Boros tempo, burn, convoke,
+radiance, and token plans; Selesnya convoke and siege; Golgari attrition,
+dredge, and Wurm pressure; three-color radiance/convoke; and three Dimir
+transmute plans. Each has a matching Rust policy in `policies/`. Policies
 receive a public `GameView`, return a narrow `PolicyAction`, and the engine
 accepts the move only via
 `Game::submit_policy_move`; normal priority, target, and payment checks remain
@@ -111,8 +112,8 @@ by a longer policy run must surface through `EngineWeaknessRevealed`.
 fixtures into libraries, deterministically shuffles, draws seven-card opening
 hands, plays land/mana/stack/combat actions through `Game::submit_policy_move`,
 and validates invariants after setup and every accepted move. The default seed
-has a pinned public regression result: Selesnya wins on turn 30 after 957
-accepted moves, life `[-2, 10]`, digest `fnv1a64:d578c3d3df34e81e`.
+has a pinned public regression result: Selesnya wins on turn 30 after 759
+accepted moves, life `[-2, 10]`, digest `fnv1a64:1335e960a109682d`.
 
 `rav-deck-sweep` repeats the same full match for seeds `11`, `73`, `127`, and
 `521`, and prints only genuine engine findings in its summary. Findings are
@@ -130,17 +131,29 @@ after lethal damage—has a permanent regression test and is fixed.
 
 `rav-engine-tournament` is the fail-closed broader probe. It runs seeds `0..16`
 and exits nonzero for every invariant violation, explicit capability gap,
-rejected policy move, or bounded non-winner. Its present baseline has sixteen
-completed games and zero failures.
+rejected policy move, or bounded incomplete run. A rules-valid simultaneous
+loss is retained as a completed draw, not mislabeled as a failure. Its present
+baseline has sixteen completed games and zero failures.
 
 `rav-reference-deck-matrix` is the broader fail-closed campaign: every ordered
 pair of shown decks is replayed across eight seeds. Each result records both
 deck IDs, the seed, termination, and canonical digest, so a rejection or an
-invariant failure is attributable to one exact matchup. `rav-engine-audit`
+invariant failure is attributable to one exact matchup. Set
+`RAV_MATRIX_OUTPUT_ROOT=PATH` to retain one canonical event log per game,
+`event-log-manifest.tsv`, and `matrix-summary.txt`; set
+`RAV_MATRIX_SEED_COUNT=N` for a smaller public review pass and
+`RAV_MATRIX_SUMMARY_ONLY=1` to suppress trace printing. `rav-engine-audit`
 adds public API adversarial probes and an interactive three-seed version of
 that full matrix. The engine integration suite also covers rejected-action
 atomicity, mana-boundary clearing, LIFO/countered stack paths, SBA fixed points,
-and multiplayer survivor priority.
+continuous-effect lifetime, blocked-combat history, terminal draws, and
+multiplayer survivor priority.
+
+The latest eight-seed public review generated 1,680 complete logs with zero
+engine/policy/capability failures. It deliberately includes real Dredge,
+transmute, token-SBA, effect-expiry, and simultaneous-loss-draw traces; exact
+counts and the review checks are recorded in
+[`ENGINE_BUG_LEDGER.md`](ENGINE_BUG_LEDGER.md).
 
 ## Provenance and rights
 

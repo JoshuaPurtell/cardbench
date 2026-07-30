@@ -168,7 +168,7 @@ found = "helix"
 [scenario.expected]
 zones = ["muddle:graveyard", "helix:hand"]
 event_markers = ["Transmuted", "CardMoved"]
-digest = "fnv1a64:7ec4858c10b4f50b"
+digest = "fnv1a64:07ba6ebbc10fdd6e"
 
 [[scenario]]
 id = "rav_radiance_layers"
@@ -352,20 +352,8 @@ kind = "pass"
 player = 1
 
 [[scenario.action]]
-kind = "pass"
+kind = "declare_attackers"
 player = 0
-
-[[scenario.action]]
-kind = "pass"
-player = 1
-
-[[scenario.action]]
-kind = "pass"
-player = 0
-
-[[scenario.action]]
-kind = "pass"
-player = 1
 
 [[scenario.action]]
 kind = "pass"
@@ -403,7 +391,7 @@ player = 1
 powers = ["target:2", "allied:5", "opposing:2"]
 tapped = ["target:false", "allied:false", "opposing:false"]
 event_markers = ["PermanentsUntapped", "StepBegan"]
-digest = "fnv1a64:8c17f3368f176e3f"
+digest = "fnv1a64:644b9562fb110a6a"
 
 [[scenario]]
 id = "rav_land_play_limit"

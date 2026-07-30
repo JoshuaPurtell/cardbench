@@ -1,0 +1,45 @@
+schema_version = "cardbench.magic.deck.v1"
+id = "rav_dimir_transmute_attrition"
+name = "RAV Dimir Transmute Attrition Development"
+set = "RAV"
+format = "ravnica-block"
+policy = "rav.dimir-transmute-attrition.v1"
+source = "CardBench-authored public development deck; not a reproduction of a commercial decklist."
+
+# A blue-black control shell with an explicit white-red searchable finish. The
+# colors are intentional public test inputs for timing, targeted removal, and
+# the ownership-limited transmute search API.
+[[mainboard]]
+card = "RAV-MUDDLE-THE-MIXTURE"
+count = 4
+
+[[mainboard]]
+card = "RAV-LIGHTNING-HELIX"
+count = 4
+
+[[mainboard]]
+card = "RAV-LAST-GASP"
+count = 4
+
+[[mainboard]]
+card = "RAV-CHAR"
+count = 4
+
+[[mainboard]]
+card = "RAV-ISLAND"
+count = 18
+
+[[mainboard]]
+card = "RAV-SWAMP"
+count = 12
+
+[[mainboard]]
+card = "RAV-PLAINS"
+count = 10
+
+[[mainboard]]
+card = "RAV-MOUNTAIN"
+count = 4
+
+[sideboard]
+count = 0
