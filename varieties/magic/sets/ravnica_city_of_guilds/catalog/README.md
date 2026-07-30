@@ -38,7 +38,10 @@ mana cost, types, and base characteristics). Those facts are CardBench-authored
 semantic data derived from the same public set identity source; they do not
 embed card rules text, art, flavor text, or upstream JSON. Watchwolf is one
 base-characteristics example: its slice covers only normal colored-cost casting
-and its creature characteristics.
+and its creature characteristics. Birds of Paradise is separately bounded to
+normal casting, base characteristics, and a CardBench-authored binding to the
+engine's generic tap-and-single-color-choice mana-ability substrate; no other
+card-specific behavior is represented.
 
 The TSV's structure and the Rust parser are CardBench-authored MIT-licensed code and
 data structure. Magic set names and card names are used solely as nominative

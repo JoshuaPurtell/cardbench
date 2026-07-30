@@ -1140,3 +1140,158 @@ zones = ["darkblast:hand", "forest_one:graveyard", "forest_two:graveyard", "fore
 powers = ["victim:1"]
 event_markers = ["SpellCast", "ContinuousEffectCreated", "SpellResolved", "Dredged", "CardMoved"]
 digest = "fnv1a64:c3dd582e9ae7447f"
+
+[[scenario]]
+id = "rav_birds_of_paradise_bound_mana_ability"
+seed = 0
+description = "Cast the bounded mana creature, reject its tap cost while summoning-sick, then activate one chosen color on the next turn."
+
+[[scenario.card]]
+label = "birds"
+owner = 0
+definition = "RAV-BIRDS-OF-PARADISE"
+zone = "hand"
+
+[[scenario.card]]
+label = "forest"
+owner = 0
+definition = "RAV-FOREST"
+zone = "battlefield"
+
+# Player 1 needs one card for its real turn-two draw step.
+[[scenario.card]]
+label = "turn_two_draw"
+owner = 1
+definition = "RAV-FOREST"
+zone = "library"
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "forest"
+color = "green"
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "birds"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "activate_bound_mana_ability"
+player = 0
+card = "birds"
+ability = "produce-one-color"
+color = "blue"
+expected_error = "summoning-sick creature"
+
+# Finish player 0's turn through the turn machine. An empty attack declaration
+# skips the blockers and combat-damage steps in this supported combat slice.
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "declare_attackers"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "draw"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "activate_bound_mana_ability"
+player = 0
+card = "birds"
+ability = "produce-one-color"
+color = "blue"
+
+[scenario.expected]
+zones = ["birds:battlefield", "turn_two_draw:hand"]
+powers = ["birds:0"]
+tapped = ["birds:true", "forest:true"]
+event_markers = ["SpellCast", "SpellResolved", "StepBegan", "BoundManaAbilityActivated", "ManaAdded"]
+digest = "fnv1a64:7115881e15dd0d84"

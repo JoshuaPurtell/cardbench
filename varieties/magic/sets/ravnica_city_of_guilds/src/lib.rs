@@ -22,9 +22,9 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use cardbench_magic_engine::{
-    CardDefinition, CardType, CastRequest, Color, ConvokeContribution, ConvokePayment, DeckEntry,
-    DeckList, DeckRules, Effect, Game, Keyword, ManaCost, PlayerId, RulesError, Target, TokenSpec,
-    Zone,
+    ActivatedManaAbility, CardDefinition, CardType, CastRequest, Color, ConvokeContribution,
+    ConvokePayment, DeckEntry, DeckList, DeckRules, Effect, Game, Keyword, ManaAbilityBinding,
+    ManaAbilityOutput, ManaCost, PlayerId, RulesError, Target, TokenSpec, Zone,
 };
 
 pub const SET_CODE: &str = "RAV";
@@ -399,12 +399,52 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
+        // This bounded compatibility definition covers normal colored-cost
+        // casting, base creature characteristics, and the separate
+        // definition-bound mana-ability binding below. It intentionally does
+        // not represent combat keywords or any other card-specific behavior.
+        CardDefinition {
+            id: "RAV-BIRDS-OF-PARADISE",
+            name: "Birds of Paradise",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(0, [Color::Green]),
+            colors: colors([Color::Green]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "colored-cost-casting",
+                "base-characteristics",
+                "bound-tap-choice-mana-ability",
+            ],
+            power: Some(0),
+            toughness: Some(1),
+            keywords: vec![],
+            effects: vec![],
+        },
         basic_land("RAV-PLAINS", "Plains", Color::White),
         basic_land("RAV-ISLAND", "Island", Color::Blue),
         basic_land("RAV-SWAMP", "Swamp", Color::Black),
         basic_land("RAV-MOUNTAIN", "Mountain", Color::Red),
         basic_land("RAV-FOREST", "Forest", Color::Green),
     ]
+}
+
+/// Returns the RAV-owned bindings for the expansion-neutral activated mana
+/// ability substrate. The executable card definition remains compact while the
+/// shared engine owns activation, costs, priority, and event semantics.
+#[must_use]
+pub fn rav_mana_ability_bindings() -> Vec<ManaAbilityBinding> {
+    vec![ManaAbilityBinding {
+        card_definition: "RAV-BIRDS-OF-PARADISE",
+        ability: ActivatedManaAbility {
+            id: "produce-one-color",
+            tap_cost: true,
+            output: ManaAbilityOutput::Choice(colors(Color::ALL)),
+            amount: 1,
+            life_payment: None,
+        },
+    }]
 }
 
 /// Ensures that complete catalog coverage cannot quietly change the executable
@@ -1017,7 +1057,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 23);
+        assert_eq!(first.len(), 24);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }
