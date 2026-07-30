@@ -24,6 +24,8 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-RAIN-OF-EMBERS",
             "RAV-DOGPILE",
             "RAV-OVERWHELM",
+            "RAV-GATHER-COURAGE",
+            "RAV-SEEDS-OF-STRENGTH",
         ]
     );
     let definitions = card_definitions();
@@ -175,6 +177,13 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
         assert_eq!(definition.mana_cost, mana_cost, "{id}");
         assert_eq!(definition.colors, card_colors, "{id}");
         assert_eq!(definition.card_types, card_types, "{id}");
+
+    for id in ["RAV-GATHER-COURAGE", "RAV-SEEDS-OF-STRENGTH"] {
+        let definition = definitions
+            .iter()
+            .find(|definition| definition.id == id)
+            .expect("full-fidelity definition exists");
+        assert_eq!(definition.supported_rules[0], "full-rules-fidelity", "{id}");
     }
 }
 

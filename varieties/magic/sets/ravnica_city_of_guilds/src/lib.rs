@@ -33,7 +33,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 13] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 15] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-LAST-GASP",
@@ -47,6 +47,8 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 13] = [
     "RAV-RAIN-OF-EMBERS",
     "RAV-DOGPILE",
     "RAV-OVERWHELM",
+    "RAV-GATHER-COURAGE",
+    "RAV-SEEDS-OF-STRENGTH",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -189,7 +191,11 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Instant]),
             is_basic_land: false,
-            supported_rules: &["convoke", "targeted-layer-7-modifier"],
+            supported_rules: &[
+                "full-rules-fidelity",
+                "convoke",
+                "targeted-layer-7-modifier",
+            ],
             power: None,
             toughness: None,
             keywords: vec![Keyword::Convoke],
@@ -210,7 +216,11 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Instant]),
             is_basic_land: false,
-            supported_rules: &["three-targeted-layer-7-modifiers"],
+            supported_rules: &[
+                "full-rules-fidelity",
+                "three-targeted-layer-7-modifiers",
+                "partial-target-resolution",
+            ],
             power: None,
             toughness: None,
             keywords: vec![],
