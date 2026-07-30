@@ -466,6 +466,11 @@ impl Game {
         amount: u8,
     ) -> Result<(), RulesError> {
         self.require_priority(player)?;
+        if amount == 0 {
+            return Err(RulesError::IllegalAction(
+                "a mana action must add positive mana",
+            ));
+        }
         self.players[player.0].mana_pool.add(color, amount);
         self.record_event(GameEvent::ManaAdded {
             player,
