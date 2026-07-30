@@ -4863,6 +4863,145 @@ event_absent = ["ManaAbilityLifePaid"]
 digest = "fnv1a64:82956a3c643de2b8"
 
 [[scenario]]
+id = "rav_boros_recruit_hybrid_first_strike"
+seed = 0
+description = "Cast Boros Recruit once with red and once with white, then demonstrate first-strike combat damage before a normal 1/1 blocker can deal damage."
+
+[[scenario.card]]
+label = "red_recruit"
+owner = 0
+definition = "RAV-BOROS-RECRUIT"
+zone = "hand"
+
+[[scenario.card]]
+label = "white_recruit"
+owner = 0
+definition = "RAV-BOROS-RECRUIT"
+zone = "hand"
+
+[[scenario.card]]
+label = "blocker"
+owner = 1
+definition = "RAV-FRENZIED-GOBLIN"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "attacker"
+owner = 0
+definition = "RAV-BOROS-RECRUIT"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.mana]]
+player = 0
+color = "red"
+amount = 1
+
+[[scenario.mana]]
+player = 0
+color = "white"
+amount = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "red_recruit"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "white_recruit"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "declare_attackers"
+player = 0
+attackers = ["attacker"]
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "declare_blockers"
+player = 1
+attackers = ["attacker:blocker"]
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["red_recruit:battlefield", "white_recruit:battlefield", "attacker:battlefield", "blocker:graveyard"]
+powers = ["red_recruit:1", "white_recruit:1", "attacker:1"]
+toughnesses = ["red_recruit:1", "white_recruit:1", "attacker:1"]
+mana = ["0:red:0", "0:white:0"]
+stack_size = 0
+priority = 0
+event_markers = ["SpellCast", "FirstStrikeCombatDamage", "DamageDealtToPermanent"]
+event_absent = ["source: ObjectId(3)"]
+digest = "fnv1a64:2e7d251d98b65f6d"
+
+[[scenario]]
 id = "rav_easy_blue_creature_chassis_wave_five"
 seed = 0
 description = "Cast Drake Familiar, Drift of Phantasms, Ethereal Usher, and Grozoth with exact blue costs, then verify only base P/T. Their printed keywords, triggers, and transmute behavior are deliberately omitted."

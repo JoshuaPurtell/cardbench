@@ -136,6 +136,13 @@ Oracle Magic rules coverage.
   before any pool slot is debited. A cost above a bounded color slot's
   representable capacity rejects atomically; it cannot saturate into a cheaper
   payable cost.
+- Each hybrid symbol is one required mana drawn from either of its two declared
+  colors, never two mandatory colored symbols or an untracked generic payment.
+  Payment uses capacity-aware matching rather than greedy symbol order, so a
+  legal allocation cannot be rejected merely because an earlier hybrid choice
+  consumed a shared color. Hybrid symbols have mana value one and are eligible
+  for a matching-color convoke contribution. A failed hybrid allocation leaves
+  the entire pool, card zone, stack, and event history unchanged.
 - Every public, intrinsic, or definition-bound mana producer preflights this
   bounded pool before it changes a source, pass state, pool, or event log. A
   capacity rejection is atomic and cannot emit a `ManaAdded` receipt for mana
@@ -198,9 +205,10 @@ Oracle Magic rules coverage.
 
 ## Combat
 
-- Combat state exists exactly during declare attackers, declare blockers, and
-  combat damage. It is initialized at declare attackers and removed before end
-  of combat; a combat step cannot be missing its state.
+- Combat state exists exactly during declare attackers, declare blockers,
+  first-strike combat damage when present, and normal combat damage. It is
+  initialized at declare attackers and removed before end of combat; a combat
+  step cannot be missing its state.
 - Before the required attacker or blocker declaration, the step's recorded
   priority holder may perform only that declaration. Every ordinary priority
   action—including casts, mana abilities, passes, and weakness reports—is
@@ -225,6 +233,13 @@ Oracle Magic rules coverage.
   Multi-block assignment, alternative combat restrictions, and other
   unsupported combat rules must be reported as capability gaps rather than
   approximated.
+- When an attacking or blocking creature has first strike at the damage-step
+  boundary, a dedicated `FirstStrikeCombatDamage` step precedes normal combat
+  damage. Its recorded source set is a subset of the declared combatants and
+  those sources cannot assign again in normal combat damage. State-based
+  actions run after the first-strike batch, so a lethal blocker does not remain
+  to assign later normal damage. If no participant has first strike, the extra
+  step is absent rather than an empty priority window.
 - A declared participant may leave the battlefield after damage. Historical
   combat bookkeeping may therefore retain a nontoken object in another zone or
   a token identifier that no longer names an object until combat ends; neither

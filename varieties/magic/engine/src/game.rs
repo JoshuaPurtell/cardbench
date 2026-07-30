@@ -199,6 +199,9 @@ struct CombatState {
     defending_player: Option<PlayerId>,
     attackers_declared: bool,
     blockers_declared: bool,
+    /// Sources that assigned damage in the first-strike damage step. They
+    /// cannot assign again in this combat's later normal damage step.
+    first_strike_damage_sources: BTreeSet<ObjectId>,
 }
 
 /// A deterministic, two-or-more-player Magic game state.
@@ -266,6 +269,12 @@ impl Game {
         }
         let mut catalog = BTreeMap::new();
         for definition in definitions {
+            Self::validate_mana_cost(&definition.mana_cost)?;
+            for keyword in &definition.keywords {
+                if let Keyword::Transmute(cost) = keyword {
+                    Self::validate_mana_cost(cost)?;
+                }
+            }
             if catalog.insert(definition.id, definition).is_some() {
                 return Err(RulesError::IllegalAction("duplicate card definition id"));
             }
@@ -539,6 +548,32 @@ impl Game {
         // a previous consecutive-pass sequence and leaves its controller's
         // response window intact.
         self.consecutive_passes = 0;
+        self.validate_invariants()
+    }
+
+    /// Adjusts battlefield-entry provenance only while building a fixture.
+    /// This lets a public scenario model a creature that entered on an earlier
+    /// turn without exposing a live-game summoning-sickness bypass.
+    pub fn set_entered_turn_for_setup(
+        &mut self,
+        card: ObjectId,
+        entered_turn: u32,
+    ) -> Result<(), RulesError> {
+        if self.started {
+            return Err(RulesError::IllegalAction(
+                "battlefield entry turn is setup-only",
+            ));
+        }
+        if entered_turn > self.turn {
+            return Err(RulesError::IllegalAction(
+                "setup battlefield entry turn cannot be in the future",
+            ));
+        }
+        let object = self
+            .objects
+            .get_mut(&card)
+            .ok_or(RulesError::UnknownCard(card))?;
+        object.entered_turn = entered_turn;
         self.validate_invariants()
     }
 
@@ -2013,6 +2048,7 @@ impl Game {
                 self.step,
                 Step::DeclareAttackers
                     | Step::DeclareBlockers
+                    | Step::FirstStrikeCombatDamage
                     | Step::CombatDamage
                     | Step::EndOfCombat
             ) {
@@ -2027,8 +2063,10 @@ impl Game {
                     "blocker declaration began before attackers were declared",
                 ));
             }
-            if self.step == Step::CombatDamage
-                && (!combat.attackers_declared || !combat.blockers_declared)
+            if matches!(
+                self.step,
+                Step::FirstStrikeCombatDamage | Step::CombatDamage
+            ) && (!combat.attackers_declared || !combat.blockers_declared)
             {
                 return Err(RulesError::IllegalAction(
                     "combat damage began without both combat declarations",
@@ -2065,9 +2103,25 @@ impl Game {
                     self.object(*blocker)?;
                 }
             }
+            let combatants = attackers.union(&blockers).copied().collect::<BTreeSet<_>>();
+            if !combat.first_strike_damage_sources.is_subset(&combatants) {
+                return Err(RulesError::IllegalAction(
+                    "first-strike damage source is not a combat participant",
+                ));
+            }
+            if self.step == Step::FirstStrikeCombatDamage
+                && combat.first_strike_damage_sources.is_empty()
+            {
+                return Err(RulesError::IllegalAction(
+                    "first-strike combat damage lacks recorded sources",
+                ));
+            }
         } else if matches!(
             self.step,
-            Step::DeclareAttackers | Step::DeclareBlockers | Step::CombatDamage
+            Step::DeclareAttackers
+                | Step::DeclareBlockers
+                | Step::FirstStrikeCombatDamage
+                | Step::CombatDamage
         ) {
             return Err(RulesError::IllegalAction(
                 "a combat step is missing its combat state",
@@ -2122,14 +2176,23 @@ impl Game {
                             "convoke creature must have the contributed color",
                         ));
                     }
-                    let position = remaining
+                    if let Some(position) = remaining
                         .colored
                         .iter()
                         .position(|required| *required == color)
-                        .ok_or(RulesError::IllegalAction(
-                            "that colored mana does not remain to convoke",
-                        ))?;
-                    remaining.colored.remove(position);
+                    {
+                        remaining.colored.remove(position);
+                    } else if let Some(position) = remaining
+                        .hybrid
+                        .iter()
+                        .position(|required| required.first == color || required.second == color)
+                    {
+                        remaining.hybrid.remove(position);
+                    } else {
+                        return Err(RulesError::IllegalAction(
+                            "that colored or hybrid mana does not remain to convoke",
+                        ));
+                    }
                 }
             }
         }
@@ -2657,6 +2720,10 @@ impl Game {
         // later seat. The combat state is cleared at EndOfCombat.
         self.step = if skip_combat {
             Step::EndOfCombat
+        } else if self.step == Step::DeclareBlockers && !self.combat_has_first_striker()? {
+            // First-strike combat damage is an additional step only when at
+            // least one attacking or blocking creature can assign there.
+            Step::CombatDamage
         } else {
             self.step.next()
         };
@@ -2676,8 +2743,11 @@ impl Game {
             active_player: self.active_player,
             step: self.step,
         });
+        if self.step == Step::FirstStrikeCombatDamage {
+            self.resolve_combat_damage(true)?;
+        }
         if self.step == Step::CombatDamage {
-            self.resolve_combat_damage()?;
+            self.resolve_combat_damage(false)?;
         }
         match self.step {
             Step::Untap => {
@@ -2748,7 +2818,29 @@ impl Game {
         Ok(())
     }
 
-    fn resolve_combat_damage(&mut self) -> Result<(), RulesError> {
+    fn combat_has_first_striker(&self) -> Result<bool, RulesError> {
+        let Some(combat) = &self.combat else {
+            return Ok(false);
+        };
+        for creature in combat
+            .attackers
+            .iter()
+            .copied()
+            .chain(combat.blockers.values().copied())
+        {
+            if self.zone_of(creature) == Some(Zone::Battlefield)
+                && self
+                    .characteristics(creature)?
+                    .keywords
+                    .contains(&Keyword::FirstStrike)
+            {
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
+
+    fn resolve_combat_damage(&mut self, first_strike: bool) -> Result<(), RulesError> {
         let combat = self.combat.clone().ok_or(RulesError::IllegalAction(
             "combat damage without combat state",
         ))?;
@@ -2763,12 +2855,48 @@ impl Game {
         if self.players[defending_player.0].lost {
             return Ok(());
         }
+        let first_strike_sources = if first_strike {
+            let sources = combat
+                .attackers
+                .iter()
+                .copied()
+                .chain(combat.blockers.values().copied())
+                .filter(|creature| {
+                    self.zone_of(*creature) == Some(Zone::Battlefield)
+                        && self
+                            .characteristics(*creature)
+                            .is_ok_and(|characteristics| {
+                                characteristics.keywords.contains(&Keyword::FirstStrike)
+                            })
+                })
+                .collect::<BTreeSet<_>>();
+            if sources.is_empty() {
+                return Err(RulesError::IllegalAction(
+                    "first-strike damage step lacks a first-strike creature",
+                ));
+            }
+            self.combat
+                .as_mut()
+                .ok_or(RulesError::IllegalAction(
+                    "combat damage without combat state",
+                ))?
+                .first_strike_damage_sources
+                .clone_from(&sources);
+            sources
+        } else {
+            combat.first_strike_damage_sources.clone()
+        };
+        let eligible = |creature| {
+            self.zone_of(creature) == Some(Zone::Battlefield)
+                && (first_strike_sources.contains(&creature) == first_strike)
+        };
         let mut permanent_damage = Vec::new();
         let mut player_damage = Vec::new();
         for attacker in combat.attackers {
             if self.zone_of(attacker) != Some(Zone::Battlefield) {
                 continue;
             }
+            let attacker_eligible = eligible(attacker);
             let attacker_power = self
                 .characteristics(attacker)?
                 .power
@@ -2785,13 +2913,13 @@ impl Game {
                     .characteristics(blocker)?
                     .power
                     .ok_or(RulesError::IllegalAction("blocker lacks power"))?;
-                if attacker_power > 0 {
+                if attacker_eligible && attacker_power > 0 {
                     permanent_damage.push((attacker, blocker, attacker_power));
                 }
-                if blocker_power > 0 {
+                if eligible(blocker) && blocker_power > 0 {
                     permanent_damage.push((blocker, attacker, blocker_power));
                 }
-            } else if attacker_power > 0 {
+            } else if attacker_eligible && attacker_power > 0 {
                 player_damage.push((attacker, defending_player, attacker_power));
             }
         }
@@ -2953,6 +3081,7 @@ impl Game {
             ));
         }
         if let ManaAbilityOutput::PaidBundle { mana_cost, bundle } = &ability.output {
+            Self::validate_mana_cost(mana_cost)?;
             if ability.amount != 0 {
                 return Err(RulesError::IllegalAction(
                     "paid mana bundle ability must use bundle quantities instead of amount",
@@ -2982,6 +3111,19 @@ impl Game {
         if matches!(&ability.output, ManaAbilityOutput::Choice(colors) if colors.is_empty()) {
             return Err(RulesError::IllegalAction(
                 "mana ability color choice must not be empty",
+            ));
+        }
+        Ok(())
+    }
+
+    fn validate_mana_cost(cost: &crate::ManaCost) -> Result<(), RulesError> {
+        if cost
+            .hybrid
+            .iter()
+            .any(|symbol| symbol.first == symbol.second)
+        {
+            return Err(RulesError::IllegalAction(
+                "a hybrid mana symbol requires two distinct colors",
             ));
         }
         Ok(())

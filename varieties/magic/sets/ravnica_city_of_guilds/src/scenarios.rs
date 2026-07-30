@@ -8,8 +8,8 @@ use std::collections::BTreeMap;
 use std::fs;
 
 use cardbench_magic_engine::{
-    CastRequest, Color, ConvokeContribution, ConvokePayment, Game, ManaAbilityActivation, ObjectId,
-    PlayerId, RulesError, Target, Zone,
+    CastRequest, Color, CombatBlock, ConvokeContribution, ConvokePayment, Game,
+    ManaAbilityActivation, ObjectId, PlayerId, RulesError, Target, Zone,
 };
 
 use crate::{ScenarioResult, card_definitions, event_digest, rav_mana_ability_bindings, set_root};
@@ -32,6 +32,7 @@ struct CardSetup {
     definition: String,
     zone: String,
     tapped: bool,
+    entered_turn: Option<u32>,
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -220,6 +221,7 @@ fn set_card_field(
         "definition" => card.definition = parse_string(value, line_number)?,
         "zone" => card.zone = parse_string(value, line_number)?,
         "tapped" => card.tapped = parse_bool(value, line_number)?,
+        "entered_turn" => card.entered_turn = Some(parse_number(value, line_number)?),
         _ => return Err(line_error(line_number, "unknown card field")),
     }
     Ok(())
@@ -327,6 +329,10 @@ fn execute_scenario(specification: &ScenarioSpec) -> Result<ScenarioResult, Stri
         if setup.tapped {
             game.set_tapped_for_setup(card, true).map_err(rules_error)?;
         }
+        if let Some(entered_turn) = setup.entered_turn {
+            game.set_entered_turn_for_setup(card, entered_turn)
+                .map_err(rules_error)?;
+        }
         if labels.insert(setup.label.clone(), card).is_some() {
             return Err(format!(
                 "{}: duplicate setup label `{}`",
@@ -366,6 +372,7 @@ fn execute_scenario(specification: &ScenarioSpec) -> Result<ScenarioResult, Stri
     })
 }
 
+#[allow(clippy::too_many_lines)] // The public action grammar stays in one auditable dispatch table.
 fn execute_action(
     game: &mut Game,
     labels: &BTreeMap<String, ObjectId>,
@@ -399,6 +406,21 @@ fn execute_action(
                 .map(|label| lookup(labels, label))
                 .collect::<Result<Vec<_>, _>>()?;
             game.declare_attackers(player, &attackers)
+                .map_err(rules_error)
+        }
+        "declare_blockers" => {
+            let assignments = action
+                .attackers
+                .iter()
+                .map(|entry| {
+                    let (attacker, blocker) = split_pair(entry, "blocker assignment")?;
+                    Ok(CombatBlock {
+                        attacker: lookup(labels, attacker)?,
+                        blocker: lookup(labels, blocker)?,
+                    })
+                })
+                .collect::<Result<Vec<_>, String>>()?;
+            game.declare_blockers(player, &assignments)
                 .map_err(rules_error)
         }
         "draw" => {
