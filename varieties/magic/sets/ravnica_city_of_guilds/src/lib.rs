@@ -1625,6 +1625,95 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             3,
             6,
         ),
+        // Compatibility scope: normal colored-cost creature casting and base
+        // characteristics only. Its printed evasion and combat keyword are
+        // deliberately omitted from this compatibility slice.
+        bounded_creature_chassis(
+            "RAV-COURIER-HAWK",
+            "Courier Hawk",
+            ManaCost::with_colors(1, [Color::White]),
+            colors([Color::White]),
+            1,
+            2,
+        ),
+        // Compatibility scope: normal colored-cost creature casting and base
+        // characteristics only. Its printed flying and activated combat
+        // behavior are deliberately omitted from this compatibility slice.
+        bounded_creature_chassis(
+            "RAV-DIVEBOMBER-GRIFFIN",
+            "Divebomber Griffin",
+            ManaCost::with_colors(3, [Color::White, Color::White]),
+            colors([Color::White]),
+            3,
+            2,
+        ),
+        // Compatibility scope: normal colored-cost creature casting and base
+        // characteristics only. Its printed activated behavior is deliberately
+        // omitted from this compatibility slice.
+        bounded_creature_chassis(
+            "RAV-SANDSOWER",
+            "Sandsower",
+            ManaCost::with_colors(3, [Color::White]),
+            colors([Color::White]),
+            1,
+            3,
+        ),
+        // Compatibility scope: normal colored-cost creature casting and base
+        // characteristics only. Its printed combat keyword is deliberately
+        // omitted from this compatibility slice.
+        bounded_creature_chassis(
+            "RAV-VOTARY-OF-THE-CONCLAVE",
+            "Votary of the Conclave",
+            ManaCost::with_colors(0, [Color::White]),
+            colors([Color::White]),
+            1,
+            1,
+        ),
+        // Compatibility scope: normal colored-cost creature casting and base
+        // characteristics only. Its printed entry-triggered behavior is
+        // deliberately omitted from this compatibility slice.
+        bounded_creature_chassis(
+            "RAV-DRAKE-FAMILIAR",
+            "Drake Familiar",
+            ManaCost::with_colors(1, [Color::Blue]),
+            colors([Color::Blue]),
+            2,
+            1,
+        ),
+        // Compatibility scope: normal colored-cost creature casting and base
+        // characteristics only. Its printed defender and hand-zone transmute
+        // behavior are deliberately omitted from this compatibility slice.
+        bounded_creature_chassis(
+            "RAV-DRIFT-OF-PHANTASMS",
+            "Drift of Phantasms",
+            ManaCost::with_colors(2, [Color::Blue]),
+            colors([Color::Blue]),
+            0,
+            5,
+        ),
+        // Compatibility scope: normal colored-cost creature casting and base
+        // characteristics only. Its printed evasion and hand-zone transmute
+        // behavior are deliberately omitted from this compatibility slice.
+        bounded_creature_chassis(
+            "RAV-ETHEREAL-USHER",
+            "Ethereal Usher",
+            ManaCost::with_colors(5, [Color::Blue]),
+            colors([Color::Blue]),
+            2,
+            3,
+        ),
+        // Compatibility scope: normal colored-cost creature casting and base
+        // characteristics only. Its printed defender, entry-triggered, and
+        // hand-zone transmute behavior are deliberately omitted from this
+        // compatibility slice.
+        bounded_creature_chassis(
+            "RAV-GROZOTH",
+            "Grozoth",
+            ManaCost::with_colors(6, [Color::Blue, Color::Blue, Color::Blue]),
+            colors([Color::Blue]),
+            9,
+            9,
+        ),
         signet_definition("RAV-BOROS-SIGNET", "Boros Signet"),
         signet_definition("RAV-DIMIR-SIGNET", "Dimir Signet"),
         signet_definition("RAV-GOLGARI-SIGNET", "Golgari Signet"),
@@ -2359,7 +2448,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 77);
+        assert_eq!(first.len(), 79);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

@@ -17,9 +17,9 @@
 9	Conclave Equenaut	executable:RAV-CONCLAVE-EQUENAUT
 10	Conclave Phalanx	executable:RAV-CONCLAVE-PHALANX
 11	Conclave's Blessing
-12	Courier Hawk
+12	Courier Hawk	executable:RAV-COURIER-HAWK
 13	Devouring Light
-14	Divebomber Griffin
+14	Divebomber Griffin	executable:RAV-DIVEBOMBER-GRIFFIN
 15	Dromad Purebred	executable:RAV-DROMAD-PUREBRED
 16	Faith's Fetters
 17	Festival of the Guildpact
@@ -33,14 +33,14 @@
 25	Loxodon Gatekeeper
 26	Nightguard Patrol
 27	Oathsworn Giant
-28	Sandsower
+28	Sandsower	executable:RAV-SANDSOWER
 29	Screeching Griffin	executable:RAV-SCREECHING-GRIFFIN
 30	Seed Spark
 31	Suppression Field
 32	Three Dreams
 33	Twilight Drover
 34	Veteran Armorer
-35	Votary of the Conclave
+35	Votary of the Conclave	executable:RAV-VOTARY-OF-THE-CONCLAVE
 36	Wojek Apothecary
 37	Wojek Siren	executable:RAV-WOJEK-SIREN
 38	Belltower Sphinx	executable:RAV-BELLTOWER-SPHINX
@@ -49,16 +49,16 @@
 41	Convolute
 42	Copy Enchantment
 43	Dizzy Spell	executable:RAV-DIZZY-SPELL
-44	Drake Familiar
+44	Drake Familiar	executable:RAV-DRAKE-FAMILIAR
 45	Dream Leash
-46	Drift of Phantasms
-47	Ethereal Usher
+46	Drift of Phantasms	executable:RAV-DRIFT-OF-PHANTASMS
+47	Ethereal Usher	executable:RAV-ETHEREAL-USHER
 48	Eye of the Storm
 49	Flight of Fancy
 50	Flow of Ideas
 51	Followed Footsteps
 52	Grayscaled Gharial	executable:RAV-GRAYSCALED-GHARIAL
-53	Grozoth
+53	Grozoth	executable:RAV-GROZOTH
 54	Halcyon Glaze
 55	Hunted Phantasm	executable:RAV-HUNTED-PHANTASM
 56	Induce Paranoia
