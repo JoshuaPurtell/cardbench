@@ -282,6 +282,7 @@ impl Game {
         if self.started {
             return Err(RulesError::IllegalAction("the game has already begun"));
         }
+        self.require_game_in_progress()?;
         self.started = true;
         self.active_player = PlayerId(0);
         self.priority = PlayerId(0);
