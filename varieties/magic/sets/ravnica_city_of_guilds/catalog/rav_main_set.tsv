@@ -89,7 +89,7 @@
 81	Dark Confidant
 82	Darkblast	executable:RAV-DARKBLAST
 83	Dimir House Guard
-84	Dimir Machinations
+84	Dimir Machinations	executable:RAV-DIMIR-MACHINATIONS
 85	Disembowel
 86	Empty the Catacombs
 87	Golgari Thug	executable:RAV-GOLGARI-THUG
@@ -110,7 +110,7 @@
 102	Roofstalker Wight
 103	Sadistic Augermage
 104	Sewerdreg
-105	Shred Memory
+105	Shred Memory	executable:RAV-SHRED-MEMORY
 106	Sins of the Past
 107	Stinkweed Imp	executable:RAV-STINKWEED-IMP
 108	Strands of Undeath
@@ -143,7 +143,7 @@
 135	Mindmoil
 136	Molten Sentry
 137	Ordruun Commando
-138	Rain of Embers
+138	Rain of Embers	executable:RAV-RAIN-OF-EMBERS
 139	Reroute
 140	Sabertooth Alley Cat
 141	Seismic Spike
@@ -202,7 +202,7 @@
 194	Brightflame
 195	Chorus of the Conclave
 196	Circu, Dimir Lobotomist
-197	Clutch of the Undercity
+197	Clutch of the Undercity	executable:RAV-CLUTCH-OF-THE-UNDERCITY
 198	Congregation at Dawn
 199	Consult the Necrosages
 200	Dark Heart of the Wood
@@ -222,7 +222,7 @@
 214	Loxodon Hierarch
 215	Mindleech Mass
 216	Moroii
-217	Perplex
+217	Perplex	executable:RAV-PERPLEX
 218	Phytohydra
 219	Pollenbright Wings
 220	Psychic Drain
