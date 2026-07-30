@@ -731,8 +731,8 @@ found = "helix"
 
 [scenario.expected]
 zones = ["muddle:graveyard", "helix:hand"]
-event_markers = ["Transmuted", "CardMoved"]
-digest = "fnv1a64:07ba6ebbc10fdd6e"
+event_markers = ["CardRevealed", "Transmuted", "CardMoved", "LibraryShuffled"]
+digest = "fnv1a64:739072d3bbc5d674"
 
 [[scenario]]
 id = "rav_muddle_counterspell"
@@ -1562,8 +1562,8 @@ found = "darkblast"
 
 [scenario.expected]
 zones = ["dizzy:graveyard", "darkblast:hand"]
-event_markers = ["Transmuted", "CardMoved", "LibraryShuffled"]
-digest = "fnv1a64:07ba6ebbc10fdd6e"
+event_markers = ["CardRevealed", "Transmuted", "CardMoved", "LibraryShuffled"]
+digest = "fnv1a64:48e44379388f1e83"
 
 [[scenario]]
 id = "rav_brainspoil_transmute"
@@ -1600,8 +1600,8 @@ found = "found_brainspoil"
 
 [scenario.expected]
 zones = ["brainspoil:graveyard", "found_brainspoil:hand"]
-event_markers = ["Transmuted", "CardMoved", "LibraryShuffled"]
-digest = "fnv1a64:07ba6ebbc10fdd6e"
+event_markers = ["CardRevealed", "Transmuted", "CardMoved", "LibraryShuffled"]
+digest = "fnv1a64:6fb497cc4073243c"
 
 [[scenario]]
 id = "rav_darkblast_modifier_and_dredge"
@@ -2741,8 +2741,8 @@ found = "found_machinations"
 
 [scenario.expected]
 zones = ["machinations:graveyard", "found_machinations:hand"]
-event_markers = ["Transmuted", "CardMoved", "LibraryShuffled"]
-digest = "fnv1a64:07ba6ebbc10fdd6e"
+event_markers = ["CardRevealed", "Transmuted", "CardMoved", "LibraryShuffled"]
+digest = "fnv1a64:ef334b2d2b1a5ccf"
 
 [[scenario]]
 id = "rav_shred_memory_transmute"
@@ -2779,8 +2779,8 @@ found = "found_shred"
 
 [scenario.expected]
 zones = ["shred:graveyard", "found_shred:hand"]
-event_markers = ["Transmuted", "CardMoved", "LibraryShuffled"]
-digest = "fnv1a64:07ba6ebbc10fdd6e"
+event_markers = ["CardRevealed", "Transmuted", "CardMoved", "LibraryShuffled"]
+digest = "fnv1a64:631a3f71a5fbc831"
 
 [[scenario]]
 id = "rav_clutch_of_the_undercity_transmute"
@@ -2817,8 +2817,8 @@ found = "found_clutch"
 
 [scenario.expected]
 zones = ["clutch:graveyard", "found_clutch:hand"]
-event_markers = ["Transmuted", "CardMoved", "LibraryShuffled"]
-digest = "fnv1a64:07ba6ebbc10fdd6e"
+event_markers = ["CardRevealed", "Transmuted", "CardMoved", "LibraryShuffled"]
+digest = "fnv1a64:ce33fff3fabd2058"
 
 [[scenario]]
 id = "rav_perplex_transmute"
@@ -2860,8 +2860,8 @@ found = "found_perplex"
 
 [scenario.expected]
 zones = ["perplex:graveyard", "found_perplex:hand"]
-event_markers = ["Transmuted", "CardMoved", "LibraryShuffled"]
-digest = "fnv1a64:07ba6ebbc10fdd6e"
+event_markers = ["CardRevealed", "Transmuted", "CardMoved", "LibraryShuffled"]
+digest = "fnv1a64:3efe00bd81d03cdb"
 
 [[scenario]]
 id = "rav_white_blue_creature_chassis"

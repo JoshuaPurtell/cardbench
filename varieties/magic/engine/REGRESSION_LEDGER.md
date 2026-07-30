@@ -12,5 +12,8 @@ rules prose or private benchmark material.
   hand without a reveal event and rejected the legal no-result search choice.
 - **Required repair:** emit `CardRevealed` before the selected card moves, and
   allow `found: None` while still paying costs and shuffling the library.
+- **Resolution:** `CardRevealed` now precedes the public hand move and
+  `PolicyAction::Transmute` carries `Option<ObjectId>`; the regression
+  contract passes for both a selected card and a legal no-result search.
 - **Scope note:** this ledger item does not assert that activated abilities are
   fully modeled on the stack; that remains a separate stack-abstraction gap.
