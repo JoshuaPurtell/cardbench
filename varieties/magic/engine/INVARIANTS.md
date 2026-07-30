@@ -76,6 +76,19 @@ Oracle Magic rules coverage.
   advancing a step. A zero-amount public mana action is rejected atomically;
   it cannot manufacture a priority-consuming non-action or a `ManaAdded(0)`
   receipt.
+- The expansion-neutral definition-bound mana-ability catalog contains only
+  permanent definitions that exist in the game catalog. Every ability identity
+  is nonempty and unique within its definition; its output amount is positive;
+  a selectable output has at least one color; and an optional life payment is
+  positive. Activation requires the source on the battlefield and controlled by
+  the priority holder. A tap-cost creature ability additionally observes
+  summoning sickness in this slice (there is no haste exception yet). Fixed
+  outputs reject a supplied color choice and selectable outputs require one
+  listed color. A successful bound mana ability never enters the stack, emits
+  `BoundManaAbilityActivated` then any `ManaAbilityLifePaid` and `ManaAdded`
+  receipts, resets consecutive passes, and leaves priority with its activator.
+  Every rejection—including a full mana pool, invalid choice, untapped-source
+  requirement, unaffordable life payment, or terminal game—is atomic.
 - Only instants in the implemented spell slice may be cast outside their
   controller's main phase or while the stack is nonempty. Sorceries and
   permanent spells observe sorcery timing.

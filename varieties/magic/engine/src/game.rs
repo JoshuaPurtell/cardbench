@@ -3,8 +3,9 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 
 use crate::{
-    CardDefinition, CardObject, CardType, Characteristics, Color, CombatBlock, ContinuousChange,
-    ContinuousEffect, DeckList, Duration, Effect, GameEvent, Keyword, ObjectId, PlayerId,
+    ActivatedManaAbility, CardDefinition, CardObject, CardType, Characteristics, Color,
+    CombatBlock, ContinuousChange, ContinuousEffect, DeckList, Duration, Effect, GameEvent,
+    Keyword, ManaAbilityActivation, ManaAbilityBinding, ManaAbilityOutput, ObjectId, PlayerId,
     PlayerState, PolicyMoveKind, StackObject, Step, Target, TargetRequirement, TokenSpec, Zone,
 };
 
@@ -97,6 +98,11 @@ pub enum PolicyAction {
         land: ObjectId,
         color: Color,
     },
+    /// Activates a generic ability supplied through the game's definition-bound
+    /// mana-ability catalog. It is still a mana ability: it never uses the stack.
+    ActivateBoundManaAbility {
+        activation: ManaAbilityActivation,
+    },
     DeclareAttackers {
         attackers: Vec<ObjectId>,
     },
@@ -119,6 +125,7 @@ impl PolicyAction {
             Self::PassPriority => PolicyMoveKind::PassPriority,
             Self::PlayLand { .. } => PolicyMoveKind::PlayLand,
             Self::ActivateManaAbility { .. } => PolicyMoveKind::ActivateManaAbility,
+            Self::ActivateBoundManaAbility { .. } => PolicyMoveKind::ActivateBoundManaAbility,
             Self::DeclareAttackers { .. } => PolicyMoveKind::DeclareAttackers,
             Self::DeclareBlockers { .. } => PolicyMoveKind::DeclareBlockers,
             Self::ReportEngineWeakness { .. } => PolicyMoveKind::ReportEngineWeakness,
@@ -202,6 +209,7 @@ struct CombatState {
 #[derive(Clone, Debug)]
 pub struct Game {
     catalog: BTreeMap<&'static str, CardDefinition>,
+    mana_abilities: BTreeMap<&'static str, BTreeMap<&'static str, ActivatedManaAbility>>,
     pub players: Vec<PlayerState>,
     objects: BTreeMap<ObjectId, CardObject>,
     pub stack: Vec<StackObject>,
@@ -236,6 +244,21 @@ impl Game {
         definitions: impl IntoIterator<Item = CardDefinition>,
         player_count: usize,
     ) -> Result<Self, RulesError> {
+        Self::new_with_mana_abilities(
+            definitions,
+            player_count,
+            std::iter::empty::<ManaAbilityBinding>(),
+        )
+    }
+
+    /// Creates a game with expansion-provided, definition-bound activated mana
+    /// abilities. The existing `Game::new` remains a no-binding convenience for
+    /// current compact card slices.
+    pub fn new_with_mana_abilities(
+        definitions: impl IntoIterator<Item = CardDefinition>,
+        player_count: usize,
+        bindings: impl IntoIterator<Item = ManaAbilityBinding>,
+    ) -> Result<Self, RulesError> {
         if player_count < 2 {
             return Err(RulesError::IllegalAction(
                 "Magic games need at least two seated players",
@@ -247,11 +270,34 @@ impl Game {
                 return Err(RulesError::IllegalAction("duplicate card definition id"));
             }
         }
+        let mut mana_abilities =
+            BTreeMap::<&'static str, BTreeMap<&'static str, ActivatedManaAbility>>::new();
+        for binding in bindings {
+            let definition = catalog
+                .get(binding.card_definition)
+                .ok_or(RulesError::UnknownDefinition(binding.card_definition))?;
+            if !definition.is_permanent() {
+                return Err(RulesError::IllegalAction(
+                    "a definition-bound mana ability requires a permanent source",
+                ));
+            }
+            Self::validate_mana_ability_definition(&binding.ability)?;
+            let abilities = mana_abilities.entry(binding.card_definition).or_default();
+            if abilities
+                .insert(binding.ability.id, binding.ability)
+                .is_some()
+            {
+                return Err(RulesError::IllegalAction(
+                    "duplicate mana ability id for card definition",
+                ));
+            }
+        }
         let players = (0..player_count)
             .map(|index| PlayerState::new(PlayerId(index)))
             .collect();
         let game = Self {
             catalog,
+            mana_abilities,
             players,
             objects: BTreeMap::new(),
             stack: Vec::new(),
@@ -527,6 +573,100 @@ impl Game {
         self.validate_invariants()
     }
 
+    /// Activates a definition-bound mana ability without using the stack.
+    ///
+    /// Every condition is preflighted before an object, life total, mana pool,
+    /// pass sequence, or event changes. A creature's tap ability observes this
+    /// engine slice's summoning-sickness boundary; the current substrate has no
+    /// haste exception.
+    pub fn activate_bound_mana_ability(
+        &mut self,
+        player: PlayerId,
+        activation: ManaAbilityActivation,
+    ) -> Result<(), RulesError> {
+        self.require_priority(player)?;
+        self.require_zone(activation.source, Zone::Battlefield)?;
+        let source = self.object(activation.source)?.clone();
+        if source.controller != player {
+            return Err(RulesError::IllegalAction(
+                "mana ability source must be controlled by its activator",
+            ));
+        }
+        let definition = source.definition.ok_or(RulesError::IllegalAction(
+            "a token has no definition-bound mana ability",
+        ))?;
+        let ability = self
+            .mana_abilities
+            .get(definition)
+            .and_then(|abilities| abilities.get(activation.ability_id))
+            .ok_or(RulesError::IllegalAction(
+                "source does not have the requested mana ability",
+            ))?
+            .clone();
+        let color = Self::resolve_mana_ability_color(&ability.output, activation.chosen_color)?;
+        if ability.tap_cost {
+            if source.tapped {
+                return Err(RulesError::IllegalAction(
+                    "mana ability requires an untapped source",
+                ));
+            }
+            if self
+                .characteristics(activation.source)?
+                .card_types
+                .contains(&CardType::Creature)
+                && source.entered_turn >= self.turn
+            {
+                return Err(RulesError::IllegalAction(
+                    "a summoning-sick creature cannot pay a tap mana-ability cost",
+                ));
+            }
+        }
+        if let Some(life_payment) = ability.life_payment
+            && self.players[player.0].life < i16::from(life_payment)
+        {
+            return Err(RulesError::IllegalAction(
+                "cannot pay more life than the controller has",
+            ));
+        }
+        if ability.amount > u8::MAX.saturating_sub(self.players[player.0].mana_pool.amount(color)) {
+            return Err(RulesError::IllegalAction(
+                "mana pool cannot hold the produced mana",
+            ));
+        }
+
+        if ability.tap_cost {
+            self.objects
+                .get_mut(&activation.source)
+                .ok_or(RulesError::UnknownCard(activation.source))?
+                .tapped = true;
+        }
+        if let Some(life_payment) = ability.life_payment {
+            self.players[player.0].life -= i16::from(life_payment);
+        }
+        self.players[player.0].mana_pool.add(color, ability.amount);
+        self.record_event(GameEvent::BoundManaAbilityActivated {
+            player,
+            source: activation.source,
+            ability: ability.id,
+            color,
+            amount: ability.amount,
+            tapped: ability.tap_cost,
+            life_payment: ability.life_payment,
+        });
+        if let Some(amount) = ability.life_payment {
+            self.record_event(GameEvent::ManaAbilityLifePaid { player, amount });
+        }
+        self.record_event(GameEvent::ManaAdded {
+            player,
+            color,
+            amount: ability.amount,
+        });
+        self.consecutive_passes = 0;
+        self.priority = player;
+        self.check_state_based_actions()?;
+        self.validate_invariants()
+    }
+
     #[must_use]
     pub fn zone_of(&self, card: ObjectId) -> Option<Zone> {
         self.players.iter().find_map(|player| {
@@ -700,6 +840,9 @@ impl Game {
             PolicyAction::PlayLand { card } => self.play_land(player, card)?,
             PolicyAction::ActivateManaAbility { land, color } => {
                 self.activate_mana_ability(player, land, color)?;
+            }
+            PolicyAction::ActivateBoundManaAbility { activation } => {
+                self.activate_bound_mana_ability(player, activation)?;
             }
             PolicyAction::DeclareAttackers { attackers } => {
                 self.declare_attackers(player, &attackers)?;
@@ -1527,6 +1670,25 @@ impl Game {
                 return Err(RulesError::IllegalAction(
                     "card definition has missing or duplicate supported-rule markers",
                 ));
+            }
+        }
+        for (definition_id, abilities) in &self.mana_abilities {
+            let definition = self
+                .catalog
+                .get(definition_id)
+                .ok_or(RulesError::UnknownDefinition(definition_id))?;
+            if !definition.is_permanent() {
+                return Err(RulesError::IllegalAction(
+                    "a definition-bound mana ability requires a permanent source",
+                ));
+            }
+            for (ability_id, ability) in abilities {
+                if *ability_id != ability.id {
+                    return Err(RulesError::IllegalAction(
+                        "mana ability catalog key does not match its ability identity",
+                    ));
+                }
+                Self::validate_mana_ability_definition(ability)?;
             }
         }
         let mut locations = BTreeMap::<ObjectId, Zone>::new();
@@ -2383,6 +2545,45 @@ impl Game {
             player.battlefield.retain(|candidate| *candidate != card);
             player.graveyard.retain(|candidate| *candidate != card);
             player.exile.retain(|candidate| *candidate != card);
+        }
+    }
+
+    fn validate_mana_ability_definition(ability: &ActivatedManaAbility) -> Result<(), RulesError> {
+        if ability.id.is_empty() {
+            return Err(RulesError::IllegalAction("mana ability lacks an identity"));
+        }
+        if ability.amount == 0 {
+            return Err(RulesError::IllegalAction(
+                "mana ability must produce positive mana",
+            ));
+        }
+        if ability.life_payment == Some(0) {
+            return Err(RulesError::IllegalAction(
+                "mana ability life payment must be positive when present",
+            ));
+        }
+        if matches!(&ability.output, ManaAbilityOutput::Choice(colors) if colors.is_empty()) {
+            return Err(RulesError::IllegalAction(
+                "mana ability color choice must not be empty",
+            ));
+        }
+        Ok(())
+    }
+
+    fn resolve_mana_ability_color(
+        output: &ManaAbilityOutput,
+        chosen_color: Option<Color>,
+    ) -> Result<Color, RulesError> {
+        match output {
+            ManaAbilityOutput::Fixed(color) if chosen_color.is_none() => Ok(*color),
+            ManaAbilityOutput::Fixed(_) => Err(RulesError::IllegalAction(
+                "fixed-color mana ability does not accept a color choice",
+            )),
+            ManaAbilityOutput::Choice(colors) => {
+                chosen_color.filter(|color| colors.contains(color)).ok_or(
+                    RulesError::IllegalAction("mana ability requires one supported color choice"),
+                )
+            }
         }
     }
 

@@ -17,6 +17,54 @@ pub enum Color {
     Green,
 }
 
+/// The color produced by an activated mana ability.
+///
+/// `Choice` deliberately carries its legal choices instead of treating a
+/// multi-color producer as a source of every color at once. The activating
+/// player supplies one explicit choice for that variant.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum ManaAbilityOutput {
+    Fixed(Color),
+    Choice(BTreeSet<Color>),
+}
+
+/// An expansion-neutral activated mana ability bound to a card definition.
+///
+/// This represents only the activation substrate: an optional tap cost, an
+/// optional life payment, and one positive unit of a chosen or fixed color.
+/// It does not encode card names or printed rules text.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ActivatedManaAbility {
+    /// Stable identifier unique within its bound card definition.
+    pub id: &'static str,
+    pub tap_cost: bool,
+    pub output: ManaAbilityOutput,
+    /// Positive mana quantity produced by a successful activation.
+    pub amount: u8,
+    /// An optional, positive life payment made by the controller as a cost.
+    pub life_payment: Option<u8>,
+}
+
+/// Binds one generic mana ability to every permanent with a catalog definition.
+///
+/// Bindings are provided to `Game::new_with_mana_abilities`; keeping them
+/// alongside, rather than inside, `CardDefinition` preserves the compact card
+/// catalog API while allowing an expansion to opt into this shared substrate.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ManaAbilityBinding {
+    pub card_definition: &'static str,
+    pub ability: ActivatedManaAbility,
+}
+
+/// A player's request to activate a bound mana ability.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ManaAbilityActivation {
+    pub source: ObjectId,
+    pub ability_id: &'static str,
+    /// Required for `ManaAbilityOutput::Choice` and absent for `Fixed` output.
+    pub chosen_color: Option<Color>,
+}
+
 impl Color {
     pub const ALL: [Self; 5] = [Self::White, Self::Blue, Self::Black, Self::Red, Self::Green];
 
@@ -503,6 +551,7 @@ pub enum PolicyMoveKind {
     PassPriority,
     PlayLand,
     ActivateManaAbility,
+    ActivateBoundManaAbility,
     DeclareAttackers,
     DeclareBlockers,
     ReportEngineWeakness,
@@ -624,6 +673,22 @@ pub enum GameEvent {
         player: PlayerId,
         land: ObjectId,
         color: Color,
+    },
+    /// Receipt for the generic definition-bound mana-ability substrate. It is
+    /// intentionally distinct from the legacy intrinsic-land receipt above.
+    BoundManaAbilityActivated {
+        player: PlayerId,
+        source: ObjectId,
+        ability: &'static str,
+        color: Color,
+        amount: u8,
+        tapped: bool,
+        life_payment: Option<u8>,
+    },
+    /// A life payment made as part of a bound mana-ability activation cost.
+    ManaAbilityLifePaid {
+        player: PlayerId,
+        amount: u8,
     },
     DeckLoaded {
         player: PlayerId,
