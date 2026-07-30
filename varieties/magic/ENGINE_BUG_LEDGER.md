@@ -95,12 +95,13 @@ severity for `sorcery-cast-at-instant-speed` and
 ## RAV set and mechanic coverage gaps (not engine defects)
 
 The complete public inventory contains 306 printings / 291 unique names; the
-executable compatibility slice contains 134 printings / 119 unique names.
+executable compatibility slice contains 135 printings / 120 unique names.
 Twenty executable printings are the four printings of each of five basic lands;
 the other 114 names are deliberately bounded cards exercising generic casting,
-base characteristics, mana abilities, targeted/global damage, temporary
-modifiers, token creation, Convoke, Dredge, Radiance, Transmute, combat-count
-damage, and controller-wide temporary modifiers. The remaining 172 unique names
+base characteristics, mana abilities (including source-aware controller damage),
+targeted/global damage, temporary modifiers, token creation, Convoke, Dredge,
+Radiance, Transmute, combat-count damage, and controller-wide temporary
+modifiers. The remaining 171 unique names
 are explicitly catalog-only and fail closed with
 `card-specific-rules-not-implemented`. This boundary is enforced by
 `catalog_coverage::executable_slice_size_is_explicit_and_does_not_masquerade_as_set_coverage`.
@@ -110,7 +111,7 @@ The four advertised RAV mechanics have targeted compatibility examples
 set-wide mechanic or card-text fidelity. In particular, the executable
 Brownscale definition claims only its draw-replacement/base-characteristic
 slice, Muddle claims only its narrow counter/transmute slice, and the engine
-does not infer any semantics for the other cataloged cards. The 79 public
+does not infer any semantics for the other cataloged cards. The 80 public
 scenarios are behavioral probes for the implemented slice, not coverage of all
 291 names or all interactions among the four mechanics.
 

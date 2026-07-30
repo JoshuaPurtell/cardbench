@@ -1075,6 +1075,29 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
+        // This definition is complete for the public Elves of Deep Shadow
+        // card: ordinary creature characteristics plus its one source-aware,
+        // non-stack tap mana ability are both represented by the binding below.
+        CardDefinition {
+            id: "RAV-ELVES-OF-DEEP-SHADOW",
+            name: "Elves of Deep Shadow",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(0, [Color::Green]),
+            colors: colors([Color::Green]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "colored-cost-casting",
+                "base-characteristics",
+                "bound-tap-black-mana-ability",
+                "source-aware-controller-damage",
+            ],
+            power: Some(1),
+            toughness: Some(1),
+            keywords: vec![],
+            effects: vec![],
+        },
         // Compatibility scope: normal colored-cost creature casting and base
         // characteristics only. Its printed activated behavior is deliberately
         // omitted from this compatibility slice.
@@ -1743,6 +1766,18 @@ pub fn rav_mana_ability_bindings() -> Vec<ManaAbilityBinding> {
                 output: ManaAbilityOutput::Choice(colors(Color::ALL)),
                 amount: 1,
                 life_payment: None,
+                controller_damage: None,
+            },
+        },
+        ManaAbilityBinding {
+            card_definition: "RAV-ELVES-OF-DEEP-SHADOW",
+            ability: ActivatedManaAbility {
+                id: "produce-black-and-damage-controller",
+                tap_cost: true,
+                output: ManaAbilityOutput::Fixed(Color::Black),
+                amount: 1,
+                life_payment: None,
+                controller_damage: Some(1),
             },
         },
         signet_binding(
@@ -1784,6 +1819,7 @@ fn signet_binding(
             },
             amount: 0,
             life_payment: None,
+            controller_damage: None,
         },
     }
 }
@@ -2448,7 +2484,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 79);
+        assert_eq!(first.len(), 80);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

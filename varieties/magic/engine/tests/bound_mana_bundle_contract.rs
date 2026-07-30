@@ -43,6 +43,7 @@ fn paid_bundle_binding(
             output: ManaAbilityOutput::PaidBundle { mana_cost, bundle },
             amount: 0,
             life_payment: None,
+            controller_damage: None,
         },
     }
 }
@@ -336,6 +337,7 @@ fn paid_bundle_binding_requires_a_positive_cost_and_positive_bundle_entries() {
                 },
                 amount: 1,
                 life_payment: None,
+                controller_damage: None,
             },
         }],
     );
