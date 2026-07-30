@@ -24,7 +24,7 @@ use std::path::{Path, PathBuf};
 use cardbench_magic_engine::{
     ActivatedManaAbility, CardDefinition, CardType, CastRequest, Color, ConvokeContribution,
     ConvokePayment, DeckEntry, DeckList, DeckRules, Effect, Game, Keyword, ManaAbilityBinding,
-    ManaAbilityOutput, ManaCost, PlayerId, RulesError, Target, TokenSpec, Zone,
+    ManaAbilityOutput, ManaBundle, ManaCost, PlayerId, RulesError, Target, TokenSpec, Zone,
 };
 
 pub const SET_CODE: &str = "RAV";
@@ -443,6 +443,10 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
+        signet_definition("RAV-BOROS-SIGNET", "Boros Signet"),
+        signet_definition("RAV-DIMIR-SIGNET", "Dimir Signet"),
+        signet_definition("RAV-GOLGARI-SIGNET", "Golgari Signet"),
+        signet_definition("RAV-SELESNYA-SIGNET", "Selesnya Signet"),
         basic_land("RAV-PLAINS", "Plains", Color::White),
         basic_land("RAV-ISLAND", "Island", Color::Blue),
         basic_land("RAV-SWAMP", "Swamp", Color::Black),
@@ -451,21 +455,66 @@ pub fn card_definitions() -> Vec<CardDefinition> {
     ]
 }
 
-/// Returns the RAV-owned bindings for the expansion-neutral activated mana
-/// ability substrate. The executable card definition remains compact while the
-/// shared engine owns activation, costs, priority, and event semantics.
+/// Definition-bound RAV mana abilities used by the shown mana-development scenarios.
+///
+/// Each binding is intentionally a narrow compatibility slice: pay one mana,
+/// tap the artifact, and add its two fixed guild colors. The shared engine owns
+/// cost payment, atomically emitted receipts, priority retention, and the fact
+/// that a mana ability does not use the stack.
 #[must_use]
 pub fn rav_mana_ability_bindings() -> Vec<ManaAbilityBinding> {
-    vec![ManaAbilityBinding {
-        card_definition: "RAV-BIRDS-OF-PARADISE",
+    vec![
+        ManaAbilityBinding {
+            card_definition: "RAV-BIRDS-OF-PARADISE",
+            ability: ActivatedManaAbility {
+                id: "produce-one-color",
+                tap_cost: true,
+                output: ManaAbilityOutput::Choice(colors(Color::ALL)),
+                amount: 1,
+                life_payment: None,
+            },
+        },
+        signet_binding(
+            "RAV-BOROS-SIGNET",
+            "boros-signet-wr",
+            [Color::White, Color::Red],
+        ),
+        signet_binding(
+            "RAV-DIMIR-SIGNET",
+            "dimir-signet-ub",
+            [Color::Blue, Color::Black],
+        ),
+        signet_binding(
+            "RAV-GOLGARI-SIGNET",
+            "golgari-signet-bg",
+            [Color::Black, Color::Green],
+        ),
+        signet_binding(
+            "RAV-SELESNYA-SIGNET",
+            "selesnya-signet-gw",
+            [Color::White, Color::Green],
+        ),
+    ]
+}
+
+fn signet_binding(
+    card_definition: &'static str,
+    id: &'static str,
+    colors: [Color; 2],
+) -> ManaAbilityBinding {
+    ManaAbilityBinding {
+        card_definition,
         ability: ActivatedManaAbility {
-            id: "produce-one-color",
+            id,
             tap_cost: true,
-            output: ManaAbilityOutput::Choice(colors(Color::ALL)),
-            amount: 1,
+            output: ManaAbilityOutput::PaidBundle {
+                mana_cost: ManaCost::new(1),
+                bundle: ManaBundle::new(colors.into_iter().map(|color| (color, 1))),
+            },
+            amount: 0,
             life_payment: None,
         },
-    }]
+    }
 }
 
 /// Ensures that complete catalog coverage cannot quietly change the executable
@@ -1037,6 +1086,28 @@ fn basic_land(id: &'static str, name: &'static str, color: Color) -> CardDefinit
     }
 }
 
+/// CardBench-authored compatibility definition for the four RAV Signets.
+/// It intentionally records only public identity, artifact type, colorless
+/// casting cost, and the shared paid two-color mana-ability hook; it contains
+/// no copied card rules text, art, flavor text, or full-card fidelity claim.
+fn signet_definition(id: &'static str, name: &'static str) -> CardDefinition {
+    CardDefinition {
+        id,
+        name,
+        set_code: SET_CODE,
+        mana_cost: ManaCost::new(2),
+        colors: BTreeSet::new(),
+        mana_colors: BTreeSet::new(),
+        card_types: types([CardType::Artifact]),
+        is_basic_land: false,
+        supported_rules: &["artifact-casting", "paid-fixed-two-color-mana-ability"],
+        power: None,
+        toughness: None,
+        keywords: vec![],
+        effects: vec![],
+    }
+}
+
 fn colors(colors: impl IntoIterator<Item = Color>) -> BTreeSet<Color> {
     colors.into_iter().collect()
 }
@@ -1078,7 +1149,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 25);
+        assert_eq!(first.len(), 29);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

@@ -62,7 +62,12 @@ struct ExpectedState {
     powers: Vec<String>,
     tapped: Vec<String>,
     token_count: Option<usize>,
+    mana: Vec<String>,
+    mana_receipts: Vec<String>,
+    stack_size: Option<usize>,
+    priority: Option<usize>,
     event_markers: Vec<String>,
+    event_absent: Vec<String>,
     digest: String,
 }
 
@@ -271,8 +276,17 @@ fn set_expected_field(
         "powers" => scenario.expected.powers = parse_string_array(value, line_number)?,
         "tapped" => scenario.expected.tapped = parse_string_array(value, line_number)?,
         "token_count" => scenario.expected.token_count = Some(parse_number(value, line_number)?),
+        "mana" => scenario.expected.mana = parse_string_array(value, line_number)?,
+        "mana_receipts" => {
+            scenario.expected.mana_receipts = parse_string_array(value, line_number)?;
+        }
+        "stack_size" => scenario.expected.stack_size = Some(parse_number(value, line_number)?),
+        "priority" => scenario.expected.priority = Some(parse_number(value, line_number)?),
         "event_markers" => {
             scenario.expected.event_markers = parse_string_array(value, line_number)?;
+        }
+        "event_absent" => {
+            scenario.expected.event_absent = parse_string_array(value, line_number)?;
         }
         "digest" => scenario.expected.digest = parse_string(value, line_number)?,
         _ => return Err(line_error(line_number, "unknown expected field")),
@@ -397,7 +411,7 @@ fn execute_action(
                 parse_color(&action.color)?,
             )
             .map_err(rules_error),
-        "activate_bound_mana_ability" => {
+        "activate_bound_mana_ability" | "activate_bound_mana" => {
             let source = lookup(labels, &action.card)?;
             let definition = game.card_definition(source).map_err(rules_error)?.id;
             let ability_id = rav_mana_ability_bindings()
@@ -512,11 +526,97 @@ fn assert_expected_state(
             ));
         }
     }
+    for expected in &specification.expected.mana {
+        let mut fields = expected.split(':');
+        let player: usize = fields
+            .next()
+            .ok_or_else(|| format!("mana assertion `{expected}` lacks a player"))?
+            .parse()
+            .map_err(|error| format!("invalid mana player in `{expected}`: {error}"))?;
+        let color = fields
+            .next()
+            .ok_or_else(|| format!("mana assertion `{expected}` lacks a color"))?;
+        let amount: u8 = fields
+            .next()
+            .ok_or_else(|| format!("mana assertion `{expected}` lacks an amount"))?
+            .parse()
+            .map_err(|error| format!("invalid mana amount in `{expected}`: {error}"))?;
+        if fields.next().is_some() {
+            return Err(format!("mana assertion `{expected}` has too many fields"));
+        }
+        let player = checked_player(player)?;
+        let actual = game
+            .player(player)
+            .map_err(rules_error)?
+            .mana_pool
+            .amount(parse_color(color)?);
+        if actual != amount {
+            return Err(format!(
+                "{}: mana assertion `{expected}` expected {amount}, got {actual}",
+                specification.id
+            ));
+        }
+    }
+    if let Some(expected_stack_size) = specification.expected.stack_size
+        && game.stack.len() != expected_stack_size
+    {
+        return Err(format!(
+            "{}: stack size expected {expected_stack_size}, got {}",
+            specification.id,
+            game.stack.len()
+        ));
+    }
+    if let Some(expected_priority) = specification.expected.priority
+        && game.priority != checked_player(expected_priority)?
+    {
+        return Err(format!(
+            "{}: priority expected player {expected_priority}, got {:?}",
+            specification.id, game.priority
+        ));
+    }
     let event_log = game.canonical_event_log();
     for marker in &specification.expected.event_markers {
         if !event_log.iter().any(|event| event.contains(marker)) {
             return Err(format!(
                 "{}: event log has no `{marker}` marker",
+                specification.id
+            ));
+        }
+    }
+    for expected in &specification.expected.mana_receipts {
+        let mut fields = expected.split(':');
+        let player: usize = fields
+            .next()
+            .ok_or_else(|| format!("mana receipt `{expected}` lacks a player"))?
+            .parse()
+            .map_err(|error| format!("invalid mana-receipt player in `{expected}`: {error}"))?;
+        let color = fields
+            .next()
+            .ok_or_else(|| format!("mana receipt `{expected}` lacks a color"))?;
+        let amount: u8 = fields
+            .next()
+            .ok_or_else(|| format!("mana receipt `{expected}` lacks an amount"))?
+            .parse()
+            .map_err(|error| format!("invalid mana-receipt amount in `{expected}`: {error}"))?;
+        if fields.next().is_some() {
+            return Err(format!("mana receipt `{expected}` has too many fields"));
+        }
+        let receipt = format!(
+            "ManaAdded {{ player: {:?}, color: {:?}, amount: {amount} }}",
+            checked_player(player)?,
+            parse_color(color)?,
+        );
+        if !event_log.iter().any(|event| event == &receipt) {
+            return Err(format!(
+                "{}: event log has no precise mana receipt `{receipt}`",
+                specification.id
+            ));
+        }
+    }
+    for marker in &specification.expected.event_absent {
+        if event_log.iter().any(|event| event.contains(marker)) {
+            return Err(format!(
+                "{}: event log unexpectedly contains `{marker}`",
                 specification.id
             ));
         }

@@ -1353,3 +1353,135 @@ powers = ["target:4", "shared:3", "off_color:1"]
 tapped = ["target:true", "shared:true", "off_color:true"]
 event_markers = ["SpellCast", "ContinuousEffectCreated", "SpellResolved"]
 digest = "fnv1a64:634a0db6947bd665"
+
+[[scenario]]
+id = "rav_boros_signet_paid_bundle"
+seed = 0
+description = "Pay one mana and tap Boros Signet to receive its fixed White and Red mana bundle without using the stack."
+
+[[scenario.card]]
+label = "signet"
+owner = 0
+definition = "RAV-BOROS-SIGNET"
+zone = "battlefield"
+
+[[scenario.mana]]
+player = 0
+color = "green"
+amount = 1
+
+[[scenario.action]]
+kind = "activate_bound_mana"
+player = 0
+card = "signet"
+ability = "boros-signet-wr"
+
+[scenario.expected]
+zones = ["signet:battlefield"]
+tapped = ["signet:true"]
+mana = ["0:white:1", "0:blue:0", "0:black:0", "0:red:1", "0:green:0"]
+stack_size = 0
+priority = 0
+event_markers = ["BoundManaAbilityBundleActivated", "ManaAbilityManaPaid"]
+mana_receipts = ["0:white:1", "0:red:1"]
+event_absent = ["SpellCast", "SpellResolved", "PriorityPassed"]
+digest = "fnv1a64:ef76d56562df131d"
+
+[[scenario]]
+id = "rav_dimir_signet_paid_bundle"
+seed = 0
+description = "Pay one mana and tap Dimir Signet to receive its fixed Blue and Black mana bundle without using the stack."
+
+[[scenario.card]]
+label = "signet"
+owner = 0
+definition = "RAV-DIMIR-SIGNET"
+zone = "battlefield"
+
+[[scenario.mana]]
+player = 0
+color = "green"
+amount = 1
+
+[[scenario.action]]
+kind = "activate_bound_mana"
+player = 0
+card = "signet"
+ability = "dimir-signet-ub"
+
+[scenario.expected]
+zones = ["signet:battlefield"]
+tapped = ["signet:true"]
+mana = ["0:white:0", "0:blue:1", "0:black:1", "0:red:0", "0:green:0"]
+stack_size = 0
+priority = 0
+event_markers = ["BoundManaAbilityBundleActivated", "ManaAbilityManaPaid"]
+mana_receipts = ["0:blue:1", "0:black:1"]
+event_absent = ["SpellCast", "SpellResolved", "PriorityPassed"]
+digest = "fnv1a64:dbc43f1c7c712b5f"
+
+[[scenario]]
+id = "rav_golgari_signet_paid_bundle"
+seed = 0
+description = "Pay one mana and tap Golgari Signet to receive its fixed Black and Green mana bundle without using the stack."
+
+[[scenario.card]]
+label = "signet"
+owner = 0
+definition = "RAV-GOLGARI-SIGNET"
+zone = "battlefield"
+
+[[scenario.mana]]
+player = 0
+color = "red"
+amount = 1
+
+[[scenario.action]]
+kind = "activate_bound_mana"
+player = 0
+card = "signet"
+ability = "golgari-signet-bg"
+
+[scenario.expected]
+zones = ["signet:battlefield"]
+tapped = ["signet:true"]
+mana = ["0:white:0", "0:blue:0", "0:black:1", "0:red:0", "0:green:1"]
+stack_size = 0
+priority = 0
+event_markers = ["BoundManaAbilityBundleActivated", "ManaAbilityManaPaid"]
+mana_receipts = ["0:black:1", "0:green:1"]
+event_absent = ["SpellCast", "SpellResolved", "PriorityPassed"]
+digest = "fnv1a64:07170371277e07cd"
+
+[[scenario]]
+id = "rav_selesnya_signet_paid_bundle"
+seed = 0
+description = "Pay one mana and tap Selesnya Signet to receive its fixed White and Green mana bundle without using the stack."
+
+[[scenario.card]]
+label = "signet"
+owner = 0
+definition = "RAV-SELESNYA-SIGNET"
+zone = "battlefield"
+
+[[scenario.mana]]
+player = 0
+color = "red"
+amount = 1
+
+[[scenario.action]]
+kind = "activate_bound_mana"
+player = 0
+card = "signet"
+ability = "selesnya-signet-gw"
+
+[scenario.expected]
+zones = ["signet:battlefield"]
+tapped = ["signet:true"]
+mana = ["0:white:1", "0:blue:0", "0:black:0", "0:red:0", "0:green:1"]
+stack_size = 0
+priority = 0
+event_markers = ["BoundManaAbilityBundleActivated", "ManaAbilityManaPaid"]
+mana_receipts = ["0:white:1", "0:green:1"]
+event_absent = ["SpellCast", "SpellResolved", "PriorityPassed"]
+digest = "fnv1a64:dd3c3f052b014b85"
