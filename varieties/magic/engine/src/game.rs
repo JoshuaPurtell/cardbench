@@ -1,0 +1,1078 @@
+use std::collections::{BTreeMap, BTreeSet};
+use std::error::Error;
+use std::fmt::{Display, Formatter};
+
+use crate::{
+    CardDefinition, CardObject, CardType, Characteristics, Color, ContinuousChange,
+    ContinuousEffect, Duration, Effect, GameEvent, ObjectId, PlayerId, PlayerState, StackObject,
+    Step, Target, TargetRequirement, TokenSpec, Zone,
+};
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum RulesError {
+    UnknownPlayer(PlayerId),
+    UnknownCard(ObjectId),
+    UnknownDefinition(&'static str),
+    WrongZone {
+        card: ObjectId,
+        expected: Zone,
+    },
+    Priority {
+        expected: PlayerId,
+        actual: PlayerId,
+    },
+    IllegalAction(&'static str),
+    IllegalTarget(Target),
+    Mana(String),
+}
+
+impl Display for RulesError {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::UnknownPlayer(player) => write!(formatter, "unknown player {}", player.0),
+            Self::UnknownCard(card) => write!(formatter, "unknown card {}", card.0),
+            Self::UnknownDefinition(definition) => {
+                write!(formatter, "unknown definition {definition}")
+            }
+            Self::WrongZone { card, expected } => {
+                write!(
+                    formatter,
+                    "card {} is not in expected zone {expected:?}",
+                    card.0
+                )
+            }
+            Self::Priority { expected, actual } => write!(
+                formatter,
+                "player {} acted without priority; player {} has priority",
+                actual.0, expected.0
+            ),
+            Self::IllegalAction(message) => formatter.write_str(message),
+            Self::IllegalTarget(target) => write!(formatter, "illegal target {target:?}"),
+            Self::Mana(message) => formatter.write_str(message),
+        }
+    }
+}
+
+impl Error for RulesError {}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ConvokeContribution {
+    Generic,
+    Color(Color),
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ConvokePayment {
+    pub creature: ObjectId,
+    pub contribution: ConvokeContribution,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CastRequest {
+    pub card: ObjectId,
+    pub targets: Vec<Target>,
+    pub convoke: Vec<ConvokePayment>,
+}
+
+/// A deterministic, two-or-more-player Magic game state.
+///
+/// Setup helpers (`add_card`, `put_on_battlefield`, and `grant_mana`) intentionally
+/// do not emit events. Gameplay methods do, so scenarios can compose compact initial
+/// states without contaminating the reference event log.
+#[derive(Clone, Debug)]
+pub struct Game {
+    catalog: BTreeMap<&'static str, CardDefinition>,
+    pub players: Vec<PlayerState>,
+    objects: BTreeMap<ObjectId, CardObject>,
+    pub stack: Vec<StackObject>,
+    pub continuous_effects: Vec<ContinuousEffect>,
+    pub active_player: PlayerId,
+    pub priority: PlayerId,
+    pub step: Step,
+    pub turn: u32,
+    pub event_log: Vec<GameEvent>,
+    next_object_id: u64,
+    next_timestamp: u64,
+    consecutive_passes: usize,
+    shuffle_seed: u64,
+}
+
+impl Game {
+    pub fn new(
+        definitions: impl IntoIterator<Item = CardDefinition>,
+        player_count: usize,
+    ) -> Result<Self, RulesError> {
+        if player_count < 2 {
+            return Err(RulesError::IllegalAction(
+                "Magic games need at least two seated players",
+            ));
+        }
+        let mut catalog = BTreeMap::new();
+        for definition in definitions {
+            if catalog.insert(definition.id, definition).is_some() {
+                return Err(RulesError::IllegalAction("duplicate card definition id"));
+            }
+        }
+        let players = (0..player_count)
+            .map(|index| PlayerState::new(PlayerId(index)))
+            .collect();
+        let mut game = Self {
+            catalog,
+            players,
+            objects: BTreeMap::new(),
+            stack: Vec::new(),
+            continuous_effects: Vec::new(),
+            active_player: PlayerId(0),
+            priority: PlayerId(0),
+            step: Step::PrecombatMain,
+            turn: 1,
+            event_log: Vec::new(),
+            next_object_id: 1,
+            next_timestamp: 1,
+            consecutive_passes: 0,
+            shuffle_seed: 0,
+        };
+        game.event_log.push(GameEvent::StepBegan {
+            turn: game.turn,
+            active_player: game.active_player,
+            step: game.step,
+        });
+        Ok(game)
+    }
+
+    #[must_use]
+    pub fn catalog(&self) -> &BTreeMap<&'static str, CardDefinition> {
+        &self.catalog
+    }
+
+    pub fn player(&self, player: PlayerId) -> Result<&PlayerState, RulesError> {
+        self.players
+            .get(player.0)
+            .ok_or(RulesError::UnknownPlayer(player))
+    }
+
+    pub fn object(&self, card: ObjectId) -> Result<&CardObject, RulesError> {
+        self.objects.get(&card).ok_or(RulesError::UnknownCard(card))
+    }
+
+    pub fn card_definition(&self, card: ObjectId) -> Result<&CardDefinition, RulesError> {
+        let object = self.object(card)?;
+        let definition = object
+            .definition
+            .ok_or(RulesError::IllegalAction("token has no card definition"))?;
+        self.catalog
+            .get(definition)
+            .ok_or(RulesError::UnknownDefinition(definition))
+    }
+
+    pub fn add_card(
+        &mut self,
+        owner: PlayerId,
+        definition: &'static str,
+        zone: Zone,
+    ) -> Result<ObjectId, RulesError> {
+        self.player(owner)?;
+        if !self.catalog.contains_key(definition) {
+            return Err(RulesError::UnknownDefinition(definition));
+        }
+        let id = ObjectId(self.next_object_id);
+        self.next_object_id += 1;
+        self.objects.insert(
+            id,
+            CardObject {
+                id,
+                definition: Some(definition),
+                owner,
+                controller: owner,
+                tapped: false,
+                damage: 0,
+                counters: BTreeMap::new(),
+                entered_turn: self.turn,
+                token: None,
+            },
+        );
+        self.place_in_zone(owner, id, zone)?;
+        Ok(id)
+    }
+
+    pub fn put_on_battlefield(
+        &mut self,
+        controller: PlayerId,
+        definition: &'static str,
+    ) -> Result<ObjectId, RulesError> {
+        let card = self.add_card(controller, definition, Zone::Battlefield)?;
+        self.objects
+            .get_mut(&card)
+            .ok_or(RulesError::UnknownCard(card))?
+            .controller = controller;
+        Ok(card)
+    }
+
+    pub fn grant_mana(
+        &mut self,
+        player: PlayerId,
+        color: Color,
+        amount: u8,
+    ) -> Result<(), RulesError> {
+        self.player(player)?;
+        self.players[player.0].mana_pool.add(color, amount);
+        Ok(())
+    }
+
+    pub fn add_mana_from_action(
+        &mut self,
+        player: PlayerId,
+        color: Color,
+        amount: u8,
+    ) -> Result<(), RulesError> {
+        self.require_priority(player)?;
+        self.players[player.0].mana_pool.add(color, amount);
+        self.event_log.push(GameEvent::ManaAdded {
+            player,
+            color,
+            amount,
+        });
+        Ok(())
+    }
+
+    #[must_use]
+    pub fn zone_of(&self, card: ObjectId) -> Option<Zone> {
+        self.players.iter().find_map(|player| {
+            if player.library.contains(&card) {
+                Some(Zone::Library)
+            } else if player.hand.contains(&card) {
+                Some(Zone::Hand)
+            } else if player.battlefield.contains(&card) {
+                Some(Zone::Battlefield)
+            } else if player.graveyard.contains(&card) {
+                Some(Zone::Graveyard)
+            } else if player.exile.contains(&card) {
+                Some(Zone::Exile)
+            } else {
+                None
+            }
+        })
+    }
+
+    /// Drops setup or prior-run events. This is useful at the start of a scenario's
+    /// measured action sequence and never alters game state.
+    pub fn clear_event_log(&mut self) {
+        self.event_log.clear();
+    }
+
+    pub fn characteristics(&self, card: ObjectId) -> Result<Characteristics, RulesError> {
+        let object = self.object(card)?;
+        let mut characteristics = if let Some(token) = &object.token {
+            Characteristics {
+                colors: token.colors.clone(),
+                card_types: token.card_types.clone(),
+                power: Some(token.power),
+                toughness: Some(token.toughness),
+                keywords: Vec::new(),
+            }
+        } else {
+            let definition = self.card_definition(card)?;
+            Characteristics {
+                colors: definition.colors.clone(),
+                card_types: definition.card_types.clone(),
+                power: definition.power,
+                toughness: definition.toughness,
+                keywords: definition.keywords.clone(),
+            }
+        };
+        let mut effects: Vec<_> = self
+            .continuous_effects
+            .iter()
+            .filter(|effect| effect.target == card && self.effect_is_active(effect))
+            .collect();
+        effects.sort_by_key(|effect| (effect.change.layer(), effect.timestamp));
+        for effect in effects {
+            match &effect.change {
+                ContinuousChange::AddCardType(card_type) => {
+                    characteristics.card_types.insert(card_type.clone());
+                }
+                ContinuousChange::AddColor(color) => {
+                    characteristics.colors.insert(*color);
+                }
+                ContinuousChange::AddKeyword(keyword) => {
+                    characteristics.keywords.push(keyword.clone());
+                }
+                ContinuousChange::ModifyPowerToughness { power, toughness } => {
+                    characteristics.power = characteristics.power.map(|current| current + power);
+                    characteristics.toughness =
+                        characteristics.toughness.map(|current| current + toughness);
+                }
+            }
+        }
+        Ok(characteristics)
+    }
+
+    pub fn add_continuous_effect(
+        &mut self,
+        source: ObjectId,
+        target: ObjectId,
+        change: ContinuousChange,
+        duration: Duration,
+    ) -> Result<(), RulesError> {
+        self.object(source)?;
+        self.object(target)?;
+        let layer = change.layer();
+        self.continuous_effects.push(ContinuousEffect {
+            source,
+            target,
+            change,
+            duration,
+            timestamp: self.next_timestamp,
+        });
+        self.next_timestamp += 1;
+        self.event_log.push(GameEvent::ContinuousEffectCreated {
+            source,
+            target,
+            layer,
+        });
+        Ok(())
+    }
+
+    pub fn play_land(&mut self, player: PlayerId, card: ObjectId) -> Result<(), RulesError> {
+        self.require_priority(player)?;
+        if player != self.active_player || !self.step.is_main() || !self.stack.is_empty() {
+            return Err(RulesError::IllegalAction(
+                "lands may be played only during your main phase with an empty stack",
+            ));
+        }
+        self.require_zone(card, Zone::Hand)?;
+        let definition = self.card_definition(card)?;
+        if !definition.is_land() {
+            return Err(RulesError::IllegalAction(
+                "only a land can be played as a land",
+            ));
+        }
+        if self.players[player.0].lands_played >= 1 {
+            return Err(RulesError::IllegalAction("land play limit reached"));
+        }
+        if self.object(card)?.owner != player {
+            return Err(RulesError::IllegalAction(
+                "only your own hand card may be played",
+            ));
+        }
+        self.players[player.0].lands_played += 1;
+        self.move_to_zone(card, Zone::Battlefield)?;
+        self.check_state_based_actions()?;
+        Ok(())
+    }
+
+    pub fn cast_spell(&mut self, player: PlayerId, request: CastRequest) -> Result<(), RulesError> {
+        self.require_priority(player)?;
+        self.require_zone(request.card, Zone::Hand)?;
+        let definition = self.card_definition(request.card)?.clone();
+        if definition.is_land() {
+            return Err(RulesError::IllegalAction("lands are played, not cast"));
+        }
+        if self.object(request.card)?.owner != player {
+            return Err(RulesError::IllegalAction(
+                "only your own hand card may be cast",
+            ));
+        }
+        self.validate_targets(&definition, &request.targets)?;
+        let paid_cost =
+            self.pay_cost_with_convoke(player, request.card, &definition, &request.convoke)?;
+        self.players[player.0].mana_pool = paid_cost;
+        for payment in &request.convoke {
+            self.objects
+                .get_mut(&payment.creature)
+                .ok_or(RulesError::UnknownCard(payment.creature))?
+                .tapped = true;
+            self.event_log.push(GameEvent::ConvokeUsed {
+                player,
+                creature: payment.creature,
+                contribution: match payment.contribution {
+                    ConvokeContribution::Generic => None,
+                    ConvokeContribution::Color(color) => Some(color),
+                },
+            });
+        }
+        self.remove_from_all_zones(request.card);
+        self.stack.push(StackObject {
+            card: request.card,
+            controller: player,
+            targets: request.targets,
+            effects: definition.effects,
+        });
+        self.event_log.push(GameEvent::SpellCast {
+            player,
+            card: request.card,
+        });
+        self.consecutive_passes = 0;
+        self.priority = self.next_player(player);
+        Ok(())
+    }
+
+    pub fn pass_priority(&mut self, player: PlayerId) -> Result<(), RulesError> {
+        self.require_priority(player)?;
+        self.event_log.push(GameEvent::PriorityPassed { player });
+        self.consecutive_passes += 1;
+        self.priority = self.next_player(player);
+        if self.consecutive_passes == self.players.len() {
+            self.consecutive_passes = 0;
+            if self.stack.is_empty() {
+                self.advance_step()?;
+            } else {
+                self.resolve_top_of_stack()?;
+            }
+        }
+        Ok(())
+    }
+
+    pub fn draw_card(
+        &mut self,
+        player: PlayerId,
+        dredge: Option<ObjectId>,
+    ) -> Result<(), RulesError> {
+        self.player(player)?;
+        if let Some(card) = dredge {
+            self.dredge(player, card)?;
+            return Ok(());
+        }
+        let Some(card) = self.players[player.0].library.pop() else {
+            self.lose_player(player, "attempted to draw from an empty library");
+            return Ok(());
+        };
+        self.players[player.0].hand.push(card);
+        self.event_log.push(GameEvent::CardMoved {
+            card,
+            to: Zone::Hand,
+        });
+        Ok(())
+    }
+
+    pub fn dredge(&mut self, player: PlayerId, card: ObjectId) -> Result<(), RulesError> {
+        self.require_zone(card, Zone::Graveyard)?;
+        if self.object(card)?.owner != player {
+            return Err(RulesError::IllegalAction(
+                "you may dredge only your own graveyard card",
+            ));
+        }
+        let amount = self
+            .card_definition(card)?
+            .dredge()
+            .ok_or(RulesError::IllegalAction("card has no dredge ability"))?;
+        if self.players[player.0].library.len() < usize::from(amount) {
+            return Err(RulesError::IllegalAction(
+                "dredge replacement requires at least that many cards in library",
+            ));
+        }
+        for _ in 0..amount {
+            let milled = self.players[player.0]
+                .library
+                .pop()
+                .ok_or(RulesError::IllegalAction("library changed during dredge"))?;
+            self.players[player.0].graveyard.push(milled);
+            self.event_log.push(GameEvent::CardMoved {
+                card: milled,
+                to: Zone::Graveyard,
+            });
+        }
+        self.remove_from_all_zones(card);
+        self.players[player.0].hand.push(card);
+        self.event_log.push(GameEvent::CardMoved {
+            card,
+            to: Zone::Hand,
+        });
+        self.event_log.push(GameEvent::Dredged {
+            player,
+            card,
+            count: amount,
+        });
+        Ok(())
+    }
+
+    /// Resolve transmute's hand-zone activated ability with the searched card selected by
+    /// the scenario/policy. The library is shuffled by a deterministic seed afterwards.
+    pub fn transmute(
+        &mut self,
+        player: PlayerId,
+        card: ObjectId,
+        found: ObjectId,
+    ) -> Result<(), RulesError> {
+        self.require_priority(player)?;
+        self.require_zone(card, Zone::Hand)?;
+        self.require_zone(found, Zone::Library)?;
+        if self.object(card)?.owner != player || self.object(found)?.owner != player {
+            return Err(RulesError::IllegalAction(
+                "transmute searches only your own library",
+            ));
+        }
+        let cost = self
+            .card_definition(card)?
+            .transmute_cost()
+            .cloned()
+            .ok_or(RulesError::IllegalAction("card has no transmute ability"))?;
+        if self.card_definition(found)?.mana_cost.mana_value()
+            != self.card_definition(card)?.mana_cost.mana_value()
+        {
+            return Err(RulesError::IllegalAction(
+                "transmute may find only a card with the discarded card's mana value",
+            ));
+        }
+        let mut pool = self.players[player.0].mana_pool.clone();
+        pool.pay(&cost).map_err(RulesError::Mana)?;
+        self.players[player.0].mana_pool = pool;
+        self.move_to_zone(card, Zone::Graveyard)?;
+        self.move_to_zone(found, Zone::Hand)?;
+        self.shuffle_library(player);
+        self.event_log.push(GameEvent::Transmuted {
+            player,
+            discarded: card,
+            found,
+        });
+        self.consecutive_passes = 0;
+        self.priority = self.next_player(player);
+        Ok(())
+    }
+
+    pub fn set_shuffle_seed(&mut self, seed: u64) {
+        self.shuffle_seed = seed;
+    }
+
+    /// Applies state-based actions until the game reaches a fixed point.
+    pub fn check_state_based_actions(&mut self) -> Result<(), RulesError> {
+        loop {
+            let mut changed = false;
+            for player in 0..self.players.len() {
+                let player_id = PlayerId(player);
+                if !self.players[player].lost && self.players[player].life <= 0 {
+                    self.lose_player(player_id, "life total is zero or less");
+                    changed = true;
+                }
+            }
+            for card in self.all_battlefield_cards() {
+                let characteristics = self.characteristics(card)?;
+                if !characteristics.card_types.contains(&CardType::Creature) {
+                    continue;
+                }
+                let toughness = characteristics.toughness.unwrap_or(0);
+                let damage = self.object(card)?.damage;
+                let reason = if toughness <= 0 {
+                    Some("creature has toughness zero or less")
+                } else if damage > 0 && damage >= toughness {
+                    Some("creature has lethal damage")
+                } else {
+                    None
+                };
+                if let Some(reason) = reason {
+                    self.event_log
+                        .push(GameEvent::StateBasedAction { card, reason });
+                    self.move_to_graveyard_or_remove_token(card)?;
+                    changed = true;
+                }
+            }
+            if !changed {
+                return Ok(());
+            }
+        }
+    }
+
+    #[must_use]
+    pub fn canonical_event_log(&self) -> Vec<String> {
+        self.event_log
+            .iter()
+            .map(|event| format!("{event:?}"))
+            .collect()
+    }
+
+    fn pay_cost_with_convoke(
+        &self,
+        player: PlayerId,
+        card: ObjectId,
+        definition: &CardDefinition,
+        payments: &[ConvokePayment],
+    ) -> Result<crate::ManaPool, RulesError> {
+        if !definition.has_convoke() && !payments.is_empty() {
+            return Err(RulesError::IllegalAction(
+                "only convoke spells accept convoke payments",
+            ));
+        }
+        let mut remaining = definition.mana_cost.clone();
+        let mut seen = BTreeSet::new();
+        for payment in payments {
+            if !seen.insert(payment.creature) {
+                return Err(RulesError::IllegalAction(
+                    "a creature may convoke only once",
+                ));
+            }
+            self.require_zone(payment.creature, Zone::Battlefield)?;
+            let creature = self.object(payment.creature)?;
+            if creature.controller != player || creature.tapped {
+                return Err(RulesError::IllegalAction(
+                    "convoke requires an untapped creature you control",
+                ));
+            }
+            let characteristics = self.characteristics(payment.creature)?;
+            if !characteristics.card_types.contains(&CardType::Creature) {
+                return Err(RulesError::IllegalAction("only creatures can convoke"));
+            }
+            match payment.contribution {
+                ConvokeContribution::Generic => {
+                    if remaining.generic == 0 {
+                        return Err(RulesError::IllegalAction(
+                            "no generic mana remains to convoke",
+                        ));
+                    }
+                    remaining.generic -= 1;
+                }
+                ConvokeContribution::Color(color) => {
+                    if !characteristics.colors.contains(&color) {
+                        return Err(RulesError::IllegalAction(
+                            "convoke creature must have the contributed color",
+                        ));
+                    }
+                    let position = remaining
+                        .colored
+                        .iter()
+                        .position(|required| *required == color)
+                        .ok_or(RulesError::IllegalAction(
+                            "that colored mana does not remain to convoke",
+                        ))?;
+                    remaining.colored.remove(position);
+                }
+            }
+        }
+        let mut pool = self.players[player.0].mana_pool.clone();
+        pool.pay(&remaining).map_err(RulesError::Mana)?;
+        let _ = card;
+        Ok(pool)
+    }
+
+    fn validate_targets(
+        &self,
+        definition: &CardDefinition,
+        targets: &[Target],
+    ) -> Result<(), RulesError> {
+        let requirements: Vec<_> = definition
+            .effects
+            .iter()
+            .filter_map(Effect::target_requirement)
+            .collect();
+        if requirements.is_empty() {
+            if targets.is_empty() {
+                return Ok(());
+            }
+            return Err(RulesError::IllegalAction(
+                "this spell does not take targets",
+            ));
+        }
+        if targets.len() != 1 {
+            return Err(RulesError::IllegalAction(
+                "the initial CardBench spell slice supports exactly one target",
+            ));
+        }
+        if requirements
+            .iter()
+            .any(|requirement| !self.target_matches(targets[0], *requirement))
+        {
+            return Err(RulesError::IllegalTarget(targets[0]));
+        }
+        Ok(())
+    }
+
+    fn resolve_top_of_stack(&mut self) -> Result<(), RulesError> {
+        let stack_object = self.stack.pop().ok_or(RulesError::IllegalAction(
+            "attempted to resolve an empty stack",
+        ))?;
+        let legal_target = stack_object
+            .effects
+            .iter()
+            .filter_map(Effect::target_requirement)
+            .all(|requirement| {
+                stack_object
+                    .targets
+                    .first()
+                    .is_some_and(|target| self.target_matches(*target, requirement))
+            });
+        if !legal_target {
+            self.event_log.push(GameEvent::SpellCounteredByRules {
+                card: stack_object.card,
+            });
+            self.move_to_graveyard_or_remove_token(stack_object.card)?;
+            self.check_state_based_actions()?;
+            self.priority = self.active_player;
+            return Ok(());
+        }
+        for effect in &stack_object.effects {
+            self.resolve_effect(
+                stack_object.card,
+                stack_object.controller,
+                effect,
+                &stack_object.targets,
+            )?;
+        }
+        self.event_log.push(GameEvent::SpellResolved {
+            card: stack_object.card,
+        });
+        if self.card_definition(stack_object.card)?.is_permanent() {
+            self.move_to_zone(stack_object.card, Zone::Battlefield)?;
+        } else {
+            self.move_to_graveyard_or_remove_token(stack_object.card)?;
+        }
+        self.check_state_based_actions()?;
+        self.priority = self.active_player;
+        Ok(())
+    }
+
+    fn resolve_effect(
+        &mut self,
+        source: ObjectId,
+        controller: PlayerId,
+        effect: &Effect,
+        targets: &[Target],
+    ) -> Result<(), RulesError> {
+        match effect {
+            Effect::DealDamage { amount, .. } => match targets
+                .first()
+                .ok_or(RulesError::IllegalAction("missing damage target"))?
+            {
+                Target::Player(player) => {
+                    self.players[player.0].life -= amount;
+                    self.event_log.push(GameEvent::DamageDealtToPlayer {
+                        source,
+                        player: *player,
+                        amount: *amount,
+                    });
+                }
+                Target::Permanent(permanent) => {
+                    self.objects
+                        .get_mut(permanent)
+                        .ok_or(RulesError::UnknownCard(*permanent))?
+                        .damage += amount;
+                    self.event_log.push(GameEvent::DamageDealtToPermanent {
+                        source,
+                        permanent: *permanent,
+                        amount: *amount,
+                    });
+                }
+            },
+            Effect::GainLifeController { amount } => {
+                self.players[controller.0].life += amount;
+                self.event_log.push(GameEvent::LifeGained {
+                    player: controller,
+                    amount: *amount,
+                });
+            }
+            Effect::CreateToken { token, count } => {
+                for _ in 0..*count {
+                    let token_id = self.create_token(controller, token.clone())?;
+                    self.event_log.push(GameEvent::TokenCreated {
+                        player: controller,
+                        token: token_id,
+                    });
+                }
+            }
+            Effect::ModifyTargetPtUntilEndOfTurn { power, toughness } => {
+                let target = Self::target_permanent(targets)?;
+                self.add_continuous_effect(
+                    source,
+                    target,
+                    ContinuousChange::ModifyPowerToughness {
+                        power: *power,
+                        toughness: *toughness,
+                    },
+                    Duration::EndOfTurn(self.turn),
+                )?;
+            }
+            Effect::RadianceUntapAndModifyUntilEndOfTurn { power, toughness } => {
+                let target = Self::target_permanent(targets)?;
+                let target_colors = self.characteristics(target)?.colors;
+                let matching: Vec<_> = self
+                    .all_battlefield_cards()
+                    .into_iter()
+                    .filter(|candidate| {
+                        self.characteristics(*candidate)
+                            .is_ok_and(|characteristics| {
+                                characteristics.card_types.contains(&CardType::Creature)
+                                    && !characteristics.colors.is_disjoint(&target_colors)
+                            })
+                    })
+                    .collect();
+                let mut untapped = Vec::new();
+                for candidate in matching {
+                    let object = self
+                        .objects
+                        .get_mut(&candidate)
+                        .ok_or(RulesError::UnknownCard(candidate))?;
+                    if object.tapped {
+                        object.tapped = false;
+                        untapped.push(candidate);
+                    }
+                    self.add_continuous_effect(
+                        source,
+                        candidate,
+                        ContinuousChange::ModifyPowerToughness {
+                            power: *power,
+                            toughness: *toughness,
+                        },
+                        Duration::EndOfTurn(self.turn),
+                    )?;
+                }
+                if !untapped.is_empty() {
+                    self.event_log.push(GameEvent::PermanentsUntapped {
+                        player: controller,
+                        cards: untapped,
+                    });
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn target_permanent(targets: &[Target]) -> Result<ObjectId, RulesError> {
+        match targets.first() {
+            Some(Target::Permanent(card)) => Ok(*card),
+            Some(Target::Player(player)) => Err(RulesError::IllegalTarget(Target::Player(*player))),
+            None => Err(RulesError::IllegalAction("missing permanent target")),
+        }
+    }
+
+    fn target_matches(&self, target: Target, requirement: TargetRequirement) -> bool {
+        match (target, requirement) {
+            (Target::Player(player), TargetRequirement::Any | TargetRequirement::Player) => {
+                self.players.get(player.0).is_some_and(|state| !state.lost)
+            }
+            (Target::Permanent(card), TargetRequirement::Any) => {
+                self.zone_of(card) == Some(Zone::Battlefield)
+            }
+            (Target::Permanent(card), TargetRequirement::Creature) => {
+                self.zone_of(card) == Some(Zone::Battlefield)
+                    && self.characteristics(card).is_ok_and(|characteristics| {
+                        characteristics.card_types.contains(&CardType::Creature)
+                    })
+            }
+            _ => false,
+        }
+    }
+
+    fn advance_step(&mut self) -> Result<(), RulesError> {
+        self.step = self.step.next();
+        if self.step == Step::Untap {
+            self.active_player = self.next_player(self.active_player);
+            self.turn += 1;
+        }
+        self.priority = self.active_player;
+        self.start_step()
+    }
+
+    fn start_step(&mut self) -> Result<(), RulesError> {
+        match self.step {
+            Step::Untap => {
+                self.players[self.active_player.0].lands_played = 0;
+                let battlefield = self.players[self.active_player.0].battlefield.clone();
+                let mut untapped = Vec::new();
+                for card in battlefield {
+                    let object = self
+                        .objects
+                        .get_mut(&card)
+                        .ok_or(RulesError::UnknownCard(card))?;
+                    if object.tapped {
+                        object.tapped = false;
+                        untapped.push(card);
+                    }
+                }
+                if !untapped.is_empty() {
+                    self.event_log.push(GameEvent::PermanentsUntapped {
+                        player: self.active_player,
+                        cards: untapped,
+                    });
+                }
+            }
+            Step::Draw => self.draw_card(self.active_player, None)?,
+            Step::Cleanup => {
+                for card in self.all_battlefield_cards() {
+                    self.objects
+                        .get_mut(&card)
+                        .ok_or(RulesError::UnknownCard(card))?
+                        .damage = 0;
+                }
+                self.continuous_effects
+                    .retain(|effect| effect.duration != Duration::EndOfTurn(self.turn));
+                self.check_state_based_actions()?;
+            }
+            _ => {}
+        }
+        self.event_log.push(GameEvent::StepBegan {
+            turn: self.turn,
+            active_player: self.active_player,
+            step: self.step,
+        });
+        Ok(())
+    }
+
+    fn shuffle_library(&mut self, player: PlayerId) {
+        let seed = self.shuffle_seed;
+        self.players[player.0]
+            .library
+            .sort_by_key(|card| deterministic_mix(seed ^ card.0));
+        self.shuffle_seed = self.shuffle_seed.wrapping_add(1);
+    }
+
+    fn create_token(
+        &mut self,
+        controller: PlayerId,
+        token: TokenSpec,
+    ) -> Result<ObjectId, RulesError> {
+        self.player(controller)?;
+        let id = ObjectId(self.next_object_id);
+        self.next_object_id += 1;
+        self.objects.insert(
+            id,
+            CardObject {
+                id,
+                definition: None,
+                owner: controller,
+                controller,
+                tapped: false,
+                damage: 0,
+                counters: BTreeMap::new(),
+                entered_turn: self.turn,
+                token: Some(token),
+            },
+        );
+        self.place_in_zone(controller, id, Zone::Battlefield)?;
+        Ok(id)
+    }
+
+    fn move_to_graveyard_or_remove_token(&mut self, card: ObjectId) -> Result<(), RulesError> {
+        if self.object(card)?.token.is_some() {
+            self.remove_from_all_zones(card);
+            self.objects.remove(&card);
+            self.continuous_effects
+                .retain(|effect| effect.source != card && effect.target != card);
+            return Ok(());
+        }
+        self.move_to_zone(card, Zone::Graveyard)
+    }
+
+    fn move_to_zone(&mut self, card: ObjectId, zone: Zone) -> Result<(), RulesError> {
+        let object = self.object(card)?.clone();
+        self.remove_from_all_zones(card);
+        let destination_owner = if zone == Zone::Battlefield {
+            object.controller
+        } else {
+            object.owner
+        };
+        if zone == Zone::Battlefield {
+            let battlefield_object = self
+                .objects
+                .get_mut(&card)
+                .ok_or(RulesError::UnknownCard(card))?;
+            battlefield_object.tapped = false;
+            battlefield_object.damage = 0;
+            battlefield_object.entered_turn = self.turn;
+        }
+        self.place_in_zone(destination_owner, card, zone)?;
+        self.event_log.push(GameEvent::CardMoved { card, to: zone });
+        Ok(())
+    }
+
+    fn place_in_zone(
+        &mut self,
+        player: PlayerId,
+        card: ObjectId,
+        zone: Zone,
+    ) -> Result<(), RulesError> {
+        self.player(player)?;
+        let state = &mut self.players[player.0];
+        match zone {
+            Zone::Library => state.library.push(card),
+            Zone::Hand => state.hand.push(card),
+            Zone::Battlefield => state.battlefield.push(card),
+            Zone::Graveyard => state.graveyard.push(card),
+            Zone::Exile => state.exile.push(card),
+        }
+        Ok(())
+    }
+
+    fn remove_from_all_zones(&mut self, card: ObjectId) {
+        for player in &mut self.players {
+            player.library.retain(|candidate| *candidate != card);
+            player.hand.retain(|candidate| *candidate != card);
+            player.battlefield.retain(|candidate| *candidate != card);
+            player.graveyard.retain(|candidate| *candidate != card);
+            player.exile.retain(|candidate| *candidate != card);
+        }
+    }
+
+    fn require_zone(&self, card: ObjectId, expected: Zone) -> Result<(), RulesError> {
+        self.object(card)?;
+        if self.zone_of(card) == Some(expected) {
+            Ok(())
+        } else {
+            Err(RulesError::WrongZone { card, expected })
+        }
+    }
+
+    fn require_priority(&self, player: PlayerId) -> Result<(), RulesError> {
+        self.player(player)?;
+        if player == self.priority {
+            Ok(())
+        } else {
+            Err(RulesError::Priority {
+                expected: self.priority,
+                actual: player,
+            })
+        }
+    }
+
+    fn next_player(&self, player: PlayerId) -> PlayerId {
+        PlayerId((player.0 + 1) % self.players.len())
+    }
+
+    fn all_battlefield_cards(&self) -> Vec<ObjectId> {
+        self.players
+            .iter()
+            .flat_map(|player| player.battlefield.iter().copied())
+            .collect()
+    }
+
+    fn effect_is_active(&self, effect: &ContinuousEffect) -> bool {
+        match effect.duration {
+            Duration::EndOfTurn(turn) => turn == self.turn,
+            Duration::Permanent => self.zone_of(effect.source) == Some(Zone::Battlefield),
+        }
+    }
+
+    fn lose_player(&mut self, player: PlayerId, reason: &'static str) {
+        if !self.players[player.0].lost {
+            self.players[player.0].lost = true;
+            self.event_log
+                .push(GameEvent::PlayerLost { player, reason });
+        }
+    }
+}
+
+#[must_use]
+fn deterministic_mix(mut value: u64) -> u64 {
+    value ^= value >> 30;
+    value = value.wrapping_mul(0xbf58_476d_1ce4_e5b9);
+    value ^= value >> 27;
+    value = value.wrapping_mul(0x94d0_49bb_1331_11eb);
+    value ^ (value >> 31)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn empty_stack_passes_advance_through_a_full_turn() {
+        let mut game = Game::new(Vec::<CardDefinition>::new(), 2).expect("two-player game");
+        for _ in 0..9 {
+            let first = game.priority;
+            game.pass_priority(first).expect("first pass");
+            let second = game.priority;
+            game.pass_priority(second).expect("second pass");
+        }
+        assert_eq!(game.turn, 2);
+        assert_eq!(game.active_player, PlayerId(1));
+        assert_eq!(game.step, Step::Untap);
+        assert_eq!(game.priority, PlayerId(1));
+    }
+}

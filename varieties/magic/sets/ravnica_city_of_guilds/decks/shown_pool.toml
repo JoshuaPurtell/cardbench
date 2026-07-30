@@ -1,0 +1,29 @@
+schema_version = "cardbench.magic.deck-pool.v1"
+set = "RAV"
+format = "ravnica-block"
+visibility = "shown"
+note = "Deck data is a public construction fixture. It contains identifiers and counts, not card art or Oracle text."
+
+[[deck]]
+id = "rav_selesnya_convoke_smoke"
+sideboard_cards = 0
+
+[[deck.mainboard]]
+card = "RAV-SCATTER-THE-SEEDS"
+count = 4
+
+[[deck.mainboard]]
+card = "RAV-SIEGE-WURM"
+count = 4
+
+[[deck.mainboard]]
+card = "RAV-GOLGARI-BROWNSCALE"
+count = 4
+
+[[deck.mainboard]]
+card = "RAV-FOREST"
+count = 24
+
+[[deck.mainboard]]
+card = "RAV-PLAINS"
+count = 24

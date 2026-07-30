@@ -15,6 +15,7 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[3]
 POKEMON = REPO / "varieties" / "pokemon"
+MAGIC = REPO / "varieties" / "magic"
 EVALS = Path(os.environ.get("CARDBENCH_EVALS_ROOT", Path.home() / "Documents" / "GitHub" / "evals"))
 CODEX_RUNNER = EVALS / "core" / "harbor" / "runner" / "codex_harbor_runner.py"
 REFERENCE_POLICY = POKEMON / "candidates" / "reference" / "simple_heuristic_ai.rs"
@@ -55,7 +56,24 @@ def score_command(
     expansion: str,
     variant: str,
     suite: str,
+    variety: str,
 ) -> list[str]:
+    if variety == "magic":
+        if family != "engine":
+            raise ValueError(f"cardbench/magic/{family} is scaffold-only")
+        return [
+            "cargo",
+            "run",
+            "--manifest-path",
+            str(MAGIC / "Cargo.toml"),
+            "-p",
+            "cardbench-magic-rav",
+            "--bin",
+            "rav-engine-parity",
+            "--",
+            "--output-root",
+            str(output / "logs" / "verifier"),
+        ]
     if family == "code_policy":
         return [
             sys.executable,
@@ -115,16 +133,18 @@ def score_command(
     raise ValueError(f"{family} is scaffold-only")
 
 
-def write_receipt(output: Path, family: str, command: str, agent_rc: int, verify_rc: int) -> None:
+def write_receipt(
+    output: Path, family: str, command: str, agent_rc: int, verify_rc: int, variety: str
+) -> None:
     result_path = output / "logs" / "verifier" / "result.json"
     if family == "engine":
         result_path = output / "logs" / "verifier" / "engine-check.json"
     verifier = json.loads(result_path.read_text()) if result_path.exists() else {}
     payload = {
         "schema_version": "cardbench.harbor.lane_receipt.v1",
-        "task_id": f"cardbench/pokemon/{family}",
+        "task_id": f"cardbench/{variety}/{family}",
         "family": family,
-        "variety": "pokemon",
+        "variety": variety,
         "agent": "reference" if command == "verify" else "codex",
         "model": os.environ.get("CARDBENCH_HARBOR_MODEL", "openai/gpt-5.4-mini"),
         "effort": os.environ.get("CARDBENCH_HARBOR_EFFORT", "low"),
@@ -168,6 +188,7 @@ def run_reference(
     expansion: str,
     variant: str,
     suite: str,
+    variety: str,
 ) -> int:
     candidate: Path | None = None
     if family == "code_policy":
@@ -186,9 +207,10 @@ def run_reference(
         expansion=expansion,
         variant=variant,
         suite=suite,
+        variety=variety,
     )
     completed = subprocess.run(command)
-    write_receipt(output, family, "verify", 0, completed.returncode)
+    write_receipt(output, family, "verify", 0, completed.returncode, variety)
     print(f"receipt: {output / 'lane-receipt.json'}")
     return completed.returncode
 
@@ -208,7 +230,10 @@ def run_codex(
     expansion: str,
     variant: str,
     suite: str,
+    variety: str,
 ) -> int:
+    if variety != "pokemon":
+        raise ValueError("cardbench/magic/engine has no Codex bundle yet")
     if family not in {"code_policy", "deck_opt"}:
         raise ValueError(f"Codex is not promoted for {family}")
     if not CODEX_RUNNER.is_file():
@@ -270,6 +295,7 @@ def run_codex(
                 expansion=expansion,
                 variant=variant,
                 suite=suite,
+                variety=variety,
             )
         )
         verify_rc = scored.returncode
@@ -281,7 +307,7 @@ def run_codex(
             json.dumps({"passed": False, "harbor_reward": 0.0, "error": f"missing {candidate_rel}"}, indent=2) + "\n"
         )
         (verifier_dir / "reward.txt").write_text("0.0\n")
-    write_receipt(output, family, "codex", agent.returncode, verify_rc)
+    write_receipt(output, family, "codex", agent.returncode, verify_rc, variety)
     print(f"receipt: {output / 'lane-receipt.json'}")
     return 0 if agent.returncode == 0 and verify_rc == 0 else 1
 
@@ -299,18 +325,23 @@ def main() -> int:
     parser.add_argument("--suite", choices=["train", "hidden"], default="train")
     args = parser.parse_args()
     family = FAMILIES[args.family]
-    if args.variety != "pokemon":
-        parser.error("only the pokemon variety is runnable; magic is reserved")
+    if args.variety not in {"pokemon", "magic"}:
+        parser.error("variety must be pokemon or magic")
     if args.command == "list":
-        status = (
-            "reference-runnable"
-            if family in {"code_policy", "deck_opt", "card", "set_engine", "engine"}
-            else "scaffold"
+        runnable = (
+            family in {"code_policy", "deck_opt", "card", "set_engine", "engine"}
+            if args.variety == "pokemon"
+            else family == "engine"
         )
-        print(f"cardbench/pokemon/{family}\t{status}")
+        print(f"cardbench/{args.variety}/{family}\t{'reference-runnable' if runnable else 'scaffold'}")
         return 0
-    if family in {"react", "cybernetic", "full_engine"}:
-        print(f"cardbench/pokemon/{family} is scaffold-only", file=sys.stderr)
+    runnable = (
+        family in {"code_policy", "deck_opt", "card", "set_engine", "engine"}
+        if args.variety == "pokemon"
+        else family == "engine"
+    )
+    if not runnable:
+        print(f"cardbench/{args.variety}/{family} is scaffold-only", file=sys.stderr)
         return 2
     output = fresh_output(family, args.command)
     output.mkdir(parents=True, exist_ok=True)
@@ -323,6 +354,7 @@ def main() -> int:
                 expansion=args.expansion,
                 variant=args.variant,
                 suite=args.suite,
+                variety=args.variety,
             )
             if args.command == "verify"
             else run_codex(
@@ -332,6 +364,7 @@ def main() -> int:
                 expansion=args.expansion,
                 variant=args.variant,
                 suite=args.suite,
+                variety=args.variety,
             )
         )
     except Exception as exc:
