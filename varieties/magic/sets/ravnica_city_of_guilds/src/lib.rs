@@ -33,7 +33,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 7] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 10] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-LAST-GASP",
@@ -41,6 +41,9 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 7] = [
     "RAV-BOROS-RECRUIT",
     "RAV-WATCHWOLF",
     "RAV-GLASS-GOLEM",
+    "RAV-CLEANSING-BEAM",
+    "RAV-RALLY-THE-RIGHTEOUS",
+    "RAV-WOJEK-SIREN",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -113,9 +116,9 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![Effect::DealDamageToEachCreatureAndPlayer { amount: 1 }],
         },
-        // Compatibility scope: a targeted creature and every creature sharing
-        // one of its colors receive the same damage during one resolution.
-        // This intentionally does not claim broader red-spell or set fidelity.
+        // Full card behavior is represented by the shared radiance damage
+        // substrate: legal creature target, resolution-time color selection,
+        // one damage batch, and the resulting state-based actions.
         CardDefinition {
             id: "RAV-CLEANSING-BEAM",
             name: "Cleansing Beam",
@@ -125,7 +128,11 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Sorcery]),
             is_basic_land: false,
-            supported_rules: &["radiance", "targeted-creature-damage"],
+            supported_rules: &[
+                "full-rules-fidelity",
+                "radiance",
+                "targeted-creature-damage",
+            ],
             power: None,
             toughness: None,
             keywords: vec![],
@@ -288,7 +295,7 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Instant]),
             is_basic_land: false,
-            supported_rules: &["full-rules-fidelity", "targeted-layer-7-modifier"],
+            supported_rules: &["targeted-layer-7-modifier"],
             power: None,
             toughness: None,
             keywords: vec![],
@@ -641,7 +648,12 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Instant]),
             is_basic_land: false,
-            supported_rules: &["radiance", "untap", "layer-7-modifier"],
+            supported_rules: &[
+                "full-rules-fidelity",
+                "radiance",
+                "untap",
+                "layer-7-modifier",
+            ],
             power: None,
             toughness: None,
             keywords: vec![],
@@ -650,19 +662,18 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 toughness: 0,
             }],
         },
-        // Compatibility scope: resolution-time radiance selection and a
-        // temporary layer-7 modifier only. This definition deliberately does
-        // not reuse the distinct untap behavior represented by Rally.
+        // This is the distinct radiance-only temporary modifier operation;
+        // it intentionally does not reuse Rally's untap behavior.
         CardDefinition {
             id: "RAV-WOJEK-SIREN",
             name: "Wojek Siren",
             set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(1, [Color::Red]),
-            colors: colors([Color::Red]),
+            mana_cost: ManaCost::with_colors(0, [Color::White]),
+            colors: colors([Color::White]),
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Instant]),
             is_basic_land: false,
-            supported_rules: &["radiance", "layer-7-modifier"],
+            supported_rules: &["full-rules-fidelity", "radiance", "layer-7-modifier"],
             power: None,
             toughness: None,
             keywords: vec![],
@@ -2519,7 +2530,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 81);
+        assert_eq!(first.len(), 82);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

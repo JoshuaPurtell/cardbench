@@ -25,11 +25,15 @@ an executable compatibility definition remain subject to that definition's
 
 `RAV_FULL_FIDELITY_DEFINITION_IDS` is a deliberately small positive manifest,
 not an inference from executable status. Char, Lightning Helix, Last Gasp,
-Elves of Deep Shadow, Boros Recruit, Watchwolf, and Glass Golem are listed only after an
-ability-by-ability contract proves their complete represented behavior and
-public receipt traces. Every other executable definition remains a bounded
-compatibility slice unless it is explicitly added to that manifest after the
-same audit.
+Elves of Deep Shadow, Boros Recruit, Cleansing Beam, Rally the Righteous, and
+Wojek Siren, Watchwolf, and Glass Golem are listed only after an ability-by-
+ability contract proves their complete represented behavior and public receipt
+traces. The three radiance entries were checked against their public set
+identity and the official Comprehensive Rules' target, resolution, damage,
+continuous-effect, and state-based-action rules; this repository retains only
+CardBench-authored semantic operations, never card rules text. Every other
+executable definition remains a bounded compatibility slice unless it is
+explicitly added to that manifest after the same audit.
 
 The creature batch for Golgari Thug, Stinkweed Imp, Greater Mossdog, and
 Root-Kin Ally is explicitly compatibility-bounded. The first three support only

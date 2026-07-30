@@ -1,9 +1,12 @@
 //! Ability-complete contract for simple RAV cards.
 
+use std::collections::BTreeSet;
+
 use cardbench_magic_engine::{CardType, Color, Effect, ManaCost, TargetRequirement};
 use cardbench_magic_rav::{RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, run_all_scenarios};
 
 #[test]
+#[allow(clippy::too_many_lines)] // The positive manifest audit is easiest to review as one table.
 fn full_fidelity_manifest_records_only_ability_complete_cards() {
     assert_eq!(
         RAV_FULL_FIDELITY_DEFINITION_IDS,
@@ -15,6 +18,9 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-BOROS-RECRUIT",
             "RAV-WATCHWOLF",
             "RAV-GLASS-GOLEM",
+            "RAV-CLEANSING-BEAM",
+            "RAV-RALLY-THE-RIGHTEOUS",
+            "RAV-WOJEK-SIREN",
         ]
     );
     let definitions = card_definitions();
@@ -44,6 +50,24 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             vec![Effect::ModifyTargetPtUntilEndOfTurn {
                 power: -3,
                 toughness: -3,
+            }],
+        ),
+        (
+            "RAV-CLEANSING-BEAM",
+            vec![Effect::RadianceDealDamageToCreatures { amount: 2 }],
+        ),
+        (
+            "RAV-RALLY-THE-RIGHTEOUS",
+            vec![Effect::RadianceUntapAndModifyUntilEndOfTurn {
+                power: 2,
+                toughness: 0,
+            }],
+        ),
+        (
+            "RAV-WOJEK-SIREN",
+            vec![Effect::RadianceModifyPtUntilEndOfTurn {
+                power: 1,
+                toughness: 1,
             }],
         ),
     ];
@@ -97,6 +121,41 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
         glass_golem.card_types.iter().cloned().collect::<Vec<_>>(),
         [CardType::Artifact, CardType::Creature]
     );
+    let siren = definitions
+        .iter()
+        .find(|definition| definition.id == "RAV-WOJEK-SIREN")
+        .expect("Wojek Siren definition exists");
+    assert_eq!(siren.mana_cost, ManaCost::with_colors(0, [Color::White]));
+    assert_eq!(siren.colors, [Color::White].into_iter().collect());
+
+    for (id, mana_cost, card_colors, card_types) in [
+        (
+            "RAV-CLEANSING-BEAM",
+            ManaCost::with_colors(4, [Color::Red]),
+            [Color::Red].into_iter().collect::<BTreeSet<_>>(),
+            [CardType::Sorcery].into_iter().collect(),
+        ),
+        (
+            "RAV-RALLY-THE-RIGHTEOUS",
+            ManaCost::with_colors(1, [Color::Red, Color::White]),
+            [Color::Red, Color::White].into_iter().collect(),
+            [CardType::Instant].into_iter().collect(),
+        ),
+        (
+            "RAV-WOJEK-SIREN",
+            ManaCost::with_colors(0, [Color::White]),
+            [Color::White].into_iter().collect(),
+            [CardType::Instant].into_iter().collect(),
+        ),
+    ] {
+        let definition = definitions
+            .iter()
+            .find(|definition| definition.id == id)
+            .expect("radiance definition exists");
+        assert_eq!(definition.mana_cost, mana_cost, "{id}");
+        assert_eq!(definition.colors, card_colors, "{id}");
+        assert_eq!(definition.card_types, card_types, "{id}");
+    }
 }
 
 #[test]
@@ -124,6 +183,18 @@ fn full_fidelity_card_scenarios_emit_their_complete_effect_receipts() {
             "rav_glass_golem_colorless_cost",
             ["SpellCast", "SpellResolved"],
         ),
+        (
+            "rav_cleansing_beam_radiance_damage",
+            ["DamageDealtToPermanent", "StateBasedAction"],
+        ),
+        (
+            "rav_wojek_siren_radiance",
+            ["ContinuousEffectCreated", "SpellResolved"],
+        ),
+        (
+            "rav_radiance_cleanup_expiration",
+            ["PermanentsUntapped", "ContinuousEffectExpired"],
+        ),
     ] {
         let result = results
             .iter()
@@ -136,4 +207,13 @@ fn full_fidelity_card_scenarios_emit_their_complete_effect_receipts() {
             );
         }
     }
+
+    let rejected_target = results
+        .iter()
+        .find(|result| result.id == "rav_cleansing_beam_requires_creature_target")
+        .expect("Cleansing Beam target-legality scenario exists");
+    assert!(
+        rejected_target.event_log.is_empty(),
+        "an invalid target must not put the spell on the stack or emit receipts"
+    );
 }
