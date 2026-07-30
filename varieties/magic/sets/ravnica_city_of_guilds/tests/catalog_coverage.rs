@@ -53,3 +53,29 @@ fn every_catalog_record_declares_and_enforces_its_semantic_boundary() {
         }
     }
 }
+
+#[test]
+fn executable_slice_size_is_explicit_and_does_not_masquerade_as_set_coverage() {
+    let catalog = rav_main_set_catalog();
+    let executable_printings = catalog
+        .iter()
+        .filter(|card| card.semantic_status.is_executable())
+        .count();
+    let executable_names = catalog
+        .iter()
+        .filter(|card| card.semantic_status.is_executable())
+        .map(|card| card.name)
+        .collect::<std::collections::BTreeSet<_>>();
+    let catalog_only_names = catalog
+        .iter()
+        .filter(|card| !card.semantic_status.is_executable())
+        .map(|card| card.name)
+        .collect::<std::collections::BTreeSet<_>>();
+
+    // Twenty executable basic-land printings collapse to five names. The
+    // remaining eight executable names are the deliberately narrow card slice.
+    assert_eq!(executable_printings, 28);
+    assert_eq!(executable_names.len(), 13);
+    assert_eq!(catalog_only_names.len(), 278);
+    assert!(executable_names.is_disjoint(&catalog_only_names));
+}
