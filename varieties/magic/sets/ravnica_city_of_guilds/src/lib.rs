@@ -224,6 +224,84 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Dredge(3)],
             effects: vec![],
         },
+        // Compatibility scope: normal creature casting, base characteristics,
+        // and the engine's existing Dredge replacement. The printed counter-
+        // based entry behavior and regeneration activation are intentionally
+        // unsupported. Its printed 0/0 base characteristics are retained; an
+        // unmodified resolved permanent will therefore be removed by SBAs.
+        CardDefinition {
+            id: "RAV-GOLGARI-GRAVE-TROLL",
+            name: "Golgari Grave-Troll",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(4, [Color::Green]),
+            colors: colors([Color::Green]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "dredge",
+                "base-characteristics",
+                "zero-toughness-state-based-action",
+            ],
+            power: Some(0),
+            toughness: Some(0),
+            keywords: vec![Keyword::Dredge(6)],
+            effects: vec![],
+        },
+        // Compatibility scope: normal creature casting, base characteristics,
+        // and the shared Dredge replacement. Its printed upkeep and end-step
+        // behavior is intentionally unsupported.
+        CardDefinition {
+            id: "RAV-NECROPLASM",
+            name: "Necroplasm",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(1, [Color::Black, Color::Black]),
+            colors: colors([Color::Black]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &["dredge", "base-characteristics"],
+            power: Some(1),
+            toughness: Some(1),
+            keywords: vec![Keyword::Dredge(2)],
+            effects: vec![],
+        },
+        // Compatibility scope: normal creature casting, base characteristics,
+        // and the shared Dredge replacement. Its printed sacrifice activation
+        // is intentionally unsupported.
+        CardDefinition {
+            id: "RAV-GRAVE-SHELL-SCARAB",
+            name: "Grave-Shell Scarab",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(2, [Color::Black, Color::Green, Color::Green]),
+            colors: colors([Color::Black, Color::Green]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &["dredge", "base-characteristics"],
+            power: Some(4),
+            toughness: Some(4),
+            keywords: vec![Keyword::Dredge(1)],
+            effects: vec![],
+        },
+        // Compatibility scope: normal creature casting, base characteristics,
+        // and the shared Dredge replacement. Its printed sacrifice activation
+        // is intentionally unsupported.
+        CardDefinition {
+            id: "RAV-SHAMBLING-SHELL",
+            name: "Shambling Shell",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(1, [Color::Black, Color::Green]),
+            colors: colors([Color::Black, Color::Green]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &["dredge", "base-characteristics"],
+            power: Some(3),
+            toughness: Some(1),
+            keywords: vec![Keyword::Dredge(3)],
+            effects: vec![],
+        },
         CardDefinition {
             id: "RAV-MUDDLE-THE-MIXTURE",
             name: "Muddle the Mixture",
@@ -376,6 +454,87 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             supported_rules: &["convoke", "base-characteristics"],
             power: Some(5),
             toughness: Some(5),
+            keywords: vec![Keyword::Convoke],
+            effects: vec![],
+        },
+        // Compatibility scope: normal creature casting, base characteristics,
+        // and the existing Convoke payment hook. Its printed combat keyword is
+        // intentionally unsupported.
+        CardDefinition {
+            id: "RAV-CONCLAVE-EQUENAUT",
+            name: "Conclave Equenaut",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(4, [Color::White, Color::White]),
+            colors: colors([Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &["convoke", "base-characteristics"],
+            power: Some(3),
+            toughness: Some(3),
+            keywords: vec![Keyword::Convoke],
+            effects: vec![],
+        },
+        // Compatibility scope: normal creature casting, base characteristics,
+        // and the existing Convoke payment hook. Its printed enter-the-
+        // battlefield behavior is intentionally unsupported.
+        CardDefinition {
+            id: "RAV-CONCLAVE-PHALANX",
+            name: "Conclave Phalanx",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(4, [Color::White]),
+            colors: colors([Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &["convoke", "base-characteristics"],
+            power: Some(2),
+            toughness: Some(4),
+            keywords: vec![Keyword::Convoke],
+            effects: vec![],
+        },
+        // Compatibility scope: normal creature casting, base characteristics,
+        // and the existing Convoke payment hook. Its printed combat keyword is
+        // intentionally unsupported.
+        CardDefinition {
+            id: "RAV-GUARDIAN-OF-VITU-GHAZI",
+            name: "Guardian of Vitu-Ghazi",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(6, [Color::Green, Color::White]),
+            colors: colors([Color::Green, Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &["convoke", "base-characteristics"],
+            power: Some(4),
+            toughness: Some(7),
+            keywords: vec![Keyword::Convoke],
+            effects: vec![],
+        },
+        // Compatibility scope: normal creature casting, base characteristics,
+        // and the existing Convoke payment hook. Its printed combat keyword is
+        // intentionally unsupported.
+        CardDefinition {
+            id: "RAV-AUTOCHTHON-WURM",
+            name: "Autochthon Wurm",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(
+                10,
+                [
+                    Color::Green,
+                    Color::Green,
+                    Color::Green,
+                    Color::White,
+                    Color::White,
+                ],
+            ),
+            colors: colors([Color::Green, Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &["convoke", "base-characteristics"],
+            power: Some(9),
+            toughness: Some(14),
             keywords: vec![Keyword::Convoke],
             effects: vec![],
         },
@@ -1167,7 +1326,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 30);
+        assert_eq!(first.len(), 38);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

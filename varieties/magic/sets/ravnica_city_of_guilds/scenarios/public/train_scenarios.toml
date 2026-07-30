@@ -1538,3 +1538,566 @@ player = 1
 zones = ["beam:graveyard", "target:graveyard", "shared:graveyard", "off_color:battlefield"]
 event_markers = ["SpellCast", "DamageDealtToPermanent", "SpellResolved", "StateBasedAction"]
 digest = "fnv1a64:b161e284ddd9e82d"
+
+[[scenario]]
+id = "rav_golgari_grave_troll_dredge_slice"
+seed = 0
+description = "Replace a draw with Golgari Grave-Troll's supported Dredge value, then cast its printed 0/0 base creature and observe the supported zero-toughness state-based action. Its counter-based entry behavior and regeneration activation are outside this compatibility slice."
+
+[[scenario.card]]
+label = "troll"
+owner = 0
+definition = "RAV-GOLGARI-GRAVE-TROLL"
+zone = "graveyard"
+
+[[scenario.card]]
+label = "mill_one"
+owner = 0
+definition = "RAV-FOREST"
+zone = "library"
+
+[[scenario.card]]
+label = "mill_two"
+owner = 0
+definition = "RAV-FOREST"
+zone = "library"
+
+[[scenario.card]]
+label = "mill_three"
+owner = 0
+definition = "RAV-FOREST"
+zone = "library"
+
+[[scenario.card]]
+label = "mill_four"
+owner = 0
+definition = "RAV-FOREST"
+zone = "library"
+
+[[scenario.card]]
+label = "mill_five"
+owner = 0
+definition = "RAV-FOREST"
+zone = "library"
+
+[[scenario.card]]
+label = "mill_six"
+owner = 0
+definition = "RAV-FOREST"
+zone = "library"
+
+[[scenario.action]]
+kind = "draw"
+player = 0
+dredge = "troll"
+
+[[scenario.mana]]
+player = 0
+color = "green"
+amount = 1
+
+[[scenario.mana]]
+player = 0
+color = "red"
+amount = 4
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "troll"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["troll:graveyard", "mill_one:graveyard", "mill_two:graveyard", "mill_three:graveyard", "mill_four:graveyard", "mill_five:graveyard", "mill_six:graveyard"]
+event_markers = ["Dredged", "SpellCast", "SpellResolved", "StateBasedAction"]
+digest = "fnv1a64:1560ed94b49c59af"
+
+[[scenario]]
+id = "rav_necroplasm_dredge_and_cast_slice"
+seed = 0
+description = "Replace a draw with Necroplasm's supported Dredge value and cast its supported 1/1 base creature. Its printed turn-trigger behavior is outside this compatibility slice."
+
+[[scenario.card]]
+label = "necroplasm"
+owner = 0
+definition = "RAV-NECROPLASM"
+zone = "graveyard"
+
+[[scenario.card]]
+label = "mill_one"
+owner = 0
+definition = "RAV-FOREST"
+zone = "library"
+
+[[scenario.card]]
+label = "mill_two"
+owner = 0
+definition = "RAV-FOREST"
+zone = "library"
+
+[[scenario.mana]]
+player = 0
+color = "black"
+amount = 2
+
+[[scenario.mana]]
+player = 0
+color = "red"
+amount = 1
+
+[[scenario.action]]
+kind = "draw"
+player = 0
+dredge = "necroplasm"
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "necroplasm"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["necroplasm:battlefield", "mill_one:graveyard", "mill_two:graveyard"]
+powers = ["necroplasm:1"]
+event_markers = ["Dredged", "SpellCast", "SpellResolved"]
+digest = "fnv1a64:35ecbb78e0524c69"
+
+[[scenario]]
+id = "rav_grave_shell_scarab_dredge_and_cast_slice"
+seed = 0
+description = "Replace a draw with Grave-Shell Scarab's supported Dredge value and cast its supported 4/4 base creature. Its printed sacrifice activation is outside this compatibility slice."
+
+[[scenario.card]]
+label = "scarab"
+owner = 0
+definition = "RAV-GRAVE-SHELL-SCARAB"
+zone = "graveyard"
+
+[[scenario.card]]
+label = "mill_one"
+owner = 0
+definition = "RAV-FOREST"
+zone = "library"
+
+[[scenario.mana]]
+player = 0
+color = "black"
+amount = 1
+
+[[scenario.mana]]
+player = 0
+color = "green"
+amount = 2
+
+[[scenario.mana]]
+player = 0
+color = "red"
+amount = 2
+
+[[scenario.action]]
+kind = "draw"
+player = 0
+dredge = "scarab"
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "scarab"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["scarab:battlefield", "mill_one:graveyard"]
+powers = ["scarab:4"]
+event_markers = ["Dredged", "SpellCast", "SpellResolved"]
+digest = "fnv1a64:b14a6b939d00a681"
+
+[[scenario]]
+id = "rav_shambling_shell_dredge_and_cast_slice"
+seed = 0
+description = "Replace a draw with Shambling Shell's supported Dredge value and cast its supported 3/1 base creature. Its printed sacrifice activation is outside this compatibility slice."
+
+[[scenario.card]]
+label = "shell"
+owner = 0
+definition = "RAV-SHAMBLING-SHELL"
+zone = "graveyard"
+
+[[scenario.card]]
+label = "mill_one"
+owner = 0
+definition = "RAV-FOREST"
+zone = "library"
+
+[[scenario.card]]
+label = "mill_two"
+owner = 0
+definition = "RAV-FOREST"
+zone = "library"
+
+[[scenario.card]]
+label = "mill_three"
+owner = 0
+definition = "RAV-FOREST"
+zone = "library"
+
+[[scenario.mana]]
+player = 0
+color = "black"
+amount = 1
+
+[[scenario.mana]]
+player = 0
+color = "green"
+amount = 1
+
+[[scenario.mana]]
+player = 0
+color = "red"
+amount = 1
+
+[[scenario.action]]
+kind = "draw"
+player = 0
+dredge = "shell"
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "shell"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["shell:battlefield", "mill_one:graveyard", "mill_two:graveyard", "mill_three:graveyard"]
+powers = ["shell:3"]
+event_markers = ["Dredged", "SpellCast", "SpellResolved"]
+digest = "fnv1a64:6eb82ad42dbc780c"
+
+[[scenario]]
+id = "rav_conclave_equenaut_convoke_slice"
+seed = 0
+description = "Convoke Conclave Equenaut with four generic creature contributions and resolve its supported 3/3 base creature. Its printed combat keyword is outside this compatibility slice."
+
+[[scenario.card]]
+label = "equenaut"
+owner = 0
+definition = "RAV-CONCLAVE-EQUENAUT"
+zone = "hand"
+
+[[scenario.card]]
+label = "one"
+owner = 0
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "two"
+owner = 0
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "three"
+owner = 0
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "four"
+owner = 0
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+
+[[scenario.mana]]
+player = 0
+color = "white"
+amount = 2
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "equenaut"
+convoke = ["one:generic", "two:generic", "three:generic", "four:generic"]
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["equenaut:battlefield"]
+powers = ["equenaut:3"]
+tapped = ["one:true", "two:true", "three:true", "four:true"]
+event_markers = ["SpellCast", "ConvokeUsed", "SpellResolved"]
+digest = "fnv1a64:e6d94b7618cfb40f"
+
+[[scenario]]
+id = "rav_conclave_phalanx_convoke_slice"
+seed = 0
+description = "Convoke Conclave Phalanx with four generic creature contributions and resolve its supported 2/4 base creature. Its printed entry behavior is outside this compatibility slice."
+
+[[scenario.card]]
+label = "phalanx"
+owner = 0
+definition = "RAV-CONCLAVE-PHALANX"
+zone = "hand"
+
+[[scenario.card]]
+label = "one"
+owner = 0
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "two"
+owner = 0
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "three"
+owner = 0
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "four"
+owner = 0
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+
+[[scenario.mana]]
+player = 0
+color = "white"
+amount = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "phalanx"
+convoke = ["one:generic", "two:generic", "three:generic", "four:generic"]
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["phalanx:battlefield"]
+powers = ["phalanx:2"]
+tapped = ["one:true", "two:true", "three:true", "four:true"]
+event_markers = ["SpellCast", "ConvokeUsed", "SpellResolved"]
+digest = "fnv1a64:e6d94b7618cfb40f"
+
+[[scenario]]
+id = "rav_guardian_of_vitu_ghazi_convoke_slice"
+seed = 0
+description = "Convoke Guardian of Vitu-Ghazi with six generic creature contributions and resolve its supported 4/7 base creature. Its printed combat keyword is outside this compatibility slice."
+
+[[scenario.card]]
+label = "guardian"
+owner = 0
+definition = "RAV-GUARDIAN-OF-VITU-GHAZI"
+zone = "hand"
+
+[[scenario.card]]
+label = "one"
+owner = 0
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "two"
+owner = 0
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "three"
+owner = 0
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "four"
+owner = 0
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "five"
+owner = 0
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "six"
+owner = 0
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+
+[[scenario.mana]]
+player = 0
+color = "green"
+amount = 1
+
+[[scenario.mana]]
+player = 0
+color = "white"
+amount = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "guardian"
+convoke = ["one:generic", "two:generic", "three:generic", "four:generic", "five:generic", "six:generic"]
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["guardian:battlefield"]
+powers = ["guardian:4"]
+tapped = ["one:true", "two:true", "three:true", "four:true", "five:true", "six:true"]
+event_markers = ["SpellCast", "ConvokeUsed", "SpellResolved"]
+digest = "fnv1a64:a68cdb671a037d94"
+
+[[scenario]]
+id = "rav_autochthon_wurm_convoke_slice"
+seed = 0
+description = "Convoke Autochthon Wurm with ten generic creature contributions and resolve its supported 9/14 base creature. Its printed combat keyword is outside this compatibility slice."
+
+[[scenario.card]]
+label = "wurm"
+owner = 0
+definition = "RAV-AUTOCHTHON-WURM"
+zone = "hand"
+
+[[scenario.card]]
+label = "one"
+owner = 0
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "two"
+owner = 0
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "three"
+owner = 0
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "four"
+owner = 0
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "five"
+owner = 0
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "six"
+owner = 0
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "seven"
+owner = 0
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "eight"
+owner = 0
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "nine"
+owner = 0
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "ten"
+owner = 0
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+
+[[scenario.mana]]
+player = 0
+color = "green"
+amount = 3
+
+[[scenario.mana]]
+player = 0
+color = "white"
+amount = 2
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "wurm"
+convoke = ["one:generic", "two:generic", "three:generic", "four:generic", "five:generic", "six:generic", "seven:generic", "eight:generic", "nine:generic", "ten:generic"]
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["wurm:battlefield"]
+powers = ["wurm:9"]
+tapped = ["one:true", "two:true", "three:true", "four:true", "five:true", "six:true", "seven:true", "eight:true", "nine:true", "ten:true"]
+event_markers = ["SpellCast", "ConvokeUsed", "SpellResolved"]
+digest = "fnv1a64:b99b83e79f760710"

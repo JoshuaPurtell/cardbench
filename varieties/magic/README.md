@@ -78,6 +78,11 @@ setup, actions, state assertions, event markers, and a fixed digest. They cover:
 - a one-mana, fully convoked targeted temporary boost (`Gather Courage`);
 - colored and generic convoke payment plus token creation (`Scatter the Seeds`);
 - dredge as a draw replacement (`Golgari Brownscale`);
+- declared generic Dredge/Convoke compatibility slices with fixed event logs;
+  these cover only the named shared keyword plus normal casting/base
+  characteristics, never omitted printed behavior (`Golgari Grave-Troll`,
+  `Necroplasm`, `Grave-Shell Scarab`, `Shambling Shell`, `Conclave Equenaut`,
+  `Conclave Phalanx`, `Guardian of Vitu-Ghazi`, and `Autochthon Wurm`);
 - a target-instant-or-sorcery stack counter plus transmute, equal mana-value search, and seeded deterministic shuffle (`Muddle the Mixture`);
 - radiance color matching and layer-7 modifiers (`Rally the Righteous`); and
 - zero-toughness state-based action after a continuous effect (`Last Gasp`);
