@@ -375,6 +375,11 @@ impl Game {
         player: PlayerId,
         deck: &DeckList,
     ) -> Result<(), RulesError> {
+        if self.started {
+            return Err(RulesError::IllegalAction(
+                "a deck may be loaded only before the game begins",
+            ));
+        }
         let state = self.player(player)?;
         if !state.library.is_empty()
             || !state.hand.is_empty()
@@ -417,6 +422,16 @@ impl Game {
     pub fn draw_opening_hand(&mut self, player: PlayerId, cards: u8) -> Result<(), RulesError> {
         self.player(player)?;
         self.require_game_in_progress()?;
+        if self.started {
+            return Err(RulesError::IllegalAction(
+                "an opening hand may be drawn only before the game begins",
+            ));
+        }
+        if !self.players[player.0].hand.is_empty() {
+            return Err(RulesError::IllegalAction(
+                "an opening hand requires an empty hand",
+            ));
+        }
         if self.players[player.0].library.len() < usize::from(cards) {
             return Err(RulesError::IllegalAction(
                 "opening hand requires enough cards in library",
@@ -2106,10 +2121,16 @@ impl Game {
                     .characteristics(blocker)?
                     .power
                     .ok_or(RulesError::IllegalAction("blocker lacks power"))?;
-                permanent_damage.push((attacker, blocker, attacker_power));
-                permanent_damage.push((blocker, attacker, blocker_power));
+                if attacker_power > 0 {
+                    permanent_damage.push((attacker, blocker, attacker_power));
+                }
+                if blocker_power > 0 {
+                    permanent_damage.push((blocker, attacker, blocker_power));
+                }
             } else {
-                player_damage.push((attacker, defending_player, attacker_power));
+                if attacker_power > 0 {
+                    player_damage.push((attacker, defending_player, attacker_power));
+                }
             }
         }
         for (source, permanent, amount) in permanent_damage {
@@ -2173,9 +2194,8 @@ impl Game {
         if self.object(card)?.token.is_some() {
             self.remove_from_all_zones(card);
             self.objects.remove(&card);
-            self.continuous_effects
-                .retain(|effect| effect.source != card && effect.target != card);
             self.record_event(GameEvent::TokenCeasedToExist { token: card });
+            self.expire_continuous_effects_involving(card);
             return Ok(());
         }
         self.move_to_zone(card, Zone::Graveyard)
@@ -2186,13 +2206,6 @@ impl Game {
         let left_battlefield =
             self.zone_of(card) == Some(Zone::Battlefield) && zone != Zone::Battlefield;
         self.remove_from_all_zones(card);
-        if left_battlefield {
-            // Permanent effects cease when either their source or target
-            // changes zones. End-of-turn effects from instants remain because
-            // their source was never a battlefield permanent.
-            self.continuous_effects
-                .retain(|effect| effect.source != card && effect.target != card);
-        }
         let destination_owner = if zone == Zone::Battlefield {
             object.controller
         } else {
@@ -2209,7 +2222,31 @@ impl Game {
         }
         self.place_in_zone(destination_owner, card, zone)?;
         self.record_event(GameEvent::CardMoved { card, to: zone });
+        if left_battlefield {
+            // Permanent effects cease when either their source or target
+            // changes zones. End-of-turn effects from instants remain because
+            // their source was never a battlefield permanent.
+            self.expire_continuous_effects_involving(card);
+        }
         Ok(())
+    }
+
+    fn expire_continuous_effects_involving(&mut self, card: ObjectId) {
+        let expired = self
+            .continuous_effects
+            .iter()
+            .filter(|effect| effect.source == card || effect.target == card)
+            .cloned()
+            .collect::<Vec<_>>();
+        self.continuous_effects
+            .retain(|effect| effect.source != card && effect.target != card);
+        for effect in expired {
+            self.record_event(GameEvent::ContinuousEffectExpired {
+                source: effect.source,
+                target: effect.target,
+                layer: effect.change.layer(),
+            });
+        }
     }
 
     fn place_in_zone(
@@ -2412,12 +2449,11 @@ impl Game {
             self.stack
                 .retain(|stack_object| stack_object.card != object);
             self.objects.remove(&object);
-            self.continuous_effects
-                .retain(|effect| effect.source != object && effect.target != object);
             self.record_event(GameEvent::ObjectLeftGame {
                 object,
                 owner: object_owner,
             });
+            self.expire_continuous_effects_involving(object);
         }
 
         let controlled_but_not_owned = self
@@ -2432,8 +2468,6 @@ impl Game {
                 .retain(|stack_object| stack_object.card != object);
             let owner = self.objects[&object].owner;
             self.remove_from_all_zones(object);
-            self.continuous_effects
-                .retain(|effect| effect.source != object && effect.target != object);
             let object_state = self
                 .objects
                 .get_mut(&object)
@@ -2444,6 +2478,7 @@ impl Game {
                 card: object,
                 to: Zone::Exile,
             });
+            self.expire_continuous_effects_involving(object);
         }
     }
 

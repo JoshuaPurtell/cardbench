@@ -96,8 +96,10 @@ Oracle Magic rules coverage.
   `LibraryShuffled`. These lifecycle receipts let a runner audit transitions
   instead of inferring invisible mutations from the final state.
 - Opening-hand drawing preflights the requested count. It is an all-or-error
-  setup transaction: a short library cannot partially draw cards and then
-  claim a larger `OpeningHandDrawn` event.
+  setup transaction available only before the game begins and only into an
+  empty hand: a short library cannot partially draw cards and then claim a
+  larger `OpeningHandDrawn` event. Deck loading is likewise pregame-only, so
+  setup events and hidden cards cannot be injected into a live turn.
 
 ## Combat
 
@@ -114,6 +116,8 @@ Oracle Magic rules coverage.
   damage cannot begin without both declarations. A participant may leave after
   declaration, so later combat bookkeeping preserves the declaration without
   dereferencing a vanished token.
+  A creature with zero or negative power assigns no combat damage and emits no
+  damage event; negative power can never increase life or remove marked damage.
 - Combat damage occurs only after attacker and blocker declarations. It is
   recorded as player/permanent damage events, then state-based actions run.
   Multi-block assignment, alternative combat restrictions, and other
@@ -130,7 +134,8 @@ Oracle Magic rules coverage.
 
 - Continuous effects are applied in the implemented layer order (4--7), then
   timestamp order within a layer. End-of-turn effects expire during cleanup;
-  marked damage clears there.
+  marked damage clears there. An effect removed because its source or target
+  leaves the battlefield emits an explicit expiration lifecycle receipt.
 - Every continuous effect names extant source and target objects, has a unique
   positive monotonic timestamp, and has a valid duration. A permanent-duration effect
   cannot outlive its battlefield source; an end-of-turn effect belongs to the

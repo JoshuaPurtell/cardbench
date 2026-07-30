@@ -9,8 +9,8 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardDefinition, CardType, Color, CombatBlock, Effect, Game, GameEvent, Keyword, ManaCost,
-    PlayerId, PolicyAction, PolicyMoveKind, RulesError, Step, Zone,
+    CardDefinition, CardType, Color, CombatBlock, DeckEntry, DeckList, Effect, Game, GameEvent,
+    Keyword, ManaCost, PlayerId, PolicyAction, PolicyMoveKind, RulesError, Step, Zone,
 };
 
 const FILLER: &str = "REPLACEMENT-FILLER";
@@ -387,6 +387,84 @@ fn policy_may_take_the_normal_draw_even_when_dredge_is_available() {
             GameEvent::PolicyMoveSubmitted { player, kind: PolicyMoveKind::Draw, .. },
         ] if *card == normal_draw && *player == deciding_player
     ));
+    assert_invariants(&game);
+}
+
+#[test]
+fn setup_only_deck_and_opening_hand_transitions_reject_runtime_injection_atomically() {
+    let player = PlayerId(0);
+    let mut game = game(2);
+    let deck = DeckList {
+        mainboard: vec![DeckEntry {
+            card: FILLER.to_owned(),
+            count: 2,
+        }],
+        sideboard: vec![],
+    };
+    game.load_deck_into_library(player, &deck)
+        .expect("deck setup succeeds before the turn machine starts");
+    game.draw_opening_hand(player, 1)
+        .expect("opening-hand setup succeeds before the turn machine starts");
+    game.begin_game().expect("game starts after setup");
+    game.clear_event_log();
+
+    let before_players = game.players.clone();
+    assert!(matches!(
+        game.draw_opening_hand(player, 1),
+        Err(RulesError::IllegalAction(
+            "an opening hand may be drawn only before the game begins"
+        ))
+    ));
+    assert_eq!(
+        game.players, before_players,
+        "a rejected runtime opening-hand proposal cannot move a hidden card"
+    );
+    assert!(
+        game.event_log.is_empty(),
+        "a rejected runtime setup proposal has no OpeningHandDrawn receipt"
+    );
+
+    let empty_runtime_player = PlayerId(1);
+    assert!(matches!(
+        game.load_deck_into_library(empty_runtime_player, &deck),
+        Err(RulesError::IllegalAction(
+            "a deck may be loaded only before the game begins"
+        ))
+    ));
+    assert!(game.players[empty_runtime_player.0].library.is_empty());
+    assert!(
+        game.event_log.is_empty(),
+        "a rejected runtime deck load has no DeckLoaded or LibraryShuffled receipt"
+    );
+    assert_invariants(&game);
+}
+
+#[test]
+fn a_second_opening_hand_cannot_be_appended_during_setup() {
+    let player = PlayerId(0);
+    let mut game = game(2);
+    let deck = DeckList {
+        mainboard: vec![DeckEntry {
+            card: FILLER.to_owned(),
+            count: 2,
+        }],
+        sideboard: vec![],
+    };
+    game.load_deck_into_library(player, &deck)
+        .expect("deck setup succeeds");
+    game.draw_opening_hand(player, 1)
+        .expect("the first opening hand succeeds");
+    let before_players = game.players.clone();
+    let before_events = game.event_log.clone();
+
+    assert!(matches!(
+        game.draw_opening_hand(player, 1),
+        Err(RulesError::IllegalAction(
+            "an opening hand requires an empty hand"
+        ))
+    ));
+    assert_eq!(game.players, before_players);
+    assert_eq!(game.event_log, before_events);
     assert_invariants(&game);
 }
 
