@@ -300,6 +300,13 @@ pub enum Effect {
     DealDamageController {
         amount: i16,
     },
+    /// Deal one fixed amount of damage to every creature currently on the
+    /// battlefield and every player still in the game. This selection is made
+    /// once while the spell resolves; state-based actions run only after the
+    /// complete batch has received damage.
+    DealDamageToEachCreatureAndPlayer {
+        amount: i16,
+    },
     /// Deal damage to the targeted creature and every creature that shares at
     /// least one of its colors. The target remains included even if it has no
     /// colors, matching the shared radiance selection substrate.
@@ -347,6 +354,7 @@ impl Effect {
                 Some(TargetRequirement::InstantOrSorcerySpell)
             }
             Self::DealDamageController { .. }
+            | Self::DealDamageToEachCreatureAndPlayer { .. }
             | Self::GainLifeController { .. }
             | Self::CreateToken { .. } => None,
         }

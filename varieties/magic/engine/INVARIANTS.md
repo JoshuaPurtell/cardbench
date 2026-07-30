@@ -205,6 +205,13 @@ Oracle Magic rules coverage.
   snapshots that selection once, emits one damage receipt per selected
   creature, and applies all of those marks before its post-resolution SBA
   check.
+- A target-free global creature-and-player damage effect snapshots every
+  battlefield creature in stable object-id order, emits one permanent-damage
+  receipt for each, then emits one player-damage receipt for each surviving
+  player in seat order. Noncreatures are excluded. All marks and life changes
+  complete before the post-resolution SBA fixed point, so one lethal creature
+  cannot prevent another selected creature or player from receiving its
+  receipt.
 - Card and mechanic implementations may only claim the semantic fragments
   listed in their `supported_rules`. Unsupported text is not silently inferred.
 - A nonpermanent card with no supported cast effect is rejected at cast time;

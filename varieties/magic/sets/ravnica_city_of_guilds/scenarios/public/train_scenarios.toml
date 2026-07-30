@@ -2101,3 +2101,207 @@ powers = ["wurm:9"]
 tapped = ["one:true", "two:true", "three:true", "four:true", "five:true", "six:true", "seven:true", "eight:true", "nine:true", "ten:true"]
 event_markers = ["SpellCast", "ConvokeUsed", "SpellResolved"]
 digest = "fnv1a64:b99b83e79f760710"
+
+[[scenario]]
+id = "rav_rain_of_embers_global_damage"
+seed = 0
+description = "Resolve Rain of Embers' target-free fixed damage batch across both players and every creature before state-based actions."
+
+[[scenario.card]]
+label = "rain"
+owner = 0
+definition = "RAV-RAIN-OF-EMBERS"
+zone = "hand"
+
+[[scenario.card]]
+label = "thug"
+owner = 0
+definition = "RAV-GOLGARI-THUG"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "birds"
+owner = 1
+definition = "RAV-BIRDS-OF-PARADISE"
+zone = "battlefield"
+
+[[scenario.mana]]
+player = 0
+color = "red"
+amount = 2
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "rain"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+life = [19, 19]
+zones = ["rain:graveyard", "thug:graveyard", "birds:graveyard"]
+event_markers = ["SpellCast", "DamageDealtToPermanent", "DamageDealtToPlayer", "SpellResolved", "StateBasedAction"]
+digest = "fnv1a64:2df3e7b7dadf9c1a"
+
+[[scenario]]
+id = "rav_dimir_machinations_transmute"
+seed = 41
+description = "Use Dimir Machinations' scoped transmute activation; its printed spell effect is non-covered."
+
+[[scenario.card]]
+label = "machinations"
+owner = 0
+definition = "RAV-DIMIR-MACHINATIONS"
+zone = "hand"
+
+[[scenario.card]]
+label = "found_machinations"
+owner = 0
+definition = "RAV-DIMIR-MACHINATIONS"
+zone = "library"
+
+[[scenario.mana]]
+player = 0
+color = "blue"
+amount = 2
+
+[[scenario.mana]]
+player = 0
+color = "green"
+amount = 1
+
+[[scenario.action]]
+kind = "transmute"
+player = 0
+card = "machinations"
+found = "found_machinations"
+
+[scenario.expected]
+zones = ["machinations:graveyard", "found_machinations:hand"]
+event_markers = ["Transmuted", "CardMoved", "LibraryShuffled"]
+digest = "fnv1a64:07ba6ebbc10fdd6e"
+
+[[scenario]]
+id = "rav_shred_memory_transmute"
+seed = 41
+description = "Use Shred Memory's scoped transmute activation; its printed spell effect is non-covered."
+
+[[scenario.card]]
+label = "shred"
+owner = 0
+definition = "RAV-SHRED-MEMORY"
+zone = "hand"
+
+[[scenario.card]]
+label = "found_shred"
+owner = 0
+definition = "RAV-SHRED-MEMORY"
+zone = "library"
+
+[[scenario.mana]]
+player = 0
+color = "black"
+amount = 2
+
+[[scenario.mana]]
+player = 0
+color = "green"
+amount = 1
+
+[[scenario.action]]
+kind = "transmute"
+player = 0
+card = "shred"
+found = "found_shred"
+
+[scenario.expected]
+zones = ["shred:graveyard", "found_shred:hand"]
+event_markers = ["Transmuted", "CardMoved", "LibraryShuffled"]
+digest = "fnv1a64:07ba6ebbc10fdd6e"
+
+[[scenario]]
+id = "rav_clutch_of_the_undercity_transmute"
+seed = 41
+description = "Use Clutch of the Undercity's scoped transmute activation; its printed spell effect is non-covered."
+
+[[scenario.card]]
+label = "clutch"
+owner = 0
+definition = "RAV-CLUTCH-OF-THE-UNDERCITY"
+zone = "hand"
+
+[[scenario.card]]
+label = "found_clutch"
+owner = 0
+definition = "RAV-CLUTCH-OF-THE-UNDERCITY"
+zone = "library"
+
+[[scenario.mana]]
+player = 0
+color = "blue"
+amount = 2
+
+[[scenario.mana]]
+player = 0
+color = "green"
+amount = 1
+
+[[scenario.action]]
+kind = "transmute"
+player = 0
+card = "clutch"
+found = "found_clutch"
+
+[scenario.expected]
+zones = ["clutch:graveyard", "found_clutch:hand"]
+event_markers = ["Transmuted", "CardMoved", "LibraryShuffled"]
+digest = "fnv1a64:07ba6ebbc10fdd6e"
+
+[[scenario]]
+id = "rav_perplex_transmute"
+seed = 41
+description = "Use Perplex's scoped transmute activation; its printed spell effect is non-covered."
+
+[[scenario.card]]
+label = "perplex"
+owner = 0
+definition = "RAV-PERPLEX"
+zone = "hand"
+
+[[scenario.card]]
+label = "found_perplex"
+owner = 0
+definition = "RAV-PERPLEX"
+zone = "library"
+
+[[scenario.mana]]
+player = 0
+color = "blue"
+amount = 1
+
+[[scenario.mana]]
+player = 0
+color = "black"
+amount = 1
+
+[[scenario.mana]]
+player = 0
+color = "green"
+amount = 1
+
+[[scenario.action]]
+kind = "transmute"
+player = 0
+card = "perplex"
+found = "found_perplex"
+
+[scenario.expected]
+zones = ["perplex:graveyard", "found_perplex:hand"]
+event_markers = ["Transmuted", "CardMoved", "LibraryShuffled"]
+digest = "fnv1a64:07ba6ebbc10fdd6e"

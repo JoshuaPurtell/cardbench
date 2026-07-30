@@ -2187,6 +2187,48 @@ impl Game {
                     amount: *amount,
                 });
             }
+            Effect::DealDamageToEachCreatureAndPlayer { amount } => {
+                // Snapshot the complete affected set before mutating the
+                // board. The resolution path invokes state-based actions only
+                // after every effect finishes, so simultaneous all-creature
+                // damage cannot remove a later recipient early.
+                let creatures = self
+                    .objects
+                    .keys()
+                    .copied()
+                    .filter(|candidate| {
+                        self.zone_of(*candidate) == Some(Zone::Battlefield)
+                            && self
+                                .characteristics(*candidate)
+                                .is_ok_and(|characteristics| {
+                                    characteristics.card_types.contains(&CardType::Creature)
+                                })
+                    })
+                    .collect::<Vec<_>>();
+                for creature in creatures {
+                    self.objects
+                        .get_mut(&creature)
+                        .ok_or(RulesError::UnknownCard(creature))?
+                        .damage += amount;
+                    self.record_event(GameEvent::DamageDealtToPermanent {
+                        source,
+                        permanent: creature,
+                        amount: *amount,
+                    });
+                }
+                for player in 0..self.players.len() {
+                    if self.players[player].lost {
+                        continue;
+                    }
+                    let player = PlayerId(player);
+                    self.players[player.0].life -= amount;
+                    self.record_event(GameEvent::DamageDealtToPlayer {
+                        source,
+                        player,
+                        amount: *amount,
+                    });
+                }
+            }
             Effect::RadianceDealDamageToCreatures { amount } => {
                 let target = Self::target_permanent(targets)?;
                 // Select once before mutating damage. State-based actions run

@@ -81,6 +81,24 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 Effect::DealDamageController { amount: 2 },
             ],
         },
+        // This definition covers the complete fixed global-damage resolution:
+        // all creatures and both players receive one damage in one batch before
+        // state-based actions. It does not encode any unrelated card text.
+        CardDefinition {
+            id: "RAV-RAIN-OF-EMBERS",
+            name: "Rain of Embers",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(1, [Color::Red]),
+            colors: colors([Color::Red]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Sorcery]),
+            is_basic_land: false,
+            supported_rules: &["global-creature-and-player-damage"],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![Effect::DealDamageToEachCreatureAndPlayer { amount: 1 }],
+        },
         // Compatibility scope: a targeted creature and every creature sharing
         // one of its colors receive the same damage during one resolution.
         // This intentionally does not claim broader red-spell or set fidelity.
@@ -319,6 +337,87 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 [Color::Blue, Color::Blue],
             ))],
             effects: vec![Effect::CounterTargetInstantOrSorcerySpell],
+        },
+        // Only the hand-zone transmute activation is executable. The printed
+        // spell effect is deliberately non-covered in this compatibility
+        // definition.
+        CardDefinition {
+            id: "RAV-DIMIR-MACHINATIONS",
+            name: "Dimir Machinations",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(2, [Color::Blue]),
+            colors: colors([Color::Blue]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Sorcery]),
+            is_basic_land: false,
+            supported_rules: &["transmute"],
+            power: None,
+            toughness: None,
+            keywords: vec![Keyword::Transmute(ManaCost::with_colors(
+                1,
+                [Color::Blue, Color::Blue],
+            ))],
+            effects: vec![],
+        },
+        // Only the hand-zone transmute activation is executable. Its printed
+        // spell effect is deliberately non-covered.
+        CardDefinition {
+            id: "RAV-SHRED-MEMORY",
+            name: "Shred Memory",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(0, [Color::Black]),
+            colors: colors([Color::Black]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Instant]),
+            is_basic_land: false,
+            supported_rules: &["transmute"],
+            power: None,
+            toughness: None,
+            keywords: vec![Keyword::Transmute(ManaCost::with_colors(
+                1,
+                [Color::Black, Color::Black],
+            ))],
+            effects: vec![],
+        },
+        // Only the hand-zone transmute activation is executable. Its printed
+        // spell effect is deliberately non-covered.
+        CardDefinition {
+            id: "RAV-CLUTCH-OF-THE-UNDERCITY",
+            name: "Clutch of the Undercity",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(1, [Color::Blue, Color::Black]),
+            colors: colors([Color::Blue, Color::Black]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Instant]),
+            is_basic_land: false,
+            supported_rules: &["transmute"],
+            power: None,
+            toughness: None,
+            keywords: vec![Keyword::Transmute(ManaCost::with_colors(
+                1,
+                [Color::Blue, Color::Blue],
+            ))],
+            effects: vec![],
+        },
+        // Only the hand-zone transmute activation is executable. Its printed
+        // spell effect is deliberately non-covered.
+        CardDefinition {
+            id: "RAV-PERPLEX",
+            name: "Perplex",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(0, [Color::Blue, Color::Black, Color::Black]),
+            colors: colors([Color::Blue, Color::Black]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Instant]),
+            is_basic_land: false,
+            supported_rules: &["transmute"],
+            power: None,
+            toughness: None,
+            keywords: vec![Keyword::Transmute(ManaCost::with_colors(
+                1,
+                [Color::Blue, Color::Black],
+            ))],
+            effects: vec![],
         },
         // This compatibility definition is deliberately limited to the target
         // creature's temporary layer-7 modifier and transmute; it does not
@@ -1326,7 +1425,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 38);
+        assert_eq!(first.len(), 43);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

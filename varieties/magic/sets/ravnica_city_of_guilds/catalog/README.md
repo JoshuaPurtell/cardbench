@@ -64,6 +64,15 @@ and retained activator priority. The catalog maps Dimir Signet at its retained
 public collector number, `#260`; `#261` is Glass Golem and remains mapped to
 its separate executable definition.
 
+Five additional low-complexity spells make the executable boundary more useful
+without pretending to complete their set mechanics. Rain of Embers uses the
+shared, target-free global creature-and-player damage effect, with one-pass
+selection and state-based actions after the complete damage batch. Dimir
+Machinations, Shred Memory, Clutch of the Undercity, and Perplex are expressly
+transmute-only compatibility definitions: their hand-zone transmute activations
+are exercised in public scenarios, while each printed spell effect remains
+non-covered. These are bounded semantic slices, not full-card claims.
+
 The TSV's structure and the Rust parser are CardBench-authored MIT-licensed code and
 data structure. Magic set names and card names are used solely as nominative
 interoperability identifiers and remain their owners' marks.
