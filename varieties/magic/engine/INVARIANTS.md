@@ -256,6 +256,13 @@ Oracle Magic rules coverage.
   complete before the post-resolution SBA fixed point, so one lethal creature
   cannot prevent another selected creature or player from receiving its
   receipt.
+- A combat-count damage effect computes the resolving controller's currently
+  battlefield attacking creatures at resolution. It emits no damage receipt
+  when that count is zero, and its count is widened and preflighted before a
+  cast can commit an unrepresentable event amount. A controller-wide temporary
+  power/toughness effect snapshots every creature the controller currently
+  controls, installs one layer-seven effect for each recipient, then runs SBAs
+  only after the spell's complete recipient set is processed.
 - Card and mechanic implementations may only claim the semantic fragments
   listed in their `supported_rules`. Unsupported text is not silently inferred.
 - A nonpermanent card with no supported cast effect is rejected at cast time;
