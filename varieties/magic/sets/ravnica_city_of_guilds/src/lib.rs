@@ -81,6 +81,24 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 Effect::DealDamageController { amount: 2 },
             ],
         },
+        // Compatibility scope: a targeted creature and every creature sharing
+        // one of its colors receive the same damage during one resolution.
+        // This intentionally does not claim broader red-spell or set fidelity.
+        CardDefinition {
+            id: "RAV-CLEANSING-BEAM",
+            name: "Cleansing Beam",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(4, [Color::Red]),
+            colors: colors([Color::Red]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Sorcery]),
+            is_basic_land: false,
+            supported_rules: &["radiance", "targeted-creature-damage"],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![Effect::RadianceDealDamageToCreatures { amount: 2 }],
+        },
         CardDefinition {
             id: "RAV-LIGHTNING-HELIX",
             name: "Lightning Helix",
@@ -1149,7 +1167,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 29);
+        assert_eq!(first.len(), 30);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

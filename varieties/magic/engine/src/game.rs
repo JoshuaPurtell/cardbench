@@ -2171,6 +2171,23 @@ impl Game {
                     amount: *amount,
                 });
             }
+            Effect::RadianceDealDamageToCreatures { amount } => {
+                let target = Self::target_permanent(targets)?;
+                // Select once before mutating damage. State-based actions run
+                // after the complete spell resolves, so every selected
+                // creature receives this effect's damage in the same batch.
+                for candidate in self.radiance_creatures_sharing_color(target)? {
+                    self.objects
+                        .get_mut(&candidate)
+                        .ok_or(RulesError::UnknownCard(candidate))?
+                        .damage += amount;
+                    self.record_event(GameEvent::DamageDealtToPermanent {
+                        source,
+                        permanent: candidate,
+                        amount: *amount,
+                    });
+                }
+            }
             Effect::GainLifeController { amount } => {
                 self.players[controller.0].life += amount;
                 self.record_event(GameEvent::LifeGained {

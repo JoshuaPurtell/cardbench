@@ -456,6 +456,7 @@ fn execute_action(
     }
 }
 
+#[allow(clippy::too_many_lines)] // Fixture assertion fields intentionally stay in one auditable parser path.
 fn assert_expected_state(
     specification: &ScenarioSpec,
     game: &Game,
