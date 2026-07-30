@@ -175,6 +175,12 @@ pub struct ManaPool {
 }
 
 impl ManaPool {
+    /// Whether this bounded compatibility pool can represent the requested addition.
+    #[must_use]
+    pub const fn can_add(&self, color: Color, amount: u8) -> bool {
+        amount <= u8::MAX.saturating_sub(self.amount(color))
+    }
+
     pub fn add(&mut self, color: Color, amount: u8) {
         self.amounts[color.index()] = self.amounts[color.index()].saturating_add(amount);
     }

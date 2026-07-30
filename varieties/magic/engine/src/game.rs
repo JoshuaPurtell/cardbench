@@ -414,6 +414,11 @@ impl Game {
         amount: u8,
     ) -> Result<(), RulesError> {
         self.player(player)?;
+        if !self.players[player.0].mana_pool.can_add(color, amount) {
+            return Err(RulesError::IllegalAction(
+                "mana pool cannot hold the requested mana",
+            ));
+        }
         self.players[player.0].mana_pool.add(color, amount);
         Ok(())
     }
@@ -518,6 +523,11 @@ impl Game {
                 "a mana action must add positive mana",
             ));
         }
+        if !self.players[player.0].mana_pool.can_add(color, amount) {
+            return Err(RulesError::IllegalAction(
+                "mana pool cannot hold the requested mana",
+            ));
+        }
         self.players[player.0].mana_pool.add(color, amount);
         self.record_event(GameEvent::ManaAdded {
             player,
@@ -552,6 +562,11 @@ impl Game {
         if !definition.is_land() || !definition.mana_colors.contains(&color) {
             return Err(RulesError::IllegalAction(
                 "that land cannot produce the requested color",
+            ));
+        }
+        if !self.players[player.0].mana_pool.can_add(color, 1) {
+            return Err(RulesError::IllegalAction(
+                "mana pool cannot hold the requested mana",
             ));
         }
         self.objects
@@ -614,7 +629,7 @@ impl Game {
                 let mut paid_pool = self.players[player.0].mana_pool.clone();
                 paid_pool.pay(mana_cost).map_err(RulesError::Mana)?;
                 for (color, amount) in bundle.iter() {
-                    if amount > u8::MAX.saturating_sub(paid_pool.amount(color)) {
+                    if !paid_pool.can_add(color, amount) {
                         return Err(RulesError::IllegalAction(
                             "mana pool cannot hold the produced mana",
                         ));
@@ -657,8 +672,9 @@ impl Game {
             ));
         }
         if let Some(color) = color
-            && ability.amount
-                > u8::MAX.saturating_sub(self.players[player.0].mana_pool.amount(color))
+            && !self.players[player.0]
+                .mana_pool
+                .can_add(color, ability.amount)
         {
             return Err(RulesError::IllegalAction(
                 "mana pool cannot hold the produced mana",

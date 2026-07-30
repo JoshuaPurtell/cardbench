@@ -93,6 +93,10 @@ Oracle Magic rules coverage.
   payment sums all five colors in a widened `u16` total. The compatibility
   `ManaPool::total` policy view is saturated at `u8::MAX`; it is never used to
   decide whether a generic payment is affordable.
+- Every public, intrinsic, or definition-bound mana producer preflights this
+  bounded pool before it changes a source, pass state, pool, or event log. A
+  capacity rejection is atomic and cannot emit a `ManaAdded` receipt for mana
+  the pool did not receive.
 - Only instants in the implemented spell slice may be cast outside their
   controller's main phase or while the stack is nonempty. Sorceries and
   permanent spells observe sorcery timing.
