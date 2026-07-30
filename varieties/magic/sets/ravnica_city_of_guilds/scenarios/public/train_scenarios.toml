@@ -1826,7 +1826,7 @@ digest = "fnv1a64:7115881e15dd0d84"
 [[scenario]]
 id = "rav_wojek_siren_radiance"
 seed = 0
-description = "Resolve the scoped Wojek Siren radiance layer-7 effect without changing tapped state."
+description = "Resolve Wojek Siren's radiance modifier over the target and shared-color peers without an untap side effect."
 
 [[scenario.card]]
 label = "siren"
@@ -1857,8 +1857,8 @@ tapped = true
 
 [[scenario.mana]]
 player = 0
-color = "red"
-amount = 2
+color = "white"
+amount = 1
 
 [[scenario.action]]
 kind = "cast"
@@ -2016,7 +2016,7 @@ digest = "fnv1a64:dd3c3f052b014b85"
 [[scenario]]
 id = "rav_cleansing_beam_radiance_damage"
 seed = 0
-description = "Resolve the bounded Cleansing Beam radiance damage slice, including its target and one shared-color peer before state-based actions."
+description = "Resolve Cleansing Beam's radiance damage over its target and one shared-color peer before state-based actions."
 
 [[scenario.card]]
 label = "beam"
@@ -2065,6 +2065,36 @@ player = 1
 zones = ["beam:graveyard", "target:graveyard", "shared:graveyard", "off_color:battlefield"]
 event_markers = ["SpellCast", "DamageDealtToPermanent", "SpellResolved", "StateBasedAction"]
 digest = "fnv1a64:b161e284ddd9e82d"
+
+[[scenario]]
+id = "rav_cleansing_beam_requires_creature_target"
+seed = 0
+description = "Reject Cleansing Beam's noncreature target before it reaches the stack."
+
+[[scenario.card]]
+label = "beam"
+owner = 0
+definition = "RAV-CLEANSING-BEAM"
+zone = "hand"
+
+[[scenario.card]]
+label = "land"
+owner = 1
+definition = "RAV-MOUNTAIN"
+zone = "battlefield"
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "beam"
+target = "permanent:land"
+expected_error = "illegal target"
+
+[scenario.expected]
+zones = ["beam:hand", "land:battlefield"]
+stack_size = 0
+event_absent = ["SpellCast", "SpellResolved"]
+digest = "fnv1a64:cbf29ce484222325"
 
 [[scenario]]
 id = "rav_golgari_grave_troll_dredge_slice"
