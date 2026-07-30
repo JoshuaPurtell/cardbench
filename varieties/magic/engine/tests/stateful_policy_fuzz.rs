@@ -888,7 +888,7 @@ fn run_trace(seed: u64) -> TraceReceipt {
         first,
         PolicyAction::Transmute {
             card: fixture.transmuter,
-            found: fixture.transmute_target,
+            found: Some(fixture.transmute_target),
         },
     );
     operation += 1;

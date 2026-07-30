@@ -250,7 +250,7 @@ fn policy_submitted_transmute_uses_the_audited_engine_path() {
         "engine-transmute-contract",
         PolicyAction::Transmute {
             card: transmuter,
-            found: search.candidates[0].id,
+            found: Some(search.candidates[0].id),
         },
     )
     .expect("legal transmute is accepted through policy submission");
@@ -261,7 +261,7 @@ fn policy_submitted_transmute_uses_the_audited_engine_path() {
         matches!(
             event,
             GameEvent::Transmuted { discarded, found: selected, .. }
-                if *discarded == transmuter && *selected == found
+                if *discarded == transmuter && *selected == Some(found)
         )
     }));
     assert!(game.event_log.iter().any(|event| {

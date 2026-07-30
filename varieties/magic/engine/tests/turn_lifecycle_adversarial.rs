@@ -69,7 +69,7 @@ fn transmute_activation_keeps_priority_with_its_controller() {
     game.grant_mana(player, Color::White, 1)
         .expect("fixture provides generic transmute mana");
 
-    game.transmute(player, transmuter, found)
+    game.transmute(player, transmuter, Some(found))
         .expect("a legal activated ability resolves in the supported slice");
     eprintln!("transmute event log: {:?}", game.event_log);
 

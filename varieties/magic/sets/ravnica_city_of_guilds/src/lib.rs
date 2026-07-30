@@ -2350,7 +2350,7 @@ fn transmute_search() -> Result<(Game, String), RulesError> {
     game.grant_mana(PlayerId(0), Color::Green, 1)?;
     game.set_shuffle_seed(41);
     game.clear_event_log();
-    game.transmute(PlayerId(0), muddle, helix)?;
+    game.transmute(PlayerId(0), muddle, Some(helix))?;
     if game.zone_of(muddle) != Some(Zone::Graveyard) || game.zone_of(helix) != Some(Zone::Hand) {
         return Err(RulesError::IllegalAction(
             "transmute scenario postcondition failed",

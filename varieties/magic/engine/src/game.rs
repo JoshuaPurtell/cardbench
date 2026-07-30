@@ -85,11 +85,11 @@ pub enum PolicyAction {
     Draw {
         dredge: Option<ObjectId>,
     },
-    /// Activates transmute, selecting the matching mana-value card from the
+    /// Activates transmute with a policy-selected candidate from the
     /// controller's library. The engine enforces timing and payment.
     Transmute {
         card: ObjectId,
-        found: ObjectId,
+        found: Option<ObjectId>,
     },
     PassPriority,
     PlayLand {
@@ -1550,13 +1550,15 @@ impl Game {
         Ok(())
     }
 
-    /// Resolve transmute's hand-zone activated ability with the searched card selected by
-    /// the scenario/policy. The library is shuffled by a deterministic seed afterwards.
+    /// Resolves transmute's hand-zone activated ability. This public contract
+    /// is intentionally red until its hidden-zone reveal and no-result search
+    /// behavior are implemented. The library is shuffled by a deterministic
+    /// seed afterwards.
     pub fn transmute(
         &mut self,
         player: PlayerId,
         card: ObjectId,
-        found: ObjectId,
+        found: Option<ObjectId>,
     ) -> Result<(), RulesError> {
         self.require_priority(player)?;
         if player != self.active_player || !self.step.is_main() || !self.stack.is_empty() {
@@ -1565,8 +1567,7 @@ impl Game {
             ));
         }
         self.require_zone(card, Zone::Hand)?;
-        self.require_zone(found, Zone::Library)?;
-        if self.object(card)?.owner != player || self.object(found)?.owner != player {
+        if self.object(card)?.owner != player {
             return Err(RulesError::IllegalAction(
                 "transmute searches only your own library",
             ));
@@ -1576,6 +1577,15 @@ impl Game {
             .transmute_cost()
             .cloned()
             .ok_or(RulesError::IllegalAction("card has no transmute ability"))?;
+        let found = found.ok_or(RulesError::IllegalAction(
+            "transmute requires a selected library card",
+        ))?;
+        self.require_zone(found, Zone::Library)?;
+        if self.object(found)?.owner != player {
+            return Err(RulesError::IllegalAction(
+                "transmute searches only your own library",
+            ));
+        }
         if self.card_definition(found)?.mana_cost.mana_value()
             != self.card_definition(card)?.mana_cost.mana_value()
         {
@@ -1594,7 +1604,7 @@ impl Game {
         self.record_event(GameEvent::Transmuted {
             player,
             discarded: card,
-            found,
+            found: Some(found),
         });
         self.consecutive_passes = 0;
         // The supported atomic transmute activation completes at the same

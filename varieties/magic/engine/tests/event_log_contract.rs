@@ -7,7 +7,7 @@
 //! (mana empties at step/phase boundaries), 111.6 (tokens cease to exist after
 //! leaving the battlefield), 121.4/704.5b (empty-library loss), 703.1--703.4
 //! (turn-based actions), 704.3 (state-based action timing), and 702.53a
-//! (transmute's discard/search/shuffle sequence).  This small RAV substrate
+//! (transmute's discard/search/reveal/shuffle sequence). This small RAV substrate
 //! intentionally implements only the corresponding supported slices.
 
 use std::collections::BTreeSet;
@@ -419,7 +419,7 @@ fn token_creation_sba_and_disappearance_are_complete_and_chronological() {
 }
 
 #[test]
-fn transmute_logs_the_required_library_shuffle_between_search_and_completion() {
+fn transmute_logs_the_required_reveal_and_shuffle_between_search_and_completion() {
     let first = PlayerId(0);
     let mut game = game();
     game.set_shuffle_seed(0x5EED);
@@ -435,7 +435,7 @@ fn transmute_logs_the_required_library_shuffle_between_search_and_completion() {
         .expect("setup mana pays transmute");
     game.clear_event_log();
 
-    game.transmute(first, discarded, found)
+    game.transmute(first, discarded, Some(found))
         .expect("legal transmute resolves");
 
     let events = &game.event_log;
@@ -447,6 +447,16 @@ fn transmute_logs_the_required_library_shuffle_between_search_and_completion() {
         events,
         |event| matches!(event, GameEvent::CardMoved { card, to: Zone::Hand } if *card == found),
     );
+    let reveal = event_index(events, |event| {
+        matches!(
+            event,
+            GameEvent::CardRevealed {
+                player,
+                card,
+                definition: MANA_VALUE_THREE,
+            } if *player == first && *card == found
+        )
+    });
     let shuffle = event_index(events, |event| {
         matches!(
             event,
@@ -461,12 +471,56 @@ fn transmute_logs_the_required_library_shuffle_between_search_and_completion() {
                 player,
                 discarded: logged_discarded,
                 found: logged_found,
-            } if *player == first && *logged_discarded == discarded && *logged_found == found
+            } if *player == first && *logged_discarded == discarded && *logged_found == Some(found)
         )
     });
-    assert!(discarded_to_graveyard < found_to_hand);
+    assert!(discarded_to_graveyard < reveal);
+    assert!(reveal < found_to_hand);
     assert!(found_to_hand < shuffle);
     assert!(shuffle < transmuted);
+    assert_invariants(&game);
+}
+
+#[test]
+fn transmute_requires_a_public_reveal_and_permits_no_result_search() {
+    let first = PlayerId(0);
+    let mut game = game();
+    let discarded = game
+        .add_card(first, TRANSMUTER, Zone::Hand)
+        .expect("transmute card enters hand");
+    let library_card = game
+        .add_card(first, MANA_VALUE_THREE, Zone::Library)
+        .expect("matching card may remain unfound in the library");
+    game.grant_mana(first, Color::Blue, 3)
+        .expect("setup mana pays transmute");
+    game.clear_event_log();
+
+    let no_result = game.transmute(first, discarded, None);
+
+    assert!(
+        no_result.is_ok(),
+        "a hidden-zone quality search may legally find nothing: {no_result:?}"
+    );
+
+    assert_eq!(game.zone_of(discarded), Some(Zone::Graveyard));
+    assert_eq!(game.zone_of(library_card), Some(Zone::Library));
+    assert!(
+        !game
+            .event_log
+            .iter()
+            .any(|event| matches!(event, GameEvent::CardRevealed { .. })),
+        "no card can be revealed when the search finds nothing"
+    );
+    assert!(game.event_log.iter().any(|event| {
+        matches!(
+            event,
+            GameEvent::Transmuted {
+                player,
+                discarded: logged_discarded,
+                found: None,
+            } if *player == first && *logged_discarded == discarded
+        )
+    }));
     assert_invariants(&game);
 }
 
