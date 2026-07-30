@@ -1295,3 +1295,61 @@ powers = ["birds:0"]
 tapped = ["birds:true", "forest:true"]
 event_markers = ["SpellCast", "SpellResolved", "StepBegan", "BoundManaAbilityActivated", "ManaAdded"]
 digest = "fnv1a64:7115881e15dd0d84"
+
+[[scenario]]
+id = "rav_wojek_siren_radiance"
+seed = 0
+description = "Resolve the scoped Wojek Siren radiance layer-7 effect without changing tapped state."
+
+[[scenario.card]]
+label = "siren"
+owner = 0
+definition = "RAV-WOJEK-SIREN"
+zone = "hand"
+
+[[scenario.card]]
+label = "target"
+owner = 0
+definition = "RAV-WATCHWOLF"
+zone = "battlefield"
+tapped = true
+
+[[scenario.card]]
+label = "shared"
+owner = 1
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+tapped = true
+
+[[scenario.card]]
+label = "off_color"
+owner = 1
+definition = "RAV-STINKWEED-IMP"
+zone = "battlefield"
+tapped = true
+
+[[scenario.mana]]
+player = 0
+color = "red"
+amount = 2
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "siren"
+target = "permanent:target"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["siren:graveyard"]
+powers = ["target:4", "shared:3", "off_color:1"]
+tapped = ["target:true", "shared:true", "off_color:true"]
+event_markers = ["SpellCast", "ContinuousEffectCreated", "SpellResolved"]
+digest = "fnv1a64:634a0db6947bd665"

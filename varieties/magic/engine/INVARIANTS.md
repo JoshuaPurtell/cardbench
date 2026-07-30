@@ -189,6 +189,11 @@ Oracle Magic rules coverage.
   change: it creates its effect receipt, then reaches the SBA fixed point
   before returning; a spell that installs an effect waits until the entire
   spell has resolved before that same SBA check.
+- Radiance selection is evaluated at resolution from the legal creature target:
+  it includes that target and every battlefield creature sharing at least one
+  of its colors, regardless of controller. Each effect declares whether it
+  changes tapped state; a power/toughness-only radiance effect cannot untap a
+  selected permanent as an incidental side effect.
 - Card and mechanic implementations may only claim the semantic fragments
   listed in their `supported_rules`. Unsupported text is not silently inferred.
 - A nonpermanent card with no supported cast effect is rejected at cast time;

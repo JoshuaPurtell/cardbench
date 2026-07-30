@@ -299,6 +299,14 @@ pub enum Effect {
         power: i16,
         toughness: i16,
     },
+    /// Apply a temporary power/toughness modifier to the target creature and
+    /// every creature sharing at least one of its colors. Unlike the existing
+    /// radiance-and-untap effect, this semantic operation never changes tapped
+    /// state.
+    RadianceModifyPtUntilEndOfTurn {
+        power: i16,
+        toughness: i16,
+    },
     /// Counter one targeted instant or sorcery spell. This is intentionally a
     /// semantic effect rather than a copied card-text string.
     CounterTargetInstantOrSorcerySpell,
@@ -310,9 +318,8 @@ impl Effect {
         match self {
             Self::DealDamage { target, .. } => Some(*target),
             Self::ModifyTargetPtUntilEndOfTurn { .. }
-            | Self::RadianceUntapAndModifyUntilEndOfTurn { .. } => {
-                Some(TargetRequirement::Creature)
-            }
+            | Self::RadianceUntapAndModifyUntilEndOfTurn { .. }
+            | Self::RadianceModifyPtUntilEndOfTurn { .. } => Some(TargetRequirement::Creature),
             Self::CounterTargetInstantOrSorcerySpell => {
                 Some(TargetRequirement::InstantOrSorcerySpell)
             }

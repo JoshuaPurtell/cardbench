@@ -75,8 +75,7 @@ fn colorless_radiance_target_receives_its_modifier() {
         },
     )
     .expect("targeted radiance cast is legal");
-    game.pass_priority(caster)
-        .expect("caster passes priority");
+    game.pass_priority(caster).expect("caster passes priority");
     game.pass_priority(PlayerId(1))
         .expect("opponent passes priority and resolves the spell");
 
