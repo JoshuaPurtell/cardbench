@@ -1295,6 +1295,116 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             3,
             2,
         ),
+        // Compatibility scope: normal colored-cost creature casting and base
+        // characteristics only. Its printed defender and prevention activation
+        // are deliberately omitted from this compatibility slice.
+        bounded_creature_chassis(
+            "RAV-BENEVOLENT-ANCESTOR",
+            "Benevolent Ancestor",
+            ManaCost::with_colors(2, [Color::White]),
+            colors([Color::White]),
+            0,
+            4,
+        ),
+        // Compatibility scope: normal colored-cost creature casting and base
+        // characteristics only. Its printed evasion and death-triggered
+        // behavior are deliberately omitted from this compatibility slice.
+        bounded_creature_chassis(
+            "RAV-SURVEILLING-SPRITE",
+            "Surveilling Sprite",
+            ManaCost::with_colors(1, [Color::Blue]),
+            colors([Color::Blue]),
+            1,
+            1,
+        ),
+        // Compatibility scope: normal colored-cost creature casting and base
+        // characteristics only. Its printed land-type activation is deliberately
+        // omitted from this compatibility slice.
+        bounded_creature_chassis(
+            "RAV-TERRAFORMER",
+            "Terraformer",
+            ManaCost::with_colors(2, [Color::Blue]),
+            colors([Color::Blue]),
+            2,
+            2,
+        ),
+        // Compatibility scope: normal colored-cost creature casting and base
+        // characteristics only. Its printed temporary evasion activation is
+        // deliberately omitted from this compatibility slice.
+        bounded_creature_chassis(
+            "RAV-ROOFSTALKER-WIGHT",
+            "Roofstalker Wight",
+            ManaCost::with_colors(1, [Color::Blue]),
+            colors([Color::Blue]),
+            2,
+            1,
+        ),
+        // Compatibility scope: normal colored-cost creature casting and base
+        // characteristics only. Its printed evasion and regeneration behavior
+        // are deliberately omitted from this compatibility slice.
+        bounded_creature_chassis(
+            "RAV-SEWERDREG",
+            "Sewerdreg",
+            ManaCost::with_colors(3, [Color::Black, Color::Black]),
+            colors([Color::Black]),
+            3,
+            3,
+        ),
+        // Compatibility scope: normal colored-cost creature casting and base
+        // characteristics only. Its printed landwalk ability is deliberately
+        // omitted from this compatibility slice.
+        bounded_creature_chassis(
+            "RAV-GOBLIN-SPELUNKERS",
+            "Goblin Spelunkers",
+            ManaCost::with_colors(2, [Color::Red]),
+            colors([Color::Red]),
+            2,
+            2,
+        ),
+        // Compatibility scope: normal colored-cost creature casting and base
+        // characteristics only. Its printed damage-prevention activation is
+        // deliberately omitted from this compatibility slice.
+        bounded_creature_chassis(
+            "RAV-ORDRUUN-COMMANDO",
+            "Ordruun Commando",
+            ManaCost::with_colors(3, [Color::Red]),
+            colors([Color::Red]),
+            4,
+            1,
+        ),
+        // Compatibility scope: normal colored-cost creature casting and base
+        // characteristics only. Its printed power/toughness activation is
+        // deliberately omitted from this compatibility slice.
+        bounded_creature_chassis(
+            "RAV-VIASHINO-SLASHER",
+            "Viashino Slasher",
+            ManaCost::with_colors(1, [Color::Red]),
+            colors([Color::Red]),
+            1,
+            2,
+        ),
+        // Compatibility scope: normal colored-cost creature casting and base
+        // characteristics only. Its printed land-search triggered behavior is
+        // deliberately omitted from this compatibility slice.
+        bounded_creature_chassis(
+            "RAV-CIVIC-WAYFINDER",
+            "Civic Wayfinder",
+            ManaCost::with_colors(2, [Color::Green]),
+            colors([Color::Green]),
+            2,
+            2,
+        ),
+        // Compatibility scope: normal colored-cost creature casting and base
+        // characteristics only. Its printed graveyard-recursion activation is
+        // deliberately omitted from this compatibility slice.
+        bounded_creature_chassis(
+            "RAV-DOWSING-SHAMAN",
+            "Dowsing Shaman",
+            ManaCost::with_colors(2, [Color::Green, Color::Green]),
+            colors([Color::Green]),
+            3,
+            4,
+        ),
         signet_definition("RAV-BOROS-SIGNET", "Boros Signet"),
         signet_definition("RAV-DIMIR-SIGNET", "Dimir Signet"),
         signet_definition("RAV-GOLGARI-SIGNET", "Golgari Signet"),

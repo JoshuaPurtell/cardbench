@@ -102,6 +102,15 @@ Overwhelm uses the shared Convoke hook and a controller-wide temporary layer-7
 modifier. The corresponding Rust contracts and public event-log scenarios test
 those exact fragments; none is a claim of complete card or set fidelity.
 
+The easy-creature wave adds Benevolent Ancestor, Surveilling Sprite, Terraformer,
+Roofstalker Wight, Sewerdreg, Goblin Spelunkers, Ordruun Commando, Viashino
+Slasher, Civic Wayfinder, and Dowsing Shaman. These are likewise limited
+to public identity, mana cost, color, creature type, and base power/toughness,
+with normal colored-cost creature casting as their only executable behavior.
+Every printed keyword, activation, and triggered behavior remains deliberately
+unsupported. Five deterministic public scenarios exercise cast payment, stack
+resolution, zone movement, priority, and their retained base P/T values only.
+
 The TSV's structure and the Rust parser are CardBench-authored MIT-licensed code and
 data structure. Magic set names and card names are used solely as nominative
 interoperability identifiers and remain their owners' marks.
