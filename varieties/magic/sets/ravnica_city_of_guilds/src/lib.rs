@@ -6,6 +6,8 @@
 
 #![forbid(unsafe_code)]
 
+mod scenarios;
+
 use std::collections::BTreeSet;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -20,7 +22,7 @@ pub const SET_CODE: &str = "RAV";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ScenarioResult {
-    pub id: &'static str,
+    pub id: String,
     pub event_log: Vec<String>,
     pub digest: String,
     pub summary: String,
@@ -311,7 +313,16 @@ pub fn validate_shown_deck_pool() -> Result<(), ManifestValidationError> {
     Ok(())
 }
 
-pub fn run_all_scenarios() -> Result<Vec<ScenarioResult>, RulesError> {
+/// Executes the versioned public train scenarios. Each scenario's setup, actions,
+/// assertions, marker requirements, and baseline digest live in TOML.
+pub fn run_all_scenarios() -> Result<Vec<ScenarioResult>, String> {
+    scenarios::run_public_scenarios()
+}
+
+/// Legacy in-code RAV examples retained only while downstream consumers migrate to
+/// fixture-driven scenarios. They are not part of the reference verifier.
+#[doc(hidden)]
+pub fn legacy_in_code_scenarios() -> Result<Vec<ScenarioResult>, RulesError> {
     Ok(vec![
         run_scenario("rav_stack_lightning_helix", stack_lightning_helix)?,
         run_scenario("rav_convoke_scatter_the_seeds", convoke_scatter_the_seeds)?,
@@ -329,32 +340,10 @@ pub fn run_all_scenarios() -> Result<Vec<ScenarioResult>, RulesError> {
 /// log with its checked-in FNV-1a digest. A candidate engine can use the same scenario
 /// manifests, while its output is compared to these fixed expectations.
 pub fn verify_reference_event_logs() -> Result<Vec<ScenarioResult>, String> {
-    let results = run_all_scenarios().map_err(|error| error.to_string())?;
-    let expected = [
-        ("rav_stack_lightning_helix", "fnv1a64:49e7fd1c3f39eff5"),
-        ("rav_convoke_scatter_the_seeds", "fnv1a64:e8bbbd145c3e08ea"),
-        ("rav_dredge_replaces_draw", "fnv1a64:7da29aa6e53decc7"),
-        ("rav_transmute_search", "fnv1a64:7ec4858c10b4f50b"),
-        ("rav_radiance_layers", "fnv1a64:a868cf25cd0521fc"),
-        (
-            "rav_last_gasp_state_based_action",
-            "fnv1a64:1bb77e09a5baccbd",
-        ),
-    ];
-    if results.len() != expected.len() {
-        return Err(format!(
-            "expected {} RAV scenario logs, got {}",
-            expected.len(),
-            results.len()
-        ));
-    }
-    for (result, (id, digest)) in results.iter().zip(expected) {
-        if result.id != id || result.digest != digest {
-            return Err(format!(
-                "event-log mismatch for {}: expected {id}/{digest}, got {}/{}",
-                result.id, result.id, result.digest
-            ));
-        }
+    let results = run_all_scenarios()?;
+    let replay = run_all_scenarios()?;
+    if results != replay {
+        return Err("same public RAV scenarios produced different event logs on replay".to_owned());
     }
     Ok(results)
 }
@@ -366,7 +355,7 @@ fn run_scenario(
     let (game, summary) = scenario()?;
     let event_log = game.canonical_event_log();
     Ok(ScenarioResult {
-        id,
+        id: id.to_owned(),
         digest: event_digest(&event_log),
         event_log,
         summary,
@@ -616,8 +605,8 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 6);
-        assert!(first.iter().all(|result| !result.event_log.is_empty()));
+        assert_eq!(first.len(), 11);
+        assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }
 }

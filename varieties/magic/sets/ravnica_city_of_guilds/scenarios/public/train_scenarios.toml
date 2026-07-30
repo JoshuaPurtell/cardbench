@@ -1,0 +1,538 @@
+schema_version = "cardbench.magic.train-scenarios.v1"
+set = "RAV"
+visibility = "shown"
+format = "ravnica-block"
+
+[[scenario]]
+id = "rav_stack_lightning_helix"
+seed = 0
+description = "Cast a targeted instant, pass priority around the stack, and verify the life swing."
+
+[[scenario.card]]
+label = "helix"
+owner = 0
+definition = "RAV-LIGHTNING-HELIX"
+zone = "hand"
+
+[[scenario.mana]]
+player = 0
+color = "white"
+amount = 1
+
+[[scenario.mana]]
+player = 0
+color = "red"
+amount = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "helix"
+target = "player:1"
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[scenario.expected]
+life = [23, 17]
+zones = ["helix:graveyard"]
+event_markers = ["SpellCast", "PriorityPassed", "DamageDealtToPlayer", "LifeGained", "SpellResolved"]
+digest = "fnv1a64:49e7fd1c3f39eff5"
+
+[[scenario]]
+id = "rav_convoke_scatter_the_seeds"
+seed = 0
+description = "Pay a convoke spell with two colored creature payments, one generic payment, and mana."
+
+[[scenario.card]]
+label = "scatter"
+owner = 0
+definition = "RAV-SCATTER-THE-SEEDS"
+zone = "hand"
+
+[[scenario.card]]
+label = "first"
+owner = 0
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "second"
+owner = 0
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "third"
+owner = 0
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+
+[[scenario.mana]]
+player = 0
+color = "red"
+amount = 2
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "scatter"
+convoke = ["first:green", "second:green", "third:generic"]
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[scenario.expected]
+zones = ["scatter:graveyard"]
+tapped = ["first:true", "second:true", "third:true"]
+token_count = 3
+event_markers = ["ConvokeUsed", "TokenCreated", "SpellResolved"]
+digest = "fnv1a64:e8bbbd145c3e08ea"
+
+[[scenario]]
+id = "rav_dredge_replaces_draw"
+seed = 0
+description = "Replace a draw with dredge, moving cards from the library to the graveyard."
+
+[[scenario.card]]
+label = "brownscale"
+owner = 0
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "graveyard"
+
+[[scenario.card]]
+label = "forest_one"
+owner = 0
+definition = "RAV-FOREST"
+zone = "library"
+
+[[scenario.card]]
+label = "forest_two"
+owner = 0
+definition = "RAV-FOREST"
+zone = "library"
+
+[[scenario.action]]
+kind = "draw"
+player = 0
+dredge = "brownscale"
+
+[scenario.expected]
+zones = ["brownscale:hand", "forest_one:graveyard", "forest_two:graveyard"]
+event_markers = ["Dredged", "CardMoved"]
+digest = "fnv1a64:7da29aa6e53decc7"
+
+[[scenario]]
+id = "rav_transmute_search"
+seed = 41
+description = "Discard a hand card with transmute, search an equal-mana-value card, then deterministically shuffle."
+
+[[scenario.card]]
+label = "muddle"
+owner = 0
+definition = "RAV-MUDDLE-THE-MIXTURE"
+zone = "hand"
+
+[[scenario.card]]
+label = "helix"
+owner = 0
+definition = "RAV-LIGHTNING-HELIX"
+zone = "library"
+
+[[scenario.mana]]
+player = 0
+color = "blue"
+amount = 2
+
+[[scenario.mana]]
+player = 0
+color = "green"
+amount = 1
+
+[[scenario.action]]
+kind = "transmute"
+player = 0
+card = "muddle"
+found = "helix"
+
+[scenario.expected]
+zones = ["muddle:graveyard", "helix:hand"]
+event_markers = ["Transmuted", "CardMoved"]
+digest = "fnv1a64:7ec4858c10b4f50b"
+
+[[scenario]]
+id = "rav_radiance_layers"
+seed = 0
+description = "Resolve radiance and verify all green creatures receive their layer-7 power modifier."
+
+[[scenario.card]]
+label = "rally"
+owner = 0
+definition = "RAV-RALLY-THE-RIGHTEOUS"
+zone = "hand"
+
+[[scenario.card]]
+label = "target"
+owner = 0
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "allied"
+owner = 0
+definition = "RAV-SIEGE-WURM"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "opposing"
+owner = 1
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+
+[[scenario.mana]]
+player = 0
+color = "white"
+amount = 1
+
+[[scenario.mana]]
+player = 0
+color = "red"
+amount = 1
+
+[[scenario.mana]]
+player = 0
+color = "green"
+amount = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "rally"
+target = "permanent:target"
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[scenario.expected]
+powers = ["target:4", "allied:7", "opposing:4"]
+event_markers = ["ContinuousEffectCreated", "SpellResolved"]
+digest = "fnv1a64:a868cf25cd0521fc"
+
+[[scenario]]
+id = "rav_last_gasp_state_based_action"
+seed = 0
+description = "Apply a continuous -3/-3 effect and verify the zero-toughness state-based action."
+
+[[scenario.card]]
+label = "gasp"
+owner = 0
+definition = "RAV-LAST-GASP"
+zone = "hand"
+
+[[scenario.card]]
+label = "victim"
+owner = 1
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+
+[[scenario.mana]]
+player = 0
+color = "black"
+amount = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "gasp"
+target = "permanent:victim"
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[scenario.expected]
+zones = ["gasp:graveyard", "victim:graveyard"]
+event_markers = ["ContinuousEffectCreated", "StateBasedAction"]
+digest = "fnv1a64:1bb77e09a5baccbd"
+
+[[scenario]]
+id = "rav_radiance_cleanup_expiration"
+seed = 0
+description = "Untap creatures with radiance, advance to cleanup, and verify until-end-of-turn effects expire."
+
+[[scenario.card]]
+label = "rally"
+owner = 0
+definition = "RAV-RALLY-THE-RIGHTEOUS"
+zone = "hand"
+
+[[scenario.card]]
+label = "target"
+owner = 0
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+tapped = true
+
+[[scenario.card]]
+label = "allied"
+owner = 0
+definition = "RAV-SIEGE-WURM"
+zone = "battlefield"
+tapped = true
+
+[[scenario.card]]
+label = "opposing"
+owner = 1
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+tapped = true
+
+[[scenario.mana]]
+player = 0
+color = "white"
+amount = 1
+
+[[scenario.mana]]
+player = 0
+color = "red"
+amount = 1
+
+[[scenario.mana]]
+player = 0
+color = "green"
+amount = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "rally"
+target = "permanent:target"
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+powers = ["target:2", "allied:5", "opposing:2"]
+tapped = ["target:false", "allied:false", "opposing:false"]
+event_markers = ["PermanentsUntapped", "StepBegan"]
+digest = "fnv1a64:8c17f3368f176e3f"
+
+[[scenario]]
+id = "rav_land_play_limit"
+seed = 0
+description = "Play one land during the active player's main phase and reject a second land play."
+
+[[scenario.card]]
+label = "first_land"
+owner = 0
+definition = "RAV-FOREST"
+zone = "hand"
+
+[[scenario.card]]
+label = "second_land"
+owner = 0
+definition = "RAV-FOREST"
+zone = "hand"
+
+[[scenario.action]]
+kind = "play_land"
+player = 0
+card = "first_land"
+
+[[scenario.action]]
+kind = "play_land"
+player = 0
+card = "second_land"
+expected_error = "land play limit reached"
+
+[scenario.expected]
+zones = ["first_land:battlefield", "second_land:hand"]
+event_markers = ["CardMoved"]
+digest = "fnv1a64:4a092fbb2608bbad"
+
+[[scenario]]
+id = "rav_priority_rejection"
+seed = 0
+description = "Reject a spell cast from the player who does not have priority."
+
+[[scenario.card]]
+label = "helix"
+owner = 1
+definition = "RAV-LIGHTNING-HELIX"
+zone = "hand"
+
+[[scenario.mana]]
+player = 1
+color = "white"
+amount = 1
+
+[[scenario.mana]]
+player = 1
+color = "red"
+amount = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 1
+card = "helix"
+target = "player:0"
+expected_error = "acted without priority"
+
+[scenario.expected]
+life = [20, 20]
+zones = ["helix:hand"]
+digest = "fnv1a64:cbf29ce484222325"
+
+[[scenario]]
+id = "rav_invalid_convoke_rejection"
+seed = 0
+description = "Reject a convoke payment in a color the tapped creature does not have."
+
+[[scenario.card]]
+label = "scatter"
+owner = 0
+definition = "RAV-SCATTER-THE-SEEDS"
+zone = "hand"
+
+[[scenario.card]]
+label = "green_creature"
+owner = 0
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+
+[[scenario.mana]]
+player = 0
+color = "green"
+amount = 2
+
+[[scenario.mana]]
+player = 0
+color = "red"
+amount = 3
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "scatter"
+convoke = ["green_creature:white"]
+expected_error = "must have the contributed color"
+
+[scenario.expected]
+zones = ["scatter:hand", "green_creature:battlefield"]
+tapped = ["green_creature:false"]
+digest = "fnv1a64:cbf29ce484222325"
+
+[[scenario]]
+id = "rav_dredge_insufficient_library_rejection"
+seed = 0
+description = "Reject dredge when the library contains fewer cards than the dredge value."
+
+[[scenario.card]]
+label = "brownscale"
+owner = 0
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "graveyard"
+
+[[scenario.card]]
+label = "forest"
+owner = 0
+definition = "RAV-FOREST"
+zone = "library"
+
+[[scenario.action]]
+kind = "draw"
+player = 0
+dredge = "brownscale"
+expected_error = "requires at least that many cards"
+
+[scenario.expected]
+zones = ["brownscale:graveyard", "forest:library"]
+digest = "fnv1a64:cbf29ce484222325"

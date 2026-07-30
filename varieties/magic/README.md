@@ -13,7 +13,7 @@ cargo run -p cardbench-magic-rav --bin rav-engine-parity
 ```
 
 The last command validates the original Ravnica-block manifests and public deck
-pool, executes six RAV scenarios twice, and compares each deterministic event
+pool, executes eleven RAV scenarios twice, and compares each deterministic event
 log against its fixed public digest. With `--output-root PATH`, the Rust binary
 writes `engine-check.json` and `reward.txt` for the CardBench Harbor receipt.
 
@@ -42,7 +42,9 @@ transmute case, not an assertion that every printed ability on that card is
 available. This makes the initial expansion slice honest and lets later set
 work add executable semantics without changing engine ownership.
 
-RAV shown scenarios cover:
+RAV shown scenarios are fixture-driven from
+`sets/ravnica_city_of_guilds/scenarios/public/train_scenarios.toml`; each declares
+setup, actions, state assertions, event markers, and a fixed digest. They cover:
 
 - casting to the stack and both-player priority passes (`Lightning Helix`);
 - colored and generic convoke payment plus token creation (`Scatter the Seeds`);
@@ -50,6 +52,7 @@ RAV shown scenarios cover:
 - transmute, equal mana-value search, and seeded deterministic shuffle (`Muddle the Mixture`);
 - radiance color matching and layer-7 modifiers (`Rally the Righteous`); and
 - zero-toughness state-based action after a continuous effect (`Last Gasp`).
+- cleanup expiration, land-play limits, and rejected priority/convoke/dredge actions.
 
 ## Provenance and rights
 
