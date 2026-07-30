@@ -91,6 +91,18 @@ Oracle Magic rules coverage.
   advancing a step. A zero-amount public mana action is rejected atomically;
   it cannot manufacture a priority-consuming non-action or a `ManaAdded(0)`
   receipt.
+- The final priority pass and the resulting stack-resolution/step transition
+  are one all-or-error state-machine transaction. If resolution reports an
+  error, the authoritative stack order, zones, objects, effects, pass count,
+  priority, turn/step fields, and canonical event log exactly match their
+  state before that final pass. A successful stack object has exactly one
+  terminal outcome: `SpellCounteredByRules` followed by its destination move,
+  or ordered effect receipts followed by `SpellResolved` and its destination
+  move; no partial outcome may survive.
+- If the active player leaves while stack work remains, their turn continues
+  without a living active player as required by CR 800.4i. The engine retains
+  that departed seat only as current-turn identity, gives priority to the next
+  survivor, and begins the next turn only after the stack has emptied.
 - The expansion-neutral definition-bound mana-ability catalog contains only
   permanent definitions that exist in the game catalog. Every ability identity
   is nonempty and unique within its definition; its output amount is positive;

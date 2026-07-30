@@ -1321,6 +1321,13 @@ impl Game {
     }
 
     pub fn pass_priority(&mut self, player: PlayerId) -> Result<(), RulesError> {
+        self.atomic_transition(|game| game.pass_priority_impl(player))
+    }
+
+    /// Applies a priority pass inside the state-machine transaction boundary.
+    /// Keeping the mutable implementation private ensures a failed resolution
+    /// cannot leave behind its triggering pass receipt or a popped stack item.
+    fn pass_priority_impl(&mut self, player: PlayerId) -> Result<(), RulesError> {
         self.require_priority(player)?;
         if self.pending_draw_replacement.is_some() {
             return Err(RulesError::IllegalAction(
@@ -1640,7 +1647,8 @@ impl Game {
                 "a continuing game assigned priority to an eliminated player",
             ));
         }
-        if !self.is_game_over() && self.players[self.active_player.0].lost {
+        if !self.is_game_over() && self.players[self.active_player.0].lost && self.stack.is_empty()
+        {
             return Err(RulesError::IllegalAction(
                 "a continuing game assigned the active turn to an eliminated player",
             ));
@@ -2919,6 +2927,15 @@ impl Game {
             return Ok(());
         }
         if self.players[self.active_player.0].lost {
+            if !self.stack.is_empty() {
+                // CR 800.4i: the current turn persists without its active
+                // player until pending stack work has completed. Keep the
+                // departed seat as turn identity, but restart priority among
+                // survivors instead of starting a new turn early.
+                self.priority = self.next_player(self.active_player);
+                self.consecutive_passes = 0;
+                return Ok(());
+            }
             // A departed active player cannot complete a declaration, receive
             // priority, or resume their turn. Abort the remaining turn and
             // begin the next survivor's turn at its automatic Untap boundary.
@@ -2942,6 +2959,27 @@ impl Game {
             Err(RulesError::IllegalAction("the game has already ended"))
         } else {
             Ok(())
+        }
+    }
+
+    /// Runs one public transition as an all-or-error operation. The current
+    /// engine is deterministic and fully in-memory, so cloning is the most
+    /// reviewable transaction journal: every mutable field, including the
+    /// authoritative stack and sealed event log, is restored on failure.
+    fn atomic_transition<T>(
+        &mut self,
+        apply: impl FnOnce(&mut Self) -> Result<T, RulesError>,
+    ) -> Result<T, RulesError> {
+        let checkpoint = self.clone();
+        match apply(self).and_then(|result| {
+            self.validate_invariants()?;
+            Ok(result)
+        }) {
+            Ok(result) => Ok(result),
+            Err(error) => {
+                *self = checkpoint;
+                Err(error)
+            }
         }
     }
 
