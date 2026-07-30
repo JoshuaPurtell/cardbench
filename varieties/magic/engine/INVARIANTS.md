@@ -167,7 +167,10 @@ Oracle Magic rules coverage.
 - State-based actions run to a fixed point after relevant changes. The current
   slice moves creatures with zero-or-less toughness or lethal marked damage,
   and marks players with zero-or-less life as lost. Each action emits an
-  auditable event.
+  auditable event. A public continuous-effect installation is such a relevant
+  change: it creates its effect receipt, then reaches the SBA fixed point
+  before returning; a spell that installs an effect waits until the entire
+  spell has resolved before that same SBA check.
 - Card and mechanic implementations may only claim the semantic fragments
   listed in their `supported_rules`. Unsupported text is not silently inferred.
 - A nonpermanent card with no supported cast effect is rejected at cast time;

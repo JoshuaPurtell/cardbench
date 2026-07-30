@@ -816,17 +816,9 @@ fn token_removal_prunes_effects_and_keeps_game_views_total() {
     )
     .expect("token can receive a lethal continuous effect");
     assert_eq!(
-        game.characteristics(stable_target)
-            .expect("target exists")
-            .power,
-        Some(7)
-    );
-    game.check_state_based_actions()
-        .expect("token dies to zero toughness");
-    assert_eq!(
         game.zone_of(token),
         None,
-        "tokens cease to exist off battlefield"
+        "a public continuous-effect transition immediately applies lethal SBAs"
     );
     assert!(matches!(game.object(token), Err(RulesError::UnknownCard(card)) if card == token));
     assert_eq!(
@@ -835,6 +827,8 @@ fn token_removal_prunes_effects_and_keeps_game_views_total() {
             .power,
         Some(3)
     );
+    game.check_state_based_actions()
+        .expect("the already-stable public transition remains a fixed point");
     let view = game
         .view_for_player(player)
         .expect("dead token does not break views");
