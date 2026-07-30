@@ -142,6 +142,16 @@ def write_receipt(output: Path, family: str, command: str, agent_rc: int, verify
         "verifier": verifier,
         "reward": float(verifier.get("harbor_reward", 0.0)),
     }
+    # Lift the Codex runner's Trace V5 refs onto the receipt. The evals matrix
+    # reads trace evidence from lane-receipt.json and nowhere else, so a trace
+    # that was captured and sealed still counts as absent without this.
+    rollout_result_path = output / "rollout_result.json"
+    if rollout_result_path.exists():
+        rollout_result = json.loads(rollout_result_path.read_text())
+        trace_v5 = (rollout_result.get("metadata") or {}).get("trace_v5")
+        if trace_v5:
+            payload["trace_v5"] = trace_v5
+
     scorecard_path = output / "logs" / "verifier" / "heldout_scorecard.json"
     if scorecard_path.exists():
         scorecard = json.loads(scorecard_path.read_text())
@@ -318,7 +328,15 @@ def run_codex(
     output.mkdir(parents=True, exist_ok=True)
     copy_workspace(workspace)
     candidate_rel = Path("candidate") / ("policy.rs" if family == "code_policy" else "deck.json")
-    task_root = REPO / "adapters" / "harbor" / "bundles" / family
+
+    # Per-run copy of the bundle. The shared Harbor runner derives the agent's
+    # CODEX_HOME from the task root, so concurrent lanes pointed at the
+    # in-repo bundle share one Codex state directory: the second agent then
+    # reuses the first's capture-proxy URL, and its trace records zero calls
+    # while the first records both lanes' traffic. A private task root also
+    # keeps the runner's .codex/.cargo scratch out of the checkout.
+    task_root = output / "task_root"
+    shutil.copytree(REPO / "adapters" / "harbor" / "bundles" / family, task_root)
     payload = {
         "trace_correlation_id": f"cardbench-{family}-{output.name}",
         "deployment_name": f"cardbench_{family}",
