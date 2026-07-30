@@ -294,6 +294,12 @@ pub enum Effect {
     DealDamageController {
         amount: i16,
     },
+    /// Deal damage to the targeted creature and every creature that shares at
+    /// least one of its colors. The target remains included even if it has no
+    /// colors, matching the shared radiance selection substrate.
+    RadianceDealDamageToCreatures {
+        amount: i16,
+    },
     GainLifeController {
         amount: i16,
     },
@@ -328,6 +334,7 @@ impl Effect {
         match self {
             Self::DealDamage { target, .. } => Some(*target),
             Self::ModifyTargetPtUntilEndOfTurn { .. }
+            | Self::RadianceDealDamageToCreatures { .. }
             | Self::RadianceUntapAndModifyUntilEndOfTurn { .. }
             | Self::RadianceModifyPtUntilEndOfTurn { .. } => Some(TargetRequirement::Creature),
             Self::CounterTargetInstantOrSorcerySpell => {

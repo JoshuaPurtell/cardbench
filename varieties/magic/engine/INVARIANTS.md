@@ -197,7 +197,10 @@ Oracle Magic rules coverage.
   it includes that target and every battlefield creature sharing at least one
   of its colors, regardless of controller. Each effect declares whether it
   changes tapped state; a power/toughness-only radiance effect cannot untap a
-  selected permanent as an incidental side effect.
+  selected permanent as an incidental side effect. A radiance damage effect
+  snapshots that selection once, emits one damage receipt per selected
+  creature, and applies all of those marks before its post-resolution SBA
+  check.
 - Card and mechanic implementations may only claim the semantic fragments
   listed in their `supported_rules`. Unsupported text is not silently inferred.
 - A nonpermanent card with no supported cast effect is rejected at cast time;

@@ -1485,3 +1485,56 @@ event_markers = ["BoundManaAbilityBundleActivated", "ManaAbilityManaPaid"]
 mana_receipts = ["0:white:1", "0:green:1"]
 event_absent = ["SpellCast", "SpellResolved", "PriorityPassed"]
 digest = "fnv1a64:dd3c3f052b014b85"
+
+[[scenario]]
+id = "rav_cleansing_beam_radiance_damage"
+seed = 0
+description = "Resolve the bounded Cleansing Beam radiance damage slice, including its target and one shared-color peer before state-based actions."
+
+[[scenario.card]]
+label = "beam"
+owner = 0
+definition = "RAV-CLEANSING-BEAM"
+zone = "hand"
+
+[[scenario.card]]
+label = "target"
+owner = 1
+definition = "RAV-GOLGARI-THUG"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "shared"
+owner = 1
+definition = "RAV-STINKWEED-IMP"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "off_color"
+owner = 1
+definition = "RAV-GREATER-MOSSDOG"
+zone = "battlefield"
+
+[[scenario.mana]]
+player = 0
+color = "red"
+amount = 5
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "beam"
+target = "permanent:target"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["beam:graveyard", "target:graveyard", "shared:graveyard", "off_color:battlefield"]
+event_markers = ["SpellCast", "DamageDealtToPermanent", "SpellResolved", "StateBasedAction"]
+digest = "fnv1a64:b161e284ddd9e82d"
