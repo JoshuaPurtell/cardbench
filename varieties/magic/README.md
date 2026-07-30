@@ -19,7 +19,7 @@ cargo run -p cardbench-magic-policies --bin rav-engine-audit
 ```
 
 `rav-engine-parity` validates the original Ravnica-block manifests and public
-deck pool, executes fifty-one RAV scenarios twice, and compares each deterministic
+deck pool, executes every shown RAV scenario twice, and compares each deterministic
 event log against its fixed public digest. With `--output-root PATH`, the Rust
 binary writes `engine-check.json` and `reward.txt` for the CardBench Harbor
 receipt.
@@ -70,7 +70,7 @@ changing engine ownership.
 RAV shown scenarios are fixture-driven from
 `sets/ravnica_city_of_guilds/scenarios/public/train_scenarios.toml`; each declares
 setup, actions, state assertions, event markers, and a fixed digest. The
-current corpus contains fifty-one scenarios and covers:
+current corpus contains 82 scenarios and covers:
 
 - casting to the stack and both-player priority passes (`Lightning Helix`);
 - colored-cost creature casting and permanent characteristics (`Watchwolf`);
