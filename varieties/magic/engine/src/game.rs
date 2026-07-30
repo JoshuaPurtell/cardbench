@@ -2321,6 +2321,30 @@ impl Game {
                 "no player receives priority during this automatic step",
             ));
         }
+        // CR 508.1 and 509.1 make combat declaration turn-based actions, not
+        // ordinary priority windows. `priority` names the player who will act
+        // after the declaration; it must not authorize a spell, mana ability,
+        // pass, or weakness report before that declaration happens.
+        if self.step == Step::DeclareAttackers
+            && self
+                .combat
+                .as_ref()
+                .is_some_and(|combat| !combat.attackers_declared)
+        {
+            return Err(RulesError::IllegalAction(
+                "attackers must be declared before priority actions",
+            ));
+        }
+        if self.step == Step::DeclareBlockers
+            && self
+                .combat
+                .as_ref()
+                .is_some_and(|combat| !combat.blockers_declared)
+        {
+            return Err(RulesError::IllegalAction(
+                "blockers must be declared before priority actions",
+            ));
+        }
         // A pending draw replacement is a mandatory turn-based choice, not a
         // priority window (CR 616.1 / 121.6).  In particular, an instant,
         // mana ability, or capability report must not be able to interleave

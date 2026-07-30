@@ -115,6 +115,10 @@ Oracle Magic rules coverage.
 - Combat state exists exactly during declare attackers, declare blockers, and
   combat damage. It is initialized at declare attackers and removed before end
   of combat; a combat step cannot be missing its state.
+- Before the required attacker or blocker declaration, the step's recorded
+  priority holder may perform only that declaration. Every ordinary priority
+  action—including casts, mana abilities, passes, and weakness reports—is
+  rejected until the turn-based declaration is complete.
 - Only the active player declares attackers. Each attacker is unique, on that
   player's battlefield, an eligible untapped creature, and is tapped when it
   attacks.
