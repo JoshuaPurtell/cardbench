@@ -605,7 +605,10 @@ impl Game {
         for opponent in self
             .players
             .iter()
-            .filter(|candidate| candidate.id != player)
+            // A departed seat is not a current opponent. In particular, a
+            // policy must not be handed a life-total target that the rules
+            // layer will reject as eliminated.
+            .filter(|candidate| candidate.id != player && !candidate.lost)
         {
             opponent_life.push((opponent.id, opponent.life));
             opponent_battlefield.extend(
