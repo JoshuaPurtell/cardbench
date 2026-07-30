@@ -57,12 +57,18 @@ pub fn run_rav_reference_match() -> Result<PolicyMatchResult, String> {
 
     let mut boros = BorosTempoPolicy::new(PlayerId(0));
     let mut selesnya = SelesnyaConvokePolicy::new(PlayerId(1));
-    submit_policy_move(&mut game, &mut boros, PlayerId(0))?;
-    submit_policy_move(&mut game, &mut selesnya, PlayerId(1))?;
-    submit_policy_move(&mut game, &mut boros, PlayerId(0))?;
-    submit_policy_move(&mut game, &mut selesnya, PlayerId(1))?;
-    submit_policy_move(&mut game, &mut boros, PlayerId(0))?;
-    submit_policy_move(&mut game, &mut selesnya, PlayerId(1))?;
+    submit_policy_move(&mut game, &mut boros, PlayerId(0))
+        .map_err(|error| format!("scripted opening move 1: {error}"))?;
+    submit_policy_move(&mut game, &mut selesnya, PlayerId(1))
+        .map_err(|error| format!("scripted opening move 2: {error}"))?;
+    submit_policy_move(&mut game, &mut boros, PlayerId(0))
+        .map_err(|error| format!("scripted opening move 3: {error}"))?;
+    submit_policy_move(&mut game, &mut selesnya, PlayerId(1))
+        .map_err(|error| format!("scripted opening move 4: {error}"))?;
+    submit_policy_move(&mut game, &mut boros, PlayerId(0))
+        .map_err(|error| format!("scripted opening move 5: {error}"))?;
+    submit_policy_move(&mut game, &mut selesnya, PlayerId(1))
+        .map_err(|error| format!("scripted opening move 6: {error}"))?;
 
     let event_log = game.canonical_event_log();
     for marker in REQUIRED_EVENT_MARKERS {
@@ -144,7 +150,16 @@ fn submit_policy_move<P: CodePolicy>(
     let view = game.view_for_player(player).map_err(rules_error)?;
     let action = policy.propose_move(&view);
     game.submit_policy_move(player, policy.id(), action)
-        .map_err(rules_error)
+        .map_err(|error| {
+            format!(
+                "{} move for player {} at {:?} (priority {}, decision {}): {error}",
+                policy.id(),
+                player.0,
+                view.step,
+                view.priority.0,
+                view.decision_player.0,
+            )
+        })
 }
 
 #[allow(clippy::needless_pass_by_value)] // `Result::map_err` provides an owned error.

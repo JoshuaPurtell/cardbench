@@ -11,6 +11,8 @@ cd varieties/magic
 cargo test --workspace
 cargo run -p cardbench-magic-rav --bin rav-engine-parity
 cargo run -p cardbench-magic-policies --bin rav-policy-match
+cargo run -p cardbench-magic-policies --bin rav-deck-match
+cargo run -p cardbench-magic-policies --bin rav-deck-sweep
 ```
 
 The last command validates the original Ravnica-block manifests and public deck
@@ -34,6 +36,23 @@ cardbench/magic/engine
 cardbench/magic/react
 cardbench/magic/cybernetic
 ```
+
+## Integrity and coverage boundaries
+
+[`engine/INVARIANTS.md`](engine/INVARIANTS.md) is the enforceable public
+integrity contract: object/zone ownership, stack exclusivity, priority and
+pass sequencing, turn progression, combat state, effects, and state-based
+action fixed points. Runners should call `Game::validate_invariants()` after
+explicit setup; accepted policy submissions are validated by the engine so a
+corrupted state fails at its source.
+
+When a policy reaches a rules interaction the implemented slice cannot
+represent, it must submit `PolicyAction::ReportEngineWeakness { code, detail }`
+instead of inventing a legal approximation. A successful report emits
+`EngineWeaknessRevealed`, then its `PolicyMoveSubmitted` receipt, without
+changing game state or priority. This makes coverage gaps visible in the
+canonical event log and is particularly important for unsupported combat and
+card-text interactions.
 
 ## Current card-slice contract
 
@@ -77,8 +96,32 @@ following required event families:
 
 The runner also pins the complete canonical log to
 `fnv1a64:ca603a0d3e5d8114` and prints every event. This is a deterministic
-engine-development trace, not a claim that either policy can yet play a full
-shuffled game.
+engine-development trace. It exercises a representative prepared opening, not
+a claim of full Oracle Magic support; any unsupported interaction encountered
+by a longer policy run must surface through `EngineWeaknessRevealed`.
+
+### Full-deck engine probes
+
+`rav-deck-match` is the deck-level probe: it expands the two public 60-card
+fixtures into libraries, deterministically shuffles, draws seven-card opening
+hands, plays land/mana/stack/combat actions through `Game::submit_policy_move`,
+and validates invariants after setup and every accepted move. The default seed
+has a pinned public regression result: Selesnya wins on turn 30 after 957
+accepted moves, life `[-2, 10]`, digest `fnv1a64:d578c3d3df34e81e`.
+
+`rav-deck-sweep` repeats the same full match for seeds `11`, `73`, `127`, and
+`521`, and prints only genuine engine findings in its summary. Findings are
+classified precisely:
+
+- `EngineBug` means an engine invariant was violated.
+- `CapabilityGap` means a policy explicitly submitted
+  `ReportEngineWeakness` for an unsupported rule.
+
+Invalid policy proposals and configured move/turn ceilings are recorded as
+separate match outcomes; they are not mislabeled as engine defects. The current
+four-seed sweep has zero engine findings. A combat/SBA invariant defect found
+during development—dead blockers remained referenced by the combat assignment
+after lethal damage—has a permanent regression test and is fixed.
 
 ## Provenance and rights
 
