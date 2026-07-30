@@ -90,13 +90,13 @@ current corpus contains fifty-one scenarios and covers:
 - targeted temporary modifiers plus transmute (`Dizzy Spell`), transmute-only
   compatibility (`Brainspoil`), and a targeted temporary modifier plus dredge
   (`Darkblast`); and
-- a target-free global creature-and-player damage batch (`Rain of Embers`) plus
-  additional explicitly transmute-only compatibility slices (`Dimir
+- a full-fidelity target-free global creature-and-player damage batch (`Rain of
+  Embers`) plus additional explicitly transmute-only compatibility slices (`Dimir
   Machinations`, `Shred Memory`, `Clutch of the Undercity`, and `Perplex`); and
-- a combat-state-dependent damage slice (`Dogpile`), a controller-wide temporary
-  Convoke modifier (`Overwhelm`), and fixed creature damage plus life gain
-  (`Ribbons of Night`). Ribbons' payment-color-conditioned draw remains outside
-  the executable slice; and
+- full-fidelity combat-state-dependent player-or-creature damage (`Dogpile`), a
+  full-fidelity controller-wide temporary Convoke modifier (`Overwhelm`), and
+  fixed creature damage plus life gain (`Ribbons of Night`). Ribbons'
+  payment-color-conditioned draw remains outside the executable slice; and
 - cleanup expiration, land-play limits, and rejected priority/convoke/dredge actions.
 
 ## Rust policy development match

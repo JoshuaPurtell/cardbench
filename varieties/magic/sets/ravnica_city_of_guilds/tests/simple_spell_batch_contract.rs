@@ -1,4 +1,4 @@
-//! Public RAV compatibility boundary for the low-complexity spell batch.
+//! Public RAV contracts for the low-complexity spell batch.
 //!
 //! Four definitions intentionally expose only Transmute, while Rain of Embers
 //! exposes the complete target-free global-damage operation. This keeps the
@@ -19,7 +19,10 @@ fn definition(id: &str) -> cardbench_magic_engine::CardDefinition {
 fn rain_of_embers_is_exactly_the_target_free_global_damage_slice() {
     let rain = definition("RAV-RAIN-OF-EMBERS");
     assert_eq!(rain.mana_cost, ManaCost::with_colors(1, [Color::Red]));
-    assert_eq!(rain.supported_rules, ["global-creature-and-player-damage"]);
+    assert_eq!(
+        rain.supported_rules,
+        ["full-rules-fidelity", "global-creature-and-player-damage"]
+    );
     assert_eq!(
         rain.effects,
         vec![Effect::DealDamageToEachCreatureAndPlayer { amount: 1 }]

@@ -1,4 +1,4 @@
-//! Ability-complete contract for simple RAV cards.
+//! Ability-complete contract for small, fully represented RAV cards.
 
 use std::collections::BTreeSet;
 
@@ -21,6 +21,9 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-CLEANSING-BEAM",
             "RAV-RALLY-THE-RIGHTEOUS",
             "RAV-WOJEK-SIREN",
+            "RAV-RAIN-OF-EMBERS",
+            "RAV-DOGPILE",
+            "RAV-OVERWHELM",
         ]
     );
     let definitions = card_definitions();
@@ -68,6 +71,23 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             vec![Effect::RadianceModifyPtUntilEndOfTurn {
                 power: 1,
                 toughness: 1,
+            }],
+        ),
+        (
+            "RAV-RAIN-OF-EMBERS",
+            vec![Effect::DealDamageToEachCreatureAndPlayer { amount: 1 }],
+        ),
+        (
+            "RAV-DOGPILE",
+            vec![Effect::DealDamageEqualToAttackingCreatures {
+                target: TargetRequirement::PlayerOrCreature,
+            }],
+        ),
+        (
+            "RAV-OVERWHELM",
+            vec![Effect::ModifyControllerCreaturesPtUntilEndOfTurn {
+                power: 3,
+                toughness: 3,
             }],
         ),
     ];
@@ -194,6 +214,18 @@ fn full_fidelity_card_scenarios_emit_their_complete_effect_receipts() {
         (
             "rav_radiance_cleanup_expiration",
             ["PermanentsUntapped", "ContinuousEffectExpired"],
+        ),
+        (
+            "rav_rain_of_embers_global_damage",
+            ["DamageDealtToPermanent", "StateBasedAction"],
+        ),
+        (
+            "rav_dogpile_combat_count_damage",
+            ["DamageDealtToPermanent", "StateBasedAction"],
+        ),
+        (
+            "rav_overwhelm_convoke_wide_modifier",
+            ["ConvokeUsed", "ContinuousEffectCreated"],
         ),
     ] {
         let result = results

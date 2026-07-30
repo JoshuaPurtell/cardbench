@@ -33,7 +33,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 10] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 13] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-LAST-GASP",
@@ -44,6 +44,9 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 10] = [
     "RAV-CLEANSING-BEAM",
     "RAV-RALLY-THE-RIGHTEOUS",
     "RAV-WOJEK-SIREN",
+    "RAV-RAIN-OF-EMBERS",
+    "RAV-DOGPILE",
+    "RAV-OVERWHELM",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -98,9 +101,9 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 Effect::DealDamageController { amount: 2 },
             ],
         },
-        // This definition covers the complete fixed global-damage resolution:
-        // all creatures and both players receive one damage in one batch before
-        // state-based actions. It does not encode any unrelated card text.
+        // Full fidelity: the complete target-free global-damage resolution.
+        // Every creature and every player receives the fixed damage in one
+        // batch before state-based actions run.
         CardDefinition {
             id: "RAV-RAIN-OF-EMBERS",
             name: "Rain of Embers",
@@ -110,7 +113,7 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Sorcery]),
             is_basic_land: false,
-            supported_rules: &["global-creature-and-player-damage"],
+            supported_rules: &["full-rules-fidelity", "global-creature-and-player-damage"],
             power: None,
             toughness: None,
             keywords: vec![],
@@ -814,9 +817,8 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Convoke],
             effects: vec![],
         },
-        // This compatibility slice covers the target-free controller-wide
-        // temporary layer-7 modifier and the existing Convoke payment hook.
-        // It intentionally does not assert broader Selesnya or set fidelity.
+        // Full fidelity: Convoke payment and the complete target-free,
+        // controller-wide temporary layer-7 modifier.
         CardDefinition {
             id: "RAV-OVERWHELM",
             name: "Overwhelm",
@@ -826,7 +828,11 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Sorcery]),
             is_basic_land: false,
-            supported_rules: &["convoke", "controller-creature-layer-7-modifier"],
+            supported_rules: &[
+                "full-rules-fidelity",
+                "convoke",
+                "controller-creature-layer-7-modifier",
+            ],
             power: None,
             toughness: None,
             keywords: vec![Keyword::Convoke],
@@ -927,10 +933,9 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
-        // This compatibility slice uses the engine's resolution-time combat
-        // count, so only controller-owned creatures still attacking contribute
-        // to the selected target's damage. No broader combat or card fidelity
-        // is implied beyond that complete fixed effect.
+        // Full fidelity for the original RAV printing: select a player or
+        // creature, then count controller-owned creatures still attacking as
+        // the spell resolves to determine the damage.
         CardDefinition {
             id: "RAV-DOGPILE",
             name: "Dogpile",
@@ -940,12 +945,16 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Instant]),
             is_basic_land: false,
-            supported_rules: &["attacking-creature-count-damage"],
+            supported_rules: &[
+                "full-rules-fidelity",
+                "player-or-creature-targeting",
+                "attacking-creature-count-damage",
+            ],
             power: None,
             toughness: None,
             keywords: vec![],
             effects: vec![Effect::DealDamageEqualToAttackingCreatures {
-                target: cardbench_magic_engine::TargetRequirement::Any,
+                target: cardbench_magic_engine::TargetRequirement::PlayerOrCreature,
             }],
         },
         // Compatibility scope: normal colored-cost creature casting and base

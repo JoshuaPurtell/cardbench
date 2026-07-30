@@ -1,7 +1,6 @@
-//! Public RAV compatibility boundaries for a focused spell feature batch.
+//! Public RAV spell-feature contracts for a focused expansion batch.
 //!
-//! The test names the executable fragments rather than claiming whole-card
-//! fidelity. In particular, Ribbons of Night deliberately excludes its
+//! Ribbons of Night deliberately excludes its
 //! payment-color-conditioned draw because this engine slice does not preserve
 //! the colors spent to cast a spell.
 
@@ -38,11 +37,18 @@ fn batch_card_metadata_and_executable_semantics_are_explicit() {
 
     let dogpile = definition("RAV-DOGPILE");
     assert_eq!(dogpile.mana_cost, ManaCost::with_colors(3, [Color::Red]));
-    assert_eq!(dogpile.supported_rules, ["attacking-creature-count-damage"]);
+    assert_eq!(
+        dogpile.supported_rules,
+        [
+            "full-rules-fidelity",
+            "player-or-creature-targeting",
+            "attacking-creature-count-damage",
+        ]
+    );
     assert_eq!(
         dogpile.effects,
         vec![Effect::DealDamageEqualToAttackingCreatures {
-            target: TargetRequirement::Any,
+            target: TargetRequirement::PlayerOrCreature,
         }]
     );
 
@@ -53,7 +59,11 @@ fn batch_card_metadata_and_executable_semantics_are_explicit() {
     );
     assert_eq!(
         overwhelm.supported_rules,
-        ["convoke", "controller-creature-layer-7-modifier"]
+        [
+            "full-rules-fidelity",
+            "convoke",
+            "controller-creature-layer-7-modifier",
+        ]
     );
     assert_eq!(overwhelm.keywords, vec![Keyword::Convoke]);
     assert_eq!(
@@ -66,7 +76,7 @@ fn batch_card_metadata_and_executable_semantics_are_explicit() {
 }
 
 #[test]
-fn catalog_maps_exactly_the_three_new_public_compatibility_slices() {
+fn catalog_maps_the_exact_public_spells() {
     assert_eq!(
         executable_definition_id_for_collector(101),
         Ok("RAV-RIBBONS-OF-NIGHT")
@@ -82,7 +92,7 @@ fn catalog_maps_exactly_the_three_new_public_compatibility_slices() {
 }
 
 #[test]
-fn public_scenarios_exercise_every_new_compatibility_slice() {
+fn public_scenarios_exercise_each_spells_complete_semantics() {
     let scenario_ids = run_all_scenarios()
         .expect("RAV public scenarios run")
         .into_iter()
@@ -92,6 +102,7 @@ fn public_scenarios_exercise_every_new_compatibility_slice() {
         "rav_ribbons_of_night_damage_life_slice",
         "rav_overwhelm_convoke_wide_modifier",
         "rav_dogpile_combat_count_damage",
+        "rav_dogpile_rejects_noncreature_target",
     ] {
         assert!(scenario_ids.contains(id), "missing public scenario {id}");
     }
@@ -154,13 +165,21 @@ fn public_event_logs_capture_the_new_spells_meaningful_resolution_receipts() {
         .event_log
         .iter()
         .position(|event| {
-            event == "DamageDealtToPlayer { source: ObjectId(1), player: PlayerId(1), amount: 2 }"
+            event == "DamageDealtToPermanent { source: ObjectId(1), permanent: ObjectId(8), amount: 2 }"
         })
-        .expect("Dogpile trace records the two-attacker damage amount");
+        .expect("Dogpile trace records two damage to the selected creature");
     let resolved = dogpile
         .event_log
         .iter()
         .position(|event| event == "SpellResolved { card: ObjectId(1) }")
         .expect("Dogpile trace records resolution");
-    assert!(attackers < cast && cast < damage && damage < resolved);
+    let sba = dogpile
+        .event_log
+        .iter()
+        .position(|event| {
+            event
+                == "StateBasedAction { card: ObjectId(8), reason: \"creature has lethal damage\" }"
+        })
+        .expect("Dogpile trace runs an SBA after the complete damage instruction");
+    assert!(attackers < cast && cast < damage && damage < resolved && resolved < sba);
 }
