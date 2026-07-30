@@ -106,7 +106,7 @@
 98	Necroplasm	executable:RAV-NECROPLASM
 99	Netherborn Phalanx
 100	Nightmare Void
-101	Ribbons of Night
+101	Ribbons of Night	executable:RAV-RIBBONS-OF-NIGHT
 102	Roofstalker Wight
 103	Sadistic Augermage
 104	Sewerdreg
@@ -125,7 +125,7 @@
 117	Char	executable:RAV-CHAR
 118	Cleansing Beam	executable:RAV-CLEANSING-BEAM
 119	Coalhauler Swine	executable:RAV-COALHAULER-SWINE
-120	Dogpile
+120	Dogpile	executable:RAV-DOGPILE
 121	Excruciator
 122	Fiery Conclusion
 123	Flame Fusillade
@@ -180,7 +180,7 @@
 172	Life from the Loam
 173	Moldervine Cloak
 174	Nullmage Shepherd
-175	Overwhelm
+175	Overwhelm	executable:RAV-OVERWHELM
 176	Perilous Forays
 177	Primordial Sage
 178	Recollect

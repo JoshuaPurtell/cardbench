@@ -2862,3 +2862,415 @@ powers = ["hierarch:4", "moroii:4"]
 toughnesses = ["hierarch:4", "moroii:4"]
 event_markers = ["SpellCast", "SpellResolved"]
 digest = "fnv1a64:e78637d84b25b302"
+
+[[scenario]]
+id = "rav_ribbons_of_night_damage_life_slice"
+seed = 0
+description = "Resolve Ribbons of Night's supported fixed creature damage and controller life gain. The payment-color-conditioned draw is deliberately outside this compatibility slice."
+
+[[scenario.card]]
+label = "ribbons"
+owner = 0
+definition = "RAV-RIBBONS-OF-NIGHT"
+zone = "hand"
+
+[[scenario.card]]
+label = "victim"
+owner = 1
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+
+[[scenario.mana]]
+player = 0
+color = "black"
+amount = 1
+
+[[scenario.mana]]
+player = 0
+color = "green"
+amount = 4
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "ribbons"
+target = "permanent:victim"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+life = [24, 20]
+zones = ["ribbons:graveyard", "victim:graveyard"]
+event_markers = ["SpellCast", "DamageDealtToPermanent", "LifeGained", "SpellResolved", "StateBasedAction"]
+digest = "fnv1a64:39fb4c9170a31ff1"
+
+[[scenario]]
+id = "rav_overwhelm_convoke_wide_modifier"
+seed = 0
+description = "Convoke Overwhelm with five creatures, then verify every controller-owned creature receives the supported temporary +3/+3 modifier."
+
+[[scenario.card]]
+label = "overwhelm"
+owner = 0
+definition = "RAV-OVERWHELM"
+zone = "hand"
+
+[[scenario.card]]
+label = "first"
+owner = 0
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "second"
+owner = 0
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "third"
+owner = 0
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "fourth"
+owner = 0
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "fifth"
+owner = 0
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+
+[[scenario.mana]]
+player = 0
+color = "green"
+amount = 2
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "overwhelm"
+convoke = ["first:generic", "second:generic", "third:generic", "fourth:generic", "fifth:generic"]
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["overwhelm:graveyard"]
+powers = ["first:5", "second:5", "third:5", "fourth:5", "fifth:5"]
+toughnesses = ["first:6", "second:6", "third:6", "fourth:6", "fifth:6"]
+tapped = ["first:true", "second:true", "third:true", "fourth:true", "fifth:true"]
+event_markers = ["SpellCast", "ConvokeUsed", "ContinuousEffectCreated", "SpellResolved"]
+digest = "fnv1a64:c2d38d01274f19bb"
+
+[[scenario]]
+id = "rav_dogpile_combat_count_damage"
+seed = 0
+description = "Advance a real two-player game to player 0's third-turn combat, attack with two established creatures, then resolve Dogpile for two damage to the opposing player."
+
+[[scenario.card]]
+label = "dogpile"
+owner = 0
+definition = "RAV-DOGPILE"
+zone = "hand"
+
+[[scenario.card]]
+label = "first_attacker"
+owner = 0
+definition = "RAV-WATCHWOLF"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "second_attacker"
+owner = 0
+definition = "RAV-WATCHWOLF"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "mountain_one"
+owner = 0
+definition = "RAV-MOUNTAIN"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "mountain_two"
+owner = 0
+definition = "RAV-MOUNTAIN"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "mountain_three"
+owner = 0
+definition = "RAV-MOUNTAIN"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "mountain_four"
+owner = 0
+definition = "RAV-MOUNTAIN"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "turn_two_draw"
+owner = 1
+definition = "RAV-FOREST"
+zone = "library"
+
+[[scenario.card]]
+label = "turn_three_draw"
+owner = 0
+definition = "RAV-FOREST"
+zone = "library"
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+# Player 0 finishes turn one with an empty combat.
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "declare_attackers"
+player = 0
+attackers = []
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "draw"
+player = 1
+
+# Player 1 finishes turn two with an empty combat.
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "declare_attackers"
+player = 1
+attackers = []
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "draw"
+player = 0
+
+# Player 0 begins turn three, declares two attackers, and casts Dogpile while
+# both remain in the combat state.
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "declare_attackers"
+player = 0
+attackers = ["first_attacker", "second_attacker"]
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "mountain_one"
+color = "red"
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "mountain_two"
+color = "red"
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "mountain_three"
+color = "red"
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "mountain_four"
+color = "red"
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "dogpile"
+target = "player:1"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+life = [20, 18]
+zones = ["dogpile:graveyard"]
+tapped = ["first_attacker:true", "second_attacker:true", "mountain_one:true", "mountain_two:true", "mountain_three:true", "mountain_four:true"]
+stack_size = 0
+priority = 0
+event_markers = ["AttackersDeclared", "ManaAbilityActivated", "SpellCast", "DamageDealtToPlayer", "SpellResolved"]
+digest = "fnv1a64:3e3d4135d4f5de70"

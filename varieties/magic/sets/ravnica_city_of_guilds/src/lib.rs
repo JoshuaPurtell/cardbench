@@ -284,6 +284,31 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Dredge(2)],
             effects: vec![],
         },
+        // Compatibility scope: the fixed target-creature damage and life gain
+        // resolve together. The payment-color-conditioned card draw is
+        // deliberately omitted because this slice does not retain the colors
+        // spent to cast a spell; this is not full-card fidelity.
+        CardDefinition {
+            id: "RAV-RIBBONS-OF-NIGHT",
+            name: "Ribbons of Night",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(4, [Color::Black]),
+            colors: colors([Color::Black]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Sorcery]),
+            is_basic_land: false,
+            supported_rules: &["targeted-creature-damage", "life-gain"],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![
+                Effect::DealDamage {
+                    amount: 4,
+                    target: cardbench_magic_engine::TargetRequirement::Creature,
+                },
+                Effect::GainLifeController { amount: 4 },
+            ],
+        },
         // Compatibility scope: normal creature casting, base characteristics,
         // and the shared Dredge replacement. Its printed sacrifice activation
         // is intentionally unsupported.
@@ -655,6 +680,27 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Convoke],
             effects: vec![],
         },
+        // This compatibility slice covers the target-free controller-wide
+        // temporary layer-7 modifier and the existing Convoke payment hook.
+        // It intentionally does not assert broader Selesnya or set fidelity.
+        CardDefinition {
+            id: "RAV-OVERWHELM",
+            name: "Overwhelm",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(5, [Color::Green, Color::Green]),
+            colors: colors([Color::Green]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Sorcery]),
+            is_basic_land: false,
+            supported_rules: &["convoke", "controller-creature-layer-7-modifier"],
+            power: None,
+            toughness: None,
+            keywords: vec![Keyword::Convoke],
+            effects: vec![Effect::ModifyControllerCreaturesPtUntilEndOfTurn {
+                power: 3,
+                toughness: 3,
+            }],
+        },
         // This CardBench-authored compatibility definition uses only public
         // identity, mana-cost, type, color, and base-characteristic facts. It
         // deliberately includes no copied rules text, art, flavor text, or
@@ -745,6 +791,27 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             toughness: Some(4),
             keywords: vec![],
             effects: vec![],
+        },
+        // This compatibility slice uses the engine's resolution-time combat
+        // count, so only controller-owned creatures still attacking contribute
+        // to the selected target's damage. No broader combat or card fidelity
+        // is implied beyond that complete fixed effect.
+        CardDefinition {
+            id: "RAV-DOGPILE",
+            name: "Dogpile",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(3, [Color::Red]),
+            colors: colors([Color::Red]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Instant]),
+            is_basic_land: false,
+            supported_rules: &["attacking-creature-count-damage"],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![Effect::DealDamageEqualToAttackingCreatures {
+                target: cardbench_magic_engine::TargetRequirement::Any,
+            }],
         },
         // Compatibility scope: normal colored-cost creature casting and base
         // characteristics only. Every printed card-specific behavior is
@@ -1743,7 +1810,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 52);
+        assert_eq!(first.len(), 55);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }
