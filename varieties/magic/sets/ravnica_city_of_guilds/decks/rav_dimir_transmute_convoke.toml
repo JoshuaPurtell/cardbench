@@ -1,0 +1,44 @@
+schema_version = "cardbench.magic.deck.v1"
+id = "rav_dimir_transmute_convoke"
+name = "RAV Dimir Transmute Convoke Development"
+set = "RAV"
+format = "ravnica-block"
+policy = "rav.dimir-transmute-convoke.v1"
+source = "CardBench-authored public development deck; not a reproduction of a commercial decklist."
+
+# This wider fixture combines blue transmute with the existing green convoke
+# implementation and a searchable mana-value-two red-white payoff.
+[[mainboard]]
+card = "RAV-MUDDLE-THE-MIXTURE"
+count = 4
+
+[[mainboard]]
+card = "RAV-LIGHTNING-HELIX"
+count = 4
+
+[[mainboard]]
+card = "RAV-GOLGARI-BROWNSCALE"
+count = 4
+
+[[mainboard]]
+card = "RAV-SCATTER-THE-SEEDS"
+count = 4
+
+[[mainboard]]
+card = "RAV-ISLAND"
+count = 16
+
+[[mainboard]]
+card = "RAV-FOREST"
+count = 14
+
+[[mainboard]]
+card = "RAV-PLAINS"
+count = 12
+
+[[mainboard]]
+card = "RAV-MOUNTAIN"
+count = 2
+
+[sideboard]
+count = 0

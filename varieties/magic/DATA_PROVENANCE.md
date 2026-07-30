@@ -2,10 +2,12 @@
 
 ## What is in this repository
 
-- CardBench-authored Rust source that models generic game rules and a small
-  executable RAV compatibility slice.
-- Public set identifiers, names, color/type/mana-value facts, and compact
-  machine-executable effect keys needed by the published scenarios.
+- CardBench-authored Rust source that models generic game rules, a small
+  executable RAV compatibility slice, and a complete public RAV printing
+  inventory with an explicit executable/catalog-only boundary.
+- Public set identifiers, names, collector-number facts, color/type/mana-value
+  facts, and compact machine-executable effect keys needed by the published
+  scenarios.
 - Authored TOML manifests, deck counts, scenario identifiers, and event-log
   baseline digests.
 
@@ -21,6 +23,17 @@ redistribution of complete card text. `supported_rules` on each `CardDefinition`
 names the exact scoped fragment. A missing fragment is intentionally not a
 claim of unsupported behavior.
 
+## Complete RAV inventory boundary
+
+`sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv` inventories the 306
+published RAV main-set collector-number printings while retaining only the
+collector number, card name, and a CardBench semantic-status declaration. The
+inventory has no card text or image data. Each record is either explicitly mapped
+to an executable compatibility definition or marked catalog-only with a declared
+capability gap; catalog-only records are deliberately rejected before game setup
+and cannot resolve as blank cards. See that directory's README for its snapshot
+hash and reproduction details.
+
 ## Sources consulted
 
 - The official [Magic rules page](https://magic.wizards.com/en/rules) is the
@@ -30,6 +43,10 @@ claim of unsupported behavior.
   and Selesnya; radiance, transmute, dredge, and convoke.
 - The original-block 4–3–3 guild allocation is described in the official
   [Ravnica block design history](https://magic.wizards.com/en/news/making-magic/city-planning-part-ii-2005-09-12).
+- The public [Scryfall cards API](https://api.scryfall.com/cards/search?q=e%3ARAV&unique=prints&order=set)
+  was used only to reproduce the RAV collector-number/name inventory documented
+  above. The source snapshot is not checked in, and this use makes no ownership or
+  endorsement claim.
 
 These sources inform compatibility facts only. They do not grant a license to
 redistribute copyrighted game content. The project makes no affiliation or

@@ -66,7 +66,7 @@ fn main() -> ExitCode {
 
 /// Runs every ordered pair of public reference decks. It exercises actual
 /// policy submissions and turns every engine finding, rejection, capability
-/// gap, or bounded non-winner into an audit failure with deck provenance.
+/// gap, or bounded incomplete run into an audit failure with deck provenance.
 fn probe_policy_matchup_matrix() -> PolicyMatrixProbe {
     let deck_count = load_reference_decks().map_or(0, |decks| decks.len());
     match run_rav_reference_deck_matrix(0..POLICY_MATRIX_SEED_COUNT) {
@@ -81,12 +81,12 @@ fn probe_policy_matchup_matrix() -> PolicyMatrixProbe {
                         code: "policy-matrix-engine-finding",
                         detail: format!("{finding:?}"),
                     },
-                    EngineTournamentFailure::NonWinningTermination {
+                    EngineTournamentFailure::IncompleteTermination {
                         deck_ids,
                         shuffle_seed,
                         termination,
                     } => Finding {
-                        code: "policy-matrix-nonwinning-run",
+                        code: "policy-matrix-incomplete-run",
                         detail: format!(
                             "{}-vs-{}-seed-{shuffle_seed}: {termination:?}",
                             deck_ids[0], deck_ids[1]

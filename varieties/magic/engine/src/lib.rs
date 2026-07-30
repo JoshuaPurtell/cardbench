@@ -11,7 +11,7 @@ mod model;
 
 pub use game::{
     CardView, CastRequest, ConvokeContribution, ConvokePayment, Game, GameView, PolicyAction,
-    RulesError,
+    RulesError, TransmuteSearchView,
 };
 pub use model::{
     CardDefinition, CardObject, CardType, Characteristics, Color, CombatBlock, ContinuousChange,

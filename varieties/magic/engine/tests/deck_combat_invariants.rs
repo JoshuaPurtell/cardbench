@@ -88,7 +88,34 @@ fn assert_invariants(game: &Game) {
 }
 
 fn pass_priority_round(game: &mut Game) {
+    if game.step == Step::DeclareAttackers
+        && !game
+            .view_for_player(game.next_policy_player())
+            .expect("combat view")
+            .attackers_declared
+    {
+        game.declare_attackers(game.next_policy_player(), &[])
+            .expect("empty attackers are explicit");
+    }
+    if game.step == Step::DeclareBlockers
+        && !game
+            .view_for_player(game.next_policy_player())
+            .expect("combat view")
+            .blockers_declared
+    {
+        game.declare_blockers(game.next_policy_player(), &[])
+            .expect("empty blockers are explicit");
+    }
     for _ in 0..2 {
+        if game
+            .view_for_player(game.next_policy_player())
+            .expect("draw view")
+            .draw_replacement_pending
+        {
+            let player = game.next_policy_player();
+            game.resolve_pending_draw(player, None)
+                .expect("take the ordinary draw");
+        }
         let player = game.priority;
         game.pass_priority(player)
             .expect("priority holder can pass priority");

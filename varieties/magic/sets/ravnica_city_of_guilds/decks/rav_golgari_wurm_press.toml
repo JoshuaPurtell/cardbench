@@ -1,0 +1,37 @@
+schema_version = "cardbench.magic.deck.v1"
+id = "rav_golgari_wurm_press"
+name = "RAV Golgari Wurm Press Development"
+set = "RAV"
+format = "ravnica-block"
+policy = "rav.golgari-wurm-press.v1"
+source = "CardBench-authored development deck; not a reproduction of a commercial decklist."
+
+# This high-curve Golgari fixture deliberately differs from the removal-first
+# attrition deck: it makes Scatter the Seeds before Siege Wurm whenever both are
+# legal, then uses the wider board for convoke and combat-pressure probes.
+[[mainboard]]
+card = "RAV-FOREST"
+count = 30
+
+[[mainboard]]
+card = "RAV-SWAMP"
+count = 14
+
+[[mainboard]]
+card = "RAV-GOLGARI-BROWNSCALE"
+count = 4
+
+[[mainboard]]
+card = "RAV-LAST-GASP"
+count = 4
+
+[[mainboard]]
+card = "RAV-SCATTER-THE-SEEDS"
+count = 4
+
+[[mainboard]]
+card = "RAV-SIEGE-WURM"
+count = 4
+
+[sideboard]
+count = 0

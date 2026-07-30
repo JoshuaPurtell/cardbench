@@ -3,16 +3,28 @@
 #![forbid(unsafe_code)]
 
 mod boros_char_control;
+mod boros_convoke_burn;
+mod boros_radiance_assault;
 mod boros_tempo;
+mod boros_token_rally;
 mod deck_match;
 mod development_match;
+mod dimir_transmute_attrition;
+mod dimir_transmute_convoke;
+mod dimir_transmute_helix;
 mod golgari_attrition;
+mod golgari_dredge_grind;
+mod golgari_wurm_press;
+mod radiance_convoke_assault;
 mod selesnya_convoke;
 mod selesnya_radiance_tokens;
 mod selesnya_siege;
 
 pub use boros_char_control::BorosCharControlPolicy;
+pub use boros_convoke_burn::BorosConvokeBurnPolicy;
+pub use boros_radiance_assault::BorosRadianceAssaultPolicy;
 pub use boros_tempo::BorosTempoPolicy;
+pub use boros_token_rally::BorosTokenRallyPolicy;
 pub use deck_match::{
     DeckMatchConfig, DeckMatchResult, DeckMatchSweepResult, DeckMatchTermination, EngineFinding,
     EngineFindingKind, EngineTournamentFailure, EngineTournamentResult, RAV_DECK_MATCH_ID,
@@ -20,7 +32,13 @@ pub use deck_match::{
     run_rav_full_deck_match, run_rav_full_deck_sweep, run_rav_reference_deck_matrix,
 };
 pub use development_match::{PolicyMatchResult, run_rav_reference_match};
+pub use dimir_transmute_attrition::DimirTransmuteAttritionPolicy;
+pub use dimir_transmute_convoke::DimirTransmuteConvokePolicy;
+pub use dimir_transmute_helix::DimirTransmuteHelixPolicy;
 pub use golgari_attrition::GolgariAttritionPolicy;
+pub use golgari_dredge_grind::GolgariDredgeGrindPolicy;
+pub use golgari_wurm_press::GolgariWurmPressPolicy;
+pub use radiance_convoke_assault::RadianceConvokeAssaultPolicy;
 pub use selesnya_convoke::SelesnyaConvokePolicy;
 pub use selesnya_radiance_tokens::SelesnyaRadianceTokensPolicy;
 pub use selesnya_siege::SelesnyaSiegePolicy;
@@ -31,4 +49,11 @@ use cardbench_magic_engine::{GameView, PolicyAction};
 pub trait CodePolicy {
     fn id(&self) -> &'static str;
     fn propose_move(&mut self, view: &GameView) -> PolicyAction;
+
+    /// Chooses a draw replacement when the engine exposes that mandatory
+    /// decision. Policies that do not use replacement effects take the normal
+    /// draw by default.
+    fn propose_draw_replacement(&mut self, _view: &GameView) -> PolicyAction {
+        PolicyAction::Draw { dredge: None }
+    }
 }

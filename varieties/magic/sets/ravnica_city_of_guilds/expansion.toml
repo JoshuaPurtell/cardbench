@@ -29,6 +29,11 @@ shown_decks = "decks/reference_decks.toml"
 heldout_decks = "not-distributed"
 policy_development_match = "../../policies/reference_match.toml"
 
+[catalog]
+main_set_manifest = "catalog/rav_main_set.tsv"
+expected_official_main_set_printing_count = 306
+semantic_boundary = "complete public inventory; only rows explicitly mapped to CardDefinition are executable; all other rows fail closed with a declared capability gap"
+
 [capabilities]
 zones = ["library", "hand", "battlefield", "graveyard", "exile", "stack"]
 stack = true
@@ -42,7 +47,7 @@ multiplayer = true
 [provenance]
 card_art = "not-distributed"
 oracle_text = "not-distributed"
-card_semantics = "small executable compatibility slice; see DATA_PROVENANCE.md"
+card_semantics = "complete public printing inventory plus a small executable compatibility slice; see catalog/README.md and DATA_PROVENANCE.md"
 rules_reference = "https://magic.wizards.com/en/rules"
 set_history_reference = "https://magic.wizards.com/en/news/making-magic/city-planning-part-iii-2005-09-19"
 license = "MIT for CardBench-authored code and fixture structure; Magic identifiers remain their owners' trademarks"

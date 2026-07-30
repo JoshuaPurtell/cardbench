@@ -364,6 +364,7 @@ fn execute_action(
             .map_err(rules_error)
         }
         "pass" => game.pass_priority(player).map_err(rules_error),
+        "declare_attackers" => game.declare_attackers(player, &[]).map_err(rules_error),
         "draw" => {
             let dredge = (!action.dredge.is_empty())
                 .then(|| lookup(labels, &action.dredge))

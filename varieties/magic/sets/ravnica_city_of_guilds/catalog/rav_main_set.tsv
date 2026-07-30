@@ -1,0 +1,314 @@
+# schema_version=cardbench.magic.rav-catalog.v1
+# source=scryfall-api:e%3ARAV;unique=prints;order=set
+# source_retrieved=2026-07-30
+# expected_official_main_set_printing_count=306
+# snapshot_sha256=1d511161958a6dc2c809e744d46c2bf8cb9854f03d7d5c34388c2b6b694ad267
+# license=CardBench-authored manifest structure is MIT; card names and set identifiers are nominative interoperability facts; no card text, art, or source JSON is distributed.
+# default_semantic_status=catalog-only:card-specific-rules-not-implemented
+# columns=collector_number<TAB>name<TAB>semantic_status_override(optional)
+1	Auratouched Mage
+2	Bathe in Light
+3	Benevolent Ancestor
+4	Blazing Archon
+5	Boros Fury-Shield
+6	Caregiver
+7	Chant of Vitu-Ghazi
+8	Concerted Effort
+9	Conclave Equenaut
+10	Conclave Phalanx
+11	Conclave's Blessing
+12	Courier Hawk
+13	Devouring Light
+14	Divebomber Griffin
+15	Dromad Purebred
+16	Faith's Fetters
+17	Festival of the Guildpact
+18	Flickerform
+19	Gate Hound
+20	Ghosts of the Innocent
+21	Hour of Reckoning
+22	Hunted Lammasu
+23	Leave No Trace
+24	Light of Sanction
+25	Loxodon Gatekeeper
+26	Nightguard Patrol
+27	Oathsworn Giant
+28	Sandsower
+29	Screeching Griffin
+30	Seed Spark
+31	Suppression Field
+32	Three Dreams
+33	Twilight Drover
+34	Veteran Armorer
+35	Votary of the Conclave
+36	Wojek Apothecary
+37	Wojek Siren
+38	Belltower Sphinx
+39	Cerulean Sphinx
+40	Compulsive Research
+41	Convolute
+42	Copy Enchantment
+43	Dizzy Spell
+44	Drake Familiar
+45	Dream Leash
+46	Drift of Phantasms
+47	Ethereal Usher
+48	Eye of the Storm
+49	Flight of Fancy
+50	Flow of Ideas
+51	Followed Footsteps
+52	Grayscaled Gharial
+53	Grozoth
+54	Halcyon Glaze
+55	Hunted Phantasm
+56	Induce Paranoia
+57	Lore Broker
+58	Mark of Eviction
+59	Mnemonic Nexus
+60	Muddle the Mixture	executable:RAV-MUDDLE-THE-MIXTURE
+61	Peel from Reality
+62	Quickchange
+63	Remand
+64	Snapping Drake
+65	Spawnbroker
+66	Stasis Cell
+67	Surveilling Sprite
+68	Tattered Drake
+69	Telling Time
+70	Terraformer
+71	Tidewater Minion
+72	Tunnel Vision
+73	Vedalken Dismisser
+74	Vedalken Entrancer
+75	Wizened Snitches
+76	Zephyr Spirit
+77	Blood Funnel
+78	Brainspoil
+79	Carrion Howler
+80	Clinging Darkness
+81	Dark Confidant
+82	Darkblast
+83	Dimir House Guard
+84	Dimir Machinations
+85	Disembowel
+86	Empty the Catacombs
+87	Golgari Thug
+88	Helldozer
+89	Hex
+90	Hunted Horror
+91	Infectious Host
+92	Keening Banshee
+93	Last Gasp	executable:RAV-LAST-GASP
+94	Mausoleum Turnkey
+95	Moonlight Bargain
+96	Mortipede
+97	Necromantic Thirst
+98	Necroplasm
+99	Netherborn Phalanx
+100	Nightmare Void
+101	Ribbons of Night
+102	Roofstalker Wight
+103	Sadistic Augermage
+104	Sewerdreg
+105	Shred Memory
+106	Sins of the Past
+107	Stinkweed Imp
+108	Strands of Undeath
+109	Thoughtpicker Witch
+110	Undercity Shade
+111	Vigor Mortis
+112	Vindictive Mob
+113	Woebringer Demon
+114	Barbarian Riftcutter
+115	Blockbuster
+116	Breath of Fury
+117	Char	executable:RAV-CHAR
+118	Cleansing Beam
+119	Coalhauler Swine
+120	Dogpile
+121	Excruciator
+122	Fiery Conclusion
+123	Flame Fusillade
+124	Flash Conscription
+125	Frenzied Goblin
+126	Galvanic Arc
+127	Goblin Fire Fiend
+128	Goblin Spelunkers
+129	Greater Forgeling
+130	Hammerfist Giant
+131	Hunted Dragon
+132	Incite Hysteria
+133	Indentured Oaf
+134	Instill Furor
+135	Mindmoil
+136	Molten Sentry
+137	Ordruun Commando
+138	Rain of Embers
+139	Reroute
+140	Sabertooth Alley Cat
+141	Seismic Spike
+142	Sell-Sword Brute
+143	Smash
+144	Sparkmage Apprentice
+145	Stoneshaker Shaman
+146	Surge of Zeal
+147	Torpid Moloch
+148	Viashino Fangtail
+149	Viashino Slasher
+150	Warp World
+151	War-Torch Goblin
+152	Wojek Embermage
+153	Birds of Paradise
+154	Bramble Elemental
+155	Carven Caryatid
+156	Chord of Calling
+157	Civic Wayfinder
+158	Doubling Season
+159	Dowsing Shaman
+160	Dryad's Caress
+161	Elves of Deep Shadow
+162	Elvish Skysweeper
+163	Farseek
+164	Fists of Ironwood
+165	Gather Courage
+166	Golgari Brownscale	executable:RAV-GOLGARI-BROWNSCALE
+167	Golgari Grave-Troll
+168	Goliath Spider
+169	Greater Mossdog
+170	Hunted Troll
+171	Ivy Dancer
+172	Life from the Loam
+173	Moldervine Cloak
+174	Nullmage Shepherd
+175	Overwhelm
+176	Perilous Forays
+177	Primordial Sage
+178	Recollect
+179	Rolling Spoil
+180	Root-Kin Ally
+181	Scatter the Seeds	executable:RAV-SCATTER-THE-SEEDS
+182	Scion of the Wild
+183	Siege Wurm	executable:RAV-SIEGE-WURM
+184	Stone-Seeder Hierophant
+185	Sundering Vitae
+186	Transluminant
+187	Trophy Hunter
+188	Ursapine
+189	Vinelasher Kudzu
+190	Agrus Kos, Wojek Veteran
+191	Autochthon Wurm
+192	Bloodbond March
+193	Boros Swiftblade
+194	Brightflame
+195	Chorus of the Conclave
+196	Circu, Dimir Lobotomist
+197	Clutch of the Undercity
+198	Congregation at Dawn
+199	Consult the Necrosages
+200	Dark Heart of the Wood
+201	Dimir Cutpurse
+202	Dimir Doppelganger
+203	Dimir Infiltrator
+204	Drooling Groodion
+205	Firemane Angel
+206	Flame-Kin Zealot
+207	Glare of Subdual
+208	Glimpse the Unthinkable
+209	Golgari Germination
+210	Golgari Rotwurm
+211	Grave-Shell Scarab
+212	Guardian of Vitu-Ghazi
+213	Lightning Helix	executable:RAV-LIGHTNING-HELIX
+214	Loxodon Hierarch
+215	Mindleech Mass
+216	Moroii
+217	Perplex
+218	Phytohydra
+219	Pollenbright Wings
+220	Psychic Drain
+221	Putrefy
+222	Rally the Righteous	executable:RAV-RALLY-THE-RIGHTEOUS
+223	Razia, Boros Archangel
+224	Razia's Purification
+225	Savra, Queen of the Golgari
+226	Searing Meditation
+227	Seeds of Strength
+228	Selesnya Evangel
+229	Selesnya Sagittars
+230	Shambling Shell
+231	Sisters of Stone Death
+232	Skyknight Legionnaire
+233	Sunhome Enforcer
+234	Szadek, Lord of Secrets
+235	Thundersong Trumpeter
+236	Tolsimir Wolfblood
+237	Twisted Justice
+238	Vulturous Zombie
+239	Watchwolf
+240	Woodwraith Corrupter
+241	Woodwraith Strangler
+242	Boros Guildmage
+243	Boros Recruit
+244	Centaur Safeguard
+245	Dimir Guildmage
+246	Gaze of the Gorgon
+247	Gleancrawler
+248	Golgari Guildmage
+249	Lurking Informant
+250	Master Warcraft
+251	Privileged Position
+252	Selesnya Guildmage
+253	Shadow of Doubt
+254	Bloodletter Quill
+255	Boros Signet
+256	Bottled Cloister
+257	Cloudstone Curio
+258	Crown of Convergence
+259	Cyclopean Snare
+260	Dimir Signet
+261	Glass Golem
+262	Golgari Signet
+263	Grifter's Blade
+264	Junktroller
+265	Leashling
+266	Nullstone Gargoyle
+267	Pariah's Shield
+268	Peregrine Mask
+269	Plague Boiler
+270	Selesnya Signet
+271	Spectral Searchlight
+272	Sunforger
+273	Terrarion
+274	Voyager Staff
+275	Boros Garrison
+276	Dimir Aqueduct
+277	Duskmantle, House of Shadow
+278	Golgari Rot Farm
+279	Overgrown Tomb
+280	Sacred Foundry
+281	Selesnya Sanctuary
+282	Sunhome, Fortress of the Legion
+283	Svogthos, the Restless Tomb
+284	Temple Garden
+285	Vitu-Ghazi, the City-Tree
+286	Watery Grave
+287	Plains	executable:RAV-PLAINS
+288	Plains	executable:RAV-PLAINS
+289	Plains	executable:RAV-PLAINS
+290	Plains	executable:RAV-PLAINS
+291	Island	executable:RAV-ISLAND
+292	Island	executable:RAV-ISLAND
+293	Island	executable:RAV-ISLAND
+294	Island	executable:RAV-ISLAND
+295	Swamp	executable:RAV-SWAMP
+296	Swamp	executable:RAV-SWAMP
+297	Swamp	executable:RAV-SWAMP
+298	Swamp	executable:RAV-SWAMP
+299	Mountain	executable:RAV-MOUNTAIN
+300	Mountain	executable:RAV-MOUNTAIN
+301	Mountain	executable:RAV-MOUNTAIN
+302	Mountain	executable:RAV-MOUNTAIN
+303	Forest	executable:RAV-FOREST
+304	Forest	executable:RAV-FOREST
+305	Forest	executable:RAV-FOREST
+306	Forest	executable:RAV-FOREST
