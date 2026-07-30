@@ -82,13 +82,13 @@ severity for `sorcery-cast-at-instant-speed` and
 
 ## RAV set and mechanic coverage gaps (not engine defects)
 
-The complete public inventory contains 306 printings / 291 unique names, but
-the executable compatibility slice contains only 29 printings / 14 unique
-names. Twenty executable printings are the four printings of each of five basic
-lands; the only nine executable nonbasic names are Char, Gather Courage, Golgari Brownscale,
-Last Gasp, Lightning Helix, Muddle the Mixture, Rally the Righteous, Scatter
-the Seeds, and Siege Wurm. The remaining 278 unique names are explicitly
-catalog-only and fail closed with
+The complete public inventory contains 306 printings / 291 unique names; the
+executable compatibility slice contains 68 printings / 53 unique names.
+Twenty executable printings are the four printings of each of five basic lands;
+the other 48 names are deliberately bounded cards exercising generic casting,
+base characteristics, mana abilities, targeted/global damage, temporary
+modifiers, token creation, Convoke, Dredge, Radiance, and Transmute. The
+remaining 238 unique names are explicitly catalog-only and fail closed with
 `card-specific-rules-not-implemented`. This boundary is enforced by
 `catalog_coverage::executable_slice_size_is_explicit_and_does_not_masquerade_as_set_coverage`.
 
@@ -97,7 +97,7 @@ The four advertised RAV mechanics have targeted compatibility examples
 set-wide mechanic or card-text fidelity. In particular, the executable
 Brownscale definition claims only its draw-replacement/base-characteristic
 slice, Muddle claims only its narrow counter/transmute slice, and the engine
-does not infer any semantics for the other cataloged cards. The 12 public
+does not infer any semantics for the other cataloged cards. The 48 public
 scenarios are behavioral probes for the implemented slice, not coverage of all
 291 names or all interactions among the four mechanics.
 
