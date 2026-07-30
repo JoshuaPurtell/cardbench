@@ -153,6 +153,59 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Dredge(2)],
             effects: vec![],
         },
+        // Compatibility scope: normal creature casting, base characteristics,
+        // and the engine's existing Dredge replacement. Its separate graveyard
+        // trigger is intentionally unsupported.
+        CardDefinition {
+            id: "RAV-GOLGARI-THUG",
+            name: "Golgari Thug",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(1, [Color::Black]),
+            colors: colors([Color::Black]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &["dredge", "base-characteristics"],
+            power: Some(1),
+            toughness: Some(1),
+            keywords: vec![Keyword::Dredge(4)],
+            effects: vec![],
+        },
+        // Compatibility scope: normal creature casting, base characteristics,
+        // and Dredge. Combat keywords and its damage-triggered destruction
+        // behavior are deliberately unsupported.
+        CardDefinition {
+            id: "RAV-STINKWEED-IMP",
+            name: "Stinkweed Imp",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(2, [Color::Black]),
+            colors: colors([Color::Black]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &["dredge", "base-characteristics"],
+            power: Some(1),
+            toughness: Some(2),
+            keywords: vec![Keyword::Dredge(5)],
+            effects: vec![],
+        },
+        // Compatibility scope: normal creature casting, base characteristics,
+        // and Dredge only. No additional card-specific behavior is implied.
+        CardDefinition {
+            id: "RAV-GREATER-MOSSDOG",
+            name: "Greater Mossdog",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(3, [Color::Green]),
+            colors: colors([Color::Green]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &["dredge", "base-characteristics"],
+            power: Some(3),
+            toughness: Some(3),
+            keywords: vec![Keyword::Dredge(3)],
+            effects: vec![],
+        },
         CardDefinition {
             id: "RAV-MUDDLE-THE-MIXTURE",
             name: "Muddle the Mixture",
@@ -219,6 +272,24 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             supported_rules: &["convoke", "base-characteristics"],
             power: Some(5),
             toughness: Some(5),
+            keywords: vec![Keyword::Convoke],
+            effects: vec![],
+        },
+        // Compatibility scope: normal creature casting, base characteristics,
+        // and the existing Convoke payment hook. Its enter-the-battlefield
+        // counter behavior is intentionally unsupported.
+        CardDefinition {
+            id: "RAV-ROOT-KIN-ALLY",
+            name: "Root-Kin Ally",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(2, [Color::Green, Color::Green]),
+            colors: colors([Color::Green]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &["convoke", "base-characteristics"],
+            power: Some(3),
+            toughness: Some(3),
             keywords: vec![Keyword::Convoke],
             effects: vec![],
         },
@@ -859,7 +930,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 14);
+        assert_eq!(first.len(), 18);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

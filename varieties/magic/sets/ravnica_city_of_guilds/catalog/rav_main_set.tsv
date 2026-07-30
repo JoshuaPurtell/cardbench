@@ -92,7 +92,7 @@
 84	Dimir Machinations
 85	Disembowel
 86	Empty the Catacombs
-87	Golgari Thug
+87	Golgari Thug	executable:RAV-GOLGARI-THUG
 88	Helldozer
 89	Hex
 90	Hunted Horror
@@ -112,7 +112,7 @@
 104	Sewerdreg
 105	Shred Memory
 106	Sins of the Past
-107	Stinkweed Imp
+107	Stinkweed Imp	executable:RAV-STINKWEED-IMP
 108	Strands of Undeath
 109	Thoughtpicker Witch
 110	Undercity Shade
@@ -174,7 +174,7 @@
 166	Golgari Brownscale	executable:RAV-GOLGARI-BROWNSCALE
 167	Golgari Grave-Troll
 168	Goliath Spider
-169	Greater Mossdog
+169	Greater Mossdog	executable:RAV-GREATER-MOSSDOG
 170	Hunted Troll
 171	Ivy Dancer
 172	Life from the Loam
@@ -185,7 +185,7 @@
 177	Primordial Sage
 178	Recollect
 179	Rolling Spoil
-180	Root-Kin Ally
+180	Root-Kin Ally	executable:RAV-ROOT-KIN-ALLY
 181	Scatter the Seeds	executable:RAV-SCATTER-THE-SEEDS
 182	Scion of the Wild
 183	Siege Wurm	executable:RAV-SIEGE-WURM
