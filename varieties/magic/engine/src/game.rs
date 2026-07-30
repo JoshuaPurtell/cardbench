@@ -1105,8 +1105,19 @@ impl Game {
     ) -> Result<(), RulesError> {
         self.player(player)?;
         self.require_game_in_progress()?;
+        // Opening-hand setup deliberately uses this primitive before the game
+        // begins. Once a game is live, an ordinary draw can happen only at the
+        // active player's pending Draw-step replacement boundary. This keeps a
+        // public helper from becoming an arbitrary-card-to-hand action.
+        let resolves_pending_draw = self.started && self.pending_draw_replacement == Some(player);
+        if self.started
+            && (self.step != Step::Draw || player != self.active_player || !resolves_pending_draw)
+        {
+            return Err(RulesError::IllegalAction(
+                "a live draw requires the active player's pending draw-step decision",
+            ));
+        }
         if let Some(card) = dredge {
-            self.pending_draw_replacement = Some(player);
             let result = self.dredge(player, card);
             self.pending_draw_replacement = None;
             return result;
@@ -1115,6 +1126,9 @@ impl Game {
             self.lose_player(player, "attempted to draw from an empty library");
             self.normalize_priority_after_elimination()?;
             self.record_game_end_if_needed();
+            if resolves_pending_draw {
+                self.pending_draw_replacement = None;
+            }
             return Ok(());
         };
         self.players[player.0].hand.push(card);
@@ -1122,6 +1136,9 @@ impl Game {
             card,
             to: Zone::Hand,
         });
+        if resolves_pending_draw {
+            self.pending_draw_replacement = None;
+        }
         Ok(())
     }
 
@@ -1145,7 +1162,6 @@ impl Game {
             self.dredge(player, card)?;
             self.pending_draw_replacement = None;
         } else {
-            self.pending_draw_replacement = None;
             self.draw_card(player, None)?;
         }
         self.consecutive_passes = 0;

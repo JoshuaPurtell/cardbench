@@ -102,6 +102,10 @@ Oracle Magic rules coverage.
   empty hand: a short library cannot partially draw cards and then claim a
   larger `OpeningHandDrawn` event. Deck loading is likewise pregame-only, so
   setup events and hidden cards cannot be injected into a live turn.
+- Once the game has begun, the public direct-draw primitive is legal only for
+  the active player's pending Draw-step decision. It resolves that marker
+  atomically; an arbitrary Upkeep, main-phase, combat, or opponent draw is
+  rejected without changing a zone or canonical receipt.
 
 ## Combat
 
