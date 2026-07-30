@@ -556,6 +556,46 @@ zones = ["helix:hand"]
 digest = "fnv1a64:cbf29ce484222325"
 
 [[scenario]]
+id = "rav_watchwolf_colored_cost"
+seed = 0
+description = "Cast the RAV multicolor creature with one Green and one White mana, then resolve it as a 3/3 permanent."
+
+[[scenario.card]]
+label = "watchwolf"
+owner = 0
+definition = "RAV-WATCHWOLF"
+zone = "hand"
+
+[[scenario.mana]]
+player = 0
+color = "green"
+amount = 1
+
+[[scenario.mana]]
+player = 0
+color = "white"
+amount = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "watchwolf"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["watchwolf:battlefield"]
+powers = ["watchwolf:3"]
+event_markers = ["SpellCast", "SpellResolved"]
+digest = "fnv1a64:2371b092f503844f"
+
+[[scenario]]
 id = "rav_invalid_convoke_rejection"
 seed = 0
 description = "Reject a convoke payment in a color the tapped creature does not have."

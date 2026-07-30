@@ -222,6 +222,25 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Convoke],
             effects: vec![],
         },
+        // This CardBench-authored compatibility definition uses only public
+        // identity, mana-cost, type, color, and base-characteristic facts. It
+        // deliberately includes no copied rules text, art, flavor text, or
+        // claim beyond normal creature casting and permanent characteristics.
+        CardDefinition {
+            id: "RAV-WATCHWOLF",
+            name: "Watchwolf",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(0, [Color::Green, Color::White]),
+            colors: colors([Color::Green, Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &["colored-cost-casting", "base-characteristics"],
+            power: Some(3),
+            toughness: Some(3),
+            keywords: vec![],
+            effects: vec![],
+        },
         basic_land("RAV-PLAINS", "Plains", Color::White),
         basic_land("RAV-ISLAND", "Island", Color::Blue),
         basic_land("RAV-SWAMP", "Swamp", Color::Black),
@@ -840,7 +859,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 13);
+        assert_eq!(first.len(), 14);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }
