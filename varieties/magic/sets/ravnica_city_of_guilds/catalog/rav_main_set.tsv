@@ -260,14 +260,14 @@
 252	Selesnya Guildmage
 253	Shadow of Doubt
 254	Bloodletter Quill
-255	Boros Signet
+255	Boros Signet	executable:RAV-BOROS-SIGNET
 256	Bottled Cloister
 257	Cloudstone Curio
 258	Crown of Convergence
 259	Cyclopean Snare
-260	Dimir Signet
+260	Dimir Signet	executable:RAV-DIMIR-SIGNET
 261	Glass Golem	executable:RAV-GLASS-GOLEM
-262	Golgari Signet
+262	Golgari Signet	executable:RAV-GOLGARI-SIGNET
 263	Grifter's Blade
 264	Junktroller
 265	Leashling
@@ -275,7 +275,7 @@
 267	Pariah's Shield
 268	Peregrine Mask
 269	Plague Boiler
-270	Selesnya Signet
+270	Selesnya Signet	executable:RAV-SELESNYA-SIGNET
 271	Spectral Searchlight
 272	Sunforger
 273	Terrarion

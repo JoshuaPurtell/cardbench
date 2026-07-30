@@ -23,8 +23,12 @@ fn birds_of_paradise_has_one_bounded_five_color_tap_mana_binding() {
     );
 
     let bindings = rav_mana_ability_bindings();
-    assert_eq!(bindings.len(), 1);
-    let binding = &bindings[0];
+    let birds_bindings = bindings
+        .iter()
+        .filter(|binding| binding.card_definition == birds.id)
+        .collect::<Vec<_>>();
+    assert_eq!(birds_bindings.len(), 1);
+    let binding = birds_bindings[0];
     assert_eq!(binding.card_definition, birds.id);
     assert_eq!(binding.ability.id, "produce-one-color");
     assert!(binding.ability.tap_cost);

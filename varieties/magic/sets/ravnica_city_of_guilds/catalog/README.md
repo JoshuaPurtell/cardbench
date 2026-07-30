@@ -43,6 +43,15 @@ normal casting, base characteristics, and a CardBench-authored binding to the
 engine's generic tap-and-single-color-choice mana-ability substrate; no other
 card-specific behavior is represented.
 
+The four RAV Signets are executable only through the shared paid fixed-bundle
+mana-ability substrate. Their compatibility slice records each artifact's
+colorless casting cost, artifact characteristics, and one `{1}` plus tap
+activation producing its two fixed guild colors. The public scenarios assert
+the cost-payment receipt, one receipt for each output color, an empty stack,
+and retained activator priority. The catalog maps Dimir Signet at its retained
+public collector number, `#260`; `#261` is Glass Golem and remains mapped to
+its separate executable definition.
+
 The TSV's structure and the Rust parser are CardBench-authored MIT-licensed code and
 data structure. Magic set names and card names are used solely as nominative
 interoperability identifiers and remain their owners' marks.
