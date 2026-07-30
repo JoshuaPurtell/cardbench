@@ -23,7 +23,7 @@ sideboard_size = 15
 basic_lands_exempt = true
 
 [fixtures]
-shown_scenarios = "scenarios/shown.toml"
+shown_scenarios = "scenarios/public/train_scenarios.toml"
 heldout_scenarios = "not-distributed"
 shown_decks = "decks/shown_pool.toml"
 heldout_decks = "not-distributed"

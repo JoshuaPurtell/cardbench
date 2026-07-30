@@ -219,6 +219,17 @@ impl Game {
         Ok(())
     }
 
+    /// Scenario setup hook for a permanent that began the measured sequence tapped.
+    /// It neither represents an in-game action nor writes to the event log.
+    pub fn set_tapped_for_setup(&mut self, card: ObjectId, tapped: bool) -> Result<(), RulesError> {
+        self.require_zone(card, Zone::Battlefield)?;
+        self.objects
+            .get_mut(&card)
+            .ok_or(RulesError::UnknownCard(card))?
+            .tapped = tapped;
+        Ok(())
+    }
+
     pub fn add_mana_from_action(
         &mut self,
         player: PlayerId,
