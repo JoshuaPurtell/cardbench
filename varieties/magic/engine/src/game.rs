@@ -794,6 +794,24 @@ impl Game {
         change: ContinuousChange,
         duration: Duration,
     ) -> Result<(), RulesError> {
+        self.install_continuous_effect(source, target, change, duration)?;
+        // A public installation is a completed state-changing transition, so
+        // its new characteristics must reach the SBA fixed point before a
+        // caller receives control again.
+        self.check_state_based_actions()?;
+        self.validate_invariants()
+    }
+
+    /// Installs an effect while a spell is resolving. The resolver performs
+    /// state-based actions only after the whole spell has resolved, so this
+    /// internal primitive intentionally omits the public transition boundary.
+    fn install_continuous_effect(
+        &mut self,
+        source: ObjectId,
+        target: ObjectId,
+        change: ContinuousChange,
+        duration: Duration,
+    ) -> Result<(), RulesError> {
         self.object(source)?;
         self.object(target)?;
         match duration {
@@ -1945,7 +1963,7 @@ impl Game {
             }
             Effect::ModifyTargetPtUntilEndOfTurn { power, toughness } => {
                 let target = Self::target_permanent(targets)?;
-                self.add_continuous_effect(
+                self.install_continuous_effect(
                     source,
                     target,
                     ContinuousChange::ModifyPowerToughness {
@@ -1979,7 +1997,7 @@ impl Game {
                         object.tapped = false;
                         untapped.push(candidate);
                     }
-                    self.add_continuous_effect(
+                    self.install_continuous_effect(
                         source,
                         candidate,
                         ContinuousChange::ModifyPowerToughness {
