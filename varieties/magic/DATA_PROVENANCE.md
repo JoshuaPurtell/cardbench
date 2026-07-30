@@ -71,6 +71,11 @@ hash and reproduction details.
   rules field was empty. That last fact permits its vanilla compatibility
   definition without silently dropping a printed ability; the response and
   any card text remain uncommitted.
+- The Watchwolf compatibility facts were checked on 2026-07-30 against a
+  public [Scryfall named-card response](https://api.scryfall.com/cards/named?exact=Watchwolf),
+  corroborated by the RAV inventory. The checked fields were identity, set,
+  collector number, mana cost, type, power, toughness, and whether the public
+  rules field was empty. The response and any card text remain uncommitted.
 - The creature-chassis compatibility facts were checked on 2026-07-30 against
   public [Scryfall named-card responses](https://api.scryfall.com/cards/named)
   and corroborated with the RAV catalog. Only identity, set, collector number,
