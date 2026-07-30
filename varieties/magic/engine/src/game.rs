@@ -1284,6 +1284,7 @@ impl Game {
             ));
         }
         self.validate_targets(&definition, &request.targets)?;
+        self.validate_effect_capacity(&definition, player)?;
         let paid_cost =
             self.pay_cost_with_convoke(player, request.card, &definition, &request.convoke)?;
         self.players[player.0].mana_pool = paid_cost;
@@ -2152,7 +2153,9 @@ impl Game {
                 | Effect::RadianceDealDamageToCreatures { amount }
                 | Effect::GainLifeController { amount } => *amount,
                 Effect::CreateToken { .. }
+                | Effect::DealDamageEqualToAttackingCreatures { .. }
                 | Effect::ModifyTargetPtUntilEndOfTurn { .. }
+                | Effect::ModifyControllerCreaturesPtUntilEndOfTurn { .. }
                 | Effect::RadianceUntapAndModifyUntilEndOfTurn { .. }
                 | Effect::RadianceModifyPtUntilEndOfTurn { .. }
                 | Effect::CounterTargetInstantOrSorcerySpell => continue,
@@ -2162,6 +2165,25 @@ impl Game {
                     "damage and life-gain effect amounts must be positive",
                 ));
             }
+        }
+        Ok(())
+    }
+
+    /// Reject an otherwise legal cast before any costs or zones mutate when a
+    /// dynamic effect cannot fit the public event representation. Combat's
+    /// attacker list is fixed after declaration in this engine slice, so the
+    /// checked value cannot grow between this cast boundary and resolution.
+    fn validate_effect_capacity(
+        &self,
+        definition: &CardDefinition,
+        controller: PlayerId,
+    ) -> Result<(), RulesError> {
+        if definition
+            .effects
+            .iter()
+            .any(|effect| matches!(effect, Effect::DealDamageEqualToAttackingCreatures { .. }))
+        {
+            let _ = self.attacking_creature_count(controller)?;
         }
         Ok(())
     }
@@ -2244,6 +2266,41 @@ impl Game {
                 }
                 Target::Spell(card) => return Err(RulesError::IllegalTarget(Target::Spell(*card))),
             },
+            Effect::DealDamageEqualToAttackingCreatures { .. } => {
+                let amount = self.attacking_creature_count(controller)?;
+                // Magic treats zero damage as no damage. Keeping that boundary
+                // explicit avoids inventing a damage receipt or triggering
+                // damage-dependent behavior when the combat count is zero.
+                if amount != 0 {
+                    match targets
+                        .first()
+                        .ok_or(RulesError::IllegalAction("missing damage target"))?
+                    {
+                        Target::Player(player) => {
+                            self.players[player.0].life -= i64::from(amount);
+                            self.record_event(GameEvent::DamageDealtToPlayer {
+                                source,
+                                player: *player,
+                                amount,
+                            });
+                        }
+                        Target::Permanent(permanent) => {
+                            self.objects
+                                .get_mut(permanent)
+                                .ok_or(RulesError::UnknownCard(*permanent))?
+                                .damage += amount;
+                            self.record_event(GameEvent::DamageDealtToPermanent {
+                                source,
+                                permanent: *permanent,
+                                amount,
+                            });
+                        }
+                        Target::Spell(card) => {
+                            return Err(RulesError::IllegalTarget(Target::Spell(*card)));
+                        }
+                    }
+                }
+            }
             Effect::DealDamageController { amount } => {
                 self.players[controller.0].life -= i64::from(*amount);
                 self.record_event(GameEvent::DamageDealtToPlayer {
@@ -2339,6 +2396,36 @@ impl Game {
                     Duration::EndOfTurn(self.turn),
                 )?;
             }
+            Effect::ModifyControllerCreaturesPtUntilEndOfTurn { power, toughness } => {
+                // Snapshot the affected battlefield objects before installing
+                // any effects. State-based actions run only once the complete
+                // spell has resolved, so every eligible controller-owned
+                // creature receives the same temporary modifier.
+                let creatures = self
+                    .all_battlefield_cards()
+                    .into_iter()
+                    .filter(|candidate| {
+                        self.object(*candidate)
+                            .is_ok_and(|object| object.controller == controller)
+                            && self
+                                .characteristics(*candidate)
+                                .is_ok_and(|characteristics| {
+                                    characteristics.card_types.contains(&CardType::Creature)
+                                })
+                    })
+                    .collect::<Vec<_>>();
+                for creature in creatures {
+                    self.install_continuous_effect(
+                        source,
+                        creature,
+                        ContinuousChange::ModifyPowerToughness {
+                            power: *power,
+                            toughness: *toughness,
+                        },
+                        Duration::EndOfTurn(self.turn),
+                    )?;
+                }
+            }
             Effect::RadianceUntapAndModifyUntilEndOfTurn { power, toughness } => {
                 let target = Self::target_permanent(targets)?;
                 let matching = self.radiance_creatures_sharing_color(target)?;
@@ -2408,6 +2495,34 @@ impl Game {
             Some(Target::Spell(card)) => Err(RulesError::IllegalTarget(Target::Spell(*card))),
             None => Err(RulesError::IllegalAction("missing permanent target")),
         }
+    }
+
+    /// Counts the resolving spell controller's creatures that remain attackers
+    /// in the current combat. The value is bounded by the engine's signed
+    /// damage receipt representation; a synthetically oversized combat fails
+    /// closed rather than wrapping into life gain or damage removal.
+    fn attacking_creature_count(&self, controller: PlayerId) -> Result<i32, RulesError> {
+        let Some(combat) = &self.combat else {
+            return Ok(0);
+        };
+        let count = combat
+            .attackers
+            .iter()
+            .filter(|attacker| {
+                self.zone_of(**attacker) == Some(Zone::Battlefield)
+                    && self
+                        .object(**attacker)
+                        .is_ok_and(|object| object.controller == controller)
+                    && self
+                        .characteristics(**attacker)
+                        .is_ok_and(|characteristics| {
+                            characteristics.card_types.contains(&CardType::Creature)
+                        })
+            })
+            .count();
+        i32::try_from(count).map_err(|_| {
+            RulesError::IllegalAction("attacking-creature damage exceeds the engine receipt range")
+        })
     }
 
     fn target_spell(targets: &[Target]) -> Result<ObjectId, RulesError> {

@@ -48,6 +48,7 @@ struct ActionSpec {
     card: String,
     target: String,
     convoke: Vec<String>,
+    attackers: Vec<String>,
     ability: String,
     color: String,
     dredge: String,
@@ -255,6 +256,7 @@ fn set_action_field(
         "card" => action.card = parse_string(value, line_number)?,
         "target" => action.target = parse_string(value, line_number)?,
         "convoke" => action.convoke = parse_string_array(value, line_number)?,
+        "attackers" => action.attackers = parse_string_array(value, line_number)?,
         "ability" => action.ability = parse_string(value, line_number)?,
         "color" => action.color = parse_string(value, line_number)?,
         "dredge" => action.dredge = parse_string(value, line_number)?,
@@ -389,7 +391,15 @@ fn execute_action(
             .map_err(rules_error)
         }
         "pass" => game.pass_priority(player).map_err(rules_error),
-        "declare_attackers" => game.declare_attackers(player, &[]).map_err(rules_error),
+        "declare_attackers" => {
+            let attackers = action
+                .attackers
+                .iter()
+                .map(|label| lookup(labels, label))
+                .collect::<Result<Vec<_>, _>>()?;
+            game.declare_attackers(player, &attackers)
+                .map_err(rules_error)
+        }
         "draw" => {
             let dredge = (!action.dredge.is_empty())
                 .then(|| lookup(labels, &action.dredge))

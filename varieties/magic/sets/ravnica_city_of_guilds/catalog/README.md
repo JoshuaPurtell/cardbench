@@ -93,6 +93,15 @@ scenarios cover exact single-, double-, and multicolored payment, stack
 resolution, graveyard movement, and retained base P/T; they do not assert any
 of those omitted abilities.
 
+The focused noncreature spell batch maps Ribbons of Night, Dogpile, and
+Overwhelm to three named compatibility slices. Ribbons of Night has only its
+fixed creature-damage and controller-life-gain fragment; its conditional card
+draw is deliberately excluded because paid mana colors are not retained. Dogpile
+uses the shared resolution-time count of controller-owned attacking creatures.
+Overwhelm uses the shared Convoke hook and a controller-wide temporary layer-7
+modifier. The corresponding Rust contracts and public event-log scenarios test
+those exact fragments; none is a claim of complete card or set fidelity.
+
 The TSV's structure and the Rust parser are CardBench-authored MIT-licensed code and
 data structure. Magic set names and card names are used solely as nominative
 interoperability identifiers and remain their owners' marks.

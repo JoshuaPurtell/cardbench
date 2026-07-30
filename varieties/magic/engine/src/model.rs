@@ -305,6 +305,15 @@ pub enum Effect {
         amount: i16,
         target: TargetRequirement,
     },
+    /// Deal damage to one target equal to the number of creatures controlled
+    /// by this spell's controller that are still attacking as it resolves.
+    ///
+    /// The combat selection is resolution-time, so a creature that has left
+    /// the battlefield does not contribute and casting before attackers have
+    /// been declared deals no damage rather than inspecting a stale board.
+    DealDamageEqualToAttackingCreatures {
+        target: TargetRequirement,
+    },
     DealDamageController {
         amount: i16,
     },
@@ -332,6 +341,14 @@ pub enum Effect {
         power: i16,
         toughness: i16,
     },
+    /// Apply one temporary layer-7 power/toughness modifier to every creature
+    /// the resolving spell's controller currently controls. The recipient set
+    /// is snapshotted while the spell resolves before any state-based action
+    /// can run.
+    ModifyControllerCreaturesPtUntilEndOfTurn {
+        power: i16,
+        toughness: i16,
+    },
     RadianceUntapAndModifyUntilEndOfTurn {
         power: i16,
         toughness: i16,
@@ -353,7 +370,8 @@ impl Effect {
     #[must_use]
     pub const fn target_requirement(&self) -> Option<TargetRequirement> {
         match self {
-            Self::DealDamage { target, .. } => Some(*target),
+            Self::DealDamage { target, .. }
+            | Self::DealDamageEqualToAttackingCreatures { target } => Some(*target),
             Self::ModifyTargetPtUntilEndOfTurn { .. }
             | Self::RadianceDealDamageToCreatures { .. }
             | Self::RadianceUntapAndModifyUntilEndOfTurn { .. }
@@ -364,7 +382,8 @@ impl Effect {
             Self::DealDamageController { .. }
             | Self::DealDamageToEachCreatureAndPlayer { .. }
             | Self::GainLifeController { .. }
-            | Self::CreateToken { .. } => None,
+            | Self::CreateToken { .. }
+            | Self::ModifyControllerCreaturesPtUntilEndOfTurn { .. } => None,
         }
     }
 }
