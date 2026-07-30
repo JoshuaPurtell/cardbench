@@ -6,8 +6,8 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardDefinition, CardType, Color, CombatBlock, DeckEntry, DeckList, Effect, Game, GameEvent,
-    ManaCost, PlayerId, PolicyAction, PolicyMoveKind, Step, Zone,
+    CardDefinition, CardType, Color, CombatBlock, ContinuousChange, DeckEntry, DeckList, Duration,
+    Effect, Game, GameEvent, ManaCost, PlayerId, PolicyAction, PolicyMoveKind, Step, Zone,
 };
 
 const PLAINS: &str = "TEST-PLAINS";
@@ -344,4 +344,69 @@ fn submitted_combat_moves_deal_damage_run_sbas_and_preserve_invariants() {
             PolicyMoveKind::DeclareBlockers
         ]
     );
+}
+
+#[test]
+fn nonpositive_power_creatures_deal_no_combat_damage_or_damage_event() {
+    let attacker_controller = PlayerId(0);
+    let defending_player = PlayerId(1);
+    let mut game = Game::new(definitions(), 2).expect("game initializes");
+    game.load_deck_into_library(attacker_controller, &land_deck())
+        .expect("first deck loads");
+    game.load_deck_into_library(defending_player, &land_deck())
+        .expect("second deck loads");
+    let attacker = game
+        .put_on_battlefield(attacker_controller, ATTACKER)
+        .expect("attacker enters battlefield");
+    game.add_continuous_effect(
+        attacker,
+        attacker,
+        ContinuousChange::ModifyPowerToughness {
+            power: -4,
+            toughness: 0,
+        },
+        Duration::Permanent,
+    )
+    .expect("continuous effect reduces the attacker to negative power");
+
+    advance_to(&mut game, 3, Step::DeclareAttackers);
+    game.submit_policy_move(
+        attacker_controller,
+        "test.nonpositive-combat-damage.v1",
+        PolicyAction::DeclareAttackers {
+            attackers: vec![attacker],
+        },
+    )
+    .expect("negative power does not prevent attacking");
+    pass_priority_round(&mut game);
+    game.submit_policy_move(
+        defending_player,
+        "test.nonpositive-combat-damage.v1",
+        PolicyAction::DeclareBlockers {
+            assignments: vec![],
+        },
+    )
+    .expect("defender declares no blockers");
+    pass_priority_round(&mut game);
+
+    assert_eq!(game.step, Step::CombatDamage);
+    assert_eq!(
+        game.player(defending_player)
+            .expect("defending player exists")
+            .life,
+        20,
+        "negative power must not increase the defending player's life"
+    );
+    assert!(
+        !game.event_log.iter().any(|event| matches!(
+            event,
+            GameEvent::DamageDealtToPlayer {
+                source,
+                player,
+                ..
+            } if *source == attacker && *player == defending_player
+        )),
+        "zero or negative combat damage is not dealt and has no damage receipt"
+    );
+    assert_invariants(&game);
 }

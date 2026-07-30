@@ -344,6 +344,34 @@ fn target_leaving_the_battlefield_counters_the_pending_spell_and_preserves_zone_
         .expect("state-based actions move the zero-toughness target");
     assert_eq!(game.zone_of(target), Some(Zone::Graveyard));
     assert_eq!(zone_memberships(&game, target), vec![Zone::Graveyard]);
+    let moved_index = game
+        .event_log
+        .iter()
+        .position(|event| {
+            matches!(
+                event,
+                GameEvent::CardMoved {
+                    card,
+                    to: Zone::Graveyard,
+                } if *card == target
+            )
+        })
+        .expect("target zone change is logged");
+    let expired_index = game
+        .event_log
+        .iter()
+        .position(|event| {
+            matches!(
+                event,
+                GameEvent::ContinuousEffectExpired {
+                    source: logged_source,
+                    target: logged_target,
+                    ..
+                } if *logged_source == source && *logged_target == target
+            )
+        })
+        .expect("zone departure explicitly expires the continuous effect");
+    assert!(moved_index < expired_index);
     assert_invariants(&game);
 
     pass_all_survivors(&mut game);
