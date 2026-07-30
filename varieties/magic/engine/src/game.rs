@@ -468,7 +468,12 @@ impl Game {
             color,
             amount,
         });
-        Ok(())
+        // This public helper stands in for a priority-consuming mana action
+        // in compact scenarios. As with an intrinsic mana ability, it breaks
+        // a previous consecutive-pass sequence and leaves its controller's
+        // response window intact.
+        self.consecutive_passes = 0;
+        self.validate_invariants()
     }
 
     /// Activates a basic intrinsic mana ability. It is an expansion-neutral mana
