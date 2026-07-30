@@ -68,7 +68,9 @@ Oracle Magic rules coverage.
 - A legal non-pass action resets the pass sequence. Once every seated player
   still in the game has passed in sequence, the top stack object resolves; if
   the stack is empty, the game advances exactly one step. Stack resolution is
-  last-in, first-out.
+  last-in, first-out. This includes the public `add_mana_from_action` fixture
+  seam as well as intrinsic mana abilities: a mana action after an opponent's
+  pass restores that opponent's response window rather than advancing a step.
 - Only instants in the implemented spell slice may be cast outside their
   controller's main phase or while the stack is nonempty. Sorceries and
   permanent spells observe sorcery timing.
