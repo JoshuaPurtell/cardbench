@@ -799,6 +799,7 @@ impl Game {
         change: ContinuousChange,
         duration: Duration,
     ) -> Result<(), RulesError> {
+        self.require_game_in_progress()?;
         self.install_continuous_effect(source, target, change, duration)?;
         // A public installation is a completed state-changing transition, so
         // its new characteristics must reach the SBA fixed point before a

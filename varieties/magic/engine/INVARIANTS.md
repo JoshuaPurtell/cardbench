@@ -89,9 +89,10 @@ Oracle Magic rules coverage.
   transition. A draw-replacement marker can exist only for the active player
   at the Draw-step decision boundary; it cannot outlive that boundary or point
   at an eliminated player.
-- Once the game has ended, gameplay actions and public draw replacements are
-  rejected without changing zones or emitting accepted-action events. Setup
-  hooks remain deliberately separate from gameplay methods.
+- Once the game has ended, gameplay actions, public draw replacements, and
+  public continuous-effect installation are rejected atomically, without
+  changing state or emitting accepted-action events. Setup hooks remain
+  deliberately separate from gameplay methods.
 - Mana pools clear on each step change. Land plays are limited to one per
   player turn and only occur during that player's main phase with an empty
   stack. The active player's land-play count resets at that player's untap
