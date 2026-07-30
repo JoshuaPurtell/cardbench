@@ -2367,6 +2367,258 @@ event_markers = ["SpellCast", "SpellResolved"]
 digest = "fnv1a64:e78637d84b25b302"
 
 [[scenario]]
+id = "rav_one_mana_creature_chassis"
+seed = 0
+description = "Cast Grayscaled Gharial and Elvish Skysweeper with their exact one-color costs, then verify only their base P/T. Their printed evasion and activated behavior are deliberately omitted."
+
+[[scenario.card]]
+label = "gharial"
+owner = 0
+definition = "RAV-GRAYSCALED-GHARIAL"
+zone = "hand"
+
+[[scenario.card]]
+label = "skysweeper"
+owner = 0
+definition = "RAV-ELVISH-SKYSWEEPER"
+zone = "hand"
+
+[[scenario.mana]]
+player = 0
+color = "blue"
+amount = 1
+
+[[scenario.mana]]
+player = 0
+color = "green"
+amount = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "gharial"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "skysweeper"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["gharial:battlefield", "skysweeper:battlefield"]
+powers = ["gharial:1", "skysweeper:1"]
+toughnesses = ["gharial:1", "skysweeper:1"]
+mana = ["0:blue:0", "0:green:0"]
+stack_size = 0
+priority = 0
+event_markers = ["SpellCast", "PriorityPassed", "SpellResolved"]
+digest = "fnv1a64:e78637d84b25b302"
+
+[[scenario]]
+id = "rav_red_black_creature_chassis_two"
+seed = 0
+description = "Cast Frenzied Goblin and Mortipede with exact red and black costs, then verify only their base P/T. Their printed combat behavior is deliberately omitted."
+
+[[scenario.card]]
+label = "goblin"
+owner = 0
+definition = "RAV-FRENZIED-GOBLIN"
+zone = "hand"
+
+[[scenario.card]]
+label = "mortipede"
+owner = 0
+definition = "RAV-MORTIPEDE"
+zone = "hand"
+
+[[scenario.mana]]
+player = 0
+color = "red"
+amount = 1
+
+[[scenario.mana]]
+player = 0
+color = "black"
+amount = 4
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "goblin"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "mortipede"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["goblin:battlefield", "mortipede:battlefield"]
+powers = ["goblin:1", "mortipede:4"]
+toughnesses = ["goblin:1", "mortipede:1"]
+mana = ["0:red:0", "0:black:0"]
+stack_size = 0
+priority = 0
+event_markers = ["SpellCast", "PriorityPassed", "SpellResolved"]
+digest = "fnv1a64:e78637d84b25b302"
+
+[[scenario]]
+id = "rav_forgeling_dancer_creature_chassis"
+seed = 0
+description = "Cast Greater Forgeling and Ivy Dancer with exact colored costs, then verify only their base P/T. Their printed activations are deliberately omitted."
+
+[[scenario.card]]
+label = "forgeling"
+owner = 0
+definition = "RAV-GREATER-FORGELING"
+zone = "hand"
+
+[[scenario.card]]
+label = "dancer"
+owner = 0
+definition = "RAV-IVY-DANCER"
+zone = "hand"
+
+[[scenario.mana]]
+player = 0
+color = "red"
+amount = 5
+
+[[scenario.mana]]
+player = 0
+color = "green"
+amount = 3
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "forgeling"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "dancer"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["forgeling:battlefield", "dancer:battlefield"]
+powers = ["forgeling:3", "dancer:1"]
+toughnesses = ["forgeling:4", "dancer:2"]
+mana = ["0:red:0", "0:green:0"]
+stack_size = 0
+priority = 0
+event_markers = ["SpellCast", "PriorityPassed", "SpellResolved"]
+digest = "fnv1a64:e78637d84b25b302"
+
+[[scenario]]
+id = "rav_spider_sagittars_creature_chassis"
+seed = 0
+description = "Cast Goliath Spider and Selesnya Sagittars with exact large and multicolor costs, then verify only their base P/T. Their printed combat capabilities are deliberately omitted."
+
+[[scenario.card]]
+label = "spider"
+owner = 0
+definition = "RAV-GOLIATH-SPIDER"
+zone = "hand"
+
+[[scenario.card]]
+label = "sagittars"
+owner = 0
+definition = "RAV-SELESNYA-SAGITTARS"
+zone = "hand"
+
+[[scenario.mana]]
+player = 0
+color = "green"
+amount = 11
+
+[[scenario.mana]]
+player = 0
+color = "white"
+amount = 2
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "sagittars"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "spider"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["spider:battlefield", "sagittars:battlefield"]
+powers = ["spider:7", "sagittars:2"]
+toughnesses = ["spider:6", "sagittars:5"]
+mana = ["0:green:0", "0:white:0"]
+stack_size = 0
+priority = 0
+event_markers = ["SpellCast", "PriorityPassed", "SpellResolved"]
+digest = "fnv1a64:3d74cd919c9d23aa"
+
+[[scenario]]
 id = "rav_black_red_creature_chassis"
 seed = 0
 description = "Cast Carrion Howler and Coalhauler Swine with their exact colored costs, then verify only their base P/T. All printed card-specific behavior is deliberately omitted."
