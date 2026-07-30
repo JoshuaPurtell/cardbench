@@ -19,7 +19,7 @@ cargo run -p cardbench-magic-policies --bin rav-engine-audit
 ```
 
 `rav-engine-parity` validates the original Ravnica-block manifests and public
-deck pool, executes fourteen RAV scenarios twice, and compares each deterministic
+deck pool, executes eighteen RAV scenarios twice, and compares each deterministic
 event log against its fixed public digest. With `--output-root PATH`, the Rust
 binary writes `engine-check.json` and `reward.txt` for the CardBench Harbor
 receipt.
@@ -78,7 +78,10 @@ setup, actions, state assertions, event markers, and a fixed digest. They cover:
 - dredge as a draw replacement (`Golgari Brownscale`);
 - a target-instant-or-sorcery stack counter plus transmute, equal mana-value search, and seeded deterministic shuffle (`Muddle the Mixture`);
 - radiance color matching and layer-7 modifiers (`Rally the Righteous`); and
-- zero-toughness state-based action after a continuous effect (`Last Gasp`).
+- zero-toughness state-based action after a continuous effect (`Last Gasp`);
+- targeted temporary modifiers plus transmute (`Dizzy Spell`), transmute-only
+  compatibility (`Brainspoil`), and a targeted temporary modifier plus dredge
+  (`Darkblast`); and
 - cleanup expiration, land-play limits, and rejected priority/convoke/dredge actions.
 
 ## Rust policy development match

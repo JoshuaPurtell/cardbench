@@ -73,9 +73,23 @@ fn executable_slice_size_is_explicit_and_does_not_masquerade_as_set_coverage() {
         .collect::<std::collections::BTreeSet<_>>();
 
     // Twenty executable basic-land printings collapse to five names. The
-    // remaining fourteen executable names are the deliberately narrow card slice.
-    assert_eq!(executable_printings, 34);
-    assert_eq!(executable_names.len(), 19);
-    assert_eq!(catalog_only_names.len(), 272);
+    // remaining seventeen executable names are the deliberately narrow card
+    // slice; Clinging Darkness remains catalog-only because Aura attachment,
+    // persistent modifiers, and regeneration are not represented.
+    assert_eq!(executable_printings, 37);
+    assert_eq!(executable_names.len(), 22);
+    assert_eq!(catalog_only_names.len(), 269);
     assert!(executable_names.is_disjoint(&catalog_only_names));
+}
+
+#[test]
+fn clinging_darkness_stays_fail_closed_until_aura_semantics_exist() {
+    assert_eq!(
+        executable_definition_id_for_collector(80),
+        Err(CatalogResolutionError::CapabilityGap {
+            collector_number: 80,
+            name: "Clinging Darkness",
+            capability_gap: "aura-static-modifier-and-regeneration-not-implemented",
+        })
+    );
 }

@@ -922,3 +922,186 @@ expected_error = "requires at least that many cards"
 [scenario.expected]
 zones = ["brownscale:graveyard", "forest:library"]
 digest = "fnv1a64:cbf29ce484222325"
+
+[[scenario]]
+id = "rav_dizzy_spell_modifier"
+seed = 0
+description = "Resolve Dizzy Spell's scoped target-creature temporary power modifier."
+
+[[scenario.card]]
+label = "dizzy"
+owner = 0
+definition = "RAV-DIZZY-SPELL"
+zone = "hand"
+
+[[scenario.card]]
+label = "victim"
+owner = 1
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+
+[[scenario.mana]]
+player = 0
+color = "blue"
+amount = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "dizzy"
+target = "permanent:victim"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["dizzy:graveyard"]
+powers = ["victim:-1"]
+event_markers = ["SpellCast", "ContinuousEffectCreated", "SpellResolved"]
+digest = "fnv1a64:f084f234f5342cf7"
+
+[[scenario]]
+id = "rav_dizzy_spell_transmute"
+seed = 41
+description = "Use Dizzy Spell's scoped transmute activation to find an equal-mana-value card."
+
+[[scenario.card]]
+label = "dizzy"
+owner = 0
+definition = "RAV-DIZZY-SPELL"
+zone = "hand"
+
+[[scenario.card]]
+label = "darkblast"
+owner = 0
+definition = "RAV-DARKBLAST"
+zone = "library"
+
+[[scenario.mana]]
+player = 0
+color = "blue"
+amount = 2
+
+[[scenario.mana]]
+player = 0
+color = "green"
+amount = 1
+
+[[scenario.action]]
+kind = "transmute"
+player = 0
+card = "dizzy"
+found = "darkblast"
+
+[scenario.expected]
+zones = ["dizzy:graveyard", "darkblast:hand"]
+event_markers = ["Transmuted", "CardMoved", "LibraryShuffled"]
+digest = "fnv1a64:07ba6ebbc10fdd6e"
+
+[[scenario]]
+id = "rav_brainspoil_transmute"
+seed = 41
+description = "Use Brainspoil's scoped transmute activation; its printed spell effect is non-covered."
+
+[[scenario.card]]
+label = "brainspoil"
+owner = 0
+definition = "RAV-BRAINSPOIL"
+zone = "hand"
+
+[[scenario.card]]
+label = "found_brainspoil"
+owner = 0
+definition = "RAV-BRAINSPOIL"
+zone = "library"
+
+[[scenario.mana]]
+player = 0
+color = "black"
+amount = 2
+
+[[scenario.mana]]
+player = 0
+color = "green"
+amount = 1
+
+[[scenario.action]]
+kind = "transmute"
+player = 0
+card = "brainspoil"
+found = "found_brainspoil"
+
+[scenario.expected]
+zones = ["brainspoil:graveyard", "found_brainspoil:hand"]
+event_markers = ["Transmuted", "CardMoved", "LibraryShuffled"]
+digest = "fnv1a64:07ba6ebbc10fdd6e"
+
+[[scenario]]
+id = "rav_darkblast_modifier_and_dredge"
+seed = 0
+description = "Resolve Darkblast's scoped temporary modifier, then replace a draw with its scoped dredge ability."
+
+[[scenario.card]]
+label = "darkblast"
+owner = 0
+definition = "RAV-DARKBLAST"
+zone = "hand"
+
+[[scenario.card]]
+label = "victim"
+owner = 1
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "forest_one"
+owner = 0
+definition = "RAV-FOREST"
+zone = "library"
+
+[[scenario.card]]
+label = "forest_two"
+owner = 0
+definition = "RAV-FOREST"
+zone = "library"
+
+[[scenario.card]]
+label = "forest_three"
+owner = 0
+definition = "RAV-FOREST"
+zone = "library"
+
+[[scenario.mana]]
+player = 0
+color = "black"
+amount = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "darkblast"
+target = "permanent:victim"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "draw"
+player = 0
+dredge = "darkblast"
+
+[scenario.expected]
+zones = ["darkblast:hand", "forest_one:graveyard", "forest_two:graveyard", "forest_three:graveyard"]
+powers = ["victim:1"]
+event_markers = ["SpellCast", "ContinuousEffectCreated", "SpellResolved", "Dredged", "CardMoved"]
+digest = "fnv1a64:c3dd582e9ae7447f"

@@ -43,6 +43,15 @@ hash and reproduction details.
   and Selesnya; radiance, transmute, dredge, and convoke.
 - The original-block 4–3–3 guild allocation is described in the official
   [Ravnica block design history](https://magic.wizards.com/en/news/making-magic/city-planning-part-ii-2005-09-12).
+- The narrow Dizzy Spell, Brainspoil, Clinging Darkness, and Darkblast
+  compatibility facts were checked against their public official Gatherer
+  records ([Dizzy Spell](https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=87925),
+  [Brainspoil](https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=88965),
+  [Clinging Darkness](https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=83822),
+  and [Darkblast](https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=87922)).
+  Only identity, set, collector number, mana cost, color, type, and keyword
+  facts required by the scoped compatibility definitions were retained; no
+  card text, image, or response payload is checked in.
 - The public [Scryfall cards API](https://api.scryfall.com/cards/search?q=e%3ARAV&unique=prints&order=set)
   was used only to reproduce the RAV collector-number/name inventory documented
   above. The source snapshot is not checked in, and this use makes no ownership or
