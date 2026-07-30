@@ -41,11 +41,18 @@ Oracle Magic rules coverage.
   move.
 - Stack controller, effects, and target count must match the represented card
   definition. Tokens and lands cannot occupy the stack. A target may later
-  become illegal, but it cannot be absent or fabricated at cast time. In
-  particular, every stack player target names a seated player, although that
-  player may later have lost. At resolution, an all-illegal target set emits
+  become illegal, but it cannot be absent, fabricated, or change enum kind
+  after cast time. The invariant validates that immutable target shape
+  separately from dynamic target legality; in particular, every stack player
+  target names a seated player, although that player may later have lost. At
+  resolution, an all-illegal target set emits
   `SpellCounteredByRules`; a resolving counter effect emits the distinct
   `SpellCountered` receipt.
+- Every stack controller is living. In this slice a noninstant stack object
+  can only be the bottom object, cast by the active player in a main phase;
+  any later stack object must be an instant. An unsupported nonpermanent card
+  never becomes a successful no-op merely because public fixture state placed
+  it on the stack.
 - Executable direct-damage spells that use the pre-planeswalker “creature or
   player” targeting scope reject noncreature permanents at cast time and at
   resolution. The broader `Any` requirement is not used to approximate that

@@ -1845,7 +1845,7 @@ impl Game {
             }
         }
         let mut stack_cards = BTreeSet::new();
-        for stack_object in &self.stack {
+        for (stack_index, stack_object) in self.stack.iter().enumerate() {
             if !stack_cards.insert(stack_object.card) || locations.contains_key(&stack_object.card)
             {
                 return Err(RulesError::IllegalAction(
@@ -1854,6 +1854,11 @@ impl Game {
             }
             let object = self.object(stack_object.card)?;
             self.player(stack_object.controller)?;
+            if self.players[stack_object.controller.0].lost {
+                return Err(RulesError::IllegalAction(
+                    "a departed player controls a stack object",
+                ));
+            }
             if object.controller != stack_object.controller {
                 return Err(RulesError::IllegalAction(
                     "stack controller does not match its card object",
@@ -1868,6 +1873,20 @@ impl Game {
             if object.token.is_some() || definition.is_land() {
                 return Err(RulesError::IllegalAction(
                     "a token or land occupies the stack",
+                ));
+            }
+            if !definition.is_permanent() && definition.effects.is_empty() {
+                return Err(RulesError::IllegalAction(
+                    "an unsupported nonpermanent card occupies the stack",
+                ));
+            }
+            if !definition.card_types.contains(&CardType::Instant)
+                && (stack_index != 0
+                    || stack_object.controller != self.active_player
+                    || !self.step.is_main())
+            {
+                return Err(RulesError::IllegalAction(
+                    "a non-instant stack object has impossible sorcery timing",
                 ));
             }
             if definition.effects != stack_object.effects {
@@ -1888,10 +1907,17 @@ impl Game {
             }
             // A target may become illegal after a legal cast (for example, a
             // player can lose or a permanent can leave the battlefield), but
-            // a player-seat identity can never cease to exist. Reject an
-            // unseated player injected into a public stack object instead of
-            // mistaking it for a rules-counterable target.
-            for target in &stack_object.targets {
+            // it cannot change its enum kind. Validate only immutable target
+            // shape here; dynamic legality remains the resolution rule.
+            for (target, requirement) in stack_object.targets.iter().zip(
+                definition
+                    .effects
+                    .iter()
+                    .filter_map(Effect::target_requirement),
+            ) {
+                if !Self::target_shape_matches(*target, requirement) {
+                    return Err(RulesError::IllegalTarget(*target));
+                }
                 if let Target::Player(player) = target {
                     self.player(*player)?;
                 }
@@ -2418,6 +2444,26 @@ impl Game {
             }
             _ => false,
         }
+    }
+
+    /// Checks the target variant that could have been selected at cast time,
+    /// without requiring its current object to remain legal at resolution.
+    /// This separates invariant provenance checks from the rules-counter path.
+    fn target_shape_matches(target: Target, requirement: TargetRequirement) -> bool {
+        matches!(
+            (target, requirement),
+            (
+                Target::Player(_),
+                TargetRequirement::Any
+                    | TargetRequirement::Player
+                    | TargetRequirement::PlayerOrCreature
+            ) | (
+                Target::Permanent(_),
+                TargetRequirement::Any
+                    | TargetRequirement::Creature
+                    | TargetRequirement::PlayerOrCreature
+            ) | (Target::Spell(_), TargetRequirement::InstantOrSorcerySpell)
+        )
     }
 
     fn advance_step(&mut self) -> Result<(), RulesError> {
