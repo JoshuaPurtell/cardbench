@@ -9,8 +9,7 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardDefinition, CardType, CastRequest, Color, Effect, Game, ManaCost, PlayerId, Target,
-    Zone,
+    CardDefinition, CardType, CastRequest, Color, Effect, Game, ManaCost, PlayerId, Target, Zone,
 };
 
 const THREE_TARGET_BOOST: &str = "TST-THREE-TARGET-BOOST";
@@ -116,14 +115,22 @@ fn independently_targeted_effects_survive_one_target_becoming_illegal() {
         "each target occurrence must have its own stack target slot"
     );
 
-    game.players[caster.0].battlefield.retain(|card| *card != middle);
+    game.players[caster.0]
+        .battlefield
+        .retain(|card| *card != middle);
     game.players[caster.0].graveyard.push(middle);
     game.pass_priority(caster)
         .expect("caster passes priority over spell");
     game.pass_priority(opponent)
         .expect("opponent resolves the spell");
 
-    assert_eq!(game.characteristics(first).expect("first exists").power, Some(3));
-    assert_eq!(game.characteristics(last).expect("last exists").power, Some(3));
+    assert_eq!(
+        game.characteristics(first).expect("first exists").power,
+        Some(3)
+    );
+    assert_eq!(
+        game.characteristics(last).expect("last exists").power,
+        Some(3)
+    );
     assert_eq!(game.zone_of(middle), Some(Zone::Graveyard));
 }

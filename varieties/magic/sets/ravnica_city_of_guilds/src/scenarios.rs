@@ -46,7 +46,11 @@ struct ActionSpec {
     kind: String,
     player: usize,
     card: String,
+    /// One target occurrence for legacy single-target fixtures. New scenarios
+    /// use `targets` so a stack object preserves one slot for every distinct
+    /// target word in its executable effect model.
     target: String,
+    targets: Vec<String>,
     convoke: Vec<String>,
     attackers: Vec<String>,
     ability: String,
@@ -255,6 +259,7 @@ fn set_action_field(
         "player" => action.player = parse_number(value, line_number)?,
         "card" => action.card = parse_string(value, line_number)?,
         "target" => action.target = parse_string(value, line_number)?,
+        "targets" => action.targets = parse_string_array(value, line_number)?,
         "convoke" => action.convoke = parse_string_array(value, line_number)?,
         "attackers" => action.attackers = parse_string_array(value, line_number)?,
         "ability" => action.ability = parse_string(value, line_number)?,
@@ -370,11 +375,7 @@ fn execute_action(
     let result = match action.kind.as_str() {
         "begin_game" => game.begin_game().map_err(rules_error),
         "cast" => {
-            let targets = if action.target.is_empty() {
-                vec![]
-            } else {
-                vec![parse_target(&action.target, labels)?]
-            };
+            let targets = cast_targets(action, labels)?;
             let convoke = action
                 .convoke
                 .iter()
@@ -466,6 +467,27 @@ fn execute_action(
             action.kind, action.expected_error
         )),
     }
+}
+
+fn cast_targets(
+    action: &ActionSpec,
+    labels: &BTreeMap<String, ObjectId>,
+) -> Result<Vec<Target>, String> {
+    if !action.target.is_empty() && !action.targets.is_empty() {
+        return Err("cast action may specify `target` or `targets`, not both".to_owned());
+    }
+    let target_specs = if action.targets.is_empty() {
+        (!action.target.is_empty())
+            .then_some(action.target.as_str())
+            .into_iter()
+            .collect::<Vec<_>>()
+    } else {
+        action.targets.iter().map(String::as_str).collect()
+    };
+    target_specs
+        .into_iter()
+        .map(|target| parse_target(target, labels))
+        .collect()
 }
 
 #[allow(clippy::too_many_lines)] // Fixture assertion fields intentionally stay in one auditable parser path.
