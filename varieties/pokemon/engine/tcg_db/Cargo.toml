@@ -1,0 +1,22 @@
+[package]
+name = "tcg_db"
+version = "0.1.0"
+edition = "2024"
+description = "Pokemon TCG game engine database and card metadata"
+license = "MIT"
+repository = "https://github.com/JoshuaPurtell/overzealous"
+
+[dependencies]
+rusqlite = { version = "0.32", default-features = false }
+jsonschema = "0.19"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+thiserror = "1.0"
+tcg_core = { version = "0.1", path = "../tcg_core" }
+tcg_rules_ex = { version = "0.1", path = "../tcg_rules_ex" }
+tcg_expansions = { version = "0.1", path = ".." }
+
+[features]
+default = ["sqlite-bundled"]
+sqlite-bundled = ["rusqlite/bundled"]
+sqlite-system = []

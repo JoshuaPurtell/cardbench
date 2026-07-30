@@ -1,0 +1,28 @@
+schema_version = "cardbench.magic.expansion.v1"
+id = "ravnica-city-of-guilds"
+name = "Ravnica: City of Guilds"
+block = "ravnica"
+release_order = 1
+status = "reserved"
+
+[engine]
+ruleset = "magic"
+pin = ""
+
+[legality]
+format = "block"
+minimum_deck_size = 60
+maximum_copies = 4
+sideboard_size = 15
+
+[fixtures]
+shown_scenarios = ""
+heldout_scenarios = ""
+shown_decks = ""
+heldout_decks = ""
+
+[capabilities]
+stack = true
+priority = true
+layers = true
+multiplayer = false

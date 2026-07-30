@@ -1,0 +1,8 @@
+{
+  "schema_version": "cardbench.pokemon.engine-suite.v1",
+  "id": "engine_cg_smoke_v1",
+  "set": "crystal_guardians",
+  "suite": "train",
+  "candidate_mode": "overlay",
+  "event_log_comparison": "canonical_json"
+}

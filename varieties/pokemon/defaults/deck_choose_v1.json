@@ -1,0 +1,9 @@
+{
+  "schema_version": "cardbench.pokemon.deck-suite.v1",
+  "id": "deck_choose_v1",
+  "matches_per_opponent_per_side": 1,
+  "seed_bases": [1],
+  "scoring_policy_id": "simple_heuristic_v1",
+  "baseline_deck": "Overzealous-v0",
+  "minimum_delta": 0.0
+}

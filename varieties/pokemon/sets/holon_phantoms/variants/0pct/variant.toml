@@ -1,0 +1,25 @@
+name = "holon_phantoms_0pct"
+family = "holon_phantoms"
+variant = "0pct"
+description = "No public gold disclosure. Both graded files are fully stubbed."
+
+[engine_core]
+commit = "9d2a9f33c48ec155b626e8858d330e72e73b17fb"
+
+[disclosure]
+revealed_public_functions = 0
+total_public_functions = 20
+
+[disclosure.per_file.cards]
+source = "stub"
+revealed = 0
+total = 3
+keep_gold_functions = []
+stubbed_functions = []
+
+[disclosure.per_file.engine]
+source = "stub"
+revealed = 0
+total = 17
+keep_gold_functions = []
+stubbed_functions = []

@@ -1,0 +1,32 @@
+schema_version = "cardbench.engine-pins.v1"
+
+[[source]]
+name = "setbench-engine-core"
+remote = "https://github.com/JoshuaPurtell/setbench-engine-core.git"
+commit = "9d2a9f33c48ec155b626e8858d330e72e73b17fb"
+target = "varieties/pokemon/engine"
+
+[[source]]
+name = "setbench"
+remote = "https://github.com/JoshuaPurtell/setbench.git"
+commit = "54ce99ed75b3f9d1aa6a8618ed2572929ea1fd63"
+target = "varieties/pokemon/sets"
+
+[[source]]
+name = "engine-bench-tcg"
+remote = "https://github.com/JoshuaPurtell/engine-bench-tcg.git"
+commit = "c39c9ba8918a699dd7c58ac7932119d5289a9913"
+target = "varieties/pokemon/{policies,decks,react}"
+
+[[source]]
+name = "game-engine-coding-tasks"
+remote = "git@github.com:synth-laboratories/game-engine-coding-tasks.git"
+commit = "71080b56e9dec04dbe86c85421dc2875a4f60947"
+target = "provenance-only; Pokemon Crystal Guardians fixtures remain upstream"
+
+[[source]]
+name = "overzealous"
+remote = "git@github.com:JoshuaPurtell/overzealous.git"
+commit = "61879fb7d2635b88f7c8e6a1de1ea71b9ed6c63d"
+target = "varieties/pokemon/engine/{tcg_ai,tcg_db}"
+notes = "MIT-licensed AI and database crates ported onto the SetBench engine pin."

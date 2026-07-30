@@ -1,0 +1,357 @@
+{
+  "scenarios": [
+    {
+      "name": "hydro_shot",
+      "seed": 101,
+      "deck_p1": {
+        "deck_kind": "standard",
+        "primary": "CG-95",
+        "energy": "ENERGY-WATER",
+        "trainer_slots": [
+          "CG-83"
+        ]
+      },
+      "deck_p2": {
+        "deck_kind": "standard",
+        "primary": "CG-95",
+        "energy": "ENERGY-WATER",
+        "trainer_slots": [
+          "CG-83"
+        ]
+      },
+      "required_markers": [
+        "AttackDeclared(",
+        "Hydro Shot",
+        ",70)"
+      ]
+    },
+    {
+      "name": "hydro_shot_alt",
+      "seed": 201,
+      "deck_p1": {
+        "deck_kind": "standard",
+        "primary": "CG-95",
+        "energy": "ENERGY-WATER",
+        "trainer_slots": [
+          "CG-83"
+        ]
+      },
+      "deck_p2": {
+        "deck_kind": "standard",
+        "primary": "CG-95",
+        "energy": "ENERGY-WATER",
+        "trainer_slots": [
+          "CG-83"
+        ]
+      },
+      "required_markers": [
+        "AttackDeclared(",
+        "Hydro Shot",
+        ",70)"
+      ]
+    },
+    {
+      "name": "target_attack",
+      "seed": 102,
+      "deck_p1": {
+        "deck_kind": "standard",
+        "primary": "CG-97",
+        "energy": "ENERGY-GRASS",
+        "trainer_slots": [
+          "CG-83"
+        ]
+      },
+      "deck_p2": {
+        "deck_kind": "standard",
+        "primary": "CG-97",
+        "energy": "ENERGY-GRASS",
+        "trainer_slots": [
+          "CG-83"
+        ]
+      },
+      "required_markers": [
+        "AttackDeclared(",
+        "Target Attack",
+        ",30)"
+      ]
+    },
+    {
+      "name": "ultra_pump",
+      "seed": 103,
+      "deck_p1": {
+        "deck_kind": "standard",
+        "primary": "CG-98",
+        "energy": "ENERGY-WATER",
+        "trainer_slots": [
+          "CG-74",
+          "CG-83"
+        ]
+      },
+      "deck_p2": {
+        "deck_kind": "standard",
+        "primary": "CG-98",
+        "energy": "ENERGY-WATER",
+        "trainer_slots": [
+          "CG-74",
+          "CG-83"
+        ]
+      },
+      "required_markers": [
+        "AttackDeclared(",
+        "Ultra Pump",
+        ",20)"
+      ]
+    },
+    {
+      "name": "ultra_pump_alt",
+      "seed": 203,
+      "deck_p1": {
+        "deck_kind": "standard",
+        "primary": "CG-98",
+        "energy": "ENERGY-WATER",
+        "trainer_slots": [
+          "CG-74",
+          "CG-83"
+        ]
+      },
+      "deck_p2": {
+        "deck_kind": "standard",
+        "primary": "CG-98",
+        "energy": "ENERGY-WATER",
+        "trainer_slots": [
+          "CG-74",
+          "CG-83"
+        ]
+      },
+      "required_markers": [
+        "AttackDeclared(",
+        "Ultra Pump",
+        ",20)"
+      ]
+    },
+    {
+      "name": "leaf_shade",
+      "seed": 104,
+      "deck_p1": {
+        "deck_kind": "standard",
+        "primary": "CG-100",
+        "energy": "ENERGY-GRASS",
+        "trainer_slots": [
+          "CG-83"
+        ]
+      },
+      "deck_p2": {
+        "deck_kind": "standard",
+        "primary": "CG-100",
+        "energy": "ENERGY-GRASS",
+        "trainer_slots": [
+          "CG-83"
+        ]
+      },
+      "required_markers": [
+        "AttackDeclared(",
+        "Leaf Shade",
+        ",30)"
+      ]
+    },
+    {
+      "name": "pure_power",
+      "seed": 105,
+      "deck_p1": {
+        "deck_kind": "standard",
+        "primary": "CG-56",
+        "energy": "ENERGY-PSYCHIC",
+        "trainer_slots": [
+          "CG-83"
+        ]
+      },
+      "deck_p2": {
+        "deck_kind": "standard",
+        "primary": "CG-56",
+        "energy": "ENERGY-PSYCHIC",
+        "trainer_slots": [
+          "CG-83"
+        ]
+      },
+      "required_markers": [
+        "AttackDeclared(",
+        "Pure Power",
+        ",20)"
+      ]
+    },
+    {
+      "name": "mining",
+      "seed": 106,
+      "deck_p1": {
+        "deck_kind": "standard",
+        "primary": "CG-9",
+        "energy": "ENERGY-FIGHTING",
+        "trainer_slots": [
+          "CG-74",
+          "CG-83"
+        ]
+      },
+      "deck_p2": {
+        "deck_kind": "standard",
+        "primary": "CG-9",
+        "energy": "ENERGY-FIGHTING",
+        "trainer_slots": [
+          "CG-74",
+          "CG-83"
+        ]
+      },
+      "required_markers": [
+        "CardsRevealed("
+      ]
+    },
+    {
+      "name": "constrain_proxy",
+      "seed": 109,
+      "deck_p1": {
+        "deck_kind": "standard",
+        "primary": "CG-191",
+        "energy": "ENERGY-DARKNESS",
+        "trainer_slots": [
+          "CG-83",
+          "CG-83"
+        ]
+      },
+      "deck_p2": {
+        "deck_kind": "standard",
+        "primary": "CG-191",
+        "energy": "ENERGY-DARKNESS",
+        "trainer_slots": [
+          "CG-83",
+          "CG-83"
+        ]
+      },
+      "required_markers": [
+        "AttackDeclared(",
+        "Constrain Beam"
+      ]
+    },
+    {
+      "name": "energy_recycle_proxy",
+      "seed": 110,
+      "deck_p1": {
+        "deck_kind": "standard",
+        "primary": "CG-198",
+        "energy": "ENERGY-WATER",
+        "trainer_slots": [
+          "CG-83"
+        ]
+      },
+      "deck_p2": {
+        "deck_kind": "standard",
+        "primary": "CG-198",
+        "energy": "ENERGY-WATER",
+        "trainer_slots": [
+          "CG-83"
+        ]
+      },
+      "required_markers": [
+        "AttackDeclared(",
+        "Energy Recycle Beam",
+        "EnergyAttached("
+      ]
+    },
+    {
+      "name": "pick_and_choose",
+      "seed": 112,
+      "deck_p1": {
+        "deck_kind": "standard",
+        "primary": "CG-11",
+        "energy": "ENERGY-PSYCHIC",
+        "trainer_slots": [
+          "CG-83"
+        ]
+      },
+      "deck_p2": {
+        "deck_kind": "standard",
+        "primary": "CG-11",
+        "energy": "ENERGY-PSYCHIC",
+        "trainer_slots": [
+          "CG-83"
+        ]
+      },
+      "required_markers": [
+        "CoinFlipped("
+      ]
+    },
+    {
+      "name": "growth",
+      "seed": 116,
+      "deck_p1": {
+        "deck_kind": "standard",
+        "primary": "CG-46",
+        "energy": "ENERGY-GRASS",
+        "trainer_slots": [
+          "CG-83"
+        ]
+      },
+      "deck_p2": {
+        "deck_kind": "standard",
+        "primary": "CG-46",
+        "energy": "ENERGY-GRASS",
+        "trainer_slots": [
+          "CG-83"
+        ]
+      },
+      "required_markers": [
+        "AttackDeclared(",
+        "Growth",
+        "EnergyAttached("
+      ]
+    },
+    {
+      "name": "self_charge",
+      "seed": 114,
+      "deck_p1": {
+        "deck_kind": "standard",
+        "primary": "CG-39",
+        "energy": "ENERGY-DARKNESS",
+        "trainer_slots": [
+          "CG-83"
+        ]
+      },
+      "deck_p2": {
+        "deck_kind": "standard",
+        "primary": "CG-39",
+        "energy": "ENERGY-DARKNESS",
+        "trainer_slots": [
+          "CG-83"
+        ]
+      },
+      "required_markers": [
+        "AttackDeclared(",
+        "Self Charge",
+        "EnergyAttached("
+      ]
+    },
+    {
+      "name": "self_charge_alt",
+      "seed": 214,
+      "deck_p1": {
+        "deck_kind": "standard",
+        "primary": "CG-39",
+        "energy": "ENERGY-DARKNESS",
+        "trainer_slots": [
+          "CG-83"
+        ]
+      },
+      "deck_p2": {
+        "deck_kind": "standard",
+        "primary": "CG-39",
+        "energy": "ENERGY-DARKNESS",
+        "trainer_slots": [
+          "CG-83"
+        ]
+      },
+      "required_markers": [
+        "AttackDeclared(",
+        "Self Charge",
+        "EnergyAttached("
+      ]
+    }
+  ]
+}

@@ -1,0 +1,13 @@
+[package]
+name = "tcg_ai"
+version = "0.1.0"
+edition = "2024"
+description = "Pokemon TCG game engine AI controllers"
+license = "MIT"
+repository = "https://github.com/JoshuaPurtell/overzealous"
+
+[dependencies]
+rand = "0.8"
+rand_chacha = "0.3"
+tcg_core = { version = "0.1", path = "../tcg_core" }
+tcg_rules_ex = { version = "0.1", path = "../tcg_rules_ex" }

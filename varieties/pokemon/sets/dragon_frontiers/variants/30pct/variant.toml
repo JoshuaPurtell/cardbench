@@ -1,0 +1,33 @@
+name = "dragon_frontiers_30pct"
+family = "dragon_frontiers"
+variant = "30pct"
+description = "Approximate 30 percent disclosure by public function count."
+
+[engine_core]
+commit = "9d2a9f33c48ec155b626e8858d330e72e73b17fb"
+
+[disclosure]
+revealed_public_functions = 6
+total_public_functions = 21
+
+[disclosure.per_file.cards]
+source = "gold"
+revealed = 3
+total = 3
+keep_gold_functions = [
+  "power_effect_ast",
+  "trainer_effect_ast",
+  "attack_effect_ast",
+]
+stubbed_functions = []
+
+[disclosure.per_file.engine]
+source = "gold"
+revealed = 3
+total = 18
+keep_gold_functions = [
+  "power_effect_id",
+  "power_is_once_per_turn",
+  "attack_cost_modifier",
+]
+stubbed_functions = []

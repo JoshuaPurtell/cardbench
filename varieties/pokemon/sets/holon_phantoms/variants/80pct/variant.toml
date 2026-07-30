@@ -1,0 +1,32 @@
+name = "holon_phantoms_80pct"
+family = "holon_phantoms"
+variant = "80pct"
+description = "Approximate 80 percent disclosure by public function count."
+
+[engine_core]
+commit = "9d2a9f33c48ec155b626e8858d330e72e73b17fb"
+
+[disclosure]
+revealed_public_functions = 14
+total_public_functions = 20
+
+[disclosure.per_file.cards]
+source = "gold"
+revealed = 3
+total = 3
+keep_gold_functions = []
+stubbed_functions = []
+
+[disclosure.per_file.engine]
+source = "gold"
+revealed = 11
+total = 17
+keep_gold_functions = []
+stubbed_functions = [
+  "attack_overrides",
+  "post_attack",
+  "between_turns",
+  "execute_power",
+  "register_triggers",
+  "resolve_custom_prompt",
+]

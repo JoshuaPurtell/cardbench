@@ -1,0 +1,32 @@
+name = "crystal_guardians_80pct"
+family = "crystal_guardians"
+variant = "80pct"
+description = "Approximate 80 percent disclosure by public function count."
+
+[engine_core]
+commit = "9d2a9f33c48ec155b626e8858d330e72e73b17fb"
+
+[disclosure]
+revealed_public_functions = 20
+total_public_functions = 25
+
+[disclosure.per_file.cards]
+source = "gold"
+revealed = 16
+total = 20
+keep_gold_functions = []
+stubbed_functions = [
+  "attack_overrides",
+  "post_attack",
+  "execute_power",
+  "resolve_custom_prompt",
+]
+
+[disclosure.per_file.engine]
+source = "gold"
+revealed = 4
+total = 5
+keep_gold_functions = []
+stubbed_functions = [
+  "prevents_attack_effects",
+]

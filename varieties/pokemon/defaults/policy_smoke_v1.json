@@ -1,0 +1,8 @@
+{
+  "schema_version": "cardbench.pokemon.policy-suite.v1",
+  "id": "policy_smoke_v1",
+  "matches_per_opponent_per_side": 1,
+  "seed_bases": [1],
+  "baseline_policy_id": "template_ai_v0",
+  "minimum_delta": 0.1
+}

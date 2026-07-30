@@ -1,0 +1,2549 @@
+{
+  "task_id": "setbench-v1-crystal-guardians",
+  "set": "Crystal Guardians",
+  "set_code": "CG",
+  "version": 2,
+  "card_count": 100,
+  "custom_effect_count": 65,
+  "train_focus_effects": [
+    "CG-7:Even Game",
+    "CG-7:Stadium Play",
+    "CG-9:Mining",
+    "CG-10:Excavate",
+    "CG-11:Pick and Choose",
+    "CG-39:Self Charge",
+    "CG-56:Pure Power",
+    "CG-74:Cessation Crystal",
+    "CG-79:Holon Circle",
+    "CG-83:PokéNav",
+    "CG-91:Constrain",
+    "CG-95:Hydro Shot",
+    "CG-97:Target Attack"
+  ],
+  "cards": [
+    {
+      "card_def_id": "CG-1",
+      "number": "1",
+      "name": "Banette",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Stage1",
+      "evolves_from": "Shuppet",
+      "hp": 70,
+      "types": [
+        "Psychic"
+      ],
+      "weakness": [
+        {
+          "type": "Darkness",
+          "value": "x2"
+        }
+      ],
+      "resistance": [
+        {
+          "type": "Fighting",
+          "value": "-30"
+        }
+      ],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-2",
+      "number": "2",
+      "name": "Blastoise Delta",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [
+        "DeltaSpecies"
+      ],
+      "stage": "Stage2",
+      "evolves_from": "Wartortle Delta",
+      "hp": 110,
+      "types": [
+        "Fighting",
+        "Metal"
+      ],
+      "weakness": [
+        {
+          "type": "Lightning",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 3,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-3",
+      "number": "3",
+      "name": "Camerupt",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Stage1",
+      "evolves_from": "Numel",
+      "hp": 80,
+      "types": [
+        "Fire"
+      ],
+      "weakness": [
+        {
+          "type": "Water",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 2,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-4",
+      "number": "4",
+      "name": "Charizard Delta",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [
+        "DeltaSpecies"
+      ],
+      "stage": "Stage2",
+      "evolves_from": "Charmeleon Delta",
+      "hp": 120,
+      "types": [
+        "Lightning",
+        "Metal"
+      ],
+      "weakness": [
+        {
+          "type": "Water",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 2,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-5",
+      "number": "5",
+      "name": "Dugtrio",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Stage1",
+      "evolves_from": "Diglett",
+      "hp": 70,
+      "types": [
+        "Fighting"
+      ],
+      "weakness": [
+        {
+          "type": "Grass",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-6",
+      "number": "6",
+      "name": "Ludicolo Delta",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [
+        "DeltaSpecies"
+      ],
+      "stage": "Stage2",
+      "evolves_from": "Lombre",
+      "hp": 100,
+      "types": [
+        "Fire"
+      ],
+      "weakness": [
+        {
+          "type": "Lightning",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 2,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-7",
+      "number": "7",
+      "name": "Luvdisc",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 60,
+      "types": [
+        "Water"
+      ],
+      "weakness": [
+        {
+          "type": "Lightning",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-8",
+      "number": "8",
+      "name": "Manectric",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Stage1",
+      "evolves_from": "Electrike",
+      "hp": 80,
+      "types": [
+        "Lightning"
+      ],
+      "weakness": [
+        {
+          "type": "Fighting",
+          "value": "x2"
+        }
+      ],
+      "resistance": [
+        {
+          "type": "Metal",
+          "value": "-30"
+        }
+      ],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-9",
+      "number": "9",
+      "name": "Mawile",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 60,
+      "types": [
+        "Metal"
+      ],
+      "weakness": [
+        {
+          "type": "Fire",
+          "value": "x2"
+        }
+      ],
+      "resistance": [
+        {
+          "type": "Grass",
+          "value": "-30"
+        }
+      ],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-10",
+      "number": "10",
+      "name": "Sableye",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 60,
+      "types": [
+        "Darkness"
+      ],
+      "weakness": [],
+      "resistance": [
+        {
+          "type": "Colorless",
+          "value": "-30"
+        }
+      ],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-11",
+      "number": "11",
+      "name": "Swalot",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Stage1",
+      "evolves_from": "Gulpin",
+      "hp": 80,
+      "types": [
+        "Grass"
+      ],
+      "weakness": [
+        {
+          "type": "Psychic",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-12",
+      "number": "12",
+      "name": "Tauros",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 70,
+      "types": [
+        "Colorless"
+      ],
+      "weakness": [
+        {
+          "type": "Fighting",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-13",
+      "number": "13",
+      "name": "Wigglytuff",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Stage1",
+      "evolves_from": "Jigglypuff",
+      "hp": 90,
+      "types": [
+        "Colorless"
+      ],
+      "weakness": [
+        {
+          "type": "Fighting",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 2,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-14",
+      "number": "14",
+      "name": "Blastoise",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Stage2",
+      "evolves_from": "Wartortle",
+      "hp": 120,
+      "types": [
+        "Water"
+      ],
+      "weakness": [
+        {
+          "type": "Lightning",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 2,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-15",
+      "number": "15",
+      "name": "Cacturne Delta",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [
+        "DeltaSpecies"
+      ],
+      "stage": "Stage1",
+      "evolves_from": "Cacnea Delta",
+      "hp": 80,
+      "types": [
+        "Fighting"
+      ],
+      "weakness": [
+        {
+          "type": "Fire",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-16",
+      "number": "16",
+      "name": "Combusken",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Stage1",
+      "evolves_from": "Torchic",
+      "hp": 80,
+      "types": [
+        "Fighting"
+      ],
+      "weakness": [
+        {
+          "type": "Psychic",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-17",
+      "number": "17",
+      "name": "Dusclops",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Stage1",
+      "evolves_from": "Duskull",
+      "hp": 70,
+      "types": [
+        "Psychic"
+      ],
+      "weakness": [
+        {
+          "type": "Darkness",
+          "value": "x2"
+        }
+      ],
+      "resistance": [
+        {
+          "type": "Fighting",
+          "value": "-30"
+        }
+      ],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-18",
+      "number": "18",
+      "name": "Fearow Delta",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [
+        "DeltaSpecies"
+      ],
+      "stage": "Stage1",
+      "evolves_from": "Spearow Delta",
+      "hp": 60,
+      "types": [
+        "Lightning"
+      ],
+      "weakness": [
+        {
+          "type": "Lightning",
+          "value": "x2"
+        }
+      ],
+      "resistance": [
+        {
+          "type": "Fighting",
+          "value": "-30"
+        }
+      ],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-19",
+      "number": "19",
+      "name": "Grovyle Delta",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [
+        "DeltaSpecies"
+      ],
+      "stage": "Stage1",
+      "evolves_from": "Treecko Delta",
+      "hp": 70,
+      "types": [
+        "Psychic"
+      ],
+      "weakness": [
+        {
+          "type": "Fire",
+          "value": "x2"
+        }
+      ],
+      "resistance": [
+        {
+          "type": "Water",
+          "value": "-30"
+        }
+      ],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-20",
+      "number": "20",
+      "name": "Grumpig",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Stage1",
+      "evolves_from": "Spoink",
+      "hp": 80,
+      "types": [
+        "Psychic"
+      ],
+      "weakness": [
+        {
+          "type": "Psychic",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 2,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-21",
+      "number": "21",
+      "name": "Igglybuff",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 50,
+      "types": [
+        "Colorless"
+      ],
+      "weakness": [
+        {
+          "type": "Fighting",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-22",
+      "number": "22",
+      "name": "Kingler Delta",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [
+        "DeltaSpecies"
+      ],
+      "stage": "Stage1",
+      "evolves_from": "Krabby Delta",
+      "hp": 80,
+      "types": [
+        "Fire",
+        "Metal"
+      ],
+      "weakness": [
+        {
+          "type": "Lightning",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 3,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-23",
+      "number": "23",
+      "name": "Loudred",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Stage1",
+      "evolves_from": "Whismur",
+      "hp": 70,
+      "types": [
+        "Colorless"
+      ],
+      "weakness": [
+        {
+          "type": "Fighting",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-24",
+      "number": "24",
+      "name": "Marshtomp",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Stage1",
+      "evolves_from": "Mudkip",
+      "hp": 70,
+      "types": [
+        "Water"
+      ],
+      "weakness": [
+        {
+          "type": "Grass",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-25",
+      "number": "25",
+      "name": "Medicham",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Stage1",
+      "evolves_from": "Meditite",
+      "hp": 80,
+      "types": [
+        "Fighting"
+      ],
+      "weakness": [
+        {
+          "type": "Psychic",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-26",
+      "number": "26",
+      "name": "Pelipper Delta",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [
+        "DeltaSpecies"
+      ],
+      "stage": "Stage1",
+      "evolves_from": "Wingull Delta",
+      "hp": 70,
+      "types": [
+        "Lightning"
+      ],
+      "weakness": [
+        {
+          "type": "Lightning",
+          "value": "x2"
+        }
+      ],
+      "resistance": [
+        {
+          "type": "Fighting",
+          "value": "-30"
+        }
+      ],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-27",
+      "number": "27",
+      "name": "Swampert",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Stage2",
+      "evolves_from": "Marshtomp",
+      "hp": 120,
+      "types": [
+        "Fighting"
+      ],
+      "weakness": [
+        {
+          "type": "Grass",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 2,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-28",
+      "number": "28",
+      "name": "Venusaur",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Stage2",
+      "evolves_from": "Ivysaur",
+      "hp": 110,
+      "types": [
+        "Grass"
+      ],
+      "weakness": [
+        {
+          "type": "Fire",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 3,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-29",
+      "number": "29",
+      "name": "Charmeleon",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Stage1",
+      "evolves_from": "Charmander",
+      "hp": 70,
+      "types": [
+        "Fire"
+      ],
+      "weakness": [
+        {
+          "type": "Water",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-30",
+      "number": "30",
+      "name": "Charmeleon Delta",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [
+        "DeltaSpecies"
+      ],
+      "stage": "Stage1",
+      "evolves_from": "Charmander Delta",
+      "hp": 70,
+      "types": [
+        "Lightning"
+      ],
+      "weakness": [
+        {
+          "type": "Water",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-31",
+      "number": "31",
+      "name": "Combusken",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Stage1",
+      "evolves_from": "Torchic",
+      "hp": 80,
+      "types": [
+        "Fire"
+      ],
+      "weakness": [
+        {
+          "type": "Water",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 2,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-32",
+      "number": "32",
+      "name": "Grovyle",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Stage1",
+      "evolves_from": "Treecko",
+      "hp": 70,
+      "types": [
+        "Grass"
+      ],
+      "weakness": [
+        {
+          "type": "Fire",
+          "value": "x2"
+        }
+      ],
+      "resistance": [
+        {
+          "type": "Water",
+          "value": "-30"
+        }
+      ],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-33",
+      "number": "33",
+      "name": "Gulpin",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 50,
+      "types": [
+        "Grass"
+      ],
+      "weakness": [
+        {
+          "type": "Psychic",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-34",
+      "number": "34",
+      "name": "Ivysaur",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Stage1",
+      "evolves_from": "Bulbasaur",
+      "hp": 80,
+      "types": [
+        "Grass"
+      ],
+      "weakness": [
+        {
+          "type": "Psychic",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-35",
+      "number": "35",
+      "name": "Ivysaur",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Stage1",
+      "evolves_from": "Bulbasaur",
+      "hp": 70,
+      "types": [
+        "Grass"
+      ],
+      "weakness": [
+        {
+          "type": "Fire",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-36",
+      "number": "36",
+      "name": "Lairon",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Stage1",
+      "evolves_from": "Aron",
+      "hp": 80,
+      "types": [
+        "Metal"
+      ],
+      "weakness": [
+        {
+          "type": "Fire",
+          "value": "x2"
+        }
+      ],
+      "resistance": [
+        {
+          "type": "Grass",
+          "value": "-30"
+        }
+      ],
+      "retreat_cost": 2,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-37",
+      "number": "37",
+      "name": "Lombre",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Stage1",
+      "evolves_from": "Lotad",
+      "hp": 70,
+      "types": [
+        "Water"
+      ],
+      "weakness": [
+        {
+          "type": "Lightning",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-38",
+      "number": "38",
+      "name": "Marshtomp",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Stage1",
+      "evolves_from": "Mudkip",
+      "hp": 70,
+      "types": [
+        "Fighting"
+      ],
+      "weakness": [
+        {
+          "type": "Grass",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-39",
+      "number": "39",
+      "name": "Nuzleaf",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Stage1",
+      "evolves_from": "Seedot",
+      "hp": 80,
+      "types": [
+        "Darkness"
+      ],
+      "weakness": [
+        {
+          "type": "Fighting",
+          "value": "x2"
+        }
+      ],
+      "resistance": [
+        {
+          "type": "Psychic",
+          "value": "-30"
+        }
+      ],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-40",
+      "number": "40",
+      "name": "Shuppet",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 40,
+      "types": [
+        "Psychic"
+      ],
+      "weakness": [
+        {
+          "type": "Darkness",
+          "value": "x2"
+        }
+      ],
+      "resistance": [
+        {
+          "type": "Fighting",
+          "value": "-30"
+        }
+      ],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-41",
+      "number": "41",
+      "name": "Skitty",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 50,
+      "types": [
+        "Colorless"
+      ],
+      "weakness": [
+        {
+          "type": "Fighting",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-42",
+      "number": "42",
+      "name": "Wartortle",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Stage1",
+      "evolves_from": "Squirtle",
+      "hp": 70,
+      "types": [
+        "Water"
+      ],
+      "weakness": [
+        {
+          "type": "Lightning",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-43",
+      "number": "43",
+      "name": "Wartortle",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Stage1",
+      "evolves_from": "Squirtle",
+      "hp": 80,
+      "types": [
+        "Water"
+      ],
+      "weakness": [
+        {
+          "type": "Lightning",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-44",
+      "number": "44",
+      "name": "Aron",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 50,
+      "types": [
+        "Metal"
+      ],
+      "weakness": [
+        {
+          "type": "Fire",
+          "value": "x2"
+        }
+      ],
+      "resistance": [
+        {
+          "type": "Grass",
+          "value": "-30"
+        }
+      ],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-45",
+      "number": "45",
+      "name": "Bulbasaur",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 50,
+      "types": [
+        "Grass"
+      ],
+      "weakness": [
+        {
+          "type": "Psychic",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-46",
+      "number": "46",
+      "name": "Bulbasaur",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 50,
+      "types": [
+        "Grass"
+      ],
+      "weakness": [
+        {
+          "type": "Fire",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-47",
+      "number": "47",
+      "name": "Cacnea",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 50,
+      "types": [
+        "Grass"
+      ],
+      "weakness": [
+        {
+          "type": "Fire",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-48",
+      "number": "48",
+      "name": "Charmander",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 50,
+      "types": [
+        "Fire"
+      ],
+      "weakness": [
+        {
+          "type": "Water",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-49",
+      "number": "49",
+      "name": "Charmander Delta",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [
+        "DeltaSpecies"
+      ],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 50,
+      "types": [
+        "Lightning"
+      ],
+      "weakness": [
+        {
+          "type": "Water",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-50",
+      "number": "50",
+      "name": "Diglett",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 50,
+      "types": [
+        "Fighting"
+      ],
+      "weakness": [
+        {
+          "type": "Grass",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-51",
+      "number": "51",
+      "name": "Duskull",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 40,
+      "types": [
+        "Psychic"
+      ],
+      "weakness": [
+        {
+          "type": "Darkness",
+          "value": "x2"
+        }
+      ],
+      "resistance": [
+        {
+          "type": "Fighting",
+          "value": "-30"
+        }
+      ],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-52",
+      "number": "52",
+      "name": "Electrike",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 50,
+      "types": [
+        "Lightning"
+      ],
+      "weakness": [
+        {
+          "type": "Fighting",
+          "value": "x2"
+        }
+      ],
+      "resistance": [
+        {
+          "type": "Metal",
+          "value": "-30"
+        }
+      ],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-53",
+      "number": "53",
+      "name": "Jigglypuff",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 50,
+      "types": [
+        "Colorless"
+      ],
+      "weakness": [
+        {
+          "type": "Fighting",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-54",
+      "number": "54",
+      "name": "Krabby",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 40,
+      "types": [
+        "Water"
+      ],
+      "weakness": [
+        {
+          "type": "Lightning",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-55",
+      "number": "55",
+      "name": "Lotad",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 50,
+      "types": [
+        "Water"
+      ],
+      "weakness": [
+        {
+          "type": "Lightning",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-56",
+      "number": "56",
+      "name": "Meditite",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 50,
+      "types": [
+        "Fighting"
+      ],
+      "weakness": [
+        {
+          "type": "Psychic",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-57",
+      "number": "57",
+      "name": "Mudkip",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 50,
+      "types": [
+        "Water"
+      ],
+      "weakness": [
+        {
+          "type": "Grass",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-58",
+      "number": "58",
+      "name": "Mudkip",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 50,
+      "types": [
+        "Water"
+      ],
+      "weakness": [
+        {
+          "type": "Grass",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-59",
+      "number": "59",
+      "name": "Numel",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 50,
+      "types": [
+        "Fire"
+      ],
+      "weakness": [
+        {
+          "type": "Water",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-60",
+      "number": "60",
+      "name": "Seedot",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 40,
+      "types": [
+        "Grass"
+      ],
+      "weakness": [
+        {
+          "type": "Fire",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-61",
+      "number": "61",
+      "name": "Spearow",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 40,
+      "types": [
+        "Colorless"
+      ],
+      "weakness": [
+        {
+          "type": "Lightning",
+          "value": "x2"
+        }
+      ],
+      "resistance": [
+        {
+          "type": "Fighting",
+          "value": "-30"
+        }
+      ],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-62",
+      "number": "62",
+      "name": "Spoink",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 50,
+      "types": [
+        "Psychic"
+      ],
+      "weakness": [
+        {
+          "type": "Psychic",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-63",
+      "number": "63",
+      "name": "Squirtle",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 50,
+      "types": [
+        "Water"
+      ],
+      "weakness": [
+        {
+          "type": "Lightning",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-64",
+      "number": "64",
+      "name": "Squirtle",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 40,
+      "types": [
+        "Water"
+      ],
+      "weakness": [
+        {
+          "type": "Lightning",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-65",
+      "number": "65",
+      "name": "Torchic",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 50,
+      "types": [
+        "Fire"
+      ],
+      "weakness": [
+        {
+          "type": "Water",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-66",
+      "number": "66",
+      "name": "Torchic",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 40,
+      "types": [
+        "Fire"
+      ],
+      "weakness": [
+        {
+          "type": "Water",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-67",
+      "number": "67",
+      "name": "Treecko",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 40,
+      "types": [
+        "Grass"
+      ],
+      "weakness": [
+        {
+          "type": "Fire",
+          "value": "x2"
+        }
+      ],
+      "resistance": [
+        {
+          "type": "Water",
+          "value": "-30"
+        }
+      ],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-68",
+      "number": "68",
+      "name": "Treecko Delta",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [
+        "DeltaSpecies"
+      ],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 40,
+      "types": [
+        "Psychic"
+      ],
+      "weakness": [
+        {
+          "type": "Fire",
+          "value": "x2"
+        }
+      ],
+      "resistance": [
+        {
+          "type": "Water",
+          "value": "-30"
+        }
+      ],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-69",
+      "number": "69",
+      "name": "Whismur",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 50,
+      "types": [
+        "Colorless"
+      ],
+      "weakness": [
+        {
+          "type": "Fighting",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-70",
+      "number": "70",
+      "name": "Wingull",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 40,
+      "types": [
+        "Water"
+      ],
+      "weakness": [
+        {
+          "type": "Lightning",
+          "value": "x2"
+        }
+      ],
+      "resistance": [
+        {
+          "type": "Fighting",
+          "value": "-30"
+        }
+      ],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-71",
+      "number": "71",
+      "name": "Bill's Maintenance",
+      "supertype": "Trainer",
+      "subtypes": [],
+      "tags": [],
+      "stage": null,
+      "evolves_from": null,
+      "hp": null,
+      "types": [],
+      "weakness": null,
+      "resistance": null,
+      "retreat_cost": null,
+      "trainer_kind": "Supporter",
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-72",
+      "number": "72",
+      "name": "Castaway",
+      "supertype": "Trainer",
+      "subtypes": [],
+      "tags": [],
+      "stage": null,
+      "evolves_from": null,
+      "hp": null,
+      "types": [],
+      "weakness": null,
+      "resistance": null,
+      "retreat_cost": null,
+      "trainer_kind": "Supporter",
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-73",
+      "number": "73",
+      "name": "Celio's Network",
+      "supertype": "Trainer",
+      "subtypes": [],
+      "tags": [],
+      "stage": null,
+      "evolves_from": null,
+      "hp": null,
+      "types": [],
+      "weakness": null,
+      "resistance": null,
+      "retreat_cost": null,
+      "trainer_kind": "Supporter",
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-74",
+      "number": "74",
+      "name": "Cessation Crystal",
+      "supertype": "Trainer",
+      "subtypes": [],
+      "tags": [],
+      "stage": null,
+      "evolves_from": null,
+      "hp": null,
+      "types": [],
+      "weakness": null,
+      "resistance": null,
+      "retreat_cost": null,
+      "trainer_kind": "Tool",
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-75",
+      "number": "75",
+      "name": "Crystal Beach",
+      "supertype": "Trainer",
+      "subtypes": [],
+      "tags": [],
+      "stage": null,
+      "evolves_from": null,
+      "hp": null,
+      "types": [],
+      "weakness": null,
+      "resistance": null,
+      "retreat_cost": null,
+      "trainer_kind": "Stadium",
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-76",
+      "number": "76",
+      "name": "Crystal Shard",
+      "supertype": "Trainer",
+      "subtypes": [],
+      "tags": [],
+      "stage": null,
+      "evolves_from": null,
+      "hp": null,
+      "types": [],
+      "weakness": null,
+      "resistance": null,
+      "retreat_cost": null,
+      "trainer_kind": "Tool",
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-77",
+      "number": "77",
+      "name": "Double Full Heal",
+      "supertype": "Trainer",
+      "subtypes": [],
+      "tags": [],
+      "stage": null,
+      "evolves_from": null,
+      "hp": null,
+      "types": [],
+      "weakness": null,
+      "resistance": null,
+      "retreat_cost": null,
+      "trainer_kind": "Item",
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-78",
+      "number": "78",
+      "name": "Dual Ball",
+      "supertype": "Trainer",
+      "subtypes": [],
+      "tags": [],
+      "stage": null,
+      "evolves_from": null,
+      "hp": null,
+      "types": [],
+      "weakness": null,
+      "resistance": null,
+      "retreat_cost": null,
+      "trainer_kind": "Item",
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-79",
+      "number": "79",
+      "name": "Holon Circle",
+      "supertype": "Trainer",
+      "subtypes": [],
+      "tags": [],
+      "stage": null,
+      "evolves_from": null,
+      "hp": null,
+      "types": [],
+      "weakness": null,
+      "resistance": null,
+      "retreat_cost": null,
+      "trainer_kind": "Stadium",
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-80",
+      "number": "80",
+      "name": "Memory Berry",
+      "supertype": "Trainer",
+      "subtypes": [],
+      "tags": [],
+      "stage": null,
+      "evolves_from": null,
+      "hp": null,
+      "types": [],
+      "weakness": null,
+      "resistance": null,
+      "retreat_cost": null,
+      "trainer_kind": "Tool",
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-81",
+      "number": "81",
+      "name": "Mysterious Shard",
+      "supertype": "Trainer",
+      "subtypes": [],
+      "tags": [],
+      "stage": null,
+      "evolves_from": null,
+      "hp": null,
+      "types": [],
+      "weakness": null,
+      "resistance": null,
+      "retreat_cost": null,
+      "trainer_kind": "Tool",
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-82",
+      "number": "82",
+      "name": "Poké Ball",
+      "supertype": "Trainer",
+      "subtypes": [],
+      "tags": [],
+      "stage": null,
+      "evolves_from": null,
+      "hp": null,
+      "types": [],
+      "weakness": null,
+      "resistance": null,
+      "retreat_cost": null,
+      "trainer_kind": "Item",
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-83",
+      "number": "83",
+      "name": "PokéNav",
+      "supertype": "Trainer",
+      "subtypes": [],
+      "tags": [],
+      "stage": null,
+      "evolves_from": null,
+      "hp": null,
+      "types": [],
+      "weakness": null,
+      "resistance": null,
+      "retreat_cost": null,
+      "trainer_kind": "Item",
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-84",
+      "number": "84",
+      "name": "Warp Point",
+      "supertype": "Trainer",
+      "subtypes": [],
+      "tags": [],
+      "stage": null,
+      "evolves_from": null,
+      "hp": null,
+      "types": [],
+      "weakness": null,
+      "resistance": null,
+      "retreat_cost": null,
+      "trainer_kind": "Item",
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-85",
+      "number": "85",
+      "name": "Windstorm",
+      "supertype": "Trainer",
+      "subtypes": [],
+      "tags": [],
+      "stage": null,
+      "evolves_from": null,
+      "hp": null,
+      "types": [],
+      "weakness": null,
+      "resistance": null,
+      "retreat_cost": null,
+      "trainer_kind": "Item",
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-86",
+      "number": "86",
+      "name": "Energy Search",
+      "supertype": "Trainer",
+      "subtypes": [],
+      "tags": [],
+      "stage": null,
+      "evolves_from": null,
+      "hp": null,
+      "types": [],
+      "weakness": null,
+      "resistance": null,
+      "retreat_cost": null,
+      "trainer_kind": "Item",
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-87",
+      "number": "87",
+      "name": "Potion",
+      "supertype": "Trainer",
+      "subtypes": [],
+      "tags": [],
+      "stage": null,
+      "evolves_from": null,
+      "hp": null,
+      "types": [],
+      "weakness": null,
+      "resistance": null,
+      "retreat_cost": null,
+      "trainer_kind": "Item",
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-88",
+      "number": "88",
+      "name": "Double Rainbow Energy",
+      "supertype": "Energy",
+      "subtypes": [],
+      "tags": [],
+      "stage": null,
+      "evolves_from": null,
+      "hp": null,
+      "types": [],
+      "weakness": null,
+      "resistance": null,
+      "retreat_cost": null,
+      "trainer_kind": null,
+      "energy_kind": "Special",
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-89",
+      "number": "89",
+      "name": "Aggron ex",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [
+        "PokemonEx"
+      ],
+      "stage": "Stage2",
+      "evolves_from": "Lairon",
+      "hp": 150,
+      "types": [
+        "Metal"
+      ],
+      "weakness": [
+        {
+          "type": "Fire",
+          "value": "x2"
+        }
+      ],
+      "resistance": [
+        {
+          "type": "Grass",
+          "value": "-30"
+        }
+      ],
+      "retreat_cost": 4,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-90",
+      "number": "90",
+      "name": "Blaziken ex",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [
+        "PokemonEx"
+      ],
+      "stage": "Stage2",
+      "evolves_from": "Combusken",
+      "hp": 150,
+      "types": [
+        "Fighting"
+      ],
+      "weakness": [
+        {
+          "type": "Psychic",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 2,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-91",
+      "number": "91",
+      "name": "Delcatty ex",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [
+        "PokemonEx"
+      ],
+      "stage": "Stage1",
+      "evolves_from": "Skitty",
+      "hp": 90,
+      "types": [
+        "Colorless"
+      ],
+      "weakness": [
+        {
+          "type": "Fighting",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 0,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-92",
+      "number": "92",
+      "name": "Exploud ex",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [
+        "PokemonEx"
+      ],
+      "stage": "Stage2",
+      "evolves_from": "Loudred",
+      "hp": 150,
+      "types": [
+        "Colorless"
+      ],
+      "weakness": [
+        {
+          "type": "Fighting",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 3,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-93",
+      "number": "93",
+      "name": "Groudon ex",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [
+        "PokemonEx"
+      ],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 100,
+      "types": [
+        "Fighting"
+      ],
+      "weakness": [
+        {
+          "type": "Grass",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 2,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-94",
+      "number": "94",
+      "name": "Jirachi ex",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [
+        "PokemonEx"
+      ],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 90,
+      "types": [
+        "Psychic"
+      ],
+      "weakness": [],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-95",
+      "number": "95",
+      "name": "Kyogre ex",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [
+        "PokemonEx"
+      ],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 100,
+      "types": [
+        "Water"
+      ],
+      "weakness": [
+        {
+          "type": "Lightning",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 2,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-96",
+      "number": "96",
+      "name": "Sceptile ex Delta",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [
+        "DeltaSpecies",
+        "PokemonEx"
+      ],
+      "stage": "Stage2",
+      "evolves_from": "Grovyle Delta",
+      "hp": 140,
+      "types": [
+        "Psychic"
+      ],
+      "weakness": [
+        {
+          "type": "Grass",
+          "value": "x2"
+        }
+      ],
+      "resistance": [
+        {
+          "type": "Water",
+          "value": "-30"
+        }
+      ],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-97",
+      "number": "97",
+      "name": "Shiftry ex",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [
+        "PokemonEx"
+      ],
+      "stage": "Stage2",
+      "evolves_from": "Nuzleaf",
+      "hp": 140,
+      "types": [
+        "Darkness"
+      ],
+      "weakness": [
+        {
+          "type": "Grass",
+          "value": "x2"
+        }
+      ],
+      "resistance": [
+        {
+          "type": "Psychic",
+          "value": "-30"
+        }
+      ],
+      "retreat_cost": 0,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-98",
+      "number": "98",
+      "name": "Swampert ex",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [
+        "PokemonEx"
+      ],
+      "stage": "Stage2",
+      "evolves_from": "Marshtomp",
+      "hp": 150,
+      "types": [
+        "Water"
+      ],
+      "weakness": [
+        {
+          "type": "Grass",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 3,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-99",
+      "number": "99",
+      "name": "Alakazam ★",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [
+        "PokemonStar"
+      ],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 80,
+      "types": [
+        "Psychic"
+      ],
+      "weakness": [
+        {
+          "type": "Psychic",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    },
+    {
+      "card_def_id": "CG-100",
+      "number": "100",
+      "name": "Celebi ★",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [
+        "PokemonStar"
+      ],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 60,
+      "types": [
+        "Grass"
+      ],
+      "weakness": [
+        {
+          "type": "Fire",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl"
+    }
+  ]
+}

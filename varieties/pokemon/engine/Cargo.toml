@@ -1,0 +1,26 @@
+[package]
+name = "tcg_expansions"
+version = "0.1.0"
+edition = "2021"
+description = "Public SetBench engine core workspace with DF/HP references and neutral CG stubs"
+license = "MIT"
+
+[lib]
+path = "scaffold/src/lib.rs"
+
+[dependencies]
+serde_json = "1.0"
+rand_core = "0.6"
+tcg_core = { path = "./tcg_core" }
+tcg_rules_ex = { path = "./tcg_rules_ex" }
+
+[dev-dependencies]
+
+[workspace]
+members = [
+    ".",
+    "tcg_core",
+    "tcg_rules_ex",
+    "tcg_ai",
+    "tcg_db",
+]

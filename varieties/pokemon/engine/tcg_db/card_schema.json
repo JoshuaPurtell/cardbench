@@ -1,0 +1,232 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://overzealous.local/schemas/card_schema.json",
+  "title": "Pokemon TCG Card Definition (EX era)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "set",
+    "number",
+    "name",
+    "supertype"
+  ],
+  "properties": {
+    "set": {
+      "type": "string",
+      "minLength": 2
+    },
+    "number": {
+      "type": "string",
+      "minLength": 1
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "supertype": {
+      "type": "string",
+      "enum": ["Pokemon", "Trainer", "Energy"]
+    },
+    "rarity": {
+      "type": "string"
+    },
+    "rules_text": {
+      "type": "string"
+    },
+    "tags": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/tag" },
+      "uniqueItems": true
+    },
+    "stage": {
+      "type": "string",
+      "enum": ["Basic", "Stage1", "Stage2"]
+    },
+    "evolves_from": {
+      "type": "string"
+    },
+    "hp": {
+      "type": "integer",
+      "minimum": 10
+    },
+    "types": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/energy_type" }
+    },
+    "weakness": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/weakness" }
+    },
+    "resistance": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/resistance" }
+    },
+    "retreat": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "attacks": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/attack" }
+    },
+    "powers": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/power" }
+    },
+    "trainer_kind": {
+      "type": "string",
+      "enum": ["Supporter", "Stadium", "Tool", "Item"]
+    },
+    "effect_ast": {
+      "type": "object"
+    },
+    "energy_kind": {
+      "type": "string",
+      "enum": ["Basic", "Special"]
+    },
+    "provides": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/energy_type" }
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "supertype": { "const": "Pokemon" } } },
+      "then": {
+        "required": ["stage", "hp", "types", "retreat", "attacks"]
+      }
+    },
+    {
+      "if": { "properties": { "supertype": { "const": "Trainer" } } },
+      "then": {
+        "required": ["trainer_kind"]
+      }
+    },
+    {
+      "if": { "properties": { "supertype": { "const": "Energy" } } },
+      "then": {
+        "required": ["energy_kind"]
+      }
+    }
+  ],
+  "$defs": {
+    "energy_type": {
+      "type": "string",
+      "enum": [
+        "Grass",
+        "Fire",
+        "Water",
+        "Lightning",
+        "Psychic",
+        "Fighting",
+        "Darkness",
+        "Metal",
+        "Colorless"
+      ]
+    },
+    "tag": {
+      "type": "string",
+      "enum": [
+        "DeltaSpecies",
+        "PokemonEx",
+        "PokemonStar"
+      ]
+    },
+    "weakness": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "value"],
+      "properties": {
+        "type": { "$ref": "#/$defs/energy_type" },
+        "value": { "type": "string" }
+      }
+    },
+    "resistance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "value"],
+      "properties": {
+        "type": { "$ref": "#/$defs/energy_type" },
+        "value": { "type": "string" }
+      }
+    },
+    "attack": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "cost"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "cost": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/energy_type" }
+        },
+        "damage": {
+          "oneOf": [
+            { "type": "integer", "minimum": 0 },
+            { "type": "string", "minLength": 1 }
+          ]
+        },
+        "effect_ast": {
+          "type": "object"
+        }
+      }
+    },
+    "power": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "name"],
+      "properties": {
+        "kind": { "type": "string", "enum": ["PokePower", "PokeBody"] },
+        "name": { "type": "string", "minLength": 1 },
+        "effect_ast": {
+          "type": "object"
+        }
+      }
+    },
+    "energy_kind_note": {
+      "type": "string"
+    }
+  },
+  "examples": [
+    {
+      "set": "CG",
+      "number": "15/100",
+      "name": "Lanturn Delta",
+      "supertype": "Pokemon",
+      "tags": ["DeltaSpecies"],
+      "stage": "Stage1",
+      "evolves_from": "Chinchou",
+      "hp": 80,
+      "types": ["Lightning", "Metal"],
+      "weakness": [{"type": "Fighting", "value": "x2"}],
+      "resistance": [],
+      "retreat": 1,
+      "attacks": [
+        {
+          "name": "Confuse Ray",
+          "cost": ["Lightning", "Colorless"],
+          "damage": 20,
+          "effect_ast": {"op": "ApplySpecialCondition", "condition": "Confused"}
+        }
+      ],
+      "powers": []
+    },
+    {
+      "set": "DF",
+      "number": "87/101",
+      "name": "Professor Cozmo's Discovery",
+      "supertype": "Trainer",
+      "trainer_kind": "Supporter",
+      "effect_ast": {"op": "DrawCards", "count": 3}
+    },
+    {
+      "set": "DF",
+      "number": "101/101",
+      "name": "Metal Energy",
+      "supertype": "Energy",
+      "energy_kind": "Basic",
+      "provides": ["Metal"]
+    }
+  ]
+}

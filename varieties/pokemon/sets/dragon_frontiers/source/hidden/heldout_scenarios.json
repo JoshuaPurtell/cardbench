@@ -1,0 +1,208 @@
+{
+  "scenarios": [
+    {
+      "name": "extra_claws_vs_ex",
+      "seed": 701,
+      "deck_p1": {
+        "deck_kind": "standard",
+        "primary": "DF-3",
+        "energy": "ENERGY-FIGHTING",
+        "extras": ["DF-95"]
+      },
+      "deck_p2": {
+        "deck_kind": "standard",
+        "primary": "DF-3",
+        "energy": "ENERGY-FIGHTING",
+        "extras": ["DF-95"]
+      },
+      "required_markers": ["Extra Claws", ",20)"]
+    },
+    {
+      "name": "vengeance_three_in_discard",
+      "seed": 702,
+      "deck_p1": {
+        "deck_kind": "standard",
+        "primary": "DF-7",
+        "energy": "ENERGY-GRASS",
+        "extras": ["DF-43"]
+      },
+      "deck_p2": {
+        "deck_kind": "standard",
+        "primary": "DF-7",
+        "energy": "ENERGY-GRASS",
+        "extras": ["DF-43"]
+      },
+      "required_markers": ["Vengeance", ",30)"]
+    },
+    {
+      "name": "surge_with_two_water",
+      "seed": 703,
+      "deck_p1": {
+        "deck_kind": "standard",
+        "primary": "DF-15",
+        "energy": "ENERGY-WATER",
+        "extras": ["DF-43"]
+      },
+      "deck_p2": {
+        "deck_kind": "standard",
+        "primary": "DF-15",
+        "energy": "ENERGY-WATER",
+        "extras": ["DF-43"]
+      },
+      "required_markers": ["Surge", ",20)"]
+    },
+    {
+      "name": "psychic_boom_three_energy",
+      "seed": 704,
+      "deck_p1": {
+        "deck_kind": "standard",
+        "primary": "DF-60",
+        "energy": "ENERGY-PSYCHIC",
+        "extras": ["DF-43"]
+      },
+      "deck_p2": {
+        "deck_kind": "standard",
+        "primary": "DF-60",
+        "energy": "ENERGY-PSYCHIC",
+        "extras": ["DF-43"]
+      },
+      "required_markers": ["Psychic Boom", ",30)"]
+    },
+    {
+      "name": "link_blast_energy_mismatch",
+      "seed": 705,
+      "deck_p1": {
+        "deck_kind": "standard",
+        "primary": "DF-32",
+        "energy": "ENERGY-PSYCHIC",
+        "extras": ["DF-43"]
+      },
+      "deck_p2": {
+        "deck_kind": "standard",
+        "primary": "DF-32",
+        "energy": "ENERGY-PSYCHIC",
+        "extras": ["DF-43"]
+      },
+      "required_markers": ["Link Blast", ",0)"]
+    },
+    {
+      "name": "rage_three_counters",
+      "seed": 706,
+      "deck_p1": {
+        "deck_kind": "standard",
+        "primary": "DF-35",
+        "energy": "ENERGY-FIGHTING",
+        "extras": ["DF-43"]
+      },
+      "deck_p2": {
+        "deck_kind": "standard",
+        "primary": "DF-35",
+        "energy": "ENERGY-FIGHTING",
+        "extras": ["DF-43"]
+      },
+      "required_markers": ["Rage", ",40)"]
+    },
+    {
+      "name": "flail_three_counters",
+      "seed": 707,
+      "deck_p1": {
+        "deck_kind": "standard",
+        "primary": "DF-49",
+        "energy": "ENERGY-FIRE",
+        "extras": ["DF-43"]
+      },
+      "deck_p2": {
+        "deck_kind": "standard",
+        "primary": "DF-49",
+        "energy": "ENERGY-FIRE",
+        "extras": ["DF-43"]
+      },
+      "required_markers": ["Flail", ",30)"]
+    },
+    {
+      "name": "splash_about_behind_on_energy",
+      "seed": 708,
+      "deck_p1": {
+        "deck_kind": "standard",
+        "primary": "DF-65",
+        "energy": "ENERGY-WATER",
+        "extras": ["DF-43"]
+      },
+      "deck_p2": {
+        "deck_kind": "standard",
+        "primary": "DF-65",
+        "energy": "ENERGY-WATER",
+        "extras": ["DF-43"]
+      },
+      "required_markers": ["Splash About", ",10)"]
+    },
+    {
+      "name": "buffer_piece_attach",
+      "seed": 709,
+      "deck_p1": {
+        "deck_kind": "standard",
+        "primary": "DF-43",
+        "energy": "ENERGY-WATER",
+        "extras": ["DF-72"]
+      },
+      "deck_p2": {
+        "deck_kind": "standard",
+        "primary": "DF-43",
+        "energy": "ENERGY-WATER",
+        "extras": ["DF-72"]
+      },
+      "required_markers": ["ToolAttached("]
+    },
+    {
+      "name": "holon_legacy_play",
+      "seed": 710,
+      "deck_p1": {
+        "deck_kind": "standard",
+        "primary": "DF-1",
+        "energy": "ENERGY-LIGHTNING",
+        "extras": ["DF-74", "DF-43"]
+      },
+      "deck_p2": {
+        "deck_kind": "standard",
+        "primary": "DF-43",
+        "energy": "ENERGY-WATER",
+        "extras": ["DF-74", "DF-43"]
+      },
+      "required_markers": ["StadiumPlayed("]
+    },
+    {
+      "name": "delta_circle_two_delta",
+      "seed": 711,
+      "deck_p1": {
+        "deck_kind": "standard",
+        "primary": "DF-1",
+        "energy": "ENERGY-LIGHTNING",
+        "extras": ["DF-3", "DF-43"]
+      },
+      "deck_p2": {
+        "deck_kind": "standard",
+        "primary": "DF-1",
+        "energy": "ENERGY-LIGHTNING",
+        "extras": ["DF-3", "DF-43"]
+      },
+      "required_markers": ["Delta Circle", ",20)"]
+    },
+    {
+      "name": "strength_charm_attach",
+      "seed": 712,
+      "deck_p1": {
+        "deck_kind": "standard",
+        "primary": "DF-3",
+        "energy": "ENERGY-FIGHTING",
+        "extras": ["DF-81", "DF-43"]
+      },
+      "deck_p2": {
+        "deck_kind": "standard",
+        "primary": "DF-43",
+        "energy": "ENERGY-WATER",
+        "extras": ["DF-81", "DF-43"]
+      },
+      "required_markers": ["ToolAttached("]
+    }
+  ]
+}

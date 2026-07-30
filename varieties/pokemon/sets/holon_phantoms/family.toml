@@ -1,0 +1,79 @@
+[family]
+name = "holon_phantoms"
+description = "Holon Phantoms benchmark family scaffold."
+engine_module = "hp"
+task_name = "setbench-v1-holon-phantoms"
+eval_host_file = "cards"
+readiness = "blocked"
+readiness_reason = "Holon Phantoms has only placeholder engine-core files today, so there is no real gold implementation to benchmark yet."
+
+[engine_core]
+commit = "9d2a9f33c48ec155b626e8858d330e72e73b17fb"
+
+[[graded_files]]
+name = "cards"
+gold = "source/gold/import_specs.rs"
+stub = "source/stubs/import_specs.rs"
+workspace_path = "scaffold/src/hp/import_specs.rs"
+
+[[graded_files]]
+name = "engine"
+gold = "source/gold/runtime.rs"
+stub = "source/stubs/runtime.rs"
+workspace_path = "scaffold/src/hp/runtime.rs"
+
+[public]
+data_dir = "source/public/data"
+train_dir = "source/public/train"
+train_runtime = "source/public/train/train_runtime_eval.rs"
+train_scenarios = "source/public/train/train_scenarios.json"
+
+[hidden]
+dir = "source/hidden"
+runtime = "source/hidden/heldout_runtime_eval.rs"
+scenarios = "source/hidden/heldout_scenarios.json"
+
+[task]
+dir = "source/task"
+
+[variants.0pct]
+description = "No public gold disclosure. Both graded files are fully stubbed."
+
+[variants.0pct.files.cards]
+source = "stub"
+
+[variants.0pct.files.engine]
+source = "stub"
+
+[variants.30pct]
+description = "Approximate 30 percent disclosure by public function count."
+
+[variants.30pct.files.cards]
+keep_gold_functions = [
+  "power_effect_ast",
+  "trainer_effect_ast",
+  "attack_effect_ast",
+]
+
+[variants.30pct.files.engine]
+keep_gold_functions = [
+  "power_effect_id",
+  "power_is_once_per_turn",
+  "attack_cost_modifier",
+]
+
+[variants.80pct]
+description = "Approximate 80 percent disclosure by public function count."
+
+[variants.80pct.files.cards]
+source = "gold"
+
+[variants.80pct.files.engine]
+stubbed_functions = [
+  "attack_overrides",
+  "post_attack",
+  "between_turns",
+  "execute_power",
+  "register_triggers",
+  "resolve_custom_prompt",
+]

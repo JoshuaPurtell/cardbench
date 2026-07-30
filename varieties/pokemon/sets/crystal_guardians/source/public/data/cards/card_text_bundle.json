@@ -1,0 +1,6302 @@
+{
+  "set": "Crystal Guardians",
+  "set_code": "CG",
+  "card_count": 100,
+  "cards": [
+    {
+      "card_def_id": "CG-1",
+      "number": "1",
+      "name": "Banette",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Stage1",
+      "evolves_from": "Shuppet",
+      "hp": 70,
+      "types": [
+        "Psychic"
+      ],
+      "weakness": [
+        {
+          "type": "Darkness",
+          "value": "x2"
+        }
+      ],
+      "resistance": [
+        {
+          "type": "Fighting",
+          "value": "-30"
+        }
+      ],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Night Murmurs",
+          "cost": [
+            "Psychic",
+            "Colorless"
+          ],
+          "damage": "30",
+          "effect_ast": {
+            "effect": {
+              "condition": "Confused",
+              "op": "ApplySpecialCondition",
+              "target": "OppActive"
+            },
+            "notes": "CG-1:Night Murmurs",
+            "op": "IfTargetIsBasic",
+            "target": "OppActive"
+          },
+          "text": "CG-1:Night Murmurs"
+        },
+        {
+          "idx": 0,
+          "kind": "PokeBody",
+          "name": "Safeguard",
+          "effect_ast": {
+            "card": "Banette",
+            "id": "CG-1:Safeguard",
+            "kind": "PokeBody",
+            "name": "Safeguard",
+            "notes": "Prevent effects of attacks (including damage) from opponent Pokemon-ex.",
+            "op": "Custom",
+            "set": "CG"
+          },
+          "text": "Prevent effects of attacks (including damage) from opponent Pokemon-ex."
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-2",
+      "number": "2",
+      "name": "Blastoise Delta",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [
+        "DeltaSpecies"
+      ],
+      "stage": "Stage2",
+      "evolves_from": "Wartortle Delta",
+      "hp": 110,
+      "types": [
+        "Fighting",
+        "Metal"
+      ],
+      "weakness": [
+        {
+          "type": "Lightning",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 3,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Enraged Linear Attack",
+          "cost": [
+            "Fighting",
+            "Colorless"
+          ],
+          "damage": "0",
+          "effect_ast": {
+            "effect": {
+              "base": 0,
+              "op": "DealDamageByAttackerDamage",
+              "per_counter": 10,
+              "target": "Selected"
+            },
+            "max": 1,
+            "min": 1,
+            "notes": "CG-2:Enraged Linear Attack",
+            "op": "ChoosePokemonTargets",
+            "player": "Current",
+            "selector": {
+              "scope": "OppAll"
+            }
+          },
+          "text": "CG-2:Enraged Linear Attack"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Skull Bash",
+          "cost": [
+            "Metal",
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "60",
+          "effect_ast": {
+            "op": "NoOp"
+          },
+          "text": "Effect op: NoOp"
+        },
+        {
+          "idx": 0,
+          "kind": "PokeBody",
+          "name": "Shield Veil",
+          "effect_ast": {
+            "card": "Blastoise Delta",
+            "id": "CG-2:Shield Veil",
+            "kind": "PokeBody",
+            "name": "Shield Veil",
+            "notes": "Your Active Pokemon have no Weakness.",
+            "op": "Custom",
+            "set": "CG"
+          },
+          "text": "Your Active Pokemon have no Weakness."
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-3",
+      "number": "3",
+      "name": "Camerupt",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Stage1",
+      "evolves_from": "Numel",
+      "hp": 80,
+      "types": [
+        "Fire"
+      ],
+      "weakness": [
+        {
+          "type": "Water",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 2,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Linear Attack",
+          "cost": [
+            "Fire",
+            "Colorless"
+          ],
+          "damage": "0",
+          "effect_ast": {
+            "effect": {
+              "amount": 30,
+              "op": "DealDamage",
+              "target": "Selected"
+            },
+            "max": 1,
+            "min": 1,
+            "notes": "CG-3:Linear Attack",
+            "op": "ChoosePokemonTargets",
+            "player": "Current",
+            "selector": {
+              "scope": "OppAll"
+            }
+          },
+          "text": "CG-3:Linear Attack"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Combustion",
+          "cost": [
+            "Fire",
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "50",
+          "effect_ast": {
+            "op": "NoOp"
+          },
+          "text": "Effect op: NoOp"
+        },
+        {
+          "idx": 0,
+          "kind": "PokeBody",
+          "name": "Delta Protection",
+          "effect_ast": {
+            "card": "Camerupt",
+            "id": "CG-3:Delta Protection",
+            "kind": "PokeBody",
+            "name": "Delta Protection",
+            "notes": "Reduce damage from opponent Delta Pokemon by 40 after weakness/resistance.",
+            "op": "Custom",
+            "set": "CG"
+          },
+          "text": "Reduce damage from opponent Delta Pokemon by 40 after weakness/resistance."
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-4",
+      "number": "4",
+      "name": "Charizard Delta",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [
+        "DeltaSpecies"
+      ],
+      "stage": "Stage2",
+      "evolves_from": "Charmeleon Delta",
+      "hp": 120,
+      "types": [
+        "Lightning",
+        "Metal"
+      ],
+      "weakness": [
+        {
+          "type": "Water",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 2,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Metal Burn",
+          "cost": [
+            "Lightning",
+            "Metal",
+            "Metal",
+            "Colorless"
+          ],
+          "damage": "120",
+          "effect_ast": {
+            "count": 99,
+            "energy_type": "Metal",
+            "notes": "CG-4:Metal Burn",
+            "op": "DiscardAttachedEnergyByType",
+            "target": "SelfActive"
+          },
+          "text": "CG-4:Metal Burn"
+        },
+        {
+          "idx": 0,
+          "kind": "PokePower",
+          "name": "Peal of Thunder",
+          "effect_ast": {
+            "card": "Charizard Delta",
+            "id": "CG-4:Peal of Thunder",
+            "kind": "PokePower",
+            "name": "Peal of Thunder",
+            "notes": "On evolve from hand, attach Energy from top 5 cards, discard the rest.",
+            "op": "Custom",
+            "set": "CG"
+          },
+          "text": "On evolve from hand, attach Energy from top 5 cards, discard the rest."
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-5",
+      "number": "5",
+      "name": "Dugtrio",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Stage1",
+      "evolves_from": "Diglett",
+      "hp": 70,
+      "types": [
+        "Fighting"
+      ],
+      "weakness": [
+        {
+          "type": "Grass",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Dig Under",
+          "cost": [
+            "Fighting",
+            "Colorless"
+          ],
+          "damage": "0",
+          "effect_ast": {
+            "effect": {
+              "amount": 30,
+              "op": "DealDamage",
+              "target": "Selected"
+            },
+            "max": 1,
+            "min": 1,
+            "notes": "CG-5:Dig Under",
+            "op": "ChoosePokemonTargets",
+            "player": "Current",
+            "selector": {
+              "scope": "OppAll"
+            }
+          },
+          "text": "CG-5:Dig Under"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Double-edge",
+          "cost": [
+            "Fighting",
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "60",
+          "effect_ast": {
+            "amount": 10,
+            "notes": "CG-5:Double-edge",
+            "op": "DealDamage",
+            "target": "SelfActive"
+          },
+          "text": "CG-5:Double-edge"
+        },
+        {
+          "idx": 0,
+          "kind": "PokeBody",
+          "name": "Sand Veil",
+          "effect_ast": {
+            "card": "Dugtrio",
+            "id": "CG-5:Sand Veil",
+            "kind": "PokeBody",
+            "name": "Sand Veil",
+            "notes": "Prevent damage to your Benched Pokemon from attacks.",
+            "op": "Custom",
+            "set": "CG"
+          },
+          "text": "Prevent damage to your Benched Pokemon from attacks."
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-6",
+      "number": "6",
+      "name": "Ludicolo Delta",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [
+        "DeltaSpecies"
+      ],
+      "stage": "Stage2",
+      "evolves_from": "Lombre",
+      "hp": 100,
+      "types": [
+        "Fire"
+      ],
+      "weakness": [
+        {
+          "type": "Lightning",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 2,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Knock Off",
+          "cost": [
+            "Fire",
+            "Colorless"
+          ],
+          "damage": "30",
+          "effect_ast": {
+            "count": 1,
+            "notes": "CG-6:Knock Off",
+            "op": "DiscardRandomFromHand",
+            "player": "Opponent"
+          },
+          "text": "CG-6:Knock Off"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Fire Punch",
+          "cost": [
+            "Fire",
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "60",
+          "effect_ast": {
+            "op": "NoOp"
+          },
+          "text": "Effect op: NoOp"
+        },
+        {
+          "idx": 0,
+          "kind": "PokeBody",
+          "name": "Overzealous",
+          "effect_ast": {
+            "card": "Ludicolo Delta",
+            "id": "CG-6:Overzealous",
+            "kind": "PokeBody",
+            "name": "Overzealous",
+            "notes": "If opponent has Pokemon-ex in play, this Pokemon's attacks do +30.",
+            "op": "Custom",
+            "set": "CG"
+          },
+          "text": "If opponent has Pokemon-ex in play, this Pokemon's attacks do +30."
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-7",
+      "number": "7",
+      "name": "Luvdisc",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 60,
+      "types": [
+        "Water"
+      ],
+      "weakness": [
+        {
+          "type": "Lightning",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Even Game",
+          "cost": [
+            "Colorless"
+          ],
+          "damage": "0",
+          "effect_ast": {
+            "id": "CG-7:Even Game",
+            "name": "Even Game",
+            "op": "Custom"
+          },
+          "text": "Custom effect id: CG-7:Even Game"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Stadium Play",
+          "cost": [
+            "Colorless"
+          ],
+          "damage": "10",
+          "effect_ast": {
+            "id": "CG-7:Stadium Play",
+            "name": "Stadium Play",
+            "op": "Custom"
+          },
+          "text": "Custom effect id: CG-7:Stadium Play"
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-8",
+      "number": "8",
+      "name": "Manectric",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Stage1",
+      "evolves_from": "Electrike",
+      "hp": 80,
+      "types": [
+        "Lightning"
+      ],
+      "weakness": [
+        {
+          "type": "Fighting",
+          "value": "x2"
+        }
+      ],
+      "resistance": [
+        {
+          "type": "Metal",
+          "value": "-30"
+        }
+      ],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Kick Away",
+          "cost": [
+            "Lightning",
+            "Colorless"
+          ],
+          "damage": "30",
+          "effect_ast": {
+            "notes": "CG-8:Kick Away",
+            "op": "SwitchActive",
+            "player": "Opponent"
+          },
+          "text": "CG-8:Kick Away"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Strong Current",
+          "cost": [
+            "Lightning",
+            "Lightning",
+            "Colorless"
+          ],
+          "damage": "50",
+          "effect_ast": {
+            "effect": {
+              "amount": 20,
+              "op": "DealDamageToSelector",
+              "player": "Current",
+              "selector": {
+                "is_ex": true,
+                "scope": "OppBench"
+              }
+            },
+            "notes": "CG-8:Strong Current",
+            "op": "IfAttackerHasTool"
+          },
+          "text": "CG-8:Strong Current"
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-9",
+      "number": "9",
+      "name": "Mawile",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 60,
+      "types": [
+        "Metal"
+      ],
+      "weakness": [
+        {
+          "type": "Fire",
+          "value": "x2"
+        }
+      ],
+      "resistance": [
+        {
+          "type": "Grass",
+          "value": "-30"
+        }
+      ],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Mining",
+          "cost": [
+            "Colorless"
+          ],
+          "damage": "0",
+          "effect_ast": {
+            "id": "CG-9:Mining",
+            "name": "Mining",
+            "op": "Custom"
+          },
+          "text": "Custom effect id: CG-9:Mining"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Bite Off",
+          "cost": [
+            "Metal",
+            "Colorless"
+          ],
+          "damage": "20+",
+          "effect_ast": {
+            "effect": {
+              "amount": 30,
+              "op": "ModifyDamage"
+            },
+            "notes": "CG-9:Bite Off",
+            "op": "IfTargetIsEx",
+            "target": "OppActive"
+          },
+          "text": "CG-9:Bite Off"
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-10",
+      "number": "10",
+      "name": "Sableye",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 60,
+      "types": [
+        "Darkness"
+      ],
+      "weakness": [],
+      "resistance": [
+        {
+          "type": "Colorless",
+          "value": "-30"
+        }
+      ],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Disable",
+          "cost": [
+            "Colorless"
+          ],
+          "damage": "10",
+          "effect_ast": {
+            "notes": "CG-10:Disable",
+            "op": "ChooseDefenderAttack",
+            "target": "OppActive"
+          },
+          "text": "CG-10:Disable"
+        },
+        {
+          "idx": 0,
+          "kind": "PokePower",
+          "name": "Excavate",
+          "effect_ast": {
+            "card": "Sableye",
+            "id": "CG-10:Excavate",
+            "kind": "PokePower",
+            "name": "Excavate",
+            "notes": "Look at top card, keep or discard; blocked by Special Conditions.",
+            "op": "Custom",
+            "set": "CG"
+          },
+          "text": "Look at top card, keep or discard; blocked by Special Conditions."
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-11",
+      "number": "11",
+      "name": "Swalot",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Stage1",
+      "evolves_from": "Gulpin",
+      "hp": 80,
+      "types": [
+        "Grass"
+      ],
+      "weakness": [
+        {
+          "type": "Psychic",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Pick and Choose",
+          "cost": [
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "0",
+          "effect_ast": {
+            "id": "CG-11:Pick and Choose",
+            "name": "Pick and Choose",
+            "op": "Custom"
+          },
+          "text": "Custom effect id: CG-11:Pick and Choose"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Reactive Poison",
+          "cost": [
+            "Grass",
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "50+",
+          "effect_ast": {
+            "notes": "CG-11:Reactive Poison",
+            "op": "TextOnly"
+          },
+          "text": "CG-11:Reactive Poison"
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-12",
+      "number": "12",
+      "name": "Tauros",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 70,
+      "types": [
+        "Colorless"
+      ],
+      "weakness": [
+        {
+          "type": "Fighting",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Call for Family",
+          "cost": [
+            "Colorless"
+          ],
+          "damage": "0",
+          "effect_ast": {
+            "count": 2,
+            "destination": "Bench",
+            "max": 2,
+            "min": 0,
+            "notes": "CG-12:Call for Family",
+            "op": "SearchDeckWithSelector",
+            "player": "Current",
+            "selector": {
+              "is_basic": true,
+              "is_pokemon": true
+            },
+            "shuffle": true
+          },
+          "text": "CG-12:Call for Family"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Horn Attack",
+          "cost": [
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "20",
+          "effect_ast": {
+            "op": "NoOp"
+          },
+          "text": "Effect op: NoOp"
+        },
+        {
+          "idx": 0,
+          "kind": "PokePower",
+          "name": "Crush Chance",
+          "effect_ast": {
+            "card": "Tauros",
+            "id": "CG-12:Crush Chance",
+            "kind": "PokePower",
+            "name": "Crush Chance",
+            "notes": "When benched from hand, discard Stadium in play.",
+            "op": "Custom",
+            "set": "CG"
+          },
+          "text": "When benched from hand, discard Stadium in play."
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-13",
+      "number": "13",
+      "name": "Wigglytuff",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Stage1",
+      "evolves_from": "Jigglypuff",
+      "hp": 90,
+      "types": [
+        "Colorless"
+      ],
+      "weakness": [
+        {
+          "type": "Fighting",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 2,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Collect",
+          "cost": [
+            "Colorless"
+          ],
+          "damage": "0",
+          "effect_ast": {
+            "count": 3,
+            "notes": "CG-13:Collect",
+            "op": "DrawCards",
+            "player": "Current"
+          },
+          "text": "CG-13:Collect"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Pester",
+          "cost": [
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "30+",
+          "effect_ast": {
+            "notes": "CG-13:Pester",
+            "op": "TextOnly"
+          },
+          "text": "CG-13:Pester"
+        },
+        {
+          "idx": 0,
+          "kind": "PokeBody",
+          "name": "Fluffy Fur",
+          "effect_ast": {
+            "card": "Wigglytuff",
+            "id": "CG-13:Fluffy Fur",
+            "kind": "PokeBody",
+            "name": "Fluffy Fur",
+            "notes": "If Active and damaged by attack, attacker is Asleep.",
+            "op": "Custom",
+            "set": "CG"
+          },
+          "text": "If Active and damaged by attack, attacker is Asleep."
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-14",
+      "number": "14",
+      "name": "Blastoise",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Stage2",
+      "evolves_from": "Wartortle",
+      "hp": 120,
+      "types": [
+        "Water"
+      ],
+      "weakness": [
+        {
+          "type": "Lightning",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 2,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Hydro Pump",
+          "cost": [
+            "Water",
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "50+",
+          "effect_ast": {
+            "notes": "CG-14:Hydro Pump",
+            "op": "TextOnly"
+          },
+          "text": "CG-14:Hydro Pump"
+        },
+        {
+          "idx": 0,
+          "kind": "PokeBody",
+          "name": "Water Pressure",
+          "effect_ast": {
+            "card": "Blastoise",
+            "id": "CG-14:Water Pressure",
+            "kind": "PokeBody",
+            "name": "Water Pressure",
+            "notes": "If remaining HP is 40 or less, attacks do +40 before weakness/resistance.",
+            "op": "Custom",
+            "set": "CG"
+          },
+          "text": "If remaining HP is 40 or less, attacks do +40 before weakness/resistance."
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-15",
+      "number": "15",
+      "name": "Cacturne Delta",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [
+        "DeltaSpecies"
+      ],
+      "stage": "Stage1",
+      "evolves_from": "Cacnea Delta",
+      "hp": 80,
+      "types": [
+        "Fighting"
+      ],
+      "weakness": [
+        {
+          "type": "Fire",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Triple Needle",
+          "cost": [
+            "Fighting"
+          ],
+          "damage": "0",
+          "effect_ast": {
+            "effect": {
+              "amount": 10,
+              "op": "DealDamage",
+              "target": "Selected"
+            },
+            "max": 3,
+            "min": 3,
+            "notes": "CG-15:Triple Needle",
+            "op": "ChoosePokemonTargets",
+            "player": "Current",
+            "selector": {
+              "scope": "OppAll"
+            }
+          },
+          "text": "CG-15:Triple Needle"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Light Punch",
+          "cost": [
+            "Fighting",
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "50",
+          "effect_ast": {
+            "op": "NoOp"
+          },
+          "text": "Effect op: NoOp"
+        },
+        {
+          "idx": 0,
+          "kind": "PokePower",
+          "name": "Spike Storm",
+          "effect_ast": {
+            "card": "Cacturne Delta",
+            "id": "CG-15:Spike Storm",
+            "kind": "PokePower",
+            "name": "Spike Storm",
+            "notes": "Active only; add a counter to an opponent Pokemon with damage counters.",
+            "op": "Custom",
+            "set": "CG"
+          },
+          "text": "Active only; add a counter to an opponent Pokemon with damage counters."
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-16",
+      "number": "16",
+      "name": "Combusken",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Stage1",
+      "evolves_from": "Torchic",
+      "hp": 80,
+      "types": [
+        "Fighting"
+      ],
+      "weakness": [
+        {
+          "type": "Psychic",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Focus Energy",
+          "cost": [
+            "Fighting"
+          ],
+          "damage": "0",
+          "effect_ast": {
+            "expires_after_turns": 1,
+            "name": "High Jump Kick Boost",
+            "notes": "CG-16:Focus Energy",
+            "op": "AddMarker",
+            "target": "SelfActive"
+          },
+          "text": "CG-16:Focus Energy"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "High Jump Kick",
+          "cost": [
+            "Fighting",
+            "Colorless"
+          ],
+          "damage": "30",
+          "effect_ast": {
+            "op": "NoOp"
+          },
+          "text": "Effect op: NoOp"
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-17",
+      "number": "17",
+      "name": "Dusclops",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Stage1",
+      "evolves_from": "Duskull",
+      "hp": 70,
+      "types": [
+        "Psychic"
+      ],
+      "weakness": [
+        {
+          "type": "Darkness",
+          "value": "x2"
+        }
+      ],
+      "resistance": [
+        {
+          "type": "Fighting",
+          "value": "-30"
+        }
+      ],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Will-o'-the-wisp",
+          "cost": [
+            "Psychic",
+            "Colorless"
+          ],
+          "damage": "30",
+          "effect_ast": {
+            "op": "NoOp"
+          },
+          "text": "Effect op: NoOp"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Psychic Shield",
+          "cost": [
+            "Psychic",
+            "Psychic",
+            "Colorless"
+          ],
+          "damage": "50",
+          "effect_ast": {
+            "expires_after_turns": 1,
+            "name": "PreventAllEffectsEx",
+            "notes": "CG-17:Psychic Shield",
+            "op": "AddMarker",
+            "target": "SelfActive"
+          },
+          "text": "CG-17:Psychic Shield"
+        },
+        {
+          "idx": 0,
+          "kind": "PokeBody",
+          "name": "Cursed Glare",
+          "effect_ast": {
+            "card": "Dusclops",
+            "id": "CG-17:Cursed Glare",
+            "kind": "PokeBody",
+            "name": "Cursed Glare",
+            "notes": "Active only; opponent cannot attach Special Energy to Active from hand.",
+            "op": "Custom",
+            "set": "CG"
+          },
+          "text": "Active only; opponent cannot attach Special Energy to Active from hand."
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-18",
+      "number": "18",
+      "name": "Fearow Delta",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [
+        "DeltaSpecies"
+      ],
+      "stage": "Stage1",
+      "evolves_from": "Spearow Delta",
+      "hp": 60,
+      "types": [
+        "Lightning"
+      ],
+      "weakness": [
+        {
+          "type": "Lightning",
+          "value": "x2"
+        }
+      ],
+      "resistance": [
+        {
+          "type": "Fighting",
+          "value": "-30"
+        }
+      ],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Pierce",
+          "cost": [
+            "Lightning",
+            "Colorless"
+          ],
+          "damage": "30",
+          "effect_ast": {
+            "op": "NoOp"
+          },
+          "text": "Effect op: NoOp"
+        },
+        {
+          "idx": 0,
+          "kind": "PokePower",
+          "name": "Delta Sign",
+          "effect_ast": {
+            "card": "Fearow Delta",
+            "id": "CG-18:Delta Sign",
+            "kind": "PokePower",
+            "name": "Delta Sign",
+            "notes": "Once per turn, search deck for Delta Pokemon; blocked by Special Conditions.",
+            "op": "Custom",
+            "set": "CG"
+          },
+          "text": "Once per turn, search deck for Delta Pokemon; blocked by Special Conditions."
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-19",
+      "number": "19",
+      "name": "Grovyle Delta",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [
+        "DeltaSpecies"
+      ],
+      "stage": "Stage1",
+      "evolves_from": "Treecko Delta",
+      "hp": 70,
+      "types": [
+        "Psychic"
+      ],
+      "weakness": [
+        {
+          "type": "Fire",
+          "value": "x2"
+        }
+      ],
+      "resistance": [
+        {
+          "type": "Water",
+          "value": "-30"
+        }
+      ],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Scratch",
+          "cost": [
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "20",
+          "effect_ast": {
+            "op": "NoOp"
+          },
+          "text": "Effect op: NoOp"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Agility",
+          "cost": [
+            "Psychic",
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "30",
+          "effect_ast": {
+            "count": 1,
+            "notes": "CG-19:Agility",
+            "on_heads": {
+              "expires_after_turns": 1,
+              "name": "PreventAllDamageAndEffects",
+              "op": "AddMarker",
+              "target": "SelfActive"
+            },
+            "on_tails": {
+              "op": "NoOp"
+            },
+            "op": "FlipCoins"
+          },
+          "text": "CG-19:Agility"
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-20",
+      "number": "20",
+      "name": "Grumpig",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Stage1",
+      "evolves_from": "Spoink",
+      "hp": 80,
+      "types": [
+        "Psychic"
+      ],
+      "weakness": [
+        {
+          "type": "Psychic",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 2,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Circular Steps",
+          "cost": [
+            "Psychic",
+            "Psychic",
+            "Colorless"
+          ],
+          "damage": "10×",
+          "effect_ast": {
+            "notes": "CG-20:Circular Steps",
+            "op": "TextOnly"
+          },
+          "text": "CG-20:Circular Steps"
+        },
+        {
+          "idx": 0,
+          "kind": "PokeBody",
+          "name": "Thick Fat",
+          "effect_ast": {
+            "card": "Grumpig",
+            "id": "CG-20:Thick Fat",
+            "kind": "PokeBody",
+            "name": "Thick Fat",
+            "notes": "Reduce damage from Fire and Water attackers by 30.",
+            "op": "Custom",
+            "set": "CG"
+          },
+          "text": "Reduce damage from Fire and Water attackers by 30."
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-21",
+      "number": "21",
+      "name": "Igglybuff",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 50,
+      "types": [
+        "Colorless"
+      ],
+      "weakness": [
+        {
+          "type": "Fighting",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "PokeBody",
+          "name": "Hover Lift",
+          "effect_ast": {
+            "card": "Igglybuff",
+            "id": "CG-21:Hover Lift",
+            "kind": "PokeBody",
+            "name": "Hover Lift",
+            "notes": "Reduce retreat cost for named Pokemon.",
+            "op": "Custom",
+            "set": "CG"
+          },
+          "text": "Reduce retreat cost for named Pokemon."
+        },
+        {
+          "idx": 1,
+          "kind": "PokePower",
+          "name": "Baby Evolution",
+          "effect_ast": {
+            "card": "Igglybuff",
+            "id": "CG-21:Baby Evolution",
+            "kind": "PokePower",
+            "name": "Baby Evolution",
+            "notes": "Evolve from hand, then heal all damage.",
+            "op": "Custom",
+            "set": "CG"
+          },
+          "text": "Evolve from hand, then heal all damage."
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-22",
+      "number": "22",
+      "name": "Kingler Delta",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [
+        "DeltaSpecies"
+      ],
+      "stage": "Stage1",
+      "evolves_from": "Krabby Delta",
+      "hp": 80,
+      "types": [
+        "Fire",
+        "Metal"
+      ],
+      "weakness": [
+        {
+          "type": "Lightning",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 3,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Body Slam",
+          "cost": [
+            "Metal",
+            "Colorless"
+          ],
+          "damage": "30",
+          "effect_ast": {
+            "count": 1,
+            "notes": "CG-22:Body Slam",
+            "on_heads": {
+              "condition": "Paralyzed",
+              "op": "ApplySpecialCondition",
+              "target": "OppActive"
+            },
+            "on_tails": {
+              "op": "NoOp"
+            },
+            "op": "FlipCoins"
+          },
+          "text": "CG-22:Body Slam"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Prop-up Pinchers",
+          "cost": [
+            "Fire",
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "40+",
+          "effect_ast": {
+            "id": "CG-22:Prop-up Pinchers",
+            "name": "Prop-up Pinchers",
+            "op": "Custom"
+          },
+          "text": "Custom effect id: CG-22:Prop-up Pinchers"
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-23",
+      "number": "23",
+      "name": "Loudred",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Stage1",
+      "evolves_from": "Whismur",
+      "hp": 70,
+      "types": [
+        "Colorless"
+      ],
+      "weakness": [
+        {
+          "type": "Fighting",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Surprise",
+          "cost": [
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "20",
+          "effect_ast": {
+            "notes": "CG-23:Surprise",
+            "op": "ReturnRandomCardFromHandToDeck",
+            "player": "Opponent",
+            "reveal": true,
+            "shuffle": true
+          },
+          "text": "CG-23:Surprise"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Bass Control",
+          "cost": [
+            "Colorless",
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "0",
+          "effect_ast": {
+            "effect": {
+              "amount": 40,
+              "op": "DealDamage",
+              "target": "Selected"
+            },
+            "max": 1,
+            "min": 1,
+            "notes": "CG-23:Bass Control",
+            "op": "ChoosePokemonTargets",
+            "player": "Current",
+            "selector": {
+              "scope": "OppAll"
+            }
+          },
+          "text": "CG-23:Bass Control"
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-24",
+      "number": "24",
+      "name": "Marshtomp",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Stage1",
+      "evolves_from": "Mudkip",
+      "hp": 70,
+      "types": [
+        "Water"
+      ],
+      "weakness": [
+        {
+          "type": "Grass",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Rain Splash",
+          "cost": [
+            "Water"
+          ],
+          "damage": "20",
+          "effect_ast": {
+            "op": "NoOp"
+          },
+          "text": "Effect op: NoOp"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Mud Splash",
+          "cost": [
+            "Water",
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "30",
+          "effect_ast": {
+            "effect": {
+              "amount": 30,
+              "op": "DealDamage",
+              "target": "Selected"
+            },
+            "max": 1,
+            "min": 1,
+            "op": "ChoosePokemonTargets",
+            "player": "Current",
+            "selector": {
+              "scope": "OppBench"
+            }
+          },
+          "text": "Effect op: ChoosePokemonTargets"
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-25",
+      "number": "25",
+      "name": "Medicham",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Stage1",
+      "evolves_from": "Meditite",
+      "hp": 80,
+      "types": [
+        "Fighting"
+      ],
+      "weakness": [
+        {
+          "type": "Psychic",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Psyshock",
+          "cost": [
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "20",
+          "effect_ast": {
+            "count": 1,
+            "notes": "CG-25:Psyshock",
+            "on_heads": {
+              "condition": "Paralyzed",
+              "op": "ApplySpecialCondition",
+              "target": "OppActive"
+            },
+            "on_tails": {
+              "op": "NoOp"
+            },
+            "op": "FlipCoins"
+          },
+          "text": "CG-25:Psyshock"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Sky Uppercut",
+          "cost": [
+            "Fighting",
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "50",
+          "effect_ast": {
+            "id": "CG-25:Sky Uppercut",
+            "name": "Sky Uppercut",
+            "op": "Custom"
+          },
+          "text": "Custom effect id: CG-25:Sky Uppercut"
+        },
+        {
+          "idx": 0,
+          "kind": "PokeBody",
+          "name": "Dual Armor",
+          "effect_ast": {
+            "card": "Medicham",
+            "id": "CG-25:Dual Armor",
+            "kind": "PokeBody",
+            "name": "Dual Armor",
+            "notes": "If Psychic Energy attached, Pokemon is both Psychic and Fighting.",
+            "op": "Custom",
+            "set": "CG"
+          },
+          "text": "If Psychic Energy attached, Pokemon is both Psychic and Fighting."
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-26",
+      "number": "26",
+      "name": "Pelipper Delta",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [
+        "DeltaSpecies"
+      ],
+      "stage": "Stage1",
+      "evolves_from": "Wingull Delta",
+      "hp": 70,
+      "types": [
+        "Lightning"
+      ],
+      "weakness": [
+        {
+          "type": "Lightning",
+          "value": "x2"
+        }
+      ],
+      "resistance": [
+        {
+          "type": "Fighting",
+          "value": "-30"
+        }
+      ],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Supersonic",
+          "cost": [
+            "Lightning",
+            "Colorless"
+          ],
+          "damage": "20",
+          "effect_ast": {
+            "condition": "Confused",
+            "notes": "CG-26:Supersonic",
+            "op": "ApplySpecialCondition",
+            "target": "OppActive"
+          },
+          "text": "CG-26:Supersonic"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Wing Attack",
+          "cost": [
+            "Colorless",
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "40",
+          "effect_ast": {
+            "op": "NoOp"
+          },
+          "text": "Effect op: NoOp"
+        },
+        {
+          "idx": 0,
+          "kind": "PokePower",
+          "name": "Delta Transport",
+          "effect_ast": {
+            "card": "Pelipper Delta",
+            "id": "CG-26:Delta Transport",
+            "kind": "PokePower",
+            "name": "Delta Transport",
+            "notes": "Bench only; switch your Active Delta Pokemon with a Benched Pokemon.",
+            "op": "Custom",
+            "set": "CG"
+          },
+          "text": "Bench only; switch your Active Delta Pokemon with a Benched Pokemon."
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-27",
+      "number": "27",
+      "name": "Swampert",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Stage2",
+      "evolves_from": "Marshtomp",
+      "hp": 120,
+      "types": [
+        "Fighting"
+      ],
+      "weakness": [
+        {
+          "type": "Grass",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 2,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Rock Hurl",
+          "cost": [
+            "Fighting",
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "60",
+          "effect_ast": {
+            "id": "CG-27:Rock Hurl",
+            "name": "Rock Hurl",
+            "op": "Custom"
+          },
+          "text": "Custom effect id: CG-27:Rock Hurl"
+        },
+        {
+          "idx": 0,
+          "kind": "PokePower",
+          "name": "Echo Draw",
+          "effect_ast": {
+            "card": "Swampert",
+            "id": "CG-27:Echo Draw",
+            "kind": "PokePower",
+            "name": "Echo Draw",
+            "notes": "Once per turn, draw 1; blocked by Special Conditions.",
+            "op": "Custom",
+            "set": "CG"
+          },
+          "text": "Once per turn, draw 1; blocked by Special Conditions."
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-28",
+      "number": "28",
+      "name": "Venusaur",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Stage2",
+      "evolves_from": "Ivysaur",
+      "hp": 110,
+      "types": [
+        "Grass"
+      ],
+      "weakness": [
+        {
+          "type": "Fire",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 3,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Green Blast",
+          "cost": [
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "20+",
+          "effect_ast": {
+            "energy_type": "Grass",
+            "notes": "CG-28:Green Blast",
+            "op": "DealDamageByEnergyInPlay",
+            "per_energy": 10,
+            "player": "Current",
+            "target": "OppActive"
+          },
+          "text": "CG-28:Green Blast"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Toxic Sleep",
+          "cost": [
+            "Grass",
+            "Grass",
+            "Colorless"
+          ],
+          "damage": "0",
+          "effect_ast": {
+            "effects": [
+              {
+                "condition": "Asleep",
+                "op": "ApplySpecialCondition",
+                "target": "OppActive"
+              },
+              {
+                "condition": "Poisoned",
+                "op": "ApplySpecialCondition",
+                "target": "OppActive"
+              },
+              {
+                "name": "Toxic Sleep",
+                "op": "AddMarker",
+                "target": "OppActive"
+              }
+            ],
+            "notes": "CG-28:Toxic Sleep",
+            "op": "Sequence"
+          },
+          "text": "CG-28:Toxic Sleep"
+        },
+        {
+          "idx": 0,
+          "kind": "PokeBody",
+          "name": "Chlorophyll",
+          "effect_ast": {
+            "card": "Venusaur",
+            "id": "CG-28:Chlorophyll",
+            "kind": "PokeBody",
+            "name": "Chlorophyll",
+            "notes": "Grass Pokemon treat Colorless Energy as Grass.",
+            "op": "Custom",
+            "set": "CG"
+          },
+          "text": "Grass Pokemon treat Colorless Energy as Grass."
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-29",
+      "number": "29",
+      "name": "Charmeleon",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Stage1",
+      "evolves_from": "Charmander",
+      "hp": 70,
+      "types": [
+        "Fire"
+      ],
+      "weakness": [
+        {
+          "type": "Water",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Rage",
+          "cost": [
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "10+",
+          "effect_ast": {
+            "id": "CG-29:Rage",
+            "name": "Rage",
+            "op": "Custom"
+          },
+          "text": "Custom effect id: CG-29:Rage"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Flamethrower",
+          "cost": [
+            "Fire",
+            "Fire",
+            "Colorless"
+          ],
+          "damage": "60",
+          "effect_ast": {
+            "count": 1,
+            "energy_type": "Fire",
+            "op": "DiscardAttachedEnergyByType",
+            "target": "SelfActive"
+          },
+          "text": "Effect op: DiscardAttachedEnergyByType"
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-30",
+      "number": "30",
+      "name": "Charmeleon Delta",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [
+        "DeltaSpecies"
+      ],
+      "stage": "Stage1",
+      "evolves_from": "Charmander Delta",
+      "hp": 70,
+      "types": [
+        "Lightning"
+      ],
+      "weakness": [
+        {
+          "type": "Water",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Slash",
+          "cost": [
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "20",
+          "effect_ast": {
+            "op": "NoOp"
+          },
+          "text": "Effect op: NoOp"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Thunder Jolt",
+          "cost": [
+            "Lightning",
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "50",
+          "effect_ast": {
+            "amount": 10,
+            "notes": "CG-30:Thunder Jolt",
+            "op": "DealDamage",
+            "target": "SelfActive"
+          },
+          "text": "CG-30:Thunder Jolt"
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-31",
+      "number": "31",
+      "name": "Combusken",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Stage1",
+      "evolves_from": "Torchic",
+      "hp": 80,
+      "types": [
+        "Fire"
+      ],
+      "weakness": [
+        {
+          "type": "Water",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 2,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Searing Flame",
+          "cost": [
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "10",
+          "effect_ast": {
+            "condition": "Burned",
+            "notes": "CG-31:Searing Flame",
+            "op": "ApplySpecialCondition",
+            "target": "OppActive"
+          },
+          "text": "CG-31:Searing Flame"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Firebreathing",
+          "cost": [
+            "Fire",
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "30+",
+          "effect_ast": {
+            "count": 1,
+            "on_heads": {
+              "amount": 20,
+              "op": "DealDamage",
+              "target": "OppActive"
+            },
+            "on_tails": {
+              "op": "NoOp"
+            },
+            "op": "FlipCoins"
+          },
+          "text": "Effect op: FlipCoins"
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-32",
+      "number": "32",
+      "name": "Grovyle",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Stage1",
+      "evolves_from": "Treecko",
+      "hp": 70,
+      "types": [
+        "Grass"
+      ],
+      "weakness": [
+        {
+          "type": "Fire",
+          "value": "x2"
+        }
+      ],
+      "resistance": [
+        {
+          "type": "Water",
+          "value": "-30"
+        }
+      ],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Detect",
+          "cost": [
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "0",
+          "effect_ast": {
+            "count": 1,
+            "notes": "CG-32:Detect",
+            "on_heads": {
+              "expires_after_turns": 1,
+              "name": "Detect",
+              "op": "AddMarker",
+              "target": "SelfActive"
+            },
+            "on_tails": {
+              "op": "NoOp"
+            },
+            "op": "FlipCoins"
+          },
+          "text": "CG-32:Detect"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Smash Kick",
+          "cost": [
+            "Grass",
+            "Colorless"
+          ],
+          "damage": "30",
+          "effect_ast": {
+            "op": "NoOp"
+          },
+          "text": "Effect op: NoOp"
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-33",
+      "number": "33",
+      "name": "Gulpin",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 50,
+      "types": [
+        "Grass"
+      ],
+      "weakness": [
+        {
+          "type": "Psychic",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Amnesia",
+          "cost": [
+            "Colorless"
+          ],
+          "damage": "0",
+          "effect_ast": {
+            "notes": "CG-33:Amnesia",
+            "op": "ChooseDefenderAttack",
+            "target": "OppActive"
+          },
+          "text": "CG-33:Amnesia"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Sludge Toss",
+          "cost": [
+            "Grass",
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "40",
+          "effect_ast": {
+            "op": "NoOp"
+          },
+          "text": "Effect op: NoOp"
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-34",
+      "number": "34",
+      "name": "Ivysaur",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Stage1",
+      "evolves_from": "Bulbasaur",
+      "hp": 80,
+      "types": [
+        "Grass"
+      ],
+      "weakness": [
+        {
+          "type": "Psychic",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Sleep Powder",
+          "cost": [
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "20",
+          "effect_ast": {
+            "condition": "Asleep",
+            "notes": "CG-34:Sleep Powder",
+            "op": "ApplySpecialCondition",
+            "target": "OppActive"
+          },
+          "text": "CG-34:Sleep Powder"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Vine Whip",
+          "cost": [
+            "Grass",
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "40",
+          "effect_ast": {
+            "op": "NoOp"
+          },
+          "text": "Effect op: NoOp"
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-35",
+      "number": "35",
+      "name": "Ivysaur",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Stage1",
+      "evolves_from": "Bulbasaur",
+      "hp": 70,
+      "types": [
+        "Grass"
+      ],
+      "weakness": [
+        {
+          "type": "Fire",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Stretch Vine",
+          "cost": [
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "0",
+          "effect_ast": {
+            "effect": {
+              "amount": 30,
+              "op": "DealDamage",
+              "target": "Selected"
+            },
+            "max": 1,
+            "min": 1,
+            "op": "ChoosePokemonTargets",
+            "player": "Current",
+            "selector": {
+              "scope": "OppBench"
+            }
+          },
+          "text": "Effect op: ChoosePokemonTargets"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Sharp Leaf",
+          "cost": [
+            "Grass",
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "40+",
+          "effect_ast": {
+            "count": 1,
+            "on_heads": {
+              "amount": 20,
+              "op": "DealDamage",
+              "target": "OppActive"
+            },
+            "on_tails": {
+              "op": "NoOp"
+            },
+            "op": "FlipCoins"
+          },
+          "text": "Effect op: FlipCoins"
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-36",
+      "number": "36",
+      "name": "Lairon",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Stage1",
+      "evolves_from": "Aron",
+      "hp": 80,
+      "types": [
+        "Metal"
+      ],
+      "weakness": [
+        {
+          "type": "Fire",
+          "value": "x2"
+        }
+      ],
+      "resistance": [
+        {
+          "type": "Grass",
+          "value": "-30"
+        }
+      ],
+      "retreat_cost": 2,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Roar",
+          "cost": [
+            "Colorless"
+          ],
+          "damage": "0",
+          "effect_ast": {
+            "notes": "CG-36:Roar",
+            "op": "SwitchActive",
+            "player": "Opponent"
+          },
+          "text": "CG-36:Roar"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Metal Charge",
+          "cost": [
+            "Metal",
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "50",
+          "effect_ast": {
+            "counters": 1,
+            "op": "PlaceDamageCounters",
+            "target": "SelfActive"
+          },
+          "text": "Effect op: PlaceDamageCounters"
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-37",
+      "number": "37",
+      "name": "Lombre",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Stage1",
+      "evolves_from": "Lotad",
+      "hp": 70,
+      "types": [
+        "Water"
+      ],
+      "weakness": [
+        {
+          "type": "Lightning",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Plunder",
+          "cost": [
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "20",
+          "effect_ast": {
+            "id": "CG-37:Plunder",
+            "name": "Plunder",
+            "op": "Custom",
+            "timing": "PreDamage"
+          },
+          "text": "Custom effect id: CG-37:Plunder"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Wave Splash",
+          "cost": [
+            "Water",
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "50",
+          "effect_ast": {
+            "op": "NoOp"
+          },
+          "text": "Effect op: NoOp"
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-38",
+      "number": "38",
+      "name": "Marshtomp",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Stage1",
+      "evolves_from": "Mudkip",
+      "hp": 70,
+      "types": [
+        "Fighting"
+      ],
+      "weakness": [
+        {
+          "type": "Grass",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Hug",
+          "cost": [
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "20",
+          "effect_ast": {
+            "expires_after_turns": 1,
+            "name": "CannotRetreat",
+            "notes": "CG-38:Hug",
+            "op": "AddMarker",
+            "target": "OppActive"
+          },
+          "text": "CG-38:Hug"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Mud Shot",
+          "cost": [
+            "Fighting",
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "50",
+          "effect_ast": {
+            "op": "NoOp"
+          },
+          "text": "Effect op: NoOp"
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-39",
+      "number": "39",
+      "name": "Nuzleaf",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Stage1",
+      "evolves_from": "Seedot",
+      "hp": 80,
+      "types": [
+        "Darkness"
+      ],
+      "weakness": [
+        {
+          "type": "Fighting",
+          "value": "x2"
+        }
+      ],
+      "resistance": [
+        {
+          "type": "Psychic",
+          "value": "-30"
+        }
+      ],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Self Charge",
+          "cost": [
+            "Colorless"
+          ],
+          "damage": "0",
+          "effect_ast": {
+            "id": "CG-39:Self Charge",
+            "name": "Self Charge",
+            "op": "Custom"
+          },
+          "text": "Custom effect id: CG-39:Self Charge"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Corkscrew Punch",
+          "cost": [
+            "Colorless",
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "40",
+          "effect_ast": {
+            "op": "NoOp"
+          },
+          "text": "Effect op: NoOp"
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-40",
+      "number": "40",
+      "name": "Shuppet",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 40,
+      "types": [
+        "Psychic"
+      ],
+      "weakness": [
+        {
+          "type": "Darkness",
+          "value": "x2"
+        }
+      ],
+      "resistance": [
+        {
+          "type": "Fighting",
+          "value": "-30"
+        }
+      ],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Ascension",
+          "cost": [
+            "Colorless"
+          ],
+          "damage": "0",
+          "effect_ast": {
+            "id": "CG-40:Ascension",
+            "name": "Ascension",
+            "op": "Custom"
+          },
+          "text": "Custom effect id: CG-40:Ascension"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Tackle",
+          "cost": [
+            "Psychic",
+            "Colorless"
+          ],
+          "damage": "20",
+          "effect_ast": {
+            "op": "NoOp"
+          },
+          "text": "Effect op: NoOp"
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-41",
+      "number": "41",
+      "name": "Skitty",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 50,
+      "types": [
+        "Colorless"
+      ],
+      "weakness": [
+        {
+          "type": "Fighting",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Tail Whap",
+          "cost": [
+            "Colorless"
+          ],
+          "damage": "10",
+          "effect_ast": {
+            "op": "NoOp"
+          },
+          "text": "Effect op: NoOp"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Feint Attack",
+          "cost": [
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "0",
+          "effect_ast": {
+            "effect": {
+              "amount": 20,
+              "op": "DealDamageNoModifiers",
+              "target": "Selected"
+            },
+            "max": 1,
+            "min": 1,
+            "op": "ChoosePokemonTargets",
+            "player": "Current",
+            "selector": {
+              "scope": "OppAll"
+            }
+          },
+          "text": "Effect op: ChoosePokemonTargets"
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-42",
+      "number": "42",
+      "name": "Wartortle",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Stage1",
+      "evolves_from": "Squirtle",
+      "hp": 70,
+      "types": [
+        "Water"
+      ],
+      "weakness": [
+        {
+          "type": "Lightning",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Bubble",
+          "cost": [
+            "Water",
+            "Colorless"
+          ],
+          "damage": "20",
+          "effect_ast": {
+            "count": 1,
+            "notes": "CG-42:Bubble",
+            "on_heads": {
+              "condition": "Paralyzed",
+              "op": "ApplySpecialCondition",
+              "target": "OppActive"
+            },
+            "on_tails": {
+              "op": "NoOp"
+            },
+            "op": "FlipCoins"
+          },
+          "text": "CG-42:Bubble"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Tackle",
+          "cost": [
+            "Water",
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "50",
+          "effect_ast": {
+            "op": "NoOp"
+          },
+          "text": "Effect op: NoOp"
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-43",
+      "number": "43",
+      "name": "Wartortle",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Stage1",
+      "evolves_from": "Squirtle",
+      "hp": 80,
+      "types": [
+        "Water"
+      ],
+      "weakness": [
+        {
+          "type": "Lightning",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Tail Whip",
+          "cost": [
+            "Colorless"
+          ],
+          "damage": "0",
+          "effect_ast": {
+            "count": 1,
+            "notes": "CG-43:Tail Whip",
+            "on_heads": {
+              "expires_after_turns": 1,
+              "name": "CannotAttack",
+              "op": "AddMarker",
+              "target": "OppActive"
+            },
+            "on_tails": {
+              "op": "NoOp"
+            },
+            "op": "FlipCoins"
+          },
+          "text": "CG-43:Tail Whip"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Bite",
+          "cost": [
+            "Colorless",
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "40",
+          "effect_ast": {
+            "op": "NoOp"
+          },
+          "text": "Effect op: NoOp"
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-44",
+      "number": "44",
+      "name": "Aron",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 50,
+      "types": [
+        "Metal"
+      ],
+      "weakness": [
+        {
+          "type": "Fire",
+          "value": "x2"
+        }
+      ],
+      "resistance": [
+        {
+          "type": "Grass",
+          "value": "-30"
+        }
+      ],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Flail",
+          "cost": [
+            "Colorless"
+          ],
+          "damage": "10×",
+          "effect_ast": {
+            "id": "CG-44:Flail",
+            "name": "Flail",
+            "op": "Custom"
+          },
+          "text": "Custom effect id: CG-44:Flail"
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-45",
+      "number": "45",
+      "name": "Bulbasaur",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 50,
+      "types": [
+        "Grass"
+      ],
+      "weakness": [
+        {
+          "type": "Psychic",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Tackle",
+          "cost": [
+            "Colorless"
+          ],
+          "damage": "10",
+          "effect_ast": {
+            "op": "NoOp"
+          },
+          "text": "Effect op: NoOp"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Poisonpowder",
+          "cost": [
+            "Grass"
+          ],
+          "damage": "0",
+          "effect_ast": {
+            "condition": "Poisoned",
+            "notes": "CG-45:Poisonpowder",
+            "op": "ApplySpecialCondition",
+            "target": "OppActive"
+          },
+          "text": "CG-45:Poisonpowder"
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-46",
+      "number": "46",
+      "name": "Bulbasaur",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 50,
+      "types": [
+        "Grass"
+      ],
+      "weakness": [
+        {
+          "type": "Fire",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Growth",
+          "cost": [
+            "Colorless"
+          ],
+          "damage": "0",
+          "effect_ast": {
+            "id": "CG-46:Growth",
+            "name": "Growth",
+            "op": "Custom"
+          },
+          "text": "Custom effect id: CG-46:Growth"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Vine Whip",
+          "cost": [
+            "Grass",
+            "Colorless"
+          ],
+          "damage": "20",
+          "effect_ast": {
+            "op": "NoOp"
+          },
+          "text": "Effect op: NoOp"
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-47",
+      "number": "47",
+      "name": "Cacnea",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 50,
+      "types": [
+        "Grass"
+      ],
+      "weakness": [
+        {
+          "type": "Fire",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Call for Family",
+          "cost": [
+            "Colorless"
+          ],
+          "damage": "0",
+          "effect_ast": {
+            "count": 1,
+            "destination": "Bench",
+            "max": 1,
+            "min": 0,
+            "op": "SearchDeckWithSelector",
+            "player": "Current",
+            "selector": {
+              "is_basic": true,
+              "is_pokemon": true
+            },
+            "shuffle": true
+          },
+          "text": "Effect op: SearchDeckWithSelector"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Rising Lunge",
+          "cost": [
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "10+",
+          "effect_ast": {
+            "count": 1,
+            "on_heads": {
+              "amount": 20,
+              "op": "DealDamage",
+              "target": "OppActive"
+            },
+            "on_tails": {
+              "op": "NoOp"
+            },
+            "op": "FlipCoins"
+          },
+          "text": "Effect op: FlipCoins"
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-48",
+      "number": "48",
+      "name": "Charmander",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 50,
+      "types": [
+        "Fire"
+      ],
+      "weakness": [
+        {
+          "type": "Water",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Retaliate",
+          "cost": [
+            "Colorless"
+          ],
+          "damage": "10×",
+          "effect_ast": {
+            "id": "CG-48:Retaliate",
+            "name": "Retaliate",
+            "op": "Custom"
+          },
+          "text": "Custom effect id: CG-48:Retaliate"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Flame Tail",
+          "cost": [
+            "Fire",
+            "Colorless"
+          ],
+          "damage": "20",
+          "effect_ast": {
+            "op": "NoOp"
+          },
+          "text": "Effect op: NoOp"
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-49",
+      "number": "49",
+      "name": "Charmander Delta",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [
+        "DeltaSpecies"
+      ],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 50,
+      "types": [
+        "Lightning"
+      ],
+      "weakness": [
+        {
+          "type": "Water",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Scratch",
+          "cost": [
+            "Colorless"
+          ],
+          "damage": "10",
+          "effect_ast": {
+            "op": "NoOp"
+          },
+          "text": "Effect op: NoOp"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Bite",
+          "cost": [
+            "Lightning",
+            "Colorless"
+          ],
+          "damage": "20",
+          "effect_ast": {
+            "op": "NoOp"
+          },
+          "text": "Effect op: NoOp"
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-50",
+      "number": "50",
+      "name": "Diglett",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 50,
+      "types": [
+        "Fighting"
+      ],
+      "weakness": [
+        {
+          "type": "Grass",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Mud Slap",
+          "cost": [
+            "Colorless"
+          ],
+          "damage": "10",
+          "effect_ast": {
+            "op": "NoOp"
+          },
+          "text": "Effect op: NoOp"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Sand Pit",
+          "cost": [
+            "Fighting",
+            "Colorless"
+          ],
+          "damage": "20",
+          "effect_ast": {
+            "expires_after_turns": 1,
+            "name": "CannotRetreat",
+            "notes": "CG-50:Sand Pit",
+            "op": "AddMarker",
+            "target": "OppActive"
+          },
+          "text": "CG-50:Sand Pit"
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-51",
+      "number": "51",
+      "name": "Duskull",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 40,
+      "types": [
+        "Psychic"
+      ],
+      "weakness": [
+        {
+          "type": "Darkness",
+          "value": "x2"
+        }
+      ],
+      "resistance": [
+        {
+          "type": "Fighting",
+          "value": "-30"
+        }
+      ],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Collect",
+          "cost": [
+            "Colorless"
+          ],
+          "damage": "0",
+          "effect_ast": {
+            "count": 1,
+            "notes": "CG-51:Collect",
+            "op": "DrawCards",
+            "player": "Current"
+          },
+          "text": "CG-51:Collect"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Super Psy Bolt",
+          "cost": [
+            "Psychic"
+          ],
+          "damage": "10",
+          "effect_ast": {
+            "op": "NoOp"
+          },
+          "text": "Effect op: NoOp"
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-52",
+      "number": "52",
+      "name": "Electrike",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 50,
+      "types": [
+        "Lightning"
+      ],
+      "weakness": [
+        {
+          "type": "Fighting",
+          "value": "x2"
+        }
+      ],
+      "resistance": [
+        {
+          "type": "Metal",
+          "value": "-30"
+        }
+      ],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Sniff Out",
+          "cost": [
+            "Colorless"
+          ],
+          "damage": "0",
+          "effect_ast": {
+            "count": 1,
+            "destination": "Hand",
+            "max": 1,
+            "min": 0,
+            "op": "SearchDiscardWithSelector",
+            "player": "Current",
+            "selector": {}
+          },
+          "text": "Effect op: SearchDiscardWithSelector"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Quick Blow",
+          "cost": [
+            "Lightning"
+          ],
+          "damage": "10+",
+          "effect_ast": {
+            "count": 1,
+            "notes": "CG-52:Quick Blow",
+            "on_heads": {
+              "amount": 10,
+              "op": "ModifyDamage"
+            },
+            "on_tails": {
+              "op": "NoOp"
+            },
+            "op": "FlipCoins"
+          },
+          "text": "CG-52:Quick Blow"
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-53",
+      "number": "53",
+      "name": "Jigglypuff",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 50,
+      "types": [
+        "Colorless"
+      ],
+      "weakness": [
+        {
+          "type": "Fighting",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Hypnoblast",
+          "cost": [
+            "Colorless"
+          ],
+          "damage": "10",
+          "effect_ast": {
+            "condition": "Asleep",
+            "notes": "CG-53:Hypnoblast",
+            "op": "ApplySpecialCondition",
+            "target": "OppActive"
+          },
+          "text": "CG-53:Hypnoblast"
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-54",
+      "number": "54",
+      "name": "Krabby",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 40,
+      "types": [
+        "Water"
+      ],
+      "weakness": [
+        {
+          "type": "Lightning",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Vital Pinchers",
+          "cost": [
+            "Colorless"
+          ],
+          "damage": "10+",
+          "effect_ast": {
+            "count": 1,
+            "notes": "CG-54:Vital Pinchers",
+            "on_heads": {
+              "amount": 10,
+              "op": "ModifyDamage"
+            },
+            "on_tails": {
+              "op": "NoOp"
+            },
+            "op": "FlipCoins"
+          },
+          "text": "CG-54:Vital Pinchers"
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-55",
+      "number": "55",
+      "name": "Lotad",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 50,
+      "types": [
+        "Water"
+      ],
+      "weakness": [
+        {
+          "type": "Lightning",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Rolling Tackle",
+          "cost": [
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "20",
+          "effect_ast": {
+            "op": "NoOp"
+          },
+          "text": "Effect op: NoOp"
+        },
+        {
+          "idx": 0,
+          "kind": "PokeBody",
+          "name": "Aqua Lift",
+          "effect_ast": {
+            "card": "Lotad",
+            "id": "CG-55:Aqua Lift",
+            "kind": "PokeBody",
+            "name": "Aqua Lift",
+            "notes": "If Water Energy attached, retreat cost is 0.",
+            "op": "Custom",
+            "set": "CG"
+          },
+          "text": "If Water Energy attached, retreat cost is 0."
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-56",
+      "number": "56",
+      "name": "Meditite",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 50,
+      "types": [
+        "Fighting"
+      ],
+      "weakness": [
+        {
+          "type": "Psychic",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Kick",
+          "cost": [
+            "Fighting"
+          ],
+          "damage": "10",
+          "effect_ast": {
+            "op": "NoOp"
+          },
+          "text": "Effect op: NoOp"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Pure Power",
+          "cost": [
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "0",
+          "effect_ast": {
+            "id": "CG-56:Pure Power",
+            "name": "Pure Power",
+            "op": "Custom"
+          },
+          "text": "Custom effect id: CG-56:Pure Power"
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-57",
+      "number": "57",
+      "name": "Mudkip",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 50,
+      "types": [
+        "Water"
+      ],
+      "weakness": [
+        {
+          "type": "Grass",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Mud Slap",
+          "cost": [
+            "Colorless"
+          ],
+          "damage": "10",
+          "effect_ast": {
+            "op": "NoOp"
+          },
+          "text": "Effect op: NoOp"
+        },
+        {
+          "idx": 0,
+          "kind": "PokeBody",
+          "name": "Submerge",
+          "effect_ast": {
+            "card": "Mudkip",
+            "id": "CG-57:Submerge",
+            "kind": "PokeBody",
+            "name": "Submerge",
+            "notes": "Prevent damage to Benched Pokemon from attacks.",
+            "op": "Custom",
+            "set": "CG"
+          },
+          "text": "Prevent damage to Benched Pokemon from attacks."
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-58",
+      "number": "58",
+      "name": "Mudkip",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 50,
+      "types": [
+        "Water"
+      ],
+      "weakness": [
+        {
+          "type": "Grass",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Nap",
+          "cost": [
+            "Colorless"
+          ],
+          "damage": "0",
+          "effect_ast": {
+            "amount": 20,
+            "op": "HealDamage",
+            "target": "SelfActive"
+          },
+          "text": "Effect op: HealDamage"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Waterfall",
+          "cost": [
+            "Water",
+            "Colorless"
+          ],
+          "damage": "20",
+          "effect_ast": {
+            "op": "NoOp"
+          },
+          "text": "Effect op: NoOp"
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-59",
+      "number": "59",
+      "name": "Numel",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 50,
+      "types": [
+        "Fire"
+      ],
+      "weakness": [
+        {
+          "type": "Water",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Take Down",
+          "cost": [
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "30",
+          "effect_ast": {
+            "amount": 10,
+            "notes": "CG-59:Take Down",
+            "op": "DealDamage",
+            "target": "SelfActive"
+          },
+          "text": "CG-59:Take Down"
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-60",
+      "number": "60",
+      "name": "Seedot",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 40,
+      "types": [
+        "Grass"
+      ],
+      "weakness": [
+        {
+          "type": "Fire",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Headbutt",
+          "cost": [
+            "Colorless"
+          ],
+          "damage": "10",
+          "effect_ast": {
+            "op": "NoOp"
+          },
+          "text": "Effect op: NoOp"
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-61",
+      "number": "61",
+      "name": "Spearow",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 40,
+      "types": [
+        "Colorless"
+      ],
+      "weakness": [
+        {
+          "type": "Lightning",
+          "value": "x2"
+        }
+      ],
+      "resistance": [
+        {
+          "type": "Fighting",
+          "value": "-30"
+        }
+      ],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Spearhead",
+          "cost": [
+            "Colorless"
+          ],
+          "damage": "0",
+          "effect_ast": {
+            "count": 1,
+            "notes": "CG-61:Spearhead",
+            "op": "DrawCards",
+            "player": "Current"
+          },
+          "text": "CG-61:Spearhead"
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-62",
+      "number": "62",
+      "name": "Spoink",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 50,
+      "types": [
+        "Psychic"
+      ],
+      "weakness": [
+        {
+          "type": "Psychic",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Psywave",
+          "cost": [
+            "Psychic"
+          ],
+          "damage": "10×",
+          "effect_ast": {
+            "id": "CG-62:Psywave",
+            "name": "Psywave",
+            "op": "Custom"
+          },
+          "text": "Custom effect id: CG-62:Psywave"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Ram",
+          "cost": [
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "20",
+          "effect_ast": {
+            "op": "NoOp"
+          },
+          "text": "Effect op: NoOp"
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-63",
+      "number": "63",
+      "name": "Squirtle",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 50,
+      "types": [
+        "Water"
+      ],
+      "weakness": [
+        {
+          "type": "Lightning",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Bite",
+          "cost": [
+            "Colorless"
+          ],
+          "damage": "10",
+          "effect_ast": {
+            "op": "NoOp"
+          },
+          "text": "Effect op: NoOp"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Skull Bash",
+          "cost": [
+            "Water",
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "30",
+          "effect_ast": {
+            "op": "NoOp"
+          },
+          "text": "Effect op: NoOp"
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-64",
+      "number": "64",
+      "name": "Squirtle",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 40,
+      "types": [
+        "Water"
+      ],
+      "weakness": [
+        {
+          "type": "Lightning",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Bubblebeam",
+          "cost": [
+            "Colorless"
+          ],
+          "damage": "10",
+          "effect_ast": {
+            "count": 1,
+            "notes": "CG-64:Bubblebeam",
+            "on_heads": {
+              "condition": "Paralyzed",
+              "op": "ApplySpecialCondition",
+              "target": "OppActive"
+            },
+            "on_tails": {
+              "op": "NoOp"
+            },
+            "op": "FlipCoins"
+          },
+          "text": "CG-64:Bubblebeam"
+        },
+        {
+          "idx": 0,
+          "kind": "PokeBody",
+          "name": "Solid Shell",
+          "effect_ast": {
+            "card": "Squirtle",
+            "id": "CG-64:Solid Shell",
+            "kind": "PokeBody",
+            "name": "Solid Shell",
+            "notes": "Reduce damage from attacks by 10.",
+            "op": "Custom",
+            "set": "CG"
+          },
+          "text": "Reduce damage from attacks by 10."
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-65",
+      "number": "65",
+      "name": "Torchic",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 50,
+      "types": [
+        "Fire"
+      ],
+      "weakness": [
+        {
+          "type": "Water",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Claw",
+          "cost": [
+            "Colorless"
+          ],
+          "damage": "20",
+          "effect_ast": {
+            "count": 1,
+            "on_heads": {
+              "op": "NoOp"
+            },
+            "on_tails": {
+              "amount": -10000,
+              "op": "ModifyDamage"
+            },
+            "op": "FlipCoins"
+          },
+          "text": "Effect op: FlipCoins"
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-66",
+      "number": "66",
+      "name": "Torchic",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 40,
+      "types": [
+        "Fire"
+      ],
+      "weakness": [
+        {
+          "type": "Water",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Sand Attack",
+          "cost": [
+            "Colorless"
+          ],
+          "damage": "10",
+          "effect_ast": {
+            "expires_after_turns": 1,
+            "name": "Smokescreen",
+            "op": "AddMarker",
+            "target": "OppActive"
+          },
+          "text": "Effect op: AddMarker"
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-67",
+      "number": "67",
+      "name": "Treecko",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 40,
+      "types": [
+        "Grass"
+      ],
+      "weakness": [
+        {
+          "type": "Fire",
+          "value": "x2"
+        }
+      ],
+      "resistance": [
+        {
+          "type": "Water",
+          "value": "-30"
+        }
+      ],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Paralyzing Gaze",
+          "cost": [
+            "Colorless"
+          ],
+          "damage": "0",
+          "effect_ast": {
+            "count": 1,
+            "notes": "CG-67:Paralyzing Gaze",
+            "on_heads": {
+              "condition": "Paralyzed",
+              "op": "ApplySpecialCondition",
+              "target": "OppActive"
+            },
+            "on_tails": {
+              "op": "NoOp"
+            },
+            "op": "FlipCoins"
+          },
+          "text": "CG-67:Paralyzing Gaze"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Scratch",
+          "cost": [
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "20",
+          "effect_ast": {
+            "op": "NoOp"
+          },
+          "text": "Effect op: NoOp"
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-68",
+      "number": "68",
+      "name": "Treecko Delta",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [
+        "DeltaSpecies"
+      ],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 40,
+      "types": [
+        "Psychic"
+      ],
+      "weakness": [
+        {
+          "type": "Fire",
+          "value": "x2"
+        }
+      ],
+      "resistance": [
+        {
+          "type": "Water",
+          "value": "-30"
+        }
+      ],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Pound",
+          "cost": [
+            "Colorless"
+          ],
+          "damage": "10",
+          "effect_ast": {
+            "op": "NoOp"
+          },
+          "text": "Effect op: NoOp"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Shining Claws",
+          "cost": [
+            "Psychic"
+          ],
+          "damage": "10",
+          "effect_ast": {
+            "count": 1,
+            "notes": "CG-68:Shining Claws",
+            "on_heads": {
+              "condition": "Confused",
+              "op": "ApplySpecialCondition",
+              "target": "OppActive"
+            },
+            "on_tails": {
+              "op": "NoOp"
+            },
+            "op": "FlipCoins"
+          },
+          "text": "CG-68:Shining Claws"
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-69",
+      "number": "69",
+      "name": "Whismur",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 50,
+      "types": [
+        "Colorless"
+      ],
+      "weakness": [
+        {
+          "type": "Fighting",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Supersonic",
+          "cost": [
+            "Colorless"
+          ],
+          "damage": "0",
+          "effect_ast": {
+            "count": 1,
+            "notes": "CG-69:Supersonic",
+            "on_heads": {
+              "condition": "Confused",
+              "op": "ApplySpecialCondition",
+              "target": "OppActive"
+            },
+            "on_tails": {
+              "op": "NoOp"
+            },
+            "op": "FlipCoins"
+          },
+          "text": "CG-69:Supersonic"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Hyper Voice",
+          "cost": [
+            "Colorless",
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "30",
+          "effect_ast": {
+            "op": "NoOp"
+          },
+          "text": "Effect op: NoOp"
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-70",
+      "number": "70",
+      "name": "Wingull",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 40,
+      "types": [
+        "Water"
+      ],
+      "weakness": [
+        {
+          "type": "Lightning",
+          "value": "x2"
+        }
+      ],
+      "resistance": [
+        {
+          "type": "Fighting",
+          "value": "-30"
+        }
+      ],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Wing Attack",
+          "cost": [
+            "Colorless"
+          ],
+          "damage": "10",
+          "effect_ast": {
+            "op": "NoOp"
+          },
+          "text": "Effect op: NoOp"
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-71",
+      "number": "71",
+      "name": "Bill's Maintenance",
+      "supertype": "Trainer",
+      "subtypes": [],
+      "tags": [],
+      "stage": null,
+      "evolves_from": null,
+      "hp": null,
+      "types": [],
+      "weakness": null,
+      "resistance": null,
+      "retreat_cost": null,
+      "trainer_kind": "Supporter",
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Supporter",
+          "name": "Bill's Maintenance",
+          "effect_ast": {
+            "effect": {
+              "effects": [
+                {
+                  "count": 1,
+                  "max": 1,
+                  "min": 1,
+                  "op": "ReturnCardsFromHandToDeck",
+                  "player": "Current"
+                },
+                {
+                  "count": 3,
+                  "op": "DrawCards",
+                  "player": "Current"
+                }
+              ],
+              "op": "Sequence"
+            },
+            "op": "IfHandNotEmpty",
+            "player": "Current"
+          },
+          "text": "Effect op: IfHandNotEmpty"
+        }
+      ],
+      "script_payload": {
+        "effect": {
+          "effects": [
+            {
+              "count": 1,
+              "max": 1,
+              "min": 1,
+              "op": "ReturnCardsFromHandToDeck",
+              "player": "Current"
+            },
+            {
+              "count": 3,
+              "op": "DrawCards",
+              "player": "Current"
+            }
+          ],
+          "op": "Sequence"
+        },
+        "op": "IfHandNotEmpty",
+        "player": "Current"
+      }
+    },
+    {
+      "card_def_id": "CG-72",
+      "number": "72",
+      "name": "Castaway",
+      "supertype": "Trainer",
+      "subtypes": [],
+      "tags": [],
+      "stage": null,
+      "evolves_from": null,
+      "hp": null,
+      "types": [],
+      "weakness": null,
+      "resistance": null,
+      "retreat_cost": null,
+      "trainer_kind": "Supporter",
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Supporter",
+          "name": "Castaway",
+          "effect_ast": {
+            "effects": [
+              {
+                "count": 1,
+                "destination": "Hand",
+                "max": 1,
+                "min": 0,
+                "op": "SearchDeckWithSelector",
+                "player": "Current",
+                "reveal": true,
+                "selector": {
+                  "is_supporter": true
+                },
+                "shuffle": false
+              },
+              {
+                "count": 1,
+                "destination": "Hand",
+                "max": 1,
+                "min": 0,
+                "op": "SearchDeckWithSelector",
+                "player": "Current",
+                "reveal": true,
+                "selector": {
+                  "is_tool": true
+                },
+                "shuffle": false
+              },
+              {
+                "count": 1,
+                "destination": "Hand",
+                "max": 1,
+                "min": 0,
+                "op": "SearchDeckWithSelector",
+                "player": "Current",
+                "reveal": true,
+                "selector": {
+                  "energy_kind": "Basic",
+                  "is_energy": true
+                },
+                "shuffle": true
+              }
+            ],
+            "op": "Sequence"
+          },
+          "text": "Effect op: Sequence"
+        }
+      ],
+      "script_payload": {
+        "effects": [
+          {
+            "count": 1,
+            "destination": "Hand",
+            "max": 1,
+            "min": 0,
+            "op": "SearchDeckWithSelector",
+            "player": "Current",
+            "reveal": true,
+            "selector": {
+              "is_supporter": true
+            },
+            "shuffle": false
+          },
+          {
+            "count": 1,
+            "destination": "Hand",
+            "max": 1,
+            "min": 0,
+            "op": "SearchDeckWithSelector",
+            "player": "Current",
+            "reveal": true,
+            "selector": {
+              "is_tool": true
+            },
+            "shuffle": false
+          },
+          {
+            "count": 1,
+            "destination": "Hand",
+            "max": 1,
+            "min": 0,
+            "op": "SearchDeckWithSelector",
+            "player": "Current",
+            "reveal": true,
+            "selector": {
+              "energy_kind": "Basic",
+              "is_energy": true
+            },
+            "shuffle": true
+          }
+        ],
+        "op": "Sequence"
+      }
+    },
+    {
+      "card_def_id": "CG-73",
+      "number": "73",
+      "name": "Celio's Network",
+      "supertype": "Trainer",
+      "subtypes": [],
+      "tags": [],
+      "stage": null,
+      "evolves_from": null,
+      "hp": null,
+      "types": [],
+      "weakness": null,
+      "resistance": null,
+      "retreat_cost": null,
+      "trainer_kind": "Supporter",
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Supporter",
+          "name": "Celio's Network",
+          "effect_ast": {
+            "count": 1,
+            "destination": "Hand",
+            "max": 1,
+            "min": 1,
+            "op": "SearchDeckWithSelector",
+            "player": "Current",
+            "reveal": true,
+            "selector": {
+              "is_ex": false,
+              "is_pokemon": true
+            },
+            "shuffle": true
+          },
+          "text": "Effect op: SearchDeckWithSelector"
+        }
+      ],
+      "script_payload": {
+        "count": 1,
+        "destination": "Hand",
+        "max": 1,
+        "min": 1,
+        "op": "SearchDeckWithSelector",
+        "player": "Current",
+        "reveal": true,
+        "selector": {
+          "is_ex": false,
+          "is_pokemon": true
+        },
+        "shuffle": true
+      }
+    },
+    {
+      "card_def_id": "CG-74",
+      "number": "74",
+      "name": "Cessation Crystal",
+      "supertype": "Trainer",
+      "subtypes": [],
+      "tags": [],
+      "stage": null,
+      "evolves_from": null,
+      "hp": null,
+      "types": [],
+      "weakness": null,
+      "resistance": null,
+      "retreat_cost": null,
+      "trainer_kind": "Tool",
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Tool",
+          "name": "Cessation Crystal",
+          "effect_ast": {
+            "id": "CG-74:Cessation Crystal",
+            "kind": "Tool",
+            "name": "Cessation Crystal",
+            "notes": "Active-only power/body lock; non-ex attach restriction.",
+            "op": "Custom",
+            "set": "CG"
+          },
+          "text": "Active-only power/body lock; non-ex attach restriction."
+        }
+      ],
+      "script_payload": {
+        "id": "CG-74:Cessation Crystal",
+        "kind": "Tool",
+        "name": "Cessation Crystal",
+        "notes": "Active-only power/body lock; non-ex attach restriction.",
+        "op": "Custom",
+        "set": "CG"
+      }
+    },
+    {
+      "card_def_id": "CG-75",
+      "number": "75",
+      "name": "Crystal Beach",
+      "supertype": "Trainer",
+      "subtypes": [],
+      "tags": [],
+      "stage": null,
+      "evolves_from": null,
+      "hp": null,
+      "types": [],
+      "weakness": null,
+      "resistance": null,
+      "retreat_cost": null,
+      "trainer_kind": "Stadium",
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Stadium",
+          "name": "Crystal Beach",
+          "effect_ast": {
+            "id": "CG-75:Crystal Beach",
+            "kind": "Stadium",
+            "name": "Crystal Beach",
+            "notes": "Special Energy providing 2+ now provides only 1 Colorless.",
+            "op": "Custom",
+            "set": "CG"
+          },
+          "text": "Special Energy providing 2+ now provides only 1 Colorless."
+        }
+      ],
+      "script_payload": {
+        "id": "CG-75:Crystal Beach",
+        "kind": "Stadium",
+        "name": "Crystal Beach",
+        "notes": "Special Energy providing 2+ now provides only 1 Colorless.",
+        "op": "Custom",
+        "set": "CG"
+      }
+    },
+    {
+      "card_def_id": "CG-76",
+      "number": "76",
+      "name": "Crystal Shard",
+      "supertype": "Trainer",
+      "subtypes": [],
+      "tags": [],
+      "stage": null,
+      "evolves_from": null,
+      "hp": null,
+      "types": [],
+      "weakness": null,
+      "resistance": null,
+      "retreat_cost": null,
+      "trainer_kind": "Tool",
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Tool",
+          "name": "Crystal Shard",
+          "effect_ast": {
+            "id": "CG-76:Crystal Shard",
+            "kind": "Tool",
+            "name": "Crystal Shard",
+            "notes": "Attached Pokemon is Colorless; discard after attack.",
+            "op": "Custom",
+            "set": "CG"
+          },
+          "text": "Attached Pokemon is Colorless; discard after attack."
+        }
+      ],
+      "script_payload": {
+        "id": "CG-76:Crystal Shard",
+        "kind": "Tool",
+        "name": "Crystal Shard",
+        "notes": "Attached Pokemon is Colorless; discard after attack.",
+        "op": "Custom",
+        "set": "CG"
+      }
+    },
+    {
+      "card_def_id": "CG-77",
+      "number": "77",
+      "name": "Double Full Heal",
+      "supertype": "Trainer",
+      "subtypes": [],
+      "tags": [],
+      "stage": null,
+      "evolves_from": null,
+      "hp": null,
+      "types": [],
+      "weakness": null,
+      "resistance": null,
+      "retreat_cost": null,
+      "trainer_kind": "Item",
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Item",
+          "name": "Double Full Heal",
+          "effect_ast": {
+            "op": "ClearSpecialConditions",
+            "target": "SelfActive"
+          },
+          "text": "Effect op: ClearSpecialConditions"
+        }
+      ],
+      "script_payload": {
+        "op": "ClearSpecialConditions",
+        "target": "SelfActive"
+      }
+    },
+    {
+      "card_def_id": "CG-78",
+      "number": "78",
+      "name": "Dual Ball",
+      "supertype": "Trainer",
+      "subtypes": [],
+      "tags": [],
+      "stage": null,
+      "evolves_from": null,
+      "hp": null,
+      "types": [],
+      "weakness": null,
+      "resistance": null,
+      "retreat_cost": null,
+      "trainer_kind": "Item",
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Item",
+          "name": "Dual Ball",
+          "effect_ast": {
+            "coins": 2,
+            "destination": "Hand",
+            "op": "FlipCoinsSearchDeckWithSelector",
+            "player": "Current",
+            "reveal": true,
+            "selector": {
+              "is_basic": true,
+              "is_pokemon": true
+            },
+            "shuffle": true
+          },
+          "text": "Effect op: FlipCoinsSearchDeckWithSelector"
+        }
+      ],
+      "script_payload": {
+        "coins": 2,
+        "destination": "Hand",
+        "op": "FlipCoinsSearchDeckWithSelector",
+        "player": "Current",
+        "reveal": true,
+        "selector": {
+          "is_basic": true,
+          "is_pokemon": true
+        },
+        "shuffle": true
+      }
+    },
+    {
+      "card_def_id": "CG-79",
+      "number": "79",
+      "name": "Holon Circle",
+      "supertype": "Trainer",
+      "subtypes": [],
+      "tags": [],
+      "stage": null,
+      "evolves_from": null,
+      "hp": null,
+      "types": [],
+      "weakness": null,
+      "resistance": null,
+      "retreat_cost": null,
+      "trainer_kind": "Stadium",
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Stadium",
+          "name": "Holon Circle",
+          "effect_ast": {
+            "id": "CG-79:Holon Circle",
+            "kind": "Stadium",
+            "name": "Holon Circle",
+            "notes": "Prevent effects of attacks by Active Pokemon; discard on attack.",
+            "op": "Custom",
+            "set": "CG"
+          },
+          "text": "Prevent effects of attacks by Active Pokemon; discard on attack."
+        }
+      ],
+      "script_payload": {
+        "id": "CG-79:Holon Circle",
+        "kind": "Stadium",
+        "name": "Holon Circle",
+        "notes": "Prevent effects of attacks by Active Pokemon; discard on attack.",
+        "op": "Custom",
+        "set": "CG"
+      }
+    },
+    {
+      "card_def_id": "CG-80",
+      "number": "80",
+      "name": "Memory Berry",
+      "supertype": "Trainer",
+      "subtypes": [],
+      "tags": [],
+      "stage": null,
+      "evolves_from": null,
+      "hp": null,
+      "types": [],
+      "weakness": null,
+      "resistance": null,
+      "retreat_cost": null,
+      "trainer_kind": "Tool",
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Tool",
+          "name": "Memory Berry",
+          "effect_ast": {
+            "discard": "EndOfTurnIfAttacked",
+            "id": "CG-80:Memory Berry",
+            "kind": "Tool",
+            "name": "Memory Berry",
+            "notes": "Use attacks from Basic/Stage1; discard after attack.",
+            "op": "Custom",
+            "set": "CG"
+          },
+          "text": "Use attacks from Basic/Stage1; discard after attack."
+        }
+      ],
+      "script_payload": {
+        "discard": "EndOfTurnIfAttacked",
+        "id": "CG-80:Memory Berry",
+        "kind": "Tool",
+        "name": "Memory Berry",
+        "notes": "Use attacks from Basic/Stage1; discard after attack.",
+        "op": "Custom",
+        "set": "CG"
+      }
+    },
+    {
+      "card_def_id": "CG-81",
+      "number": "81",
+      "name": "Mysterious Shard",
+      "supertype": "Trainer",
+      "subtypes": [],
+      "tags": [],
+      "stage": null,
+      "evolves_from": null,
+      "hp": null,
+      "types": [],
+      "weakness": null,
+      "resistance": null,
+      "retreat_cost": null,
+      "trainer_kind": "Tool",
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Tool",
+          "name": "Mysterious Shard",
+          "effect_ast": {
+            "discard": "EndOfOpponentTurnAfterPlay",
+            "id": "CG-81:Mysterious Shard",
+            "kind": "Tool",
+            "name": "Mysterious Shard",
+            "notes": "Prevent effects from opponent Pokemon-ex; discard end of opponent turn.",
+            "op": "Custom",
+            "set": "CG"
+          },
+          "text": "Prevent effects from opponent Pokemon-ex; discard end of opponent turn."
+        }
+      ],
+      "script_payload": {
+        "discard": "EndOfOpponentTurnAfterPlay",
+        "id": "CG-81:Mysterious Shard",
+        "kind": "Tool",
+        "name": "Mysterious Shard",
+        "notes": "Prevent effects from opponent Pokemon-ex; discard end of opponent turn.",
+        "op": "Custom",
+        "set": "CG"
+      }
+    },
+    {
+      "card_def_id": "CG-82",
+      "number": "82",
+      "name": "Poké Ball",
+      "supertype": "Trainer",
+      "subtypes": [],
+      "tags": [],
+      "stage": null,
+      "evolves_from": null,
+      "hp": null,
+      "types": [],
+      "weakness": null,
+      "resistance": null,
+      "retreat_cost": null,
+      "trainer_kind": "Item",
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Item",
+          "name": "Poké Ball",
+          "effect_ast": {
+            "coins": 1,
+            "destination": "Hand",
+            "op": "FlipCoinsSearchDeckWithSelector",
+            "player": "Current",
+            "reveal": true,
+            "selector": {
+              "is_pokemon": true
+            },
+            "shuffle": true
+          },
+          "text": "Effect op: FlipCoinsSearchDeckWithSelector"
+        }
+      ],
+      "script_payload": {
+        "coins": 1,
+        "destination": "Hand",
+        "op": "FlipCoinsSearchDeckWithSelector",
+        "player": "Current",
+        "reveal": true,
+        "selector": {
+          "is_pokemon": true
+        },
+        "shuffle": true
+      }
+    },
+    {
+      "card_def_id": "CG-83",
+      "number": "83",
+      "name": "PokéNav",
+      "supertype": "Trainer",
+      "subtypes": [],
+      "tags": [],
+      "stage": null,
+      "evolves_from": null,
+      "hp": null,
+      "types": [],
+      "weakness": null,
+      "resistance": null,
+      "retreat_cost": null,
+      "trainer_kind": "Item",
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Item",
+          "name": "PokéNav",
+          "effect_ast": {
+            "id": "CG-83:PokéNav",
+            "kind": "Item",
+            "name": "PokéNav",
+            "notes": "Look at top 3, take a Basic/Evolution/Energy, reorder remaining.",
+            "op": "Custom",
+            "set": "CG"
+          },
+          "text": "Look at top 3, take a Basic/Evolution/Energy, reorder remaining."
+        }
+      ],
+      "script_payload": {
+        "id": "CG-83:PokéNav",
+        "kind": "Item",
+        "name": "PokéNav",
+        "notes": "Look at top 3, take a Basic/Evolution/Energy, reorder remaining.",
+        "op": "Custom",
+        "set": "CG"
+      }
+    },
+    {
+      "card_def_id": "CG-84",
+      "number": "84",
+      "name": "Warp Point",
+      "supertype": "Trainer",
+      "subtypes": [],
+      "tags": [],
+      "stage": null,
+      "evolves_from": null,
+      "hp": null,
+      "types": [],
+      "weakness": null,
+      "resistance": null,
+      "retreat_cost": null,
+      "trainer_kind": "Item",
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Item",
+          "name": "Warp Point",
+          "effect_ast": {
+            "effects": [
+              {
+                "effect": {
+                  "op": "SwitchToTarget",
+                  "player": "Opponent"
+                },
+                "max": 1,
+                "min": 1,
+                "op": "ChoosePokemonTargets",
+                "player": "Opponent",
+                "selector": {
+                  "scope": "OppBench"
+                }
+              },
+              {
+                "effect": {
+                  "op": "SwitchToTarget",
+                  "player": "Current"
+                },
+                "max": 1,
+                "min": 1,
+                "op": "ChoosePokemonTargets",
+                "player": "Current",
+                "selector": {
+                  "scope": "SelfBench"
+                }
+              }
+            ],
+            "notes": "CG-84:Warp Point",
+            "op": "Sequence"
+          },
+          "text": "CG-84:Warp Point"
+        }
+      ],
+      "script_payload": {
+        "effects": [
+          {
+            "effect": {
+              "op": "SwitchToTarget",
+              "player": "Opponent"
+            },
+            "max": 1,
+            "min": 1,
+            "op": "ChoosePokemonTargets",
+            "player": "Opponent",
+            "selector": {
+              "scope": "OppBench"
+            }
+          },
+          {
+            "effect": {
+              "op": "SwitchToTarget",
+              "player": "Current"
+            },
+            "max": 1,
+            "min": 1,
+            "op": "ChoosePokemonTargets",
+            "player": "Current",
+            "selector": {
+              "scope": "SelfBench"
+            }
+          }
+        ],
+        "notes": "CG-84:Warp Point",
+        "op": "Sequence"
+      }
+    },
+    {
+      "card_def_id": "CG-85",
+      "number": "85",
+      "name": "Windstorm",
+      "supertype": "Trainer",
+      "subtypes": [],
+      "tags": [],
+      "stage": null,
+      "evolves_from": null,
+      "hp": null,
+      "types": [],
+      "weakness": null,
+      "resistance": null,
+      "retreat_cost": null,
+      "trainer_kind": "Item",
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Item",
+          "name": "Windstorm",
+          "effect_ast": {
+            "max": 1,
+            "min": 1,
+            "op": "ChooseCardsInPlay",
+            "player": "Current"
+          },
+          "text": "Effect op: ChooseCardsInPlay"
+        }
+      ],
+      "script_payload": {
+        "max": 1,
+        "min": 1,
+        "op": "ChooseCardsInPlay",
+        "player": "Current"
+      }
+    },
+    {
+      "card_def_id": "CG-86",
+      "number": "86",
+      "name": "Energy Search",
+      "supertype": "Trainer",
+      "subtypes": [],
+      "tags": [],
+      "stage": null,
+      "evolves_from": null,
+      "hp": null,
+      "types": [],
+      "weakness": null,
+      "resistance": null,
+      "retreat_cost": null,
+      "trainer_kind": "Item",
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Item",
+          "name": "Energy Search",
+          "effect_ast": {
+            "count": 1,
+            "destination": "Hand",
+            "max": 1,
+            "min": 1,
+            "op": "SearchDeckWithSelector",
+            "player": "Current",
+            "reveal": true,
+            "selector": {
+              "energy_kind": "Basic",
+              "is_energy": true
+            },
+            "shuffle": true
+          },
+          "text": "Effect op: SearchDeckWithSelector"
+        }
+      ],
+      "script_payload": {
+        "count": 1,
+        "destination": "Hand",
+        "max": 1,
+        "min": 1,
+        "op": "SearchDeckWithSelector",
+        "player": "Current",
+        "reveal": true,
+        "selector": {
+          "energy_kind": "Basic",
+          "is_energy": true
+        },
+        "shuffle": true
+      }
+    },
+    {
+      "card_def_id": "CG-87",
+      "number": "87",
+      "name": "Potion",
+      "supertype": "Trainer",
+      "subtypes": [],
+      "tags": [],
+      "stage": null,
+      "evolves_from": null,
+      "hp": null,
+      "types": [],
+      "weakness": null,
+      "resistance": null,
+      "retreat_cost": null,
+      "trainer_kind": "Item",
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Item",
+          "name": "Potion",
+          "effect_ast": {
+            "effect": {
+              "amount": 20,
+              "op": "HealDamage",
+              "target": "Selected"
+            },
+            "max": 1,
+            "min": 1,
+            "op": "ChoosePokemonTargets",
+            "player": "Current",
+            "selector": {
+              "has_damage": true,
+              "scope": "SelfAll"
+            }
+          },
+          "text": "Effect op: ChoosePokemonTargets"
+        }
+      ],
+      "script_payload": {
+        "effect": {
+          "amount": 20,
+          "op": "HealDamage",
+          "target": "Selected"
+        },
+        "max": 1,
+        "min": 1,
+        "op": "ChoosePokemonTargets",
+        "player": "Current",
+        "selector": {
+          "has_damage": true,
+          "scope": "SelfAll"
+        }
+      }
+    },
+    {
+      "card_def_id": "CG-88",
+      "number": "88",
+      "name": "Double Rainbow Energy",
+      "supertype": "Energy",
+      "subtypes": [],
+      "tags": [],
+      "stage": null,
+      "evolves_from": null,
+      "hp": null,
+      "types": [],
+      "weakness": null,
+      "resistance": null,
+      "retreat_cost": null,
+      "trainer_kind": null,
+      "energy_kind": "Special",
+      "script_kind": "Dsl",
+      "effects": [],
+      "script_payload": {
+        "op": "NoOp"
+      }
+    },
+    {
+      "card_def_id": "CG-89",
+      "number": "89",
+      "name": "Aggron ex",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [
+        "PokemonEx"
+      ],
+      "stage": "Stage2",
+      "evolves_from": "Lairon",
+      "hp": 150,
+      "types": [
+        "Metal"
+      ],
+      "weakness": [
+        {
+          "type": "Fire",
+          "value": "x2"
+        }
+      ],
+      "resistance": [
+        {
+          "type": "Grass",
+          "value": "-30"
+        }
+      ],
+      "retreat_cost": 4,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Split Bomb",
+          "cost": [
+            "Colorless",
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "0",
+          "effect_ast": {
+            "effect": {
+              "amount": 30,
+              "op": "DealDamage",
+              "target": "Selected"
+            },
+            "max": 2,
+            "min": 1,
+            "op": "ChoosePokemonTargets",
+            "player": "Current",
+            "selector": {
+              "scope": "OppAll"
+            }
+          },
+          "text": "Effect op: ChoosePokemonTargets"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Mega Burn",
+          "cost": [
+            "Metal",
+            "Metal",
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "100",
+          "effect_ast": {
+            "op": "TextOnly"
+          },
+          "text": "Effect op: TextOnly"
+        },
+        {
+          "idx": 0,
+          "kind": "PokeBody",
+          "name": "Intimidating Armor",
+          "effect_ast": {
+            "card": "Aggron ex",
+            "id": "CG-89:Intimidating Armor",
+            "kind": "PokeBody",
+            "name": "Intimidating Armor",
+            "notes": "Active only; opponent Basics cannot attack or use Poke-Powers/Bodies.",
+            "op": "Custom",
+            "set": "CG"
+          },
+          "text": "Active only; opponent Basics cannot attack or use Poke-Powers/Bodies."
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-90",
+      "number": "90",
+      "name": "Blaziken ex",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [
+        "PokemonEx"
+      ],
+      "stage": "Stage2",
+      "evolves_from": "Combusken",
+      "hp": 150,
+      "types": [
+        "Fighting"
+      ],
+      "weakness": [
+        {
+          "type": "Psychic",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 2,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Drag Off",
+          "cost": [
+            "Fighting",
+            "Colorless"
+          ],
+          "damage": "30",
+          "effect_ast": {
+            "effect": {
+              "op": "SwitchToTarget",
+              "player": "Opponent"
+            },
+            "max": 1,
+            "min": 1,
+            "notes": "CG-90:Drag Off",
+            "op": "ChoosePokemonTargets",
+            "player": "Current",
+            "selector": {
+              "scope": "OppBench"
+            }
+          },
+          "text": "CG-90:Drag Off"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Burn Away",
+          "cost": [
+            "Fire",
+            "Fighting",
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "100",
+          "effect_ast": {
+            "amount": 100,
+            "op": "DealDamageNoModifiersWithOverkillRecoil",
+            "recoil_target": "SelfActive",
+            "target": "OppActive"
+          },
+          "text": "Effect op: DealDamageNoModifiersWithOverkillRecoil"
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-91",
+      "number": "91",
+      "name": "Delcatty ex",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [
+        "PokemonEx"
+      ],
+      "stage": "Stage1",
+      "evolves_from": "Skitty",
+      "hp": 90,
+      "types": [
+        "Colorless"
+      ],
+      "weakness": [
+        {
+          "type": "Fighting",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 0,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Upstream",
+          "cost": [
+            "Colorless"
+          ],
+          "damage": "10×",
+          "effect_ast": {
+            "id": "CG-91:Upstream",
+            "name": "Upstream",
+            "op": "Custom"
+          },
+          "text": "Custom effect id: CG-91:Upstream"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Tail Slap",
+          "cost": [
+            "Colorless",
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "60",
+          "effect_ast": {
+            "op": "NoOp"
+          },
+          "text": "Effect op: NoOp"
+        },
+        {
+          "idx": 0,
+          "kind": "PokePower",
+          "name": "Constrain",
+          "effect_ast": {
+            "card": "Delcatty ex",
+            "id": "CG-91:Constrain",
+            "kind": "PokePower",
+            "name": "Constrain",
+            "notes": "Each player discards to 6 cards; you discard first.",
+            "op": "Custom",
+            "set": "CG"
+          },
+          "text": "Each player discards to 6 cards; you discard first."
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-92",
+      "number": "92",
+      "name": "Exploud ex",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [
+        "PokemonEx"
+      ],
+      "stage": "Stage2",
+      "evolves_from": "Loudred",
+      "hp": 150,
+      "types": [
+        "Colorless"
+      ],
+      "weakness": [
+        {
+          "type": "Fighting",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 3,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Derail",
+          "cost": [
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "40",
+          "effect_ast": {
+            "id": "CG-92:Derail",
+            "name": "Derail",
+            "op": "Custom"
+          },
+          "text": "Custom effect id: CG-92:Derail"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Hyper Tail",
+          "cost": [
+            "Colorless",
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "60+",
+          "effect_ast": {
+            "id": "CG-92:Hyper Tail",
+            "name": "Hyper Tail",
+            "op": "Custom"
+          },
+          "text": "Custom effect id: CG-92:Hyper Tail"
+        },
+        {
+          "idx": 0,
+          "kind": "PokeBody",
+          "name": "Extra Noise",
+          "effect_ast": {
+            "card": "Exploud ex",
+            "id": "CG-92:Extra Noise",
+            "kind": "PokeBody",
+            "name": "Extra Noise",
+            "notes": "Active only; between turns add 1 counter to each opponent Pokemon-ex.",
+            "op": "Custom",
+            "set": "CG"
+          },
+          "text": "Active only; between turns add 1 counter to each opponent Pokemon-ex."
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-93",
+      "number": "93",
+      "name": "Groudon ex",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [
+        "PokemonEx"
+      ],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 100,
+      "types": [
+        "Fighting"
+      ],
+      "weakness": [
+        {
+          "type": "Grass",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 2,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Power Blast",
+          "cost": [
+            "Fighting",
+            "Fighting",
+            "Colorless"
+          ],
+          "damage": "100",
+          "effect_ast": {
+            "count": 2,
+            "op": "DiscardAttachedEnergy",
+            "target": "SelfActive"
+          },
+          "text": "Effect op: DiscardAttachedEnergy"
+        },
+        {
+          "idx": 0,
+          "kind": "PokeBody",
+          "name": "Hard Rock",
+          "effect_ast": {
+            "card": "Groudon ex",
+            "id": "CG-93:Hard Rock",
+            "kind": "PokeBody",
+            "name": "Hard Rock",
+            "notes": "If <=1 Energy attached, reduce damage to each Groudon ex by 20.",
+            "op": "Custom",
+            "set": "CG"
+          },
+          "text": "If <=1 Energy attached, reduce damage to each Groudon ex by 20."
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-94",
+      "number": "94",
+      "name": "Jirachi ex",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [
+        "PokemonEx"
+      ],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 90,
+      "types": [
+        "Psychic"
+      ],
+      "weakness": [],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Shield Beam",
+          "cost": [
+            "Psychic",
+            "Colorless"
+          ],
+          "damage": "30",
+          "effect_ast": {
+            "id": "CG-94:Shield Beam",
+            "name": "Shield Beam",
+            "op": "Custom"
+          },
+          "text": "Custom effect id: CG-94:Shield Beam"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Super Psy Bolt",
+          "cost": [
+            "Psychic",
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "50",
+          "effect_ast": {
+            "op": "NoOp"
+          },
+          "text": "Effect op: NoOp"
+        },
+        {
+          "idx": 0,
+          "kind": "PokeBody",
+          "name": "Star Light",
+          "effect_ast": {
+            "card": "Jirachi ex",
+            "id": "CG-94:Star Light",
+            "kind": "PokeBody",
+            "name": "Star Light",
+            "notes": "If opponent has Pokemon-ex or Stage 2, reduce select attack costs by 1.",
+            "op": "Custom",
+            "set": "CG"
+          },
+          "text": "If opponent has Pokemon-ex or Stage 2, reduce select attack costs by 1."
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-95",
+      "number": "95",
+      "name": "Kyogre ex",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [
+        "PokemonEx"
+      ],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 100,
+      "types": [
+        "Water"
+      ],
+      "weakness": [
+        {
+          "type": "Lightning",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 2,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Hydro Shot",
+          "cost": [
+            "Water",
+            "Water",
+            "Colorless"
+          ],
+          "damage": "0",
+          "effect_ast": {
+            "id": "CG-95:Hydro Shot",
+            "name": "Hydro Shot",
+            "op": "Custom"
+          },
+          "text": "Custom effect id: CG-95:Hydro Shot"
+        },
+        {
+          "idx": 0,
+          "kind": "PokeBody",
+          "name": "Flotation",
+          "effect_ast": {
+            "card": "Kyogre ex",
+            "id": "CG-95:Flotation",
+            "kind": "PokeBody",
+            "name": "Flotation",
+            "notes": "If <=1 Energy attached, each Kyogre ex has retreat cost 0.",
+            "op": "Custom",
+            "set": "CG"
+          },
+          "text": "If <=1 Energy attached, each Kyogre ex has retreat cost 0."
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-96",
+      "number": "96",
+      "name": "Sceptile ex Delta",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [
+        "DeltaSpecies",
+        "PokemonEx"
+      ],
+      "stage": "Stage2",
+      "evolves_from": "Grovyle Delta",
+      "hp": 140,
+      "types": [
+        "Psychic"
+      ],
+      "weakness": [
+        {
+          "type": "Grass",
+          "value": "x2"
+        }
+      ],
+      "resistance": [
+        {
+          "type": "Water",
+          "value": "-30"
+        }
+      ],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Power Revenge",
+          "cost": [
+            "Psychic",
+            "Colorless"
+          ],
+          "damage": "60+",
+          "effect_ast": {
+            "base": 60,
+            "notes": "CG-96:Power Revenge",
+            "op": "DealDamageByOpponentPrizesTaken",
+            "per_prize": 10,
+            "target": "OppActive"
+          },
+          "text": "CG-96:Power Revenge"
+        },
+        {
+          "idx": 0,
+          "kind": "PokeBody",
+          "name": "Extra Liquid",
+          "effect_ast": {
+            "card": "Sceptile ex Delta",
+            "id": "CG-96:Extra Liquid",
+            "kind": "PokeBody",
+            "name": "Extra Liquid",
+            "notes": "Pokemon-ex cannot use Poke-Powers; attack costs +1; only 1 applies.",
+            "op": "Custom",
+            "set": "CG"
+          },
+          "text": "Pokemon-ex cannot use Poke-Powers; attack costs +1; only 1 applies."
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-97",
+      "number": "97",
+      "name": "Shiftry ex",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [
+        "PokemonEx"
+      ],
+      "stage": "Stage2",
+      "evolves_from": "Nuzleaf",
+      "hp": 140,
+      "types": [
+        "Darkness"
+      ],
+      "weakness": [
+        {
+          "type": "Grass",
+          "value": "x2"
+        }
+      ],
+      "resistance": [
+        {
+          "type": "Psychic",
+          "value": "-30"
+        }
+      ],
+      "retreat_cost": 0,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Target Attack",
+          "cost": [
+            "Darkness",
+            "Colorless"
+          ],
+          "damage": "0",
+          "effect_ast": {
+            "id": "CG-97:Target Attack",
+            "name": "Target Attack",
+            "op": "Custom"
+          },
+          "text": "Custom effect id: CG-97:Target Attack"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Blade Arms",
+          "cost": [
+            "Darkness",
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "70",
+          "effect_ast": {
+            "op": "NoOp"
+          },
+          "text": "Effect op: NoOp"
+        },
+        {
+          "idx": 0,
+          "kind": "PokeBody",
+          "name": "Dark Eyes",
+          "effect_ast": {
+            "card": "Shiftry ex",
+            "id": "CG-97:Dark Eyes",
+            "kind": "PokeBody",
+            "name": "Dark Eyes",
+            "notes": "After opponent uses a Poke-Power, place 2 counters on that Pokemon.",
+            "op": "Custom",
+            "set": "CG"
+          },
+          "text": "After opponent uses a Poke-Power, place 2 counters on that Pokemon."
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-98",
+      "number": "98",
+      "name": "Swampert ex",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [
+        "PokemonEx"
+      ],
+      "stage": "Stage2",
+      "evolves_from": "Marshtomp",
+      "hp": 150,
+      "types": [
+        "Water"
+      ],
+      "weakness": [
+        {
+          "type": "Grass",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 3,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Ultra Pump",
+          "cost": [
+            "Water",
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "60+",
+          "effect_ast": {
+            "id": "CG-98:Ultra Pump",
+            "name": "Ultra Pump",
+            "op": "Custom",
+            "timing": "PreDamage"
+          },
+          "text": "Custom effect id: CG-98:Ultra Pump"
+        },
+        {
+          "idx": 0,
+          "kind": "PokePower",
+          "name": "Energy Recycle",
+          "effect_ast": {
+            "card": "Swampert ex",
+            "id": "CG-98:Energy Recycle",
+            "kind": "PokePower",
+            "name": "Energy Recycle",
+            "notes": "Attach 3 Energy from discard, then end turn; blocked by conditions.",
+            "op": "Custom",
+            "set": "CG"
+          },
+          "text": "Attach 3 Energy from discard, then end turn; blocked by conditions."
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-99",
+      "number": "99",
+      "name": "Alakazam ★",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [
+        "PokemonStar"
+      ],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 80,
+      "types": [
+        "Psychic"
+      ],
+      "weakness": [
+        {
+          "type": "Psychic",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Psychic Select",
+          "cost": [
+            "Psychic"
+          ],
+          "damage": "0",
+          "effect_ast": {
+            "count": 1,
+            "destination": "Hand",
+            "max": 1,
+            "min": 0,
+            "op": "SearchDiscardWithSelector",
+            "player": "Current",
+            "selector": {}
+          },
+          "text": "Effect op: SearchDiscardWithSelector"
+        },
+        {
+          "idx": 1,
+          "kind": "Attack",
+          "name": "Skill Copy",
+          "cost": [
+            "Colorless",
+            "Colorless",
+            "Colorless"
+          ],
+          "damage": "0",
+          "effect_ast": {
+            "id": "CG-99:Skill Copy",
+            "name": "Skill Copy",
+            "op": "Custom"
+          },
+          "text": "Custom effect id: CG-99:Skill Copy"
+        }
+      ],
+      "script_payload": {}
+    },
+    {
+      "card_def_id": "CG-100",
+      "number": "100",
+      "name": "Celebi ★",
+      "supertype": "Pokemon",
+      "subtypes": [],
+      "tags": [
+        "PokemonStar"
+      ],
+      "stage": "Basic",
+      "evolves_from": null,
+      "hp": 60,
+      "types": [
+        "Grass"
+      ],
+      "weakness": [
+        {
+          "type": "Fire",
+          "value": "x2"
+        }
+      ],
+      "resistance": [],
+      "retreat_cost": 1,
+      "trainer_kind": null,
+      "energy_kind": null,
+      "script_kind": "Dsl",
+      "effects": [
+        {
+          "idx": 0,
+          "kind": "Attack",
+          "name": "Leaf Shade",
+          "cost": [
+            "Grass"
+          ],
+          "damage": "0",
+          "effect_ast": {
+            "id": "CG-100:Leaf Shade",
+            "name": "Leaf Shade",
+            "op": "Custom"
+          },
+          "text": "Custom effect id: CG-100:Leaf Shade"
+        },
+        {
+          "idx": 0,
+          "kind": "PokePower",
+          "name": "Time Travel",
+          "effect_ast": {
+            "card": "Celebi Star",
+            "id": "CG-100:Time Travel",
+            "kind": "PokePower",
+            "name": "Time Travel",
+            "notes": "On KO by attack damage, coin flip to avoid KO and shuffle to deck.",
+            "op": "Custom",
+            "set": "CG"
+          },
+          "text": "On KO by attack damage, coin flip to avoid KO and shuffle to deck."
+        }
+      ],
+      "script_payload": {}
+    }
+  ]
+}
