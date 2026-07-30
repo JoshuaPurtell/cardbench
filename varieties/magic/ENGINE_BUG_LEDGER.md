@@ -168,6 +168,14 @@ persisted `rav_muddle_counterspell` scenario and RAV stack-target contracts
 therefore remain mandatory targeted evidence for countering, LIFO response
 resolution, and rules-based target failure.
 
+After the Muddle-response policy correction, a fresh exported one-seed matrix
+ran 210 ordered games with `failure_count=0` and a complete 210-log manifest.
+Manual event-log review still found zero natural `SpellCountered` receipts.
+The new policy regression proves the policy activates two available Islands,
+casts Muddle, and records `SpellCountered` in its controlled response window;
+the zero-count matrix result remains a coverage gap rather than evidence that
+the counter path is broadly exercised by stochastic full-deck play.
+
 ## Eight-seed event-log review
 
 After the draw-replacement and valid-draw corrections, the full public matrix
