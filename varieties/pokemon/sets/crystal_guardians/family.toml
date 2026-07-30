@@ -1,10 +1,20 @@
+[expansion]
+schema_version = "cardbench.expansion.v1"
+id = "crystal_guardians"
+name = "EX Crystal Guardians"
+set_code = "CG"
+block = "ex_series"
+ruleset = "pokemon_ex_era_v1"
+status = "public_train"
+supported_families = ["set_engine"]
+
 [family]
 name = "crystal_guardians"
 description = "Crystal Guardians benchmark family and curriculum variants."
 engine_module = "cg"
 task_name = "setbench-v1-crystal-guardians"
 eval_host_file = "cards"
-readiness = "ready"
+readiness = "public_train"
 
 [engine_core]
 commit = "9d2a9f33c48ec155b626e8858d330e72e73b17fb"

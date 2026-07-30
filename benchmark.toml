@@ -1,0 +1,26 @@
+schema_version = "cardbench.benchmark.v1"
+id = "cardbench"
+
+task_id_shape = "cardbench/<variety>/<family>"
+expansion_selector = "suite manifest"
+
+families = [
+  "code_policy",
+  "deck_opt",
+  "card",
+  "set_engine",
+  "engine",
+  "full_engine",
+  "react",
+  "cybernetic",
+]
+
+[[varieties]]
+id = "pokemon"
+manifest = "varieties/pokemon/variety.toml"
+status = "active"
+
+[[varieties]]
+id = "magic"
+manifest = "varieties/magic/variety.toml"
+status = "in_development"

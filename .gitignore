@@ -3,4 +3,5 @@ target/
 __pycache__/
 *.pyc
 .cache/
+**/.sealed/
 .DS_Store

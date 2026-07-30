@@ -19,13 +19,20 @@ EVALS = Path(os.environ.get("CARDBENCH_EVALS_ROOT", Path.home() / "Documents" / 
 CODEX_RUNNER = EVALS / "core" / "harbor" / "runner" / "codex_harbor_runner.py"
 REFERENCE_POLICY = POKEMON / "candidates" / "reference" / "simple_heuristic_ai.rs"
 REFERENCE_DECK = POKEMON / "decks" / "gardevoir_delta_control.json"
+CARDS = POKEMON / "cards"
+SEALED = Path(os.environ.get("CARDBENCH_SEALED_ROOT", CARDS / ".sealed"))
 
 FAMILIES = {
     "code-policy": "code_policy",
     "code_policy": "code_policy",
     "deck-opt": "deck_opt",
     "deck_opt": "deck_opt",
+    "card": "card",
+    "set-engine": "set_engine",
+    "set_engine": "set_engine",
     "engine": "engine",
+    "full-engine": "full_engine",
+    "full_engine": "full_engine",
     "react": "react",
     "cybernetic": "cybernetic",
 }
@@ -39,7 +46,16 @@ def fresh_output(family: str, command: str) -> Path:
     return REPO / "artifacts" / "harbor" / f"{family}-{command}-{stamp}-{os.getpid()}"
 
 
-def score_command(family: str, candidate: Path, output: Path) -> list[str]:
+def score_command(
+    family: str,
+    candidate: Path | None,
+    output: Path,
+    *,
+    instance: str,
+    expansion: str,
+    variant: str,
+    suite: str,
+) -> list[str]:
     if family == "code_policy":
         return [
             sys.executable,
@@ -59,6 +75,33 @@ def score_command(family: str, candidate: Path, output: Path) -> list[str]:
             str(candidate),
             "--candidate-id",
             "reference" if candidate == REFERENCE_DECK else "agent",
+            "--output-root",
+            str(output / "logs" / "verifier"),
+        ]
+    if family == "card":
+        command = [
+            sys.executable,
+            str(POKEMON / "scripts" / "run_card_eval.py"),
+            "--instance",
+            instance,
+            "--output-root",
+            str(output / "logs" / "verifier"),
+        ]
+        if candidate is not None:
+            command.extend(["--candidate", str(candidate)])
+        return command
+    if family == "set_engine":
+        return [
+            sys.executable,
+            str(POKEMON / "scripts" / "run_set_engine_eval.py"),
+            "--expansion",
+            expansion,
+            "--variant",
+            variant,
+            "--subject",
+            "gold",
+            "--suite",
+            suite,
             "--output-root",
             str(output / "logs" / "verifier"),
         ]
@@ -91,15 +134,59 @@ def write_receipt(output: Path, family: str, command: str, agent_rc: int, verify
         "verifier": verifier,
         "reward": float(verifier.get("harbor_reward", 0.0)),
     }
-    for key in ("baseline_score", "best_score", "delta_vs_baseline", "best_candidate_id", "score_metric"):
+    for key in (
+        "baseline_score",
+        "best_score",
+        "delta_vs_baseline",
+        "best_candidate_id",
+        "score_metric",
+        "instance_id",
+        "expansion_id",
+        "expansion",
+        "variant",
+        "suite",
+        "tests_passed",
+        "tests_total",
+        "games_matched",
+        "games_total",
+        "authority",
+        "suite_id",
+        "suite_sha256",
+        "compile_ok",
+        "compile_passed",
+    ):
         if key in verifier:
             payload[key] = verifier[key]
     (output / "lane-receipt.json").write_text(json.dumps(payload, indent=2) + "\n")
 
 
-def run_reference(family: str, output: Path) -> int:
-    candidate = REFERENCE_POLICY if family == "code_policy" else REFERENCE_DECK
-    command = score_command(family, candidate, output)
+def run_reference(
+    family: str,
+    output: Path,
+    *,
+    instance: str,
+    expansion: str,
+    variant: str,
+    suite: str,
+) -> int:
+    candidate: Path | None = None
+    if family == "code_policy":
+        candidate = REFERENCE_POLICY
+    elif family == "deck_opt":
+        candidate = REFERENCE_DECK
+    elif family == "card":
+        data = json.loads((CARDS / "instances" / f"{instance}.json").read_text())
+        module = Path(data["card_file"]).stem
+        candidate = SEALED / "pokemon" / "card" / "implementations" / f"{module}.rs"
+    command = score_command(
+        family,
+        candidate,
+        output,
+        instance=instance,
+        expansion=expansion,
+        variant=variant,
+        suite=suite,
+    )
     completed = subprocess.run(command)
     write_receipt(output, family, "verify", 0, completed.returncode)
     print(f"receipt: {output / 'lane-receipt.json'}")
@@ -113,7 +200,15 @@ def copy_workspace(destination: Path) -> None:
     shutil.copytree(REPO, destination, ignore=ignore)
 
 
-def run_codex(family: str, output: Path) -> int:
+def run_codex(
+    family: str,
+    output: Path,
+    *,
+    instance: str,
+    expansion: str,
+    variant: str,
+    suite: str,
+) -> int:
     if family not in {"code_policy", "deck_opt"}:
         raise ValueError(f"Codex is not promoted for {family}")
     if not CODEX_RUNNER.is_file():
@@ -166,7 +261,17 @@ def run_codex(family: str, output: Path) -> int:
     )
     candidate = workspace / candidate_rel
     if candidate.exists():
-        scored = subprocess.run(score_command(family, candidate, output))
+        scored = subprocess.run(
+            score_command(
+                family,
+                candidate,
+                output,
+                instance=instance,
+                expansion=expansion,
+                variant=variant,
+                suite=suite,
+            )
+        )
         verify_rc = scored.returncode
     else:
         verify_rc = 1
@@ -188,20 +293,47 @@ def main() -> int:
     parser.add_argument("family", choices=sorted(FAMILIES))
     parser.add_argument("command", choices=["verify", "codex", "list"])
     parser.add_argument("variety", nargs="?", default="pokemon")
+    parser.add_argument("--instance", default="df-097-rayquaza-ex")
+    parser.add_argument("--expansion", default="crystal_guardians")
+    parser.add_argument("--variant", default="0pct")
+    parser.add_argument("--suite", choices=["train", "hidden"], default="train")
     args = parser.parse_args()
     family = FAMILIES[args.family]
     if args.variety != "pokemon":
         parser.error("only the pokemon variety is runnable; magic is reserved")
     if args.command == "list":
-        print(f"cardbench/pokemon/{family}\t{'runnable' if family in {'code_policy', 'deck_opt', 'engine'} else 'scaffold'}")
+        status = (
+            "reference-runnable"
+            if family in {"code_policy", "deck_opt", "card", "set_engine", "engine"}
+            else "scaffold"
+        )
+        print(f"cardbench/pokemon/{family}\t{status}")
         return 0
-    if family in {"react", "cybernetic"}:
+    if family in {"react", "cybernetic", "full_engine"}:
         print(f"cardbench/pokemon/{family} is scaffold-only", file=sys.stderr)
         return 2
     output = fresh_output(family, args.command)
     output.mkdir(parents=True, exist_ok=True)
     try:
-        return run_reference(family, output) if args.command == "verify" else run_codex(family, output)
+        return (
+            run_reference(
+                family,
+                output,
+                instance=args.instance,
+                expansion=args.expansion,
+                variant=args.variant,
+                suite=args.suite,
+            )
+            if args.command == "verify"
+            else run_codex(
+                family,
+                output,
+                instance=args.instance,
+                expansion=args.expansion,
+                variant=args.variant,
+                suite=args.suite,
+            )
+        )
     except Exception as exc:
         print(f"CardBench Harbor failed: {exc}", file=sys.stderr)
         return 1

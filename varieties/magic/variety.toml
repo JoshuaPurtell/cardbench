@@ -1,0 +1,21 @@
+schema_version = "cardbench.variety.v1"
+id = "magic"
+display_name = "Magic: The Gathering"
+engine_path = "engine"
+default_expansion = "ravnica_city_of_guilds"
+
+[semantics]
+stack = true
+priority = true
+layers = true
+state_based_actions = true
+
+[[blocks]]
+id = "ravnica"
+name = "Original Ravnica block"
+sets = [
+  "ravnica_city_of_guilds",
+  "guildpact",
+  "dissension",
+]
+status = "in_development"

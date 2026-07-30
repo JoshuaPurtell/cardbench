@@ -1,0 +1,9 @@
+{
+  "schema_version": "cardbench.set-engine-suite-selection.v1",
+  "suite_id": "pokemon-set-engine-smoke-v1",
+  "task_id": "cardbench/pokemon/set_engine",
+  "expansion_id": "crystal_guardians",
+  "variant": "0pct",
+  "public_suite": "train",
+  "authority_suite": "sealed"
+}

@@ -8,13 +8,15 @@ Hard boundaries:
 - CardBench task ids are `cardbench/<variety>/<family>`.
 - Never put CardBench content under `gamebench/tasks/`.
 - Never register these tasks with `bench = "gamebench"`.
-- Keep `code_policy`, `deck_opt`, `engine`, `react`, and `cybernetic` rewards
-  separate.
+- Keep `code_policy`, `deck_opt`, `card`, `set_engine`, `engine`,
+  `full_engine`, `react`, and `cybernetic` rewards separate.
 - Deck evaluation always uses a pinned code policy.
 - ReAct opponents must be published code-policy ids.
 - Pixel visualization is evidence, not grading authority.
 - Expansion-specific rules live under the owning variety and expansion; do
   not force Magic stack/priority semantics into the Pokémon engine.
+- Public agent workspaces may contain specs, stubs, and shown fixtures only.
+  Gold implementations and heldout evaluators must come from a sealed mount.
 
 Do not mark a lane ready until its reference verify is green and the expected
 authority artifact exists.

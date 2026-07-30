@@ -1,10 +1,20 @@
+[expansion]
+schema_version = "cardbench.expansion.v1"
+id = "dragon_frontiers"
+name = "EX Dragon Frontiers"
+set_code = "DF"
+block = "ex_series"
+ruleset = "pokemon_ex_era_v1"
+status = "public_reference"
+supported_families = ["card", "set_engine"]
+
 [family]
 name = "dragon_frontiers"
 description = "Dragon Frontiers benchmark family with aligned public train replay scenarios and broad hidden import/runtime coverage."
 engine_module = "df"
 task_name = "setbench-v1-dragon-frontiers"
 eval_host_file = "cards"
-readiness = "ready"
+readiness = "public_reference"
 
 [engine_core]
 commit = "9d2a9f33c48ec155b626e8858d330e72e73b17fb"

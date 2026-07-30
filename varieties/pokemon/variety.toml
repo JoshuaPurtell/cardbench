@@ -1,0 +1,26 @@
+schema_version = "cardbench.variety.v1"
+id = "pokemon"
+display_name = "Pokémon TCG"
+engine_path = "engine"
+default_expansion = "crystal_guardians"
+
+[semantics]
+stack = false
+priority = false
+active_and_bench = true
+prize_cards = true
+
+[[expansions]]
+id = "crystal_guardians"
+manifest = "sets/crystal_guardians/family.toml"
+status = "public_train"
+
+[[expansions]]
+id = "dragon_frontiers"
+manifest = "sets/dragon_frontiers/family.toml"
+status = "public_reference"
+
+[[expansions]]
+id = "holon_phantoms"
+manifest = "sets/holon_phantoms/family.toml"
+status = "card_curriculum_only"

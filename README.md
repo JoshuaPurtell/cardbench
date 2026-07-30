@@ -24,7 +24,10 @@ collapsed into one reward.
 | --- | --- | --- |
 | `code_policy` | Rust policy | P0 runnable |
 | `deck_opt` | Decklist JSON | P0 runnable |
-| `engine` | Rust engine/set implementation | P1 substrate present |
+| `card` | One expansion card module | P1 reference verify runnable |
+| `set_engine` | Whole set plus expansion-specific engine hooks | P1 public-train reference runnable |
+| `engine` | Shared/core engine substrate | P1 compile substrate present |
+| `full_engine` | Standalone engine service | P1 reserved |
 | `react` | Model actions through a ReAct loop | P2 parser/renderer lifted |
 | `cybernetic` | Budgeted hybrid policy | P2 scaffold |
 
@@ -40,6 +43,14 @@ collapsed into one reward.
 # Validate the consolidated Pokémon engine workspace
 ./adapters/harbor/run.sh engine verify pokemon
 
+# Verify one legacy single-card task against sealed evaluator assets
+CARDBENCH_SEALED_ROOT=/trusted/cardbench-sealed \
+  ./adapters/harbor/run.sh card verify pokemon --instance df-097-rayquaza-ex
+
+# Verify the Crystal Guardians set + set-engine overlay on shown scenarios
+./adapters/harbor/run.sh set-engine verify pokemon \
+  --expansion crystal_guardians --variant 0pct --suite train
+
 # List the family/variety surface
 ./adapters/harbor/run.sh code-policy list pokemon
 ```
@@ -51,7 +62,8 @@ the score.
 ## Layout
 
 - `varieties/pokemon/engine/` — pinned shared Rust engine
-- `varieties/pokemon/sets/` — expansion manifests, gold/stubs, and scenarios
+- `varieties/pokemon/cards/` — single-card specs, public stubs, and sealed hashes
+- `varieties/pokemon/sets/` — expansion manifests and legacy public reference kits; fresh heldout authority stays sealed
 - `varieties/pokemon/policies/` — stable policy ABI and reference policies
 - `varieties/pokemon/decks/` — shown deck pool
 - `varieties/pokemon/react/` — lifted view renderer and action parser

@@ -1,3 +1,13 @@
+[expansion]
+schema_version = "cardbench.expansion.v1"
+id = "holon_phantoms"
+name = "EX Holon Phantoms"
+set_code = "HP"
+block = "ex_series"
+ruleset = "pokemon_ex_era_v1"
+status = "card_curriculum_only"
+supported_families = ["card"]
+
 [family]
 name = "holon_phantoms"
 description = "Holon Phantoms benchmark family scaffold."

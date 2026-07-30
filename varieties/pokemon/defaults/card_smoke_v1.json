@@ -1,0 +1,6 @@
+{
+  "schema_version": "cardbench.card-suite-selection.v1",
+  "suite_id": "pokemon-card-smoke-v1",
+  "task_id": "cardbench/pokemon/card",
+  "instances": ["df-097-rayquaza-ex"]
+}
