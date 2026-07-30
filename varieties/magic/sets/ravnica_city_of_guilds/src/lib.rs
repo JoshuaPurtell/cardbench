@@ -33,12 +33,14 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 5] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 7] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-LAST-GASP",
     "RAV-ELVES-OF-DEEP-SHADOW",
     "RAV-BOROS-RECRUIT",
+    "RAV-WATCHWOLF",
+    "RAV-GLASS-GOLEM",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -822,10 +824,8 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 toughness: 3,
             }],
         },
-        // This CardBench-authored compatibility definition uses only public
-        // identity, mana-cost, type, color, and base-characteristic facts. It
-        // deliberately includes no copied rules text, art, flavor text, or
-        // claim beyond normal creature casting and permanent characteristics.
+        // Public RAV verification establishes that this is a vanilla creature:
+        // there is no printed functional ability omitted from this definition.
         CardDefinition {
             id: "RAV-WATCHWOLF",
             name: "Watchwolf",
@@ -835,7 +835,11 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Creature]),
             is_basic_land: false,
-            supported_rules: &["colored-cost-casting", "base-characteristics"],
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+            ],
             power: Some(3),
             toughness: Some(3),
             keywords: vec![],
@@ -1043,8 +1047,7 @@ pub fn card_definitions() -> Vec<CardDefinition> {
         },
         // Public RAV #261 verification establishes that this is a vanilla
         // artifact creature: its published rules field is empty, so this
-        // definition does not omit a printed ability. The compatibility scope
-        // is therefore normal colorless-cost casting and base characteristics.
+        // definition does not omit a printed ability.
         CardDefinition {
             id: "RAV-GLASS-GOLEM",
             name: "Glass Golem",
@@ -1055,6 +1058,7 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             card_types: types([CardType::Artifact, CardType::Creature]),
             is_basic_land: false,
             supported_rules: &[
+                "full-rules-fidelity",
                 "colorless-cost-casting",
                 "artifact-creature-base-characteristics",
             ],

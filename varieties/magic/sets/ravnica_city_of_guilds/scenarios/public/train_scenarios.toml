@@ -1379,6 +1379,7 @@ player = 1
 [scenario.expected]
 zones = ["watchwolf:battlefield"]
 powers = ["watchwolf:3"]
+toughnesses = ["watchwolf:3"]
 event_markers = ["SpellCast", "SpellResolved"]
 digest = "fnv1a64:2371b092f503844f"
 
@@ -1414,6 +1415,7 @@ player = 1
 [scenario.expected]
 zones = ["glass_golem:battlefield"]
 powers = ["glass_golem:6"]
+toughnesses = ["glass_golem:2"]
 event_markers = ["SpellCast", "SpellResolved"]
 digest = "fnv1a64:2371b092f503844f"
 

@@ -25,7 +25,7 @@ an executable compatibility definition remain subject to that definition's
 
 `RAV_FULL_FIDELITY_DEFINITION_IDS` is a deliberately small positive manifest,
 not an inference from executable status. Char, Lightning Helix, Last Gasp,
-Elves of Deep Shadow, and Boros Recruit are listed only after an
+Elves of Deep Shadow, Boros Recruit, Watchwolf, and Glass Golem are listed only after an
 ability-by-ability contract proves their complete represented behavior and
 public receipt traces. Every other executable definition remains a bounded
 compatibility slice unless it is explicitly added to that manifest after the
@@ -56,9 +56,11 @@ Executable compatibility definitions use only the small public facts needed by
 their declared `supported_rules` fields (for example, card identity, colors,
 mana cost, types, and base characteristics). Those facts are CardBench-authored
 semantic data derived from the same public set identity source; they do not
-embed card rules text, art, flavor text, or upstream JSON. Watchwolf is one
-base-characteristics example: its slice covers only normal colored-cost casting
-and its creature characteristics. Birds of Paradise is separately bounded to
+embed card rules text, art, flavor text, or upstream JSON. Watchwolf and Glass
+Golem are the positive vanilla-card examples and are in the full-fidelity
+manifest: their public printed functional rules fields are empty, so normal
+casting and their characteristics complete their represented functionality.
+Birds of Paradise is separately bounded to
 normal casting, base characteristics, and a CardBench-authored binding to the
 engine's generic tap-and-single-color-choice mana-ability substrate; no other
 card-specific behavior is represented.
