@@ -50,6 +50,10 @@ Oracle Magic rules coverage.
   player” targeting scope reject noncreature permanents at cast time and at
   resolution. The broader `Any` requirement is not used to approximate that
   narrower card rule.
+- Every executable damage or life-gain effect has a strictly positive amount.
+  The cast preflight rejects malformed nonpositive operations before it debits
+  mana, moves a card, creates a stack object, or emits an accepted-action
+  receipt; negative power/toughness modifiers remain valid layer-seven data.
 
 ## Priority, stack, and turns
 
