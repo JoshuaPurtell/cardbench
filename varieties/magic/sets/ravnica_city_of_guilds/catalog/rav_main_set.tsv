@@ -14,8 +14,8 @@
 6	Caregiver
 7	Chant of Vitu-Ghazi
 8	Concerted Effort
-9	Conclave Equenaut
-10	Conclave Phalanx
+9	Conclave Equenaut	executable:RAV-CONCLAVE-EQUENAUT
+10	Conclave Phalanx	executable:RAV-CONCLAVE-PHALANX
 11	Conclave's Blessing
 12	Courier Hawk
 13	Devouring Light
@@ -103,7 +103,7 @@
 95	Moonlight Bargain
 96	Mortipede
 97	Necromantic Thirst
-98	Necroplasm
+98	Necroplasm	executable:RAV-NECROPLASM
 99	Netherborn Phalanx
 100	Nightmare Void
 101	Ribbons of Night
@@ -172,7 +172,7 @@
 164	Fists of Ironwood
 165	Gather Courage	executable:RAV-GATHER-COURAGE
 166	Golgari Brownscale	executable:RAV-GOLGARI-BROWNSCALE
-167	Golgari Grave-Troll
+167	Golgari Grave-Troll	executable:RAV-GOLGARI-GRAVE-TROLL
 168	Goliath Spider
 169	Greater Mossdog	executable:RAV-GREATER-MOSSDOG
 170	Hunted Troll
@@ -196,7 +196,7 @@
 188	Ursapine
 189	Vinelasher Kudzu
 190	Agrus Kos, Wojek Veteran
-191	Autochthon Wurm
+191	Autochthon Wurm	executable:RAV-AUTOCHTHON-WURM
 192	Bloodbond March
 193	Boros Swiftblade
 194	Brightflame
@@ -216,8 +216,8 @@
 208	Glimpse the Unthinkable
 209	Golgari Germination
 210	Golgari Rotwurm
-211	Grave-Shell Scarab
-212	Guardian of Vitu-Ghazi
+211	Grave-Shell Scarab	executable:RAV-GRAVE-SHELL-SCARAB
+212	Guardian of Vitu-Ghazi	executable:RAV-GUARDIAN-OF-VITU-GHAZI
 213	Lightning Helix	executable:RAV-LIGHTNING-HELIX
 214	Loxodon Hierarch
 215	Mindleech Mass
@@ -235,7 +235,7 @@
 227	Seeds of Strength
 228	Selesnya Evangel
 229	Selesnya Sagittars
-230	Shambling Shell
+230	Shambling Shell	executable:RAV-SHAMBLING-SHELL
 231	Sisters of Stone Death
 232	Skyknight Legionnaire
 233	Sunhome Enforcer

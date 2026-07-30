@@ -32,6 +32,18 @@ unsupported, including their card-specific triggered or combat behavior. The
 checked-in definitions and public scenarios make that omission visible without
 reproducing card rules text.
 
+The generic-keyword coverage batch for Conclave Equenaut, Conclave Phalanx,
+Golgari Grave-Troll, Necroplasm, Grave-Shell Scarab, Shambling Shell, Guardian
+of Vitu-Ghazi, and Autochthon Wurm follows the same fail-closed boundary. Each
+definition records only its public identity, mana cost, color, type, base
+characteristics, and the engine's existing generic Dredge or Convoke hook. The
+public fixed scenarios exercise that generic hook and normal casting where it is
+safe to do so. The definition comments name every omitted printed behavior;
+none of these eight cards claims full-card fidelity. The author checked public
+RAV collector identity and the presence of its generic keyword against the
+Scryfall API snapshot described above, but did not retain source JSON or copy
+rules text into this repository.
+
 Executable compatibility definitions use only the small public facts needed by
 their declared `supported_rules` fields (for example, card identity, colors,
 mana cost, types, and base characteristics). Those facts are CardBench-authored
