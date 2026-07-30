@@ -73,9 +73,9 @@ fn executable_slice_size_is_explicit_and_does_not_masquerade_as_set_coverage() {
         .collect::<std::collections::BTreeSet<_>>();
 
     // Twenty executable basic-land printings collapse to five names. The
-    // remaining eight executable names are the deliberately narrow card slice.
-    assert_eq!(executable_printings, 28);
-    assert_eq!(executable_names.len(), 13);
-    assert_eq!(catalog_only_names.len(), 278);
+    // remaining nine executable names are the deliberately narrow card slice.
+    assert_eq!(executable_printings, 29);
+    assert_eq!(executable_names.len(), 14);
+    assert_eq!(catalog_only_names.len(), 277);
     assert!(executable_names.is_disjoint(&catalog_only_names));
 }

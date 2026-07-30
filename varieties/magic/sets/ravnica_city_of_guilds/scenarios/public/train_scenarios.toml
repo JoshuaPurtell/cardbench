@@ -100,6 +100,45 @@ event_markers = ["ConvokeUsed", "TokenCreated", "SpellResolved"]
 digest = "fnv1a64:964c69b67173b214"
 
 [[scenario]]
+id = "rav_gather_courage_convoke_boost"
+seed = 0
+description = "Convoke Gather Courage with its target and verify the targeted temporary +2/+2 effect."
+
+[[scenario.card]]
+label = "courage"
+owner = 0
+definition = "RAV-GATHER-COURAGE"
+zone = "hand"
+
+[[scenario.card]]
+label = "target"
+owner = 0
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "courage"
+target = "permanent:target"
+convoke = ["target:green"]
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["courage:graveyard"]
+powers = ["target:4"]
+tapped = ["target:true"]
+event_markers = ["SpellCast", "ConvokeUsed", "ContinuousEffectCreated", "SpellResolved"]
+digest = "fnv1a64:6db04b0389d0685b"
+
+[[scenario]]
 id = "rav_dredge_replaces_draw"
 seed = 0
 description = "Replace a draw with dredge, moving cards from the library to the graveyard."
