@@ -4631,3 +4631,195 @@ stack_size = 0
 priority = 0
 event_markers = ["SpellCast", "SpellResolved"]
 digest = "fnv1a64:e78637d84b25b302"
+
+[[scenario]]
+id = "rav_easy_white_creature_chassis_wave_five"
+seed = 0
+description = "Cast Courier Hawk, Divebomber Griffin, Sandsower, and Votary of the Conclave with exact white costs, then verify only base P/T. Their printed keywords and activated abilities are deliberately omitted."
+
+[[scenario.card]]
+label = "hawk"
+owner = 0
+definition = "RAV-COURIER-HAWK"
+zone = "hand"
+
+[[scenario.card]]
+label = "griffin"
+owner = 0
+definition = "RAV-DIVEBOMBER-GRIFFIN"
+zone = "hand"
+
+[[scenario.card]]
+label = "sandsower"
+owner = 0
+definition = "RAV-SANDSOWER"
+zone = "hand"
+
+[[scenario.card]]
+label = "votary"
+owner = 0
+definition = "RAV-VOTARY-OF-THE-CONCLAVE"
+zone = "hand"
+
+[[scenario.mana]]
+player = 0
+color = "white"
+amount = 12
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "hawk"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "griffin"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "sandsower"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "votary"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["hawk:battlefield", "griffin:battlefield", "sandsower:battlefield", "votary:battlefield"]
+powers = ["hawk:1", "griffin:3", "sandsower:1", "votary:1"]
+toughnesses = ["hawk:2", "griffin:2", "sandsower:3", "votary:1"]
+mana = ["0:white:0"]
+stack_size = 0
+priority = 0
+event_markers = ["SpellCast", "PriorityPassed", "SpellResolved"]
+digest = "fnv1a64:b3acee0b8c63b96d"
+
+[[scenario]]
+id = "rav_easy_blue_creature_chassis_wave_five"
+seed = 0
+description = "Cast Drake Familiar, Drift of Phantasms, Ethereal Usher, and Grozoth with exact blue costs, then verify only base P/T. Their printed keywords, triggers, and transmute behavior are deliberately omitted."
+
+[[scenario.card]]
+label = "familiar"
+owner = 0
+definition = "RAV-DRAKE-FAMILIAR"
+zone = "hand"
+
+[[scenario.card]]
+label = "drift"
+owner = 0
+definition = "RAV-DRIFT-OF-PHANTASMS"
+zone = "hand"
+
+[[scenario.card]]
+label = "usher"
+owner = 0
+definition = "RAV-ETHEREAL-USHER"
+zone = "hand"
+
+[[scenario.card]]
+label = "grozoth"
+owner = 0
+definition = "RAV-GROZOTH"
+zone = "hand"
+
+[[scenario.mana]]
+player = 0
+color = "blue"
+amount = 20
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "familiar"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "drift"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "usher"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "grozoth"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["familiar:battlefield", "drift:battlefield", "usher:battlefield", "grozoth:battlefield"]
+powers = ["familiar:2", "drift:0", "usher:2", "grozoth:9"]
+toughnesses = ["familiar:1", "drift:5", "usher:3", "grozoth:9"]
+mana = ["0:blue:0"]
+stack_size = 0
+priority = 0
+event_markers = ["SpellCast", "PriorityPassed", "SpellResolved"]
+digest = "fnv1a64:b3acee0b8c63b96d"

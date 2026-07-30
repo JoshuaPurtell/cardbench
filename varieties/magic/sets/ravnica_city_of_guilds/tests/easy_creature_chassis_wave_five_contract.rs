@@ -1,0 +1,116 @@
+//! Public contract for the first collector-range bounded creature batch.
+//!
+//! These compatibility definitions deliberately expose normal casting and base
+//! characteristics only. Printed abilities remain outside this executable slice.
+
+use std::collections::BTreeSet;
+
+use cardbench_magic_engine::{CardType, Color, ManaCost};
+use cardbench_magic_rav::{card_definitions, run_all_scenarios};
+
+#[test]
+#[allow(clippy::too_many_lines)] // Explicit base-fact matrix is audit-friendly.
+fn first_range_creature_chassis_is_exactly_bounded_to_public_base_facts() {
+    let definitions = card_definitions();
+    let expected = [
+        (
+            "RAV-COURIER-HAWK",
+            "Courier Hawk",
+            ManaCost::with_colors(1, [Color::White]),
+            BTreeSet::from([Color::White]),
+            1,
+            2,
+        ),
+        (
+            "RAV-DIVEBOMBER-GRIFFIN",
+            "Divebomber Griffin",
+            ManaCost::with_colors(3, [Color::White, Color::White]),
+            BTreeSet::from([Color::White]),
+            3,
+            2,
+        ),
+        (
+            "RAV-SANDSOWER",
+            "Sandsower",
+            ManaCost::with_colors(3, [Color::White]),
+            BTreeSet::from([Color::White]),
+            1,
+            3,
+        ),
+        (
+            "RAV-VOTARY-OF-THE-CONCLAVE",
+            "Votary of the Conclave",
+            ManaCost::with_colors(0, [Color::White]),
+            BTreeSet::from([Color::White]),
+            1,
+            1,
+        ),
+        (
+            "RAV-DRAKE-FAMILIAR",
+            "Drake Familiar",
+            ManaCost::with_colors(1, [Color::Blue]),
+            BTreeSet::from([Color::Blue]),
+            2,
+            1,
+        ),
+        (
+            "RAV-DRIFT-OF-PHANTASMS",
+            "Drift of Phantasms",
+            ManaCost::with_colors(2, [Color::Blue]),
+            BTreeSet::from([Color::Blue]),
+            0,
+            5,
+        ),
+        (
+            "RAV-ETHEREAL-USHER",
+            "Ethereal Usher",
+            ManaCost::with_colors(5, [Color::Blue]),
+            BTreeSet::from([Color::Blue]),
+            2,
+            3,
+        ),
+        (
+            "RAV-GROZOTH",
+            "Grozoth",
+            ManaCost::with_colors(6, [Color::Blue, Color::Blue, Color::Blue]),
+            BTreeSet::from([Color::Blue]),
+            9,
+            9,
+        ),
+    ];
+
+    for (id, name, mana_cost, colors, power, toughness) in expected {
+        let definition = definitions
+            .iter()
+            .find(|definition| definition.id == id)
+            .unwrap_or_else(|| panic!("missing public RAV definition {id}"));
+        assert_eq!(definition.name, name, "{id}");
+        assert_eq!(definition.mana_cost, mana_cost, "{id}");
+        assert_eq!(definition.colors, colors, "{id}");
+        assert_eq!(definition.card_types, BTreeSet::from([CardType::Creature]));
+        assert_eq!(definition.power, Some(power), "{id}");
+        assert_eq!(definition.toughness, Some(toughness), "{id}");
+        assert_eq!(
+            definition.supported_rules,
+            ["colored-cost-casting", "base-characteristics"],
+            "{id} must not present unsupported card-specific behavior"
+        );
+        assert!(definition.keywords.is_empty(), "{id}");
+        assert!(definition.effects.is_empty(), "{id}");
+    }
+}
+
+#[test]
+fn first_range_creature_chassis_has_deterministic_public_scenarios() {
+    let scenarios = run_all_scenarios()
+        .expect("RAV public scenarios run")
+        .into_iter()
+        .map(|scenario| scenario.id)
+        .collect::<BTreeSet<_>>();
+    for id in [
+        "rav_easy_white_creature_chassis_wave_five",
+        "rav_easy_blue_creature_chassis_wave_five",
+    ] {
+        assert!(scenarios.contains(id), "missing public scenario {id}");
+    }
+}

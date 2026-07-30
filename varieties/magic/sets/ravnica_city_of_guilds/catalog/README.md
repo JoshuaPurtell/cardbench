@@ -111,6 +111,14 @@ Every printed keyword, activation, and triggered behavior remains deliberately
 unsupported. Five deterministic public scenarios exercise cast payment, stack
 resolution, zone movement, priority, and their retained base P/T values only.
 
+The first-range easy-creature wave adds Courier Hawk, Divebomber Griffin,
+Sandsower, Votary of the Conclave, Drake Familiar, Drift of Phantasms, Ethereal
+Usher, and Grozoth. Each supports only normal colored-cost creature casting and
+base power/toughness. Every printed keyword, activated ability, triggered
+ability, and hand-zone behavior is deliberately unsupported. Two deterministic
+public scenarios cover their exact colored-cost payments, stack resolution, zone
+movement, priority, and retained base P/T values only.
+
 The TSV's structure and the Rust parser are CardBench-authored MIT-licensed code and
 data structure. Magic set names and card names are used solely as nominative
 interoperability identifiers and remain their owners' marks.
