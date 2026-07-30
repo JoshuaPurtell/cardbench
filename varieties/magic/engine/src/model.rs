@@ -186,7 +186,17 @@ impl ManaPool {
 
     #[must_use]
     pub fn total(&self) -> u8 {
-        self.amounts.iter().copied().sum()
+        self.total_exact().min(u16::from(u8::MAX)) as u8
+    }
+
+    /// Returns the complete pool total widened enough for all five color slots.
+    ///
+    /// `total` remains a bounded `u8` compatibility view for policy heuristics;
+    /// payment code must use this exact value so valid large pools cannot
+    /// overflow while evaluating a generic cost.
+    #[must_use]
+    pub fn total_exact(&self) -> u16 {
+        self.amounts.iter().map(|amount| u16::from(*amount)).sum()
     }
 
     /// Empties floating mana at a step or phase boundary.
@@ -207,7 +217,7 @@ impl ManaPool {
         for color in Color::ALL {
             self.amounts[color.index()] -= required[color.index()];
         }
-        if self.total() < cost.generic {
+        if self.total_exact() < u16::from(cost.generic) {
             return Err("missing generic mana".to_owned());
         }
         let mut remaining = cost.generic;
