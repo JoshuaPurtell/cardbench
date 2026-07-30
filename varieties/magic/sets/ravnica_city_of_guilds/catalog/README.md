@@ -23,6 +23,13 @@ returns their capability gap instead of a blank executable spell. Rows that poin
 an executable compatibility definition remain subject to that definition's
 `supported_rules` scope; catalog coverage does not claim full rules fidelity.
 
+`RAV_FULL_FIDELITY_DEFINITION_IDS` is a deliberately small positive manifest,
+not an inference from executable status. Char, Lightning Helix, and Last Gasp
+are listed only after an ability-by-ability contract proves their complete
+printed effect vectors and public receipt traces. Every other executable
+definition remains a bounded compatibility slice unless it is explicitly added
+to that manifest after the same audit.
+
 The creature batch for Golgari Thug, Stinkweed Imp, Greater Mossdog, and
 Root-Kin Ally is explicitly compatibility-bounded. The first three support only
 normal creature casting, base characteristics, and the shared Dredge replacement;
@@ -81,7 +88,7 @@ power/toughness facts, and supports only normal creature casting and those base
 characteristics. Every printed keyword, static rule, triggered behavior, and
 activation on those cards is intentionally outside the executable slice. The
 public scenarios exercise exact colored-cost payment, stack resolution, zone
-movement, and both base P/T values; they do not imply full-card fidelity.
+movement, and base P/T values; they do not imply full-card fidelity.
 
 The second creature-chassis batch adds Elvish Skysweeper, Frenzied Goblin,
 Grayscaled Gharial, Greater Forgeling, Goliath Spider, Ivy Dancer, Lore Broker,
@@ -91,7 +98,7 @@ power/toughness. Their card-specific activated, triggered, evasion, token, and
 combat behavior is intentionally unsupported. Four public cast-and-resolve
 scenarios cover exact single-, double-, and multicolored payment, stack
 resolution, graveyard movement, and retained base P/T; they do not assert any
-of those omitted abilities.
+omitted abilities.
 
 The focused noncreature spell batch maps Ribbons of Night, Dogpile, and
 Overwhelm to three named compatibility slices. Ribbons of Night has only its

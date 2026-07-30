@@ -29,6 +29,12 @@ use cardbench_magic_engine::{
 
 pub const SET_CODE: &str = "RAV";
 
+/// The deliberately small subset of RAV definitions for which every printed
+/// functional rule is represented by the engine and covered by public tests.
+/// All definitions absent from this list remain bounded compatibility slices.
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 3] =
+    ["RAV-CHAR", "RAV-LIGHTNING-HELIX", "RAV-LAST-GASP"];
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ScenarioResult {
     pub id: String,
@@ -69,7 +75,7 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Instant]),
             is_basic_land: false,
-            supported_rules: &["damage", "self-damage"],
+            supported_rules: &["full-rules-fidelity", "targeted-damage", "self-damage"],
             power: None,
             toughness: None,
             keywords: vec![],
@@ -126,7 +132,7 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Instant]),
             is_basic_land: false,
-            supported_rules: &["damage", "life-gain"],
+            supported_rules: &["full-rules-fidelity", "targeted-damage", "life-gain"],
             power: None,
             toughness: None,
             keywords: vec![],
@@ -274,7 +280,7 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Instant]),
             is_basic_land: false,
-            supported_rules: &["targeted-layer-7-modifier"],
+            supported_rules: &["full-rules-fidelity", "targeted-layer-7-modifier"],
             power: None,
             toughness: None,
             keywords: vec![],
@@ -666,7 +672,7 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Instant]),
             is_basic_land: false,
-            supported_rules: &["layer-7-modifier"],
+            supported_rules: &["full-rules-fidelity", "targeted-layer-7-modifier"],
             power: None,
             toughness: None,
             keywords: vec![],
@@ -830,8 +836,8 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             effects: vec![],
         },
         // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Every printed card-specific behavior is
-        // deliberately omitted from this slice.
+        // characteristics only. Its printed damage-triggered behavior is
+        // deliberately omitted from this compatibility slice.
         CardDefinition {
             id: "RAV-DROMAD-PUREBRED",
             name: "Dromad Purebred",
@@ -848,8 +854,7 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             effects: vec![],
         },
         // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Every printed card-specific behavior is
-        // deliberately omitted from this slice.
+        // characteristics only. Its printed flying is deliberately omitted.
         CardDefinition {
             id: "RAV-SNAPPING-DRAKE",
             name: "Snapping Drake",
@@ -1142,9 +1147,6 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             3,
             4,
         ),
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed combat keyword is deliberately
-        // omitted from this compatibility slice.
         bounded_creature_chassis(
             "RAV-GOLIATH-SPIDER",
             "Goliath Spider",
@@ -1648,9 +1650,6 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             3,
             6,
         ),
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed evasion and combat keyword are
-        // deliberately omitted from this compatibility slice.
         bounded_creature_chassis(
             "RAV-COURIER-HAWK",
             "Courier Hawk",
