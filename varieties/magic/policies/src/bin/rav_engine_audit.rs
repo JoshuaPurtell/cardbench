@@ -451,6 +451,12 @@ fn probe_muddle_counterspell_resolution() -> Option<Finding> {
             detail: "the prepared Char spell could not enter the stack".to_owned(),
         });
     }
+    if game.pass_priority(PlayerId(0)).is_err() {
+        return Some(Finding {
+            code: "muddle-counterspell-response-window-failed",
+            detail: "the Char caster could not pass priority to open a response window".to_owned(),
+        });
+    }
     if game
         .cast_spell(
             PlayerId(1),

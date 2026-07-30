@@ -98,6 +98,7 @@ fn instant(id: &'static str, mana_cost: ManaCost, effects: Vec<Effect>) -> CardD
     }
 }
 
+#[allow(clippy::too_many_lines)] // Declarative adversarial fixture catalog is intentionally local.
 fn definitions() -> Vec<CardDefinition> {
     vec![
         basic_land(PLAINS, Color::White),

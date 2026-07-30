@@ -32,17 +32,17 @@ target = "player:1"
 
 [[scenario.action]]
 kind = "pass"
-player = 1
+player = 0
 
 [[scenario.action]]
 kind = "pass"
-player = 0
+player = 1
 
 [scenario.expected]
 life = [23, 17]
 zones = ["helix:graveyard"]
 event_markers = ["SpellCast", "PriorityPassed", "DamageDealtToPlayer", "LifeGained", "SpellResolved"]
-digest = "fnv1a64:49e7fd1c3f39eff5"
+digest = "fnv1a64:265d3974b35e7bdb"
 
 [[scenario]]
 id = "rav_convoke_scatter_the_seeds"
@@ -86,18 +86,18 @@ convoke = ["first:green", "second:green", "third:generic"]
 
 [[scenario.action]]
 kind = "pass"
-player = 1
+player = 0
 
 [[scenario.action]]
 kind = "pass"
-player = 0
+player = 1
 
 [scenario.expected]
 zones = ["scatter:graveyard"]
 tapped = ["first:true", "second:true", "third:true"]
 token_count = 3
 event_markers = ["ConvokeUsed", "TokenCreated", "SpellResolved"]
-digest = "fnv1a64:e8bbbd145c3e08ea"
+digest = "fnv1a64:964c69b67173b214"
 
 [[scenario]]
 id = "rav_dredge_replaces_draw"
@@ -204,6 +204,10 @@ card = "char"
 target = "player:1"
 
 [[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
 kind = "cast"
 player = 1
 card = "muddle"
@@ -211,17 +215,17 @@ target = "spell:char"
 
 [[scenario.action]]
 kind = "pass"
-player = 0
+player = 1
 
 [[scenario.action]]
 kind = "pass"
-player = 1
+player = 0
 
 [scenario.expected]
 life = [20, 20]
 zones = ["char:graveyard", "muddle:graveyard"]
 event_markers = ["SpellCast", "SpellCountered", "SpellResolved"]
-digest = "fnv1a64:3377aff84a745587"
+digest = "fnv1a64:97673aa7f0ad2b4b"
 
 [[scenario]]
 id = "rav_radiance_layers"
@@ -275,16 +279,16 @@ target = "permanent:target"
 
 [[scenario.action]]
 kind = "pass"
-player = 1
+player = 0
 
 [[scenario.action]]
 kind = "pass"
-player = 0
+player = 1
 
 [scenario.expected]
 powers = ["target:4", "allied:7", "opposing:4"]
 event_markers = ["ContinuousEffectCreated", "SpellResolved"]
-digest = "fnv1a64:a868cf25cd0521fc"
+digest = "fnv1a64:b27578d6cd70e0ba"
 
 [[scenario]]
 id = "rav_last_gasp_state_based_action"
@@ -316,16 +320,16 @@ target = "permanent:victim"
 
 [[scenario.action]]
 kind = "pass"
-player = 1
+player = 0
 
 [[scenario.action]]
 kind = "pass"
-player = 0
+player = 1
 
 [scenario.expected]
 zones = ["gasp:graveyard", "victim:graveyard"]
 event_markers = ["ContinuousEffectCreated", "StateBasedAction"]
-digest = "fnv1a64:1bb77e09a5baccbd"
+digest = "fnv1a64:535a401a32929653"
 
 [[scenario]]
 id = "rav_radiance_cleanup_expiration"
@@ -382,11 +386,11 @@ target = "permanent:target"
 
 [[scenario.action]]
 kind = "pass"
-player = 1
+player = 0
 
 [[scenario.action]]
 kind = "pass"
-player = 0
+player = 1
 
 [[scenario.action]]
 kind = "pass"
@@ -444,7 +448,7 @@ player = 1
 powers = ["target:2", "allied:5", "opposing:2"]
 tapped = ["target:false", "allied:false", "opposing:false"]
 event_markers = ["PermanentsUntapped", "StepBegan"]
-digest = "fnv1a64:644b9562fb110a6a"
+digest = "fnv1a64:34f698f4aee034bc"
 
 [[scenario]]
 id = "rav_land_play_limit"
