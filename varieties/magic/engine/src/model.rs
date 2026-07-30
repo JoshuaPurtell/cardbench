@@ -1167,10 +1167,19 @@ pub enum GameEvent {
         card: ObjectId,
         count: u8,
     },
+    /// A card became public while resolving an instruction that requires it to
+    /// be shown before it changes zones. `definition` is the public catalog
+    /// identifier, deliberately avoiding a copy of card text in the trace.
+    CardRevealed {
+        player: PlayerId,
+        card: ObjectId,
+        definition: &'static str,
+    },
     Transmuted {
         player: PlayerId,
         discarded: ObjectId,
-        found: ObjectId,
+        /// A hidden-zone quality search may legally choose no matching card.
+        found: Option<ObjectId>,
     },
     StepBegan {
         turn: u32,

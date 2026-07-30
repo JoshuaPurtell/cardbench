@@ -388,7 +388,7 @@ fn probe_transmute_sorcery_timing() -> Option<Finding> {
         },
     )
     .ok()?;
-    if !game.stack.is_empty() && game.transmute(PlayerId(1), muddle, found).is_ok() {
+    if !game.stack.is_empty() && game.transmute(PlayerId(1), muddle, Some(found)).is_ok() {
         return Some(Finding {
             code: "transmute-accepts-instant-speed-activation",
             detail: "Muddle the Mixture transmuted in response to a spell on the stack".to_owned(),

@@ -429,13 +429,13 @@ fn execute_action(
                 .transpose()?;
             game.draw_card(player, dredge).map_err(rules_error)
         }
-        "transmute" => game
-            .transmute(
-                player,
-                lookup(labels, &action.card)?,
-                lookup(labels, &action.found)?,
-            )
-            .map_err(rules_error),
+        "transmute" => {
+            let found = (!action.found.is_empty())
+                .then(|| lookup(labels, &action.found))
+                .transpose()?;
+            game.transmute(player, lookup(labels, &action.card)?, found)
+                .map_err(rules_error)
+        }
         "play_land" => game
             .play_land(player, lookup(labels, &action.card)?)
             .map_err(rules_error),

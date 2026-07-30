@@ -823,7 +823,7 @@ fn transmute_pays_exact_cost_moves_only_legal_cards_and_returns_priority() {
         .expect("generic mana setup succeeds");
     let before_events = game.event_log.clone();
     assert!(matches!(
-        game.transmute(player, transmuter, rejected),
+        game.transmute(player, transmuter, Some(rejected)),
         Err(RulesError::IllegalAction(
             "transmute may find only a card with the discarded card's mana value"
         ))
@@ -833,7 +833,7 @@ fn transmute_pays_exact_cost_moves_only_legal_cards_and_returns_priority() {
     assert_eq!(game.zone_of(rejected), Some(Zone::Library));
     assert_invariants(&game);
 
-    game.transmute(player, transmuter, found)
+    game.transmute(player, transmuter, Some(found))
         .expect("matching transmute resolves");
     assert_eq!(game.zone_of(transmuter), Some(Zone::Graveyard));
     assert_eq!(game.zone_of(found), Some(Zone::Hand));
@@ -847,7 +847,7 @@ fn transmute_pays_exact_cost_moves_only_legal_cards_and_returns_priority() {
     assert_eq!(game.priority, player);
     assert!(game.event_log.iter().any(|event| {
         matches!(event, GameEvent::Transmuted { player: transmuting, discarded, found: selected }
-            if *transmuting == player && *discarded == transmuter && *selected == found)
+            if *transmuting == player && *discarded == transmuter && *selected == Some(found))
     }));
     assert_invariants(&game);
 }

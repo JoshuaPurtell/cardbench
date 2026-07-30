@@ -116,7 +116,7 @@ fn transmute_for_helix(view: &GameView) -> Option<PolicyAction> {
         .find(|card| card.definition == Some("RAV-LIGHTNING-HELIX"))?;
     Some(PolicyAction::Transmute {
         card: search.card,
-        found: found.id,
+        found: Some(found.id),
     })
 }
 
@@ -330,7 +330,7 @@ mod tests {
             action,
             PolicyAction::Transmute {
                 card: muddle,
-                found: helix
+                found: Some(helix)
             }
         );
         game.submit_policy_move(PlayerId(0), policy.id(), action)
