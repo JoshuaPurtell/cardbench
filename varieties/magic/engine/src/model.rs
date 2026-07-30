@@ -1083,6 +1083,16 @@ pub enum GameEvent {
     SpellCounteredByRules {
         card: ObjectId,
     },
+    /// A spell still resolved because it retained another legal target, but
+    /// this particular target-bearing instruction did nothing. The stable
+    /// effect index identifies the original target occurrence in the card's
+    /// executable definition, including repeated selections of the same
+    /// object.
+    TargetInstructionSkipped {
+        card: ObjectId,
+        effect_index: usize,
+        target: Target,
+    },
     /// A spell was countered by a resolving effect, rather than because every
     /// target became illegal under the rules.
     SpellCountered {

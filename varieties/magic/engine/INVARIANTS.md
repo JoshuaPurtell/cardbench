@@ -52,8 +52,9 @@ Oracle Magic rules coverage.
   legal, the spell resolves and only instructions addressed to the now-illegal
   target slots do nothing. The engine snapshots this ordered decision in a
   `StackResolutionPlan` before it begins any effect, and no later effect can
-  rewrite it. A resolving counter effect emits the distinct `SpellCountered`
-  receipt.
+  rewrite it. Each skipped instruction emits its own
+  `TargetInstructionSkipped { effect_index, target }` diagnostic receipt. A
+  resolving counter effect emits the distinct `SpellCountered` receipt.
 - A stack spell target that remains on the stack must be below its source,
   because only already-existing stack objects can be chosen while casting. A
   formerly legal target may have left the stack by resolution, which remains a
