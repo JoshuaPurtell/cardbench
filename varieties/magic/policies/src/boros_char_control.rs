@@ -67,7 +67,7 @@ impl CodePolicy for BorosCharControlPolicy {
         let opponent_life = view
             .opponent_life
             .first()
-            .map_or(i16::MAX, |(_, life)| *life);
+            .map_or(i64::MAX, |(_, life)| *life);
         let char = view
             .hand
             .iter()

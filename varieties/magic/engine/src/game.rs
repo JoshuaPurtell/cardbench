@@ -166,8 +166,8 @@ pub struct GameView {
     pub decision_player: PlayerId,
     pub step: Step,
     pub turn: u32,
-    pub own_life: i16,
-    pub opponent_life: Vec<(PlayerId, i16)>,
+    pub own_life: i64,
+    pub opponent_life: Vec<(PlayerId, i64)>,
     pub mana_pool: crate::ManaPool,
     pub lands_played: u8,
     pub hand: Vec<CardView>,
@@ -665,7 +665,7 @@ impl Game {
             }
         }
         if let Some(life_payment) = ability.life_payment
-            && self.players[player.0].life < i16::from(life_payment)
+            && self.players[player.0].life < i64::from(life_payment)
         {
             return Err(RulesError::IllegalAction(
                 "cannot pay more life than the controller has",
@@ -688,7 +688,7 @@ impl Game {
                 .tapped = true;
         }
         if let Some(life_payment) = ability.life_payment {
-            self.players[player.0].life -= i16::from(life_payment);
+            self.players[player.0].life -= i64::from(life_payment);
         }
         if let Some((mana_cost, bundle, paid_pool)) = paid_bundle {
             self.players[player.0].mana_pool = paid_pool;
@@ -2159,7 +2159,7 @@ impl Game {
                 .ok_or(RulesError::IllegalAction("missing damage target"))?
             {
                 Target::Player(player) => {
-                    self.players[player.0].life -= amount;
+                    self.players[player.0].life -= i64::from(*amount);
                     self.record_event(GameEvent::DamageDealtToPlayer {
                         source,
                         player: *player,
@@ -2180,7 +2180,7 @@ impl Game {
                 Target::Spell(card) => return Err(RulesError::IllegalTarget(Target::Spell(*card))),
             },
             Effect::DealDamageController { amount } => {
-                self.players[controller.0].life -= amount;
+                self.players[controller.0].life -= i64::from(*amount);
                 self.record_event(GameEvent::DamageDealtToPlayer {
                     source,
                     player: controller,
@@ -2221,7 +2221,7 @@ impl Game {
                         continue;
                     }
                     let player = PlayerId(player);
-                    self.players[player.0].life -= amount;
+                    self.players[player.0].life -= i64::from(*amount);
                     self.record_event(GameEvent::DamageDealtToPlayer {
                         source,
                         player,
@@ -2247,7 +2247,7 @@ impl Game {
                 }
             }
             Effect::GainLifeController { amount } => {
-                self.players[controller.0].life += amount;
+                self.players[controller.0].life += i64::from(*amount);
                 self.record_event(GameEvent::LifeGained {
                     player: controller,
                     amount: *amount,
@@ -2557,7 +2557,7 @@ impl Game {
             });
         }
         for (source, player, amount) in player_damage {
-            self.players[player.0].life -= amount;
+            self.players[player.0].life -= i64::from(amount);
             self.record_event(GameEvent::DamageDealtToPlayer {
                 source,
                 player,

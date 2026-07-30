@@ -20,7 +20,7 @@ pub struct PolicyMatchResult {
     pub id: &'static str,
     pub event_log: Vec<String>,
     pub digest: String,
-    pub life: [i16; 2],
+    pub life: [i64; 2],
     pub token_count: usize,
     pub policy_moves: usize,
 }

@@ -101,6 +101,10 @@ Oracle Magic rules coverage.
   bounded pool before it changes a source, pass state, pool, or event log. A
   capacity rejection is atomic and cannot emit a `ManaAdded` receipt for mana
   the pool did not receive.
+- Player life totals use a wide signed `i64` representation, distinct from
+  the `i16` effect and damage amounts. Life changes widen their amount before
+  arithmetic, so an ordinary legal life-gain effect at the former `i16`
+  boundary completes its ordered receipts and resolution lifecycle.
 - Only instants in the implemented spell slice may be cast outside their
   controller's main phase or while the stack is nonempty. Sorceries and
   permanent spells observe sorcery timing.

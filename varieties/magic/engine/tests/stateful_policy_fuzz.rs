@@ -305,7 +305,7 @@ struct TraceReceipt {
     events: Vec<String>,
     final_turn: u32,
     final_step: cardbench_magic_engine::Step,
-    final_life: Vec<i16>,
+    final_life: Vec<i64>,
 }
 
 #[derive(Debug)]

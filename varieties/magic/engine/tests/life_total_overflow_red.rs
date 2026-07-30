@@ -1,5 +1,5 @@
-use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::collections::BTreeSet;
+use std::panic::{AssertUnwindSafe, catch_unwind};
 
 use cardbench_magic_engine::{
     CardDefinition, CardType, CastRequest, Color, Effect, Game, ManaCost, PlayerId, Target,
@@ -38,7 +38,7 @@ fn resolving_life_gain_at_the_representable_ceiling_is_not_a_partial_panicking_t
     let helix = game
         .add_card(PlayerId(0), LIFE_GAIN_TEST_SPELL, Zone::Hand)
         .expect("life-gain instant enters the caster's hand");
-    game.players[PlayerId(0).0].life = i16::MAX;
+    game.players[PlayerId(0).0].life = i64::from(i16::MAX);
     game.grant_mana(PlayerId(0), Color::White, 1)
         .expect("white mana is granted");
     game.grant_mana(PlayerId(0), Color::Red, 1)
