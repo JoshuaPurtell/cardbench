@@ -23,6 +23,10 @@ const PING: &str = "TEST-PING";
 const KILL_CREATURE: &str = "TEST-KILL-CREATURE";
 const GROWTH: &str = "TEST-GROWTH";
 const TOKEN_SPELL: &str = "TEST-TOKEN-SPELL";
+const RADIANCE_GROWTH: &str = "TEST-RADIANCE-GROWTH";
+const RADIANCE_TARGET: &str = "TEST-RADIANCE-TARGET";
+const RADIANCE_ALLY: &str = "TEST-RADIANCE-ALLY";
+const RADIANCE_OFF_COLOR: &str = "TEST-RADIANCE-OFF-COLOR";
 const SORCERY: &str = "TEST-SORCERY";
 const CONVOKE_SPELL: &str = "TEST-CONVOKE-SPELL";
 const DREDGER: &str = "TEST-DREDGER";
@@ -140,6 +144,17 @@ fn definitions() -> Vec<CardDefinition> {
                 count: 2,
             }],
         ),
+        instant(
+            RADIANCE_GROWTH,
+            ManaCost::new(0),
+            vec![Effect::RadianceModifyPtUntilEndOfTurn {
+                power: 1,
+                toughness: 1,
+            }],
+        ),
+        creature(RADIANCE_TARGET, [Color::Red], 2, 2, vec![]),
+        creature(RADIANCE_ALLY, [Color::Red, Color::White], 3, 3, vec![]),
+        creature(RADIANCE_OFF_COLOR, [Color::Green], 4, 4, vec![]),
         CardDefinition {
             id: SORCERY,
             name: SORCERY,
@@ -572,6 +587,71 @@ fn continuous_effect_layers_expiry_and_source_liveness_are_observable_and_stable
     assert!(!reverted.colors.contains(&Color::Blue));
     assert!(!reverted.keywords.contains(&Keyword::Defender));
     assert_eq!((reverted.power, reverted.toughness), (Some(3), Some(3)));
+    assert_invariants(&game);
+}
+
+#[test]
+fn radiance_pt_only_selects_shared_colors_without_untapping() {
+    let player = PlayerId(0);
+    let opponent = PlayerId(1);
+    let mut game = game(2);
+    let spell = game
+        .add_card(player, RADIANCE_GROWTH, Zone::Hand)
+        .expect("radiance spell enters hand");
+    let target = game
+        .put_on_battlefield(player, RADIANCE_TARGET)
+        .expect("red target enters battlefield");
+    let ally = game
+        .put_on_battlefield(opponent, RADIANCE_ALLY)
+        .expect("red-white ally enters battlefield");
+    let off_color = game
+        .put_on_battlefield(opponent, RADIANCE_OFF_COLOR)
+        .expect("green creature enters battlefield");
+    for card in [target, ally, off_color] {
+        game.set_tapped_for_setup(card, true)
+            .expect("battlefield setup can mark the creature tapped");
+    }
+
+    cast(&mut game, player, spell, Some(Target::Permanent(target)));
+    pass_round(&mut game);
+
+    assert_eq!(
+        game.characteristics(target).expect("target exists").power,
+        Some(3)
+    );
+    assert_eq!(
+        game.characteristics(ally).expect("ally exists").power,
+        Some(4),
+        "radiance selection crosses controllers"
+    );
+    assert_eq!(
+        game.characteristics(off_color)
+            .expect("off-color creature exists")
+            .power,
+        Some(4),
+        "a creature without a shared color remains outside the radiance set"
+    );
+    for card in [target, ally, off_color] {
+        assert!(
+            game.object(card).expect("creature exists").tapped,
+            "the power/toughness-only radiance operation must not untap {card:?}"
+        );
+    }
+    assert_eq!(
+        game.event_log
+            .iter()
+            .filter(|event| matches!(event, GameEvent::ContinuousEffectCreated { .. }))
+            .count(),
+        2,
+        "one temporary layer-7 effect exists for each shared-color creature"
+    );
+    assert!(
+        !game
+            .event_log
+            .iter()
+            .any(|event| matches!(event, GameEvent::PermanentsUntapped { .. })),
+        "the no-untap semantic operation must not emit an untap receipt"
+    );
     assert_invariants(&game);
 }
 

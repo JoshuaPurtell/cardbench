@@ -2201,18 +2201,7 @@ impl Game {
             }
             Effect::RadianceUntapAndModifyUntilEndOfTurn { power, toughness } => {
                 let target = Self::target_permanent(targets)?;
-                let target_colors = self.characteristics(target)?.colors;
-                let matching: Vec<_> = self
-                    .all_battlefield_cards()
-                    .into_iter()
-                    .filter(|candidate| {
-                        self.characteristics(*candidate)
-                            .is_ok_and(|characteristics| {
-                                characteristics.card_types.contains(&CardType::Creature)
-                                    && !characteristics.colors.is_disjoint(&target_colors)
-                            })
-                    })
-                    .collect();
+                let matching = self.radiance_creatures_sharing_color(target)?;
                 let mut untapped = Vec::new();
                 for candidate in matching {
                     let object = self
@@ -2238,6 +2227,20 @@ impl Game {
                         player: controller,
                         cards: untapped,
                     });
+                }
+            }
+            Effect::RadianceModifyPtUntilEndOfTurn { power, toughness } => {
+                let target = Self::target_permanent(targets)?;
+                for candidate in self.radiance_creatures_sharing_color(target)? {
+                    self.install_continuous_effect(
+                        source,
+                        candidate,
+                        ContinuousChange::ModifyPowerToughness {
+                            power: *power,
+                            toughness: *toughness,
+                        },
+                        Duration::EndOfTurn(self.turn),
+                    )?;
                 }
             }
             Effect::CounterTargetInstantOrSorcerySpell => {
@@ -2807,6 +2810,28 @@ impl Game {
             .iter()
             .flat_map(|player| player.battlefield.iter().copied())
             .collect()
+    }
+
+    /// Returns the radiance set at resolution: every battlefield creature that
+    /// shares at least one color with the already-legal creature target.
+    fn radiance_creatures_sharing_color(
+        &self,
+        target: ObjectId,
+    ) -> Result<Vec<ObjectId>, RulesError> {
+        let target_colors = self.characteristics(target)?.colors;
+        Ok(self
+            .all_battlefield_cards()
+            .into_iter()
+            .filter(|candidate| {
+                *candidate == target
+                    || self
+                        .characteristics(*candidate)
+                        .is_ok_and(|characteristics| {
+                            characteristics.card_types.contains(&CardType::Creature)
+                                && !characteristics.colors.is_disjoint(&target_colors)
+                        })
+            })
+            .collect())
     }
 
     fn card_view(&self, card: ObjectId) -> Result<CardView, RulesError> {

@@ -307,6 +307,27 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 toughness: 0,
             }],
         },
+        // Compatibility scope: resolution-time radiance selection and a
+        // temporary layer-7 modifier only. This definition deliberately does
+        // not reuse the distinct untap behavior represented by Rally.
+        CardDefinition {
+            id: "RAV-WOJEK-SIREN",
+            name: "Wojek Siren",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(1, [Color::Red]),
+            colors: colors([Color::Red]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Instant]),
+            is_basic_land: false,
+            supported_rules: &["radiance", "layer-7-modifier"],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![Effect::RadianceModifyPtUntilEndOfTurn {
+                power: 1,
+                toughness: 1,
+            }],
+        },
         CardDefinition {
             id: "RAV-LAST-GASP",
             name: "Last Gasp",
@@ -1057,7 +1078,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 24);
+        assert_eq!(first.len(), 25);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }
