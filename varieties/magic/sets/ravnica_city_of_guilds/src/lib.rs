@@ -174,6 +174,115 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 toughness: 2,
             }],
         },
+        // This is the complete fixed three-modifier resolution: each modifier
+        // is recorded separately so the shared continuous-effect layer owns
+        // their normal lifetime and target legality.
+        CardDefinition {
+            id: "RAV-SEEDS-OF-STRENGTH",
+            name: "Seeds of Strength",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(0, [Color::Green, Color::White]),
+            colors: colors([Color::Green, Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Instant]),
+            is_basic_land: false,
+            supported_rules: &["three-targeted-layer-7-modifiers"],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![
+                Effect::ModifyTargetPtUntilEndOfTurn {
+                    power: 1,
+                    toughness: 1,
+                },
+                Effect::ModifyTargetPtUntilEndOfTurn {
+                    power: 1,
+                    toughness: 1,
+                },
+                Effect::ModifyTargetPtUntilEndOfTurn {
+                    power: 1,
+                    toughness: 1,
+                },
+            ],
+        },
+        // Compatibility scope: the exact two-token creation side effect only.
+        // The persistent Aura attachment and its granted combat capability are
+        // deliberately absent until the engine represents attachments.
+        CardDefinition {
+            id: "RAV-FISTS-OF-IRONWOOD",
+            name: "Fists of Ironwood",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(1, [Color::Green]),
+            colors: colors([Color::Green]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Enchantment]),
+            is_basic_land: false,
+            supported_rules: &["two-saproling-token-creation"],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![Effect::CreateToken {
+                token: TokenSpec::saproling(),
+                count: 2,
+            }],
+        },
+        // Compatibility scope: the controller life-gain component only. The
+        // selected graveyard-card return is intentionally not approximated.
+        CardDefinition {
+            id: "RAV-DRYADS-CARESS",
+            name: "Dryad's Caress",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(3, [Color::Green, Color::Green]),
+            colors: colors([Color::Green]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Sorcery]),
+            is_basic_land: false,
+            supported_rules: &["controller-life-gain"],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![Effect::GainLifeController { amount: 1 }],
+        },
+        // Compatibility scope: target-creature damage only. Its additional
+        // sacrifice cost is deliberately omitted rather than silently paid.
+        CardDefinition {
+            id: "RAV-FIERY-CONCLUSION",
+            name: "Fiery Conclusion",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(1, [Color::Red]),
+            colors: colors([Color::Red]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Instant]),
+            is_basic_land: false,
+            supported_rules: &["targeted-creature-damage"],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![Effect::DealDamage {
+                amount: 5,
+                target: cardbench_magic_engine::TargetRequirement::Creature,
+            }],
+        },
+        // Compatibility scope: the temporary target-creature layer-7 modifier
+        // only. The granted combat keyword is intentionally unsupported.
+        CardDefinition {
+            id: "RAV-GAZE-OF-THE-GORGON",
+            name: "Gaze of the Gorgon",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(0, [Color::Black, Color::Green]),
+            colors: colors([Color::Black, Color::Green]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Instant]),
+            is_basic_land: false,
+            supported_rules: &["targeted-layer-7-modifier"],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![Effect::ModifyTargetPtUntilEndOfTurn {
+                power: -1,
+                toughness: -1,
+            }],
+        },
         CardDefinition {
             id: "RAV-GOLGARI-BROWNSCALE",
             name: "Golgari Brownscale",
@@ -1920,7 +2029,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 60);
+        assert_eq!(first.len(), 65);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

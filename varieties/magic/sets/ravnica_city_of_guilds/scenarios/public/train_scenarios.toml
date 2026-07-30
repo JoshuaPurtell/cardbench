@@ -4,6 +4,213 @@ visibility = "shown"
 format = "ravnica-block"
 
 [[scenario]]
+id = "rav_seeds_of_strength_three_modifiers"
+seed = 0
+description = "Resolve Seeds of Strength and retain each of its three temporary target modifiers."
+
+[[scenario.card]]
+label = "seeds"
+owner = 0
+definition = "RAV-SEEDS-OF-STRENGTH"
+zone = "hand"
+
+[[scenario.card]]
+label = "target"
+owner = 0
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+
+[[scenario.mana]]
+player = 0
+color = "green"
+amount = 1
+
+[[scenario.mana]]
+player = 0
+color = "white"
+amount = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "seeds"
+target = "permanent:target"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["seeds:graveyard"]
+powers = ["target:5"]
+toughnesses = ["target:6"]
+event_markers = ["ContinuousEffectCreated", "SpellResolved"]
+digest = "fnv1a64:ebc25aad50a714cf"
+
+[[scenario]]
+id = "rav_fists_of_ironwood_tokens"
+seed = 0
+description = "Resolve the bounded Fists of Ironwood token-creation slice."
+
+[[scenario.card]]
+label = "fists"
+owner = 0
+definition = "RAV-FISTS-OF-IRONWOOD"
+zone = "hand"
+
+[[scenario.mana]]
+player = 0
+color = "green"
+amount = 2
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "fists"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["fists:battlefield"]
+token_count = 2
+event_markers = ["TokenCreated", "SpellResolved"]
+digest = "fnv1a64:0bb775239ac22a44"
+
+[[scenario]]
+id = "rav_dryads_caress_life"
+seed = 0
+description = "Resolve the bounded Dryad's Caress controller-life-gain component."
+
+[[scenario.card]]
+label = "caress"
+owner = 0
+definition = "RAV-DRYADS-CARESS"
+zone = "hand"
+
+[[scenario.mana]]
+player = 0
+color = "green"
+amount = 5
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "caress"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+life = [21, 20]
+zones = ["caress:graveyard"]
+event_markers = ["LifeGained", "SpellResolved"]
+digest = "fnv1a64:ff38507e57a246b3"
+
+[[scenario]]
+id = "rav_fiery_conclusion_damage"
+seed = 0
+description = "Resolve the bounded Fiery Conclusion target-damage component and run SBAs."
+
+[[scenario.card]]
+label = "conclusion"
+owner = 0
+definition = "RAV-FIERY-CONCLUSION"
+zone = "hand"
+
+[[scenario.card]]
+label = "target"
+owner = 1
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+
+[[scenario.mana]]
+player = 0
+color = "red"
+amount = 2
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "conclusion"
+target = "permanent:target"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["conclusion:graveyard", "target:graveyard"]
+event_markers = ["DamageDealtToPermanent", "StateBasedAction", "SpellResolved"]
+digest = "fnv1a64:785bd1745621db64"
+
+[[scenario]]
+id = "rav_gaze_of_the_gorgon_modifier"
+seed = 0
+description = "Resolve the bounded Gaze of the Gorgon temporary target modifier."
+
+[[scenario.card]]
+label = "gaze"
+owner = 0
+definition = "RAV-GAZE-OF-THE-GORGON"
+zone = "hand"
+
+[[scenario.card]]
+label = "target"
+owner = 1
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+
+[[scenario.mana]]
+player = 0
+color = "black"
+amount = 1
+
+[[scenario.mana]]
+player = 0
+color = "green"
+amount = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "gaze"
+target = "permanent:target"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["gaze:graveyard"]
+powers = ["target:1"]
+toughnesses = ["target:2"]
+event_markers = ["ContinuousEffectCreated", "SpellResolved"]
+digest = "fnv1a64:f084f234f5342cf7"
+
+[[scenario]]
 id = "rav_stack_lightning_helix"
 seed = 0
 description = "Cast a targeted instant, pass priority around the stack, and verify the life swing."
