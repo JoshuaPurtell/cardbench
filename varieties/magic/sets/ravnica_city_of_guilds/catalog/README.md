@@ -16,6 +16,14 @@ is recorded in the manifest header so the inventory can be reproduced without
 committing the upstream JSON. Scryfall is a public data source, not an assertion of
 ownership or affiliation.
 
+The 2026-07-30 ability-completeness audit for Rain of Embers, Dogpile, and
+Overwhelm consulted the public RAV printing records [#138](https://scryfall.com/card/rav/138/rain-of-embers),
+[#120](https://scryfall.com/card/rav/120/dogpile), and
+[#175](https://scryfall.com/card/rav/175/overwhelm), plus the public
+[Comprehensive Rules index](https://magic.wizards.com/en/rules). It retained no
+upstream card prose, scans, art, or JSON; executable semantics and tests are
+CardBench-authored descriptions of the audited behavior.
+
 Rows without an explicit third-column override inherit the documented
 `catalog-only:card-specific-rules-not-implemented` status. This is fail-closed:
 they are not inserted into `card_definitions()` and `executable_definition_id_for_collector`
@@ -26,14 +34,14 @@ an executable compatibility definition remain subject to that definition's
 `RAV_FULL_FIDELITY_DEFINITION_IDS` is a deliberately small positive manifest,
 not an inference from executable status. Char, Lightning Helix, Last Gasp,
 Elves of Deep Shadow, Boros Recruit, Cleansing Beam, Rally the Righteous, and
-Wojek Siren, Watchwolf, and Glass Golem are listed only after an ability-by-
-ability contract proves their complete represented behavior and public receipt
-traces. The three radiance entries were checked against their public set
-identity and the official Comprehensive Rules' target, resolution, damage,
-continuous-effect, and state-based-action rules; this repository retains only
-CardBench-authored semantic operations, never card rules text. Every other
-executable definition remains a bounded compatibility slice unless it is
-explicitly added to that manifest after the same audit.
+Wojek Siren, Rain of Embers, Dogpile, Overwhelm, Watchwolf, and Glass Golem
+are listed only after an ability-by-ability contract proves their complete
+represented behavior and public receipt traces. The radiance entries were
+checked against their public set identity and the official Comprehensive Rules'
+target, resolution, damage, continuous-effect, and state-based-action rules;
+this repository retains only CardBench-authored semantic operations, never card
+rules text. Every other executable definition remains a bounded compatibility
+slice unless it is explicitly added to that manifest after the same audit.
 
 The creature batch for Golgari Thug, Stinkweed Imp, Greater Mossdog, and
 Root-Kin Ally is explicitly compatibility-bounded. The first three support only
@@ -78,14 +86,13 @@ and retained activator priority. The catalog maps Dimir Signet at its retained
 public collector number, `#260`; `#261` is Glass Golem and remains mapped to
 its separate executable definition.
 
-Five additional low-complexity spells make the executable boundary more useful
-without pretending to complete their set mechanics. Rain of Embers uses the
-shared, target-free global creature-and-player damage effect, with one-pass
-selection and state-based actions after the complete damage batch. Dimir
-Machinations, Shred Memory, Clutch of the Undercity, and Perplex are expressly
-transmute-only compatibility definitions: their hand-zone transmute activations
-are exercised in public scenarios, while each printed spell effect remains
-non-covered. These are bounded semantic slices, not full-card claims.
+Rain of Embers is an ability-complete positive-manifest entry: the shared,
+target-free global creature-and-player damage operation snapshots all affected
+objects, then runs state-based actions after its complete damage batch. Dimir
+Machinations, Shred Memory, Clutch of the Undercity, and Perplex remain
+expressly transmute-only compatibility definitions: their hand-zone transmute
+activations are exercised in public scenarios, while each printed spell effect
+remains non-covered.
 
 The creature-chassis batch for Dromad Purebred, Snapping Drake, Carrion
 Howler, Coalhauler Swine, Bramble Elemental, Carven Caryatid, Boros Swiftblade,
@@ -107,14 +114,15 @@ scenarios cover exact single-, double-, and multicolored payment, stack
 resolution, graveyard movement, and retained base P/T; they do not assert any
 omitted abilities.
 
-The focused noncreature spell batch maps Ribbons of Night, Dogpile, and
-Overwhelm to three named compatibility slices. Ribbons of Night has only its
-fixed creature-damage and controller-life-gain fragment; its conditional card
-draw is deliberately excluded because paid mana colors are not retained. Dogpile
-uses the shared resolution-time count of controller-owned attacking creatures.
-Overwhelm uses the shared Convoke hook and a controller-wide temporary layer-7
-modifier. The corresponding Rust contracts and public event-log scenarios test
-those exact fragments; none is a claim of complete card or set fidelity.
+The focused noncreature spell batch leaves Ribbons of Night compatibility-bounded:
+its payment-color-conditioned draw is deliberately excluded because paid mana
+colors are not retained. Dogpile and Overwhelm are ability-complete
+positive-manifest entries. Dogpile's original RAV player-or-creature target
+boundary uses the shared resolution-time count of controller-owned attacking
+creatures; Overwhelm uses the shared Convoke hook and a controller-wide
+temporary layer-7 modifier. Public scenarios cover their accepted selection,
+rejected noncreature target, cost payment, event chronology, and state-based
+action boundaries.
 
 The easy-creature wave adds Benevolent Ancestor, Surveilling Sprite, Terraformer,
 Roofstalker Wight, Sewerdreg, Goblin Spelunkers, Ordruun Commando, Viashino

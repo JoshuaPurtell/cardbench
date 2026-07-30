@@ -3775,7 +3775,7 @@ digest = "fnv1a64:39fb4c9170a31ff1"
 [[scenario]]
 id = "rav_overwhelm_convoke_wide_modifier"
 seed = 0
-description = "Convoke Overwhelm with five creatures, then verify every controller-owned creature receives the supported temporary +3/+3 modifier."
+description = "Convoke Overwhelm with five creatures, then verify every controller-owned creature receives its complete temporary +3/+3 modifier while an opposing creature remains unchanged."
 
 [[scenario.card]]
 label = "overwhelm"
@@ -3813,6 +3813,12 @@ owner = 0
 definition = "RAV-GOLGARI-BROWNSCALE"
 zone = "battlefield"
 
+[[scenario.card]]
+label = "opponent"
+owner = 1
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+
 [[scenario.mana]]
 player = 0
 color = "green"
@@ -3834,8 +3840,8 @@ player = 1
 
 [scenario.expected]
 zones = ["overwhelm:graveyard"]
-powers = ["first:5", "second:5", "third:5", "fourth:5", "fifth:5"]
-toughnesses = ["first:6", "second:6", "third:6", "fourth:6", "fifth:6"]
+powers = ["first:5", "second:5", "third:5", "fourth:5", "fifth:5", "opponent:2"]
+toughnesses = ["first:6", "second:6", "third:6", "fourth:6", "fifth:6", "opponent:3"]
 tapped = ["first:true", "second:true", "third:true", "fourth:true", "fifth:true"]
 event_markers = ["SpellCast", "ConvokeUsed", "ContinuousEffectCreated", "SpellResolved"]
 digest = "fnv1a64:c2d38d01274f19bb"
@@ -3843,7 +3849,7 @@ digest = "fnv1a64:c2d38d01274f19bb"
 [[scenario]]
 id = "rav_dogpile_combat_count_damage"
 seed = 0
-description = "Advance a real two-player game to player 0's third-turn combat, attack with two established creatures, then resolve Dogpile for two damage to the opposing player."
+description = "Advance a real two-player game to player 0's third-turn combat, attack with two established creatures, then resolve Dogpile for two damage to a target creature."
 
 [[scenario.card]]
 label = "dogpile"
@@ -3885,6 +3891,12 @@ zone = "battlefield"
 label = "mountain_four"
 owner = 0
 definition = "RAV-MOUNTAIN"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "target_creature"
+owner = 1
+definition = "RAV-BIRDS-OF-PARADISE"
 zone = "battlefield"
 
 [[scenario.card]]
@@ -4118,7 +4130,7 @@ color = "red"
 kind = "cast"
 player = 0
 card = "dogpile"
-target = "player:1"
+target = "permanent:target_creature"
 
 [[scenario.action]]
 kind = "pass"
@@ -4129,13 +4141,50 @@ kind = "pass"
 player = 1
 
 [scenario.expected]
-life = [20, 18]
-zones = ["dogpile:graveyard"]
+life = [20, 20]
+zones = ["dogpile:graveyard", "target_creature:graveyard"]
 tapped = ["first_attacker:true", "second_attacker:true", "mountain_one:true", "mountain_two:true", "mountain_three:true", "mountain_four:true"]
 stack_size = 0
 priority = 0
-event_markers = ["AttackersDeclared", "ManaAbilityActivated", "SpellCast", "DamageDealtToPlayer", "SpellResolved"]
-digest = "fnv1a64:3e3d4135d4f5de70"
+event_markers = ["AttackersDeclared", "ManaAbilityActivated", "SpellCast", "DamageDealtToPermanent", "SpellResolved", "StateBasedAction"]
+digest = "fnv1a64:d9eaf97adcefeb91"
+
+[[scenario]]
+id = "rav_dogpile_rejects_noncreature_target"
+seed = 0
+description = "Reject Dogpile when a policy names a noncreature permanent, preserving the player-or-creature target boundary."
+
+[[scenario.card]]
+label = "dogpile"
+owner = 0
+definition = "RAV-DOGPILE"
+zone = "hand"
+
+[[scenario.card]]
+label = "artifact"
+owner = 1
+definition = "RAV-DIMIR-SIGNET"
+zone = "battlefield"
+
+[[scenario.mana]]
+player = 0
+color = "red"
+amount = 4
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "dogpile"
+target = "permanent:artifact"
+expected_error = "illegal target"
+
+[scenario.expected]
+life = [20, 20]
+zones = ["dogpile:hand", "artifact:battlefield"]
+stack_size = 0
+priority = 0
+event_absent = ["SpellCast"]
+digest = "fnv1a64:cbf29ce484222325"
 
 [[scenario]]
 id = "rav_easy_white_creature_chassis"
