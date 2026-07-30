@@ -73,6 +73,16 @@ transmute-only compatibility definitions: their hand-zone transmute activations
 are exercised in public scenarios, while each printed spell effect remains
 non-covered. These are bounded semantic slices, not full-card claims.
 
+The creature-chassis batch for Dromad Purebred, Snapping Drake, Carrion
+Howler, Coalhauler Swine, Bramble Elemental, Carven Caryatid, Boros Swiftblade,
+Loxodon Hierarch, Moroii, and Skyknight Legionnaire is also deliberately
+bounded. Each records only public identity, mana cost, color, type, and base
+power/toughness facts, and supports only normal creature casting and those base
+characteristics. Every printed keyword, static rule, triggered behavior, and
+activation on those cards is intentionally outside the executable slice. The
+public scenarios exercise exact colored-cost payment, stack resolution, zone
+movement, and both base P/T values; they do not imply full-card fidelity.
+
 The TSV's structure and the Rust parser are CardBench-authored MIT-licensed code and
 data structure. Magic set names and card names are used solely as nominative
 interoperability identifiers and remain their owners' marks.

@@ -28,6 +28,13 @@ collector number, mana-cost/color/type facts, base power/toughness, and a
 CardBench-authored binding to the generic one-unit colored mana-ability model.
 It does not retain or reproduce card rules text, art, flavor, or source JSON.
 
+The creature-chassis batch (Dromad Purebred, Snapping Drake, Carrion Howler,
+Coalhauler Swine, Bramble Elemental, Carven Caryatid, Boros Swiftblade, Loxodon
+Hierarch, Moroii, and Skyknight Legionnaire) retains only public RAV identity,
+mana cost, color, type, and base power/toughness facts. Any printed ability is
+intentionally absent from its compatibility definition. The public source
+responses and their rules fields were not committed.
+
 ## Complete RAV inventory boundary
 
 `sets/ravnica_city_of_guilds/catalog/rav_main_set.tsv` inventories the 306
@@ -64,6 +71,11 @@ hash and reproduction details.
   rules field was empty. That last fact permits its vanilla compatibility
   definition without silently dropping a printed ability; the response and
   any card text remain uncommitted.
+- The creature-chassis compatibility facts were checked on 2026-07-30 against
+  public [Scryfall named-card responses](https://api.scryfall.com/cards/named)
+  and corroborated with the RAV catalog. Only identity, set, collector number,
+  mana cost, color, type, power, and toughness fields were used; the responses
+  and all card text remain uncommitted.
 - The public [Scryfall cards API](https://api.scryfall.com/cards/search?q=e%3ARAV&unique=prints&order=set)
   was used only to reproduce the RAV collector-number/name inventory documented
   above. The source snapshot is not checked in, and this use makes no ownership or
