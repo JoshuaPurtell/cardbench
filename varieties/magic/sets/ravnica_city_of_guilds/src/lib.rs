@@ -377,6 +377,28 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
+        // Public RAV #261 verification establishes that this is a vanilla
+        // artifact creature: its published rules field is empty, so this
+        // definition does not omit a printed ability. The compatibility scope
+        // is therefore normal colorless-cost casting and base characteristics.
+        CardDefinition {
+            id: "RAV-GLASS-GOLEM",
+            name: "Glass Golem",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::new(5),
+            colors: BTreeSet::new(),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Artifact, CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "colorless-cost-casting",
+                "artifact-creature-base-characteristics",
+            ],
+            power: Some(6),
+            toughness: Some(2),
+            keywords: vec![],
+            effects: vec![],
+        },
         basic_land("RAV-PLAINS", "Plains", Color::White),
         basic_land("RAV-ISLAND", "Island", Color::Blue),
         basic_land("RAV-SWAMP", "Swamp", Color::Black),
@@ -995,7 +1017,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 22);
+        assert_eq!(first.len(), 23);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

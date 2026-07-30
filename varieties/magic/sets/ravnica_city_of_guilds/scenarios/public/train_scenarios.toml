@@ -858,6 +858,41 @@ event_markers = ["SpellCast", "SpellResolved"]
 digest = "fnv1a64:2371b092f503844f"
 
 [[scenario]]
+id = "rav_glass_golem_colorless_cost"
+seed = 0
+description = "Cast the RAV vanilla artifact creature using five mana and verify its 6/2 permanent characteristics after resolution."
+
+[[scenario.card]]
+label = "glass_golem"
+owner = 0
+definition = "RAV-GLASS-GOLEM"
+zone = "hand"
+
+[[scenario.mana]]
+player = 0
+color = "blue"
+amount = 5
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "glass_golem"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["glass_golem:battlefield"]
+powers = ["glass_golem:6"]
+event_markers = ["SpellCast", "SpellResolved"]
+digest = "fnv1a64:2371b092f503844f"
+
+[[scenario]]
 id = "rav_invalid_convoke_rejection"
 seed = 0
 description = "Reject a convoke payment in a color the tapped creature does not have."

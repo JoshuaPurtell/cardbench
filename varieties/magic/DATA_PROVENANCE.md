@@ -52,6 +52,13 @@ hash and reproduction details.
   Only identity, set, collector number, mana cost, color, type, and keyword
   facts required by the scoped compatibility definitions were retained; no
   card text, image, or response payload is checked in.
+- The Glass Golem compatibility facts were checked on 2026-07-30 against a
+  single public [Scryfall named-card response](https://api.scryfall.com/cards/named?exact=Glass%20Golem),
+  corroborated by the RAV inventory. The checked fields were identity, set,
+  collector number, mana cost, type, power, toughness, and whether the public
+  rules field was empty. That last fact permits its vanilla compatibility
+  definition without silently dropping a printed ability; the response and
+  any card text remain uncommitted.
 - The public [Scryfall cards API](https://api.scryfall.com/cards/search?q=e%3ARAV&unique=prints&order=set)
   was used only to reproduce the RAV collector-number/name inventory documented
   above. The source snapshot is not checked in, and this use makes no ownership or
