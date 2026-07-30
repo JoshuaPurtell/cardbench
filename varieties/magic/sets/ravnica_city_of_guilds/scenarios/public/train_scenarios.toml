@@ -2574,6 +2574,311 @@ event_markers = ["SpellCast", "SpellResolved"]
 digest = "fnv1a64:e78637d84b25b302"
 
 [[scenario]]
+id = "rav_easy_white_blue_creatures_wave_two"
+seed = 0
+description = "Cast Benevolent Ancestor and Roofstalker Wight with exact white and blue costs, then verify only their base P/T. Their printed defender, prevention, and temporary evasion abilities are deliberately omitted."
+
+[[scenario.card]]
+label = "ancestor"
+owner = 0
+definition = "RAV-BENEVOLENT-ANCESTOR"
+zone = "hand"
+
+[[scenario.card]]
+label = "wight"
+owner = 0
+definition = "RAV-ROOFSTALKER-WIGHT"
+zone = "hand"
+
+[[scenario.mana]]
+player = 0
+color = "white"
+amount = 3
+
+[[scenario.mana]]
+player = 0
+color = "blue"
+amount = 2
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "ancestor"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "wight"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["ancestor:battlefield", "wight:battlefield"]
+powers = ["ancestor:0", "wight:2"]
+toughnesses = ["ancestor:4", "wight:1"]
+mana = ["0:white:0", "0:blue:0"]
+stack_size = 0
+priority = 0
+event_markers = ["SpellCast", "PriorityPassed", "SpellResolved"]
+digest = "fnv1a64:e78637d84b25b302"
+
+[[scenario]]
+id = "rav_easy_blue_black_creatures_wave_two"
+seed = 0
+description = "Cast Terraformer and Sewerdreg with exact blue and black costs, then verify only their base P/T. Their printed land-type, evasion, and regeneration behavior is deliberately omitted."
+
+[[scenario.card]]
+label = "terraformer"
+owner = 0
+definition = "RAV-TERRAFORMER"
+zone = "hand"
+
+[[scenario.card]]
+label = "sewerdreg"
+owner = 0
+definition = "RAV-SEWERDREG"
+zone = "hand"
+
+[[scenario.mana]]
+player = 0
+color = "blue"
+amount = 3
+
+[[scenario.mana]]
+player = 0
+color = "black"
+amount = 5
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "terraformer"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "sewerdreg"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["terraformer:battlefield", "sewerdreg:battlefield"]
+powers = ["terraformer:2", "sewerdreg:3"]
+toughnesses = ["terraformer:2", "sewerdreg:3"]
+mana = ["0:blue:0", "0:black:0"]
+stack_size = 0
+priority = 0
+event_markers = ["SpellCast", "PriorityPassed", "SpellResolved"]
+digest = "fnv1a64:e78637d84b25b302"
+
+[[scenario]]
+id = "rav_easy_blue_red_creatures_wave_two"
+seed = 0
+description = "Cast Surveilling Sprite and Goblin Spelunkers with exact blue and red costs, then verify only their base P/T. Their printed evasion, death-triggered, and landwalk behavior is deliberately omitted."
+
+[[scenario.card]]
+label = "sprite"
+owner = 0
+definition = "RAV-SURVEILLING-SPRITE"
+zone = "hand"
+
+[[scenario.card]]
+label = "spelunkers"
+owner = 0
+definition = "RAV-GOBLIN-SPELUNKERS"
+zone = "hand"
+
+[[scenario.mana]]
+player = 0
+color = "blue"
+amount = 2
+
+[[scenario.mana]]
+player = 0
+color = "red"
+amount = 3
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "sprite"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "spelunkers"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["sprite:battlefield", "spelunkers:battlefield"]
+powers = ["sprite:1", "spelunkers:2"]
+toughnesses = ["sprite:1", "spelunkers:2"]
+mana = ["0:blue:0", "0:red:0"]
+stack_size = 0
+priority = 0
+event_markers = ["SpellCast", "PriorityPassed", "SpellResolved"]
+digest = "fnv1a64:e78637d84b25b302"
+
+[[scenario]]
+id = "rav_easy_red_creatures_wave_two"
+seed = 0
+description = "Cast Ordruun Commando and Viashino Slasher with exact red costs, then verify only their base P/T. Their printed prevention and activation behavior is deliberately omitted."
+
+[[scenario.card]]
+label = "commando"
+owner = 0
+definition = "RAV-ORDRUUN-COMMANDO"
+zone = "hand"
+
+[[scenario.card]]
+label = "slasher"
+owner = 0
+definition = "RAV-VIASHINO-SLASHER"
+zone = "hand"
+
+[[scenario.mana]]
+player = 0
+color = "red"
+amount = 6
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "commando"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "slasher"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["commando:battlefield", "slasher:battlefield"]
+powers = ["commando:4", "slasher:1"]
+toughnesses = ["commando:1", "slasher:2"]
+mana = ["0:red:0"]
+stack_size = 0
+priority = 0
+event_markers = ["SpellCast", "PriorityPassed", "SpellResolved"]
+digest = "fnv1a64:e78637d84b25b302"
+
+[[scenario]]
+id = "rav_easy_green_creatures_wave_two"
+seed = 0
+description = "Cast Civic Wayfinder and Dowsing Shaman with exact green costs, then verify only their base P/T. Their printed land-search, graveyard-recursion, and activation behavior is deliberately omitted."
+
+[[scenario.card]]
+label = "wayfinder"
+owner = 0
+definition = "RAV-CIVIC-WAYFINDER"
+zone = "hand"
+
+[[scenario.card]]
+label = "shaman"
+owner = 0
+definition = "RAV-DOWSING-SHAMAN"
+zone = "hand"
+
+[[scenario.mana]]
+player = 0
+color = "green"
+amount = 7
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "wayfinder"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "shaman"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["wayfinder:battlefield", "shaman:battlefield"]
+powers = ["wayfinder:2", "shaman:3"]
+toughnesses = ["wayfinder:2", "shaman:4"]
+mana = ["0:green:0"]
+stack_size = 0
+priority = 0
+event_markers = ["SpellCast", "PriorityPassed", "SpellResolved"]
+digest = "fnv1a64:e78637d84b25b302"
+
+[[scenario]]
 id = "rav_one_mana_creature_chassis"
 seed = 0
 description = "Cast Grayscaled Gharial and Elvish Skysweeper with their exact one-color costs, then verify only their base P/T. Their printed evasion and activated behavior are deliberately omitted."

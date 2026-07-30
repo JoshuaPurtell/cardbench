@@ -8,7 +8,7 @@
 # columns=collector_number<TAB>name<TAB>semantic_status_override(optional)
 1	Auratouched Mage
 2	Bathe in Light
-3	Benevolent Ancestor
+3	Benevolent Ancestor	executable:RAV-BENEVOLENT-ANCESTOR
 4	Blazing Archon
 5	Boros Fury-Shield
 6	Caregiver
@@ -72,10 +72,10 @@
 64	Snapping Drake	executable:RAV-SNAPPING-DRAKE
 65	Spawnbroker
 66	Stasis Cell
-67	Surveilling Sprite
+67	Surveilling Sprite	executable:RAV-SURVEILLING-SPRITE
 68	Tattered Drake	executable:RAV-TATTERED-DRAKE
 69	Telling Time
-70	Terraformer
+70	Terraformer	executable:RAV-TERRAFORMER
 71	Tidewater Minion
 72	Tunnel Vision
 73	Vedalken Dismisser	executable:RAV-VEDALKEN-DISMISSER
@@ -107,9 +107,9 @@
 99	Netherborn Phalanx
 100	Nightmare Void
 101	Ribbons of Night	executable:RAV-RIBBONS-OF-NIGHT
-102	Roofstalker Wight
+102	Roofstalker Wight	executable:RAV-ROOFSTALKER-WIGHT
 103	Sadistic Augermage	executable:RAV-SADISTIC-AUGERMAGE
-104	Sewerdreg
+104	Sewerdreg	executable:RAV-SEWERDREG
 105	Shred Memory	executable:RAV-SHRED-MEMORY
 106	Sins of the Past
 107	Stinkweed Imp	executable:RAV-STINKWEED-IMP
@@ -133,7 +133,7 @@
 125	Frenzied Goblin	executable:RAV-FRENZIED-GOBLIN
 126	Galvanic Arc
 127	Goblin Fire Fiend
-128	Goblin Spelunkers
+128	Goblin Spelunkers	executable:RAV-GOBLIN-SPELUNKERS
 129	Greater Forgeling	executable:RAV-GREATER-FORGELING
 130	Hammerfist Giant
 131	Hunted Dragon
@@ -142,7 +142,7 @@
 134	Instill Furor
 135	Mindmoil
 136	Molten Sentry
-137	Ordruun Commando
+137	Ordruun Commando	executable:RAV-ORDRUUN-COMMANDO
 138	Rain of Embers	executable:RAV-RAIN-OF-EMBERS
 139	Reroute
 140	Sabertooth Alley Cat
@@ -154,7 +154,7 @@
 146	Surge of Zeal
 147	Torpid Moloch	executable:RAV-TORPID-MOLOCH
 148	Viashino Fangtail
-149	Viashino Slasher
+149	Viashino Slasher	executable:RAV-VIASHINO-SLASHER
 150	Warp World
 151	War-Torch Goblin
 152	Wojek Embermage
@@ -162,9 +162,9 @@
 154	Bramble Elemental	executable:RAV-BRAMBLE-ELEMENTAL
 155	Carven Caryatid	executable:RAV-CARVEN-CARYATID
 156	Chord of Calling
-157	Civic Wayfinder
+157	Civic Wayfinder	executable:RAV-CIVIC-WAYFINDER
 158	Doubling Season
-159	Dowsing Shaman
+159	Dowsing Shaman	executable:RAV-DOWSING-SHAMAN
 160	Dryad's Caress	executable:RAV-DRYADS-CARESS
 161	Elves of Deep Shadow
 162	Elvish Skysweeper	executable:RAV-ELVISH-SKYSWEEPER
