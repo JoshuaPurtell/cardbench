@@ -14,8 +14,9 @@ pub use game::{
     RulesError, TransmuteSearchView,
 };
 pub use model::{
-    CardDefinition, CardObject, CardType, Characteristics, Color, CombatBlock, ContinuousChange,
-    ContinuousEffect, DeckEntry, DeckList, DeckRules, DeckValidationError, Duration, Effect,
-    GameEvent, Keyword, Layer, ManaCost, ManaPool, ObjectId, PlayerId, PlayerState, PolicyMoveKind,
-    StackObject, Step, Target, TargetRequirement, TokenSpec, Zone,
+    ActivatedManaAbility, CardDefinition, CardObject, CardType, Characteristics, Color,
+    CombatBlock, ContinuousChange, ContinuousEffect, DeckEntry, DeckList, DeckRules,
+    DeckValidationError, Duration, Effect, GameEvent, Keyword, Layer, ManaAbilityActivation,
+    ManaAbilityBinding, ManaAbilityOutput, ManaCost, ManaPool, ObjectId, PlayerId, PlayerState,
+    PolicyMoveKind, StackObject, Step, Target, TargetRequirement, TokenSpec, Zone,
 };
