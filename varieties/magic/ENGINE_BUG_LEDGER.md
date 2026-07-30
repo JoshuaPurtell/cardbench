@@ -9,6 +9,7 @@ from `varieties/magic`; the audit exits nonzero while an item remains open.
 
 | ID | Classification | Status | Reproducible observation |
 | --- | --- | --- | --- |
+| `radiance-colorless-target-omits-target` | Engine rules/effect-selection defect — medium severity, expansion-neutral radiance scope | Open | A colorless creature is a legal radiance target, but the shared-color filter selects no objects because its color set is empty. The spell resolves with the target's base power unchanged (`Some(2)`, expected `Some(4)`). Red repro: `cargo test -p cardbench-magic-engine --test radiance_colorless_target_red -- --nocapture` from `varieties/magic`. |
 | `game-over-accepts-gameplay-action` | Engine defect | Fixed; regression verified | A `PlayLand` policy move succeeds after `PlayerLost`. |
 | `game-over-allows-direct-draw-mutation` | Engine defect | Fixed; regression verified | `draw_card` moves a library card after game termination. |
 | `opening-hand-event-overstates-cards-drawn` | Engine defect | Fixed; regression verified | A two-card library returns success for a seven-card opening hand and logs seven cards drawn. |
