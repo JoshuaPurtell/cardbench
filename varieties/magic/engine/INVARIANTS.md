@@ -198,9 +198,11 @@ The policy must hold priority. Acceptance appends, in order:
 1. `GameEvent::EngineWeaknessRevealed { player, code, detail }`;
 2. `GameEvent::PolicyMoveSubmitted { kind: ReportEngineWeakness, .. }`.
 
-The report is observational: it does not resolve a spell, change zones, pass
-priority, advance a step, or make an unsupported play legal. `code` should be
-a stable, machine-groupable capability identifier (for example
+The report is observational: it does not resolve a spell, change zones, or
+make an unsupported play legal. Like every accepted non-pass action, it resets
+the pass sequence and thereby preserves the other players' response windows;
+it does not itself pass priority or advance a step. `code` should be a stable,
+machine-groupable capability identifier (for example
 `combat.multiple_blockers`); `detail` should identify the attempted interaction
 and the observable state needed to reproduce it, without hidden benchmark data
 or card text. A run that reveals a weakness is a surfaced coverage result, not

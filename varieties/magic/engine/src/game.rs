@@ -1001,7 +1001,11 @@ impl Game {
             code: code.into(),
             detail: detail.into(),
         });
-        Ok(())
+        // A report is observational, but it is still an accepted non-pass
+        // policy action made with priority. It must reopen the response cycle
+        // rather than letting an earlier opponent pass advance the step.
+        self.consecutive_passes = 0;
+        self.validate_invariants()
     }
 
     pub fn cast_spell(&mut self, player: PlayerId, request: CastRequest) -> Result<(), RulesError> {
