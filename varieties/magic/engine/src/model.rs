@@ -140,12 +140,20 @@ pub enum TargetRequirement {
     Any,
     Creature,
     Player,
+    /// A nonpermanent spell card currently on the stack. This deliberately
+    /// names the narrow RAV counterspell slice instead of claiming support for
+    /// arbitrary abilities or every kind of spell target.
+    InstantOrSorcerySpell,
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum Target {
     Player(PlayerId),
     Permanent(ObjectId),
+    /// The card object representing an instant or sorcery spell on the stack.
+    /// `ObjectId` remains stable while the card changes zones, so the engine
+    /// verifies that it is still a qualifying spell when the effect resolves.
+    Spell(ObjectId),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -195,6 +203,9 @@ pub enum Effect {
         power: i16,
         toughness: i16,
     },
+    /// Counter one targeted instant or sorcery spell. This is intentionally a
+    /// semantic effect rather than a copied card-text string.
+    CounterTargetInstantOrSorcerySpell,
 }
 
 impl Effect {
@@ -205,6 +216,9 @@ impl Effect {
             Self::ModifyTargetPtUntilEndOfTurn { .. }
             | Self::RadianceUntapAndModifyUntilEndOfTurn { .. } => {
                 Some(TargetRequirement::Creature)
+            }
+            Self::CounterTargetInstantOrSorcerySpell => {
+                Some(TargetRequirement::InstantOrSorcerySpell)
             }
             Self::DealDamageController { .. }
             | Self::GainLifeController { .. }
@@ -640,6 +654,12 @@ pub enum GameEvent {
     },
     SpellCounteredByRules {
         card: ObjectId,
+    },
+    /// A spell was countered by a resolving effect, rather than because every
+    /// target became illegal under the rules.
+    SpellCountered {
+        card: ObjectId,
+        source: ObjectId,
     },
     DamageDealtToPlayer {
         source: ObjectId,

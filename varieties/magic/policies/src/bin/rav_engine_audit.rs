@@ -6,8 +6,8 @@
 use std::process::ExitCode;
 
 use cardbench_magic_engine::{
-    CastRequest, Color, CombatBlock, DeckEntry, DeckList, DeckRules, Game, PlayerId, PolicyAction,
-    Step, Target, Zone,
+    CastRequest, Color, CombatBlock, DeckEntry, DeckList, DeckRules, Game, GameEvent, PlayerId,
+    PolicyAction, Step, Target, Zone,
 };
 use cardbench_magic_policies::{EngineTournamentFailure, run_rav_reference_deck_matrix};
 use cardbench_magic_rav::{card_definitions, load_reference_decks};
@@ -41,7 +41,7 @@ fn main() -> ExitCode {
         probe_active_player_elimination_continues_multiplayer(),
         probe_transmute_sorcery_timing(),
         probe_out_of_window_dredge(),
-        probe_unsupported_spell_front_face(),
+        probe_muddle_counterspell_resolution(),
         probe_combat_with_dead_token(),
     ]
     .into_iter()
@@ -423,35 +423,83 @@ fn probe_out_of_window_dredge() -> Option<Finding> {
     None
 }
 
-/// A card with deliberately unsupported front-face text must surface a
-/// capability gap, rather than resolve as a successful spell with no effect.
-fn probe_unsupported_spell_front_face() -> Option<Finding> {
+/// Muddle's executable counter face must remove the targeted instant or
+/// sorcery from the stack, produce an explicit counter event, and prevent the
+/// target's effects from resolving. This is distinct from the all-targets-
+/// illegal rules-counter event.
+fn probe_muddle_counterspell_resolution() -> Option<Finding> {
     let mut game = Game::new(card_definitions(), 2).ok()?;
+    let char = game.add_card(PlayerId(0), "RAV-CHAR", Zone::Hand).ok()?;
     let muddle = game
-        .add_card(PlayerId(0), "RAV-MUDDLE-THE-MIXTURE", Zone::Hand)
+        .add_card(PlayerId(1), "RAV-MUDDLE-THE-MIXTURE", Zone::Hand)
         .ok()?;
-    game.grant_mana(PlayerId(0), Color::Blue, 2).ok()?;
-    game.cast_spell(
-        PlayerId(0),
-        CastRequest {
-            card: muddle,
-            targets: Vec::new(),
-            convoke: Vec::new(),
-        },
-    )
-    .ok()?;
-    game.pass_priority(PlayerId(1)).ok()?;
-    game.pass_priority(PlayerId(0)).ok()?;
-    if game.zone_of(muddle) == Some(Zone::Graveyard)
-        && game
-            .canonical_event_log()
-            .iter()
-            .any(|event| event.contains("SpellResolved"))
+    game.grant_mana(PlayerId(0), Color::Red, 3).ok()?;
+    game.grant_mana(PlayerId(1), Color::Blue, 2).ok()?;
+    if game
+        .cast_spell(
+            PlayerId(0),
+            CastRequest {
+                card: char,
+                targets: vec![Target::Player(PlayerId(1))],
+                convoke: Vec::new(),
+            },
+        )
+        .is_err()
     {
         return Some(Finding {
-            code: "unsupported-spell-front-face-resolves-as-noop",
-            detail: "Muddle the Mixture cast successfully despite no supported cast effect"
-                .to_owned(),
+            code: "muddle-counterspell-setup-failed",
+            detail: "the prepared Char spell could not enter the stack".to_owned(),
+        });
+    }
+    if game
+        .cast_spell(
+            PlayerId(1),
+            CastRequest {
+                card: muddle,
+                targets: vec![Target::Spell(char)],
+                convoke: Vec::new(),
+            },
+        )
+        .is_err()
+    {
+        return Some(Finding {
+            code: "muddle-counterspell-cannot-target-stack-spell",
+            detail: "Muddle rejected an opposing instant currently on the stack".to_owned(),
+        });
+    }
+    let first = game.priority;
+    if game.pass_priority(first).is_err() {
+        return Some(Finding {
+            code: "muddle-counterspell-resolution-pass-failed",
+            detail: "the first post-response priority pass was rejected".to_owned(),
+        });
+    }
+    let second = game.priority;
+    if game.pass_priority(second).is_err() {
+        return Some(Finding {
+            code: "muddle-counterspell-resolution-pass-failed",
+            detail: "the second post-response priority pass was rejected".to_owned(),
+        });
+    }
+    if game.zone_of(char) != Some(Zone::Graveyard)
+        || game.zone_of(muddle) != Some(Zone::Graveyard)
+        || !game.stack.is_empty()
+        || game.players[1].life != 20
+        || !game.event_log.iter().any(|event| {
+            matches!(
+                event,
+                GameEvent::SpellCountered { card, source } if *card == char && *source == muddle
+            )
+        })
+        || game
+            .event_log
+            .iter()
+            .any(|event| matches!(event, GameEvent::SpellResolved { card } if *card == char))
+        || game.validate_invariants().is_err()
+    {
+        return Some(Finding {
+            code: "muddle-counterspell-resolution-invalid",
+            detail: "Muddle did not counter Char as an explicit stack interaction".to_owned(),
         });
     }
     None

@@ -175,6 +175,10 @@ pub struct GameView {
     pub combat_attackers: Vec<CardView>,
     pub attackers_declared: bool,
     pub blockers_declared: bool,
+    /// Public spell-card identities currently on the stack. Policies need this
+    /// narrow projection to submit a legal counterspell target without seeing
+    /// either player's hidden zones.
+    pub stack_spells: Vec<CardView>,
     pub stack_depth: usize,
 }
 
@@ -203,6 +207,10 @@ pub struct Game {
     pub step: Step,
     pub turn: u32,
     pub event_log: Vec<GameEvent>,
+    // Kept private so the public, replay-facing event log can still be read
+    // directly while the invariant audit detects an out-of-transition edit.
+    event_log_integrity: Vec<GameEvent>,
+    seated_player_count: usize,
     next_object_id: u64,
     next_timestamp: u64,
     consecutive_passes: usize,
@@ -249,6 +257,8 @@ impl Game {
             step: Step::PrecombatMain,
             turn: 1,
             event_log: Vec::new(),
+            event_log_integrity: Vec::new(),
+            seated_player_count: player_count,
             next_object_id: 1,
             next_timestamp: 1,
             consecutive_passes: 0,
@@ -397,10 +407,9 @@ impl Game {
                 cards = cards.saturating_add(1);
             }
         }
-        self.event_log.push(GameEvent::DeckLoaded { player, cards });
+        self.record_event(GameEvent::DeckLoaded { player, cards });
         self.shuffle_library(player);
-        self.event_log
-            .push(GameEvent::LibraryShuffled { player, cards });
+        self.record_event(GameEvent::LibraryShuffled { player, cards });
         self.validate_invariants()
     }
 
@@ -416,8 +425,7 @@ impl Game {
         for _ in 0..cards {
             self.draw_card(player, None)?;
         }
-        self.event_log
-            .push(GameEvent::OpeningHandDrawn { player, cards });
+        self.record_event(GameEvent::OpeningHandDrawn { player, cards });
         self.validate_invariants()
     }
 
@@ -440,7 +448,7 @@ impl Game {
     ) -> Result<(), RulesError> {
         self.require_priority(player)?;
         self.players[player.0].mana_pool.add(color, amount);
-        self.event_log.push(GameEvent::ManaAdded {
+        self.record_event(GameEvent::ManaAdded {
             player,
             color,
             amount,
@@ -475,12 +483,12 @@ impl Game {
             .ok_or(RulesError::UnknownCard(land))?
             .tapped = true;
         self.players[player.0].mana_pool.add(color, 1);
-        self.event_log.push(GameEvent::ManaAbilityActivated {
+        self.record_event(GameEvent::ManaAbilityActivated {
             player,
             land,
             color,
         });
-        self.event_log.push(GameEvent::ManaAdded {
+        self.record_event(GameEvent::ManaAdded {
             player,
             color,
             amount: 1,
@@ -512,6 +520,16 @@ impl Game {
     /// measured action sequence and never alters game state.
     pub fn clear_event_log(&mut self) {
         self.event_log.clear();
+        self.event_log_integrity.clear();
+    }
+
+    /// Appends a canonical event and seals it for the invariant audit. All
+    /// engine transitions must use this rather than writing the public vector
+    /// directly, so a runner can distinguish an engine-produced receipt from
+    /// an external mutation of the replay log.
+    fn record_event(&mut self, event: GameEvent) {
+        self.event_log_integrity.push(event.clone());
+        self.event_log.push(event);
     }
 
     /// Produces the information a deterministic policy may use to propose one move.
@@ -602,6 +620,11 @@ impl Game {
             } else {
                 (Vec::new(), false, false)
             };
+        let stack_spells = self
+            .stack
+            .iter()
+            .map(|stack_object| self.card_view(stack_object.card))
+            .collect::<Result<Vec<_>, _>>()?;
         Ok(GameView {
             player,
             active_player: self.active_player,
@@ -622,6 +645,7 @@ impl Game {
             combat_attackers,
             attackers_declared,
             blockers_declared,
+            stack_spells,
             stack_depth: self.stack.len(),
         })
     }
@@ -658,24 +682,33 @@ impl Game {
         // transition that ends the game. Keep the accepted-action receipt in
         // causal order and make `GameEnded` the terminal event in the trace.
         let terminal_event = if self.terminal_event_emitted {
-            match self.event_log.pop() {
-                Some(GameEvent::GameEnded { winner }) => Some(winner),
-                Some(event) => {
-                    self.event_log.push(event);
+            match (self.event_log.pop(), self.event_log_integrity.pop()) {
+                (
+                    Some(GameEvent::GameEnded { winner }),
+                    Some(GameEvent::GameEnded {
+                        winner: sealed_winner,
+                    }),
+                ) if winner == sealed_winner => Some(winner),
+                (event, sealed_event) => {
+                    if let Some(event) = event {
+                        self.event_log.push(event);
+                    }
+                    if let Some(event) = sealed_event {
+                        self.event_log_integrity.push(event);
+                    }
                     None
                 }
-                None => None,
             }
         } else {
             None
         };
-        self.event_log.push(GameEvent::PolicyMoveSubmitted {
+        self.record_event(GameEvent::PolicyMoveSubmitted {
             player,
             policy: policy.into(),
             kind,
         });
         if let Some(winner) = terminal_event {
-            self.event_log.push(GameEvent::GameEnded { winner });
+            self.record_event(GameEvent::GameEnded { winner });
         }
         self.validate_invariants()
     }
@@ -766,7 +799,7 @@ impl Game {
             timestamp: self.next_timestamp,
         });
         self.next_timestamp += 1;
-        self.event_log.push(GameEvent::ContinuousEffectCreated {
+        self.record_event(GameEvent::ContinuousEffectCreated {
             source,
             target,
             layer,
@@ -851,7 +884,7 @@ impl Game {
             .ok_or(RulesError::IllegalAction("combat was not initialized"))?;
         combat.attackers = attackers.to_vec();
         combat.attackers_declared = true;
-        self.event_log.push(GameEvent::AttackersDeclared {
+        self.record_event(GameEvent::AttackersDeclared {
             player,
             attackers: attackers.to_vec(),
         });
@@ -919,7 +952,7 @@ impl Game {
                 .insert(assignment.attacker, assignment.blocker);
         }
         combat.blockers_declared = true;
-        self.event_log.push(GameEvent::BlockersDeclared {
+        self.record_event(GameEvent::BlockersDeclared {
             player,
             assignments: assignments
                 .iter()
@@ -940,7 +973,7 @@ impl Game {
         detail: impl Into<String>,
     ) -> Result<(), RulesError> {
         self.require_priority(player)?;
-        self.event_log.push(GameEvent::EngineWeaknessRevealed {
+        self.record_event(GameEvent::EngineWeaknessRevealed {
             player,
             code: code.into(),
             detail: detail.into(),
@@ -981,7 +1014,7 @@ impl Game {
                 .get_mut(&payment.creature)
                 .ok_or(RulesError::UnknownCard(payment.creature))?
                 .tapped = true;
-            self.event_log.push(GameEvent::ConvokeUsed {
+            self.record_event(GameEvent::ConvokeUsed {
                 player,
                 creature: payment.creature,
                 contribution: match payment.contribution {
@@ -997,7 +1030,7 @@ impl Game {
             targets: request.targets,
             effects: definition.effects,
         });
-        self.event_log.push(GameEvent::SpellCast {
+        self.record_event(GameEvent::SpellCast {
             player,
             card: request.card,
         });
@@ -1033,7 +1066,7 @@ impl Game {
                 "the defending player must declare blockers before priority can pass",
             ));
         }
-        self.event_log.push(GameEvent::PriorityPassed { player });
+        self.record_event(GameEvent::PriorityPassed { player });
         self.consecutive_passes += 1;
         self.priority = self.next_player(player);
         if self.consecutive_passes == self.remaining_player_count() {
@@ -1067,7 +1100,7 @@ impl Game {
             return Ok(());
         };
         self.players[player.0].hand.push(card);
-        self.event_log.push(GameEvent::CardMoved {
+        self.record_event(GameEvent::CardMoved {
             card,
             to: Zone::Hand,
         });
@@ -1129,18 +1162,18 @@ impl Game {
                 .pop()
                 .ok_or(RulesError::IllegalAction("library changed during dredge"))?;
             self.players[player.0].graveyard.push(milled);
-            self.event_log.push(GameEvent::CardMoved {
+            self.record_event(GameEvent::CardMoved {
                 card: milled,
                 to: Zone::Graveyard,
             });
         }
         self.remove_from_all_zones(card);
         self.players[player.0].hand.push(card);
-        self.event_log.push(GameEvent::CardMoved {
+        self.record_event(GameEvent::CardMoved {
             card,
             to: Zone::Hand,
         });
-        self.event_log.push(GameEvent::Dredged {
+        self.record_event(GameEvent::Dredged {
             player,
             card,
             count: amount,
@@ -1188,9 +1221,8 @@ impl Game {
         self.move_to_zone(found, Zone::Hand)?;
         self.shuffle_library(player);
         let cards = u16::try_from(self.players[player.0].library.len()).unwrap_or(u16::MAX);
-        self.event_log
-            .push(GameEvent::LibraryShuffled { player, cards });
-        self.event_log.push(GameEvent::Transmuted {
+        self.record_event(GameEvent::LibraryShuffled { player, cards });
+        self.record_event(GameEvent::Transmuted {
             player,
             discarded: card,
             found,
@@ -1230,8 +1262,7 @@ impl Game {
                     None
                 };
                 if let Some(reason) = reason {
-                    self.event_log
-                        .push(GameEvent::StateBasedAction { card, reason });
+                    self.record_event(GameEvent::StateBasedAction { card, reason });
                     self.move_to_graveyard_or_remove_token(card)?;
                     changed = true;
                 }
@@ -1285,7 +1316,8 @@ impl Game {
     /// corrupted state rather than report a misleading later rules error.
     #[allow(clippy::too_many_lines)] // One ordered audit keeps the invariant contract reviewable.
     pub fn validate_invariants(&self) -> Result<(), RulesError> {
-        if self.players.len() < 2
+        if self.players.len() != self.seated_player_count
+            || self.players.len() < 2
             || self.players.get(self.active_player.0).is_none()
             || self.players.get(self.priority.0).is_none()
             || self.turn == 0
@@ -1295,6 +1327,16 @@ impl Game {
         if !self.is_game_over() && self.players[self.priority.0].lost {
             return Err(RulesError::IllegalAction(
                 "a continuing game assigned priority to an eliminated player",
+            ));
+        }
+        if !self.is_game_over() && self.players[self.active_player.0].lost {
+            return Err(RulesError::IllegalAction(
+                "a continuing game assigned the active turn to an eliminated player",
+            ));
+        }
+        if self.event_log != self.event_log_integrity {
+            return Err(RulesError::IllegalAction(
+                "canonical event log was mutated outside an engine transition",
             ));
         }
         if self.started && !self.is_game_over() && !self.step.grants_priority() {
@@ -1397,9 +1439,8 @@ impl Game {
             }
         }
         let mut locations = BTreeMap::<ObjectId, Zone>::new();
-        for player in &self.players {
-            if self.players.get(player.id.0).is_none() || self.players[player.id.0].id != player.id
-            {
+        for (seat, player) in self.players.iter().enumerate() {
+            if player.id != PlayerId(seat) {
                 return Err(RulesError::IllegalAction("player id does not match seat"));
             }
             if player.lands_played > 1 {
@@ -1536,7 +1577,8 @@ impl Game {
         for effect in &self.continuous_effects {
             self.object(effect.source)?;
             self.object(effect.target)?;
-            if !effect_timestamps.insert(effect.timestamp)
+            if effect.timestamp == 0
+                || !effect_timestamps.insert(effect.timestamp)
                 || effect.timestamp >= self.next_timestamp
             {
                 return Err(RulesError::IllegalAction(
@@ -1723,7 +1765,7 @@ impl Game {
                     .is_some_and(|target| self.target_matches(*target, requirement))
             });
         if !legal_target {
-            self.event_log.push(GameEvent::SpellCounteredByRules {
+            self.record_event(GameEvent::SpellCounteredByRules {
                 card: stack_object.card,
             });
             self.move_to_graveyard_or_remove_token(stack_object.card)?;
@@ -1739,7 +1781,7 @@ impl Game {
                 &stack_object.targets,
             )?;
         }
-        self.event_log.push(GameEvent::SpellResolved {
+        self.record_event(GameEvent::SpellResolved {
             card: stack_object.card,
         });
         if self.card_definition(stack_object.card)?.is_permanent() {
@@ -1767,7 +1809,7 @@ impl Game {
             {
                 Target::Player(player) => {
                     self.players[player.0].life -= amount;
-                    self.event_log.push(GameEvent::DamageDealtToPlayer {
+                    self.record_event(GameEvent::DamageDealtToPlayer {
                         source,
                         player: *player,
                         amount: *amount,
@@ -1778,16 +1820,17 @@ impl Game {
                         .get_mut(permanent)
                         .ok_or(RulesError::UnknownCard(*permanent))?
                         .damage += amount;
-                    self.event_log.push(GameEvent::DamageDealtToPermanent {
+                    self.record_event(GameEvent::DamageDealtToPermanent {
                         source,
                         permanent: *permanent,
                         amount: *amount,
                     });
                 }
+                Target::Spell(card) => return Err(RulesError::IllegalTarget(Target::Spell(*card))),
             },
             Effect::DealDamageController { amount } => {
                 self.players[controller.0].life -= amount;
-                self.event_log.push(GameEvent::DamageDealtToPlayer {
+                self.record_event(GameEvent::DamageDealtToPlayer {
                     source,
                     player: controller,
                     amount: *amount,
@@ -1795,7 +1838,7 @@ impl Game {
             }
             Effect::GainLifeController { amount } => {
                 self.players[controller.0].life += amount;
-                self.event_log.push(GameEvent::LifeGained {
+                self.record_event(GameEvent::LifeGained {
                     player: controller,
                     amount: *amount,
                 });
@@ -1803,7 +1846,7 @@ impl Game {
             Effect::CreateToken { token, count } => {
                 for _ in 0..*count {
                     let token_id = self.create_token(controller, token.clone())?;
-                    self.event_log.push(GameEvent::TokenCreated {
+                    self.record_event(GameEvent::TokenCreated {
                         player: controller,
                         token: token_id,
                     });
@@ -1856,11 +1899,25 @@ impl Game {
                     )?;
                 }
                 if !untapped.is_empty() {
-                    self.event_log.push(GameEvent::PermanentsUntapped {
+                    self.record_event(GameEvent::PermanentsUntapped {
                         player: controller,
                         cards: untapped,
                     });
                 }
+            }
+            Effect::CounterTargetInstantOrSorcerySpell => {
+                let target = Self::target_spell(targets)?;
+                let position = self
+                    .stack
+                    .iter()
+                    .position(|stack_object| stack_object.card == target)
+                    .ok_or(RulesError::IllegalTarget(Target::Spell(target)))?;
+                self.stack.remove(position);
+                self.record_event(GameEvent::SpellCountered {
+                    card: target,
+                    source,
+                });
+                self.move_to_graveyard_or_remove_token(target)?;
             }
         }
         Ok(())
@@ -1870,7 +1927,19 @@ impl Game {
         match targets.first() {
             Some(Target::Permanent(card)) => Ok(*card),
             Some(Target::Player(player)) => Err(RulesError::IllegalTarget(Target::Player(*player))),
+            Some(Target::Spell(card)) => Err(RulesError::IllegalTarget(Target::Spell(*card))),
             None => Err(RulesError::IllegalAction("missing permanent target")),
+        }
+    }
+
+    fn target_spell(targets: &[Target]) -> Result<ObjectId, RulesError> {
+        match targets.first() {
+            Some(Target::Spell(card)) => Ok(*card),
+            Some(Target::Player(player)) => Err(RulesError::IllegalTarget(Target::Player(*player))),
+            Some(Target::Permanent(card)) => {
+                Err(RulesError::IllegalTarget(Target::Permanent(*card)))
+            }
+            None => Err(RulesError::IllegalAction("missing spell target")),
         }
     }
 
@@ -1886,6 +1955,15 @@ impl Game {
                 self.zone_of(card) == Some(Zone::Battlefield)
                     && self.characteristics(card).is_ok_and(|characteristics| {
                         characteristics.card_types.contains(&CardType::Creature)
+                    })
+            }
+            (Target::Spell(card), TargetRequirement::InstantOrSorcerySpell) => {
+                self.stack
+                    .iter()
+                    .any(|stack_object| stack_object.card == card)
+                    && self.card_definition(card).is_ok_and(|definition| {
+                        definition.card_types.contains(&CardType::Instant)
+                            || definition.card_types.contains(&CardType::Sorcery)
                     })
             }
             _ => false,
@@ -1919,7 +1997,7 @@ impl Game {
     fn start_step(&mut self) -> Result<(), RulesError> {
         // The boundary marker must precede *all* turn-based work in the step
         // so an event log can be replayed in chronological order.
-        self.event_log.push(GameEvent::StepBegan {
+        self.record_event(GameEvent::StepBegan {
             turn: self.turn,
             active_player: self.active_player,
             step: self.step,
@@ -1943,7 +2021,7 @@ impl Game {
                     }
                 }
                 if !untapped.is_empty() {
-                    self.event_log.push(GameEvent::PermanentsUntapped {
+                    self.record_event(GameEvent::PermanentsUntapped {
                         player: self.active_player,
                         cards: untapped,
                     });
@@ -1978,7 +2056,7 @@ impl Game {
                 self.continuous_effects
                     .retain(|effect| effect.duration != Duration::EndOfTurn(self.turn));
                 for effect in expired {
-                    self.event_log.push(GameEvent::ContinuousEffectExpired {
+                    self.record_event(GameEvent::ContinuousEffectExpired {
                         source: effect.source,
                         target: effect.target,
                         layer: effect.change.layer(),
@@ -2039,7 +2117,7 @@ impl Game {
                 .get_mut(&permanent)
                 .ok_or(RulesError::UnknownCard(permanent))?
                 .damage += amount;
-            self.event_log.push(GameEvent::DamageDealtToPermanent {
+            self.record_event(GameEvent::DamageDealtToPermanent {
                 source,
                 permanent,
                 amount,
@@ -2047,7 +2125,7 @@ impl Game {
         }
         for (source, player, amount) in player_damage {
             self.players[player.0].life -= amount;
-            self.event_log.push(GameEvent::DamageDealtToPlayer {
+            self.record_event(GameEvent::DamageDealtToPlayer {
                 source,
                 player,
                 amount,
@@ -2097,8 +2175,7 @@ impl Game {
             self.objects.remove(&card);
             self.continuous_effects
                 .retain(|effect| effect.source != card && effect.target != card);
-            self.event_log
-                .push(GameEvent::TokenCeasedToExist { token: card });
+            self.record_event(GameEvent::TokenCeasedToExist { token: card });
             return Ok(());
         }
         self.move_to_zone(card, Zone::Graveyard)
@@ -2131,7 +2208,7 @@ impl Game {
             battlefield_object.entered_turn = self.turn;
         }
         self.place_in_zone(destination_owner, card, zone)?;
-        self.event_log.push(GameEvent::CardMoved { card, to: zone });
+        self.record_event(GameEvent::CardMoved { card, to: zone });
         Ok(())
     }
 
@@ -2178,6 +2255,15 @@ impl Game {
         if !self.step.grants_priority() {
             return Err(RulesError::IllegalAction(
                 "no player receives priority during this automatic step",
+            ));
+        }
+        // A pending draw replacement is a mandatory turn-based choice, not a
+        // priority window (CR 616.1 / 121.6).  In particular, an instant,
+        // mana ability, or capability report must not be able to interleave
+        // with the choice and leave the marker pointing at a stale holder.
+        if self.pending_draw_replacement.is_some() {
+            return Err(RulesError::IllegalAction(
+                "the draw replacement decision must resolve before priority actions",
             ));
         }
         if self.players[player.0].lost {
@@ -2305,8 +2391,7 @@ impl Game {
     fn lose_player(&mut self, player: PlayerId, reason: &'static str) {
         if !self.players[player.0].lost {
             self.players[player.0].lost = true;
-            self.event_log
-                .push(GameEvent::PlayerLost { player, reason });
+            self.record_event(GameEvent::PlayerLost { player, reason });
             self.remove_departing_players_objects(player);
         }
     }
@@ -2329,7 +2414,7 @@ impl Game {
             self.objects.remove(&object);
             self.continuous_effects
                 .retain(|effect| effect.source != object && effect.target != object);
-            self.event_log.push(GameEvent::ObjectLeftGame {
+            self.record_event(GameEvent::ObjectLeftGame {
                 object,
                 owner: object_owner,
             });
@@ -2355,7 +2440,7 @@ impl Game {
                 .expect("controlled object was collected from this game");
             object_state.controller = owner;
             self.players[owner.0].exile.push(object);
-            self.event_log.push(GameEvent::CardMoved {
+            self.record_event(GameEvent::CardMoved {
                 card: object,
                 to: Zone::Exile,
             });
@@ -2365,7 +2450,7 @@ impl Game {
     fn record_game_end_if_needed(&mut self) {
         if !self.terminal_event_emitted && self.is_game_over() {
             self.terminal_event_emitted = true;
-            self.event_log.push(GameEvent::GameEnded {
+            self.record_event(GameEvent::GameEnded {
                 winner: self.winner(),
             });
         }

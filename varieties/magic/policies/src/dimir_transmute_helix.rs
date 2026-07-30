@@ -4,8 +4,9 @@ use cardbench_magic_engine::{
 
 use crate::CodePolicy;
 
-/// A blue-led policy that treats Muddle's transmute as a real controller-only
-/// library search, then deploys the searched Helix as its red-white payoff.
+/// A blue-led policy that uses Muddle as a visible-stack counterspell when it
+/// can, otherwise transmutes it through a real controller-only library search
+/// before deploying the searched Helix as a red-white payoff.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct DimirTransmuteHelixPolicy {
     player: PlayerId,
@@ -26,6 +27,9 @@ impl CodePolicy for DimirTransmuteHelixPolicy {
     fn propose_move(&mut self, view: &GameView) -> PolicyAction {
         if view.player != self.player || view.decision_player != self.player {
             return PolicyAction::PassPriority;
+        }
+        if let Some(action) = counterspell_response(view, self.player) {
+            return action;
         }
         match view.step {
             Step::DeclareAttackers
@@ -113,6 +117,19 @@ fn transmute_for_helix(view: &GameView) -> Option<PolicyAction> {
     })
 }
 
+fn counterspell_response(view: &GameView, player: PlayerId) -> Option<PolicyAction> {
+    if view.priority != player || view.stack_depth == 0 || !can_pay_muddle(view) {
+        return None;
+    }
+    let muddle = card_in_hand(view, "RAV-MUDDLE-THE-MIXTURE")?;
+    let target = view.stack_spells.iter().find(|spell| {
+        spell.controller != player
+            && (spell.card_types.contains(&CardType::Instant)
+                || spell.card_types.contains(&CardType::Sorcery))
+    })?;
+    Some(cast(muddle, Target::Spell(target.id)))
+}
+
 fn cast(card: ObjectId, target: Target) -> PolicyAction {
     PolicyAction::Cast(CastRequest {
         card,
@@ -134,6 +151,10 @@ fn card_in_hand(view: &GameView, definition: &str) -> Option<ObjectId> {
 
 fn can_pay_transmute(view: &GameView) -> bool {
     view.mana_pool.amount(Color::Blue) >= 2 && view.mana_pool.total() >= 3
+}
+
+fn can_pay_muddle(view: &GameView) -> bool {
+    view.mana_pool.amount(Color::Blue) >= 2 && view.mana_pool.total() >= 2
 }
 
 fn can_pay_helix(view: &GameView) -> bool {
@@ -301,5 +322,58 @@ mod tests {
         assert_eq!(game.players[1].life, 17);
         game.validate_invariants()
             .expect("post-transmute payoff preserves invariants");
+    }
+
+    #[test]
+    fn submits_muddle_as_a_visible_stack_counterspell() {
+        let mut game = Game::new(card_definitions(), 2).expect("RAV game");
+        let muddle = game
+            .add_card(PlayerId(0), "RAV-MUDDLE-THE-MIXTURE", Zone::Hand)
+            .expect("Muddle in hand");
+        let char = game
+            .add_card(PlayerId(1), "RAV-CHAR", Zone::Hand)
+            .expect("opponent Char in hand");
+        game.grant_mana(PlayerId(0), Color::Blue, 2)
+            .expect("blue mana for Muddle");
+        game.grant_mana(PlayerId(1), Color::Red, 3)
+            .expect("red mana for Char");
+        game.pass_priority(PlayerId(0))
+            .expect("priority passes to the opponent");
+        game.cast_spell(
+            PlayerId(1),
+            CastRequest {
+                card: char,
+                targets: vec![Target::Player(PlayerId(0))],
+                convoke: vec![],
+            },
+        )
+        .expect("opponent casts Char");
+
+        let mut policy = DimirTransmuteHelixPolicy::new(PlayerId(0));
+        let view = game
+            .view_for_player(PlayerId(0))
+            .expect("public stack view");
+        assert_eq!(view.stack_spells.len(), 1);
+        assert_eq!(view.stack_spells[0].id, char);
+        let action = policy.propose_move(&view);
+        assert_eq!(action, cast(muddle, Target::Spell(char)));
+        game.submit_policy_move(PlayerId(0), policy.id(), action)
+            .expect("policy counterspell proposal is legal");
+        resolve_top_of_stack(&mut game);
+
+        assert!(game.stack.is_empty());
+        assert_eq!(game.zone_of(char), Some(Zone::Graveyard));
+        assert_eq!(game.zone_of(muddle), Some(Zone::Graveyard));
+        assert_eq!(
+            game.players[0].life, 20,
+            "the countered Char dealt no damage"
+        );
+        assert!(game.event_log.iter().any(|event| matches!(
+            event,
+            cardbench_magic_engine::GameEvent::SpellCountered { card, source }
+                if *card == char && *source == muddle
+        )));
+        game.validate_invariants()
+            .expect("counterspell submission preserves invariants");
     }
 }

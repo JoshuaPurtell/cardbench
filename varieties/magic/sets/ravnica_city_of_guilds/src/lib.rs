@@ -144,14 +144,14 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Instant]),
             is_basic_land: false,
-            supported_rules: &["transmute"],
+            supported_rules: &["counter-target-instant-or-sorcery-spell", "transmute"],
             power: None,
             toughness: None,
             keywords: vec![Keyword::Transmute(ManaCost::with_colors(
                 1,
                 [Color::Blue, Color::Blue],
             ))],
-            effects: vec![],
+            effects: vec![Effect::CounterTargetInstantOrSorcerySpell],
         },
         CardDefinition {
             id: "RAV-RALLY-THE-RIGHTEOUS",

@@ -171,6 +171,59 @@ event_markers = ["Transmuted", "CardMoved"]
 digest = "fnv1a64:07ba6ebbc10fdd6e"
 
 [[scenario]]
+id = "rav_muddle_counterspell"
+seed = 0
+description = "Respond to an instant with Muddle the Mixture, counter it on the stack, and preserve both players' life totals."
+
+[[scenario.card]]
+label = "char"
+owner = 0
+definition = "RAV-CHAR"
+zone = "hand"
+
+[[scenario.card]]
+label = "muddle"
+owner = 1
+definition = "RAV-MUDDLE-THE-MIXTURE"
+zone = "hand"
+
+[[scenario.mana]]
+player = 0
+color = "red"
+amount = 3
+
+[[scenario.mana]]
+player = 1
+color = "blue"
+amount = 2
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "char"
+target = "player:1"
+
+[[scenario.action]]
+kind = "cast"
+player = 1
+card = "muddle"
+target = "spell:char"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+life = [20, 20]
+zones = ["char:graveyard", "muddle:graveyard"]
+event_markers = ["SpellCast", "SpellCountered", "SpellResolved"]
+digest = "fnv1a64:3377aff84a745587"
+
+[[scenario]]
 id = "rav_radiance_layers"
 seed = 0
 description = "Resolve radiance and verify all green creatures receive their layer-7 power modifier."

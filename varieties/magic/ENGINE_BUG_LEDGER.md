@@ -17,7 +17,7 @@ from `varieties/magic`; the audit exits nonzero while an item remains open.
 | `eliminated-player-receives-priority` | Engine defect | Fixed; regression verified | The priority cycle assigns priority to an eliminated seat. |
 | `transmute-accepts-instant-speed-activation` | Engine/card-rules defect | Fixed; regression verified | Muddle the Mixture's transmute action succeeds in response to a spell on the stack. |
 | `dredge-accepts-out-of-window-activation` | Engine/card-rules defect | Fixed; regression verified | The direct public dredge operation changes zones without a pending draw to replace. |
-| `unsupported-spell-front-face-resolves-as-noop` | Engine/card-coverage defect | Fixed; regression verified | Muddle the Mixture casts and resolves with no supported front-face effect instead of surfacing a capability gap. |
+| `unsupported-spell-front-face-resolves-as-noop` | Engine/card-coverage defect | Fixed; regression verified | Muddle the Mixture's counter face is executable, targets only a visible instant or sorcery spell on the stack, and emits a distinct counter receipt. |
 | `combat-state-breaks-after-token-dies` | Engine invariant defect | Fixed; regression verified | A token blocker dies, is removed, and stale combat state then fails `validate_invariants()`. |
 | `combat-view-breaks-after-token-dies` | Engine view/invariant defect | Fixed; regression verified | A token dies in combat, remains in historical combat state, and `GameView` dereferences its removed object. |
 | `transmute-policy-view-hides-all-legal-search-targets` | Engine policy-view defect | Fixed; regression verified | A whole-deck policy can activate transmute only by naming a hidden library object ID, but its `GameView` exposes no legal candidate. |
@@ -40,6 +40,12 @@ from `varieties/magic`; the audit exits nonzero while an item remains open.
 | `policy-cannot-choose-draw-replacement` | Policy/state-machine coverage defect | Fixed; regression verified | A full policy game could not choose Dredge at its draw-replacement boundary, so `Dredged` was absent from the event corpus despite direct API coverage. |
 | `valid-draw-misclassified-as-matrix-failure` | Policy-harness result-classification defect | Fixed; regression verified | Two Char resolutions in the eight-seed corpus reduced both players to zero in one SBA pass; the engine correctly logged `GameEnded { winner: None }`, but the matrix treated the valid completed draw as a failure. |
 | `reference-dimir-convoke-is-64-cards` | Deck-fixture defect | Fixed; regression verified | A declared 60-card probe contains 64 cards, weakening matrix comparability. |
+| `pending-draw-replacement-allows-priority-interleaving` | Engine transition defect | Fixed; regression verified | While a mandatory Dredge-or-draw decision was pending, a policy could cast an instant, mutate the stack, and leave the stale replacement marker to be caught only later by invariants. Priority-bearing actions now reject atomically until `PolicyAction::Draw` resolves the decision. |
+| `event-log-external-mutation-not-detected` | Engine audit defect | Fixed; regression verified | A caller could append, reorder, remove, or rewrite valid-looking public events and still pass the prior semantic event checks. The engine now seals its canonical event sequence and detects edits; `clear_event_log` is the explicit synchronized reset. |
+| `public-seat-id-corruption-not-rejected` | Engine audit defect | Fixed; regression verified | Mutating player IDs or extending the public seat vector could evade the former indirect seat lookup. The audit now requires the original fixed seat count and exact `PlayerId(n)`/index correspondence. |
+| `active-eliminated-seat-accepted-by-invariant-audit` | Engine audit defect | Fixed; regression verified | A continuing game whose active player had already lost could pass the former audit if priority had been reassigned. The invariant now rejects an eliminated active seat. |
+| `zero-timestamp-continuous-effect-accepted` | Engine audit defect | Fixed; regression verified | A fabricated continuous effect with timestamp zero evaded the uniqueness/future-timestamp test. Effects now require positive timestamps as well as monotonicity. |
+| `muddle-counterspell-front-face-unmodeled` | Engine/card-coverage defect | Fixed; regression verified | The prior honest fallback rejected Muddle's unsupported front face. The narrow executable RAV slice now targets an instant or sorcery card on the stack, removes it during resolution, and emits `SpellCountered`; its transmute behavior remains intact. |
 | `public-game-fields-can-bypass-transition-machine` | Engine API encapsulation weakness | Open; explicitly bounded | Several authored-fixture fields are public; a hostile caller can construct a shape-valid state without using a legal transition. `validate_invariants` detects invalid shapes but cannot establish transition provenance. |
 
 ## Non-engine result retained for policy work
@@ -90,6 +96,37 @@ policy submission: its canonical trace contains `Dredged` followed by a
 `PolicyMoveSubmitted { kind: Draw }` receipt. The open public-field boundary
 remains a deliberate limitation of the fixture-oriented API, not a waived
 invariant failure.
+
+## Transition-hardening evidence
+
+The follow-up adversarial tranche adds four public-state mutation tests (18
+deliberate corruptions), four draw-replacement/multiplayer tests, two RAV
+stack-target tests, and a fixed-digest public Muddle counterspell scenario. It
+specifically exercises visible-stack countering, response LIFO order,
+all-targets-illegal rules counters, mandatory replacement decisions,
+three-player elimination handoff, and combat elimination. The engine suite
+contains 53 tests, including a 64-seed stateful policy campaign; all pass after
+the fixes above. The public field API remains intentionally
+fixture-oriented, so a shape-valid externally fabricated state remains the
+open provenance boundary rather than a claim that every state arose through a
+legal transition.
+
+The fresh post-hardening replay is retained at
+`artifacts/rav-reference-deck-matrix/round7-transition-hardening/` (ignored
+run output): 1,680 ordered games, 1,213,213 accepted moves, and 3,417,010
+events. It has `failure_count=0`, 794 seat-zero wins, 884 seat-one wins, and
+two valid draws. The manifest contains exactly 1,680 uniquely named logs;
+manual review found zero event-count/header mismatches, zero unexpected
+termination values, and a terminal `GameEnded` receipt in every trace.
+Representative logs confirmed the ordered Dredge and Transmute receipts and
+the simultaneous-loss cleanup ordering.
+
+This natural policy corpus has 232 `Dredged` and 773 `Transmuted` events but
+zero `SpellCountered` and zero `SpellCounteredByRules` events. That is a
+coverage observation, not a clean bill of health for either counter path. The
+persisted `rav_muddle_counterspell` scenario and RAV stack-target contracts
+therefore remain mandatory targeted evidence for countering, LIFO response
+resolution, and rules-based target failure.
 
 ## Eight-seed event-log review
 
