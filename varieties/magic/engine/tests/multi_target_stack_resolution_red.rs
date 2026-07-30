@@ -9,7 +9,8 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardDefinition, CardType, CastRequest, Color, Effect, Game, ManaCost, PlayerId, Target, Zone,
+    CardDefinition, CardType, CastRequest, Color, Effect, Game, GameEvent, ManaCost, PlayerId,
+    Target, Zone,
 };
 
 const THREE_TARGET_BOOST: &str = "TST-THREE-TARGET-BOOST";
@@ -133,4 +134,12 @@ fn independently_targeted_effects_survive_one_target_becoming_illegal() {
         Some(3)
     );
     assert_eq!(game.zone_of(middle), Some(Zone::Graveyard));
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::TargetInstructionSkipped {
+            card,
+            effect_index: 1,
+            target: Target::Permanent(target),
+        } if *card == spell && *target == middle
+    )));
 }

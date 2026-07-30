@@ -2304,7 +2304,12 @@ impl Game {
         else {
             unreachable!("rules-counter plan returned above");
         };
-        for (effect, target_resolution) in stack_object.effects.iter().zip(effect_resolutions) {
+        for (effect_index, (effect, target_resolution)) in stack_object
+            .effects
+            .iter()
+            .zip(effect_resolutions)
+            .enumerate()
+        {
             match target_resolution {
                 StackEffectResolution::Untargeted => {
                     self.resolve_effect(stack_object.card, stack_object.controller, effect, None)?;
@@ -2320,10 +2325,18 @@ impl Game {
                         Some(target),
                     )?;
                 }
-                StackEffectResolution::Targeted { legal: false, .. } => {
+                StackEffectResolution::Targeted {
+                    target,
+                    legal: false,
+                } => {
                     // A remaining legal target lets the spell resolve, but an
                     // instruction addressed to a target that has since become
                     // illegal does nothing.
+                    self.record_event(GameEvent::TargetInstructionSkipped {
+                        card: stack_object.card,
+                        effect_index,
+                        target,
+                    });
                 }
             }
         }
