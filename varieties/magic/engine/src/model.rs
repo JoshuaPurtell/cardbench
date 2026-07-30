@@ -913,6 +913,92 @@ pub struct StackObject {
     pub effects: Vec<Effect>,
 }
 
+/// The resolution status for the target occurrence, if any, owned by one
+/// effect in a stack object. This is deliberately aligned one-for-one with
+/// `StackObject::effects`, rather than with the deduplicated set of objects
+/// named as targets: one permanent can legally occupy several target slots.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum StackEffectResolution {
+    Untargeted,
+    Targeted { target: Target, legal: bool },
+}
+
+/// A complete, immutable target-resolution decision for one stack object.
+///
+/// The game evaluates target legality once immediately before it begins
+/// resolving effects. This prevents a later effect from accidentally changing
+/// the legality decision for an earlier target occurrence and makes the
+/// all-targets-illegal rules-counter boundary explicit.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum StackResolutionPlan {
+    CounteredByRules,
+    Resolve { effects: Vec<StackEffectResolution> },
+}
+
+/// The stack object did not retain the same number of target slots as the
+/// target-bearing effects it was cast with. This is an engine-integrity
+/// failure, not a dynamic target-legality result.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct StackTargetArityError {
+    pub expected: usize,
+    pub actual: usize,
+}
+
+impl StackObject {
+    /// Returns the target-slot count mandated by this object's effect list.
+    #[must_use]
+    pub fn target_count(&self) -> usize {
+        self.effects
+            .iter()
+            .filter(|effect| effect.target_requirement().is_some())
+            .count()
+    }
+
+    /// Produces the one-shot target decision used by a stack resolution.
+    ///
+    /// A caller supplies the current game-dependent legality predicate. The
+    /// returned plan preserves every target occurrence in effect order and
+    /// calls the predicate exactly once per occurrence. It never rewrites the
+    /// target vector, so independent repeated selections remain independent.
+    pub fn resolution_plan(
+        &self,
+        mut target_is_legal: impl FnMut(Target, TargetRequirement) -> bool,
+    ) -> Result<StackResolutionPlan, StackTargetArityError> {
+        let expected = self.target_count();
+        if self.targets.len() != expected {
+            return Err(StackTargetArityError {
+                expected,
+                actual: self.targets.len(),
+            });
+        }
+
+        let mut targets = self.targets.iter().copied();
+        let mut has_target = false;
+        let mut has_legal_target = false;
+        let effects = self
+            .effects
+            .iter()
+            .map(|effect| match effect.target_requirement() {
+                None => StackEffectResolution::Untargeted,
+                Some(requirement) => {
+                    has_target = true;
+                    // The exact arity check above proves this is present.
+                    let target = targets.next().expect("target occurrence is present");
+                    let legal = target_is_legal(target, requirement);
+                    has_legal_target |= legal;
+                    StackEffectResolution::Targeted { target, legal }
+                }
+            })
+            .collect();
+
+        if has_target && !has_legal_target {
+            Ok(StackResolutionPlan::CounteredByRules)
+        } else {
+            Ok(StackResolutionPlan::Resolve { effects })
+        }
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum GameEvent {
     PolicyMoveSubmitted {
