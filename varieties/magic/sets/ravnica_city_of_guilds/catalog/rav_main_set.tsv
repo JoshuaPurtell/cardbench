@@ -127,7 +127,7 @@
 119	Coalhauler Swine	executable:RAV-COALHAULER-SWINE
 120	Dogpile	executable:RAV-DOGPILE
 121	Excruciator
-122	Fiery Conclusion
+122	Fiery Conclusion	executable:RAV-FIERY-CONCLUSION
 123	Flame Fusillade
 124	Flash Conscription
 125	Frenzied Goblin	executable:RAV-FRENZIED-GOBLIN
@@ -165,11 +165,11 @@
 157	Civic Wayfinder
 158	Doubling Season
 159	Dowsing Shaman
-160	Dryad's Caress
+160	Dryad's Caress	executable:RAV-DRYADS-CARESS
 161	Elves of Deep Shadow
 162	Elvish Skysweeper	executable:RAV-ELVISH-SKYSWEEPER
 163	Farseek
-164	Fists of Ironwood
+164	Fists of Ironwood	executable:RAV-FISTS-OF-IRONWOOD
 165	Gather Courage	executable:RAV-GATHER-COURAGE
 166	Golgari Brownscale	executable:RAV-GOLGARI-BROWNSCALE
 167	Golgari Grave-Troll	executable:RAV-GOLGARI-GRAVE-TROLL
@@ -232,7 +232,7 @@
 224	Razia's Purification
 225	Savra, Queen of the Golgari
 226	Searing Meditation
-227	Seeds of Strength
+227	Seeds of Strength	executable:RAV-SEEDS-OF-STRENGTH
 228	Selesnya Evangel	executable:RAV-SELESNYA-EVANGEL
 229	Selesnya Sagittars	executable:RAV-SELESNYA-SAGITTARS
 230	Shambling Shell	executable:RAV-SHAMBLING-SHELL
@@ -251,7 +251,7 @@
 243	Boros Recruit
 244	Centaur Safeguard
 245	Dimir Guildmage
-246	Gaze of the Gorgon
+246	Gaze of the Gorgon	executable:RAV-GAZE-OF-THE-GORGON
 247	Gleancrawler
 248	Golgari Guildmage
 249	Lurking Informant
