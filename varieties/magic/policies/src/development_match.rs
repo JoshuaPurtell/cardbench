@@ -13,7 +13,7 @@ const REQUIRED_EVENT_MARKERS: [&str; 8] = [
     "DamageDealtToPlayer",
     "LifeGained",
 ];
-const EXPECTED_EVENT_DIGEST: &str = "fnv1a64:ca603a0d3e5d8114";
+const EXPECTED_EVENT_DIGEST: &str = "fnv1a64:b3a8f81090c551b6";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PolicyMatchResult {
@@ -58,18 +58,15 @@ pub fn run_rav_reference_match() -> Result<PolicyMatchResult, String> {
 
     let mut boros = BorosTempoPolicy::new(PlayerId(0));
     let mut selesnya = SelesnyaConvokePolicy::new(PlayerId(1));
-    submit_policy_move(&mut game, &mut boros, PlayerId(0))
-        .map_err(|error| format!("scripted opening move 1: {error}"))?;
-    submit_policy_move(&mut game, &mut selesnya, PlayerId(1))
-        .map_err(|error| format!("scripted opening move 2: {error}"))?;
-    submit_policy_move(&mut game, &mut boros, PlayerId(0))
-        .map_err(|error| format!("scripted opening move 3: {error}"))?;
-    submit_policy_move(&mut game, &mut selesnya, PlayerId(1))
-        .map_err(|error| format!("scripted opening move 4: {error}"))?;
-    submit_policy_move(&mut game, &mut boros, PlayerId(0))
-        .map_err(|error| format!("scripted opening move 5: {error}"))?;
-    submit_policy_move(&mut game, &mut selesnya, PlayerId(1))
-        .map_err(|error| format!("scripted opening move 6: {error}"))?;
+    for move_number in 1..=8 {
+        let player = game.next_policy_player();
+        let result = if player == PlayerId(0) {
+            submit_policy_move(&mut game, &mut boros, player)
+        } else {
+            submit_policy_move(&mut game, &mut selesnya, player)
+        };
+        result.map_err(|error| format!("scripted opening move {move_number}: {error}"))?;
+    }
 
     let event_log = game.canonical_event_log();
     for marker in REQUIRED_EVENT_MARKERS {
@@ -99,7 +96,7 @@ pub fn run_rav_reference_match() -> Result<PolicyMatchResult, String> {
         token_count,
         policy_moves,
     };
-    if result.life != [23, 17] || result.token_count != 3 || result.policy_moves != 6 {
+    if result.life != [23, 17] || result.token_count != 3 || result.policy_moves != 8 {
         return Err(format!(
             "reference policy match postcondition failed: {result:?}"
         ));
@@ -127,8 +124,8 @@ fn validate_reference_match_fixture() -> Result<(), String> {
         "policy_p1 = \"rav.selesnya-convoke.v1\"",
         "life = [23, 17]",
         "token_count = 3",
-        "policy_moves = 6",
-        "digest = \"fnv1a64:ca603a0d3e5d8114\"",
+        "policy_moves = 8",
+        "digest = \"fnv1a64:b3a8f81090c551b6\"",
     ] {
         if !fixture.contains(expected) {
             return Err(format!("reference_match.toml is missing `{expected}`"));
@@ -183,6 +180,6 @@ mod tests {
         assert_eq!(first, second);
         assert_eq!(first.life, [23, 17]);
         assert_eq!(first.token_count, 3);
-        assert_eq!(first.policy_moves, 6);
+        assert_eq!(first.policy_moves, 8);
     }
 }

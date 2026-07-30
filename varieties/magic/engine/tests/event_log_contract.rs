@@ -366,9 +366,10 @@ fn token_creation_sba_and_disappearance_are_complete_and_chronological() {
         },
     )
     .expect("zero-cost token spell is cast");
-    game.pass_priority(second).expect("opponent passes");
     game.pass_priority(first)
-        .expect("caster passes and resolves");
+        .expect("caster passes after casting");
+    game.pass_priority(second)
+        .expect("opponent passes and resolves");
 
     let events = &game.event_log;
     let (token_created, token) = events

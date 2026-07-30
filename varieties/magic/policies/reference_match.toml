@@ -11,7 +11,7 @@ setup = "Scripted development opening: the two validated decks supply the named 
 [expected]
 life = [23, 17]
 token_count = 3
-policy_moves = 6
+policy_moves = 8
 event_markers = [
   "PolicyMoveSubmitted",
   "SpellCast",
@@ -22,4 +22,4 @@ event_markers = [
   "DamageDealtToPlayer",
   "LifeGained",
 ]
-digest = "fnv1a64:ca603a0d3e5d8114"
+digest = "fnv1a64:b3a8f81090c551b6"

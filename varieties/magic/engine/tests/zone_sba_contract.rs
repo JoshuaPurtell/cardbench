@@ -287,6 +287,8 @@ fn rejected_attempt_to_cast_an_opponents_hand_card_is_atomic() {
         legal_spell,
         vec![Target::Player(opponent)],
     );
+    game.pass_priority(owner)
+        .expect("the caster passes before the opponent acts");
     assert_eq!(game.priority, opponent);
     let before_players = game.players.clone();
     let before_stack = game.stack.clone();
@@ -474,7 +476,10 @@ fn losing_multiplayer_player_removes_owned_objects_and_records_each_exit() {
         stack_spell,
         vec![Target::Player(first_survivor)],
     );
-    assert_eq!(game.priority, first_survivor);
+    assert_eq!(
+        game.priority, eliminated,
+        "the caster retains priority until the pending SBA eliminates them"
+    );
     assert_eq!(game.stack.len(), 1);
 
     // This setup represents the state immediately before the next priority

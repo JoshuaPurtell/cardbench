@@ -322,15 +322,20 @@ fn stack_priority_and_payment_boundaries_preserve_state_and_lifo_order() {
         .expect("second spell enters hand");
 
     cast(&mut game, first, first_spell, Some(Target::Player(second)));
-    assert_eq!(game.priority, second);
+    assert_eq!(
+        game.priority, first,
+        "the caster retains priority after putting a spell on the stack"
+    );
     let before_events = game.event_log.clone();
     assert!(matches!(
-        game.add_mana_from_action(first, Color::Red, 1),
+        game.add_mana_from_action(second, Color::Red, 1),
         Err(RulesError::Priority { .. })
     ));
     assert_eq!(game.event_log, before_events);
     assert_invariants(&game);
 
+    game.pass_priority(first)
+        .expect("the caster passes before the opponent responds");
     cast(&mut game, second, second_spell, Some(Target::Player(first)));
     assert_eq!(game.stack.len(), 2);
     pass_round(&mut game);
@@ -421,6 +426,9 @@ fn sorcery_cannot_be_cast_by_nonactive_player_in_response_to_a_spell() {
         .expect("sorcery enters the opponent's hand");
 
     cast(&mut game, active_player, instant, None);
+    assert_eq!(game.priority, active_player);
+    game.pass_priority(active_player)
+        .expect("the caster passes to open the opponent's response window");
     assert_eq!(game.priority, opponent);
     let before = game.clone();
 

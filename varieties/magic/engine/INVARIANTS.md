@@ -71,6 +71,8 @@ Oracle Magic rules coverage.
 - Only instants in the implemented spell slice may be cast outside their
   controller's main phase or while the stack is nonempty. Sorceries and
   permanent spells observe sorcery timing.
+- Casting a spell resets the pass sequence and leaves priority with its caster.
+  An opponent receives a response window only after the caster passes.
 - Turn numbers are never zero, and the consecutive-pass counter is always
   below the number of surviving players outside its atomic resolution/step
   transition. A draw-replacement marker can exist only for the active player
