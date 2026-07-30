@@ -2358,13 +2358,19 @@ impl Game {
 
     fn target_matches(&self, target: Target, requirement: TargetRequirement) -> bool {
         match (target, requirement) {
-            (Target::Player(player), TargetRequirement::Any | TargetRequirement::Player) => {
-                self.players.get(player.0).is_some_and(|state| !state.lost)
-            }
+            (
+                Target::Player(player),
+                TargetRequirement::Any
+                | TargetRequirement::Player
+                | TargetRequirement::PlayerOrCreature,
+            ) => self.players.get(player.0).is_some_and(|state| !state.lost),
             (Target::Permanent(card), TargetRequirement::Any) => {
                 self.zone_of(card) == Some(Zone::Battlefield)
             }
-            (Target::Permanent(card), TargetRequirement::Creature) => {
+            (
+                Target::Permanent(card),
+                TargetRequirement::Creature | TargetRequirement::PlayerOrCreature,
+            ) => {
                 self.zone_of(card) == Some(Zone::Battlefield)
                     && self.characteristics(card).is_ok_and(|characteristics| {
                         characteristics.card_types.contains(&CardType::Creature)

@@ -46,6 +46,10 @@ Oracle Magic rules coverage.
   player may later have lost. At resolution, an all-illegal target set emits
   `SpellCounteredByRules`; a resolving counter effect emits the distinct
   `SpellCountered` receipt.
+- Executable direct-damage spells that use the pre-planeswalker “creature or
+  player” targeting scope reject noncreature permanents at cast time and at
+  resolution. The broader `Any` requirement is not used to approximate that
+  narrower card rule.
 
 ## Priority, stack, and turns
 

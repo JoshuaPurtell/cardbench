@@ -252,6 +252,9 @@ pub enum TargetRequirement {
     Any,
     Creature,
     Player,
+    /// A player or battlefield creature, matching the executable pre-
+    /// planeswalker direct-damage card slice.
+    PlayerOrCreature,
     /// A nonpermanent spell card currently on the stack. This deliberately
     /// names the narrow RAV counterspell slice instead of claiming support for
     /// arbitrary abilities or every kind of spell target.
