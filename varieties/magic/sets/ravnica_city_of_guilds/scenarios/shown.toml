@@ -1,0 +1,28 @@
+schema_version = "cardbench.magic.scenario-manifest.v1"
+set = "RAV"
+visibility = "shown"
+runner = "cargo run -p cardbench-magic-rav --bin rav-engine-parity"
+
+[[scenario]]
+id = "rav_stack_lightning_helix"
+coverage = ["hand", "mana payment", "stack", "priority", "damage", "life gain"]
+
+[[scenario]]
+id = "rav_convoke_scatter_the_seeds"
+coverage = ["convoke", "tapping as a cost", "stack", "token creation"]
+
+[[scenario]]
+id = "rav_dredge_replaces_draw"
+coverage = ["graveyard", "replacement effect", "library", "draw"]
+
+[[scenario]]
+id = "rav_transmute_search"
+coverage = ["hand activated ability", "discard", "library search", "deterministic shuffle"]
+
+[[scenario]]
+id = "rav_radiance_layers"
+coverage = ["radiance", "color matching", "layer 7", "until end of turn"]
+
+[[scenario]]
+id = "rav_last_gasp_state_based_action"
+coverage = ["continuous effect", "layer 7", "zero toughness", "state-based action"]

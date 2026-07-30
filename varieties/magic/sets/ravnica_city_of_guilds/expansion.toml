@@ -13,28 +13,35 @@ keywords = ["convoke", "dredge", "radiance", "transmute"]
 ruleset = "magic"
 crate = "cardbench-magic-engine"
 fixture_crate = "cardbench-magic-rav"
-pin = ""
+pin = "workspace"
 
 [legality]
-format = "block"
+format = "ravnica-block"
 minimum_deck_size = 60
 maximum_copies = 4
 sideboard_size = 15
 basic_lands_exempt = true
 
 [fixtures]
-shown_scenarios = ""
+shown_scenarios = "scenarios/shown.toml"
 heldout_scenarios = "not-distributed"
-shown_decks = ""
+shown_decks = "decks/shown_pool.toml"
 heldout_decks = "not-distributed"
 
 [capabilities]
+zones = ["library", "hand", "battlefield", "graveyard", "exile", "stack"]
 stack = true
 priority = true
-layers = true
-multiplayer = false
+turn_structure = true
+state_based_actions = true
+continuous_effect_layers = [4, 5, 6, 7]
+replacement_effects = ["dredge-draw-replacement"]
+multiplayer = true
 
 [provenance]
 card_art = "not-distributed"
 oracle_text = "not-distributed"
+card_semantics = "small executable compatibility slice; see DATA_PROVENANCE.md"
+rules_reference = "https://magic.wizards.com/en/rules"
+set_history_reference = "https://magic.wizards.com/en/news/making-magic/city-planning-part-iii-2005-09-19"
 license = "MIT for CardBench-authored code and fixture structure; Magic identifiers remain their owners' trademarks"

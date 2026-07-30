@@ -18,7 +18,7 @@ collapsed into one reward.
 | Variety | Status | Expansion plan |
 | --- | --- | --- |
 | Pokémon TCG | Active | Crystal Guardians first; Dragon Frontiers next; Holon Phantoms remains a stub |
-| Magic: The Gathering | Reserved | Formal block manifests, beginning with the original Ravnica block, then Return to Ravnica and Guilds of Ravnica |
+| Magic: The Gathering | Initial engine slice | Rust rules substrate plus Ravnica: City of Guilds scenarios; Guildpact and Dissension manifests formalized |
 
 | Family | Submission | v0 status |
 | --- | --- | --- |
@@ -56,7 +56,7 @@ the score.
 - `varieties/pokemon/decks/` — shown deck pool
 - `varieties/pokemon/react/` — lifted view renderer and action parser
 - `varieties/pokemon/viz/` — deterministic low-fi board renderer
-- `varieties/magic/` — Magic/Ravnica architecture and expansion manifest schema
+- `varieties/magic/` — Rust Magic engine, Ravnica block manifests, and public RAV event-log scenarios
 - `adapters/harbor/` — unified Harbor entry point and family bundles
 
 The authoritative implementation handoff is `evals/tcg.md`.
