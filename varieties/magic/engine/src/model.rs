@@ -186,7 +186,7 @@ impl ManaPool {
 
     #[must_use]
     pub fn total(&self) -> u8 {
-        self.total_exact().min(u16::from(u8::MAX)) as u8
+        u8::try_from(self.total_exact()).unwrap_or(u8::MAX)
     }
 
     /// Returns the complete pool total widened enough for all five color slots.
