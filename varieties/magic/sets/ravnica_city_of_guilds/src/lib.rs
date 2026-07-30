@@ -899,6 +899,116 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
+        // Compatibility scope: normal colored-cost creature casting and base
+        // characteristics only. Its printed activated behavior is deliberately
+        // omitted from this compatibility slice.
+        bounded_creature_chassis(
+            "RAV-ELVISH-SKYSWEEPER",
+            "Elvish Skysweeper",
+            ManaCost::with_colors(0, [Color::Green]),
+            colors([Color::Green]),
+            1,
+            1,
+        ),
+        // Compatibility scope: normal colored-cost creature casting and base
+        // characteristics only. Its printed combat-triggered behavior is
+        // deliberately omitted from this compatibility slice.
+        bounded_creature_chassis(
+            "RAV-FRENZIED-GOBLIN",
+            "Frenzied Goblin",
+            ManaCost::with_colors(0, [Color::Red]),
+            colors([Color::Red]),
+            1,
+            1,
+        ),
+        // Compatibility scope: normal colored-cost creature casting and base
+        // characteristics only. Its printed evasion keyword is deliberately
+        // omitted from this compatibility slice.
+        bounded_creature_chassis(
+            "RAV-GRAYSCALED-GHARIAL",
+            "Grayscaled Gharial",
+            ManaCost::with_colors(0, [Color::Blue]),
+            colors([Color::Blue]),
+            1,
+            1,
+        ),
+        // Compatibility scope: normal colored-cost creature casting and base
+        // characteristics only. Its printed activated power/toughness change
+        // is deliberately omitted from this compatibility slice.
+        bounded_creature_chassis(
+            "RAV-GREATER-FORGELING",
+            "Greater Forgeling",
+            ManaCost::with_colors(3, [Color::Red, Color::Red]),
+            colors([Color::Red]),
+            3,
+            4,
+        ),
+        // Compatibility scope: normal colored-cost creature casting and base
+        // characteristics only. Its printed combat keyword is deliberately
+        // omitted from this compatibility slice.
+        bounded_creature_chassis(
+            "RAV-GOLIATH-SPIDER",
+            "Goliath Spider",
+            ManaCost::with_colors(6, [Color::Green, Color::Green]),
+            colors([Color::Green]),
+            7,
+            6,
+        ),
+        // Compatibility scope: normal colored-cost creature casting and base
+        // characteristics only. Its printed activated behavior is deliberately
+        // omitted from this compatibility slice.
+        bounded_creature_chassis(
+            "RAV-IVY-DANCER",
+            "Ivy Dancer",
+            ManaCost::with_colors(2, [Color::Green]),
+            colors([Color::Green]),
+            1,
+            2,
+        ),
+        // Compatibility scope: normal colored-cost creature casting and base
+        // characteristics only. Its printed activated behavior is deliberately
+        // omitted from this compatibility slice.
+        bounded_creature_chassis(
+            "RAV-LORE-BROKER",
+            "Lore Broker",
+            ManaCost::with_colors(1, [Color::Blue]),
+            colors([Color::Blue]),
+            1,
+            2,
+        ),
+        // Compatibility scope: normal colored-cost creature casting and base
+        // characteristics only. Its printed activated combat behavior is
+        // deliberately omitted from this compatibility slice.
+        bounded_creature_chassis(
+            "RAV-MORTIPEDE",
+            "Mortipede",
+            ManaCost::with_colors(3, [Color::Black]),
+            colors([Color::Black]),
+            4,
+            1,
+        ),
+        // Compatibility scope: normal colored-cost creature casting and base
+        // characteristics only. Its printed token-making activation is
+        // deliberately omitted from this compatibility slice.
+        bounded_creature_chassis(
+            "RAV-SELESNYA-EVANGEL",
+            "Selesnya Evangel",
+            ManaCost::with_colors(0, [Color::Green, Color::White]),
+            colors([Color::Green, Color::White]),
+            1,
+            2,
+        ),
+        // Compatibility scope: normal colored-cost creature casting and base
+        // characteristics only. Its printed combat capabilities are deliberately
+        // omitted from this compatibility slice.
+        bounded_creature_chassis(
+            "RAV-SELESNYA-SAGITTARS",
+            "Selesnya Sagittars",
+            ManaCost::with_colors(3, [Color::Green, Color::White]),
+            colors([Color::Green, Color::White]),
+            2,
+            5,
+        ),
         signet_definition("RAV-BOROS-SIGNET", "Boros Signet"),
         signet_definition("RAV-DIMIR-SIGNET", "Dimir Signet"),
         signet_definition("RAV-GOLGARI-SIGNET", "Golgari Signet"),
@@ -1542,6 +1652,34 @@ fn basic_land(id: &'static str, name: &'static str, color: Color) -> CardDefinit
     }
 }
 
+/// A deliberately bounded RAV creature slice. The caller supplies only public
+/// identity, mana-cost, color, and base-characteristic facts; card-specific
+/// printed abilities must remain outside this generic chassis.
+fn bounded_creature_chassis(
+    id: &'static str,
+    name: &'static str,
+    mana_cost: ManaCost,
+    colors: BTreeSet<Color>,
+    power: i16,
+    toughness: i16,
+) -> CardDefinition {
+    CardDefinition {
+        id,
+        name,
+        set_code: SET_CODE,
+        mana_cost,
+        colors,
+        mana_colors: BTreeSet::new(),
+        card_types: types([CardType::Creature]),
+        is_basic_land: false,
+        supported_rules: &["colored-cost-casting", "base-characteristics"],
+        power: Some(power),
+        toughness: Some(toughness),
+        keywords: vec![],
+        effects: vec![],
+    }
+}
+
 /// CardBench-authored compatibility definition for the four RAV Signets.
 /// It intentionally records only public identity, artifact type, colorless
 /// casting cost, and the shared paid two-color mana-ability hook; it contains
@@ -1605,7 +1743,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 48);
+        assert_eq!(first.len(), 52);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

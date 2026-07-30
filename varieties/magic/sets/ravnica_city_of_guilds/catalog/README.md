@@ -83,6 +83,16 @@ activation on those cards is intentionally outside the executable slice. The
 public scenarios exercise exact colored-cost payment, stack resolution, zone
 movement, and both base P/T values; they do not imply full-card fidelity.
 
+The second creature-chassis batch adds Elvish Skysweeper, Frenzied Goblin,
+Grayscaled Gharial, Greater Forgeling, Goliath Spider, Ivy Dancer, Lore Broker,
+Mortipede, Selesnya Evangel, and Selesnya Sagittars. These definitions likewise
+record only public identity, mana cost, color, creature type, and base
+power/toughness. Their card-specific activated, triggered, evasion, token, and
+combat behavior is intentionally unsupported. Four public cast-and-resolve
+scenarios cover exact single-, double-, and multicolored payment, stack
+resolution, graveyard movement, and retained base P/T; they do not assert any
+of those omitted abilities.
+
 The TSV's structure and the Rust parser are CardBench-authored MIT-licensed code and
 data structure. Magic set names and card names are used solely as nominative
 interoperability identifiers and remain their owners' marks.
