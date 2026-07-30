@@ -378,4 +378,44 @@ mod tests {
         game.validate_invariants()
             .expect("counterspell submission preserves invariants");
     }
+
+    #[test]
+    fn activates_available_blue_mana_before_countering_a_stack_spell() {
+        let mut game = Game::new(card_definitions(), 2).expect("RAV game");
+        game.add_card(PlayerId(0), "RAV-MUDDLE-THE-MIXTURE", Zone::Hand)
+            .expect("Muddle in hand");
+        game.put_on_battlefield(PlayerId(0), "RAV-ISLAND")
+            .expect("first untapped Island");
+        game.put_on_battlefield(PlayerId(0), "RAV-ISLAND")
+            .expect("second untapped Island");
+        let char = game
+            .add_card(PlayerId(1), "RAV-CHAR", Zone::Hand)
+            .expect("opponent Char in hand");
+        game.grant_mana(PlayerId(1), Color::Red, 3)
+            .expect("red mana for Char");
+        game.pass_priority(PlayerId(0))
+            .expect("priority passes to the opponent");
+        game.cast_spell(
+            PlayerId(1),
+            CastRequest {
+                card: char,
+                targets: vec![Target::Player(PlayerId(0))],
+                convoke: vec![],
+            },
+        )
+        .expect("opponent casts Char");
+        game.pass_priority(PlayerId(1))
+            .expect("the opponent passes after casting");
+
+        let mut policy = DimirTransmuteHelixPolicy::new(PlayerId(0));
+        let view = game
+            .view_for_player(PlayerId(0))
+            .expect("counterspell response view");
+        let action = policy.propose_move(&view);
+        assert!(
+            matches!(action, PolicyAction::ActivateManaAbility { color: Color::Blue, .. }),
+            "an untapped pair of Islands must be used before giving up a legal Muddle response; action: {action:?}; events: {:?}; view: {view:?}",
+            game.event_log
+        );
+    }
 }
