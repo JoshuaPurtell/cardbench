@@ -8,11 +8,11 @@ use std::collections::BTreeMap;
 use std::fs;
 
 use cardbench_magic_engine::{
-    CastRequest, Color, ConvokeContribution, ConvokePayment, Game, ObjectId, PlayerId, RulesError,
-    Target, Zone,
+    CastRequest, Color, ConvokeContribution, ConvokePayment, Game, ManaAbilityActivation, ObjectId,
+    PlayerId, RulesError, Target, Zone,
 };
 
-use crate::{ScenarioResult, card_definitions, event_digest, set_root};
+use crate::{ScenarioResult, card_definitions, event_digest, rav_mana_ability_bindings, set_root};
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 struct ScenarioSpec {
@@ -48,6 +48,8 @@ struct ActionSpec {
     card: String,
     target: String,
     convoke: Vec<String>,
+    ability: String,
+    color: String,
     dredge: String,
     found: String,
     expected_error: String,
@@ -247,6 +249,8 @@ fn set_action_field(
         "card" => action.card = parse_string(value, line_number)?,
         "target" => action.target = parse_string(value, line_number)?,
         "convoke" => action.convoke = parse_string_array(value, line_number)?,
+        "ability" => action.ability = parse_string(value, line_number)?,
+        "color" => action.color = parse_string(value, line_number)?,
         "dredge" => action.dredge = parse_string(value, line_number)?,
         "found" => action.found = parse_string(value, line_number)?,
         "expected_error" => action.expected_error = parse_string(value, line_number)?,
@@ -277,7 +281,9 @@ fn set_expected_field(
 }
 
 fn execute_scenario(specification: &ScenarioSpec) -> Result<ScenarioResult, String> {
-    let mut game = Game::new(card_definitions(), 2).map_err(rules_error)?;
+    let mut game =
+        Game::new_with_mana_abilities(card_definitions(), 2, rav_mana_ability_bindings())
+            .map_err(rules_error)?;
     game.set_shuffle_seed(specification.seed);
     let mut labels = BTreeMap::new();
     for setup in &specification.cards {
@@ -314,8 +320,9 @@ fn execute_scenario(specification: &ScenarioSpec) -> Result<ScenarioResult, Stri
         .map_err(rules_error)?;
     }
     game.clear_event_log();
-    for action in &specification.actions {
-        execute_action(&mut game, &labels, action)?;
+    for (action_index, action) in specification.actions.iter().enumerate() {
+        execute_action(&mut game, &labels, action)
+            .map_err(|error| format!("{} action {action_index}: {error}", specification.id))?;
         game.validate_invariants()
             .map_err(|error| format!("{}: {}", specification.id, rules_error(error)))?;
     }
@@ -343,6 +350,7 @@ fn execute_action(
 ) -> Result<(), String> {
     let player = checked_player(action.player)?;
     let result = match action.kind.as_str() {
+        "begin_game" => game.begin_game().map_err(rules_error),
         "cast" => {
             let targets = if action.target.is_empty() {
                 vec![]
@@ -382,6 +390,41 @@ fn execute_action(
         "play_land" => game
             .play_land(player, lookup(labels, &action.card)?)
             .map_err(rules_error),
+        "activate_mana_ability" => game
+            .activate_mana_ability(
+                player,
+                lookup(labels, &action.card)?,
+                parse_color(&action.color)?,
+            )
+            .map_err(rules_error),
+        "activate_bound_mana_ability" => {
+            let source = lookup(labels, &action.card)?;
+            let definition = game.card_definition(source).map_err(rules_error)?.id;
+            let ability_id = rav_mana_ability_bindings()
+                .into_iter()
+                .find(|binding| {
+                    binding.card_definition == definition && binding.ability.id == action.ability
+                })
+                .map(|binding| binding.ability.id)
+                .ok_or_else(|| {
+                    format!(
+                        "unknown RAV mana ability `{}` for `{definition}`",
+                        action.ability
+                    )
+                })?;
+            let chosen_color = (!action.color.is_empty())
+                .then(|| parse_color(&action.color))
+                .transpose()?;
+            game.activate_bound_mana_ability(
+                player,
+                ManaAbilityActivation {
+                    source,
+                    ability_id,
+                    chosen_color,
+                },
+            )
+            .map_err(rules_error)
+        }
         _ => Err(format!("unknown action kind `{}`", action.kind)),
     };
     match (result, action.expected_error.is_empty()) {
