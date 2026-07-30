@@ -89,6 +89,10 @@ Oracle Magic rules coverage.
   receipts, resets consecutive passes, and leaves priority with its activator.
   Every rejection—including a full mana pool, invalid choice, untapped-source
   requirement, unaffordable life payment, or terminal game—is atomic.
+- Per-color floating mana amounts are bounded `u8` values, but generic-cost
+  payment sums all five colors in a widened `u16` total. The compatibility
+  `ManaPool::total` policy view is saturated at `u8::MAX`; it is never used to
+  decide whether a generic payment is affordable.
 - Only instants in the implemented spell slice may be cast outside their
   controller's main phase or while the stack is nonempty. Sorceries and
   permanent spells observe sorcery timing.
