@@ -130,9 +130,12 @@ Oracle Magic rules coverage.
 - Only the active player declares attackers. Each attacker is unique, on that
   player's battlefield, an eligible untapped creature, and is tapped when it
   attacks.
-- Only the next seated defending player declares blockers. Each blocker is a
-  unique untapped creature they control; every assigned attacker was declared;
-  and the current substrate allows at most one blocker per attacker.
+- The next seated defending player is fixed when attackers are declared; only
+  that player declares blockers. Each blocker is a unique untapped creature
+  they control; every assigned attacker was declared; and the current
+  substrate allows at most one blocker per attacker. If that defender leaves
+  the game, the declared attackers are removed from combat rather than being
+  retargeted to another surviving seat.
 - Declare-blockers cannot begin without an attacker declaration, and combat
   damage cannot begin without both declarations. A participant may leave after
   declaration, so later combat bookkeeping preserves the declaration without

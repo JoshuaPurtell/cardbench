@@ -186,6 +186,10 @@ pub struct GameView {
 struct CombatState {
     attackers: Vec<ObjectId>,
     blockers: BTreeMap<ObjectId, ObjectId>,
+    /// This initial slice attacks the next living seat. It records that seat
+    /// at declaration time rather than recomputing turn order after a player
+    /// leaves in the middle of combat.
+    defending_player: Option<PlayerId>,
     attackers_declared: bool,
     blockers_declared: bool,
 }
@@ -901,11 +905,13 @@ impl Game {
                 .ok_or(RulesError::UnknownCard(*attacker))?
                 .tapped = true;
         }
+        let defending_player = self.next_player(player);
         let combat = self
             .combat
             .as_mut()
             .ok_or(RulesError::IllegalAction("combat was not initialized"))?;
         combat.attackers = attackers.to_vec();
+        combat.defending_player = Some(defending_player);
         combat.attackers_declared = true;
         self.record_event(GameEvent::AttackersDeclared {
             player,
@@ -939,7 +945,7 @@ impl Game {
         if !combat.attackers_declared || combat.blockers_declared {
             return Err(RulesError::IllegalAction("blockers cannot be declared now"));
         }
-        if player != self.next_player(self.active_player) {
+        if combat.defending_player != Some(player) {
             return Err(RulesError::IllegalAction(
                 "only the defending player may declare blockers",
             ));
@@ -1698,6 +1704,21 @@ impl Game {
                     "combat damage began without both combat declarations",
                 ));
             }
+            if combat.attackers_declared {
+                let defending_player = combat.defending_player.ok_or(RulesError::IllegalAction(
+                    "declared combat is missing its defending player",
+                ))?;
+                self.player(defending_player)?;
+                if defending_player == self.active_player {
+                    return Err(RulesError::IllegalAction(
+                        "combat defender cannot equal the active player",
+                    ));
+                }
+            } else if combat.defending_player.is_some() {
+                return Err(RulesError::IllegalAction(
+                    "undeclared combat has a defending player",
+                ));
+            }
             for attacker in &combat.attackers {
                 if !attackers.insert(*attacker) {
                     return Err(RulesError::IllegalAction("invalid combat attacker state"));
@@ -2044,14 +2065,19 @@ impl Game {
         for player in &mut self.players {
             player.mana_pool.clear();
         }
-        let skip_empty_combat = self.step == Step::DeclareAttackers
-            && self
-                .combat
-                .as_ref()
-                .is_some_and(|combat| combat.attackers_declared && combat.attackers.is_empty());
+        let skip_combat = matches!(self.step, Step::DeclareAttackers | Step::DeclareBlockers)
+            && self.combat.as_ref().is_some_and(|combat| {
+                combat.attackers_declared
+                    && (combat.attackers.is_empty()
+                        || combat
+                            .defending_player
+                            .is_some_and(|player| self.players[player.0].lost))
+            });
         // CR 508.8: no attackers means there is no declare-blockers or
-        // combat-damage step. The combat state is cleared at EndOfCombat.
-        self.step = if skip_empty_combat {
+        // combat-damage step. Likewise, when the fixed defending player
+        // leaves, attackers are removed from combat instead of retargeting a
+        // later seat. The combat state is cleared at EndOfCombat.
+        self.step = if skip_combat {
             Step::EndOfCombat
         } else {
             self.step.next()
@@ -2153,7 +2179,12 @@ impl Game {
                 "combat damage before attackers and blockers were declared",
             ));
         }
-        let defending_player = self.next_player(self.active_player);
+        let defending_player = combat.defending_player.ok_or(RulesError::IllegalAction(
+            "combat damage is missing its defending player",
+        ))?;
+        if self.players[defending_player.0].lost {
+            return Ok(());
+        }
         let mut permanent_damage = Vec::new();
         let mut player_damage = Vec::new();
         for attacker in combat.attackers {
@@ -2456,9 +2487,10 @@ impl Game {
             {
                 self.active_player
             }
-            (Some(combat), Step::DeclareBlockers) if !combat.blockers_declared => {
-                self.next_player(self.active_player)
-            }
+            (Some(combat), Step::DeclareBlockers) if !combat.blockers_declared => combat
+                .defending_player
+                .filter(|player| !self.players[player.0].lost)
+                .unwrap_or(self.priority),
             _ => self.priority,
         }
     }
@@ -2507,6 +2539,21 @@ impl Game {
             self.players[player.0].lost = true;
             self.record_event(GameEvent::PlayerLost { player, reason });
             self.remove_departing_players_objects(player);
+            if self
+                .combat
+                .as_ref()
+                .is_some_and(|combat| combat.defending_player == Some(player))
+            {
+                // CR 800.4a / 506.4a: creatures attacking a player who left
+                // the game are removed from combat. Do not redirect them to
+                // the next living seat merely because turn order changed.
+                let combat = self
+                    .combat
+                    .as_mut()
+                    .expect("combat was present when the departed defender was checked");
+                combat.attackers.clear();
+                combat.blockers.clear();
+            }
         }
     }
 
