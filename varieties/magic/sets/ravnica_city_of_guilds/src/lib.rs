@@ -76,7 +76,7 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             effects: vec![
                 Effect::DealDamage {
                     amount: 4,
-                    target: cardbench_magic_engine::TargetRequirement::Any,
+                    target: cardbench_magic_engine::TargetRequirement::PlayerOrCreature,
                 },
                 Effect::DealDamageController { amount: 2 },
             ],
@@ -133,7 +133,7 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             effects: vec![
                 Effect::DealDamage {
                     amount: 3,
-                    target: cardbench_magic_engine::TargetRequirement::Any,
+                    target: cardbench_magic_engine::TargetRequirement::PlayerOrCreature,
                 },
                 Effect::GainLifeController { amount: 3 },
             ],
