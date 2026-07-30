@@ -1076,6 +1076,116 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             2,
             5,
         ),
+        // Compatibility scope: normal colored-cost creature casting and base
+        // characteristics only. Its printed evasion and activated combat
+        // behavior are deliberately omitted from this compatibility slice.
+        bounded_creature_chassis(
+            "RAV-SCREECHING-GRIFFIN",
+            "Screeching Griffin",
+            ManaCost::with_colors(3, [Color::White]),
+            colors([Color::White]),
+            2,
+            2,
+        ),
+        // Compatibility scope: normal colored-cost creature casting and base
+        // characteristics only. Its printed flying and damage-triggered
+        // behavior are deliberately omitted from this compatibility slice.
+        bounded_creature_chassis(
+            "RAV-BELLTOWER-SPHINX",
+            "Belltower Sphinx",
+            ManaCost::with_colors(4, [Color::Blue]),
+            colors([Color::Blue]),
+            2,
+            5,
+        ),
+        // Compatibility scope: normal colored-cost creature casting and base
+        // characteristics only. Its printed flying and activated library
+        // behavior are deliberately omitted from this compatibility slice.
+        bounded_creature_chassis(
+            "RAV-CERULEAN-SPHINX",
+            "Cerulean Sphinx",
+            ManaCost::with_colors(4, [Color::Blue, Color::Blue]),
+            colors([Color::Blue]),
+            5,
+            5,
+        ),
+        // Compatibility scope: normal colored-cost creature casting and base
+        // characteristics only. Its printed evasion and opponent-token entry
+        // behavior are deliberately omitted from this compatibility slice.
+        bounded_creature_chassis(
+            "RAV-HUNTED-PHANTASM",
+            "Hunted Phantasm",
+            ManaCost::with_colors(1, [Color::Blue, Color::Blue]),
+            colors([Color::Blue]),
+            4,
+            6,
+        ),
+        // Compatibility scope: normal colored-cost creature casting and base
+        // characteristics only. Its printed flying and regeneration activation
+        // are deliberately omitted from this compatibility slice.
+        bounded_creature_chassis(
+            "RAV-TATTERED-DRAKE",
+            "Tattered Drake",
+            ManaCost::with_colors(4, [Color::Blue]),
+            colors([Color::Blue]),
+            2,
+            2,
+        ),
+        // Compatibility scope: normal colored-cost creature casting and base
+        // characteristics only. Its printed enter-the-battlefield library
+        // movement is deliberately omitted from this compatibility slice.
+        bounded_creature_chassis(
+            "RAV-VEDALKEN-DISMISSER",
+            "Vedalken Dismisser",
+            ManaCost::with_colors(5, [Color::Blue]),
+            colors([Color::Blue]),
+            2,
+            2,
+        ),
+        // Compatibility scope: normal colored-cost creature casting and base
+        // characteristics only. Its printed blocking trigger is deliberately
+        // omitted from this compatibility slice.
+        bounded_creature_chassis(
+            "RAV-ZEPHYR-SPIRIT",
+            "Zephyr Spirit",
+            ManaCost::with_colors(5, [Color::Blue]),
+            colors([Color::Blue]),
+            0,
+            6,
+        ),
+        // Compatibility scope: normal colored-cost creature casting and base
+        // characteristics only. Its printed death trigger is deliberately
+        // omitted from this compatibility slice.
+        bounded_creature_chassis(
+            "RAV-SADISTIC-AUGERMAGE",
+            "Sadistic Augermage",
+            ManaCost::with_colors(2, [Color::Black]),
+            colors([Color::Black]),
+            3,
+            1,
+        ),
+        // Compatibility scope: normal colored-cost creature casting and base
+        // characteristics only. Its printed prevention behavior is deliberately
+        // omitted from this compatibility slice.
+        bounded_creature_chassis(
+            "RAV-INDENTURED-OAF",
+            "Indentured Oaf",
+            ManaCost::with_colors(3, [Color::Red]),
+            colors([Color::Red]),
+            4,
+            3,
+        ),
+        // Compatibility scope: normal colored-cost creature casting and base
+        // characteristics only. Its printed defender and land-sacrifice
+        // behavior are deliberately omitted from this compatibility slice.
+        bounded_creature_chassis(
+            "RAV-TORPID-MOLOCH",
+            "Torpid Moloch",
+            ManaCost::with_colors(0, [Color::Red]),
+            colors([Color::Red]),
+            3,
+            2,
+        ),
         signet_definition("RAV-BOROS-SIGNET", "Boros Signet"),
         signet_definition("RAV-DIMIR-SIGNET", "Dimir Signet"),
         signet_definition("RAV-GOLGARI-SIGNET", "Golgari Signet"),
@@ -1810,7 +1920,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 55);
+        assert_eq!(first.len(), 60);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

@@ -3274,3 +3274,298 @@ stack_size = 0
 priority = 0
 event_markers = ["AttackersDeclared", "ManaAbilityActivated", "SpellCast", "DamageDealtToPlayer", "SpellResolved"]
 digest = "fnv1a64:3e3d4135d4f5de70"
+
+[[scenario]]
+id = "rav_easy_white_creature_chassis"
+seed = 0
+description = "Cast Screeching Griffin and verify its exact colored cost and base P/T. Printed flying and activated combat behavior are deliberately omitted."
+
+[[scenario.card]]
+label = "griffin"
+owner = 0
+definition = "RAV-SCREECHING-GRIFFIN"
+zone = "hand"
+
+[[scenario.mana]]
+player = 0
+color = "white"
+amount = 4
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "griffin"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["griffin:battlefield"]
+powers = ["griffin:2"]
+toughnesses = ["griffin:2"]
+mana = ["0:white:0"]
+stack_size = 0
+priority = 0
+event_markers = ["SpellCast", "PriorityPassed", "SpellResolved"]
+digest = "fnv1a64:2371b092f503844f"
+
+[[scenario]]
+id = "rav_easy_blue_sphinx_chassis"
+seed = 0
+description = "Cast Belltower Sphinx and Cerulean Sphinx with exact blue requirements, then verify only their base P/T. Printed flying, trigger, and activation behavior are deliberately omitted."
+
+[[scenario.card]]
+label = "belltower"
+owner = 0
+definition = "RAV-BELLTOWER-SPHINX"
+zone = "hand"
+
+[[scenario.card]]
+label = "cerulean"
+owner = 0
+definition = "RAV-CERULEAN-SPHINX"
+zone = "hand"
+
+[[scenario.mana]]
+player = 0
+color = "blue"
+amount = 11
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "belltower"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "cerulean"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["belltower:battlefield", "cerulean:battlefield"]
+powers = ["belltower:2", "cerulean:5"]
+toughnesses = ["belltower:5", "cerulean:5"]
+mana = ["0:blue:0"]
+stack_size = 0
+priority = 0
+event_markers = ["SpellCast", "SpellResolved"]
+digest = "fnv1a64:e78637d84b25b302"
+
+[[scenario]]
+id = "rav_easy_blue_phantasm_drake_chassis"
+seed = 0
+description = "Cast Hunted Phantasm and Tattered Drake with exact blue costs, then verify only their base P/T. Printed evasion, token entry, flying, and regeneration behavior are deliberately omitted."
+
+[[scenario.card]]
+label = "phantasm"
+owner = 0
+definition = "RAV-HUNTED-PHANTASM"
+zone = "hand"
+
+[[scenario.card]]
+label = "drake"
+owner = 0
+definition = "RAV-TATTERED-DRAKE"
+zone = "hand"
+
+[[scenario.mana]]
+player = 0
+color = "blue"
+amount = 8
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "phantasm"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "drake"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["phantasm:battlefield", "drake:battlefield"]
+powers = ["phantasm:4", "drake:2"]
+toughnesses = ["phantasm:6", "drake:2"]
+mana = ["0:blue:0"]
+stack_size = 0
+priority = 0
+event_markers = ["SpellCast", "SpellResolved"]
+digest = "fnv1a64:e78637d84b25b302"
+
+[[scenario]]
+id = "rav_easy_blue_late_creature_chassis"
+seed = 0
+description = "Cast Vedalken Dismisser and Zephyr Spirit with exact blue costs, then verify only their base P/T. Printed entry and blocking triggers are deliberately omitted."
+
+[[scenario.card]]
+label = "dismisser"
+owner = 0
+definition = "RAV-VEDALKEN-DISMISSER"
+zone = "hand"
+
+[[scenario.card]]
+label = "zephyr"
+owner = 0
+definition = "RAV-ZEPHYR-SPIRIT"
+zone = "hand"
+
+[[scenario.mana]]
+player = 0
+color = "blue"
+amount = 12
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "dismisser"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "zephyr"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["dismisser:battlefield", "zephyr:battlefield"]
+powers = ["dismisser:2", "zephyr:0"]
+toughnesses = ["dismisser:2", "zephyr:6"]
+mana = ["0:blue:0"]
+stack_size = 0
+priority = 0
+event_markers = ["SpellCast", "SpellResolved"]
+digest = "fnv1a64:e78637d84b25b302"
+
+[[scenario]]
+id = "rav_easy_black_red_creature_chassis"
+seed = 0
+description = "Cast Sadistic Augermage, Indentured Oaf, and Torpid Moloch with exact colored costs, then verify only base P/T. Printed death, prevention, defender, and land-sacrifice behavior are deliberately omitted."
+
+[[scenario.card]]
+label = "augermage"
+owner = 0
+definition = "RAV-SADISTIC-AUGERMAGE"
+zone = "hand"
+
+[[scenario.card]]
+label = "oaf"
+owner = 0
+definition = "RAV-INDENTURED-OAF"
+zone = "hand"
+
+[[scenario.card]]
+label = "moloch"
+owner = 0
+definition = "RAV-TORPID-MOLOCH"
+zone = "hand"
+
+[[scenario.mana]]
+player = 0
+color = "black"
+amount = 3
+
+[[scenario.mana]]
+player = 0
+color = "red"
+amount = 5
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "augermage"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "oaf"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "moloch"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["augermage:battlefield", "oaf:battlefield", "moloch:battlefield"]
+powers = ["augermage:3", "oaf:4", "moloch:3"]
+toughnesses = ["augermage:1", "oaf:3", "moloch:2"]
+mana = ["0:black:0", "0:red:0"]
+stack_size = 0
+priority = 0
+event_markers = ["SpellCast", "SpellResolved"]
+digest = "fnv1a64:68d4a28396f03982"
