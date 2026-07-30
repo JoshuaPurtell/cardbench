@@ -1269,7 +1269,10 @@ impl Game {
             found,
         });
         self.consecutive_passes = 0;
-        self.priority = self.next_player(player);
+        // The supported atomic transmute activation completes at the same
+        // priority boundary as any other non-pass action: its controller
+        // retains priority until they choose to pass.
+        self.priority = player;
         Ok(())
     }
 
