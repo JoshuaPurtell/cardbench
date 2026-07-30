@@ -4,6 +4,324 @@ visibility = "shown"
 format = "ravnica-block"
 
 [[scenario]]
+id = "rav_wave_three_green_creature_chassis"
+seed = 0
+description = "Cast five green creature chassis with exact colored costs and verify their bounded base P/T only. Their printed triggers and activations are deliberately omitted."
+
+[[scenario.card]]
+label = "sage"
+owner = 0
+definition = "RAV-PRIMORDIAL-SAGE"
+zone = "hand"
+
+[[scenario.card]]
+label = "transluminant"
+owner = 0
+definition = "RAV-TRANSLUMINANT"
+zone = "hand"
+
+[[scenario.card]]
+label = "hunter"
+owner = 0
+definition = "RAV-TROPHY-HUNTER"
+zone = "hand"
+
+[[scenario.card]]
+label = "ursapine"
+owner = 0
+definition = "RAV-URSAPINE"
+zone = "hand"
+
+[[scenario.card]]
+label = "kudzu"
+owner = 0
+definition = "RAV-VINELASHER-KUDZU"
+zone = "hand"
+
+[[scenario.mana]]
+player = 0
+color = "green"
+amount = 18
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "transluminant"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "hunter"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "ursapine"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "kudzu"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "sage"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["sage:battlefield", "transluminant:battlefield", "hunter:battlefield", "ursapine:battlefield", "kudzu:battlefield"]
+powers = ["sage:4", "transluminant:2", "hunter:2", "ursapine:3", "kudzu:1"]
+toughnesses = ["sage:5", "transluminant:2", "hunter:3", "ursapine:3", "kudzu:1"]
+mana = ["0:green:0"]
+stack_size = 0
+priority = 0
+event_markers = ["SpellCast", "PriorityPassed", "SpellResolved"]
+digest = "fnv1a64:ada48a35818fe4db"
+
+[[scenario]]
+id = "rav_wave_three_guild_creature_chassis"
+seed = 0
+description = "Cast Drooling Groodion, Flame-Kin Zealot, and Golgari Rotwurm with exact guild-color requirements, then verify their bounded base P/T only. Their printed card-specific behavior is deliberately omitted."
+
+[[scenario.card]]
+label = "groodion"
+owner = 0
+definition = "RAV-DROOLING-GROODION"
+zone = "hand"
+
+[[scenario.card]]
+label = "zealot"
+owner = 0
+definition = "RAV-FLAME-KIN-ZEALOT"
+zone = "hand"
+
+[[scenario.card]]
+label = "rotwurm"
+owner = 0
+definition = "RAV-GOLGARI-ROTWURM"
+zone = "hand"
+
+[[scenario.mana]]
+player = 0
+color = "white"
+amount = 8
+
+[[scenario.mana]]
+player = 0
+color = "black"
+amount = 3
+
+[[scenario.mana]]
+player = 0
+color = "red"
+amount = 2
+
+[[scenario.mana]]
+player = 0
+color = "green"
+amount = 2
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "zealot"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "rotwurm"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "groodion"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["groodion:battlefield", "zealot:battlefield", "rotwurm:battlefield"]
+powers = ["groodion:4", "zealot:2", "rotwurm:5"]
+toughnesses = ["groodion:3", "zealot:2", "rotwurm:4"]
+mana = ["0:white:0", "0:black:0", "0:red:0", "0:green:0"]
+stack_size = 0
+priority = 0
+event_markers = ["SpellCast", "PriorityPassed", "SpellResolved"]
+digest = "fnv1a64:0ecf0e95b6bb1ca6"
+
+[[scenario]]
+id = "rav_wave_three_boros_golgari_creature_chassis"
+seed = 0
+description = "Cast two Boros and two Golgari creature chassis with exact multicolor costs, then verify their bounded base P/T only. Their printed combat, evasion, and graveyard behavior is deliberately omitted."
+
+[[scenario.card]]
+label = "enforcer"
+owner = 0
+definition = "RAV-SUNHOME-ENFORCER"
+zone = "hand"
+
+[[scenario.card]]
+label = "trumpeter"
+owner = 0
+definition = "RAV-THUNDERSONG-TRUMPETER"
+zone = "hand"
+
+[[scenario.card]]
+label = "zombie"
+owner = 0
+definition = "RAV-VULTUROUS-ZOMBIE"
+zone = "hand"
+
+[[scenario.card]]
+label = "corrupter"
+owner = 0
+definition = "RAV-WOODWRAITH-CORRUPTER"
+zone = "hand"
+
+[[scenario.mana]]
+player = 0
+color = "white"
+amount = 10
+
+[[scenario.mana]]
+player = 0
+color = "black"
+amount = 3
+
+[[scenario.mana]]
+player = 0
+color = "red"
+amount = 2
+
+[[scenario.mana]]
+player = 0
+color = "green"
+amount = 2
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "trumpeter"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "enforcer"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "zombie"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "corrupter"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["enforcer:battlefield", "trumpeter:battlefield", "zombie:battlefield", "corrupter:battlefield"]
+powers = ["enforcer:2", "trumpeter:2", "zombie:3", "corrupter:3"]
+toughnesses = ["enforcer:4", "trumpeter:1", "zombie:3", "corrupter:6"]
+mana = ["0:white:0", "0:black:0", "0:red:0", "0:green:0"]
+stack_size = 0
+priority = 0
+event_markers = ["SpellCast", "PriorityPassed", "SpellResolved"]
+digest = "fnv1a64:94fcfbd88fedb5d5"
+
+[[scenario]]
 id = "rav_seeds_of_strength_three_modifiers"
 seed = 0
 description = "Resolve Seeds of Strength and retain each of its three temporary target modifiers."

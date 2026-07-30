@@ -182,7 +182,7 @@
 174	Nullmage Shepherd
 175	Overwhelm	executable:RAV-OVERWHELM
 176	Perilous Forays
-177	Primordial Sage
+177	Primordial Sage	executable:RAV-PRIMORDIAL-SAGE
 178	Recollect
 179	Rolling Spoil
 180	Root-Kin Ally	executable:RAV-ROOT-KIN-ALLY
@@ -191,10 +191,10 @@
 183	Siege Wurm	executable:RAV-SIEGE-WURM
 184	Stone-Seeder Hierophant
 185	Sundering Vitae
-186	Transluminant
-187	Trophy Hunter
-188	Ursapine
-189	Vinelasher Kudzu
+186	Transluminant	executable:RAV-TRANSLUMINANT
+187	Trophy Hunter	executable:RAV-TROPHY-HUNTER
+188	Ursapine	executable:RAV-URSAPINE
+189	Vinelasher Kudzu	executable:RAV-VINELASHER-KUDZU
 190	Agrus Kos, Wojek Veteran
 191	Autochthon Wurm	executable:RAV-AUTOCHTHON-WURM
 192	Bloodbond March
@@ -209,13 +209,13 @@
 201	Dimir Cutpurse
 202	Dimir Doppelganger
 203	Dimir Infiltrator
-204	Drooling Groodion
+204	Drooling Groodion	executable:RAV-DROOLING-GROODION
 205	Firemane Angel
-206	Flame-Kin Zealot
+206	Flame-Kin Zealot	executable:RAV-FLAME-KIN-ZEALOT
 207	Glare of Subdual
 208	Glimpse the Unthinkable
 209	Golgari Germination
-210	Golgari Rotwurm
+210	Golgari Rotwurm	executable:RAV-GOLGARI-ROTWURM
 211	Grave-Shell Scarab	executable:RAV-GRAVE-SHELL-SCARAB
 212	Guardian of Vitu-Ghazi	executable:RAV-GUARDIAN-OF-VITU-GHAZI
 213	Lightning Helix	executable:RAV-LIGHTNING-HELIX
@@ -238,14 +238,14 @@
 230	Shambling Shell	executable:RAV-SHAMBLING-SHELL
 231	Sisters of Stone Death
 232	Skyknight Legionnaire	executable:RAV-SKYKNIGHT-LEGIONNAIRE
-233	Sunhome Enforcer
+233	Sunhome Enforcer	executable:RAV-SUNHOME-ENFORCER
 234	Szadek, Lord of Secrets
-235	Thundersong Trumpeter
+235	Thundersong Trumpeter	executable:RAV-THUNDERSONG-TRUMPETER
 236	Tolsimir Wolfblood
 237	Twisted Justice
-238	Vulturous Zombie
+238	Vulturous Zombie	executable:RAV-VULTUROUS-ZOMBIE
 239	Watchwolf	executable:RAV-WATCHWOLF
-240	Woodwraith Corrupter
+240	Woodwraith Corrupter	executable:RAV-WOODWRAITH-CORRUPTER
 241	Woodwraith Strangler
 242	Boros Guildmage
 243	Boros Recruit
