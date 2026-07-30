@@ -17,7 +17,45 @@ pub enum Color {
     Green,
 }
 
-/// The color produced by an activated mana ability.
+/// A deterministic, fixed bundle of mana produced by one mana ability.
+///
+/// The bundle deliberately uses one entry per color. This makes an activation
+/// such as a Ravnica Signet's `{1}, {T}: add {U}{R}` distinct from an ability
+/// that asks its controller to choose either blue or red mana. `new` preserves
+/// the supplied amount for each color; the rules layer rejects zero entries or
+/// an empty bundle when it validates a binding.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ManaBundle {
+    amounts: BTreeMap<Color, u8>,
+}
+
+impl ManaBundle {
+    #[must_use]
+    pub fn new(amounts: impl IntoIterator<Item = (Color, u8)>) -> Self {
+        Self {
+            amounts: amounts.into_iter().collect(),
+        }
+    }
+
+    #[must_use]
+    pub fn amount(&self, color: Color) -> u8 {
+        match self.amounts.get(&color) {
+            Some(amount) => *amount,
+            None => 0,
+        }
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (Color, u8)> + '_ {
+        self.amounts.iter().map(|(color, amount)| (*color, *amount))
+    }
+
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.amounts.is_empty()
+    }
+}
+
+/// The mana produced by an activated mana ability.
 ///
 /// `Choice` deliberately carries its legal choices instead of treating a
 /// multi-color producer as a source of every color at once. The activating
@@ -26,20 +64,30 @@ pub enum Color {
 pub enum ManaAbilityOutput {
     Fixed(Color),
     Choice(BTreeSet<Color>),
+    /// Pays the named mana cost, then produces every entry of the fixed bundle
+    /// as one non-stack mana-ability activation. `amount` on the enclosing
+    /// ability must be zero for this variant because the bundle carries the
+    /// exact quantities itself.
+    PaidBundle {
+        mana_cost: ManaCost,
+        bundle: ManaBundle,
+    },
 }
 
 /// An expansion-neutral activated mana ability bound to a card definition.
 ///
 /// This represents only the activation substrate: an optional tap cost, an
-/// optional life payment, and one positive unit of a chosen or fixed color.
-/// It does not encode card names or printed rules text.
+/// optional life payment, and either a chosen/fixed mana quantity or a paid
+/// fixed bundle. It does not encode card names or printed rules text.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ActivatedManaAbility {
     /// Stable identifier unique within its bound card definition.
     pub id: &'static str,
     pub tap_cost: bool,
     pub output: ManaAbilityOutput,
-    /// Positive mana quantity produced by a successful activation.
+    /// Positive mana quantity produced by a `Fixed` or `Choice` activation.
+    /// It must be zero for `ManaAbilityOutput::PaidBundle`, whose quantities
+    /// are carried by its `ManaBundle`.
     pub amount: u8,
     /// An optional, positive life payment made by the controller as a cost.
     pub life_payment: Option<u8>,
@@ -57,7 +105,7 @@ pub struct ManaAbilityBinding {
 }
 
 /// A player's request to activate a bound mana ability.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ManaAbilityActivation {
     pub source: ObjectId,
     pub ability_id: &'static str,
@@ -684,6 +732,23 @@ pub enum GameEvent {
         amount: u8,
         tapped: bool,
         life_payment: Option<u8>,
+    },
+    /// Receipt for a paid, fixed multi-color mana bundle. This preserves the
+    /// legacy single-color receipt for existing bindings while making the cost
+    /// and every produced color auditable for Signet-style abilities.
+    BoundManaAbilityBundleActivated {
+        player: PlayerId,
+        source: ObjectId,
+        ability: &'static str,
+        mana_cost: ManaCost,
+        bundle: ManaBundle,
+        tapped: bool,
+        life_payment: Option<u8>,
+    },
+    /// Mana spent as an activation cost for a bound paid-bundle ability.
+    ManaAbilityManaPaid {
+        player: PlayerId,
+        mana_cost: ManaCost,
     },
     /// A life payment made as part of a bound mana-ability activation cost.
     ManaAbilityLifePaid {

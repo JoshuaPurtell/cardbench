@@ -579,6 +579,7 @@ impl Game {
     /// pass sequence, or event changes. A creature's tap ability observes this
     /// engine slice's summoning-sickness boundary; the current substrate has no
     /// haste exception.
+    #[allow(clippy::too_many_lines)] // One method keeps the activation transaction atomic and auditable.
     pub fn activate_bound_mana_ability(
         &mut self,
         player: PlayerId,
@@ -603,7 +604,34 @@ impl Game {
                 "source does not have the requested mana ability",
             ))?
             .clone();
-        let color = Self::resolve_mana_ability_color(&ability.output, activation.chosen_color)?;
+        let paid_bundle = match &ability.output {
+            ManaAbilityOutput::PaidBundle { mana_cost, bundle } => {
+                if activation.chosen_color.is_some() {
+                    return Err(RulesError::IllegalAction(
+                        "fixed mana bundle ability does not accept a color choice",
+                    ));
+                }
+                let mut paid_pool = self.players[player.0].mana_pool.clone();
+                paid_pool.pay(mana_cost).map_err(RulesError::Mana)?;
+                for (color, amount) in bundle.iter() {
+                    if amount > u8::MAX.saturating_sub(paid_pool.amount(color)) {
+                        return Err(RulesError::IllegalAction(
+                            "mana pool cannot hold the produced mana",
+                        ));
+                    }
+                }
+                Some((mana_cost.clone(), bundle.clone(), paid_pool))
+            }
+            ManaAbilityOutput::Fixed(_) | ManaAbilityOutput::Choice(_) => None,
+        };
+        let color = if paid_bundle.is_none() {
+            Some(Self::resolve_mana_ability_color(
+                &ability.output,
+                activation.chosen_color,
+            )?)
+        } else {
+            None
+        };
         if ability.tap_cost {
             if source.tapped {
                 return Err(RulesError::IllegalAction(
@@ -628,7 +656,10 @@ impl Game {
                 "cannot pay more life than the controller has",
             ));
         }
-        if ability.amount > u8::MAX.saturating_sub(self.players[player.0].mana_pool.amount(color)) {
+        if let Some(color) = color
+            && ability.amount
+                > u8::MAX.saturating_sub(self.players[player.0].mana_pool.amount(color))
+        {
             return Err(RulesError::IllegalAction(
                 "mana pool cannot hold the produced mana",
             ));
@@ -643,24 +674,50 @@ impl Game {
         if let Some(life_payment) = ability.life_payment {
             self.players[player.0].life -= i16::from(life_payment);
         }
-        self.players[player.0].mana_pool.add(color, ability.amount);
-        self.record_event(GameEvent::BoundManaAbilityActivated {
-            player,
-            source: activation.source,
-            ability: ability.id,
-            color,
-            amount: ability.amount,
-            tapped: ability.tap_cost,
-            life_payment: ability.life_payment,
-        });
-        if let Some(amount) = ability.life_payment {
-            self.record_event(GameEvent::ManaAbilityLifePaid { player, amount });
+        if let Some((mana_cost, bundle, paid_pool)) = paid_bundle {
+            self.players[player.0].mana_pool = paid_pool;
+            self.record_event(GameEvent::BoundManaAbilityBundleActivated {
+                player,
+                source: activation.source,
+                ability: ability.id,
+                mana_cost: mana_cost.clone(),
+                bundle: bundle.clone(),
+                tapped: ability.tap_cost,
+                life_payment: ability.life_payment,
+            });
+            self.record_event(GameEvent::ManaAbilityManaPaid { player, mana_cost });
+            if let Some(amount) = ability.life_payment {
+                self.record_event(GameEvent::ManaAbilityLifePaid { player, amount });
+            }
+            for (color, amount) in bundle.iter() {
+                self.players[player.0].mana_pool.add(color, amount);
+                self.record_event(GameEvent::ManaAdded {
+                    player,
+                    color,
+                    amount,
+                });
+            }
+        } else {
+            let color = color.expect("single-color mana ability output was preflighted");
+            self.players[player.0].mana_pool.add(color, ability.amount);
+            self.record_event(GameEvent::BoundManaAbilityActivated {
+                player,
+                source: activation.source,
+                ability: ability.id,
+                color,
+                amount: ability.amount,
+                tapped: ability.tap_cost,
+                life_payment: ability.life_payment,
+            });
+            if let Some(amount) = ability.life_payment {
+                self.record_event(GameEvent::ManaAbilityLifePaid { player, amount });
+            }
+            self.record_event(GameEvent::ManaAdded {
+                player,
+                color,
+                amount: ability.amount,
+            });
         }
-        self.record_event(GameEvent::ManaAdded {
-            player,
-            color,
-            amount: ability.amount,
-        });
         self.consecutive_passes = 0;
         self.priority = player;
         self.check_state_based_actions()?;
@@ -2552,10 +2609,31 @@ impl Game {
         if ability.id.is_empty() {
             return Err(RulesError::IllegalAction("mana ability lacks an identity"));
         }
-        if ability.amount == 0 {
+        if matches!(
+            &ability.output,
+            ManaAbilityOutput::Fixed(_) | ManaAbilityOutput::Choice(_)
+        ) && ability.amount == 0
+        {
             return Err(RulesError::IllegalAction(
                 "mana ability must produce positive mana",
             ));
+        }
+        if let ManaAbilityOutput::PaidBundle { mana_cost, bundle } = &ability.output {
+            if ability.amount != 0 {
+                return Err(RulesError::IllegalAction(
+                    "paid mana bundle ability must use bundle quantities instead of amount",
+                ));
+            }
+            if mana_cost.mana_value() == 0 {
+                return Err(RulesError::IllegalAction(
+                    "paid mana bundle ability requires a positive mana cost",
+                ));
+            }
+            if bundle.is_empty() || bundle.iter().any(|(_, amount)| amount == 0) {
+                return Err(RulesError::IllegalAction(
+                    "mana ability bundle must contain positive mana amounts",
+                ));
+            }
         }
         if ability.life_payment == Some(0) {
             return Err(RulesError::IllegalAction(
@@ -2584,6 +2662,9 @@ impl Game {
                     RulesError::IllegalAction("mana ability requires one supported color choice"),
                 )
             }
+            ManaAbilityOutput::PaidBundle { .. } => Err(RulesError::IllegalAction(
+                "fixed mana bundle ability does not resolve to one color",
+            )),
         }
     }
 
