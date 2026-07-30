@@ -46,8 +46,10 @@ import argparse
 import hashlib
 import json
 import re
+import shutil
 import subprocess
 import tempfile
+import time
 from pathlib import Path
 import sys
 import os
@@ -922,6 +924,59 @@ fn main() {{
 """
 
 
+CARGO_CACHE_ENV = "CARDBENCH_CARGO_CACHE"
+CARGO_CACHE_KEEP_ENV = "CARDBENCH_CARGO_CACHE_KEEP"
+DEFAULT_CARGO_CACHE_KEEP = 6
+# Never evict a tree another process may still be linking into.
+_EVICTION_GRACE_SECONDS = 1800
+
+
+def cargo_cache_root() -> Path:
+    """Where per-candidate cargo target trees live.
+
+    Defaults to ``<repo>/.cache`` but is overridable so a harness can keep the
+    cache off the agent workspace. ``benchmark_ai`` is invoked from whichever
+    checkout the caller passes, so without the override an agent that compiles
+    to test its own policy writes ~1GB into its workspace — which then gets
+    retained in the run's results tree.
+    """
+    override = os.environ.get(CARGO_CACHE_ENV, "").strip()
+    root = Path(override).expanduser() if override else BASE_DIR / ".cache"
+    return root / "policy-cargo-target"
+
+
+def evict_stale_builds(cache_root: Path, *, keep: str) -> None:
+    """Bound the cache to the N most recent build keys.
+
+    Every distinct candidate gets its own target tree, and each tree carries a
+    full copy of the compiled dependencies (~1GB). Nothing reclaimed them
+    before, so a single sweep session could leave tens of GB behind.
+    """
+    try:
+        limit = int(os.environ.get(CARGO_CACHE_KEEP_ENV, DEFAULT_CARGO_CACHE_KEEP))
+    except ValueError:
+        limit = DEFAULT_CARGO_CACHE_KEEP
+    if limit <= 0 or not cache_root.is_dir():
+        return
+
+    now = time.time()
+    entries = []
+    for path in cache_root.iterdir():
+        if not path.is_dir() or path.name == keep:
+            continue
+        try:
+            mtime = path.stat().st_mtime
+        except OSError:
+            continue
+        if now - mtime < _EVICTION_GRACE_SECONDS:
+            continue  # possibly an in-flight build from a concurrent lane
+        entries.append((mtime, path))
+
+    entries.sort(reverse=True)
+    for _, path in entries[max(0, limit - 1) :]:
+        shutil.rmtree(path, ignore_errors=True)
+
+
 def write_benchmark_workspace(
     *,
     work_dir: Path,
@@ -984,7 +1039,9 @@ rand_chacha = "0.3"
             + roster_key
         ).encode()
     ).hexdigest()[:20]
-    target_dir = BASE_DIR / ".cache" / "policy-cargo-target" / build_key
+    cache_root = cargo_cache_root()
+    target_dir = cache_root / build_key
+    evict_stale_builds(cache_root, keep=build_key)
     (work_dir / ".cardbench-target-dir").write_text(str(target_dir))
     return {
         "work_dir": work_dir,

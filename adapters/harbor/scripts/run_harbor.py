@@ -260,6 +260,17 @@ def copy_workspace(destination: Path) -> None:
     assert_no_sealed_leak(destination)
 
 
+def cargo_cache_root() -> Path:
+    """Shared host cache root for candidate builds.
+
+    Honours an outer override so a matrix board can point every lane at one
+    location; otherwise it is the checkout's own ``.cache``. Either way it sits
+    outside the agent workspace.
+    """
+    override = os.environ.get("CARDBENCH_CARGO_CACHE", "").strip()
+    return Path(override).expanduser().resolve() if override else REPO / ".cache"
+
+
 def prune_workspace_cache(workspace: Path) -> None:
     """Drop the cargo target tree the agent built inside its own workspace.
 
@@ -337,6 +348,10 @@ def run_codex(
             # receipt reads, which is why no second scoring pass is needed.
             "CARDBENCH_REPO_ROOT": str(REPO),
             "CARDBENCH_VERIFIER_OUT": str(output / "logs" / "verifier"),
+            # Keep the agent's cargo target tree out of its workspace, which is
+            # retained in the run's results directory. Without this each job
+            # leaves ~1GB of rebuildable object files behind.
+            "CARDBENCH_CARGO_CACHE": str(cargo_cache_root()),
         },
     }
     rollout = output / "rollout.json"
