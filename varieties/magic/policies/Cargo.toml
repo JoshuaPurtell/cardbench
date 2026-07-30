@@ -36,3 +36,7 @@ path = "src/bin/rav_engine_tournament.rs"
 [[bin]]
 name = "rav-engine-audit"
 path = "src/bin/rav_engine_audit.rs"
+
+[[bin]]
+name = "rav-reference-deck-matrix"
+path = "src/bin/rav_reference_deck_matrix.rs"

@@ -9,8 +9,8 @@ use cardbench_magic_engine::{
     CastRequest, Color, CombatBlock, DeckEntry, DeckList, DeckRules, Game, PlayerId, PolicyAction,
     Step, Target, Zone,
 };
-use cardbench_magic_policies::{DeckMatchConfig, DeckMatchTermination, run_rav_deck_matchup};
-use cardbench_magic_rav::card_definitions;
+use cardbench_magic_policies::{EngineTournamentFailure, run_rav_reference_deck_matrix};
+use cardbench_magic_rav::{card_definitions, load_reference_decks};
 
 #[derive(Debug)]
 struct Finding {
@@ -18,8 +18,16 @@ struct Finding {
     detail: String,
 }
 
-const POLICY_MATRIX_SEED_COUNT: u64 = 16;
-const POLICY_MATRIX_MATCH_COUNT: u64 = 4 * POLICY_MATRIX_SEED_COUNT;
+// Keep the always-on audit within an interactive development cycle. The
+// dedicated `rav-reference-deck-matrix` binary runs the wider eight-seed sweep.
+const POLICY_MATRIX_SEED_COUNT: u64 = 3;
+
+#[derive(Debug)]
+struct PolicyMatrixProbe {
+    deck_count: usize,
+    match_count: usize,
+    findings: Vec<Finding>,
+}
 
 fn main() -> ExitCode {
     let mut findings = [
@@ -39,11 +47,12 @@ fn main() -> ExitCode {
     .into_iter()
     .flatten()
     .collect::<Vec<_>>();
-    findings.extend(probe_policy_matchup_matrix());
+    let policy_matrix = probe_policy_matchup_matrix();
+    findings.extend(policy_matrix.findings);
     println!("schema_version=cardbench.magic.engine-audit.v1");
-    println!("policy_matrix_pairing_count=4");
+    println!("policy_matrix_deck_count={}", policy_matrix.deck_count);
     println!("policy_matrix_seed_count={POLICY_MATRIX_SEED_COUNT}");
-    println!("policy_matrix_match_count={POLICY_MATRIX_MATCH_COUNT}");
+    println!("policy_matrix_match_count={}", policy_matrix.match_count);
     println!("finding_count={}", findings.len());
     for finding in &findings {
         println!("finding=code:{} detail:{}", finding.code, finding.detail);
@@ -55,47 +64,46 @@ fn main() -> ExitCode {
     }
 }
 
-/// Runs every public Boros/Selesnya policy pairing across deterministic shuffled
-/// decks. It exercises actual policy submissions, while preserving the distinction
-/// between an engine finding and a policy/harness failure in the finding code.
-fn probe_policy_matchup_matrix() -> Vec<Finding> {
-    const PAIRINGS: [(&str, &str); 4] = [
-        ("rav_boros_helix", "rav_selesnya_convoke"),
-        ("rav_boros_helix", "rav_selesnya_siege"),
-        ("rav_boros_char_control", "rav_selesnya_convoke"),
-        ("rav_boros_char_control", "rav_selesnya_siege"),
-    ];
-    let mut findings = Vec::new();
-    for (deck_p0, deck_p1) in PAIRINGS {
-        for shuffle_seed in 0..POLICY_MATRIX_SEED_COUNT {
-            let label = format!("{deck_p0}-vs-{deck_p1}-seed-{shuffle_seed}");
-            match run_rav_deck_matchup(
-                DeckMatchConfig {
-                    shuffle_seed,
-                    ..DeckMatchConfig::default()
-                },
-                deck_p0,
-                deck_p1,
-            ) {
-                Ok(result) if !result.engine_findings.is_empty() => findings.push(Finding {
-                    code: "policy-matrix-engine-finding",
-                    detail: format!("{label}: {:?}", result.engine_findings),
-                }),
-                Ok(result) if !matches!(result.termination, DeckMatchTermination::Winner(_)) => {
-                    findings.push(Finding {
+/// Runs every ordered pair of public reference decks. It exercises actual
+/// policy submissions and turns every engine finding, rejection, capability
+/// gap, or bounded non-winner into an audit failure with deck provenance.
+fn probe_policy_matchup_matrix() -> PolicyMatrixProbe {
+    let deck_count = load_reference_decks().map_or(0, |decks| decks.len());
+    match run_rav_reference_deck_matrix(0..POLICY_MATRIX_SEED_COUNT) {
+        Ok(matrix) => PolicyMatrixProbe {
+            deck_count,
+            match_count: matrix.matches.len(),
+            findings: matrix
+                .failures
+                .into_iter()
+                .map(|failure| match failure {
+                    EngineTournamentFailure::EngineFinding(finding) => Finding {
+                        code: "policy-matrix-engine-finding",
+                        detail: format!("{finding:?}"),
+                    },
+                    EngineTournamentFailure::NonWinningTermination {
+                        deck_ids,
+                        shuffle_seed,
+                        termination,
+                    } => Finding {
                         code: "policy-matrix-nonwinning-run",
-                        detail: format!("{label}: {:?}", result.termination),
-                    });
-                }
-                Ok(_) => {}
-                Err(error) => findings.push(Finding {
-                    code: "policy-matrix-setup-failed",
-                    detail: format!("{label}: {error}"),
-                }),
-            }
-        }
+                        detail: format!(
+                            "{}-vs-{}-seed-{shuffle_seed}: {termination:?}",
+                            deck_ids[0], deck_ids[1]
+                        ),
+                    },
+                })
+                .collect(),
+        },
+        Err(error) => PolicyMatrixProbe {
+            deck_count,
+            match_count: 0,
+            findings: vec![Finding {
+                code: "policy-matrix-setup-failed",
+                detail: error,
+            }],
+        },
     }
-    findings
 }
 
 /// A finished game may not accept a new gameplay action. This probe uses Char
@@ -460,6 +468,8 @@ fn probe_combat_with_dead_token() -> Option<Finding> {
     let wurm = game
         .add_card(PlayerId(1), "RAV-SIEGE-WURM", Zone::Battlefield)
         .ok()?;
+    game.add_card(PlayerId(0), "RAV-FOREST", Zone::Library)
+        .ok()?;
     game.add_card(PlayerId(1), "RAV-FOREST", Zone::Library)
         .ok()?;
     game.grant_mana(PlayerId(0), Color::Green, 5).ok()?;
@@ -476,13 +486,13 @@ fn probe_combat_with_dead_token() -> Option<Finding> {
     game.pass_priority(PlayerId(0)).ok()?;
     let token = *game.players[0].battlefield.first()?;
 
-    while game.step != Step::DeclareAttackers || game.active_player != PlayerId(1) {
+    while game.step != Step::DeclareAttackers || game.active_player != PlayerId(0) {
         let first = game.priority;
         game.pass_priority(first).ok()?;
         let second = game.priority;
         game.pass_priority(second).ok()?;
     }
-    game.declare_attackers(PlayerId(1), &[wurm]).ok()?;
+    game.declare_attackers(PlayerId(0), &[token]).ok()?;
     let first = game.priority;
     game.pass_priority(first).ok()?;
     let second = game.priority;
@@ -494,10 +504,10 @@ fn probe_combat_with_dead_token() -> Option<Finding> {
         });
     }
     game.declare_blockers(
-        PlayerId(0),
+        PlayerId(1),
         &[CombatBlock {
-            attacker: wurm,
-            blocker: token,
+            attacker: token,
+            blocker: wurm,
         }],
     )
     .ok()?;
@@ -505,6 +515,13 @@ fn probe_combat_with_dead_token() -> Option<Finding> {
     game.pass_priority(first).ok()?;
     let second = game.priority;
     game.pass_priority(second).ok()?;
+    if game.zone_of(token).is_none() && game.view_for_player(PlayerId(0)).is_err() {
+        return Some(Finding {
+            code: "combat-view-breaks-after-token-dies",
+            detail: "a dead token in historical combat state made GameView construction fail"
+                .to_owned(),
+        });
+    }
     if game.zone_of(token).is_none() && game.validate_invariants().is_err() {
         return Some(Finding {
             code: "combat-state-breaks-after-token-dies",

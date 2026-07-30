@@ -22,3 +22,13 @@ path = "rav_boros_char_control.toml"
 id = "rav_selesnya_siege"
 policy = "rav.selesnya-siege.v1"
 path = "rav_selesnya_siege.toml"
+
+[[deck]]
+id = "rav_golgari_attrition"
+policy = "rav.golgari-attrition.v1"
+path = "rav_golgari_attrition.toml"
+
+[[deck]]
+id = "rav_selesnya_radiance_tokens"
+policy = "rav.selesnya-radiance-tokens.v1"
+path = "rav_selesnya_radiance_tokens.toml"

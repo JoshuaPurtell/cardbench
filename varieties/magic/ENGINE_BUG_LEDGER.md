@@ -19,6 +19,7 @@ from `varieties/magic`; the audit exits nonzero while an item remains open.
 | `dredge-accepts-out-of-window-activation` | Engine/card-rules defect | Fixed; regression verified | The direct public dredge operation changes zones without a pending draw to replace. |
 | `unsupported-spell-front-face-resolves-as-noop` | Engine/card-coverage defect | Fixed; regression verified | Muddle the Mixture casts and resolves with no supported front-face effect instead of surfacing a capability gap. |
 | `combat-state-breaks-after-token-dies` | Engine invariant defect | Fixed; regression verified | A token blocker dies, is removed, and stale combat state then fails `validate_invariants()`. |
+| `combat-view-breaks-after-token-dies` | Engine view/invariant defect | Fixed; regression verified | A token dies in combat, remains in historical combat state, and `GameView` dereferences its removed object. |
 
 ## Non-engine result retained for policy work
 
@@ -43,3 +44,11 @@ After the corrective batch, the repeated audit completed with
 (four deck/policy pairings × 16 seeds). The original 16-seed fail-closed
 tournament reported `failure_count=0`; `cargo test --workspace`, strict
 Clippy, and Harbor's public 11-scenario engine verifier also passed.
+
+## Expansion-round evidence
+
+The broader six-deck policy matrix discovered and fixed the token-combat view
+defect above. Its repeated public campaign now runs 90 ordered full-deck games
+(six fixtures × five opponents × three deterministic seeds) with
+`finding_count=0`. The dedicated wider run completed all 240 traces (six
+fixtures × five opponents × eight seeds) with `failure_count=0`.

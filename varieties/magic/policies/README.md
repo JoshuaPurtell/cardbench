@@ -1,12 +1,20 @@
 # RAV Rust policy fixtures
 
 This crate is the public development surface for `cardbench/magic/code_policy`.
-It contains two deterministic Rust policies:
+It contains six deterministic Rust policies:
 
 - `rav.boros-tempo.v1` develops lands/mana, prioritizes `Lightning Helix` and
   `Char`, and completes combat declarations.
 - `rav.selesnya-convoke.v1` develops Forests/Brownscales, uses legal convoke,
   attacks, blocks, and completes combat declarations.
+- `rav.boros-char-control.v1` develops red/white mana, protects its own life
+  total around Char, and uses Helix for lethal or interaction.
+- `rav.selesnya-siege.v1` builds a green convoke board and chooses explicit
+  attacks and low-value blockers.
+- `rav.golgari-attrition.v1` holds black mana for Last Gasp while executing a
+  green Brownscale/convoke plan.
+- `rav.selesnya-radiance-tokens.v1` is a three-color development fixture for
+  tokens, convoke, Rally radiance, continuous layers, and combat.
 
 Policies do not mutate `Game`. They inspect `GameView`, return `PolicyAction`,
 and submit it through `Game::submit_policy_move`. A successful submission adds a
@@ -29,6 +37,8 @@ cargo run -p cardbench-magic-policies --bin rav-policy-match
 cargo run -p cardbench-magic-policies --bin rav-deck-match
 cargo run -p cardbench-magic-policies --bin rav-deck-sweep
 cargo run -p cardbench-magic-policies --bin rav-engine-tournament
+cargo run -p cardbench-magic-policies --bin rav-reference-deck-matrix
+cargo run -p cardbench-magic-policies --bin rav-engine-audit
 ```
 
 The checked-in contract is [`reference_match.toml`](reference_match.toml). It
@@ -51,3 +61,9 @@ and prevents the previously discovered stale-dead-blocker invariant bug.
 every invariant violation, capability gap, policy rejection, or bounded
 non-winner. It is the command to use when the goal is engine bug discovery,
 not merely observing policy behavior.
+
+`rav-reference-deck-matrix` runs every ordered pair of indexed public decks
+across eight deterministic seeds, preserving deck IDs and digests on each
+trace. `rav-engine-audit` adds adversarial public-API probes and a shorter
+interactive matrix; both fail closed when an invariant, policy, or coverage
+problem is discovered.

@@ -66,7 +66,9 @@ Oracle Magic rules coverage.
 - A declared participant may leave the battlefield after damage. Historical
   combat bookkeeping may therefore retain a nontoken object in another zone or
   a token identifier that no longer names an object until combat ends; neither
-  case corrupts zone ownership.
+  case corrupts zone ownership. `GameView::combat_attackers` exposes only
+  currently battlefield attackers, so a historical token identifier cannot
+  make policy observation fail.
 
 ## Effects and state-based actions
 

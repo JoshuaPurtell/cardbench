@@ -481,6 +481,11 @@ impl Game {
                     combat
                         .attackers
                         .iter()
+                        // Combat state retains historical declarations through
+                        // end of combat. Tokens that died in combat have no
+                        // remaining object, and non-token attackers that left
+                        // play are no longer actionable policy information.
+                        .filter(|card| self.zone_of(**card) == Some(Zone::Battlefield))
                         .map(|card| self.card_view(*card))
                         .collect::<Result<Vec<_>, _>>()?,
                     combat.attackers_declared,

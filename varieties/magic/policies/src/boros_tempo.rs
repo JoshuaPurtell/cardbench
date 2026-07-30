@@ -68,7 +68,7 @@ impl CodePolicy for BorosTempoPolicy {
             .iter()
             .find(|card| card.definition == Some("RAV-CHAR"));
 
-        if view.lands_played == 0 {
+        if view.active_player == self.player && view.lands_played == 0 {
             let desired = if helix.is_some() && view.mana_pool.amount(Color::White) == 0 {
                 Some(Color::White)
             } else if (helix.is_some() || char.is_some()) && view.mana_pool.amount(Color::Red) == 0
@@ -146,4 +146,26 @@ fn select_battlefield_land(
         return lands.find(|card| card.mana_colors.contains(&color));
     }
     lands.next()
+}
+
+#[cfg(test)]
+mod tests {
+    use cardbench_magic_engine::{Game, Zone};
+    use cardbench_magic_rav::card_definitions;
+
+    use super::*;
+
+    #[test]
+    fn does_not_play_a_land_during_the_opponents_main_phase() {
+        let mut game = Game::new(card_definitions(), 2).expect("RAV game");
+        game.add_card(PlayerId(1), "RAV-MOUNTAIN", Zone::Hand)
+            .expect("Mountain in hand");
+        game.pass_priority(PlayerId(0))
+            .expect("give player one priority");
+        let mut policy = BorosTempoPolicy::new(PlayerId(1));
+        assert_eq!(
+            policy.propose_move(&game.view_for_player(PlayerId(1)).expect("view")),
+            PolicyAction::PassPriority
+        );
+    }
 }

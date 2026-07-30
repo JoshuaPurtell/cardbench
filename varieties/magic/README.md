@@ -14,12 +14,15 @@ cargo run -p cardbench-magic-policies --bin rav-policy-match
 cargo run -p cardbench-magic-policies --bin rav-deck-match
 cargo run -p cardbench-magic-policies --bin rav-deck-sweep
 cargo run -p cardbench-magic-policies --bin rav-engine-tournament
+cargo run -p cardbench-magic-policies --bin rav-reference-deck-matrix
+cargo run -p cardbench-magic-policies --bin rav-engine-audit
 ```
 
-The last command validates the original Ravnica-block manifests and public deck
-pool, executes eleven RAV scenarios twice, and compares each deterministic event
-log against its fixed public digest. With `--output-root PATH`, the Rust binary
-writes `engine-check.json` and `reward.txt` for the CardBench Harbor receipt.
+`rav-engine-parity` validates the original Ravnica-block manifests and public
+deck pool, executes eleven RAV scenarios twice, and compares each deterministic
+event log against its fixed public digest. With `--output-root PATH`, the Rust
+binary writes `engine-check.json` and `reward.txt` for the CardBench Harbor
+receipt.
 
 | Component | Location | Scope in this milestone |
 | --- | --- | --- |
@@ -77,11 +80,12 @@ setup, actions, state assertions, event markers, and a fixed digest. They cover:
 
 ## Rust policy development match
 
-Two public 60-card RAV fixture decks live in
-`sets/ravnica_city_of_guilds/decks/`: Boros Helix and Selesnya Convoke. Their
-matching Rust policies (`rav.boros-tempo.v1` and `rav.selesnya-convoke.v1`) are
-in `policies/`. Policies receive a public `GameView`, return a narrow
-`PolicyAction`, and the engine accepts the move only via
+Six public 60-card RAV fixture decks live in
+`sets/ravnica_city_of_guilds/decks/`: Boros Helix, Boros Char Control, Selesnya
+Convoke, Selesnya Siege, Golgari Attrition, and a three-color Radiance Tokens
+development fixture. Their matching Rust policies live in `policies/`. Policies
+receive a public `GameView`, return a narrow `PolicyAction`, and the engine
+accepts the move only via
 `Game::submit_policy_move`; normal priority, target, and payment checks remain
 the engine's responsibility.
 
@@ -128,6 +132,15 @@ after lethal damage—has a permanent regression test and is fixed.
 and exits nonzero for every invariant violation, explicit capability gap,
 rejected policy move, or bounded non-winner. Its present baseline has sixteen
 completed games and zero failures.
+
+`rav-reference-deck-matrix` is the broader fail-closed campaign: every ordered
+pair of shown decks is replayed across eight seeds. Each result records both
+deck IDs, the seed, termination, and canonical digest, so a rejection or an
+invariant failure is attributable to one exact matchup. `rav-engine-audit`
+adds public API adversarial probes and an interactive three-seed version of
+that full matrix. The engine integration suite also covers rejected-action
+atomicity, mana-boundary clearing, LIFO/countered stack paths, SBA fixed points,
+and multiplayer survivor priority.
 
 ## Provenance and rights
 
