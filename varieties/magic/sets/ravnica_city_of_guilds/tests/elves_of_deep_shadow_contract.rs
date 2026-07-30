@@ -23,6 +23,7 @@ fn elves_of_deep_shadow_has_its_public_card_and_black_mana_binding() {
     assert_eq!(
         definition.supported_rules,
         [
+            "full-rules-fidelity",
             "colored-cost-casting",
             "base-characteristics",
             "bound-tap-black-mana-ability",

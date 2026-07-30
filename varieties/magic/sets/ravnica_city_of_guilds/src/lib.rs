@@ -32,8 +32,12 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 3] =
-    ["RAV-CHAR", "RAV-LIGHTNING-HELIX", "RAV-LAST-GASP"];
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 4] = [
+    "RAV-CHAR",
+    "RAV-LIGHTNING-HELIX",
+    "RAV-LAST-GASP",
+    "RAV-ELVES-OF-DEEP-SHADOW",
+];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ScenarioResult {
@@ -1093,6 +1097,7 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             card_types: types([CardType::Creature]),
             is_basic_land: false,
             supported_rules: &[
+                "full-rules-fidelity",
                 "colored-cost-casting",
                 "base-characteristics",
                 "bound-tap-black-mana-ability",
