@@ -23,6 +23,7 @@ const PING: &str = "TEST-PING";
 const KILL_CREATURE: &str = "TEST-KILL-CREATURE";
 const GROWTH: &str = "TEST-GROWTH";
 const TOKEN_SPELL: &str = "TEST-TOKEN-SPELL";
+const SORCERY: &str = "TEST-SORCERY";
 const CONVOKE_SPELL: &str = "TEST-CONVOKE-SPELL";
 const DREDGER: &str = "TEST-DREDGER";
 const TRANSMUTER: &str = "TEST-TRANSMUTER";
@@ -138,6 +139,24 @@ fn definitions() -> Vec<CardDefinition> {
                 count: 2,
             }],
         ),
+        CardDefinition {
+            id: SORCERY,
+            name: SORCERY,
+            set_code: "TST",
+            mana_cost: ManaCost::new(0),
+            colors: BTreeSet::new(),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Sorcery]),
+            is_basic_land: false,
+            supported_rules: &["test-effect"],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![Effect::CreateToken {
+                token: TokenSpec::saproling(),
+                count: 1,
+            }],
+        },
         CardDefinition {
             id: CONVOKE_SPELL,
             name: CONVOKE_SPELL,
@@ -386,6 +405,42 @@ fn rejected_mana_and_convoke_actions_are_atomic() {
     assert_eq!(game.zone_of(spell), Some(Zone::Hand));
     assert_eq!(game.zone_of(plains), Some(Zone::Battlefield));
     assert_ne!(player, opponent);
+    assert_invariants(&game);
+}
+
+#[test]
+fn sorcery_cannot_be_cast_by_nonactive_player_in_response_to_a_spell() {
+    let active_player = PlayerId(0);
+    let opponent = PlayerId(1);
+    let mut game = game(2);
+    let instant = game
+        .add_card(active_player, TOKEN_SPELL, Zone::Hand)
+        .expect("instant enters the active player's hand");
+    let sorcery = game
+        .add_card(opponent, SORCERY, Zone::Hand)
+        .expect("sorcery enters the opponent's hand");
+
+    cast(&mut game, active_player, instant, None);
+    assert_eq!(game.priority, opponent);
+    let before = game.clone();
+
+    assert!(matches!(
+        game.cast_spell(
+            opponent,
+            CastRequest {
+                card: sorcery,
+                targets: vec![],
+                convoke: vec![],
+            },
+        ),
+        Err(RulesError::IllegalAction(
+            "non-instant spells require your main phase with an empty stack"
+        ))
+    ));
+    assert_eq!(game.players, before.players);
+    assert_eq!(game.stack, before.stack);
+    assert_eq!(game.event_log, before.event_log);
+    assert_eq!(game.zone_of(sorcery), Some(Zone::Hand));
     assert_invariants(&game);
 }
 
