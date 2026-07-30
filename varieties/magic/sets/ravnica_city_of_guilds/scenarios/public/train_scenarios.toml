@@ -352,7 +352,7 @@ amount = 1
 kind = "cast"
 player = 0
 card = "seeds"
-target = "permanent:target"
+targets = ["permanent:target", "permanent:target", "permanent:target"]
 
 [[scenario.action]]
 kind = "pass"

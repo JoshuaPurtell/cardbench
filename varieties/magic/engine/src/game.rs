@@ -1903,12 +1903,15 @@ impl Game {
                     "stack effects do not match the card definition",
                 ));
             }
-            let target_count = usize::from(
-                definition
-                    .effects
-                    .iter()
-                    .any(|effect| effect.target_requirement().is_some()),
-            );
+            // Each target requirement records one distinct occurrence of the
+            // word "target" in the executable effect model. A target may be
+            // selected again for a later occurrence, but it still occupies a
+            // separate slot on the authoritative stack object.
+            let target_count = definition
+                .effects
+                .iter()
+                .filter(|effect| effect.target_requirement().is_some())
+                .count();
             if stack_object.targets.len() != target_count {
                 return Err(RulesError::IllegalAction(
                     "stack object has an invalid target count",
@@ -2137,16 +2140,15 @@ impl Game {
                 "this spell does not take targets",
             ));
         }
-        if targets.len() != 1 {
+        if targets.len() != requirements.len() {
             return Err(RulesError::IllegalAction(
-                "the initial CardBench spell slice supports exactly one target",
+                "the supplied targets do not match the spell's target occurrences",
             ));
         }
-        if requirements
-            .iter()
-            .any(|requirement| !self.target_matches(targets[0], *requirement))
-        {
-            return Err(RulesError::IllegalTarget(targets[0]));
+        for (target, requirement) in targets.iter().zip(requirements) {
+            if !self.target_matches(*target, requirement) {
+                return Err(RulesError::IllegalTarget(*target));
+            }
         }
         Ok(())
     }
@@ -2203,17 +2205,31 @@ impl Game {
         let stack_object = self.stack.pop().ok_or(RulesError::IllegalAction(
             "attempted to resolve an empty stack",
         ))?;
-        let legal_target = stack_object
-            .effects
-            .iter()
-            .filter_map(Effect::target_requirement)
-            .all(|requirement| {
-                stack_object
-                    .targets
-                    .first()
-                    .is_some_and(|target| self.target_matches(*target, requirement))
-            });
-        if !legal_target {
+        // Build one immutable legality result per target occurrence. The
+        // target sequence is established at cast time and is never rewritten;
+        // at resolution each targeted effect gets its own slot. CR 608.2b
+        // counters the whole spell only when every target is now illegal.
+        let mut target_index = 0;
+        let mut has_target = false;
+        let mut has_legal_target = false;
+        let mut target_legality = Vec::with_capacity(stack_object.effects.len());
+        for effect in &stack_object.effects {
+            let legal =
+                if let Some(requirement) = effect.target_requirement() {
+                    has_target = true;
+                    let target = *stack_object.targets.get(target_index).ok_or(
+                        RulesError::IllegalAction("stack object is missing a target occurrence"),
+                    )?;
+                    target_index += 1;
+                    let legal = self.target_matches(target, requirement);
+                    has_legal_target |= legal;
+                    Some((target, legal))
+                } else {
+                    None
+                };
+            target_legality.push(legal);
+        }
+        if has_target && !has_legal_target {
             self.record_event(GameEvent::SpellCounteredByRules {
                 card: stack_object.card,
             });
@@ -2222,12 +2238,22 @@ impl Game {
             self.priority = self.priority_after_resolution();
             return Ok(());
         }
-        for effect in &stack_object.effects {
+        for (effect, target) in stack_object.effects.iter().zip(target_legality) {
+            let Some(target) = target else {
+                self.resolve_effect(stack_object.card, stack_object.controller, effect, None)?;
+                continue;
+            };
+            if !target.1 {
+                // A remaining legal target lets the spell resolve, but an
+                // instruction addressed to a target that has since become
+                // illegal does nothing.
+                continue;
+            }
             self.resolve_effect(
                 stack_object.card,
                 stack_object.controller,
                 effect,
-                &stack_object.targets,
+                Some(target.0),
             )?;
         }
         self.record_event(GameEvent::SpellResolved {
@@ -2249,33 +2275,32 @@ impl Game {
         source: ObjectId,
         controller: PlayerId,
         effect: &Effect,
-        targets: &[Target],
+        target: Option<Target>,
     ) -> Result<(), RulesError> {
         match effect {
-            Effect::DealDamage { amount, .. } => match targets
-                .first()
+            Effect::DealDamage { amount, .. } => match target
                 .ok_or(RulesError::IllegalAction("missing damage target"))?
             {
                 Target::Player(player) => {
                     self.players[player.0].life -= i64::from(*amount);
                     self.record_event(GameEvent::DamageDealtToPlayer {
                         source,
-                        player: *player,
+                        player,
                         amount: i32::from(*amount),
                     });
                 }
                 Target::Permanent(permanent) => {
                     self.objects
-                        .get_mut(permanent)
-                        .ok_or(RulesError::UnknownCard(*permanent))?
+                        .get_mut(&permanent)
+                        .ok_or(RulesError::UnknownCard(permanent))?
                         .damage += i32::from(*amount);
                     self.record_event(GameEvent::DamageDealtToPermanent {
                         source,
-                        permanent: *permanent,
+                        permanent,
                         amount: i32::from(*amount),
                     });
                 }
-                Target::Spell(card) => return Err(RulesError::IllegalTarget(Target::Spell(*card))),
+                Target::Spell(card) => return Err(RulesError::IllegalTarget(Target::Spell(card))),
             },
             Effect::DealDamageEqualToAttackingCreatures { .. } => {
                 let amount = self.attacking_creature_count(controller)?;
@@ -2283,31 +2308,28 @@ impl Game {
                 // explicit avoids inventing a damage receipt or triggering
                 // damage-dependent behavior when the combat count is zero.
                 if amount != 0 {
-                    match targets
-                        .first()
-                        .ok_or(RulesError::IllegalAction("missing damage target"))?
-                    {
+                    match target.ok_or(RulesError::IllegalAction("missing damage target"))? {
                         Target::Player(player) => {
                             self.players[player.0].life -= i64::from(amount);
                             self.record_event(GameEvent::DamageDealtToPlayer {
                                 source,
-                                player: *player,
+                                player,
                                 amount,
                             });
                         }
                         Target::Permanent(permanent) => {
                             self.objects
-                                .get_mut(permanent)
-                                .ok_or(RulesError::UnknownCard(*permanent))?
+                                .get_mut(&permanent)
+                                .ok_or(RulesError::UnknownCard(permanent))?
                                 .damage += amount;
                             self.record_event(GameEvent::DamageDealtToPermanent {
                                 source,
-                                permanent: *permanent,
+                                permanent,
                                 amount,
                             });
                         }
                         Target::Spell(card) => {
-                            return Err(RulesError::IllegalTarget(Target::Spell(*card)));
+                            return Err(RulesError::IllegalTarget(Target::Spell(card)));
                         }
                     }
                 }
@@ -2363,7 +2385,7 @@ impl Game {
                 }
             }
             Effect::RadianceDealDamageToCreatures { amount } => {
-                let target = Self::target_permanent(targets)?;
+                let target = Self::target_permanent(target)?;
                 // Select once before mutating damage. State-based actions run
                 // after the complete spell resolves, so every selected
                 // creature receives this effect's damage in the same batch.
@@ -2396,7 +2418,7 @@ impl Game {
                 }
             }
             Effect::ModifyTargetPtUntilEndOfTurn { power, toughness } => {
-                let target = Self::target_permanent(targets)?;
+                let target = Self::target_permanent(target)?;
                 self.install_continuous_effect(
                     source,
                     target,
@@ -2438,7 +2460,7 @@ impl Game {
                 }
             }
             Effect::RadianceUntapAndModifyUntilEndOfTurn { power, toughness } => {
-                let target = Self::target_permanent(targets)?;
+                let target = Self::target_permanent(target)?;
                 let matching = self.radiance_creatures_sharing_color(target)?;
                 let mut untapped = Vec::new();
                 for candidate in matching {
@@ -2468,7 +2490,7 @@ impl Game {
                 }
             }
             Effect::RadianceModifyPtUntilEndOfTurn { power, toughness } => {
-                let target = Self::target_permanent(targets)?;
+                let target = Self::target_permanent(target)?;
                 for candidate in self.radiance_creatures_sharing_color(target)? {
                     self.install_continuous_effect(
                         source,
@@ -2482,7 +2504,7 @@ impl Game {
                 }
             }
             Effect::CounterTargetInstantOrSorcerySpell => {
-                let target = Self::target_spell(targets)?;
+                let target = Self::target_spell(target)?;
                 let position = self
                     .stack
                     .iter()
@@ -2499,11 +2521,11 @@ impl Game {
         Ok(())
     }
 
-    fn target_permanent(targets: &[Target]) -> Result<ObjectId, RulesError> {
-        match targets.first() {
-            Some(Target::Permanent(card)) => Ok(*card),
-            Some(Target::Player(player)) => Err(RulesError::IllegalTarget(Target::Player(*player))),
-            Some(Target::Spell(card)) => Err(RulesError::IllegalTarget(Target::Spell(*card))),
+    fn target_permanent(target: Option<Target>) -> Result<ObjectId, RulesError> {
+        match target {
+            Some(Target::Permanent(card)) => Ok(card),
+            Some(Target::Player(player)) => Err(RulesError::IllegalTarget(Target::Player(player))),
+            Some(Target::Spell(card)) => Err(RulesError::IllegalTarget(Target::Spell(card))),
             None => Err(RulesError::IllegalAction("missing permanent target")),
         }
     }
@@ -2536,12 +2558,12 @@ impl Game {
         })
     }
 
-    fn target_spell(targets: &[Target]) -> Result<ObjectId, RulesError> {
-        match targets.first() {
-            Some(Target::Spell(card)) => Ok(*card),
-            Some(Target::Player(player)) => Err(RulesError::IllegalTarget(Target::Player(*player))),
+    fn target_spell(target: Option<Target>) -> Result<ObjectId, RulesError> {
+        match target {
+            Some(Target::Spell(card)) => Ok(card),
+            Some(Target::Player(player)) => Err(RulesError::IllegalTarget(Target::Player(player))),
             Some(Target::Permanent(card)) => {
-                Err(RulesError::IllegalTarget(Target::Permanent(*card)))
+                Err(RulesError::IllegalTarget(Target::Permanent(card)))
             }
             None => Err(RulesError::IllegalAction("missing spell target")),
         }

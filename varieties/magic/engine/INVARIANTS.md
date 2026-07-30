@@ -39,14 +39,18 @@ Oracle Magic rules coverage.
 - A stack object has a unique card and a valid controller. Resolving or
   countering it removes it from the stack before it receives its resulting zone
   move.
-- Stack controller, effects, and target count must match the represented card
-  definition. Tokens and lands cannot occupy the stack. A target may later
-  become illegal, but it cannot be absent, fabricated, or change enum kind
-  after cast time. The invariant validates that immutable target shape
-  separately from dynamic target legality; in particular, every stack player
-  target names a seated player, although that player may later have lost. At
-  resolution, an all-illegal target set emits
-  `SpellCounteredByRules`; a resolving counter effect emits the distinct
+- Stack controller, effects, and target-slot count must match the represented
+  card definition. Every executable occurrence of a target requirement owns
+  one ordered stack slot; the same object may occupy multiple slots when the
+  source has multiple independent target occurrences. Tokens and lands cannot
+  occupy the stack. A target may later become illegal, but it cannot be
+  absent, fabricated, or change enum kind after cast time. The invariant
+  validates that immutable target shape separately from dynamic target
+  legality; in particular, every stack player target names a seated player,
+  although that player may later have lost. At resolution, an all-illegal
+  target set emits `SpellCounteredByRules`; if at least one target remains
+  legal, the spell resolves and only instructions addressed to the now-illegal
+  target slots do nothing. A resolving counter effect emits the distinct
   `SpellCountered` receipt.
 - A stack spell target that remains on the stack must be below its source,
   because only already-existing stack objects can be chosen while casting. A

@@ -70,7 +70,10 @@ fn a_multi_effect_damage_resolution_does_not_panic_after_marking_partial_damage(
         PlayerId(0),
         CastRequest {
             card: spell,
-            targets: vec![Target::Permanent(target)],
+            // Each executable damage effect has its own target occurrence.
+            // Reusing the same creature is legal, but must occupy both stack
+            // target slots.
+            targets: vec![Target::Permanent(target), Target::Permanent(target)],
             convoke: vec![],
         },
     )
