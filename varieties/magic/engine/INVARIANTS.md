@@ -41,9 +41,11 @@ Oracle Magic rules coverage.
   move.
 - Stack controller, effects, and target count must match the represented card
   definition. Tokens and lands cannot occupy the stack. A target may later
-  become illegal, but it cannot be absent or fabricated at cast time. At
-  resolution, an all-illegal target set emits `SpellCounteredByRules`; a
-  resolving counter effect emits the distinct `SpellCountered` receipt.
+  become illegal, but it cannot be absent or fabricated at cast time. In
+  particular, every stack player target names a seated player, although that
+  player may later have lost. At resolution, an all-illegal target set emits
+  `SpellCounteredByRules`; a resolving counter effect emits the distinct
+  `SpellCountered` receipt.
 
 ## Priority, stack, and turns
 
