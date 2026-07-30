@@ -50,6 +50,13 @@ hash and reproduction details.
 
 - The official [Magic rules page](https://magic.wizards.com/en/rules) is the
   authoritative source for the comprehensive rules framework.
+- The Gather Courage and Seeds of Strength fidelity checks, and the bounded
+  Muddle the Mixture compatibility check, were performed on 2026-07-30
+  against the public Comprehensive Rules framework: target occurrence and
+  partial resolution (CR 115.3 and 608.2b), convoke (CR 702.51), and
+  transmute (CR 702.53). Only the resulting CardBench-authored semantic model
+  and public identifier facts are committed: no response payload, card rules
+  prose, art, or scans were retained.
 - Wizards of the Coast's [Ravnica design history](https://magic.wizards.com/en/news/making-magic/city-planning-part-iii-2005-09-19)
   confirms the original set's guild/mechanic structure: Boros, Dimir, Golgari,
   and Selesnya; radiance, transmute, dredge, and convoke.

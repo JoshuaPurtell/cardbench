@@ -61,11 +61,12 @@ card-text interactions.
 ## Current card-slice contract
 
 The RAV crate implements only the semantic fragments stated by each card's
-`supported_rules` field. For example, `Muddle the Mixture` contributes its
-target-instant-or-sorcery counter face and transmute, not an assertion that
-every printed ability on that card is available. This makes the initial
-expansion slice honest and lets later set work add executable semantics without
-changing engine ownership.
+`supported_rules` field. `full-rules-fidelity` is a positive exception: it is
+reserved for a definition whose complete printed functional behavior is
+represented and directly tested. The positive manifest names every such
+definition; Gather Courage and Seeds of Strength are included in the latest
+audited tranche. All other definitions remain explicitly scoped compatibility
+slices.
 
 RAV shown scenarios are fixture-driven from
 `sets/ravnica_city_of_guilds/scenarios/public/train_scenarios.toml`; each declares
@@ -76,7 +77,10 @@ current corpus contains 83 scenarios and covers:
 - colored-cost creature casting and permanent characteristics (`Watchwolf`);
 - a bounded tap-for-one-of-five-colors mana ability, including summoning-sickness
   rejection and next-turn activation (`Birds of Paradise`);
-- a one-mana, fully convoked targeted temporary boost (`Gather Courage`);
+- a one-mana, fully convoked targeted temporary boost (`Gather Courage`),
+  including its complete printed behavior;
+- three independently targeted temporary modifiers, including partial
+  resolution after one target becomes illegal (`Seeds of Strength`);
 - colored and generic convoke payment plus token creation (`Scatter the Seeds`);
 - dredge as a draw replacement (`Golgari Brownscale`);
 - declared generic Dredge/Convoke compatibility slices with fixed event logs;
@@ -84,7 +88,11 @@ current corpus contains 83 scenarios and covers:
   characteristics, never omitted printed behavior (`Golgari Grave-Troll`,
   `Necroplasm`, `Grave-Shell Scarab`, `Shambling Shell`, `Conclave Equenaut`,
   `Conclave Phalanx`, `Guardian of Vitu-Ghazi`, and `Autochthon Wurm`);
-- a target-instant-or-sorcery stack counter plus transmute, equal mana-value search, and seeded deterministic shuffle (`Muddle the Mixture`);
+- a target-instant-or-sorcery stack counter plus transmute, equal mana-value
+  search, public reveal receipt, optional no-result search, and seeded
+  deterministic shuffle (`Muddle the Mixture`). Its activated ability remains
+  a bounded compatibility slice until the engine exposes a typed ability
+  stack object and response window;
 - radiance color matching and layer-7 modifiers (`Rally the Righteous`); and
 - zero-toughness state-based action after a continuous effect (`Last Gasp`);
 - targeted temporary modifiers plus transmute (`Dizzy Spell`), transmute-only

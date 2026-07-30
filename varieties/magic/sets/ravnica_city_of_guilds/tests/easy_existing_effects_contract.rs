@@ -21,7 +21,14 @@ fn seeds_of_strength_preserves_three_separate_target_modifiers() {
         seeds.mana_cost,
         ManaCost::with_colors(0, [Color::Green, Color::White])
     );
-    assert_eq!(seeds.supported_rules, ["three-targeted-layer-7-modifiers"]);
+    assert_eq!(
+        seeds.supported_rules,
+        [
+            "full-rules-fidelity",
+            "three-targeted-layer-7-modifiers",
+            "partial-target-resolution",
+        ]
+    );
     assert_eq!(
         seeds.effects,
         vec![
@@ -72,7 +79,10 @@ fn bounded_effect_slices_state_only_the_semantics_that_are_executable() {
     );
 
     let gaze = definition("RAV-GAZE-OF-THE-GORGON");
-    assert_eq!(gaze.supported_rules, ["targeted-layer-7-modifier"]);
+    assert_eq!(
+        gaze.supported_rules,
+        ["full-rules-fidelity", "targeted-layer-7-modifier"]
+    );
     assert_eq!(
         gaze.effects,
         vec![Effect::ModifyTargetPtUntilEndOfTurn {
