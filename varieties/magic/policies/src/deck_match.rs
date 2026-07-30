@@ -13,12 +13,14 @@ use cardbench_magic_engine::{Game, GameEvent, PlayerId, PolicyAction, PolicyMove
 use cardbench_magic_rav::{DeckFixture, card_definitions, event_digest, load_reference_decks};
 
 use crate::{
-    BorosCharControlPolicy, BorosTempoPolicy, CodePolicy, SelesnyaConvokePolicy,
-    SelesnyaSiegePolicy,
+    BorosCharControlPolicy, BorosTempoPolicy, CodePolicy, GolgariAttritionPolicy,
+    SelesnyaConvokePolicy, SelesnyaRadianceTokensPolicy, SelesnyaSiegePolicy,
 };
 
 /// Stable identifier for the public two-deck development match.
 pub const RAV_DECK_MATCH_ID: &str = "rav_boros_vs_selesnya_full_deck";
+/// Stable identifier for the all-reference-deck, ordered policy matrix.
+pub const RAV_REFERENCE_DECK_MATRIX_ID: &str = "rav_reference_deck_policy_matrix";
 
 /// Limits and deterministic setup for one full-deck policy development match.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -97,6 +99,10 @@ pub struct EngineFinding {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DeckMatchResult {
     pub id: &'static str,
+    /// Public fixtures seated as player zero and player one for this trace.
+    /// This keeps generic matchup evidence attributable even though the legacy
+    /// match identifier remains stable for existing consumers.
+    pub deck_ids: [String; 2],
     pub config: DeckMatchConfig,
     pub termination: DeckMatchTermination,
     pub winner: Option<PlayerId>,
@@ -149,6 +155,7 @@ impl EngineTournamentResult {
 pub enum EngineTournamentFailure {
     EngineFinding(EngineFinding),
     NonWinningTermination {
+        deck_ids: [String; 2],
         shuffle_seed: u64,
         termination: DeckMatchTermination,
     },
@@ -183,6 +190,7 @@ pub fn run_rav_deck_matchup(
     let decks = load_reference_decks().map_err(|error| error.to_string())?;
     let deck_p0 = expected_deck(&decks, deck_p0_id)?;
     let deck_p1 = expected_deck(&decks, deck_p1_id)?;
+    let deck_ids = [deck_p0.id.clone(), deck_p1.id.clone()];
     let mut game = Game::new(card_definitions(), 2).map_err(rules_error)?;
     game.set_shuffle_seed(config.shuffle_seed);
     game.load_deck_into_library(PlayerId(0), &deck_p0.deck)
@@ -210,6 +218,7 @@ pub fn run_rav_deck_matchup(
         ));
         return Ok(result_from_game(
             &game,
+            deck_ids,
             config,
             DeckMatchTermination::InvariantViolation {
                 detail: format!("after deck setup: {error}"),
@@ -309,6 +318,7 @@ pub fn run_rav_deck_matchup(
     ));
     Ok(result_from_game(
         &game,
+        deck_ids,
         config,
         termination,
         attempted_policy_moves,
@@ -328,7 +338,11 @@ fn policy_for(player: PlayerId, id: &str) -> Result<Box<dyn CodePolicy>, String>
     match id {
         "rav.boros-tempo.v1" => Ok(Box::new(BorosTempoPolicy::new(player))),
         "rav.boros-char-control.v1" => Ok(Box::new(BorosCharControlPolicy::new(player))),
+        "rav.golgari-attrition.v1" => Ok(Box::new(GolgariAttritionPolicy::new(player))),
         "rav.selesnya-convoke.v1" => Ok(Box::new(SelesnyaConvokePolicy::new(player))),
+        "rav.selesnya-radiance-tokens.v1" => {
+            Ok(Box::new(SelesnyaRadianceTokensPolicy::new(player)))
+        }
         "rav.selesnya-siege.v1" => Ok(Box::new(SelesnyaSiegePolicy::new(player))),
         _ => Err(format!("public deck specifies unknown Rust policy `{id}`")),
     }
@@ -369,29 +383,92 @@ pub fn run_rav_engine_tournament(
     seeds: impl IntoIterator<Item = u64>,
 ) -> Result<EngineTournamentResult, String> {
     let sweep = run_rav_full_deck_sweep(seeds)?;
-    let mut failures: Vec<_> = sweep
-        .engine_findings
-        .iter()
-        .cloned()
+    Ok(fail_closed_tournament(
+        "rav_boros_vs_selesnya_engine_tournament",
+        sweep.matches,
+        sweep.engine_findings,
+    ))
+}
+
+/// Runs every ordered pair of public reference decks across each supplied
+/// shuffle seed. The result fails closed on every engine finding, capability
+/// report, rejected policy action, or non-winning bounded run.
+pub fn run_rav_reference_deck_matrix(
+    seeds: impl IntoIterator<Item = u64>,
+) -> Result<EngineTournamentResult, String> {
+    let seeds: Vec<_> = seeds.into_iter().collect();
+    if seeds.is_empty() {
+        return Err("reference deck matrix requires at least one shuffle seed".to_owned());
+    }
+    let deck_ids: Vec<_> = load_reference_decks()
+        .map_err(|error| error.to_string())?
+        .into_iter()
+        .map(|deck| deck.id)
+        .collect();
+    if deck_ids.len() < 2 {
+        return Err("reference deck matrix requires at least two decks".to_owned());
+    }
+    let mut matches = Vec::new();
+    let mut engine_findings = Vec::new();
+    for deck_p0 in &deck_ids {
+        for deck_p1 in &deck_ids {
+            if deck_p0 == deck_p1 {
+                continue;
+            }
+            for &shuffle_seed in &seeds {
+                let result = run_rav_deck_matchup(
+                    DeckMatchConfig {
+                        shuffle_seed,
+                        ..DeckMatchConfig::default()
+                    },
+                    deck_p0,
+                    deck_p1,
+                )
+                .map_err(|error| {
+                    format!(
+                        "reference matrix {deck_p0} vs {deck_p1} at seed {shuffle_seed}: {error}"
+                    )
+                })?;
+                engine_findings.extend(result.engine_findings.iter().cloned());
+                matches.push(result);
+            }
+        }
+    }
+    Ok(fail_closed_tournament(
+        RAV_REFERENCE_DECK_MATRIX_ID,
+        matches,
+        engine_findings,
+    ))
+}
+
+fn fail_closed_tournament(
+    id: &'static str,
+    matches: Vec<DeckMatchResult>,
+    engine_findings: Vec<EngineFinding>,
+) -> EngineTournamentResult {
+    let mut failures: Vec<_> = engine_findings
+        .into_iter()
         .map(EngineTournamentFailure::EngineFinding)
         .collect();
-    for result in &sweep.matches {
+    for result in &matches {
         if !matches!(result.termination, DeckMatchTermination::Winner(_)) {
             failures.push(EngineTournamentFailure::NonWinningTermination {
+                deck_ids: result.deck_ids.clone(),
                 shuffle_seed: result.config.shuffle_seed,
                 termination: result.termination.clone(),
             });
         }
     }
-    Ok(EngineTournamentResult {
-        id: "rav_boros_vs_selesnya_engine_tournament",
-        matches: sweep.matches,
+    EngineTournamentResult {
+        id,
+        matches,
         failures,
-    })
+    }
 }
 
 fn result_from_game(
     game: &Game,
+    deck_ids: [String; 2],
     config: DeckMatchConfig,
     termination: DeckMatchTermination,
     attempted_policy_moves: u32,
@@ -401,6 +478,7 @@ fn result_from_game(
     let event_log = game.canonical_event_log();
     DeckMatchResult {
         id: RAV_DECK_MATCH_ID,
+        deck_ids,
         config,
         termination,
         winner: game.winner(),
@@ -552,5 +630,20 @@ mod tests {
         let tournament = run_rav_engine_tournament(0..16).expect("sixteen-seed engine probe");
         assert_eq!(tournament.matches.len(), 16);
         assert!(tournament.passed(), "{tournament:#?}");
+    }
+
+    #[test]
+    fn every_reference_deck_pair_has_an_attributable_fail_closed_trace() {
+        let deck_count = load_reference_decks()
+            .expect("public reference decks")
+            .len();
+        let matrix = run_rav_reference_deck_matrix([0]).expect("one-seed reference matrix");
+        assert_eq!(matrix.id, RAV_REFERENCE_DECK_MATRIX_ID);
+        assert_eq!(matrix.matches.len(), deck_count * (deck_count - 1));
+        assert!(matrix.passed(), "{matrix:#?}");
+        assert!(matrix.matches.iter().all(|match_result| {
+            match_result.deck_ids[0] != match_result.deck_ids[1]
+                && matches!(match_result.termination, DeckMatchTermination::Winner(_))
+        }));
     }
 }
