@@ -19,15 +19,15 @@ cargo run -p cardbench-magic-policies --bin rav-engine-audit
 ```
 
 `rav-engine-parity` validates the original Ravnica-block manifests and public
-deck pool, executes eleven RAV scenarios twice, and compares each deterministic
+deck pool, executes twelve RAV scenarios twice, and compares each deterministic
 event log against its fixed public digest. With `--output-root PATH`, the Rust
 binary writes `engine-check.json` and `reward.txt` for the CardBench Harbor
 receipt.
 
 | Component | Location | Scope in this milestone |
 | --- | --- | --- |
-| Expansion-neutral rules | `engine/` | Library, hand, battlefield, graveyard, exile, stack; priority; phases/steps; mana costs; lands; state-based actions; replacement effects; continuous-effect layers 4–7 |
-| RAV fixture crate | `sets/ravnica_city_of_guilds/` | Stack, convoke, dredge, transmute, radiance, tokens, and layer/SBA scenarios |
+| Expansion-neutral rules | `engine/` | Library, hand, battlefield, graveyard, exile, stack; priority; phases/steps; mana costs; lands; state-based actions; draw replacements; narrow instant/sorcery spell targeting and counters; continuous-effect layers 4–7 |
+| RAV fixture crate | `sets/ravnica_city_of_guilds/` | Stack responses/countering, convoke, dredge, transmute, radiance, tokens, and layer/SBA scenarios |
 | Block substrate | `sets/*/expansion.toml` | RAV executable; Guildpact and Dissension formal, intentionally non-executable manifests |
 
 The public engine task id is `cardbench/magic/engine`. Its future sibling task
@@ -61,10 +61,11 @@ card-text interactions.
 ## Current card-slice contract
 
 The RAV crate implements only the semantic fragments stated by each card's
-`supported_rules` field. For example, `Muddle the Mixture` contributes the
-transmute case, not an assertion that every printed ability on that card is
-available. This makes the initial expansion slice honest and lets later set
-work add executable semantics without changing engine ownership.
+`supported_rules` field. For example, `Muddle the Mixture` contributes its
+target-instant-or-sorcery counter face and transmute, not an assertion that
+every printed ability on that card is available. This makes the initial
+expansion slice honest and lets later set work add executable semantics without
+changing engine ownership.
 
 RAV shown scenarios are fixture-driven from
 `sets/ravnica_city_of_guilds/scenarios/public/train_scenarios.toml`; each declares
@@ -73,7 +74,7 @@ setup, actions, state assertions, event markers, and a fixed digest. They cover:
 - casting to the stack and both-player priority passes (`Lightning Helix`);
 - colored and generic convoke payment plus token creation (`Scatter the Seeds`);
 - dredge as a draw replacement (`Golgari Brownscale`);
-- transmute, equal mana-value search, and seeded deterministic shuffle (`Muddle the Mixture`);
+- a target-instant-or-sorcery stack counter plus transmute, equal mana-value search, and seeded deterministic shuffle (`Muddle the Mixture`);
 - radiance color matching and layer-7 modifiers (`Rally the Righteous`); and
 - zero-toughness state-based action after a continuous effect (`Last Gasp`).
 - cleanup expiration, land-play limits, and rejected priority/convoke/dredge actions.

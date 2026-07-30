@@ -316,7 +316,8 @@ fn execute_scenario(specification: &ScenarioSpec) -> Result<ScenarioResult, Stri
     game.clear_event_log();
     for action in &specification.actions {
         execute_action(&mut game, &labels, action)?;
-        game.validate_invariants().map_err(rules_error)?;
+        game.validate_invariants()
+            .map_err(|error| format!("{}: {}", specification.id, rules_error(error)))?;
     }
     assert_expected_state(specification, &game, &labels)?;
     let event_log = game.canonical_event_log();
@@ -489,6 +490,7 @@ fn parse_target(value: &str, labels: &BTreeMap<String, ObjectId>) -> Result<Targ
                 .map_err(|error| format!("invalid target player `{target}`: {error}"))?,
         )?)),
         "permanent" => Ok(Target::Permanent(lookup(labels, target)?)),
+        "spell" => Ok(Target::Spell(lookup(labels, target)?)),
         _ => Err(format!("unknown target kind `{kind}`")),
     }
 }

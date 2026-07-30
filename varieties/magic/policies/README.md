@@ -32,6 +32,13 @@ chooses `PolicyAction::Draw { dredge: None }`; Golgari dredge/grind instead
 chooses its visible, legal Golgari Brownscale Dredge candidate. Both outcomes
 are canonical event-log entries and are checked by the engine invariants.
 
+`GameView::stack_spells` is the equally narrow public projection for
+responses: it exposes only spell cards already on the stack, never hidden
+zones. The Dimir transmute/Helix policy uses it to submit Muddle the Mixture at
+an opposing instant or sorcery when it has two blue mana. A successful response
+emits `SpellCountered`, distinct from `SpellCounteredByRules` when a spell
+later has no legal targets.
+
 If an interaction cannot be expressed by the currently implemented engine
 slice, a policy must return `PolicyAction::ReportEngineWeakness { code, detail }`
 rather than pretend it is legal. The reporting policy must have priority. The

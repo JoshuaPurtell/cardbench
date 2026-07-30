@@ -575,12 +575,16 @@ fn cleanup_logs_effect_expiry_after_its_boundary_and_clears_floating_mana() {
 }
 
 #[test]
-fn invariant_audit_rejects_a_spurious_terminal_event_in_a_continuing_game() {
+fn invariant_audit_rejects_an_externally_injected_terminal_event() {
     let mut game = game();
     game.event_log.push(GameEvent::GameEnded { winner: None });
 
     let error = game
         .validate_invariants()
         .expect_err("a continuing state cannot claim a terminal lifecycle event");
-    assert!(error.to_string().contains("spurious GameEnded event"));
+    assert!(
+        error
+            .to_string()
+            .contains("canonical event log was mutated outside an engine transition")
+    );
 }

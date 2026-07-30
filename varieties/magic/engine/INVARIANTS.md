@@ -8,8 +8,10 @@ Oracle Magic rules coverage.
 
 ## State ownership and zones
 
-- A game has at least two seated players; `PlayerId(n)` is the player at seat
-  `n`, and both active player and priority holder name existing seats.
+- A game has a fixed, at-least-two seat count; `PlayerId(n)` is the player at
+  seat `n`, and both active player and priority holder name existing, living
+  seats while the game continues. A fixture cannot add, remove, or reorder a
+  seat after game construction.
 - A game ends only when zero or one players remain. Its terminal transition
   emits exactly one `GameEnded { winner }` record (where `winner` is `None`
   for a draw). In a continuing multiplayer game, an eliminated player is
@@ -39,7 +41,9 @@ Oracle Magic rules coverage.
   move.
 - Stack controller, effects, and target count must match the represented card
   definition. Tokens and lands cannot occupy the stack. A target may later
-  become illegal, but it cannot be absent or fabricated at cast time.
+  become illegal, but it cannot be absent or fabricated at cast time. At
+  resolution, an all-illegal target set emits `SpellCounteredByRules`; a
+  resolving counter effect emits the distinct `SpellCountered` receipt.
 
 ## Priority, stack, and turns
 
@@ -48,9 +52,10 @@ Oracle Magic rules coverage.
   accepted `PolicyMoveSubmitted` event. A successful policy-submitted
   transmute has the same audited receipt boundary as every other policy move.
   A pending draw replacement is instead a mandatory active-player decision in
-  the Draw step: it is not priority, it must resolve before priority can pass,
-  and its submitted `PolicyAction::Draw` receipt follows the resulting draw or
-  dredge events.
+  the Draw step: it is not priority, it must resolve before any priority
+  action (including a spell, mana ability, pass, or weakness report), and its
+  submitted `PolicyAction::Draw` receipt follows the resulting draw or dredge
+  events.
 - `GameView` never exposes an opponent's hand or library. It projects only the
   controller-owned, mana-value-matching library cards for each transmute card
   in that controller's hand, allowing an honest search decision without
@@ -124,7 +129,7 @@ Oracle Magic rules coverage.
   timestamp order within a layer. End-of-turn effects expire during cleanup;
   marked damage clears there.
 - Every continuous effect names extant source and target objects, has a unique
-  monotonic timestamp, and has a valid duration. A permanent-duration effect
+  positive monotonic timestamp, and has a valid duration. A permanent-duration effect
   cannot outlive its battlefield source; an end-of-turn effect belongs to the
   current turn only.
 - State-based actions run to a fixed point after relevant changes. The current
@@ -150,7 +155,12 @@ Oracle Magic rules coverage.
 Runners should call `Game::validate_invariants()` after setup and after every
 accepted policy action. An invariant failure is an engine defect or corrupted
 test setup: preserve the canonical event log and fail the run rather than
-continue from an ambiguous state.
+continue from an ambiguous state. The engine seals each event it emits; direct
+append, removal, rewrite, or reorder of the public `event_log` is a corruption
+and is rejected by this audit. `clear_event_log()` is the explicit authorized
+reset and resets that seal alongside the public vector; it is intended before
+a measured run, not after a terminal result whose required `GameEnded` receipt
+must remain present.
 
 `PolicyAction::ReportEngineWeakness { code, detail }` is the deliberate path
 for an interaction that cannot be represented by the implemented rules slice.
@@ -173,7 +183,8 @@ The invariant audit validates every public engine transition and each state
 that the public runners produce. Several `Game` fields remain public to permit
 compact, authored fixture construction in this initial substrate. A caller can
 therefore deliberately mutate those fields outside a transition and then call
-the audit; the audit detects invalid *state shapes* but cannot prove that a
-valid shape arose through the transition machine. This API-encapsulation gap is
-tracked in the public bug ledger and is not presented as complete protection
-against hostile external mutation.
+the audit; the audit detects invalid *state shapes* and any event-log edit, but
+cannot prove that every valid-looking zone/priority shape arose through the
+transition machine. This API-encapsulation gap is tracked in the public bug
+ledger and is not presented as complete protection against hostile external
+mutation.
