@@ -7,6 +7,14 @@ name = "cardbench-magic-engine"
 version = "0.1.0"
 
 [[package]]
+name = "cardbench-magic-policies"
+version = "0.1.0"
+dependencies = [
+ "cardbench-magic-engine",
+ "cardbench-magic-rav",
+]
+
+[[package]]
 name = "cardbench-magic-rav"
 version = "0.1.0"
 dependencies = [

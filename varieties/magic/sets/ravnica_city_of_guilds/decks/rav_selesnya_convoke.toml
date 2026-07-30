@@ -1,0 +1,30 @@
+schema_version = "cardbench.magic.deck.v1"
+id = "rav_selesnya_convoke"
+name = "RAV Selesnya Convoke Development"
+set = "RAV"
+format = "ravnica-block"
+policy = "rav.selesnya-convoke.v1"
+source = "CardBench-authored development deck; not a reproduction of a commercial decklist."
+
+[[mainboard]]
+card = "RAV-GOLGARI-BROWNSCALE"
+count = 4
+
+[[mainboard]]
+card = "RAV-SIEGE-WURM"
+count = 4
+
+[[mainboard]]
+card = "RAV-PLAINS"
+count = 24
+
+[[mainboard]]
+card = "RAV-FOREST"
+count = 24
+
+[[mainboard]]
+card = "RAV-SCATTER-THE-SEEDS"
+count = 4
+
+[sideboard]
+count = 0

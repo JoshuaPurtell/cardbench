@@ -1,0 +1,22 @@
+[package]
+name = "cardbench-magic-policies"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Reference Rust code policies for the CardBench Magic variety"
+
+[lints]
+workspace = true
+
+[dependencies]
+cardbench-magic-engine = { path = "../engine" }
+cardbench-magic-rav = { path = "../sets/ravnica_city_of_guilds" }
+
+[lib]
+name = "cardbench_magic_policies"
+path = "src/lib.rs"
+
+[[bin]]
+name = "rav-policy-match"
+path = "src/bin/rav_policy_match.rs"

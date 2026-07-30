@@ -1,0 +1,26 @@
+schema_version = "cardbench.magic.deck.v1"
+id = "rav_boros_helix"
+name = "RAV Boros Helix Development"
+set = "RAV"
+format = "ravnica-block"
+policy = "rav.boros-tempo.v1"
+source = "CardBench-authored development deck; not a reproduction of a commercial decklist."
+
+[[mainboard]]
+card = "RAV-PLAINS"
+count = 26
+
+[[mainboard]]
+card = "RAV-MOUNTAIN"
+count = 26
+
+[[mainboard]]
+card = "RAV-CHAR"
+count = 4
+
+[[mainboard]]
+card = "RAV-LIGHTNING-HELIX"
+count = 4
+
+[sideboard]
+count = 0

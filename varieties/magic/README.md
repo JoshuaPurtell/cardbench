@@ -10,6 +10,7 @@ sets supply small executable card definitions and declarative block manifests.
 cd varieties/magic
 cargo test --workspace
 cargo run -p cardbench-magic-rav --bin rav-engine-parity
+cargo run -p cardbench-magic-policies --bin rav-policy-match
 ```
 
 The last command validates the original Ravnica-block manifests and public deck
@@ -53,6 +54,31 @@ setup, actions, state assertions, event markers, and a fixed digest. They cover:
 - radiance color matching and layer-7 modifiers (`Rally the Righteous`); and
 - zero-toughness state-based action after a continuous effect (`Last Gasp`).
 - cleanup expiration, land-play limits, and rejected priority/convoke/dredge actions.
+
+## Rust policy development match
+
+Two public 60-card RAV fixture decks live in
+`sets/ravnica_city_of_guilds/decks/`: Boros Helix and Selesnya Convoke. Their
+matching Rust policies (`rav.boros-tempo.v1` and `rav.selesnya-convoke.v1`) are
+in `policies/`. Policies receive a public `GameView`, return a narrow
+`PolicyAction`, and the engine accepts the move only via
+`Game::submit_policy_move`; normal priority, target, and payment checks remain
+the engine's responsibility.
+
+`rav-policy-match` runs a seeded, scripted development opening from those two
+deck fixtures. The public contract is
+[`policies/reference_match.toml`](policies/reference_match.toml): six accepted
+policy submissions, life totals `[23, 17]`, three Saproling tokens, and the
+following required event families:
+
+- `PolicyMoveSubmitted`, `SpellCast`, `ConvokeUsed`, and `TokenCreated`;
+- `PriorityPassed` and `SpellResolved`; and
+- `DamageDealtToPlayer` and `LifeGained`.
+
+The runner also pins the complete canonical log to
+`fnv1a64:ca603a0d3e5d8114` and prints every event. This is a deterministic
+engine-development trace, not a claim that either policy can yet play a full
+shuffled game.
 
 ## Provenance and rights
 

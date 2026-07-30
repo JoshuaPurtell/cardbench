@@ -25,8 +25,9 @@ basic_lands_exempt = true
 [fixtures]
 shown_scenarios = "scenarios/public/train_scenarios.toml"
 heldout_scenarios = "not-distributed"
-shown_decks = "decks/shown_pool.toml"
+shown_decks = "decks/reference_decks.toml"
 heldout_decks = "not-distributed"
+policy_development_match = "../../policies/reference_match.toml"
 
 [capabilities]
 zones = ["library", "hand", "battlefield", "graveyard", "exile", "stack"]

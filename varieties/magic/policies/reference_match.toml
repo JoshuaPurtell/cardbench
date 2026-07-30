@@ -1,0 +1,25 @@
+schema_version = "cardbench.magic.policy-match.v1"
+id = "rav_boros_vs_selesnya_development"
+format = "ravnica-block"
+seed = 73
+deck_p0 = "rav_boros_helix"
+deck_p1 = "rav_selesnya_convoke"
+policy_p0 = "rav.boros-tempo.v1"
+policy_p1 = "rav.selesnya-convoke.v1"
+setup = "Scripted development opening: the two validated decks supply the named card pool; prepared hands/mana/battlefield make both reference moves reachable."
+
+[expected]
+life = [23, 17]
+token_count = 3
+policy_moves = 6
+event_markers = [
+  "PolicyMoveSubmitted",
+  "SpellCast",
+  "ConvokeUsed",
+  "TokenCreated",
+  "PriorityPassed",
+  "SpellResolved",
+  "DamageDealtToPlayer",
+  "LifeGained",
+]
+digest = "fnv1a64:ca603a0d3e5d8114"

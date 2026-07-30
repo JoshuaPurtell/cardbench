@@ -9,10 +9,13 @@
 mod game;
 mod model;
 
-pub use game::{CastRequest, ConvokeContribution, ConvokePayment, Game, RulesError};
+pub use game::{
+    CardView, CastRequest, ConvokeContribution, ConvokePayment, Game, GameView, PolicyAction,
+    RulesError,
+};
 pub use model::{
     CardDefinition, CardObject, CardType, Characteristics, Color, ContinuousChange,
     ContinuousEffect, DeckEntry, DeckList, DeckRules, DeckValidationError, Duration, Effect,
-    GameEvent, Keyword, Layer, ManaCost, ManaPool, ObjectId, PlayerId, PlayerState, StackObject,
-    Step, Target, TargetRequirement, TokenSpec, Zone,
+    GameEvent, Keyword, Layer, ManaCost, ManaPool, ObjectId, PlayerId, PlayerState, PolicyMoveKind,
+    StackObject, Step, Target, TargetRequirement, TokenSpec, Zone,
 };
