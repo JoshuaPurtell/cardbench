@@ -6,7 +6,8 @@ use crate::{
     ActivatedManaAbility, CardDefinition, CardObject, CardType, Characteristics, Color,
     CombatBlock, ContinuousChange, ContinuousEffect, DeckList, Duration, Effect, GameEvent,
     Keyword, ManaAbilityActivation, ManaAbilityBinding, ManaAbilityOutput, ObjectId, PlayerId,
-    PlayerState, PolicyMoveKind, StackObject, Step, Target, TargetRequirement, TokenSpec, Zone,
+    PlayerState, PolicyMoveKind, StackEffectResolution, StackObject, StackResolutionPlan, Step,
+    Target, TargetRequirement, TokenSpec, Zone,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -1959,11 +1960,7 @@ impl Game {
             // word "target" in the executable effect model. A target may be
             // selected again for a later occurrence, but it still occupies a
             // separate slot on the authoritative stack object.
-            let target_count = definition
-                .effects
-                .iter()
-                .filter(|effect| effect.target_requirement().is_some())
-                .count();
+            let target_count = stack_object.target_count();
             if stack_object.targets.len() != target_count {
                 return Err(RulesError::IllegalAction(
                     "stack object has an invalid target count",
@@ -2285,31 +2282,14 @@ impl Game {
         let stack_object = self.stack.pop().ok_or(RulesError::IllegalAction(
             "attempted to resolve an empty stack",
         ))?;
-        // Build one immutable legality result per target occurrence. The
-        // target sequence is established at cast time and is never rewritten;
-        // at resolution each targeted effect gets its own slot. CR 608.2b
-        // counters the whole spell only when every target is now illegal.
-        let mut target_index = 0;
-        let mut has_target = false;
-        let mut has_legal_target = false;
-        let mut target_legality = Vec::with_capacity(stack_object.effects.len());
-        for effect in &stack_object.effects {
-            let legal =
-                if let Some(requirement) = effect.target_requirement() {
-                    has_target = true;
-                    let target = *stack_object.targets.get(target_index).ok_or(
-                        RulesError::IllegalAction("stack object is missing a target occurrence"),
-                    )?;
-                    target_index += 1;
-                    let legal = self.target_matches(target, requirement);
-                    has_legal_target |= legal;
-                    Some((target, legal))
-                } else {
-                    None
-                };
-            target_legality.push(legal);
-        }
-        if has_target && !has_legal_target {
+        // Target legality is snapshotted once, per target occurrence, before
+        // any instruction resolves. The model-owned plan preserves repeated
+        // targets as independent slots and makes the all-illegal boundary
+        // explicit.
+        let plan = stack_object
+            .resolution_plan(|target, requirement| self.target_matches(target, requirement))
+            .map_err(|_| RulesError::IllegalAction("stack object has an invalid target count"))?;
+        if matches!(plan, StackResolutionPlan::CounteredByRules) {
             self.record_event(GameEvent::SpellCounteredByRules {
                 card: stack_object.card,
             });
@@ -2318,23 +2298,34 @@ impl Game {
             self.priority = self.priority_after_resolution();
             return Ok(());
         }
-        for (effect, target) in stack_object.effects.iter().zip(target_legality) {
-            let Some(target) = target else {
-                self.resolve_effect(stack_object.card, stack_object.controller, effect, None)?;
-                continue;
-            };
-            if !target.1 {
-                // A remaining legal target lets the spell resolve, but an
-                // instruction addressed to a target that has since become
-                // illegal does nothing.
-                continue;
+        let StackResolutionPlan::Resolve {
+            effects: effect_resolutions,
+        } = plan
+        else {
+            unreachable!("rules-counter plan returned above");
+        };
+        for (effect, target_resolution) in stack_object.effects.iter().zip(effect_resolutions) {
+            match target_resolution {
+                StackEffectResolution::Untargeted => {
+                    self.resolve_effect(stack_object.card, stack_object.controller, effect, None)?;
+                }
+                StackEffectResolution::Targeted {
+                    target,
+                    legal: true,
+                } => {
+                    self.resolve_effect(
+                        stack_object.card,
+                        stack_object.controller,
+                        effect,
+                        Some(target),
+                    )?;
+                }
+                StackEffectResolution::Targeted { legal: false, .. } => {
+                    // A remaining legal target lets the spell resolve, but an
+                    // instruction addressed to a target that has since become
+                    // illegal does nothing.
+                }
             }
-            self.resolve_effect(
-                stack_object.card,
-                stack_object.controller,
-                effect,
-                Some(target.0),
-            )?;
         }
         self.record_event(GameEvent::SpellResolved {
             card: stack_object.card,

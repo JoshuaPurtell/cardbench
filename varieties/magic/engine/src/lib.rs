@@ -18,6 +18,6 @@ pub use model::{
     CombatBlock, ContinuousChange, ContinuousEffect, DeckEntry, DeckList, DeckRules,
     DeckValidationError, Duration, Effect, GameEvent, HybridManaSymbol, Keyword, Layer,
     ManaAbilityActivation, ManaAbilityBinding, ManaAbilityOutput, ManaBundle, ManaCost, ManaPool,
-    ObjectId, PlayerId, PlayerState, PolicyMoveKind, StackObject, Step, Target, TargetRequirement,
-    TokenSpec, Zone,
+    ObjectId, PlayerId, PlayerState, PolicyMoveKind, StackEffectResolution, StackObject,
+    StackResolutionPlan, StackTargetArityError, Step, Target, TargetRequirement, TokenSpec, Zone,
 };
