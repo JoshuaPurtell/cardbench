@@ -172,6 +172,9 @@ pub enum Effect {
         amount: i16,
         target: TargetRequirement,
     },
+    DealDamageController {
+        amount: i16,
+    },
     GainLifeController {
         amount: i16,
     },
@@ -198,7 +201,9 @@ impl Effect {
             | Self::RadianceUntapAndModifyUntilEndOfTurn { .. } => {
                 Some(TargetRequirement::Creature)
             }
-            Self::GainLifeController { .. } | Self::CreateToken { .. } => None,
+            Self::DealDamageController { .. }
+            | Self::GainLifeController { .. }
+            | Self::CreateToken { .. } => None,
         }
     }
 }
@@ -464,6 +469,14 @@ pub enum Zone {
     Exile,
 }
 
+/// The narrow action vocabulary supplied by a code policy to the engine.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum PolicyMoveKind {
+    Cast,
+    PassPriority,
+    PlayLand,
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Step {
     Untap,
@@ -546,6 +559,11 @@ pub struct StackObject {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum GameEvent {
+    PolicyMoveSubmitted {
+        player: PlayerId,
+        policy: String,
+        kind: PolicyMoveKind,
+    },
     CardMoved {
         card: ObjectId,
         to: Zone,

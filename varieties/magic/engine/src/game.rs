@@ -4,8 +4,8 @@ use std::fmt::{Display, Formatter};
 
 use crate::{
     CardDefinition, CardObject, CardType, Characteristics, Color, ContinuousChange,
-    ContinuousEffect, Duration, Effect, GameEvent, ObjectId, PlayerId, PlayerState, StackObject,
-    Step, Target, TargetRequirement, TokenSpec, Zone,
+    ContinuousEffect, Duration, Effect, GameEvent, ObjectId, PlayerId, PlayerState, PolicyMoveKind,
+    StackObject, Step, Target, TargetRequirement, TokenSpec, Zone,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -72,6 +72,51 @@ pub struct CastRequest {
     pub card: ObjectId,
     pub targets: Vec<Target>,
     pub convoke: Vec<ConvokePayment>,
+}
+
+/// A policy's proposed move. The engine performs all legality checks when submitted.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum PolicyAction {
+    Cast(CastRequest),
+    PassPriority,
+    PlayLand { card: ObjectId },
+}
+
+impl PolicyAction {
+    #[must_use]
+    pub const fn kind(&self) -> PolicyMoveKind {
+        match self {
+            Self::Cast(_) => PolicyMoveKind::Cast,
+            Self::PassPriority => PolicyMoveKind::PassPriority,
+            Self::PlayLand { .. } => PolicyMoveKind::PlayLand,
+        }
+    }
+}
+
+/// A deterministic policy-facing view. It excludes the opponent's hand and library.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CardView {
+    pub id: ObjectId,
+    pub definition: Option<&'static str>,
+    pub controller: PlayerId,
+    pub tapped: bool,
+    pub colors: BTreeSet<Color>,
+    pub card_types: BTreeSet<CardType>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct GameView {
+    pub player: PlayerId,
+    pub active_player: PlayerId,
+    pub priority: PlayerId,
+    pub step: Step,
+    pub own_life: i16,
+    pub opponent_life: Vec<(PlayerId, i16)>,
+    pub mana_pool: crate::ManaPool,
+    pub hand: Vec<CardView>,
+    pub own_battlefield: Vec<CardView>,
+    pub opponent_battlefield: Vec<CardView>,
+    pub stack_depth: usize,
 }
 
 /// A deterministic, two-or-more-player Magic game state.
@@ -269,6 +314,72 @@ impl Game {
     /// measured action sequence and never alters game state.
     pub fn clear_event_log(&mut self) {
         self.event_log.clear();
+    }
+
+    /// Produces the information a deterministic policy may use to propose one move.
+    pub fn view_for_player(&self, player: PlayerId) -> Result<GameView, RulesError> {
+        let state = self.player(player)?;
+        let hand = state
+            .hand
+            .iter()
+            .map(|card| self.card_view(*card))
+            .collect::<Result<Vec<_>, _>>()?;
+        let own_battlefield = state
+            .battlefield
+            .iter()
+            .map(|card| self.card_view(*card))
+            .collect::<Result<Vec<_>, _>>()?;
+        let mut opponent_life = Vec::new();
+        let mut opponent_battlefield = Vec::new();
+        for opponent in self
+            .players
+            .iter()
+            .filter(|candidate| candidate.id != player)
+        {
+            opponent_life.push((opponent.id, opponent.life));
+            opponent_battlefield.extend(
+                opponent
+                    .battlefield
+                    .iter()
+                    .map(|card| self.card_view(*card))
+                    .collect::<Result<Vec<_>, _>>()?,
+            );
+        }
+        Ok(GameView {
+            player,
+            active_player: self.active_player,
+            priority: self.priority,
+            step: self.step,
+            own_life: state.life,
+            opponent_life,
+            mana_pool: state.mana_pool.clone(),
+            hand,
+            own_battlefield,
+            opponent_battlefield,
+            stack_depth: self.stack.len(),
+        })
+    }
+
+    /// Submits one policy proposal through normal rules enforcement and records the
+    /// accepted move in the canonical event log.
+    pub fn submit_policy_move(
+        &mut self,
+        player: PlayerId,
+        policy: impl Into<String>,
+        action: PolicyAction,
+    ) -> Result<(), RulesError> {
+        let kind = action.kind();
+        match action {
+            PolicyAction::Cast(request) => self.cast_spell(player, request)?,
+            PolicyAction::PassPriority => self.pass_priority(player)?,
+            PolicyAction::PlayLand { card } => self.play_land(player, card)?,
+        }
+        self.event_log.push(GameEvent::PolicyMoveSubmitted {
+            player,
+            policy: policy.into(),
+            kind,
+        });
+        Ok(())
     }
 
     pub fn characteristics(&self, card: ObjectId) -> Result<Characteristics, RulesError> {
@@ -730,6 +841,7 @@ impl Game {
         Ok(())
     }
 
+    #[allow(clippy::too_many_lines)] // Effect dispatch stays centralized so stack resolution has one rules path.
     fn resolve_effect(
         &mut self,
         source: ObjectId,
@@ -762,6 +874,14 @@ impl Game {
                     });
                 }
             },
+            Effect::DealDamageController { amount } => {
+                self.players[controller.0].life -= amount;
+                self.event_log.push(GameEvent::DamageDealtToPlayer {
+                    source,
+                    player: controller,
+                    amount: *amount,
+                });
+            }
             Effect::GainLifeController { amount } => {
                 self.players[controller.0].life += amount;
                 self.event_log.push(GameEvent::LifeGained {
@@ -1041,6 +1161,19 @@ impl Game {
             .iter()
             .flat_map(|player| player.battlefield.iter().copied())
             .collect()
+    }
+
+    fn card_view(&self, card: ObjectId) -> Result<CardView, RulesError> {
+        let object = self.object(card)?;
+        let characteristics = self.characteristics(card)?;
+        Ok(CardView {
+            id: card,
+            definition: object.definition,
+            controller: object.controller,
+            tapped: object.tapped,
+            colors: characteristics.colors,
+            card_types: characteristics.card_types,
+        })
     }
 
     fn effect_is_active(&self, effect: &ContinuousEffect) -> bool {

@@ -2,10 +2,12 @@
 resolver = "2"
 members = [
   "engine",
+  "policies",
   "sets/ravnica_city_of_guilds",
 ]
 default-members = [
   "engine",
+  "policies",
   "sets/ravnica_city_of_guilds",
 ]
 

@@ -39,10 +39,38 @@ impl std::fmt::Display for ManifestValidationError {
 
 impl std::error::Error for ManifestValidationError {}
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DeckFixture {
+    pub id: String,
+    pub name: String,
+    pub policy: String,
+    pub deck: DeckList,
+}
+
 #[must_use]
 #[allow(clippy::too_many_lines)] // Declarative card fixture catalog is intentionally kept together.
 pub fn card_definitions() -> Vec<CardDefinition> {
     vec![
+        CardDefinition {
+            id: "RAV-CHAR",
+            name: "Char",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(2, [Color::Red]),
+            colors: colors([Color::Red]),
+            card_types: types([CardType::Instant]),
+            is_basic_land: false,
+            supported_rules: &["damage", "self-damage"],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![
+                Effect::DealDamage {
+                    amount: 4,
+                    target: cardbench_magic_engine::TargetRequirement::Any,
+                },
+                Effect::DealDamageController { amount: 2 },
+            ],
+        },
         CardDefinition {
             id: "RAV-LIGHTNING-HELIX",
             name: "Lightning Helix",
@@ -311,6 +339,89 @@ pub fn validate_shown_deck_pool() -> Result<(), ManifestValidationError> {
     )
     .map_err(|error| ManifestValidationError(format!("{}: {error}", path.display())))?;
     Ok(())
+}
+
+/// Loads and validates the two public, CardBench-authored reference decks used by
+/// the Rust policy development match.
+pub fn load_reference_decks() -> Result<Vec<DeckFixture>, ManifestValidationError> {
+    ["rav_boros_helix.toml", "rav_selesnya_convoke.toml"]
+        .into_iter()
+        .map(load_deck_fixture)
+        .collect()
+}
+
+fn load_deck_fixture(filename: &str) -> Result<DeckFixture, ManifestValidationError> {
+    let path = set_root().join("decks").join(filename);
+    let contents = fs::read_to_string(&path)
+        .map_err(|error| ManifestValidationError(format!("{}: {error}", path.display())))?;
+    let mut id = String::new();
+    let mut name = String::new();
+    let mut policy = String::new();
+    let mut mainboard = Vec::new();
+    let mut current_card = None;
+    let mut in_mainboard = false;
+    for line in contents.lines().map(str::trim) {
+        if line == "[[mainboard]]" {
+            in_mainboard = true;
+        } else if line.starts_with('[') {
+            in_mainboard = false;
+        } else if let Some(value) = line.strip_prefix("id = ") {
+            value.trim_matches('"').clone_into(&mut id);
+        } else if let Some(value) = line.strip_prefix("name = ") {
+            value.trim_matches('"').clone_into(&mut name);
+        } else if let Some(value) = line.strip_prefix("policy = ") {
+            value.trim_matches('"').clone_into(&mut policy);
+        } else if in_mainboard && let Some(value) = line.strip_prefix("card = ") {
+            current_card = Some(value.trim_matches('"'));
+        } else if in_mainboard && let Some(value) = line.strip_prefix("count = ") {
+            let card = current_card.take().ok_or_else(|| {
+                ManifestValidationError(format!("{}: count appears before card", path.display()))
+            })?;
+            let count = value.parse().map_err(|error| {
+                ManifestValidationError(format!(
+                    "{}: invalid count `{value}`: {error}",
+                    path.display()
+                ))
+            })?;
+            mainboard.push(DeckEntry {
+                card: card.to_owned(),
+                count,
+            });
+        }
+    }
+    if id.is_empty() || name.is_empty() || policy.is_empty() || mainboard.is_empty() {
+        return Err(ManifestValidationError(format!(
+            "{}: deck requires id, name, policy, and mainboard entries",
+            path.display()
+        )));
+    }
+    let catalog = rav_catalog();
+    let deck = DeckList {
+        mainboard,
+        sideboard: vec![],
+    };
+    deck.validate(
+        &catalog,
+        DeckRules {
+            minimum_mainboard_size: 60,
+            maximum_copies: 4,
+            maximum_sideboard_size: 15,
+        },
+    )
+    .map_err(|error| ManifestValidationError(format!("{}: {error}", path.display())))?;
+    Ok(DeckFixture {
+        id,
+        name,
+        policy,
+        deck,
+    })
+}
+
+fn rav_catalog() -> std::collections::BTreeMap<&'static str, CardDefinition> {
+    card_definitions()
+        .into_iter()
+        .map(|definition| (definition.id, definition))
+        .collect()
 }
 
 /// Executes the versioned public train scenarios. Each scenario's setup, actions,
@@ -598,6 +709,12 @@ mod tests {
     fn all_block_manifests_are_formal_and_consistent() {
         validate_block_manifests().expect("Ravnica block manifests should validate");
         validate_shown_deck_pool().expect("shown RAV deck pool should be legal");
+        assert_eq!(
+            load_reference_decks()
+                .expect("reference RAV decks should be legal")
+                .len(),
+            2
+        );
     }
 
     #[test]
