@@ -569,7 +569,10 @@ pub struct CardObject {
     pub owner: PlayerId,
     pub controller: PlayerId,
     pub tapped: bool,
-    pub damage: i16,
+    /// Marked damage is runtime state, not printed card data.  It is wider
+    /// than a card's printed power/toughness so repeated legal effects never
+    /// wrap or panic part way through stack resolution.
+    pub damage: i32,
     pub counters: BTreeMap<&'static str, i16>,
     pub entered_turn: u32,
     pub token: Option<TokenSpec>,
@@ -579,8 +582,11 @@ pub struct CardObject {
 pub struct Characteristics {
     pub colors: BTreeSet<Color>,
     pub card_types: BTreeSet<CardType>,
-    pub power: Option<i16>,
-    pub toughness: Option<i16>,
+    /// Derived layer-seven values.  Printed values and individual modifiers
+    /// remain `i16`, while the evaluated result is widened for safe repeated
+    /// continuous-effect application.
+    pub power: Option<i32>,
+    pub toughness: Option<i32>,
     pub keywords: Vec<Keyword>,
 }
 
@@ -842,12 +848,12 @@ pub enum GameEvent {
     DamageDealtToPlayer {
         source: ObjectId,
         player: PlayerId,
-        amount: i16,
+        amount: i32,
     },
     DamageDealtToPermanent {
         source: ObjectId,
         permanent: ObjectId,
-        amount: i16,
+        amount: i32,
     },
     LifeGained {
         player: PlayerId,

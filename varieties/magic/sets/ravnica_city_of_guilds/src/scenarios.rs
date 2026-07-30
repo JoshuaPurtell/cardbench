@@ -484,7 +484,7 @@ fn assert_expected_state(
     }
     for expected in &specification.expected.powers {
         let (label, power) = split_pair(expected, "power assertion")?;
-        let expected_power: i16 = power
+        let expected_power: i32 = power
             .parse()
             .map_err(|error| format!("invalid power `{power}`: {error}"))?;
         let actual = game
@@ -500,7 +500,7 @@ fn assert_expected_state(
     }
     for expected in &specification.expected.toughnesses {
         let (label, toughness) = split_pair(expected, "toughness assertion")?;
-        let expected_toughness: i16 = toughness
+        let expected_toughness: i32 = toughness
             .parse()
             .map_err(|error| format!("invalid toughness `{toughness}`: {error}"))?;
         let actual = game
