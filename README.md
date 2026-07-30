@@ -20,9 +20,30 @@ collapsed into one reward.
 | Pokémon TCG | Active | Crystal Guardians first; Dragon Frontiers next; Holon Phantoms remains a stub |
 | Magic: The Gathering | Reserved | Formal block manifests, beginning with the original Ravnica block, then Return to Ravnica and Guilds of Ravnica |
 
+## The code_policy evaluation surface
+
+`code_policy` is scored over a fixed grid of **cells**, where one cell is
+`candidate deck | opponent deck | opponent policy | seat | seed`. The candidate
+and the reference baseline are swept over identical cells and compared pairwise,
+so a lift must survive a paired bootstrap rather than a difference of two
+blended win rates.
+
+| Split | Decks | Opponents | Cells | Role |
+| --- | --- | --- | --- | --- |
+| train | 5 (published) | 5 (published) | 400 | agent feedback |
+| heldout | 4 (sealed) | 8 (sealed) | 384 | **authority** |
+
+`varieties/pokemon/rosters/code_policy_v1.json` is the contract: it names the
+whole train surface and publishes only the *shape* of the heldout split plus a
+sha256 pinning it. The heldout decks are authored from the RS/SS card pool,
+which the train decks never touch, so no heldout deck shares a non-Energy card
+with anything the agent can see. Sealed assets live under
+`varieties/pokemon/.sealed/` — gitignored, and excluded from both the Harbor
+workspace copy and the Dock workspace upload.
+
 | Family | Submission | v0 status |
 | --- | --- | --- |
-| `code_policy` | Rust policy | P0 runnable |
+| `code_policy` | Rust policy | P0 runnable, train/heldout split |
 | `deck_opt` | Decklist JSON | P0 runnable |
 | `card` | One expansion card module | P1 reference verify runnable |
 | `set_engine` | Whole set plus expansion-specific engine hooks | P1 public-train reference runnable |
@@ -34,7 +55,8 @@ collapsed into one reward.
 ## Quick start
 
 ```bash
-# Reference policy beats the deliberately weak baseline and writes a leaderboard
+# Score the reference policy on the sealed heldout split (writes a leaderboard
+# with a baseline row, a heldout scorecard, and a train sweep for diagnosis)
 ./adapters/harbor/run.sh code-policy verify pokemon
 
 # Choose-from-pool deck evaluation under a frozen policy

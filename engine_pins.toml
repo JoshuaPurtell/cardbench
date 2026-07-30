@@ -25,6 +25,30 @@ commit = "71080b56e9dec04dbe86c85421dc2875a4f60947"
 target = "provenance-only; Pokemon Crystal Guardians fixtures remain upstream"
 
 [[source]]
+name = "engine-bench-tcg-heldout-opponents"
+remote = "https://github.com/JoshuaPurtell/engine-bench-tcg.git"
+commit = "c39c9ba8918a699dd7c58ac7932119d5289a9913"
+target = "varieties/pokemon/.sealed/code_policy/opponents (gitignored)"
+notes = """
+algo_bench/results model-authored policies lifted as the code_policy heldout
+opponent ladder. The upstream repository is public, so these sources are not
+secret; the seal covers the composition of the split. See
+varieties/pokemon/.sealed/README.md.
+"""
+
+[[source]]
+name = "evals-stats-gate"
+remote = "https://github.com/JoshuaPurtell/evals.git"
+commit = "87e065f0785c51197dfae3890ac110d2a657e6e1"
+target = "varieties/pokemon/scripts/stats_gate.py"
+notes = """
+Vendored copy of suites/product/factory/factorybench/projects/stats_gate.py
+(paired-bootstrap significance gate). Vendored rather than imported so CardBench
+never depends on evals at runtime, matching the GameBench pattern rule in
+evals/tcg.md.
+"""
+
+[[source]]
 name = "overzealous"
 remote = "git@github.com:JoshuaPurtell/overzealous.git"
 commit = "61879fb7d2635b88f7c8e6a1de1ea71b9ed6c63d"

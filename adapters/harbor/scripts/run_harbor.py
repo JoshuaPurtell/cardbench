@@ -17,7 +17,7 @@ REPO = Path(__file__).resolve().parents[3]
 POKEMON = REPO / "varieties" / "pokemon"
 EVALS = Path(os.environ.get("CARDBENCH_EVALS_ROOT", Path.home() / "Documents" / "GitHub" / "evals"))
 CODEX_RUNNER = EVALS / "core" / "harbor" / "runner" / "codex_harbor_runner.py"
-REFERENCE_POLICY = POKEMON / "candidates" / "reference" / "simple_heuristic_ai.rs"
+REFERENCE_POLICY = POKEMON / "candidates" / "reference" / "reference_policy_v1.rs"
 REFERENCE_DECK = POKEMON / "decks" / "gardevoir_delta_control.json"
 CARDS = POKEMON / "cards"
 SEALED = Path(os.environ.get("CARDBENCH_SEALED_ROOT", CARDS / ".sealed"))
@@ -55,8 +55,14 @@ def score_command(
     expansion: str,
     variant: str,
     suite: str,
+    split: str = "heldout",
 ) -> list[str]:
     if family == "code_policy":
+        # Train output is diagnostic and lands beside the authority run; the
+        # heldout sweep keeps the canonical verifier path the receipt reads.
+        destination = output / "logs" / "verifier"
+        if split == "train":
+            destination = destination / "train"
         return [
             sys.executable,
             str(POKEMON / "scripts" / "run_policy_sweep.py"),
@@ -64,8 +70,10 @@ def score_command(
             str(candidate),
             "--candidate-id",
             "reference" if candidate == REFERENCE_POLICY else "agent",
+            "--split",
+            split,
             "--output-root",
-            str(output / "logs" / "verifier"),
+            str(destination),
         ]
     if family == "deck_opt":
         return [
@@ -134,12 +142,36 @@ def write_receipt(output: Path, family: str, command: str, agent_rc: int, verify
         "verifier": verifier,
         "reward": float(verifier.get("harbor_reward", 0.0)),
     }
+    scorecard_path = output / "logs" / "verifier" / "heldout_scorecard.json"
+    if scorecard_path.exists():
+        scorecard = json.loads(scorecard_path.read_text())
+        payload["heldout"] = {
+            "heldout_n": scorecard.get("heldout_n"),
+            "roster_id": scorecard.get("roster_id"),
+            "roster_sha256": scorecard.get("roster_sha256"),
+            "baseline_score": scorecard.get("baseline_score"),
+            "candidate_score": scorecard.get("candidate_score"),
+            "delta": scorecard.get("delta"),
+            "lift_accepted": bool(
+                (scorecard.get("lift_verdict") or {}).get("accepted")
+            ),
+            "lift_verdict": scorecard.get("lift_verdict"),
+            # The heldout opponents are lifted from a public upstream repo; the
+            # seal covers the composition of the split, not the sources.
+            "published_upstream_opponents": True,
+        }
+
     for key in (
         "baseline_score",
         "best_score",
         "delta_vs_baseline",
         "best_candidate_id",
         "score_metric",
+        "split",
+        "roster_id",
+        "roster_sha256",
+        "cell_count",
+        "lift_verdict",
         "instance_id",
         "expansion_id",
         "expansion",
@@ -178,6 +210,21 @@ def run_reference(
         data = json.loads((CARDS / "instances" / f"{instance}.json").read_text())
         module = Path(data["card_file"]).stem
         candidate = SEALED / "pokemon" / "card" / "implementations" / f"{module}.rs"
+    if family == "code_policy":
+        # Diagnostic first so a failed authority run still leaves the train
+        # comparison behind to debug with.
+        subprocess.run(
+            score_command(
+                family,
+                candidate,
+                output,
+                instance=instance,
+                expansion=expansion,
+                variant=variant,
+                suite=suite,
+                split="train",
+            )
+        )
     command = score_command(
         family,
         candidate,
@@ -193,11 +240,38 @@ def run_reference(
     return completed.returncode
 
 
+EXCLUDED_WORKSPACE_DIRS = {
+    ".git",
+    "artifacts",
+    "target",
+    ".cache",
+    "__pycache__",
+    # Heldout authority: decks, opponent policies and the cell manifest the
+    # candidate is scored on. Never stage it into an agent workspace.
+    ".sealed",
+}
+
+
 def copy_workspace(destination: Path) -> None:
     def ignore(_path: str, names: list[str]) -> set[str]:
-        return {name for name in names if name in {".git", "artifacts", "target", ".cache", "__pycache__"}}
+        return {name for name in names if name in EXCLUDED_WORKSPACE_DIRS}
 
     shutil.copytree(REPO, destination, ignore=ignore)
+    assert_no_sealed_leak(destination)
+
+
+def assert_no_sealed_leak(workspace: Path) -> None:
+    """Fail closed if any sealed heldout asset reached the agent workspace."""
+    leaked = sorted(
+        str(path.relative_to(workspace))
+        for path in workspace.rglob("*")
+        if ".sealed" in path.parts
+    )
+    if leaked:
+        raise RuntimeError(
+            "sealed heldout assets leaked into the agent workspace: "
+            + ", ".join(leaked[:10])
+        )
 
 
 def run_codex(
@@ -261,6 +335,19 @@ def run_codex(
     )
     candidate = workspace / candidate_rel
     if candidate.exists():
+        if family == "code_policy":
+            subprocess.run(
+                score_command(
+                    family,
+                    candidate,
+                    output,
+                    instance=instance,
+                    expansion=expansion,
+                    variant=variant,
+                    suite=suite,
+                    split="train",
+                )
+            )
         scored = subprocess.run(
             score_command(
                 family,

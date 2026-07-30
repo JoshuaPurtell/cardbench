@@ -125,9 +125,11 @@ def filter_duplicate_imports(code: str) -> str:
     return "\n".join(filtered_lines)
 
 BASE_DIR = Path(__file__).resolve().parents[3]
-ENGINE_DIR = Path(__file__).resolve().parents[1] / "engine"
+POKEMON_ROOT = Path(__file__).resolve().parents[1]
+ENGINE_DIR = POKEMON_ROOT / "engine"
 REFERENCE_ALGOS_DIR = Path(__file__).parent / "reference"
 ALGO_BENCH_DATA_DIR = Path(__file__).parent / "data"
+DEFAULT_TRAIN_ROSTER = POKEMON_ROOT / "rosters" / "code_policy_v1.json"
 
 
 def generate_ai_module(ai_code: str, ai_name: str) -> str:
@@ -141,38 +143,84 @@ def generate_ai_module(ai_code: str, ai_name: str) -> str:
 """
 
 
-def discover_reference_algos() -> list[dict]:
-    """Discover reference algos from reference_algos directory."""
-    algos = []
-    if not REFERENCE_ALGOS_DIR.exists():
-        return algos
+BUILTIN_PREFIX = "builtin:"
+BUILTIN_CONSTRUCTORS = {
+    "builtin:tcg_ai::RandomAiV4": "RandomAiV4::new(seed)",
+}
 
-    for path in sorted(REFERENCE_ALGOS_DIR.glob("*.rs")):
-        content = path.read_text()
-        match = re.search(r"pub struct (\w+)", content)
-        if not match:
+
+def _variant_name(opponent_id: str) -> str:
+    """``codex_run01`` -> ``RefCodexRun01``. Ids, not struct names.
+
+    Lifted opponents frequently share a struct name (every algo_bench result
+    declares ``CandidateAi``), so the enum variant has to be keyed on the roster
+    id. Each source still gets its own module, so the duplicate struct names
+    never collide.
+    """
+    cleaned = re.sub(r"[^0-9A-Za-z]+", " ", opponent_id).strip()
+    if not cleaned:
+        raise ValueError(f"opponent id {opponent_id!r} has no usable characters")
+    return "Ref" + "".join(part[:1].upper() + part[1:] for part in cleaned.split())
+
+
+def load_opponent_roster(path: Path) -> list[dict]:
+    """Load an explicit, ordered opponent roster.
+
+    The roster is authority: the benchmark plays exactly these opponents in
+    exactly this order. Nothing is discovered from the filesystem, so adding a
+    stray ``.rs`` file cannot silently change the evaluation surface.
+    """
+    payload = json.loads(path.read_text())
+    if isinstance(payload, dict):
+        # Accept a bare {"opponents": [...]} roster or the full committed
+        # roster, in which case the train split is the default surface.
+        entries = payload.get("opponents") or payload["train"]["opponents"]
+    else:
+        entries = payload
+    algos: list[dict] = []
+    seen: set[str] = set()
+    for entry in entries:
+        opponent_id = str(entry["id"])
+        if opponent_id in seen:
+            raise ValueError(f"duplicate opponent id in roster: {opponent_id}")
+        seen.add(opponent_id)
+        source = str(entry["source"])
+
+        if source.startswith(BUILTIN_PREFIX):
+            if source not in BUILTIN_CONSTRUCTORS:
+                raise ValueError(f"unknown builtin opponent: {source}")
+            algos.append(
+                {
+                    "id": opponent_id,
+                    "variant": _variant_name(opponent_id),
+                    "builtin": BUILTIN_CONSTRUCTORS[source],
+                }
+            )
             continue
-        struct_name = match.group(1)
-        module_name = f"ref_{path.stem}"
+
+        source_path = Path(source)
+        if not source_path.is_absolute():
+            source_path = (path.parent / source_path).resolve()
+            if not source_path.is_file():
+                source_path = (POKEMON_ROOT / source).resolve()
+        if not source_path.is_file():
+            raise FileNotFoundError(f"opponent source missing: {source} (id={opponent_id})")
+
+        match = re.search(r"\bpub\s+struct\s+(\w+)", source_path.read_text())
+        if not match:
+            raise ValueError(f"{source_path}: opponent must define a public struct")
         algos.append(
             {
-                "module": module_name,
-                "struct": struct_name,
-                "path": path,
-                "label": reference_label(struct_name),
+                "id": opponent_id,
+                "variant": _variant_name(opponent_id),
+                "module": f"ref_{re.sub(r'[^0-9a-zA-Z]+', '_', opponent_id).lower()}",
+                "struct": match.group(1),
+                "path": source_path,
             }
         )
+    if not algos:
+        raise ValueError(f"{path}: roster declares no opponents")
     return algos
-
-
-def reference_label(struct_name: str) -> str:
-    if struct_name == "RandomAi":
-        return "RandomAi (v1)"
-    if struct_name == "RandomAiV2":
-        return "RandomAiV2 (v2)"
-    if struct_name == "RandomAiV3":
-        return "RandomAiV3 (v3)"
-    return struct_name
 
 
 def generate_benchmark_binary(ai_name: str, ai_module_path: Path, reference_algos: list[dict]) -> str:
@@ -186,37 +234,38 @@ def generate_benchmark_binary(ai_name: str, ai_module_path: Path, reference_algo
     reference_opponents = []
 
     for algo in reference_algos:
-        module_name = algo["module"]
-        struct_name = algo["struct"]
-        label = algo["label"]
-        path_str = str(algo["path"]).replace("\\", "\\\\")
-        variant = f"Ref{struct_name}"
+        variant = algo["variant"]
+        opponent_id = algo["id"]
 
-        reference_modules.append(
-            f"""mod {module_name} {{
+        if "builtin" in algo:
+            reference_build_arms.append(
+                f"AiType::{variant} => Box::new({algo['builtin']}),"
+            )
+        else:
+            module_name = algo["module"]
+            struct_name = algo["struct"]
+            path_str = str(algo["path"]).replace("\\", "\\\\")
+            reference_modules.append(
+                f"""mod {module_name} {{
     include!(r#\"{path_str}\"#);
 }}"""
-        )
+            )
+            reference_build_arms.append(
+                f"AiType::{variant} => Box::new({module_name}::{struct_name}::new(seed)),"
+            )
+
         reference_variants.append(f"{variant},")
-        reference_ai_name_arms.append(f'AiType::{variant} => "{label}",')
-        reference_build_arms.append(
-            f"AiType::{variant} => Box::new({module_name}::{struct_name}::new(seed)),"
-        )
-        reference_opponents.append((variant, label))
+        reference_ai_name_arms.append(f'AiType::{variant} => "{opponent_id}",')
+        reference_opponents.append((variant, opponent_id))
 
     reference_modules_code = "\n\n".join(reference_modules)
     reference_variants_code = "\n    ".join(reference_variants)
     reference_ai_name_arms_code = "\n        ".join(reference_ai_name_arms)
     reference_build_arms_code = "\n        ".join(reference_build_arms)
-    if reference_opponents:
-        reference_opponents_code = (
-            ",\n        ".join(
-                [f'(AiType::{variant}, "{label}")' for variant, label in reference_opponents]
-            )
-            + ",\n        "
-        )
-    else:
-        reference_opponents_code = ""
+    reference_opponents_code = ",\n        ".join(
+        f'(AiType::{variant}, "{opponent_id}")'
+        for variant, opponent_id in reference_opponents
+    )
 
     return f"""use tcg_ai::{{AiController, RandomAiV4}};
 use tcg_core::{{Action, CardInstance, CardMetaMap, GameState, PlayerId, StepResult}};
@@ -356,6 +405,12 @@ fn run_match_loop_with_stats(
 struct MatchStats {{
     p1_wins: usize,
     total: usize,
+    // Games started, including any that hit the step/action budget without a
+    // winner. Cell scores divide by this, not by `total`: a stalled game is a
+    // non-win, never a silently dropped observation. Without it a cell can end
+    // up with zero completed games and an undefined score, which would break
+    // the paired baseline/candidate comparison downstream.
+    attempted: usize,
     outcomes: Vec<MatchOutcome>,
 }}
 
@@ -454,6 +509,7 @@ fn run_match_series(
     let mut stats = MatchStats::default();
 
     for match_num in 0..num_matches {{
+        stats.attempted += 1;
         let seed = seed_base + match_num as u64;
         let game = GameState::new_with_card_meta(
             deck1.to_vec(),
@@ -546,6 +602,7 @@ fn run_blended_matchup(
     );
     stats.p1_wins += swapped.p1_wins;
     stats.total += swapped.total;
+    stats.attempted += swapped.attempted;
     stats.outcomes.extend(swapped.outcomes);
     stats
 }}
@@ -633,7 +690,19 @@ fn main() {{
         .get(4)
         .and_then(|s| s.parse::<u64>().ok())
         .unwrap_or(0);
-    let selected_deck = args.get(5).map(|s| s.to_ascii_lowercase());
+    // arg5/arg6 name an exact ordered deck pair: the candidate always pilots
+    // arg5, the opponent always pilots arg6. Supplying only arg5 keeps the
+    // legacy "selected deck vs every other" behaviour; supplying neither keeps
+    // the legacy seed-modulo pair sweep.
+    let candidate_deck_arg = args
+        .get(5)
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+    let opponent_deck_arg = args
+        .get(6)
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+    let selected_deck = candidate_deck_arg.as_ref().map(|s| s.to_ascii_lowercase());
 
     println!("Benchmarking {ai_name} vs v1-v4");
     println!("==================================");
@@ -659,8 +728,23 @@ fn main() {{
         println!("  - {{}} ({{}} cards)", spec.name, count);
     }}
 
+    let find_deck = |wanted: &str| -> usize {{
+        deck_specs
+            .iter()
+            .position(|spec| spec.name.to_ascii_lowercase() == wanted.to_ascii_lowercase())
+            .unwrap_or_else(|| panic!("Unknown public deck: {{}}", wanted))
+    }};
+
     let mut deck_pairs: Vec<(usize, usize)> = Vec::new();
-    if let Some(selected) = selected_deck {{
+    if let (Some(candidate_name), Some(opponent_name)) =
+        (candidate_deck_arg.as_ref(), opponent_deck_arg.as_ref())
+    {{
+        if candidate_name.to_ascii_lowercase() == opponent_name.to_ascii_lowercase() {{
+            eprintln!("Mirror pairs are not scored: {{}}", candidate_name);
+            std::process::exit(2);
+        }}
+        deck_pairs.push((find_deck(candidate_name), find_deck(opponent_name)));
+    }} else if let Some(selected) = selected_deck {{
         let selected_idx = deck_specs
             .iter()
             .position(|spec| spec.name.to_ascii_lowercase() == selected)
@@ -695,25 +779,74 @@ fn main() {{
         deck2_spec.name
     );
 
+    // Roster order is authority; nothing is discovered at runtime.
     let opponents = [
-        {reference_opponents_code}(AiType::RandomAiV4, "RandomAiV4 (v4)"),
+        {reference_opponents_code}
     ];
 
     let mut overall_stats = MatchStats::default();
     let mut opponent_results = Vec::new();
+    let mut cell_metrics: Vec<serde_json::Value> = Vec::new();
 
     for (opponent_idx, (opponent_type, opponent_name)) in opponents.iter().enumerate() {{
         println!("\\nOpponent: {{}}", opponent_name);
         let opponent_seed_base = seed_base + (opponent_idx as u64) * 1_000_000;
-        let stats = run_blended_matchup(
+
+        // The two seats are scored as separate cells rather than blended, so a
+        // candidate and the baseline can be paired cell-by-cell downstream.
+        // Seat seeds match run_blended_matchup exactly, keeping scores
+        // comparable with the pre-split harness.
+        let p1_stats = run_match_series(
             &deck1,
             &deck2,
             AiType::TestAI,
             *opponent_type,
             num_matches,
             opponent_seed_base,
+            PlayerId::P1,
             &card_meta,
         );
+        let p2_stats = run_match_series(
+            &deck2,
+            &deck1,
+            *opponent_type,
+            AiType::TestAI,
+            num_matches,
+            opponent_seed_base + 50_000,
+            PlayerId::P2,
+            &card_meta,
+        );
+
+        for (side, side_stats) in [("p1", &p1_stats), ("p2", &p2_stats)] {{
+            cell_metrics.push(serde_json::json!({{
+                "cell_id": format!(
+                    "{{}}|{{}}|{{}}|{{}}|{{}}",
+                    deck1_spec.name, deck2_spec.name, opponent_name, side, seed_base
+                ),
+                "candidate_deck": deck1_spec.name,
+                "opponent_deck": deck2_spec.name,
+                "opponent_id": opponent_name,
+                "side": side,
+                "seed_base": seed_base,
+                "wins": side_stats.p1_wins,
+                "matches": side_stats.attempted,
+                "completed": side_stats.total,
+                "stalled": side_stats.attempted - side_stats.total,
+                // Denominator is attempted, so a game that exhausted the step
+                // budget scores as a non-win rather than vanishing.
+                "win_rate": if side_stats.attempted > 0 {{
+                    (side_stats.p1_wins as f64) / (side_stats.attempted as f64)
+                }} else {{
+                    0.0
+                }},
+            }}));
+        }}
+
+        let mut stats = p1_stats;
+        stats.p1_wins += p2_stats.p1_wins;
+        stats.total += p2_stats.total;
+        stats.attempted += p2_stats.attempted;
+        stats.outcomes.extend(p2_stats.outcomes);
 
         let win_rate = if stats.total > 0 {{
             (stats.p1_wins as f64 / stats.total as f64) * 100.0
@@ -729,6 +862,7 @@ fn main() {{
         opponent_results.push((opponent_name.to_string(), stats.clone()));
         overall_stats.p1_wins += stats.p1_wins;
         overall_stats.total += stats.total;
+        overall_stats.attempted += stats.attempted;
         overall_stats.outcomes.extend(stats.outcomes.clone());
     }}
 
@@ -768,7 +902,13 @@ fn main() {{
         "version": "algo_bench_metrics_v1",
         "matches_per_opponent_per_side": num_matches,
         "opponent_count": opponent_results.len(),
+        "candidate_deck": deck1_spec.name,
+        "opponent_deck": deck2_spec.name,
+        "seed_base": seed_base,
+        "per_cell": cell_metrics,
         "total_games": overall_stats.total,
+        "attempted_games": overall_stats.attempted,
+        "stalled_games": overall_stats.attempted - overall_stats.total,
         "overall_win_rate": if overall_stats.total > 0 {{
             (overall_stats.p1_wins as f64) / (overall_stats.total as f64)
         }} else {{
@@ -827,8 +967,22 @@ rand = "0.8"
 rand_chacha = "0.3"
 """
     cargo_toml.write_text(cargo_content)
+    # The opponent roster is compiled into the binary, so it must key the build
+    # cache too — otherwise a train-roster binary would be silently reused to
+    # score the heldout split.
+    roster_key = "\0".join(
+        f"{algo['id']}:{algo.get('builtin') or algo['path']}" for algo in reference_algos
+    )
     build_key = hashlib.sha256(
-        (ai_name + "\0" + ai_module_content + "\0" + str(overzealous_dir.resolve())).encode()
+        (
+            ai_name
+            + "\0"
+            + ai_module_content
+            + "\0"
+            + str(overzealous_dir.resolve())
+            + "\0"
+            + roster_key
+        ).encode()
     ).hexdigest()[:20]
     target_dir = BASE_DIR / ".cache" / "policy-cargo-target" / build_key
     (work_dir / ".cardbench-target-dir").write_text(str(target_dir))
@@ -865,6 +1019,7 @@ def run_benchmark_binary(
     matches: int,
     seed_base: int,
     deck_name: str | None = None,
+    opponent_deck: str | None = None,
 ) -> subprocess.CompletedProcess[str]:
     """Run a pre-built benchmark binary."""
     command = [
@@ -874,8 +1029,10 @@ def run_benchmark_binary(
             str(matches),
             str(seed_base),
     ]
-    if deck_name:
-        command.append(deck_name)
+    if deck_name or opponent_deck:
+        command.append(deck_name or "")
+    if opponent_deck:
+        command.append(opponent_deck)
     return subprocess.run(command)
 
 
@@ -903,6 +1060,23 @@ def main():
     parser.add_argument("--cards-db", type=str, default=default_cards, help="Path to cards DB")
     parser.add_argument("--deck-name", help="Evaluate with this public deck as the tracked deck")
     parser.add_argument(
+        "--deck-pair",
+        help=(
+            "Exact ordered deck pair as 'candidate deck,opponent deck'. The "
+            "candidate always pilots the first deck. Required for cell-addressed "
+            "scoring; without it the harness falls back to seed-modulo selection."
+        ),
+    )
+    parser.add_argument(
+        "--opponent-roster",
+        type=Path,
+        default=DEFAULT_TRAIN_ROSTER,
+        help=(
+            "JSON roster naming the opponents to play, in order. Accepts either "
+            "{'opponents': [...]} or the full committed roster (train split)."
+        ),
+    )
+    parser.add_argument(
         "--engine-dir",
         type=Path,
         default=ENGINE_DIR,
@@ -914,9 +1088,15 @@ def main():
 
     args = parser.parse_args()
 
-    reference_algos = discover_reference_algos()
-    if not reference_algos:
-        print("Warning: no reference algos found in reference_algos directory.")
+    reference_algos = load_opponent_roster(args.opponent_roster)
+
+    candidate_deck = args.deck_name
+    opponent_deck = None
+    if args.deck_pair:
+        parts = [part.strip() for part in args.deck_pair.split(",")]
+        if len(parts) != 2 or not all(parts):
+            parser.error("--deck-pair must be 'candidate deck,opponent deck'")
+        candidate_deck, opponent_deck = parts
 
     if args.mode in {"single", "build"}:
         if not args.ai_code_file and not args.ai_code:
@@ -967,7 +1147,8 @@ def main():
             cards_db=args.cards_db,
             matches=args.matches,
             seed_base=args.seed_base,
-            deck_name=args.deck_name,
+            deck_name=candidate_deck,
+            opponent_deck=opponent_deck,
         )
         if run_result.returncode != 0:
             print("Benchmark failed")
@@ -997,7 +1178,8 @@ def main():
             cards_db=args.cards_db,
             matches=args.matches,
             seed_base=args.seed_base,
-            deck_name=args.deck_name,
+            deck_name=candidate_deck,
+            opponent_deck=opponent_deck,
         )
         if run_result.returncode != 0:
             print("Benchmark failed")
