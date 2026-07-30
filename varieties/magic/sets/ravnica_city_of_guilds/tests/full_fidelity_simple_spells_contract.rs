@@ -12,6 +12,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-LIGHTNING-HELIX",
             "RAV-LAST-GASP",
             "RAV-ELVES-OF-DEEP-SHADOW",
+            "RAV-BOROS-RECRUIT",
         ]
     );
     let definitions = card_definitions();
@@ -57,6 +58,11 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
         .find(|definition| definition.id == "RAV-ELVES-OF-DEEP-SHADOW")
         .expect("Elves of Deep Shadow definition exists");
     assert_eq!(elves.supported_rules[0], "full-rules-fidelity");
+    let recruit = definitions
+        .iter()
+        .find(|definition| definition.id == "RAV-BOROS-RECRUIT")
+        .expect("Boros Recruit definition exists");
+    assert_eq!(recruit.supported_rules[0], "full-rules-fidelity");
 }
 
 #[test]
@@ -74,6 +80,10 @@ fn full_fidelity_card_scenarios_emit_their_complete_effect_receipts() {
         (
             "rav_elves_of_deep_shadow_complete_mana_ability",
             ["ManaAdded", "DamageDealtToPlayer"],
+        ),
+        (
+            "rav_boros_recruit_hybrid_first_strike",
+            ["SpellCast", "FirstStrikeCombatDamage"],
         ),
     ] {
         let result = results
