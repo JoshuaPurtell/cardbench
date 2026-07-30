@@ -706,7 +706,9 @@ impl Step {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PlayerState {
     pub id: PlayerId,
-    pub life: i16,
+    /// Magic life totals are unbounded by the rules; the engine uses a wide
+    /// signed representation instead of coupling them to effect amounts.
+    pub life: i64,
     pub library: Vec<ObjectId>,
     pub hand: Vec<ObjectId>,
     pub battlefield: Vec<ObjectId>,

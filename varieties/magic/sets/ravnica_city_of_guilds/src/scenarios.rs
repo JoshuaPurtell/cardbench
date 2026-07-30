@@ -57,7 +57,7 @@ struct ActionSpec {
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 struct ExpectedState {
-    life: Vec<i16>,
+    life: Vec<i64>,
     zones: Vec<String>,
     powers: Vec<String>,
     toughnesses: Vec<String>,
@@ -742,7 +742,7 @@ where
         .map_err(|error| line_error(line_number, &format!("invalid number `{value}`: {error}")))
 }
 
-fn parse_number_array(value: &str, line_number: usize) -> Result<Vec<i16>, String> {
+fn parse_number_array(value: &str, line_number: usize) -> Result<Vec<i64>, String> {
     let inner = value
         .strip_prefix('[')
         .and_then(|value| value.strip_suffix(']'))

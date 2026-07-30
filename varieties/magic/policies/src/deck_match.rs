@@ -112,7 +112,7 @@ pub struct DeckMatchResult {
     pub config: DeckMatchConfig,
     pub termination: DeckMatchTermination,
     pub winner: Option<PlayerId>,
-    pub life: [i16; 2],
+    pub life: [i64; 2],
     pub turns: u32,
     /// Number of policy proposals attempted by the match runner.
     pub attempted_policy_moves: u32,
