@@ -121,6 +121,24 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             }],
         },
         CardDefinition {
+            id: "RAV-GATHER-COURAGE",
+            name: "Gather Courage",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(0, [Color::Green]),
+            colors: colors([Color::Green]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Instant]),
+            is_basic_land: false,
+            supported_rules: &["convoke", "targeted-layer-7-modifier"],
+            power: None,
+            toughness: None,
+            keywords: vec![Keyword::Convoke],
+            effects: vec![Effect::ModifyTargetPtUntilEndOfTurn {
+                power: 2,
+                toughness: 2,
+            }],
+        },
+        CardDefinition {
             id: "RAV-GOLGARI-BROWNSCALE",
             name: "Golgari Brownscale",
             set_code: SET_CODE,
@@ -822,7 +840,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 12);
+        assert_eq!(first.len(), 13);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

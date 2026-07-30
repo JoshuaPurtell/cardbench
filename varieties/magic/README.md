@@ -72,6 +72,7 @@ RAV shown scenarios are fixture-driven from
 setup, actions, state assertions, event markers, and a fixed digest. They cover:
 
 - casting to the stack and both-player priority passes (`Lightning Helix`);
+- a one-mana, fully convoked targeted temporary boost (`Gather Courage`);
 - colored and generic convoke payment plus token creation (`Scatter the Seeds`);
 - dredge as a draw replacement (`Golgari Brownscale`);
 - a target-instant-or-sorcery stack counter plus transmute, equal mana-value search, and seeded deterministic shuffle (`Muddle the Mixture`);
