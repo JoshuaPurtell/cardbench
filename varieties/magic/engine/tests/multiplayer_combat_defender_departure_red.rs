@@ -189,22 +189,21 @@ fn departed_defender_does_not_retarget_declared_attackers_to_next_survivor() {
     game.validate_invariants()
         .expect("the loss transition currently accepts this combat state");
 
-    // The next two passes finish the now-defenderless combat.  Current engine
-    // behavior instead makes PlayerId(2) declare blockers and then take 20.
+    // The next two passes finish the now-defenderless combat. The engine must
+    // skip blockers and damage rather than substituting PlayerId(2).
     pass_living_players(&mut game);
     assert_eq!(
         game.step,
-        Step::DeclareBlockers,
-        "current trace reaches a replacement defender"
+        Step::EndOfCombat,
+        "a departed defender ends this combat without a replacement"
     );
-    game.submit_policy_move(
-        bystander,
-        "test.defender-departure.v1",
-        PolicyAction::DeclareBlockers {
-            assignments: vec![],
-        },
-    )
-    .expect("the buggy engine accepts the uninvolved survivor as blocker controller");
+    assert!(
+        !game.event_log.iter().any(|event| matches!(
+            event,
+            GameEvent::BlockersDeclared { player, .. } if *player == bystander
+        )),
+        "the uninvolved survivor never becomes a substitute defender"
+    );
     pass_living_players(&mut game);
 
     assert_eq!(
