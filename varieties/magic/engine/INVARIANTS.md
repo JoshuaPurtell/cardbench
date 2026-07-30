@@ -73,6 +73,9 @@ Oracle Magic rules coverage.
   permanent spells observe sorcery timing.
 - Casting a spell resets the pass sequence and leaves priority with its caster.
   An opponent receives a response window only after the caster passes.
+- The supported atomic Transmute activation likewise resets the pass sequence
+  and leaves priority with its controller; this slice does not model its
+  activated ability as a separately stack-resolving object.
 - Turn numbers are never zero, and the consecutive-pass counter is always
   below the number of surviving players outside its atomic resolution/step
   transition. A draw-replacement marker can exist only for the active player

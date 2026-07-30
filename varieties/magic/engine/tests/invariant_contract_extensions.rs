@@ -764,7 +764,7 @@ fn transmute_pays_exact_cost_moves_only_legal_cards_and_returns_priority() {
             .total(),
         0
     );
-    assert_eq!(game.priority, PlayerId(1));
+    assert_eq!(game.priority, player);
     assert!(game.event_log.iter().any(|event| {
         matches!(event, GameEvent::Transmuted { player: transmuting, discarded, found: selected }
             if *transmuting == player && *discarded == transmuter && *selected == found)
