@@ -11,16 +11,23 @@ fn continuing_multiplayer_view_omits_eliminated_opponents() {
     let observer = PlayerId(0);
     let eliminated = PlayerId(1);
     let survivor = PlayerId(2);
-    let mut game = Game::new(Vec::<CardDefinition>::new(), 3)
-        .expect("three-player fixture initializes");
+    let mut game =
+        Game::new(Vec::<CardDefinition>::new(), 3).expect("three-player fixture initializes");
 
     // Fixture setup creates a state-based-action boundary with two surviving
     // seats. The loss transition itself remains engine-owned and auditable.
     game.players[eliminated.0].life = 0;
     game.check_state_based_actions()
         .expect("zero life eliminates only that seat");
-    assert!(game.player(eliminated).expect("seat remains addressable").lost);
-    assert!(!game.is_game_over(), "two surviving players continue the game");
+    assert!(
+        game.player(eliminated)
+            .expect("seat remains addressable")
+            .lost
+    );
+    assert!(
+        !game.is_game_over(),
+        "two surviving players continue the game"
+    );
 
     let view = game
         .view_for_player(observer)
