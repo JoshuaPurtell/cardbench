@@ -224,6 +224,71 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             ))],
             effects: vec![Effect::CounterTargetInstantOrSorcerySpell],
         },
+        // This compatibility definition is deliberately limited to the target
+        // creature's temporary layer-7 modifier and transmute; it does not
+        // assert full-card or full-rules fidelity.
+        CardDefinition {
+            id: "RAV-DIZZY-SPELL",
+            name: "Dizzy Spell",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(0, [Color::Blue]),
+            colors: colors([Color::Blue]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Instant]),
+            is_basic_land: false,
+            supported_rules: &["targeted-layer-7-modifier", "transmute"],
+            power: None,
+            toughness: None,
+            keywords: vec![Keyword::Transmute(ManaCost::with_colors(
+                1,
+                [Color::Blue, Color::Blue],
+            ))],
+            effects: vec![Effect::ModifyTargetPtUntilEndOfTurn {
+                power: -3,
+                toughness: 0,
+            }],
+        },
+        // Only the hand-zone transmute activation is executable. The printed
+        // creature-destruction spell effect has no representation in this
+        // engine slice and is deliberately non-covered.
+        CardDefinition {
+            id: "RAV-BRAINSPOIL",
+            name: "Brainspoil",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(3, [Color::Black, Color::Black]),
+            colors: colors([Color::Black]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Sorcery]),
+            is_basic_land: false,
+            supported_rules: &["transmute"],
+            power: None,
+            toughness: None,
+            keywords: vec![Keyword::Transmute(ManaCost::with_colors(
+                1,
+                [Color::Black, Color::Black],
+            ))],
+            effects: vec![],
+        },
+        // This compatibility definition covers only the target creature's
+        // temporary layer-7 modifier and dredge.
+        CardDefinition {
+            id: "RAV-DARKBLAST",
+            name: "Darkblast",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(0, [Color::Black]),
+            colors: colors([Color::Black]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Instant]),
+            is_basic_land: false,
+            supported_rules: &["targeted-layer-7-modifier", "dredge"],
+            power: None,
+            toughness: None,
+            keywords: vec![Keyword::Dredge(3)],
+            effects: vec![Effect::ModifyTargetPtUntilEndOfTurn {
+                power: -1,
+                toughness: -1,
+            }],
+        },
         CardDefinition {
             id: "RAV-RALLY-THE-RIGHTEOUS",
             name: "Rally the Righteous",
@@ -930,7 +995,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 18);
+        assert_eq!(first.len(), 22);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }
