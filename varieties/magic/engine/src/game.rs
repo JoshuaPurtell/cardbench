@@ -1050,7 +1050,10 @@ impl Game {
             card: request.card,
         });
         self.consecutive_passes = 0;
-        self.priority = self.next_player(player);
+        // CR 601.2i / 117.3c: after completing a cast, the acting player
+        // receives priority again. Opponents get their response window only
+        // after that player passes.
+        self.priority = player;
         Ok(())
     }
 

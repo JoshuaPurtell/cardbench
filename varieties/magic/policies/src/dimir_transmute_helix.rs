@@ -348,6 +348,8 @@ mod tests {
             },
         )
         .expect("opponent casts Char");
+        game.pass_priority(PlayerId(1))
+            .expect("the opponent passes after casting");
 
         let mut policy = DimirTransmuteHelixPolicy::new(PlayerId(0));
         let view = game

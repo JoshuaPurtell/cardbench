@@ -330,6 +330,8 @@ fn stack_is_lifo_and_a_target_that_left_play_is_countered_by_rules() {
         first_spell,
         Target::Player(second_player),
     );
+    game.pass_priority(first_player)
+        .expect("the caster passes before the opponent responds");
     cast(
         &mut game,
         second_player,

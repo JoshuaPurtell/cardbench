@@ -329,8 +329,8 @@ mod tests {
         );
         game.submit_policy_move(PlayerId(0), policy.id(), action)
             .expect("policy removal must submit legally");
-        game.pass_priority(PlayerId(1)).expect("opponent passes");
         game.pass_priority(PlayerId(0)).expect("controller passes");
+        game.pass_priority(PlayerId(1)).expect("opponent passes");
 
         assert_eq!(game.zone_of(target), Some(Zone::Graveyard));
         game.validate_invariants()
