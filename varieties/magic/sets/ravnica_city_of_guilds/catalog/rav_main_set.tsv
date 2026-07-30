@@ -34,7 +34,7 @@
 26	Nightguard Patrol
 27	Oathsworn Giant
 28	Sandsower
-29	Screeching Griffin
+29	Screeching Griffin	executable:RAV-SCREECHING-GRIFFIN
 30	Seed Spark
 31	Suppression Field
 32	Three Dreams
@@ -43,8 +43,8 @@
 35	Votary of the Conclave
 36	Wojek Apothecary
 37	Wojek Siren	executable:RAV-WOJEK-SIREN
-38	Belltower Sphinx
-39	Cerulean Sphinx
+38	Belltower Sphinx	executable:RAV-BELLTOWER-SPHINX
+39	Cerulean Sphinx	executable:RAV-CERULEAN-SPHINX
 40	Compulsive Research
 41	Convolute
 42	Copy Enchantment
@@ -60,7 +60,7 @@
 52	Grayscaled Gharial	executable:RAV-GRAYSCALED-GHARIAL
 53	Grozoth
 54	Halcyon Glaze
-55	Hunted Phantasm
+55	Hunted Phantasm	executable:RAV-HUNTED-PHANTASM
 56	Induce Paranoia
 57	Lore Broker	executable:RAV-LORE-BROKER
 58	Mark of Eviction
@@ -73,15 +73,15 @@
 65	Spawnbroker
 66	Stasis Cell
 67	Surveilling Sprite
-68	Tattered Drake
+68	Tattered Drake	executable:RAV-TATTERED-DRAKE
 69	Telling Time
 70	Terraformer
 71	Tidewater Minion
 72	Tunnel Vision
-73	Vedalken Dismisser
+73	Vedalken Dismisser	executable:RAV-VEDALKEN-DISMISSER
 74	Vedalken Entrancer
 75	Wizened Snitches
-76	Zephyr Spirit
+76	Zephyr Spirit	executable:RAV-ZEPHYR-SPIRIT
 77	Blood Funnel
 78	Brainspoil	executable:RAV-BRAINSPOIL
 79	Carrion Howler	executable:RAV-CARRION-HOWLER
@@ -108,7 +108,7 @@
 100	Nightmare Void
 101	Ribbons of Night	executable:RAV-RIBBONS-OF-NIGHT
 102	Roofstalker Wight
-103	Sadistic Augermage
+103	Sadistic Augermage	executable:RAV-SADISTIC-AUGERMAGE
 104	Sewerdreg
 105	Shred Memory	executable:RAV-SHRED-MEMORY
 106	Sins of the Past
@@ -138,7 +138,7 @@
 130	Hammerfist Giant
 131	Hunted Dragon
 132	Incite Hysteria
-133	Indentured Oaf
+133	Indentured Oaf	executable:RAV-INDENTURED-OAF
 134	Instill Furor
 135	Mindmoil
 136	Molten Sentry
@@ -152,7 +152,7 @@
 144	Sparkmage Apprentice
 145	Stoneshaker Shaman
 146	Surge of Zeal
-147	Torpid Moloch
+147	Torpid Moloch	executable:RAV-TORPID-MOLOCH
 148	Viashino Fangtail
 149	Viashino Slasher
 150	Warp World

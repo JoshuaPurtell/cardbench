@@ -10,6 +10,7 @@ use cardbench_magic_engine::{CardType, Color, ManaCost};
 use cardbench_magic_rav::{card_definitions, run_all_scenarios};
 
 #[test]
+#[allow(clippy::too_many_lines)] // Explicit base-fact matrix is intentionally audit-friendly.
 fn second_creature_chassis_batch_is_exactly_bounded_to_public_base_facts() {
     let definitions = card_definitions();
     let expected = [
