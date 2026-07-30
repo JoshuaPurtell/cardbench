@@ -97,6 +97,10 @@ Oracle Magic rules coverage.
   payment sums all five colors in a widened `u16` total. The compatibility
   `ManaPool::total` policy view is saturated at `u8::MAX`; it is never used to
   decide whether a generic payment is affordable.
+- Colored symbol repetitions are also counted in a widened `u16` requirement
+  before any pool slot is debited. A cost above a bounded color slot's
+  representable capacity rejects atomically; it cannot saturate into a cheaper
+  payable cost.
 - Every public, intrinsic, or definition-bound mana producer preflights this
   bounded pool before it changes a source, pass state, pool, or event log. A
   capacity rejection is atomic and cannot emit a `ManaAdded` receipt for mana
