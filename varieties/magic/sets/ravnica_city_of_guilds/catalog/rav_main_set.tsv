@@ -114,25 +114,25 @@
 106	Sins of the Past
 107	Stinkweed Imp	executable:RAV-STINKWEED-IMP
 108	Strands of Undeath
-109	Thoughtpicker Witch
-110	Undercity Shade
+109	Thoughtpicker Witch	executable:RAV-THOUGHTPICKER-WITCH
+110	Undercity Shade	executable:RAV-UNDERCITY-SHADE
 111	Vigor Mortis
-112	Vindictive Mob
-113	Woebringer Demon
-114	Barbarian Riftcutter
+112	Vindictive Mob	executable:RAV-VINDICTIVE-MOB
+113	Woebringer Demon	executable:RAV-WOEBRINGER-DEMON
+114	Barbarian Riftcutter	executable:RAV-BARBARIAN-RIFTCUTTER
 115	Blockbuster
 116	Breath of Fury
 117	Char	executable:RAV-CHAR
 118	Cleansing Beam	executable:RAV-CLEANSING-BEAM
 119	Coalhauler Swine	executable:RAV-COALHAULER-SWINE
 120	Dogpile	executable:RAV-DOGPILE
-121	Excruciator
+121	Excruciator	executable:RAV-EXCRUCIATOR
 122	Fiery Conclusion	executable:RAV-FIERY-CONCLUSION
 123	Flame Fusillade
 124	Flash Conscription
 125	Frenzied Goblin	executable:RAV-FRENZIED-GOBLIN
 126	Galvanic Arc
-127	Goblin Fire Fiend
+127	Goblin Fire Fiend	executable:RAV-GOBLIN-FIRE-FIEND
 128	Goblin Spelunkers	executable:RAV-GOBLIN-SPELUNKERS
 129	Greater Forgeling	executable:RAV-GREATER-FORGELING
 130	Hammerfist Giant
@@ -147,7 +147,7 @@
 139	Reroute
 140	Sabertooth Alley Cat
 141	Seismic Spike
-142	Sell-Sword Brute
+142	Sell-Sword Brute	executable:RAV-SELL-SWORD-BRUTE
 143	Smash
 144	Sparkmage Apprentice
 145	Stoneshaker Shaman

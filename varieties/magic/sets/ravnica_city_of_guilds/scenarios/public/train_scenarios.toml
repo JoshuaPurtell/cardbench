@@ -4081,3 +4081,235 @@ stack_size = 0
 priority = 0
 event_markers = ["SpellCast", "SpellResolved"]
 digest = "fnv1a64:68d4a28396f03982"
+
+[[scenario]]
+id = "rav_demon_witch_creature_chassis"
+seed = 0
+description = "Cast Woebringer Demon and Thoughtpicker Witch with exact black costs, then verify only base P/T. Printed flying, upkeep sacrifice, and sacrifice-library behavior are deliberately omitted."
+
+[[scenario.card]]
+label = "demon"
+owner = 0
+definition = "RAV-WOEBRINGER-DEMON"
+zone = "hand"
+
+[[scenario.card]]
+label = "witch"
+owner = 0
+definition = "RAV-THOUGHTPICKER-WITCH"
+zone = "hand"
+
+[[scenario.mana]]
+player = 0
+color = "black"
+amount = 6
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "demon"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "witch"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["demon:battlefield", "witch:battlefield"]
+powers = ["demon:4", "witch:1"]
+toughnesses = ["demon:4", "witch:1"]
+mana = ["0:black:0"]
+stack_size = 0
+priority = 0
+event_markers = ["SpellCast", "SpellResolved"]
+digest = "fnv1a64:e78637d84b25b302"
+
+[[scenario]]
+id = "rav_shade_mob_creature_chassis"
+seed = 0
+description = "Cast Undercity Shade and Vindictive Mob with exact black costs, then verify only base P/T. Printed evasion, P/T activation, entry sacrifice, and blocking restriction are deliberately omitted."
+
+[[scenario.card]]
+label = "shade"
+owner = 0
+definition = "RAV-UNDERCITY-SHADE"
+zone = "hand"
+
+[[scenario.card]]
+label = "mob"
+owner = 0
+definition = "RAV-VINDICTIVE-MOB"
+zone = "hand"
+
+[[scenario.mana]]
+player = 0
+color = "black"
+amount = 11
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "shade"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "mob"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["shade:battlefield", "mob:battlefield"]
+powers = ["shade:1", "mob:5"]
+toughnesses = ["shade:1", "mob:5"]
+mana = ["0:black:0"]
+stack_size = 0
+priority = 0
+event_markers = ["SpellCast", "SpellResolved"]
+digest = "fnv1a64:e78637d84b25b302"
+
+[[scenario]]
+id = "rav_riftcutter_excruciator_creature_chassis"
+seed = 0
+description = "Cast Barbarian Riftcutter and Excruciator with exact red costs, then verify only base P/T. Printed land-destruction activation and prevention exception are deliberately omitted."
+
+[[scenario.card]]
+label = "riftcutter"
+owner = 0
+definition = "RAV-BARBARIAN-RIFTCUTTER"
+zone = "hand"
+
+[[scenario.card]]
+label = "excruciator"
+owner = 0
+definition = "RAV-EXCRUCIATOR"
+zone = "hand"
+
+[[scenario.mana]]
+player = 0
+color = "red"
+amount = 13
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "riftcutter"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "excruciator"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["riftcutter:battlefield", "excruciator:battlefield"]
+powers = ["riftcutter:3", "excruciator:7"]
+toughnesses = ["riftcutter:3", "excruciator:7"]
+mana = ["0:red:0"]
+stack_size = 0
+priority = 0
+event_markers = ["SpellCast", "SpellResolved"]
+digest = "fnv1a64:e78637d84b25b302"
+
+[[scenario]]
+id = "rav_fire_fiend_brute_creature_chassis"
+seed = 0
+description = "Cast Goblin Fire Fiend and Sell-Sword Brute with exact red costs, then verify only base P/T. Printed haste, attack restriction, power activation, and death trigger are deliberately omitted."
+
+[[scenario.card]]
+label = "fiend"
+owner = 0
+definition = "RAV-GOBLIN-FIRE-FIEND"
+zone = "hand"
+
+[[scenario.card]]
+label = "brute"
+owner = 0
+definition = "RAV-SELL-SWORD-BRUTE"
+zone = "hand"
+
+[[scenario.mana]]
+player = 0
+color = "red"
+amount = 6
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "fiend"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "brute"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["fiend:battlefield", "brute:battlefield"]
+powers = ["fiend:1", "brute:2"]
+toughnesses = ["fiend:1", "brute:2"]
+mana = ["0:red:0"]
+stack_size = 0
+priority = 0
+event_markers = ["SpellCast", "SpellResolved"]
+digest = "fnv1a64:e78637d84b25b302"

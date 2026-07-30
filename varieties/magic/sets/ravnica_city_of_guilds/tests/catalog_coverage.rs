@@ -73,12 +73,12 @@ fn executable_slice_size_is_explicit_and_does_not_masquerade_as_set_coverage() {
         .collect::<std::collections::BTreeSet<_>>();
 
     // Twenty executable basic-land printings collapse to five names. The
-    // remaining eighty-six executable names are deliberately bounded compatibility
+    // remaining ninety-four executable names are deliberately bounded compatibility
     // slice; Clinging Darkness remains catalog-only because Aura attachment,
     // persistent modifiers, and regeneration are not represented.
-    assert_eq!(executable_printings, 106);
-    assert_eq!(executable_names.len(), 91);
-    assert_eq!(catalog_only_names.len(), 200);
+    assert_eq!(executable_printings, 114);
+    assert_eq!(executable_names.len(), 99);
+    assert_eq!(catalog_only_names.len(), 192);
     assert!(executable_names.is_disjoint(&catalog_only_names));
 }
 
