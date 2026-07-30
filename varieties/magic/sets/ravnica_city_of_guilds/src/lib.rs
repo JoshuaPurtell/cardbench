@@ -23,8 +23,9 @@ use std::path::{Path, PathBuf};
 
 use cardbench_magic_engine::{
     ActivatedManaAbility, CardDefinition, CardType, CastRequest, Color, ConvokeContribution,
-    ConvokePayment, DeckEntry, DeckList, DeckRules, Effect, Game, Keyword, ManaAbilityBinding,
-    ManaAbilityOutput, ManaBundle, ManaCost, PlayerId, RulesError, Target, TokenSpec, Zone,
+    ConvokePayment, DeckEntry, DeckList, DeckRules, Effect, Game, HybridManaSymbol, Keyword,
+    ManaAbilityBinding, ManaAbilityOutput, ManaBundle, ManaCost, PlayerId, RulesError, Target,
+    TokenSpec, Zone,
 };
 
 pub const SET_CODE: &str = "RAV";
@@ -1741,6 +1742,31 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             9,
             9,
         ),
+        // Complete supported slice: either color pays the one hybrid symbol,
+        // and first-strike creatures assign combat damage in the dedicated
+        // earlier damage step. There are no additional printed abilities.
+        CardDefinition {
+            id: "RAV-BOROS-RECRUIT",
+            name: "Boros Recruit",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_hybrid(
+                0,
+                [],
+                [HybridManaSymbol {
+                    first: Color::Red,
+                    second: Color::White,
+                }],
+            ),
+            colors: colors([Color::Red, Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &["hybrid-cost-casting", "first-strike"],
+            power: Some(1),
+            toughness: Some(1),
+            keywords: vec![Keyword::FirstStrike],
+            effects: vec![],
+        },
         signet_definition("RAV-BOROS-SIGNET", "Boros Signet"),
         signet_definition("RAV-DIMIR-SIGNET", "Dimir Signet"),
         signet_definition("RAV-GOLGARI-SIGNET", "Golgari Signet"),

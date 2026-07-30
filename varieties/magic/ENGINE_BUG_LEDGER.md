@@ -95,13 +95,15 @@ severity for `sorcery-cast-at-instant-speed` and
 ## RAV set and mechanic coverage gaps (not engine defects)
 
 The complete public inventory contains 306 printings / 291 unique names; the
-executable compatibility slice contains 135 printings / 120 unique names.
+executable compatibility slice contains 136 printings / 121 unique names.
 Twenty executable printings are the four printings of each of five basic lands;
-the other 114 names are deliberately bounded cards exercising generic casting,
-base characteristics, mana abilities (including source-aware controller damage),
-targeted/global damage, temporary modifiers, token creation, Convoke, Dredge,
-Radiance, Transmute, combat-count damage, and controller-wide temporary
-modifiers. The remaining 171 unique names
+the other 116 executable names are nonbasic cards. Four of those are in the
+positive full-fidelity manifest; the remaining 112 are deliberately bounded
+compatibility cards exercising generic casting, base characteristics, mana
+abilities (including source-aware controller damage), targeted/global damage,
+temporary modifiers, token creation, Convoke, Dredge, Radiance, Transmute,
+combat-count damage, controller-wide temporary modifiers, hybrid payment, and
+first-strike combat damage. The remaining 170 unique names
 are explicitly catalog-only and fail closed with
 `card-specific-rules-not-implemented`. This boundary is enforced by
 `catalog_coverage::executable_slice_size_is_explicit_and_does_not_masquerade_as_set_coverage`.

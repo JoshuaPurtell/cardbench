@@ -145,10 +145,37 @@ pub enum CardType {
     Sorcery,
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct ManaCost {
     pub generic: u8,
     pub colored: Vec<Color>,
+    /// Each entry is one colored symbol payable with either listed color.
+    /// Keeping alternatives explicit prevents a hybrid symbol from being
+    /// silently treated as two mandatory colored requirements.
+    pub hybrid: Vec<HybridManaSymbol>,
+}
+
+impl std::fmt::Debug for ManaCost {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut debug = formatter.debug_struct("ManaCost");
+        debug
+            .field("generic", &self.generic)
+            .field("colored", &self.colored);
+        // Existing canonical event traces include ManaCost debug output. Keep
+        // the established representation byte-for-byte when no hybrid symbol
+        // is present, while exposing hybrid data for new traces.
+        if !self.hybrid.is_empty() {
+            debug.field("hybrid", &self.hybrid);
+        }
+        debug.finish()
+    }
+}
+
+/// One two-color hybrid mana symbol.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct HybridManaSymbol {
+    pub first: Color,
+    pub second: Color,
 }
 
 impl ManaCost {
@@ -157,6 +184,7 @@ impl ManaCost {
         Self {
             generic,
             colored: Vec::new(),
+            hybrid: Vec::new(),
         }
     }
 
@@ -164,6 +192,22 @@ impl ManaCost {
         Self {
             generic,
             colored: colored.into_iter().collect(),
+            hybrid: Vec::new(),
+        }
+    }
+
+    /// Builds a cost with ordinary colored symbols and explicit two-color
+    /// hybrid choices. Each pair consumes exactly one mana from either color.
+    #[must_use]
+    pub fn with_hybrid(
+        generic: u8,
+        colored: impl IntoIterator<Item = Color>,
+        hybrid: impl IntoIterator<Item = HybridManaSymbol>,
+    ) -> Self {
+        Self {
+            generic,
+            colored: colored.into_iter().collect(),
+            hybrid: hybrid.into_iter().collect(),
         }
     }
 
@@ -171,6 +215,7 @@ impl ManaCost {
     pub fn mana_value(&self) -> u8 {
         self.generic
             .saturating_add(u8::try_from(self.colored.len()).unwrap_or(u8::MAX))
+            .saturating_add(u8::try_from(self.hybrid.len()).unwrap_or(u8::MAX))
     }
 }
 
@@ -217,6 +262,16 @@ impl ManaPool {
     }
 
     pub(crate) fn pay(&mut self, cost: &ManaCost) -> Result<(), String> {
+        let mut paid = self.clone();
+        paid.pay_in_place(cost)?;
+        *self = paid;
+        Ok(())
+    }
+
+    /// Internal payment mutation after `pay` has made the caller's pool
+    /// transactional. A missing later symbol must never leave an earlier
+    /// colored or hybrid debit behind.
+    fn pay_in_place(&mut self, cost: &ManaCost) -> Result<(), String> {
         // A cost may repeat one colored symbol more often than this bounded
         // pool can represent. Count in a widened type so the requirement never
         // saturates into a cheaper payable cost.
@@ -234,6 +289,7 @@ impl ManaPool {
                 .expect("a payable bounded colored cost fits its source pool");
             self.amounts[color.index()] -= spent;
         }
+        self.pay_hybrid_symbols(&cost.hybrid)?;
         if self.total_exact() < u16::from(cost.generic) {
             return Err("missing generic mana".to_owned());
         }
@@ -248,12 +304,87 @@ impl ManaPool {
         }
         Ok(())
     }
+
+    /// Pays every hybrid symbol through a capacity-aware matching pass. A
+    /// greedy left-to-right choice would reject a payable cost such as
+    /// `{W/U}{W/R}` from `{W}{U}`; augmenting prior choices keeps payment
+    /// order-independent while preserving the five-color pool boundary.
+    fn pay_hybrid_symbols(&mut self, symbols: &[HybridManaSymbol]) -> Result<(), String> {
+        let mut remaining = self.amounts.map(u16::from);
+        let mut assignments = vec![None; symbols.len()];
+        for index in 0..symbols.len() {
+            let mut seen_colors = [false; 5];
+            let mut seen_symbols = vec![false; symbols.len()];
+            if !Self::assign_hybrid_symbol(
+                index,
+                symbols,
+                &mut assignments,
+                &mut remaining,
+                &mut seen_colors,
+                &mut seen_symbols,
+            ) {
+                return Err("missing hybrid mana".to_owned());
+            }
+        }
+        for color in Color::ALL {
+            self.amounts[color.index()] = u8::try_from(remaining[color.index()])
+                .expect("hybrid payment cannot increase a bounded mana pool");
+        }
+        Ok(())
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn assign_hybrid_symbol(
+        index: usize,
+        symbols: &[HybridManaSymbol],
+        assignments: &mut [Option<Color>],
+        remaining: &mut [u16; 5],
+        seen_colors: &mut [bool; 5],
+        seen_symbols: &mut [bool],
+    ) -> bool {
+        seen_symbols[index] = true;
+        for color in [symbols[index].first, symbols[index].second] {
+            let color_index = color.index();
+            if seen_colors[color_index] {
+                continue;
+            }
+            seen_colors[color_index] = true;
+            if remaining[color_index] > 0 {
+                remaining[color_index] -= 1;
+                assignments[index] = Some(color);
+                return true;
+            }
+            for occupant in 0..assignments.len() {
+                if assignments[occupant] != Some(color) || seen_symbols[occupant] {
+                    continue;
+                }
+                assignments[occupant] = None;
+                remaining[color_index] += 1;
+                if Self::assign_hybrid_symbol(
+                    occupant,
+                    symbols,
+                    assignments,
+                    remaining,
+                    seen_colors,
+                    seen_symbols,
+                ) {
+                    remaining[color_index] -= 1;
+                    assignments[index] = Some(color);
+                    return true;
+                }
+                remaining[color_index] -= 1;
+                assignments[occupant] = Some(color);
+            }
+        }
+        false
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Keyword {
     Convoke,
     Defender,
+    FirstStrike,
     Dredge(u8),
     Transmute(ManaCost),
 }
@@ -700,6 +831,7 @@ pub enum Step {
     BeginningOfCombat,
     DeclareAttackers,
     DeclareBlockers,
+    FirstStrikeCombatDamage,
     CombatDamage,
     EndOfCombat,
     PostcombatMain,
@@ -717,7 +849,8 @@ impl Step {
             Self::PrecombatMain => Self::BeginningOfCombat,
             Self::BeginningOfCombat => Self::DeclareAttackers,
             Self::DeclareAttackers => Self::DeclareBlockers,
-            Self::DeclareBlockers => Self::CombatDamage,
+            Self::DeclareBlockers => Self::FirstStrikeCombatDamage,
+            Self::FirstStrikeCombatDamage => Self::CombatDamage,
             Self::CombatDamage => Self::EndOfCombat,
             Self::EndOfCombat => Self::PostcombatMain,
             Self::PostcombatMain => Self::End,
