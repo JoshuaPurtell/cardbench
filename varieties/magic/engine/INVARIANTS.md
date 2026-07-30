@@ -48,6 +48,10 @@ Oracle Magic rules coverage.
   resolution, an all-illegal target set emits
   `SpellCounteredByRules`; a resolving counter effect emits the distinct
   `SpellCountered` receipt.
+- A stack spell target that remains on the stack must be below its source,
+  because only already-existing stack objects can be chosen while casting. A
+  formerly legal target may have left the stack by resolution, which remains a
+  dynamic rules-counter case rather than an invariant failure.
 - Every stack controller is living. In this slice a noninstant stack object
   can only be the bottom object, cast by the active player in a main phase;
   any later stack object must be an instant. An unsupported nonpermanent card

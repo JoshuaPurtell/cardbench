@@ -1930,6 +1930,17 @@ impl Game {
                 if let Target::Player(player) = target {
                     self.player(*player)?;
                 }
+                if let Target::Spell(card) = target
+                    && self
+                        .stack
+                        .iter()
+                        .position(|candidate| candidate.card == *card)
+                        .is_some_and(|target_index| target_index >= stack_index)
+                {
+                    return Err(RulesError::IllegalAction(
+                        "a stack spell target must be lower than its source",
+                    ));
+                }
             }
         }
         for card in self.objects.keys() {
