@@ -1118,6 +1118,13 @@ impl Game {
             ));
         }
         if let Some(card) = dredge {
+            // Public scenarios may model a single replacement draw before
+            // `begin_game` without constructing a full turn. A live game,
+            // above, must already have created this marker at the real Draw
+            // step and may not synthesize one arbitrarily.
+            if !self.started {
+                self.pending_draw_replacement = Some(player);
+            }
             let result = self.dredge(player, card);
             self.pending_draw_replacement = None;
             return result;
