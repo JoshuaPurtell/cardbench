@@ -674,6 +674,186 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
+        // Compatibility scope: normal colored-cost creature casting and base
+        // characteristics only. Every printed card-specific behavior is
+        // deliberately omitted from this slice.
+        CardDefinition {
+            id: "RAV-DROMAD-PUREBRED",
+            name: "Dromad Purebred",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(4, [Color::White]),
+            colors: colors([Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &["colored-cost-casting", "base-characteristics"],
+            power: Some(1),
+            toughness: Some(5),
+            keywords: vec![],
+            effects: vec![],
+        },
+        // Compatibility scope: normal colored-cost creature casting and base
+        // characteristics only. Every printed card-specific behavior is
+        // deliberately omitted from this slice.
+        CardDefinition {
+            id: "RAV-SNAPPING-DRAKE",
+            name: "Snapping Drake",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(3, [Color::Blue]),
+            colors: colors([Color::Blue]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &["colored-cost-casting", "base-characteristics"],
+            power: Some(3),
+            toughness: Some(2),
+            keywords: vec![],
+            effects: vec![],
+        },
+        // Compatibility scope: normal colored-cost creature casting and base
+        // characteristics only. Every printed card-specific behavior is
+        // deliberately omitted from this slice.
+        CardDefinition {
+            id: "RAV-CARRION-HOWLER",
+            name: "Carrion Howler",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(3, [Color::Black]),
+            colors: colors([Color::Black]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &["colored-cost-casting", "base-characteristics"],
+            power: Some(2),
+            toughness: Some(2),
+            keywords: vec![],
+            effects: vec![],
+        },
+        // Compatibility scope: normal colored-cost creature casting and base
+        // characteristics only. Every printed card-specific behavior is
+        // deliberately omitted from this slice.
+        CardDefinition {
+            id: "RAV-COALHAULER-SWINE",
+            name: "Coalhauler Swine",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(4, [Color::Red, Color::Red]),
+            colors: colors([Color::Red]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &["colored-cost-casting", "base-characteristics"],
+            power: Some(4),
+            toughness: Some(4),
+            keywords: vec![],
+            effects: vec![],
+        },
+        // Compatibility scope: normal colored-cost creature casting and base
+        // characteristics only. Every printed card-specific behavior is
+        // deliberately omitted from this slice.
+        CardDefinition {
+            id: "RAV-BRAMBLE-ELEMENTAL",
+            name: "Bramble Elemental",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(3, [Color::Green, Color::Green]),
+            colors: colors([Color::Green]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &["colored-cost-casting", "base-characteristics"],
+            power: Some(4),
+            toughness: Some(4),
+            keywords: vec![],
+            effects: vec![],
+        },
+        // Compatibility scope: normal colored-cost creature casting and base
+        // characteristics only. Every printed card-specific behavior is
+        // deliberately omitted from this slice.
+        CardDefinition {
+            id: "RAV-SKYKNIGHT-LEGIONNAIRE",
+            name: "Skyknight Legionnaire",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(1, [Color::Red, Color::White]),
+            colors: colors([Color::Red, Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &["colored-cost-casting", "base-characteristics"],
+            power: Some(2),
+            toughness: Some(2),
+            keywords: vec![],
+            effects: vec![],
+        },
+        // Compatibility scope: normal colored-cost creature casting and base
+        // characteristics only. Every printed card-specific behavior is
+        // deliberately omitted from this slice.
+        CardDefinition {
+            id: "RAV-MOROII",
+            name: "Moroii",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(2, [Color::Blue, Color::Black]),
+            colors: colors([Color::Blue, Color::Black]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &["colored-cost-casting", "base-characteristics"],
+            power: Some(4),
+            toughness: Some(4),
+            keywords: vec![],
+            effects: vec![],
+        },
+        // Compatibility scope: normal colored-cost creature casting and base
+        // characteristics only. Every printed card-specific behavior is
+        // deliberately omitted from this slice.
+        CardDefinition {
+            id: "RAV-LOXODON-HIERARCH",
+            name: "Loxodon Hierarch",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(2, [Color::Green, Color::White]),
+            colors: colors([Color::Green, Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &["colored-cost-casting", "base-characteristics"],
+            power: Some(4),
+            toughness: Some(4),
+            keywords: vec![],
+            effects: vec![],
+        },
+        // Compatibility scope: normal colored-cost creature casting and base
+        // characteristics only. Every printed card-specific behavior is
+        // deliberately omitted from this slice.
+        CardDefinition {
+            id: "RAV-BOROS-SWIFTBLADE",
+            name: "Boros Swiftblade",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(0, [Color::Red, Color::White]),
+            colors: colors([Color::Red, Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &["colored-cost-casting", "base-characteristics"],
+            power: Some(1),
+            toughness: Some(2),
+            keywords: vec![],
+            effects: vec![],
+        },
+        // Compatibility scope: normal colored-cost creature casting and base
+        // characteristics only. Every printed card-specific behavior is
+        // deliberately omitted from this slice.
+        CardDefinition {
+            id: "RAV-CARVEN-CARYATID",
+            name: "Carven Caryatid",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(1, [Color::Green, Color::Green]),
+            colors: colors([Color::Green]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &["colored-cost-casting", "base-characteristics"],
+            power: Some(2),
+            toughness: Some(5),
+            keywords: vec![],
+            effects: vec![],
+        },
         // Public RAV #261 verification establishes that this is a vanilla
         // artifact creature: its published rules field is empty, so this
         // definition does not omit a printed ability. The compatibility scope
@@ -1425,7 +1605,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 43);
+        assert_eq!(first.len(), 48);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

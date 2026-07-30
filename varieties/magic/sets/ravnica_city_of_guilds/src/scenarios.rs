@@ -60,6 +60,7 @@ struct ExpectedState {
     life: Vec<i16>,
     zones: Vec<String>,
     powers: Vec<String>,
+    toughnesses: Vec<String>,
     tapped: Vec<String>,
     token_count: Option<usize>,
     mana: Vec<String>,
@@ -274,6 +275,7 @@ fn set_expected_field(
         "life" => scenario.expected.life = parse_number_array(value, line_number)?,
         "zones" => scenario.expected.zones = parse_string_array(value, line_number)?,
         "powers" => scenario.expected.powers = parse_string_array(value, line_number)?,
+        "toughnesses" => scenario.expected.toughnesses = parse_string_array(value, line_number)?,
         "tapped" => scenario.expected.tapped = parse_string_array(value, line_number)?,
         "token_count" => scenario.expected.token_count = Some(parse_number(value, line_number)?),
         "mana" => scenario.expected.mana = parse_string_array(value, line_number)?,
@@ -492,6 +494,22 @@ fn assert_expected_state(
         if actual != Some(expected_power) {
             return Err(format!(
                 "{}: expected `{label}` to have power {expected_power}, got {actual:?}",
+                specification.id
+            ));
+        }
+    }
+    for expected in &specification.expected.toughnesses {
+        let (label, toughness) = split_pair(expected, "toughness assertion")?;
+        let expected_toughness: i16 = toughness
+            .parse()
+            .map_err(|error| format!("invalid toughness `{toughness}`: {error}"))?;
+        let actual = game
+            .characteristics(lookup(labels, label)?)
+            .map_err(rules_error)?
+            .toughness;
+        if actual != Some(expected_toughness) {
+            return Err(format!(
+                "{}: expected `{label}` to have toughness {expected_toughness}, got {actual:?}",
                 specification.id
             ));
         }

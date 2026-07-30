@@ -20,7 +20,7 @@
 12	Courier Hawk
 13	Devouring Light
 14	Divebomber Griffin
-15	Dromad Purebred
+15	Dromad Purebred	executable:RAV-DROMAD-PUREBRED
 16	Faith's Fetters
 17	Festival of the Guildpact
 18	Flickerform
@@ -69,7 +69,7 @@
 61	Peel from Reality
 62	Quickchange
 63	Remand
-64	Snapping Drake
+64	Snapping Drake	executable:RAV-SNAPPING-DRAKE
 65	Spawnbroker
 66	Stasis Cell
 67	Surveilling Sprite
@@ -84,7 +84,7 @@
 76	Zephyr Spirit
 77	Blood Funnel
 78	Brainspoil	executable:RAV-BRAINSPOIL
-79	Carrion Howler
+79	Carrion Howler	executable:RAV-CARRION-HOWLER
 80	Clinging Darkness	catalog-only:aura-static-modifier-and-regeneration-not-implemented
 81	Dark Confidant
 82	Darkblast	executable:RAV-DARKBLAST
@@ -124,7 +124,7 @@
 116	Breath of Fury
 117	Char	executable:RAV-CHAR
 118	Cleansing Beam	executable:RAV-CLEANSING-BEAM
-119	Coalhauler Swine
+119	Coalhauler Swine	executable:RAV-COALHAULER-SWINE
 120	Dogpile
 121	Excruciator
 122	Fiery Conclusion
@@ -159,8 +159,8 @@
 151	War-Torch Goblin
 152	Wojek Embermage
 153	Birds of Paradise	executable:RAV-BIRDS-OF-PARADISE
-154	Bramble Elemental
-155	Carven Caryatid
+154	Bramble Elemental	executable:RAV-BRAMBLE-ELEMENTAL
+155	Carven Caryatid	executable:RAV-CARVEN-CARYATID
 156	Chord of Calling
 157	Civic Wayfinder
 158	Doubling Season
@@ -198,7 +198,7 @@
 190	Agrus Kos, Wojek Veteran
 191	Autochthon Wurm	executable:RAV-AUTOCHTHON-WURM
 192	Bloodbond March
-193	Boros Swiftblade
+193	Boros Swiftblade	executable:RAV-BOROS-SWIFTBLADE
 194	Brightflame
 195	Chorus of the Conclave
 196	Circu, Dimir Lobotomist
@@ -219,9 +219,9 @@
 211	Grave-Shell Scarab	executable:RAV-GRAVE-SHELL-SCARAB
 212	Guardian of Vitu-Ghazi	executable:RAV-GUARDIAN-OF-VITU-GHAZI
 213	Lightning Helix	executable:RAV-LIGHTNING-HELIX
-214	Loxodon Hierarch
+214	Loxodon Hierarch	executable:RAV-LOXODON-HIERARCH
 215	Mindleech Mass
-216	Moroii
+216	Moroii	executable:RAV-MOROII
 217	Perplex	executable:RAV-PERPLEX
 218	Phytohydra
 219	Pollenbright Wings
@@ -237,7 +237,7 @@
 229	Selesnya Sagittars
 230	Shambling Shell	executable:RAV-SHAMBLING-SHELL
 231	Sisters of Stone Death
-232	Skyknight Legionnaire
+232	Skyknight Legionnaire	executable:RAV-SKYKNIGHT-LEGIONNAIRE
 233	Sunhome Enforcer
 234	Szadek, Lord of Secrets
 235	Thundersong Trumpeter

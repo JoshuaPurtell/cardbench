@@ -2305,3 +2305,308 @@ found = "found_perplex"
 zones = ["perplex:graveyard", "found_perplex:hand"]
 event_markers = ["Transmuted", "CardMoved", "LibraryShuffled"]
 digest = "fnv1a64:07ba6ebbc10fdd6e"
+
+[[scenario]]
+id = "rav_white_blue_creature_chassis"
+seed = 0
+description = "Cast Dromad Purebred and Snapping Drake with their exact colored costs, then verify only their base P/T. All printed card-specific behavior is deliberately omitted."
+
+[[scenario.card]]
+label = "dromad"
+owner = 0
+definition = "RAV-DROMAD-PUREBRED"
+zone = "hand"
+
+[[scenario.card]]
+label = "drake"
+owner = 0
+definition = "RAV-SNAPPING-DRAKE"
+zone = "hand"
+
+[[scenario.mana]]
+player = 0
+color = "white"
+amount = 5
+
+[[scenario.mana]]
+player = 0
+color = "blue"
+amount = 4
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "dromad"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "drake"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["dromad:battlefield", "drake:battlefield"]
+powers = ["dromad:1", "drake:3"]
+toughnesses = ["dromad:5", "drake:2"]
+event_markers = ["SpellCast", "SpellResolved"]
+digest = "fnv1a64:e78637d84b25b302"
+
+[[scenario]]
+id = "rav_black_red_creature_chassis"
+seed = 0
+description = "Cast Carrion Howler and Coalhauler Swine with their exact colored costs, then verify only their base P/T. All printed card-specific behavior is deliberately omitted."
+
+[[scenario.card]]
+label = "howler"
+owner = 0
+definition = "RAV-CARRION-HOWLER"
+zone = "hand"
+
+[[scenario.card]]
+label = "swine"
+owner = 0
+definition = "RAV-COALHAULER-SWINE"
+zone = "hand"
+
+[[scenario.mana]]
+player = 0
+color = "black"
+amount = 4
+
+[[scenario.mana]]
+player = 0
+color = "red"
+amount = 6
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "howler"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "swine"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["howler:battlefield", "swine:battlefield"]
+powers = ["howler:2", "swine:4"]
+toughnesses = ["howler:2", "swine:4"]
+event_markers = ["SpellCast", "SpellResolved"]
+digest = "fnv1a64:e78637d84b25b302"
+
+[[scenario]]
+id = "rav_green_creature_chassis"
+seed = 0
+description = "Cast Bramble Elemental and Carven Caryatid with their exact colored costs, then verify only their base P/T. All printed card-specific behavior is deliberately omitted."
+
+[[scenario.card]]
+label = "bramble"
+owner = 0
+definition = "RAV-BRAMBLE-ELEMENTAL"
+zone = "hand"
+
+[[scenario.card]]
+label = "caryatid"
+owner = 0
+definition = "RAV-CARVEN-CARYATID"
+zone = "hand"
+
+[[scenario.mana]]
+player = 0
+color = "green"
+amount = 8
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "bramble"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "caryatid"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["bramble:battlefield", "caryatid:battlefield"]
+powers = ["bramble:4", "caryatid:2"]
+toughnesses = ["bramble:4", "caryatid:5"]
+event_markers = ["SpellCast", "SpellResolved"]
+digest = "fnv1a64:e78637d84b25b302"
+
+[[scenario]]
+id = "rav_boros_creature_chassis"
+seed = 0
+description = "Cast Boros Swiftblade and Skyknight Legionnaire with their exact multicolor costs, then verify only their base P/T. All printed card-specific behavior is deliberately omitted."
+
+[[scenario.card]]
+label = "swiftblade"
+owner = 0
+definition = "RAV-BOROS-SWIFTBLADE"
+zone = "hand"
+
+[[scenario.card]]
+label = "legionnaire"
+owner = 0
+definition = "RAV-SKYKNIGHT-LEGIONNAIRE"
+zone = "hand"
+
+[[scenario.mana]]
+player = 0
+color = "red"
+amount = 2
+
+[[scenario.mana]]
+player = 0
+color = "white"
+amount = 3
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "swiftblade"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "legionnaire"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["swiftblade:battlefield", "legionnaire:battlefield"]
+powers = ["swiftblade:1", "legionnaire:2"]
+toughnesses = ["swiftblade:2", "legionnaire:2"]
+event_markers = ["SpellCast", "SpellResolved"]
+digest = "fnv1a64:e78637d84b25b302"
+
+[[scenario]]
+id = "rav_guild_creature_chassis"
+seed = 0
+description = "Cast Loxodon Hierarch and Moroii with their exact guild costs, then verify only their base P/T. All printed card-specific behavior is deliberately omitted."
+
+[[scenario.card]]
+label = "hierarch"
+owner = 0
+definition = "RAV-LOXODON-HIERARCH"
+zone = "hand"
+
+[[scenario.card]]
+label = "moroii"
+owner = 0
+definition = "RAV-MOROII"
+zone = "hand"
+
+[[scenario.mana]]
+player = 0
+color = "white"
+amount = 3
+
+[[scenario.mana]]
+player = 0
+color = "green"
+amount = 3
+
+[[scenario.mana]]
+player = 0
+color = "blue"
+amount = 3
+
+[[scenario.mana]]
+player = 0
+color = "black"
+amount = 3
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "hierarch"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "moroii"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["hierarch:battlefield", "moroii:battlefield"]
+powers = ["hierarch:4", "moroii:4"]
+toughnesses = ["hierarch:4", "moroii:4"]
+event_markers = ["SpellCast", "SpellResolved"]
+digest = "fnv1a64:e78637d84b25b302"
