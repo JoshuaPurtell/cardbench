@@ -56,10 +56,11 @@ Oracle Magic rules coverage.
   action (including a spell, mana ability, pass, or weakness report), and its
   submitted `PolicyAction::Draw` receipt follows the resulting draw or dredge
   events.
-- `GameView` never exposes an opponent's hand or library. It projects only the
-  controller-owned, mana-value-matching library cards for each transmute card
-  in that controller's hand, allowing an honest search decision without
-  granting general hidden-library access.
+- `GameView` never exposes an opponent's hand or library, nor does it expose a
+  departed player as an opponent life-total or battlefield target. It projects
+  only the controller-owned, mana-value-matching library cards for each
+  transmute card in that controller's hand, allowing an honest search decision
+  without granting general hidden-library access.
 - While a draw replacement is pending, `GameView` projects only the deciding
   player's legal owned-graveyard dredge candidates. A policy can take the
   normal draw or choose one of those candidates; it cannot name a hidden or
