@@ -31,7 +31,7 @@ fn boros_recruit_exposes_full_supported_hybrid_and_first_strike_behavior() {
     assert_eq!(recruit.effects, Vec::new());
     assert_eq!(
         recruit.supported_rules,
-        ["hybrid-cost-casting", "first-strike"],
+        ["full-rules-fidelity", "hybrid-cost-casting", "first-strike"],
         "the complete card has no omitted printed behavior"
     );
 }

@@ -24,11 +24,12 @@ an executable compatibility definition remain subject to that definition's
 `supported_rules` scope; catalog coverage does not claim full rules fidelity.
 
 `RAV_FULL_FIDELITY_DEFINITION_IDS` is a deliberately small positive manifest,
-not an inference from executable status. Char, Lightning Helix, Last Gasp, and
-Elves of Deep Shadow are listed only after an ability-by-ability contract proves
-their complete represented behavior and public receipt traces. Every other
-executable definition remains a bounded compatibility slice unless it is
-explicitly added to that manifest after the same audit.
+not an inference from executable status. Char, Lightning Helix, Last Gasp,
+Elves of Deep Shadow, and Boros Recruit are listed only after an
+ability-by-ability contract proves their complete represented behavior and
+public receipt traces. Every other executable definition remains a bounded
+compatibility slice unless it is explicitly added to that manifest after the
+same audit.
 
 The creature batch for Golgari Thug, Stinkweed Imp, Greater Mossdog, and
 Root-Kin Ally is explicitly compatibility-bounded. The first three support only
