@@ -1270,6 +1270,7 @@ impl Game {
                 "this spell's front-face effect is unsupported; report an engine weakness",
             ));
         }
+        Self::validate_cast_effects(&definition)?;
         if !definition.card_types.contains(&CardType::Instant)
             && (player != self.active_player || !self.step.is_main() || !self.stack.is_empty())
         {
@@ -2100,6 +2101,33 @@ impl Game {
             .any(|requirement| !self.target_matches(targets[0], *requirement))
         {
             return Err(RulesError::IllegalTarget(targets[0]));
+        }
+        Ok(())
+    }
+
+    /// Reject malformed executable effect data before any casting cost, zone,
+    /// stack, or event transition can be committed.  Printed modifiers may be
+    /// negative, but the currently modelled damage and life-gain operations
+    /// are positive quantities.
+    fn validate_cast_effects(definition: &CardDefinition) -> Result<(), RulesError> {
+        for effect in &definition.effects {
+            let amount = match effect {
+                Effect::DealDamage { amount, .. }
+                | Effect::DealDamageController { amount }
+                | Effect::DealDamageToEachCreatureAndPlayer { amount }
+                | Effect::RadianceDealDamageToCreatures { amount }
+                | Effect::GainLifeController { amount } => *amount,
+                Effect::CreateToken { .. }
+                | Effect::ModifyTargetPtUntilEndOfTurn { .. }
+                | Effect::RadianceUntapAndModifyUntilEndOfTurn { .. }
+                | Effect::RadianceModifyPtUntilEndOfTurn { .. }
+                | Effect::CounterTargetInstantOrSorcerySpell => continue,
+            };
+            if amount <= 0 {
+                return Err(RulesError::IllegalAction(
+                    "damage and life-gain effect amounts must be positive",
+                ));
+            }
         }
         Ok(())
     }
