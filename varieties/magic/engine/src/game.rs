@@ -968,8 +968,8 @@ impl Game {
             Characteristics {
                 colors: token.colors.clone(),
                 card_types: token.card_types.clone(),
-                power: Some(token.power),
-                toughness: Some(token.toughness),
+                power: Some(i32::from(token.power)),
+                toughness: Some(i32::from(token.toughness)),
                 keywords: Vec::new(),
             }
         } else {
@@ -977,8 +977,8 @@ impl Game {
             Characteristics {
                 colors: definition.colors.clone(),
                 card_types: definition.card_types.clone(),
-                power: definition.power,
-                toughness: definition.toughness,
+                power: definition.power.map(i32::from),
+                toughness: definition.toughness.map(i32::from),
                 keywords: definition.keywords.clone(),
             }
         };
@@ -1000,9 +1000,12 @@ impl Game {
                     characteristics.keywords.push(keyword.clone());
                 }
                 ContinuousChange::ModifyPowerToughness { power, toughness } => {
-                    characteristics.power = characteristics.power.map(|current| current + power);
-                    characteristics.toughness =
-                        characteristics.toughness.map(|current| current + toughness);
+                    characteristics.power = characteristics
+                        .power
+                        .map(|current| current + i32::from(*power));
+                    characteristics.toughness = characteristics
+                        .toughness
+                        .map(|current| current + i32::from(*toughness));
                 }
             }
         }
@@ -2163,18 +2166,18 @@ impl Game {
                     self.record_event(GameEvent::DamageDealtToPlayer {
                         source,
                         player: *player,
-                        amount: *amount,
+                        amount: i32::from(*amount),
                     });
                 }
                 Target::Permanent(permanent) => {
                     self.objects
                         .get_mut(permanent)
                         .ok_or(RulesError::UnknownCard(*permanent))?
-                        .damage += amount;
+                        .damage += i32::from(*amount);
                     self.record_event(GameEvent::DamageDealtToPermanent {
                         source,
                         permanent: *permanent,
-                        amount: *amount,
+                        amount: i32::from(*amount),
                     });
                 }
                 Target::Spell(card) => return Err(RulesError::IllegalTarget(Target::Spell(*card))),
@@ -2184,7 +2187,7 @@ impl Game {
                 self.record_event(GameEvent::DamageDealtToPlayer {
                     source,
                     player: controller,
-                    amount: *amount,
+                    amount: i32::from(*amount),
                 });
             }
             Effect::DealDamageToEachCreatureAndPlayer { amount } => {
@@ -2209,11 +2212,11 @@ impl Game {
                     self.objects
                         .get_mut(&creature)
                         .ok_or(RulesError::UnknownCard(creature))?
-                        .damage += amount;
+                        .damage += i32::from(*amount);
                     self.record_event(GameEvent::DamageDealtToPermanent {
                         source,
                         permanent: creature,
-                        amount: *amount,
+                        amount: i32::from(*amount),
                     });
                 }
                 for player in 0..self.players.len() {
@@ -2225,7 +2228,7 @@ impl Game {
                     self.record_event(GameEvent::DamageDealtToPlayer {
                         source,
                         player,
-                        amount: *amount,
+                        amount: i32::from(*amount),
                     });
                 }
             }
@@ -2238,11 +2241,11 @@ impl Game {
                     self.objects
                         .get_mut(&candidate)
                         .ok_or(RulesError::UnknownCard(candidate))?
-                        .damage += amount;
+                        .damage += i32::from(*amount);
                     self.record_event(GameEvent::DamageDealtToPermanent {
                         source,
                         permanent: candidate,
-                        amount: *amount,
+                        amount: i32::from(*amount),
                     });
                 }
             }

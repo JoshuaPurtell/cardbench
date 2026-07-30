@@ -109,6 +109,11 @@ Oracle Magic rules coverage.
   the `i16` effect and damage amounts. Life changes widen their amount before
   arithmetic, so an ordinary legal life-gain effect at the former `i16`
   boundary completes its ordered receipts and resolution lifecycle.
+- Printed creature power/toughness and individual effect modifiers remain
+  bounded `i16` values, while derived layer-seven characteristics, marked
+  permanent damage, and damage-event amounts use signed `i32` values. Repeated
+  representable modifiers or damage effects therefore cannot wrap or panic
+  after a partial lifecycle receipt; SBAs see the complete resolved result.
 - Only instants in the implemented spell slice may be cast outside their
   controller's main phase or while the stack is nonempty. Sorceries and
   permanent spells observe sorcery timing.
