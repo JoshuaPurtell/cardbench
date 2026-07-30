@@ -1112,7 +1112,11 @@ impl Game {
         // begins. Once a game is live, an ordinary draw can happen only at the
         // active player's pending Draw-step replacement boundary. This keeps a
         // public helper from becoming an arbitrary-card-to-hand action.
-        let resolves_pending_draw = self.started && self.pending_draw_replacement == Some(player);
+        // A fixture may deliberately drive the public turn machine before
+        // `begin_game`; if that machine creates a Draw marker, resolving it
+        // still has to consume it. `started` controls only whether arbitrary
+        // direct draws are prohibited, not marker cleanup.
+        let resolves_pending_draw = self.pending_draw_replacement == Some(player);
         if self.started
             && (self.step != Step::Draw || player != self.active_player || !resolves_pending_draw)
         {

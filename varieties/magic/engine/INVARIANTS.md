@@ -109,7 +109,10 @@ Oracle Magic rules coverage.
 - Once the game has begun, the public direct-draw primitive is legal only for
   the active player's pending Draw-step decision. It resolves that marker
   atomically; an arbitrary Upkeep, main-phase, combat, or opponent draw is
-  rejected without changing a zone or canonical receipt.
+  rejected without changing a zone or canonical receipt. An authored fixture
+  that deliberately reaches a pending Draw step before `begin_game` likewise
+  consumes that marker when it resolves its ordinary draw, rather than leaving
+  a stale mandatory decision to block the next priority window.
 
 ## Combat
 
