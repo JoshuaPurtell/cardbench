@@ -1612,6 +1612,16 @@ impl Game {
                     "stack object has an invalid target count",
                 ));
             }
+            // A target may become illegal after a legal cast (for example, a
+            // player can lose or a permanent can leave the battlefield), but
+            // a player-seat identity can never cease to exist. Reject an
+            // unseated player injected into a public stack object instead of
+            // mistaking it for a rules-counterable target.
+            for target in &stack_object.targets {
+                if let Target::Player(player) = target {
+                    self.player(*player)?;
+                }
+            }
         }
         for card in self.objects.keys() {
             if !locations.contains_key(card) && !stack_cards.contains(card) {
