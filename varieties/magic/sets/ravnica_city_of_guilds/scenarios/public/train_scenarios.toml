@@ -556,6 +556,268 @@ zones = ["helix:hand"]
 digest = "fnv1a64:cbf29ce484222325"
 
 [[scenario]]
+id = "rav_golgari_thug_dredge_and_cast"
+seed = 0
+description = "Replace a draw with Golgari Thug's supported dredge value, then cast the returned 1/1 creature. Its separate graveyard trigger is outside this compatibility slice."
+
+[[scenario.card]]
+label = "thug"
+owner = 0
+definition = "RAV-GOLGARI-THUG"
+zone = "graveyard"
+
+[[scenario.card]]
+label = "mill_one"
+owner = 0
+definition = "RAV-FOREST"
+zone = "library"
+
+[[scenario.card]]
+label = "mill_two"
+owner = 0
+definition = "RAV-FOREST"
+zone = "library"
+
+[[scenario.card]]
+label = "mill_three"
+owner = 0
+definition = "RAV-FOREST"
+zone = "library"
+
+[[scenario.card]]
+label = "mill_four"
+owner = 0
+definition = "RAV-FOREST"
+zone = "library"
+
+[[scenario.mana]]
+player = 0
+color = "black"
+amount = 1
+
+[[scenario.mana]]
+player = 0
+color = "red"
+amount = 1
+
+[[scenario.action]]
+kind = "draw"
+player = 0
+dredge = "thug"
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "thug"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["thug:battlefield", "mill_one:graveyard", "mill_two:graveyard", "mill_three:graveyard", "mill_four:graveyard"]
+powers = ["thug:1"]
+event_markers = ["Dredged", "SpellCast", "SpellResolved"]
+digest = "fnv1a64:22d84ec03922474e"
+
+[[scenario]]
+id = "rav_stinkweed_imp_dredge_and_cast"
+seed = 0
+description = "Replace a draw with Stinkweed Imp's supported dredge value, then cast the returned 1/2 creature. Its combat keywords and damage-triggered behavior are unsupported."
+
+[[scenario.card]]
+label = "imp"
+owner = 0
+definition = "RAV-STINKWEED-IMP"
+zone = "graveyard"
+
+[[scenario.card]]
+label = "mill_one"
+owner = 0
+definition = "RAV-FOREST"
+zone = "library"
+
+[[scenario.card]]
+label = "mill_two"
+owner = 0
+definition = "RAV-FOREST"
+zone = "library"
+
+[[scenario.card]]
+label = "mill_three"
+owner = 0
+definition = "RAV-FOREST"
+zone = "library"
+
+[[scenario.card]]
+label = "mill_four"
+owner = 0
+definition = "RAV-FOREST"
+zone = "library"
+
+[[scenario.card]]
+label = "mill_five"
+owner = 0
+definition = "RAV-FOREST"
+zone = "library"
+
+[[scenario.mana]]
+player = 0
+color = "black"
+amount = 1
+
+[[scenario.mana]]
+player = 0
+color = "red"
+amount = 2
+
+[[scenario.action]]
+kind = "draw"
+player = 0
+dredge = "imp"
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "imp"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["imp:battlefield", "mill_one:graveyard", "mill_two:graveyard", "mill_three:graveyard", "mill_four:graveyard", "mill_five:graveyard"]
+powers = ["imp:1"]
+event_markers = ["Dredged", "SpellCast", "SpellResolved"]
+digest = "fnv1a64:57557ed8e6e9821d"
+
+[[scenario]]
+id = "rav_greater_mossdog_dredge_and_cast"
+seed = 0
+description = "Replace a draw with Greater Mossdog's supported dredge value, then cast the returned 3/3 creature. No card-specific behavior beyond Dredge is represented."
+
+[[scenario.card]]
+label = "mossdog"
+owner = 0
+definition = "RAV-GREATER-MOSSDOG"
+zone = "graveyard"
+
+[[scenario.card]]
+label = "mill_one"
+owner = 0
+definition = "RAV-FOREST"
+zone = "library"
+
+[[scenario.card]]
+label = "mill_two"
+owner = 0
+definition = "RAV-FOREST"
+zone = "library"
+
+[[scenario.card]]
+label = "mill_three"
+owner = 0
+definition = "RAV-FOREST"
+zone = "library"
+
+[[scenario.mana]]
+player = 0
+color = "green"
+amount = 1
+
+[[scenario.mana]]
+player = 0
+color = "red"
+amount = 3
+
+[[scenario.action]]
+kind = "draw"
+player = 0
+dredge = "mossdog"
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "mossdog"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["mossdog:battlefield", "mill_one:graveyard", "mill_two:graveyard", "mill_three:graveyard"]
+powers = ["mossdog:3"]
+event_markers = ["Dredged", "SpellCast", "SpellResolved"]
+digest = "fnv1a64:6eb82ad42dbc780c"
+
+[[scenario]]
+id = "rav_root_kin_ally_convoke_cast"
+seed = 0
+description = "Convoke Root-Kin Ally with two Green contributions and one generic contribution, then resolve the supported 3/3 creature. Its enter-the-battlefield counter behavior is unsupported."
+
+[[scenario.card]]
+label = "ally"
+owner = 0
+definition = "RAV-ROOT-KIN-ALLY"
+zone = "hand"
+
+[[scenario.card]]
+label = "first"
+owner = 0
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "second"
+owner = 0
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "third"
+owner = 0
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+
+[[scenario.mana]]
+player = 0
+color = "red"
+amount = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "ally"
+convoke = ["first:green", "second:green", "third:generic"]
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["ally:battlefield"]
+powers = ["ally:3"]
+tapped = ["first:true", "second:true", "third:true"]
+event_markers = ["SpellCast", "ConvokeUsed", "SpellResolved"]
+digest = "fnv1a64:3f73263c8babe476"
+
+[[scenario]]
 id = "rav_watchwolf_colored_cost"
 seed = 0
 description = "Cast the RAV multicolor creature with one Green and one White mana, then resolve it as a 3/3 permanent."

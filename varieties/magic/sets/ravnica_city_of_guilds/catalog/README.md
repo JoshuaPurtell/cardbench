@@ -23,13 +23,22 @@ returns their capability gap instead of a blank executable spell. Rows that poin
 an executable compatibility definition remain subject to that definition's
 `supported_rules` scope; catalog coverage does not claim full rules fidelity.
 
+The creature batch for Golgari Thug, Stinkweed Imp, Greater Mossdog, and
+Root-Kin Ally is explicitly compatibility-bounded. The first three support only
+normal creature casting, base characteristics, and the shared Dredge replacement;
+Root-Kin Ally supports only normal creature casting, base characteristics, and the
+shared Convoke payment hook. Every other printed ability on those cards is
+unsupported, including their card-specific triggered or combat behavior. The
+checked-in definitions and public scenarios make that omission visible without
+reproducing card rules text.
+
 Executable compatibility definitions use only the small public facts needed by
 their declared `supported_rules` fields (for example, card identity, colors,
 mana cost, types, and base characteristics). Those facts are CardBench-authored
 semantic data derived from the same public set identity source; they do not
-embed card rules text, art, flavor text, or upstream JSON. Watchwolf is the
-current base-characteristics example: its slice covers only normal colored-cost
-casting and its creature characteristics.
+embed card rules text, art, flavor text, or upstream JSON. Watchwolf is one
+base-characteristics example: its slice covers only normal colored-cost casting
+and its creature characteristics.
 
 The TSV's structure and the Rust parser are CardBench-authored MIT-licensed code and
 data structure. Magic set names and card names are used solely as nominative
