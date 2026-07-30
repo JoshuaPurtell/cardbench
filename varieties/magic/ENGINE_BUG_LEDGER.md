@@ -46,7 +46,41 @@ from `varieties/magic`; the audit exits nonzero while an item remains open.
 | `active-eliminated-seat-accepted-by-invariant-audit` | Engine audit defect | Fixed; regression verified | A continuing game whose active player had already lost could pass the former audit if priority had been reassigned. The invariant now rejects an eliminated active seat. |
 | `zero-timestamp-continuous-effect-accepted` | Engine audit defect | Fixed; regression verified | A fabricated continuous effect with timestamp zero evaded the uniqueness/future-timestamp test. Effects now require positive timestamps as well as monotonicity. |
 | `muddle-counterspell-front-face-unmodeled` | Engine/card-coverage defect | Fixed; regression verified | The prior honest fallback rejected Muddle's unsupported front face. The narrow executable RAV slice now targets an instant or sorcery card on the stack, removes it during resolution, and emits `SpellCountered`; its transmute behavior remains intact. |
+| `negative-power-combat-damage-gains-life` | Engine combat/event defect | Fixed; regression verified | An unblocked creature reduced below zero power logged a negative `DamageDealtToPlayer` amount and increased the defending player's life; blocked creatures could likewise subtract marked damage. Nonpositive power now assigns no combat damage and emits no damage receipt. |
+| `sorcery-cast-at-instant-speed` | Engine stack/timing defect | Fixed; regression verified | A nonactive player could cast a sorcery in response to an instant. The rejected cast is now atomic: the sorcery remains in hand and the stack and canonical event log are unchanged. |
+| `casting-hands-priority-to-opponent` | Engine priority defect | Fixed; regression verified | Casting a spell immediately assigned priority to the next player. The caster now retains priority, the pass count resets, and an opponent's response is possible only after an auditable caster pass. |
+| `setup-transitions-accepted-during-live-game` | Engine setup/turn-transition defect | Fixed; regression verified | A live game accepted `load_deck_into_library` for an empty seat and `draw_opening_hand` for a prepared seat, allowing hidden cards plus `DeckLoaded`, `LibraryShuffled`, or `OpeningHandDrawn` setup receipts to be injected mid-turn without priority. Both setup APIs now reject atomically after `begin_game`; a second opening hand also cannot be appended to a nonempty hand during setup. |
+| `zone-change-silently-deletes-continuous-effect` | Engine event-log defect | Fixed; regression verified | When an effect source or target left the battlefield, the effect disappeared from state without `ContinuousEffectExpired`, leaving a creation-only lifecycle in canonical logs. Zone and player-departure cleanup now emits the expiration receipt after the corresponding move/leave event. |
+| `shown-scenario-count-understates-corpus` | Public RAV fixture defect | Fixed; regression verified | Severity low, fixture/audit scope: `scenarios/shown.toml` and an internal test declared 11 scenarios while the parity runner executed 12. A contract test now compares the public index with the executable corpus; parity reports all 12 fixed-digest scenarios. |
 | `public-game-fields-can-bypass-transition-machine` | Engine API encapsulation weakness | Open; explicitly bounded | Several authored-fixture fields are public; a hostile caller can construct a shape-valid state without using a legal transition. `validate_invariants` detects invalid shapes but cannot establish transition provenance. |
+
+Severity for the newly fixed engine findings is high for
+`negative-power-combat-damage-gains-life`, medium for
+`setup-transitions-accepted-during-live-game` and
+`zone-change-silently-deletes-continuous-effect`, and medium rules-conformance
+severity for `sorcery-cast-at-instant-speed` and
+`casting-hands-priority-to-opponent`.
+
+## RAV set and mechanic coverage gaps (not engine defects)
+
+The complete public inventory contains 306 printings / 291 unique names, but
+the executable compatibility slice contains only 28 printings / 13 unique
+names. Twenty executable printings are the four printings of each of five basic
+lands; the only eight executable nonbasic names are Char, Golgari Brownscale,
+Last Gasp, Lightning Helix, Muddle the Mixture, Rally the Righteous, Scatter
+the Seeds, and Siege Wurm. The remaining 278 unique names are explicitly
+catalog-only and fail closed with
+`card-specific-rules-not-implemented`. This boundary is enforced by
+`catalog_coverage::executable_slice_size_is_explicit_and_does_not_masquerade_as_set_coverage`.
+
+The four advertised RAV mechanics have targeted compatibility examples
+(Convoke, Dredge, Radiance, and Transmute), but those examples do not establish
+set-wide mechanic or card-text fidelity. In particular, the executable
+Brownscale definition claims only its draw-replacement/base-characteristic
+slice, Muddle claims only its narrow counter/transmute slice, and the engine
+does not infer any semantics for the other cataloged cards. The 12 public
+scenarios are behavioral probes for the implemented slice, not coverage of all
+291 names or all interactions among the four mechanics.
 
 ## Non-engine result retained for policy work
 

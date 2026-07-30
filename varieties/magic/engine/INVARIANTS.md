@@ -118,10 +118,10 @@ Oracle Magic rules coverage.
   damage cannot begin without both declarations. A participant may leave after
   declaration, so later combat bookkeeping preserves the declaration without
   dereferencing a vanished token.
-  A creature with zero or negative power assigns no combat damage and emits no
-  damage event; negative power can never increase life or remove marked damage.
 - Combat damage occurs only after attacker and blocker declarations. It is
   recorded as player/permanent damage events, then state-based actions run.
+  A creature with zero or negative power assigns no combat damage and emits no
+  damage event; negative power can never increase life or remove marked damage.
   Multi-block assignment, alternative combat restrictions, and other
   unsupported combat rules must be reported as capability gaps rather than
   approximated.

@@ -2130,10 +2130,8 @@ impl Game {
                 if blocker_power > 0 {
                     permanent_damage.push((blocker, attacker, blocker_power));
                 }
-            } else {
-                if attacker_power > 0 {
-                    player_damage.push((attacker, defending_player, attacker_power));
-                }
+            } else if attacker_power > 0 {
+                player_damage.push((attacker, defending_player, attacker_power));
             }
         }
         for (source, permanent, amount) in permanent_damage {

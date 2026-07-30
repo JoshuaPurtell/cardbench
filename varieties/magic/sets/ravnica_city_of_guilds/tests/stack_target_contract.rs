@@ -62,6 +62,8 @@ fn response_resolves_lifo_before_the_original_spell() {
     game.clear_event_log();
 
     cast(&mut game, PlayerId(0), char.0, Target::Player(PlayerId(1)));
+    game.pass_priority(PlayerId(0))
+        .expect("the caster passes before the response");
     cast(&mut game, PlayerId(1), helix.0, Target::Player(PlayerId(0)));
     resolve_top(&mut game);
     assert_eq!(
@@ -114,6 +116,8 @@ fn target_that_leaves_battlefield_counters_the_pending_spell_by_rules() {
     game.clear_event_log();
 
     cast(&mut game, PlayerId(0), gasp.0, Target::Permanent(victim));
+    game.pass_priority(PlayerId(0))
+        .expect("the caster passes before the response");
     cast(&mut game, PlayerId(1), char.0, Target::Permanent(victim));
     resolve_top(&mut game);
 
