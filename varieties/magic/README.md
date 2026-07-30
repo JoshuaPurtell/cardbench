@@ -19,7 +19,7 @@ cargo run -p cardbench-magic-policies --bin rav-engine-audit
 ```
 
 `rav-engine-parity` validates the original Ravnica-block manifests and public
-deck pool, executes twelve RAV scenarios twice, and compares each deterministic
+deck pool, executes fourteen RAV scenarios twice, and compares each deterministic
 event log against its fixed public digest. With `--output-root PATH`, the Rust
 binary writes `engine-check.json` and `reward.txt` for the CardBench Harbor
 receipt.
@@ -72,6 +72,7 @@ RAV shown scenarios are fixture-driven from
 setup, actions, state assertions, event markers, and a fixed digest. They cover:
 
 - casting to the stack and both-player priority passes (`Lightning Helix`);
+- colored-cost creature casting and permanent characteristics (`Watchwolf`);
 - a one-mana, fully convoked targeted temporary boost (`Gather Courage`);
 - colored and generic convoke payment plus token creation (`Scatter the Seeds`);
 - dredge as a draw replacement (`Golgari Brownscale`);

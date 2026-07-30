@@ -23,6 +23,14 @@ returns their capability gap instead of a blank executable spell. Rows that poin
 an executable compatibility definition remain subject to that definition's
 `supported_rules` scope; catalog coverage does not claim full rules fidelity.
 
+Executable compatibility definitions use only the small public facts needed by
+their declared `supported_rules` fields (for example, card identity, colors,
+mana cost, types, and base characteristics). Those facts are CardBench-authored
+semantic data derived from the same public set identity source; they do not
+embed card rules text, art, flavor text, or upstream JSON. Watchwolf is the
+current base-characteristics example: its slice covers only normal colored-cost
+casting and its creature characteristics.
+
 The TSV's structure and the Rust parser are CardBench-authored MIT-licensed code and
 data structure. Magic set names and card names are used solely as nominative
 interoperability identifiers and remain their owners' marks.
