@@ -128,6 +128,7 @@ severity for `sorcery-cast-at-instant-speed` and
 | `boros-guildmage-keyword-grants-missing` | RAV card-coverage gap — two targeted temporary keyword-grant abilities | Fixed; red-to-green regression verified | The red probe `cargo test -p cardbench-magic-rav --test boros_guildmage_red -- --nocapture` initially failed at `Boros Guildmage exists`. The full slice now binds `{R}` Haste and `{W}` First Strike grants through the layer-6 continuous-effect substrate, with expiry and event-log coverage. |
 | `wojek-embermage-radiance-activation-missing` | RAV card-coverage gap — tap Radiance damage ability | Fixed; red-to-green regression verified | The red probe `cargo test -p cardbench-magic-rav --test wojek_embermage_red -- --nocapture` initially failed at `Wojek Embermage exists`. The typed tap ability now applies one damage to the target and every creature sharing its color through the existing Radiance batch; the regression checks target/shared damage and receipts. |
 | `thundersong-trumpeter-combat-restriction-missing` | RAV card-coverage gap — temporary target creature combat restriction | Fixed; red-to-green regression verified | The red probe `cargo test -p cardbench-magic-rav --test thundersong_trumpeter_red -- --nocapture` failed because `tap-prevent-target-combat` was absent. The `{T}` binding installs `CannotAttackOrBlock` through end of turn, and combat declaration rejects both attack and block attempts with the continuous-effect receipt retained. |
+| `sabertooth-alley-cat-mountain-block-restriction-missing` | RAV card-coverage gap — Mountain-dependent blocking restriction | Fixed; red-to-green regression verified | The red probe `cargo test -p cardbench-magic-rav --test sabertooth_alley_cat_red -- --nocapture` initially failed at `Sabertooth Alley Cat exists`. The executable slice now records `CannotBlockUnlessControlsMountain`, rejects a blocker while its controller lacks a Mountain, and preserves the failed transition's event log. |
 
 The complete public inventory contains 306 printings / 291 unique names; the
 executable compatibility slice contains 141 printings / 126 unique names.
@@ -149,7 +150,7 @@ The four advertised RAV mechanics have targeted compatibility examples
 set-wide mechanic or card-text fidelity. In particular, the executable
 Brownscale definition claims only its draw-replacement/base-characteristic
 slice, Muddle claims only its narrow counter/transmute slice, and the engine
-does not infer any semantics for the other cataloged cards. The 109 public
+does not infer any semantics for the other cataloged cards. The 110 public
 scenarios are behavioral probes for the implemented slice, not coverage of all
 291 names or all interactions among the four mechanics.
 
