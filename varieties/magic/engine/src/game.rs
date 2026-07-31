@@ -3569,6 +3569,7 @@ impl Game {
                 | Effect::ModifyControllerCreaturesPtUntilEndOfTurn { .. }
                 | Effect::RadianceUntapAndModifyUntilEndOfTurn { .. }
                 | Effect::RadianceModifyPtUntilEndOfTurn { .. }
+                | Effect::RadianceAddKeywordUntilEndOfTurn { .. }
                 | Effect::CounterTargetInstantOrSorcerySpell => continue,
             };
             if amount <= 0 {
@@ -4591,6 +4592,17 @@ impl Game {
                             power: *power,
                             toughness: *toughness,
                         },
+                        Duration::EndOfTurn(self.turn),
+                    )?;
+                }
+            }
+            Effect::RadianceAddKeywordUntilEndOfTurn { keyword } => {
+                let target = Self::target_permanent(target)?;
+                for candidate in self.radiance_creatures_sharing_color(target)? {
+                    self.install_continuous_effect(
+                        source,
+                        candidate,
+                        ContinuousChange::AddKeyword(keyword.clone()),
                         Duration::EndOfTurn(self.turn),
                     )?;
                 }

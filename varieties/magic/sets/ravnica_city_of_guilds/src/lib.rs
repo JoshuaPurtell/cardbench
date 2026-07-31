@@ -99,6 +99,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 63] = [
     "RAV-RAZIA-BOROS-ARCHANGEL",
     "RAV-HAMMERFIST-GIANT",
     "RAV-SCREECHING-GRIFFIN",
+    "RAV-SURGE-OF-ZEAL",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -1135,6 +1136,29 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             toughness: Some(4),
             keywords: vec![],
             effects: vec![],
+        },
+        // Full fidelity: the one-mana Radiance haste grant uses the shared
+        // target-color selection and layer-6 keyword effect.
+        CardDefinition {
+            id: "RAV-SURGE-OF-ZEAL",
+            name: "Surge of Zeal",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(0, [Color::Red]),
+            colors: colors([Color::Red]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Instant]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "radiance-grant-haste",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![Effect::RadianceAddKeywordUntilEndOfTurn {
+                keyword: Keyword::Haste,
+            }],
         },
         // Compatibility scope: normal colored-cost creature casting and base
         // characteristics only. Every printed card-specific behavior is
