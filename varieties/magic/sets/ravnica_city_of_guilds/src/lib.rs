@@ -302,26 +302,6 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 target: cardbench_magic_engine::TargetRequirement::Creature,
             }],
         },
-        // Compatibility scope: the temporary target-creature layer-7 modifier
-        // only. The granted combat keyword is intentionally unsupported.
-        CardDefinition {
-            id: "RAV-GAZE-OF-THE-GORGON",
-            name: "Gaze of the Gorgon",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(0, [Color::Black, Color::Green]),
-            colors: colors([Color::Black, Color::Green]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Instant]),
-            is_basic_land: false,
-            supported_rules: &["targeted-layer-7-modifier"],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![Effect::ModifyTargetPtUntilEndOfTurn {
-                power: -1,
-                toughness: -1,
-            }],
-        },
         CardDefinition {
             id: "RAV-GOLGARI-BROWNSCALE",
             name: "Golgari Brownscale",
@@ -2558,7 +2538,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 83);
+        assert_eq!(first.len(), 82);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

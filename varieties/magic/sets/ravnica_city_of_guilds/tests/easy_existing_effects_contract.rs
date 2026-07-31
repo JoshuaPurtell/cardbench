@@ -5,7 +5,10 @@
 //! out of `supported_rules` and cannot be mistaken for an engine feature.
 
 use cardbench_magic_engine::{CardType, Color, Effect, ManaCost, TargetRequirement, TokenSpec};
-use cardbench_magic_rav::{card_definitions, run_all_scenarios};
+use cardbench_magic_rav::{
+    CatalogResolutionError, RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions,
+    executable_definition_id_for_collector, run_all_scenarios,
+};
 
 fn definition(id: &str) -> cardbench_magic_engine::CardDefinition {
     card_definitions()
@@ -77,18 +80,27 @@ fn bounded_effect_slices_state_only_the_semantics_that_are_executable() {
             target: TargetRequirement::Creature,
         }]
     );
+}
 
-    let gaze = definition("RAV-GAZE-OF-THE-GORGON");
+#[test]
+fn gaze_of_gorgon_is_catalog_only_until_regeneration_and_combat_history_exist() {
     assert_eq!(
-        gaze.supported_rules,
-        ["full-rules-fidelity", "targeted-layer-7-modifier"]
+        executable_definition_id_for_collector(246),
+        Err(CatalogResolutionError::CapabilityGap {
+            collector_number: 246,
+            name: "Gaze of the Gorgon",
+            capability_gap: "regeneration-and-end-of-combat-block-history-destruction-not-implemented",
+        })
     );
-    assert_eq!(
-        gaze.effects,
-        vec![Effect::ModifyTargetPtUntilEndOfTurn {
-            power: -1,
-            toughness: -1,
-        }]
+    assert!(
+        !card_definitions()
+            .iter()
+            .any(|definition| definition.id == "RAV-GAZE-OF-THE-GORGON"),
+        "the prior unrelated temporary modifier must not remain executable"
+    );
+    assert!(
+        !RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&"RAV-GAZE-OF-THE-GORGON"),
+        "the positive manifest never claims this unsupported card"
     );
 }
 
@@ -104,8 +116,11 @@ fn public_scenarios_exercise_each_existing_effect_card_slice() {
         "rav_fists_of_ironwood_tokens",
         "rav_dryads_caress_life",
         "rav_fiery_conclusion_damage",
-        "rav_gaze_of_the_gorgon_modifier",
     ] {
         assert!(scenario_ids.contains(id), "missing public scenario {id}");
     }
+    assert!(
+        !scenario_ids.contains("rav_gaze_of_the_gorgon_modifier"),
+        "the removed false semantic slice must not have a replay fixture"
+    );
 }

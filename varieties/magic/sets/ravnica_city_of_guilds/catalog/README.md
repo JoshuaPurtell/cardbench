@@ -54,6 +54,15 @@ creature-subtype field. Siege Wurm and Guardian of Vitu-Ghazi remain bounded
 because trample combat-damage assignment and vigilance's attack/tap exception are
 not executable. None of the three bounded cards is a full-fidelity manifest entry.
 
+The 2026-07-30 simple-spell audit removed Gaze of the Gorgon from the executable
+slice. A prior fixture had both an incorrect hybrid-cost model and an unrelated
+temporary power/toughness operation; neither is a safe approximation. The
+original RAV functionality requires regeneration replacement handling and a
+delayed end-of-combat action based on combat block history. Both substrates are
+currently absent, so collector `#246` is catalog-only with that explicit
+capability gap and its former scenario has been removed. This repository keeps
+only this CardBench-authored semantic summary, not upstream card prose or art.
+
 The creature batch for Golgari Thug, Stinkweed Imp, Greater Mossdog, and
 Root-Kin Ally is explicitly compatibility-bounded. The first three support only
 normal creature casting, base characteristics, and the shared Dredge replacement;

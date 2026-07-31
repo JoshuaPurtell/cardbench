@@ -481,54 +481,6 @@ event_markers = ["DamageDealtToPermanent", "StateBasedAction", "SpellResolved"]
 digest = "fnv1a64:785bd1745621db64"
 
 [[scenario]]
-id = "rav_gaze_of_the_gorgon_modifier"
-seed = 0
-description = "Resolve the bounded Gaze of the Gorgon temporary target modifier."
-
-[[scenario.card]]
-label = "gaze"
-owner = 0
-definition = "RAV-GAZE-OF-THE-GORGON"
-zone = "hand"
-
-[[scenario.card]]
-label = "target"
-owner = 1
-definition = "RAV-GOLGARI-BROWNSCALE"
-zone = "battlefield"
-
-[[scenario.mana]]
-player = 0
-color = "black"
-amount = 1
-
-[[scenario.mana]]
-player = 0
-color = "green"
-amount = 1
-
-[[scenario.action]]
-kind = "cast"
-player = 0
-card = "gaze"
-target = "permanent:target"
-
-[[scenario.action]]
-kind = "pass"
-player = 0
-
-[[scenario.action]]
-kind = "pass"
-player = 1
-
-[scenario.expected]
-zones = ["gaze:graveyard"]
-powers = ["target:1"]
-toughnesses = ["target:2"]
-event_markers = ["ContinuousEffectCreated", "SpellResolved"]
-digest = "fnv1a64:f084f234f5342cf7"
-
-[[scenario]]
 id = "rav_stack_lightning_helix"
 seed = 0
 description = "Cast a targeted instant, pass priority around the stack, and verify the life swing."
