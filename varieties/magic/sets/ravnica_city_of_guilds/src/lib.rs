@@ -1097,9 +1097,10 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Every printed card-specific behavior is
-        // deliberately omitted from this slice.
+        // Compatibility scope: normal colored-cost creature casting, base
+        // characteristics, and Defender. Its enter-the-battlefield draw
+        // trigger remains deliberately unsupported, so this is not a
+        // full-fidelity card.
         CardDefinition {
             id: "RAV-CARVEN-CARYATID",
             name: "Carven Caryatid",
@@ -1109,10 +1110,10 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Creature]),
             is_basic_land: false,
-            supported_rules: &["colored-cost-casting", "base-characteristics"],
+            supported_rules: &["colored-cost-casting", "base-characteristics", "defender"],
             power: Some(2),
             toughness: Some(5),
-            keywords: vec![],
+            keywords: vec![Keyword::Defender],
             effects: vec![],
         },
         // Public RAV #261 verification establishes that this is a vanilla

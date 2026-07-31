@@ -6383,6 +6383,71 @@ event_absent = ["BlockersDeclared"]
 digest = "fnv1a64:1dcdb2289fdaa917"
 
 [[scenario]]
+id = "rav_carven_caryatid_defender_compatibility"
+seed = 46
+description = "Reject Carven Caryatid's attack declaration through its supported Defender rule; its enter-the-battlefield draw trigger remains unsupported."
+
+[[scenario.card]]
+label = "caryatid"
+owner = 0
+definition = "RAV-CARVEN-CARYATID"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "declare_attackers"
+player = 0
+attackers = ["caryatid"]
+expected_error = "illegal attacker"
+
+[scenario.expected]
+zones = ["caryatid:battlefield"]
+powers = ["caryatid:2"]
+toughnesses = ["caryatid:5"]
+tapped = ["caryatid:false"]
+stack_size = 0
+priority = 0
+event_markers = ["StepBegan"]
+event_absent = ["AttackersDeclared"]
+digest = "fnv1a64:582e991a894fa999"
+
+[[scenario]]
 id = "rav_tattered_drake_flying_compatibility"
 seed = 45
 description = "Declare Tattered Drake as a Flying attacker, then reject a ground creature's block declaration; its regeneration activation remains unsupported."
