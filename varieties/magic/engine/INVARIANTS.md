@@ -132,7 +132,7 @@ Oracle Magic rules coverage.
   a selectable output has at least one color; and an optional life payment is
   positive. Activation requires the source on the battlefield and controlled by
   the priority holder. A tap-cost creature ability additionally observes
-  summoning sickness in this slice (there is no haste exception yet). Fixed
+  summoning sickness unless its current characteristics include Haste. Fixed
   outputs reject a supplied color choice and selectable outputs require one
   listed color. A successful bound mana ability never enters the stack, emits
   `BoundManaAbilityActivated` then any `ManaAbilityLifePaid` and `ManaAdded`
@@ -143,6 +143,14 @@ Oracle Magic rules coverage.
   elimination. Every rejection—including a full mana pool, invalid choice,
   untapped-source requirement, unaffordable life payment, or terminal game—is
   atomic.
+- Attacker declaration rejects a creature that entered under its controller's
+  control this turn unless it had Haste when declared. The combat state records
+  that declaration-time Haste provenance; it must name only declared attackers,
+  and every same-turn attacker still on the battlefield must retain that
+  provenance. `CardView::can_attack` applies the same exception so policies do
+  not hide a legal Haste attack. Non-Haste attack and tap-cost rejection are
+  atomic: they do not tap the source, create combat state, add mana, or write
+  accepted-action receipts.
 - Per-color floating mana amounts are bounded `u8` values, but generic-cost
   payment sums all five colors in a widened `u16` total. The compatibility
   `ManaPool::total` policy view is saturated at `u8::MAX`; it is never used to
