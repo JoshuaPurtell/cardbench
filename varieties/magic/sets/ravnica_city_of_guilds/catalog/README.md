@@ -44,7 +44,7 @@ an executable compatibility definition remain subject to that definition's
 not an inference from executable status. Char, Lightning Helix, Scatter the
 Seeds, Guardian of Vitu-Ghazi, Last Gasp, Elves of Deep Shadow, Boros Recruit, Watchwolf, Glass Golem,
 Cleansing Beam, Rally the Righteous, Wojek Siren, Rain of Embers, Dogpile,
-Overwhelm, Gather Courage, Seeds of Strength, Darkblast, and the four RAV
+Overwhelm, Gather Courage, Seeds of Strength, Darkblast, Greater Mossdog, and the four RAV
 Signets are listed only after an
 ability-by-ability contract proves their complete represented behavior and
 public receipt traces. The radiance entries were
@@ -65,6 +65,13 @@ and fixed public trace. Guardian of Vitu-Ghazi is also in the positive manifest:
 its Convoke payment, base characteristics, and vigilance declaration exception
 are covered by direct Rust contracts and fixed public traces. Siege Wurm remains
 bounded because trample combat-damage assignment is not executable.
+
+Greater Mossdog is also in the positive manifest. On 2026-07-30, a live
+public Scryfall API lookup for its RAV collector `#169` verified the encoded
+mana cost, color, creature characteristics, and that its sole functional rule
+is the engine's generic Dredge replacement. The source response's reminder
+annotation was not retained. A direct Rust contract pins the complete
+dredge-then-cast public receipt, including all three library moves.
 
 The 2026-07-30 simple-spell audit removed Gaze of the Gorgon from the executable
 slice. A prior fixture had both an incorrect hybrid-cost model and an unrelated
@@ -93,14 +100,14 @@ abilities, not intrinsic land abilities, so these definitions cannot claim full
 Magic rules fidelity. The four RAV Signets are separately positive-manifest
 entries because their abilities use that supported definition-bound path.
 
-The creature batch for Golgari Thug, Stinkweed Imp, Greater Mossdog, and
-Root-Kin Ally is explicitly compatibility-bounded. The first three support only
-normal creature casting, base characteristics, and the shared Dredge replacement;
-Root-Kin Ally supports only normal creature casting, base characteristics, and the
-shared Convoke payment hook. Every other printed ability on those cards is
-unsupported, including their card-specific triggered or combat behavior. The
-checked-in definitions and public scenarios make that omission visible without
-reproducing card rules text.
+The creature batch for Golgari Thug, Stinkweed Imp, and Root-Kin Ally is
+explicitly compatibility-bounded. The first two support only normal creature
+casting, base characteristics, and the shared Dredge replacement; Root-Kin Ally
+supports only normal creature casting, base characteristics, and the shared
+Convoke payment hook. Every other printed ability on those cards is unsupported,
+including their card-specific triggered or combat behavior. The checked-in
+definitions and public scenarios make that omission visible without reproducing
+card rules text.
 
 The generic-keyword coverage batch for Conclave Equenaut, Conclave Phalanx,
 Golgari Grave-Troll, Necroplasm, Grave-Shell Scarab, Shambling Shell, and

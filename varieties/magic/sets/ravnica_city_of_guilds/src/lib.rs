@@ -33,7 +33,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 22] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 23] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SCATTER-THE-SEEDS",
@@ -52,6 +52,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 22] = [
     "RAV-GATHER-COURAGE",
     "RAV-SEEDS-OF-STRENGTH",
     "RAV-DARKBLAST",
+    "RAV-GREATER-MOSSDOG",
     "RAV-BOROS-SIGNET",
     "RAV-DIMIR-SIGNET",
     "RAV-GOLGARI-SIGNET",
@@ -358,8 +359,8 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Dredge(5)],
             effects: vec![],
         },
-        // Compatibility scope: normal creature casting, base characteristics,
-        // and Dredge only. No additional card-specific behavior is implied.
+        // Public RAV #169 audit: its sole functional rule is the shared Dredge
+        // replacement, alongside normal creature casting and characteristics.
         CardDefinition {
             id: "RAV-GREATER-MOSSDOG",
             name: "Greater Mossdog",
@@ -369,7 +370,7 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Creature]),
             is_basic_land: false,
-            supported_rules: &["dredge", "base-characteristics"],
+            supported_rules: &["full-rules-fidelity", "dredge", "base-characteristics"],
             power: Some(3),
             toughness: Some(3),
             keywords: vec![Keyword::Dredge(3)],
