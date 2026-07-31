@@ -55,14 +55,6 @@ fn easy_creature_wave_two_is_exactly_bounded_to_public_base_facts() {
             3,
         ),
         (
-            "RAV-ORDRUUN-COMMANDO",
-            "Ordruun Commando",
-            ManaCost::with_colors(3, [Color::Red]),
-            BTreeSet::from([Color::Red]),
-            4,
-            1,
-        ),
-        (
             "RAV-CIVIC-WAYFINDER",
             "Civic Wayfinder",
             ManaCost::with_colors(2, [Color::Green]),
@@ -99,6 +91,20 @@ fn easy_creature_wave_two_is_exactly_bounded_to_public_base_facts() {
         assert!(definition.keywords.is_empty(), "{id}");
         assert!(definition.effects.is_empty(), "{id}");
     }
+
+    let commando = definitions
+        .iter()
+        .find(|definition| definition.id == "RAV-ORDRUUN-COMMANDO")
+        .expect("Ordruun Commando definition exists");
+    assert_eq!(
+        commando.supported_rules,
+        [
+            "full-rules-fidelity",
+            "colored-cost-casting",
+            "base-characteristics",
+            "activated-prevent-one-damage-to-self"
+        ]
+    );
 }
 
 #[test]
