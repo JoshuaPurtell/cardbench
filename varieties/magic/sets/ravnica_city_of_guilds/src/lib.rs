@@ -35,7 +35,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 50] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 51] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SCATTER-THE-SEEDS",
@@ -86,6 +86,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 50] = [
     "RAV-WOJEK-EMBERMAGE",
     "RAV-THUNDERSONG-TRUMPETER",
     "RAV-SABERTOOTH-ALLEY-CAT",
+    "RAV-FLAME-KIN-ZEALOT",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -1850,17 +1851,28 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             4,
             3,
         ),
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed enter-the-battlefield team modifier
-        // is deliberately omitted from this compatibility slice.
-        bounded_creature_chassis(
-            "RAV-FLAME-KIN-ZEALOT",
-            "Flame-Kin Zealot",
-            ManaCost::with_colors(1, [Color::Red, Color::Red, Color::White]),
-            colors([Color::Red, Color::White]),
-            2,
-            2,
-        ),
+        // Full fidelity: the enter-the-battlefield trigger places a target-free
+        // team modifier on the stack and grants both +1/+1 and Haste.
+        CardDefinition {
+            id: "RAV-FLAME-KIN-ZEALOT",
+            name: "Flame-Kin Zealot",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(1, [Color::Red, Color::Red, Color::White]),
+            colors: colors([Color::Red, Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "etb-team-pump-haste",
+            ],
+            power: Some(2),
+            toughness: Some(2),
+            keywords: vec![],
+            effects: vec![],
+        },
         // Compatibility scope: normal colored-cost creature casting and base
         // characteristics only. Its printed sacrifice activation is deliberately
         // omitted from this compatibility slice.
@@ -2248,8 +2260,8 @@ pub fn rav_mana_ability_bindings() -> Vec<ManaAbilityBinding> {
 /// Stack-using activated abilities for the executable RAV slice. Costs and
 /// effects are semantic data; the engine owns priority, payment, target
 /// legality, and resolution receipts.
-#[allow(clippy::too_many_lines)]
 #[must_use]
+#[allow(clippy::too_many_lines)]
 pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
     vec![
         ActivatedAbilityBinding {
@@ -2408,6 +2420,15 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
             },
         },
     ]
+}
+
+/// Target-free stack triggers bound to RAV permanents.
+#[must_use]
+pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
+    vec![TriggeredAbilityBinding {
+        card_definition: "RAV-FLAME-KIN-ZEALOT",
+        ability: TriggeredAbility::EnterBattlefieldTeamPumpHaste,
+    }]
 }
 
 /// Typed basic-land type lines for the five RAV basic-land definitions.
@@ -3163,7 +3184,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 110);
+        assert_eq!(first.len(), 111);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

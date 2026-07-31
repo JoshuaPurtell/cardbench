@@ -16,7 +16,7 @@ use cardbench_magic_engine::{
 use crate::{
     ScenarioResult, card_definitions, event_digest, rav_activated_ability_bindings,
     rav_additional_spell_cost_bindings, rav_basic_land_type_bindings, rav_mana_ability_bindings,
-    set_root,
+    rav_triggered_ability_bindings, set_root,
 };
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -24,6 +24,7 @@ struct ScenarioSpec {
     id: String,
     seed: u64,
     description: String,
+    triggers: bool,
     cards: Vec<CardSetup>,
     mana: Vec<ManaSetup>,
     actions: Vec<ActionSpec>,
@@ -213,6 +214,7 @@ fn set_scenario_field(
         "id" => scenario.id = parse_string(value, line_number)?,
         "seed" => scenario.seed = parse_number(value, line_number)?,
         "description" => scenario.description = parse_string(value, line_number)?,
+        "triggers" => scenario.triggers = parse_bool(value, line_number)?,
         _ => return Err(line_error(line_number, "unknown scenario field")),
     }
     Ok(())
@@ -321,14 +323,26 @@ fn set_expected_field(
 }
 
 fn execute_scenario(specification: &ScenarioSpec) -> Result<ScenarioResult, String> {
-    let mut game = Game::new_with_all_bindings(
-        card_definitions(),
-        2,
-        rav_mana_ability_bindings(),
-        rav_basic_land_type_bindings(),
-        rav_additional_spell_cost_bindings(),
-        rav_activated_ability_bindings(),
-    )
+    let mut game = if specification.triggers {
+        Game::new_with_all_bindings_and_triggers(
+            card_definitions(),
+            2,
+            rav_mana_ability_bindings(),
+            rav_basic_land_type_bindings(),
+            rav_additional_spell_cost_bindings(),
+            rav_activated_ability_bindings(),
+            rav_triggered_ability_bindings(),
+        )
+    } else {
+        Game::new_with_all_bindings(
+            card_definitions(),
+            2,
+            rav_mana_ability_bindings(),
+            rav_basic_land_type_bindings(),
+            rav_additional_spell_cost_bindings(),
+            rav_activated_ability_bindings(),
+        )
+    }
     .map_err(rules_error)?;
     game.set_shuffle_seed(specification.seed);
     let mut labels = BTreeMap::new();

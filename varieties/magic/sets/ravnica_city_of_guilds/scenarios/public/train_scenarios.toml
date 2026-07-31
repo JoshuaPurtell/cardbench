@@ -6383,6 +6383,123 @@ event_absent = ["BlockersDeclared"]
 digest = "fnv1a64:1dcdb2289fdaa917"
 
 [[scenario]]
+id = "rav_flame_kin_zealot_etb_team_trigger"
+seed = 52
+description = "Cast Flame-Kin Zealot, put its enter trigger on the stack, and resolve the team-wide +1/+1 and haste effect."
+triggers = true
+
+[[scenario.card]]
+label = "zealot"
+owner = 0
+definition = "RAV-FLAME-KIN-ZEALOT"
+zone = "hand"
+
+[[scenario.card]]
+label = "watchwolf"
+owner = 0
+definition = "RAV-WATCHWOLF"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.card]]
+label = "mountain_one"
+owner = 0
+definition = "RAV-MOUNTAIN"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "mountain_two"
+owner = 0
+definition = "RAV-MOUNTAIN"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "mountain_three"
+owner = 0
+definition = "RAV-MOUNTAIN"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "plains"
+owner = 0
+definition = "RAV-PLAINS"
+zone = "battlefield"
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "mountain_one"
+color = "red"
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "mountain_two"
+color = "red"
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "mountain_three"
+color = "red"
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "plains"
+color = "white"
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "zealot"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+life = [20, 20]
+powers = ["zealot:3", "watchwolf:4"]
+toughnesses = ["zealot:3", "watchwolf:4"]
+stack_size = 0
+priority = 0
+event_markers = ["SpellResolved", "TriggeredAbilityStacked", "ContinuousEffectCreated", "AbilityResolved"]
+digest = "fnv1a64:f49730fc57bbf22d"
+
+[[scenario]]
 id = "rav_carven_caryatid_defender_compatibility"
 seed = 46
 description = "Reject Carven Caryatid's attack declaration through its supported Defender rule; its enter-the-battlefield draw trigger remains unsupported."
