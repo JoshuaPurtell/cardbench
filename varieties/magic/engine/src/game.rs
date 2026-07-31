@@ -2786,6 +2786,7 @@ impl Game {
                         "triggered ability binding has invalid target requirements",
                     ));
                 }
+                Self::validate_cast_effects_for_ability(&ability.effects)?;
             }
         }
         for (definition_id, costs) in &self.additional_spell_costs {
@@ -5438,6 +5439,7 @@ impl Game {
             let amount = match effect {
                 Effect::DealDamage { amount, .. }
                 | Effect::DealDamageController { amount }
+                | Effect::DealDamageAfterOptionalManaPayment { amount, .. }
                 | Effect::DealDamageToEachCreatureAndPlayer { amount }
                 | Effect::DealDamageToEachPlayer { amount }
                 | Effect::RadianceDealDamageToCreatures { amount }
