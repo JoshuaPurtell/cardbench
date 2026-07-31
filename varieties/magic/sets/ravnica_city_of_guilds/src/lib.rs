@@ -1296,9 +1296,9 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Flying, Keyword::Haste],
             effects: vec![],
         },
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Every printed card-specific behavior is
-        // deliberately omitted from this slice.
+        // Compatibility scope: normal colored-cost creature casting, base
+        // characteristics, and static Flying. Its upkeep life-loss trigger is
+        // deliberately unsupported.
         CardDefinition {
             id: "RAV-MOROII",
             name: "Moroii",
@@ -1308,10 +1308,10 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Creature]),
             is_basic_land: false,
-            supported_rules: &["colored-cost-casting", "base-characteristics"],
+            supported_rules: &["colored-cost-casting", "base-characteristics", "flying"],
             power: Some(4),
             toughness: Some(4),
-            keywords: vec![],
+            keywords: vec![Keyword::Flying],
             effects: vec![],
         },
         // Compatibility scope: normal colored-cost creature casting and base
@@ -1828,17 +1828,24 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             2,
             1,
         ),
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed evasion and regeneration behavior
-        // are deliberately omitted from this compatibility slice.
-        bounded_creature_chassis(
-            "RAV-SEWERDREG",
-            "Sewerdreg",
-            ManaCost::with_colors(3, [Color::Black, Color::Black]),
-            colors([Color::Black]),
-            3,
-            3,
-        ),
+        // Compatibility scope: normal colored-cost creature casting, base
+        // characteristics, and static Fear. Its regeneration activation is
+        // deliberately unsupported.
+        CardDefinition {
+            id: "RAV-SEWERDREG",
+            name: "Sewerdreg",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(3, [Color::Black, Color::Black]),
+            colors: colors([Color::Black]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &["colored-cost-casting", "base-characteristics", "fear"],
+            power: Some(3),
+            toughness: Some(3),
+            keywords: vec![Keyword::Fear],
+            effects: vec![],
+        },
         // Full fidelity for the printed Mountainwalk evasion restriction.
         CardDefinition {
             id: "RAV-GOBLIN-SPELUNKERS",
@@ -3705,7 +3712,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 119);
+        assert_eq!(first.len(), 121);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

@@ -596,6 +596,8 @@ pub enum Keyword {
     Defender,
     /// Can be blocked only by a creature with Flying or Reach.
     Flying,
+    /// Can be blocked only by a black or artifact creature.
+    Fear,
     /// Can be blocked only by a black creature.
     BlackEvasion,
     FirstStrike,
