@@ -325,6 +325,11 @@ Oracle Magic rules coverage.
 - Only the active player declares attackers. Each attacker is unique, on that
   player's battlefield, an eligible untapped creature, and is tapped when it
   attacks.
+- Combat-restriction keywords keep their scope: `CannotAttackOrBlock` rejects
+  both attacker and blocker declarations, while `CannotBlock` rejects only a
+  blocker declaration and never prevents that creature from attacking. A
+  temporary effect must not substitute the broader keyword for a block-only
+  restriction.
 - The next seated defending player is fixed when attackers are declared; only
   that player declares blockers. Each blocker is a unique untapped creature
   they control; every assigned attacker was declared; and each attacker may

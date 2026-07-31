@@ -1907,6 +1907,7 @@ impl Game {
                 || characteristics
                     .keywords
                     .contains(&Keyword::CannotAttackOrBlock)
+                || characteristics.keywords.contains(&Keyword::CannotBlock)
                 || (characteristics
                     .keywords
                     .contains(&Keyword::CannotBlockUnlessControlsMountain)
@@ -1951,6 +1952,7 @@ impl Game {
                     || characteristics
                         .keywords
                         .contains(&Keyword::CannotAttackOrBlock)
+                    || characteristics.keywords.contains(&Keyword::CannotBlock)
                     || (characteristics
                         .keywords
                         .contains(&Keyword::CannotBlockUnlessControlsMountain)
