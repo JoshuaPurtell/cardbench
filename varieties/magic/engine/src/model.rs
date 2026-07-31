@@ -199,8 +199,8 @@ pub enum TriggerCondition {
     ReceivesDamage,
     /// The source changed from the battlefield to its graveyard.
     Dies,
-    /// The source was declared as an attacker. Optional trigger costs are
-    /// paid from the controller's pool when the trigger is stacked.
+    /// The source was declared as an attacker. A triggered optional mana cost
+    /// is paid only on resolution, after the post-declaration priority window.
     Attacks,
 }
 
@@ -208,8 +208,9 @@ pub enum TriggerCondition {
 pub struct TriggeredAbility {
     pub id: &'static str,
     pub condition: TriggerCondition,
-    /// Optional mana paid while the trigger is put on the stack. This keeps
-    /// attack-trigger payment separate from the resolving effect.
+    /// Optional mana paid while the trigger resolves. The trigger must first
+    /// reach the stack so its controller receives the ordinary response and
+    /// mana-ability window.
     pub mana_cost: ManaCost,
     pub optional: bool,
     pub targets: Vec<TargetRequirement>,

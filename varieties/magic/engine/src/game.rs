@@ -3813,13 +3813,18 @@ impl Game {
         else {
             unreachable!("rules-counter plan returned above");
         };
-        let mut life_gain_payment_paid = true;
+        // Triggered costs are paid on resolution.  In particular, an attack
+        // trigger must be visible on the stack before its controller gets the
+        // post-declaration priority window in which to activate mana abilities.
+        // The present deterministic compatibility policy pays an optional cost
+        // whenever the controller can afford it; policy-submitted decline
+        // choices remain a separately documented fidelity boundary.
+        let mut trigger_payment_paid = true;
         if let Some(ability_id) = stack_object.ability_id
             && let Some(ability) = self
                 .triggered_abilities
                 .get(self.card_definition(stack_object.card)?.id)
                 .and_then(|abilities| abilities.get(ability_id))
-            && ability.condition == TriggerCondition::LifeGained
             && ability.mana_cost.mana_value() > 0
         {
             let mut paid_pool = self.players[stack_object.controller.0].mana_pool.clone();
@@ -3834,7 +3839,7 @@ impl Game {
                     });
                 }
                 Err(_error) if ability.optional => {
-                    life_gain_payment_paid = false;
+                    trigger_payment_paid = false;
                 }
                 Err(error) => return Err(RulesError::Mana(error)),
             }
@@ -3845,7 +3850,7 @@ impl Game {
             .zip(effect_resolutions)
             .enumerate()
         {
-            if !life_gain_payment_paid {
+            if !trigger_payment_paid {
                 continue;
             }
             match target_resolution {
@@ -4089,22 +4094,6 @@ impl Game {
             }
             if targets.len() != ability.targets.len() {
                 continue;
-            }
-            let mut paid_pool = self.players[controller.0].mana_pool.clone();
-            if let Err(error) = paid_pool.pay(&ability.mana_cost) {
-                if ability.optional {
-                    continue;
-                }
-                return Err(RulesError::Mana(error));
-            }
-            self.players[controller.0].mana_pool = paid_pool;
-            if ability.mana_cost.mana_value() > 0 {
-                self.record_event(GameEvent::AbilityManaPaid {
-                    player: controller,
-                    source,
-                    ability: ability.id,
-                    mana_cost: ability.mana_cost.clone(),
-                });
             }
             self.stack.push(StackObject {
                 card: source,

@@ -223,9 +223,14 @@ Oracle Magic rules coverage.
   rejects orphaned discard receipts, receipts for abilities without a discard
   binding, and any non-graveyard destination.
 - Trigger bindings declare their condition, optional mana cost, target
-  requirements, and effects as one checked shape. Attack triggers pay an
-  optional cost before stacking and retain their selected target through
-  resolution; received-damage triggers capture positive damage before SBAs;
+  requirements, and effects as one checked shape. Every attack trigger stacks
+  before any optional mana cost is evaluated, so its controller receives the
+  post-declaration priority window and can activate mana abilities. An optional
+  trigger cost is paid immediately before its effects resolve; the engine's
+  current deterministic compatibility policy pays it when affordable, and an
+  unpaid optional trigger records no effect receipts. An attack trigger retains
+  its selected target through resolution; received-damage triggers capture
+  positive damage before SBAs;
   dies triggers retain the historical source object after a graveyard move and
   materialize every declared target slot before stacking; a legal selected
   target cannot be dropped or replaced by an empty target vector.
