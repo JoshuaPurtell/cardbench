@@ -2440,6 +2440,16 @@ impl Game {
                 if let Target::Player(player) = target {
                     self.player(*player)?;
                 }
+                if let Target::Permanent(card) = target
+                    && (card.0 == 0 || card.0 >= self.next_object_id)
+                {
+                    // Unlike current legality, cast-time target provenance
+                    // survives a later zone change or player departure. An
+                    // object id outside the monotonic allocation range,
+                    // however, could never have named a permanent when this
+                    // spell was cast.
+                    return Err(RulesError::IllegalTarget(*target));
+                }
                 if let Target::Spell(card) = target {
                     let target_definition = self
                         .object(*card)

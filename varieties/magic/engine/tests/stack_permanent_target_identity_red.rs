@@ -10,7 +10,11 @@ use cardbench_magic_engine::{
 const BOLT: &str = "STACK-PERMANENT-TARGET-IDENTITY-BOLT";
 const CREATURE: &str = "STACK-PERMANENT-TARGET-IDENTITY-CREATURE";
 
-fn definition(id: &'static str, card_types: BTreeSet<CardType>, effects: Vec<Effect>) -> CardDefinition {
+fn definition(
+    id: &'static str,
+    card_types: BTreeSet<CardType>,
+    effects: Vec<Effect>,
+) -> CardDefinition {
     let is_creature = card_types.contains(&CardType::Creature);
     CardDefinition {
         id,
