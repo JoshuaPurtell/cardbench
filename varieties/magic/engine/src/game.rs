@@ -3560,6 +3560,7 @@ impl Game {
                 | Effect::RadianceDealDamageToCreatures { amount }
                 | Effect::BeginDamageRedirection { amount }
                 | Effect::GainLifeController { amount } => *amount,
+                Effect::AddManaController { amount, .. } => i16::from(*amount),
                 Effect::CreateToken { .. }
                 | Effect::CreateTokenForTargetPlayer { .. }
                 | Effect::CompleteDamageRedirection
@@ -4267,6 +4268,19 @@ impl Game {
             }
             Effect::DealDamageController { amount } => {
                 self.deal_damage_to_player(source, controller, i32::from(*amount))?;
+            }
+            Effect::AddManaController { color, amount } => {
+                if *amount == 0 || !self.players[controller.0].mana_pool.can_add(*color, *amount) {
+                    return Err(RulesError::IllegalAction(
+                        "spell effect cannot add the requested mana",
+                    ));
+                }
+                self.players[controller.0].mana_pool.add(*color, *amount);
+                self.record_event(GameEvent::ManaAdded {
+                    player: controller,
+                    color: *color,
+                    amount: *amount,
+                });
             }
             Effect::DealDamageToEachCreatureAndPlayer { amount } => {
                 // Snapshot the complete affected set before mutating the

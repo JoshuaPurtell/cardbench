@@ -755,6 +755,13 @@ pub enum Effect {
     DealDamageController {
         amount: i16,
     },
+    /// Add a fixed amount of one color to the resolving spell controller's
+    /// mana pool. This is a stack effect (not a mana ability), used by
+    /// Seismic Spike after its targeted land destruction resolves.
+    AddManaController {
+        color: Color,
+        amount: u8,
+    },
     /// Deal one fixed amount of damage to every creature currently on the
     /// battlefield and every player still in the game. This selection is made
     /// once while the spell resolves; state-based actions run only after the
@@ -912,6 +919,7 @@ impl Effect {
             | Self::GainLifeControllerFromSourceDamage
             | Self::DrawController
             | Self::DealDamageToEachPlayerFromReceivedDamage
+            | Self::AddManaController { .. }
             | Self::DrawControllerIfManaColorSpent { .. }
             | Self::CreateToken { .. }
             | Self::ModifySourcePtUntilEndOfTurn { .. }

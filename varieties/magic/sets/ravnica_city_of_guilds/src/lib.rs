@@ -35,7 +35,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 64] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 65] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SCATTER-THE-SEEDS",
@@ -100,6 +100,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 64] = [
     "RAV-HAMMERFIST-GIANT",
     "RAV-SCREECHING-GRIFFIN",
     "RAV-SURGE-OF-ZEAL",
+    "RAV-SEISMIC-SPIKE",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -1037,6 +1038,34 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             effects: vec![Effect::DealDamageEqualToAttackingCreatures {
                 target: cardbench_magic_engine::TargetRequirement::PlayerOrCreature,
             }],
+        },
+        // Full fidelity: the sorcery destroys one targeted land, then adds
+        // exactly two red mana to its controller as a stack effect.
+        CardDefinition {
+            id: "RAV-SEISMIC-SPIKE",
+            name: "Seismic Spike",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(3, [Color::Red]),
+            colors: colors([Color::Red]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Sorcery]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "destroy-target-land",
+                "add-two-red-mana",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![
+                Effect::DestroyTargetLand,
+                Effect::AddManaController {
+                    color: Color::Red,
+                    amount: 2,
+                },
+            ],
         },
         // Full fidelity: the enter-the-battlefield trigger selects a legal
         // player or creature and deals one damage when that trigger resolves.
