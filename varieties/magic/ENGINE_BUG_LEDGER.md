@@ -122,7 +122,7 @@ compatibility cards exercising generic casting, base characteristics, mana
 abilities (including source-aware controller damage), targeted/global damage,
 temporary modifiers, token creation, Convoke, Dredge, Radiance, Transmute,
 combat-count damage, controller-wide temporary modifiers, hybrid payment,
-typed basic-land lines, and first-strike combat damage. The remaining 171 unique names
+typed basic-land lines, and first-strike combat damage. The remaining 170 unique names
 are explicitly catalog-only and fail closed with
 `card-specific-rules-not-implemented`. This boundary is enforced by
 `catalog_coverage::executable_slice_size_is_explicit_and_does_not_masquerade_as_set_coverage`.
