@@ -29,6 +29,10 @@ Oracle Magic rules coverage.
 - A non-token object has exactly one catalog definition; a token has exactly
   one token specification and exists only on the battlefield. An object cannot
   be both, and no nonpermanent card can occupy the battlefield.
+- A token's mechanically relevant creature subtypes are typed separately from
+  its display name. A token with any such subtype must be a creature; the
+  public `Characteristics` view preserves that type-line information through
+  stack resolution and zone placement.
 - Object IDs never alias or regress. Object turn metadata cannot be from a
   future turn, marked damage cannot be negative, and a card outside the
   battlefield retains its owner's controller in the current no-control-change

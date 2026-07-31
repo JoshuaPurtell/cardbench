@@ -413,11 +413,26 @@ pub enum Target {
     Spell(ObjectId),
 }
 
+/// A creature subtype carried by a token's type line.
+///
+/// The initial RAV substrate needs only Saproling, but this remains a typed
+/// semantic field rather than treating a display name as a rules identity.
+/// Future set modules can extend the enum as they introduce token-specific
+/// interactions.
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub enum CreatureSubtype {
+    Saproling,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TokenSpec {
     pub name: &'static str,
     pub colors: BTreeSet<Color>,
     pub card_types: BTreeSet<CardType>,
+    /// Creature subtypes are mechanically distinct from a token's display
+    /// name. An empty set is valid for a noncreature token or a token whose
+    /// represented slice intentionally has no subtype.
+    pub creature_subtypes: BTreeSet<CreatureSubtype>,
     pub power: i16,
     pub toughness: i16,
 }
@@ -429,6 +444,7 @@ impl TokenSpec {
             name: "Saproling",
             colors: BTreeSet::from([Color::Green]),
             card_types: BTreeSet::from([CardType::Creature]),
+            creature_subtypes: BTreeSet::from([CreatureSubtype::Saproling]),
             power: 1,
             toughness: 1,
         }
@@ -738,6 +754,10 @@ pub struct CardObject {
 pub struct Characteristics {
     pub colors: BTreeSet<Color>,
     pub card_types: BTreeSet<CardType>,
+    /// Typed creature subtypes visible to rules that inspect a creature's
+    /// type line. Card definitions do not yet model subtypes, so the initial
+    /// nonempty values originate from token specifications.
+    pub creature_subtypes: BTreeSet<CreatureSubtype>,
     /// Derived layer-seven values.  Printed values and individual modifiers
     /// remain `i16`, while the evaluated result is widened for safe repeated
     /// continuous-effect application.
