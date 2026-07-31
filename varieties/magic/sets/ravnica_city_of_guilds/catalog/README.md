@@ -88,6 +88,20 @@ normal casting, base characteristics, and a CardBench-authored binding to the
 engine's generic tap-and-single-color-choice mana-ability substrate; no other
 card-specific behavior is represented.
 
+## Vanilla/chassis audit boundary
+
+The 2026-07-30 follow-up audit of every RAV printing used the public Scryfall
+RAV-print search with a nonempty-rules-field exclusion. It identified only
+Watchwolf (#239) and Glass Golem (#261) as ability-free printed creature or
+artifact-creature candidates. Both are already present in
+`RAV_FULL_FIDELITY_DEFINITION_IDS`; their direct Rust contract pins cost,
+colors, types, power/toughness, and the absence of executable abilities.
+
+Every other executable creature chassis remains outside that positive manifest.
+Its current empty `keywords` or `effects` vector is a deliberately bounded
+engine representation, not evidence that the printing is vanilla. Public
+source responses, card prose, art, and JSON from this audit were not retained.
+
 The four RAV Signets are executable only through the shared paid fixed-bundle
 mana-ability substrate. Their compatibility slice records each artifact's
 colorless casting cost, artifact characteristics, and one generic-mana plus
