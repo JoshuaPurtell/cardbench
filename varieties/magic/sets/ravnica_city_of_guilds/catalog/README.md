@@ -32,10 +32,10 @@ an executable compatibility definition remain subject to that definition's
 `supported_rules` scope; catalog coverage does not claim full rules fidelity.
 
 `RAV_FULL_FIDELITY_DEFINITION_IDS` is a deliberately small positive manifest,
-not an inference from executable status. Char, Lightning Helix, Last Gasp,
-Elves of Deep Shadow, Boros Recruit, Watchwolf, Glass Golem, Cleansing Beam,
-Rally the Righteous, Wojek Siren, Rain of Embers, Dogpile, Overwhelm, Gather
-Courage, Seeds of Strength, and Darkblast are listed only after an
+not an inference from executable status. Char, Lightning Helix, Scatter the
+Seeds, Last Gasp, Elves of Deep Shadow, Boros Recruit, Watchwolf, Glass Golem,
+Cleansing Beam, Rally the Righteous, Wojek Siren, Rain of Embers, Dogpile,
+Overwhelm, Gather Courage, Seeds of Strength, and Darkblast are listed only after an
 ability-by-ability contract proves their complete represented behavior and
 public receipt traces. The radiance entries were
 checked against their public set identity and the official Comprehensive Rules'
@@ -48,13 +48,12 @@ The focused Darkblast/Scatter the Seeds/Siege Wurm/Guardian of Vitu-Ghazi audit
 uses the same fail-closed rule. Darkblast is in the positive manifest because its
 entire functional behavior is covered by the creature-targeted temporary modifier
 and the fixed Dredge replacement substrate, with an exact public event-log
-scenario. The original audit left Scatter the Seeds bounded for the absence of
-a creature-subtype field. The expansion-neutral engine now represents its
-Saproling token subtype explicitly, so Scatter is undergoing a fresh
-fidelity audit rather than retaining that superseded boundary. Siege Wurm and
-Guardian of Vitu-Ghazi remain bounded
+scenario. Scatter the Seeds is also in the positive manifest: its Convoke cost
+and each created token's count, color, card type, typed creature subtype, and
+base power/toughness are all represented and covered by a direct Rust contract
+and fixed public trace. Siege Wurm and Guardian of Vitu-Ghazi remain bounded
 because trample combat-damage assignment and vigilance's attack/tap exception are
-not executable. Neither remains a full-fidelity manifest entry.
+not executable.
 
 The 2026-07-30 simple-spell audit removed Gaze of the Gorgon from the executable
 slice. A prior fixture had both an incorrect hybrid-cost model and an unrelated
@@ -66,16 +65,14 @@ capability gap and its former scenario has been removed. This repository keeps
 only this CardBench-authored semantic summary, not upstream card prose or art.
 
 The same audit rechecked the remaining executable simple instants and sorceries
-that reuse existing `Effect` operations. No new positive-manifest entry was
+that reuse existing `Effect` operations. No other positive-manifest entry was
 justified: Dryad's Caress lacks a graveyard-return operation; Fiery Conclusion
 lacks its required sacrifice cost; and Ribbons of Night lacks spent-mana-color
-tracking. Scatter the Seeds is instead undergoing its follow-up audit against
-the now-typed Saproling token substrate. Muddle the Mixture and Dizzy Spell
-retain their correctly tested effect and Transmute
-compatibility slices, but Transmute is executed immediately in this engine rather
-than as a stack object, so normal response behavior is absent. Their deterministic
-public scenarios assert receipts only for the represented slices. These are
-explicit coverage gaps, not no-op fallbacks or full-fidelity claims.
+tracking. Muddle the Mixture and Dizzy Spell retain their correctly tested effect
+and Transmute compatibility slices, but Transmute is executed immediately in this
+engine rather than as a stack object, so normal response behavior is absent. Their
+deterministic public scenarios assert receipts only for the represented slices.
+These are explicit coverage gaps, not no-op fallbacks or full-fidelity claims.
 
 The five RAV basic-land definitions are also explicitly bounded. Their public
 single-color intrinsic mana result, tapping, and basic-land deck-construction
