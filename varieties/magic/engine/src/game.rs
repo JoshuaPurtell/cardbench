@@ -203,11 +203,19 @@ pub struct GameView {
 #[derive(Clone, Debug, Default)]
 struct CombatState {
     attackers: Vec<ObjectId>,
+    /// Attackers that had flying when they were declared. Blocking legality is
+    /// determined at declaration time, so this cannot be reconstructed from a
+    /// later characteristics query after a continuous effect changes a card.
+    flying_attackers: BTreeSet<ObjectId>,
     /// Attackers that were declared with vigilance. This is declaration
     /// provenance, not a live tapped-state assertion: a vigilant attacker can
     /// later pay a legal tap cost while it remains in combat.
     vigilant_attackers: BTreeSet<ObjectId>,
     blockers: BTreeMap<ObjectId, ObjectId>,
+    /// Blockers admitted against a declared flying attacker because they had
+    /// either Flying or Reach at blocker declaration. This is provenance, not
+    /// an assertion that the blocker retains either keyword afterward.
+    evasion_qualified_blockers: BTreeSet<ObjectId>,
     /// This initial slice attacks the next living seat. It records that seat
     /// at declaration time rather than recomputing turn order after a player
     /// leaves in the middle of combat.
@@ -1350,6 +1358,7 @@ impl Game {
             return Err(RulesError::IllegalAction("attackers were already declared"));
         }
         let mut seen = BTreeSet::new();
+        let mut flying_attackers = BTreeSet::new();
         let mut vigilant_attackers = BTreeSet::new();
         for attacker in attackers {
             if !seen.insert(*attacker) {
@@ -1365,6 +1374,9 @@ impl Game {
                 || characteristics.keywords.contains(&Keyword::Defender)
             {
                 return Err(RulesError::IllegalAction("illegal attacker"));
+            }
+            if characteristics.keywords.contains(&Keyword::Flying) {
+                flying_attackers.insert(*attacker);
             }
             if characteristics.keywords.contains(&Keyword::Vigilance) {
                 vigilant_attackers.insert(*attacker);
@@ -1384,6 +1396,7 @@ impl Game {
             .as_mut()
             .ok_or(RulesError::IllegalAction("combat was not initialized"))?;
         combat.attackers = attackers.to_vec();
+        combat.flying_attackers = flying_attackers;
         combat.vigilant_attackers = vigilant_attackers;
         combat.defending_player = Some(defending_player);
         combat.attackers_declared = true;
@@ -1426,6 +1439,7 @@ impl Game {
         }
         let mut attackers = BTreeSet::new();
         let mut blockers = BTreeSet::new();
+        let mut evasion_qualified_blockers = BTreeSet::new();
         for assignment in assignments {
             if !combat.attackers.contains(&assignment.attacker)
                 || !attackers.insert(assignment.attacker)
@@ -1435,14 +1449,22 @@ impl Game {
             }
             self.require_zone(assignment.blocker, Zone::Battlefield)?;
             let object = self.object(assignment.blocker)?;
+            let characteristics = self.characteristics(assignment.blocker)?;
             if object.controller != player
                 || object.tapped
-                || !self
-                    .characteristics(assignment.blocker)?
-                    .card_types
-                    .contains(&CardType::Creature)
+                || !characteristics.card_types.contains(&CardType::Creature)
             {
                 return Err(RulesError::IllegalAction("illegal blocker"));
+            }
+            if combat.flying_attackers.contains(&assignment.attacker) {
+                if !(characteristics.keywords.contains(&Keyword::Flying)
+                    || characteristics.keywords.contains(&Keyword::Reach))
+                {
+                    return Err(RulesError::IllegalAction(
+                        "flying attacker can be blocked only by flying or reach",
+                    ));
+                }
+                evasion_qualified_blockers.insert(assignment.blocker);
             }
         }
         let combat = self
@@ -1454,6 +1476,7 @@ impl Game {
                 .blockers
                 .insert(assignment.attacker, assignment.blocker);
         }
+        combat.evasion_qualified_blockers = evasion_qualified_blockers;
         combat.blockers_declared = true;
         self.record_event(GameEvent::BlockersDeclared {
             player,
@@ -2308,9 +2331,11 @@ impl Game {
                     "blocker declaration began before attackers were declared",
                 ));
             }
-            if !combat.attackers_declared && !combat.vigilant_attackers.is_empty() {
+            if !combat.attackers_declared
+                && (!combat.flying_attackers.is_empty() || !combat.vigilant_attackers.is_empty())
+            {
                 return Err(RulesError::IllegalAction(
-                    "undeclared combat retained vigilant attacker provenance",
+                    "undeclared combat retained attacker keyword provenance",
                 ));
             }
             if matches!(
@@ -2359,6 +2384,11 @@ impl Game {
                     "vigilance declaration provenance contains a nonattacker",
                 ));
             }
+            if !combat.flying_attackers.is_subset(&attackers) {
+                return Err(RulesError::IllegalAction(
+                    "flying declaration provenance contains a nonattacker",
+                ));
+            }
             for (attacker, blocker) in &combat.blockers {
                 if !attackers.contains(attacker) || !blockers.insert(*blocker) {
                     return Err(RulesError::IllegalAction("invalid combat blocker state"));
@@ -2366,6 +2396,21 @@ impl Game {
                 if self.zone_of(*blocker).is_some() {
                     self.object(*blocker)?;
                 }
+            }
+            let expected_evasion_blockers = combat
+                .blockers
+                .iter()
+                .filter_map(|(attacker, blocker)| {
+                    combat
+                        .flying_attackers
+                        .contains(attacker)
+                        .then_some(*blocker)
+                })
+                .collect::<BTreeSet<_>>();
+            if combat.evasion_qualified_blockers != expected_evasion_blockers {
+                return Err(RulesError::IllegalAction(
+                    "flying blocker declaration provenance is incoherent",
+                ));
             }
             let combatants = attackers.union(&blockers).copied().collect::<BTreeSet<_>>();
             if !combat.first_strike_damage_sources.is_subset(&combatants) {

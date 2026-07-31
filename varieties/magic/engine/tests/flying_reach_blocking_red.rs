@@ -7,8 +7,7 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardDefinition, CardType, CombatBlock, Game, Keyword, ManaCost, PlayerId, RulesError,
-    Step,
+    CardDefinition, CardType, CombatBlock, Game, Keyword, ManaCost, PlayerId, RulesError, Step,
 };
 
 const FLIER: &str = "TEST-FLYING-ATTACKER";
@@ -68,7 +67,7 @@ fn ground_creature_cannot_block_a_flying_attacker_and_rejection_is_atomic() {
         .expect("attacker passes");
     game.pass_priority(defender).expect("defender passes");
     assert_eq!(game.step, Step::DeclareBlockers);
-    let events_before = game.canonical_event_log().to_vec();
+    let events_before = game.canonical_event_log().clone();
 
     let result = game.declare_blockers(
         defender,
