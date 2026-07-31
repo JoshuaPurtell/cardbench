@@ -49,13 +49,14 @@ fn frenzied_goblin_attack_trigger_pays_red_and_restricts_a_blocker() {
         .expect("old fixture entry");
     game.set_entered_turn_for_setup(blocker, 0)
         .expect("old fixture entry");
+    let mountain = game
+        .put_on_battlefield(PlayerId(0), "RAV-MOUNTAIN")
+        .expect("red mana source enters before game start");
     game.begin_game().expect("game starts");
     while game.step != cardbench_magic_engine::Step::DeclareAttackers {
         let priority = game.priority;
         game.pass_priority(priority).expect("advance to attackers");
     }
-    game.grant_mana(PlayerId(0), cardbench_magic_engine::Color::Red, 1)
-        .expect("red trigger mana");
     game.declare_attackers(PlayerId(0), &[goblin])
         .expect("goblin attacks");
     assert!(game.event_log.iter().any(|event| matches!(
@@ -63,6 +64,8 @@ fn frenzied_goblin_attack_trigger_pays_red_and_restricts_a_blocker() {
         GameEvent::TriggeredAbilityStacked { source, ability, .. }
             if *source == goblin && *ability == "attack-cannot-block"
     )));
+    game.activate_mana_ability(PlayerId(0), mountain, cardbench_magic_engine::Color::Red)
+        .expect("red trigger mana after the trigger is stacked");
     game.pass_priority(PlayerId(0))
         .expect("trigger controller passes");
     game.pass_priority(PlayerId(1))
@@ -97,15 +100,18 @@ fn frenzied_goblin_target_remains_able_to_attack() {
         .expect("old fixture entry");
     game.set_entered_turn_for_setup(blocker, 0)
         .expect("old fixture entry");
+    let mountain = game
+        .put_on_battlefield(PlayerId(0), "RAV-MOUNTAIN")
+        .expect("red mana source enters before game start");
     game.begin_game().expect("game starts");
     while game.step != cardbench_magic_engine::Step::DeclareAttackers {
         let priority = game.priority;
         game.pass_priority(priority).expect("advance to attackers");
     }
-    game.grant_mana(PlayerId(0), cardbench_magic_engine::Color::Red, 1)
-        .expect("red trigger mana");
     game.declare_attackers(PlayerId(0), &[goblin])
         .expect("goblin attacks");
+    game.activate_mana_ability(PlayerId(0), mountain, cardbench_magic_engine::Color::Red)
+        .expect("red trigger mana after the trigger is stacked");
     game.pass_priority(PlayerId(0))
         .expect("trigger controller passes");
     game.pass_priority(PlayerId(1))
@@ -114,6 +120,12 @@ fn frenzied_goblin_target_remains_able_to_attack() {
     println!(
         "Frenzied Goblin target restriction: {:?}",
         characteristics.keywords
+    );
+    assert!(
+        characteristics
+            .keywords
+            .contains(&cardbench_magic_engine::Keyword::CannotBlock),
+        "Frenzied Goblin's paid trigger must restrict the selected creature from blocking"
     );
     assert!(
         !characteristics
@@ -160,14 +172,18 @@ fn sell_sword_brute_dies_trigger_deals_two_to_its_controller() {
     let char = game
         .add_card(PlayerId(1), "RAV-CHAR", Zone::Hand)
         .expect("Char enters hand");
+    let mountains = (0..3)
+        .map(|_| {
+            game.put_on_battlefield(PlayerId(1), "RAV-MOUNTAIN")
+                .expect("opponent red mana source enters before game start")
+        })
+        .collect::<Vec<_>>();
     game.begin_game().expect("game starts");
     game.pass_priority(PlayerId(0)).expect("pass to opponent");
-    game.grant_mana(PlayerId(1), cardbench_magic_engine::Color::Red, 1)
-        .expect("red mana");
-    game.grant_mana(PlayerId(1), cardbench_magic_engine::Color::Red, 1)
-        .expect("second red mana");
-    game.grant_mana(PlayerId(1), cardbench_magic_engine::Color::Red, 1)
-        .expect("third red mana");
+    for mountain in mountains {
+        game.activate_mana_ability(PlayerId(1), mountain, cardbench_magic_engine::Color::Red)
+            .expect("activate opponent red mana source");
+    }
     game.cast_spell(
         PlayerId(1),
         CastRequest {
