@@ -221,7 +221,9 @@ Oracle Magic rules coverage.
   requirements, and effects as one checked shape. Attack triggers pay an
   optional cost before stacking and retain their selected target through
   resolution; received-damage triggers capture positive damage before SBAs;
-  dies triggers retain the historical source object after a graveyard move.
+  dies triggers retain the historical source object after a graveyard move and
+  materialize every declared target slot before stacking; a legal selected
+  target cannot be dropped or replaced by an empty target vector.
   A `LifeGained` trigger is captured from a positive `LifeGained` receipt while
   its source is on the battlefield, then stacked only after the enclosing
   spell or ability reaches its terminal receipt. Its optional mana cost is
