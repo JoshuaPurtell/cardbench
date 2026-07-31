@@ -5575,7 +5575,7 @@ digest = "fnv1a64:2e7d251d98b65f6d"
 [[scenario]]
 id = "rav_easy_blue_creature_chassis_wave_five"
 seed = 0
-description = "Cast Drake Familiar, Drift of Phantasms, Ethereal Usher, and Grozoth with exact blue costs, then verify only base P/T. Their printed keywords, triggers, and transmute behavior are deliberately omitted."
+description = "Cast Drake Familiar, Drift of Phantasms, Ethereal Usher, and Grozoth with exact blue costs, then verify base P/T. Drift's Defender and immediate Transmute compatibility are exercised separately; the other printed behaviors remain bounded."
 
 [[scenario.card]]
 label = "familiar"
@@ -6055,3 +6055,91 @@ priority = 0
 event_markers = ["CastPaymentManaAbilityActivated", "BoundManaAbilityActivated", "CastPaymentBasicLandManaAbilityActivated", "ManaAbilityActivated", "ManaAdded", "SpellCast", "SpellResolved"]
 event_absent = ["AttackersDeclared", "BlockersDeclared"]
 digest = "fnv1a64:62c889c1e01620b4"
+
+[[scenario]]
+id = "rav_drift_of_phantasms_defender_and_transmute_compatibility"
+seed = 41
+description = "Use Drift of Phantasms' supported immediate hand-zone search, then reject its later attack declaration because it has Defender."
+
+[[scenario.card]]
+label = "drift_in_hand"
+owner = 0
+definition = "RAV-DRIFT-OF-PHANTASMS"
+zone = "hand"
+
+[[scenario.card]]
+label = "matching_value"
+owner = 0
+definition = "RAV-CHAR"
+zone = "library"
+
+[[scenario.card]]
+label = "defender"
+owner = 0
+definition = "RAV-DRIFT-OF-PHANTASMS"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.mana]]
+player = 0
+color = "blue"
+amount = 3
+
+[[scenario.action]]
+kind = "transmute"
+player = 0
+card = "drift_in_hand"
+found = "matching_value"
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "declare_attackers"
+player = 0
+attackers = ["defender"]
+expected_error = "illegal attacker"
+
+[scenario.expected]
+zones = ["drift_in_hand:graveyard", "matching_value:hand", "defender:battlefield"]
+powers = ["defender:0"]
+toughnesses = ["defender:5"]
+mana = ["0:blue:0"]
+stack_size = 0
+priority = 0
+event_markers = ["CardRevealed", "LibraryShuffled", "Transmuted", "StepBegan"]
+event_absent = ["AttackersDeclared"]
+digest = "fnv1a64:74b1293dcdd0928b"

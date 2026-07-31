@@ -1,7 +1,8 @@
-//! Public contract for the first collector-range bounded creature batch.
+//! Public contract for the first collector-range creature batch.
 //!
-//! These compatibility definitions deliberately expose normal casting and base
-//! characteristics only. Printed abilities remain outside this executable slice.
+//! The generic chassis entries expose only normal casting and base
+//! characteristics. Drift of Phantasms separately records its bounded
+//! Defender/immediate-Transmute compatibility slice.
 
 use std::collections::BTreeSet;
 
@@ -46,14 +47,6 @@ fn first_range_creature_chassis_is_exactly_bounded_to_public_base_facts() {
             1,
         ),
         (
-            "RAV-DRIFT-OF-PHANTASMS",
-            "Drift of Phantasms",
-            ManaCost::with_colors(2, [Color::Blue]),
-            BTreeSet::from([Color::Blue]),
-            0,
-            5,
-        ),
-        (
             "RAV-ETHEREAL-USHER",
             "Ethereal Usher",
             ManaCost::with_colors(5, [Color::Blue]),
@@ -90,6 +83,25 @@ fn first_range_creature_chassis_is_exactly_bounded_to_public_base_facts() {
         assert!(definition.keywords.is_empty(), "{id}");
         assert!(definition.effects.is_empty(), "{id}");
     }
+
+    let drift = definitions
+        .iter()
+        .find(|definition| definition.id == "RAV-DRIFT-OF-PHANTASMS")
+        .expect("Drift of Phantasms definition exists");
+    assert_eq!(drift.name, "Drift of Phantasms");
+    assert_eq!(drift.mana_cost, ManaCost::with_colors(2, [Color::Blue]));
+    assert_eq!(drift.colors, BTreeSet::from([Color::Blue]));
+    assert_eq!(drift.card_types, BTreeSet::from([CardType::Creature]));
+    assert_eq!((drift.power, drift.toughness), (Some(0), Some(5)));
+    assert_eq!(
+        drift.supported_rules,
+        [
+            "colored-cost-casting",
+            "base-characteristics",
+            "defender",
+            "immediate-hand-zone-transmute-compatibility",
+        ]
+    );
 }
 
 #[test]
