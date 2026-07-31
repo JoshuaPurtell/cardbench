@@ -222,12 +222,14 @@ unsupported. Five deterministic public scenarios exercise cast payment, stack
 resolution, zone movement, priority, and their retained base P/T values only.
 
 The first-range easy-creature wave adds Divebomber Griffin, Sandsower, Votary
-of the Conclave, Drake Familiar, Ethereal Usher, and Grozoth. Each supports
-only normal colored-cost creature casting and base power/toughness. Every
-printed keyword, activated ability, triggered ability, and hand-zone behavior
-is deliberately unsupported. Two deterministic public scenarios cover their
-exact colored-cost payments, stack resolution, zone movement, priority, and
-retained base P/T values only.
+of the Conclave, Drake Familiar, Ethereal Usher, and Grozoth. Votary is now an
+ability-complete positive-manifest card: its only printed functional ability is
+the shared Vigilance combat declaration rule, covered by a deterministic shown
+attack trace. The remaining five cards support only normal colored-cost
+creature casting and base power/toughness; their printed keyword, activated,
+triggered, and hand-zone behavior remains deliberately unsupported. Public
+scenarios cover exact colored-cost payments, stack resolution, zone movement,
+priority, retained base P/T values, and Votary's no-tap attack declaration.
 
 Drift of Phantasms is a narrower compatibility exception: its public definition
 does encode Defender and the established hand-zone Transmute operation, and a
