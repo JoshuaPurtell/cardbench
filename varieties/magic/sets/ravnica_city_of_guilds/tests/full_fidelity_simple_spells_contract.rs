@@ -44,6 +44,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-SNAPPING-DRAKE",
             "RAV-GOLIATH-SPIDER",
             "RAV-COURIER-HAWK",
+            "RAV-SKYKNIGHT-LEGIONNAIRE",
         ]
     );
     let definitions = card_definitions();
