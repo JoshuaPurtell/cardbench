@@ -229,6 +229,12 @@ is deliberately unsupported. Two deterministic public scenarios cover their
 exact colored-cost payments, stack resolution, zone movement, priority, and
 retained base P/T values only.
 
+The following bounded keyword wave adds the static Defender slice for Torpid
+Moloch and the static Flying slices for Screeching Griffin and Tattered Drake.
+Their activation and regeneration behavior remains outside the executable
+scope, so each has a focused compatibility trace plus an ignored full-fidelity
+probe rather than a positive-manifest claim.
+
 Drift of Phantasms is a narrower compatibility exception: its public definition
 does encode Defender and the established hand-zone Transmute operation, and a
 shown trace proves both the rejected Defender attack and the matching-value
