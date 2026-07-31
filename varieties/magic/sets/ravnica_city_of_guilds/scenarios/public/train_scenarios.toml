@@ -5999,4 +5999,4 @@ stack_size = 0
 priority = 0
 event_markers = ["CastPaymentManaAbilityActivated", "BoundManaAbilityActivated", "CastPaymentBasicLandManaAbilityActivated", "ManaAbilityActivated", "ManaAdded", "SpellCast", "SpellResolved"]
 event_absent = ["AttackersDeclared", "BlockersDeclared"]
-digest = "pending"
+digest = "fnv1a64:62c889c1e01620b4"

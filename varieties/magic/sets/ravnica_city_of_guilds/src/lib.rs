@@ -34,7 +34,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 35] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 36] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SCATTER-THE-SEEDS",
@@ -69,6 +69,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 35] = [
     "RAV-GOLIATH-SPIDER",
     "RAV-COURIER-HAWK",
     "RAV-SKYKNIGHT-LEGIONNAIRE",
+    "RAV-BIRDS-OF-PARADISE",
     "RAV-FIERY-CONCLUSION",
 ];
 
@@ -1130,10 +1131,10 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
-        // This bounded compatibility definition covers normal colored-cost
-        // casting, base creature characteristics, and the separate
-        // definition-bound mana-ability binding below. It intentionally does
-        // not represent combat keywords or any other card-specific behavior.
+        // This definition is complete for the public RAV Birds of Paradise
+        // card: normal creature characteristics, Flying, and its one explicit
+        // chosen-color tap mana ability all use shared, directly tested rules
+        // substrates below.
         CardDefinition {
             id: "RAV-BIRDS-OF-PARADISE",
             name: "Birds of Paradise",
@@ -1144,13 +1145,16 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             card_types: types([CardType::Creature]),
             is_basic_land: false,
             supported_rules: &[
+                "full-rules-fidelity",
                 "colored-cost-casting",
                 "base-characteristics",
-                "bound-tap-choice-mana-ability",
+                "flying",
+                "tap-choice-single-color-mana-ability",
+                "cast-payment-mana-activation",
             ],
             power: Some(0),
             toughness: Some(1),
-            keywords: vec![],
+            keywords: vec![Keyword::Flying],
             effects: vec![],
         },
         // This definition is complete for the public Elves of Deep Shadow

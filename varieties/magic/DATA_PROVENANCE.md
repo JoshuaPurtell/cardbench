@@ -23,10 +23,11 @@ redistribution of complete card text. `supported_rules` on each `CardDefinition`
 names the exact scoped fragment. A missing fragment is intentionally not a
 claim of unsupported behavior.
 
-The Birds of Paradise compatibility slice retains only its public RAV identity,
-collector number, mana-cost/color/type facts, base power/toughness, and a
-CardBench-authored binding to the generic one-unit colored mana-ability model.
-It does not retain or reproduce card rules text, art, flavor, or source JSON.
+The Birds of Paradise full-fidelity slice retains only its public RAV identity,
+collector number, mana-cost/color/type facts, base power/toughness, and
+CardBench-authored semantic markers for Flying plus its generic one-unit,
+chosen-color mana ability. It does not retain or reproduce card rules text,
+art, flavor, or source JSON.
 
 The creature-chassis batch (Dromad Purebred, Carrion Howler, Coalhauler Swine,
 Bramble Elemental, Carven Caryatid, Boros Swiftblade, Loxodon Hierarch, and Moroii)
