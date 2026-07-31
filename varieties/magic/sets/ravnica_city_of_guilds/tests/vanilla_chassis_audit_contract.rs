@@ -1,7 +1,7 @@
 //! Fail-closed boundary for the public RAV vanilla/chassis audit.
 //!
 //! The accompanying catalog provenance records the public printing audit. This
-//! contract deliberately stores only identifiers and CardBench semantic facts,
+//! contract deliberately stores only identifiers and `CardBench` semantic facts,
 //! never card rules prose or source responses.
 
 use std::collections::BTreeSet;
