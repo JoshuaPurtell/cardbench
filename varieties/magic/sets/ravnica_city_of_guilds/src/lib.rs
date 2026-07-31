@@ -1299,17 +1299,25 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             1,
             2,
         ),
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed combat capabilities are deliberately
-        // omitted from this compatibility slice.
-        bounded_creature_chassis(
-            "RAV-SELESNYA-SAGITTARS",
-            "Selesnya Sagittars",
-            ManaCost::with_colors(3, [Color::Green, Color::White]),
-            colors([Color::Green, Color::White]),
-            2,
-            5,
-        ),
+        // Compatibility scope: normal colored-cost creature casting, base
+        // characteristics, and Reach. Its printed tap-to-damage activation
+        // remains deliberately unsupported, so this is not a full-fidelity
+        // card.
+        CardDefinition {
+            id: "RAV-SELESNYA-SAGITTARS",
+            name: "Selesnya Sagittars",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(3, [Color::Green, Color::White]),
+            colors: colors([Color::Green, Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &["colored-cost-casting", "base-characteristics", "reach"],
+            power: Some(2),
+            toughness: Some(5),
+            keywords: vec![Keyword::Reach],
+            effects: vec![],
+        },
         // Compatibility scope: normal colored-cost creature casting, base
         // characteristics, and Flying. Its activated combat behavior remains
         // deliberately unsupported, so this is not a full-fidelity card.

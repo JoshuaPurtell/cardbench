@@ -6448,6 +6448,89 @@ event_absent = ["AttackersDeclared"]
 digest = "fnv1a64:582e991a894fa999"
 
 [[scenario]]
+id = "rav_selesnya_sagittars_reach_compatibility"
+seed = 46
+description = "Declare the long-controlled Flying Snapping Drake, then legally block it with Selesnya Sagittars' Reach; its tap-to-damage activation remains unsupported."
+
+[[scenario.card]]
+label = "drake"
+owner = 0
+definition = "RAV-SNAPPING-DRAKE"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.card]]
+label = "sagittars"
+owner = 1
+definition = "RAV-SELESNYA-SAGITTARS"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "declare_attackers"
+player = 0
+attackers = ["drake"]
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "declare_blockers"
+player = 1
+attackers = ["drake:sagittars"]
+
+[scenario.expected]
+zones = ["drake:battlefield", "sagittars:battlefield"]
+powers = ["drake:3", "sagittars:2"]
+toughnesses = ["drake:2", "sagittars:5"]
+tapped = ["drake:true", "sagittars:false"]
+stack_size = 0
+priority = 0
+event_markers = ["AttackersDeclared", "BlockersDeclared"]
+digest = "fnv1a64:81bd238f5dee061d"
+
+[[scenario]]
 id = "rav_tattered_drake_flying_compatibility"
 seed = 45
 description = "Declare Tattered Drake as a Flying attacker, then reject a ground creature's block declaration; its regeneration activation remains unsupported."

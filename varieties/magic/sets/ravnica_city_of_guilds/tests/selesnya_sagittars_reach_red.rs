@@ -7,7 +7,7 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{CardType, Color, Keyword, ManaCost};
-use cardbench_magic_rav::{card_definitions, RAV_FULL_FIDELITY_DEFINITION_IDS};
+use cardbench_magic_rav::{RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions};
 
 #[test]
 fn selesnya_sagittars_exposes_its_reach_compatibility_slice() {

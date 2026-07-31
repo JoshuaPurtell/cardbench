@@ -240,6 +240,10 @@ enter-the-battlefield draw trigger remains outside the shared trigger substrate,
 so its public trace and ignored full-fidelity probe make that limitation
 explicit without promoting it to the positive manifest.
 
+Selesnya Sagittars extends that wave with the shared static Reach slice. Its
+tap-to-damage activation remains outside the executable scope; the public trace
+proves only that Reach legally qualifies it to block a Flying attacker.
+
 Drift of Phantasms is a narrower compatibility exception: its public definition
 does encode Defender and the established hand-zone Transmute operation, and a
 shown trace proves both the rejected Defender attack and the matching-value
