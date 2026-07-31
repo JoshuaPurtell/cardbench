@@ -22,5 +22,5 @@ pub use model::{
     ManaAbilityActivation, ManaAbilityBinding, ManaAbilityOutput, ManaBundle, ManaCost,
     ManaPaymentSelection, ManaPool, ObjectId, PlayerId, PlayerState, PolicyMoveKind,
     StackEffectResolution, StackObject, StackResolutionPlan, StackTargetArityError, Step, Target,
-    TargetRequirement, TokenSpec, Zone,
+    TargetRequirement, TokenSpec, TriggeredAbility, TriggeredAbilityBinding, Zone,
 };

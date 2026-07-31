@@ -26,7 +26,7 @@ use cardbench_magic_engine::{
     BasicLandTypeBinding, CardDefinition, CardType, CastRequest, Color, ConvokeContribution,
     ConvokePayment, DeckEntry, DeckList, DeckRules, Effect, Game, HybridManaSymbol, Keyword,
     ManaAbilityBinding, ManaAbilityOutput, ManaBundle, ManaCost, PlayerId, RulesError, Target,
-    TokenSpec, Zone,
+    TokenSpec, TriggeredAbility, TriggeredAbilityBinding, Zone,
 };
 
 pub const SET_CODE: &str = "RAV";
@@ -2081,6 +2081,17 @@ pub fn rav_additional_spell_cost_bindings() -> Vec<AdditionalSpellCostBinding> {
     vec![AdditionalSpellCostBinding {
         card_definition: "RAV-FIERY-CONCLUSION",
         cost: AdditionalSpellCost::SacrificeControlledCreature,
+    }]
+}
+
+/// Typed triggered-ability bindings for the bounded RAV slice.  The common
+/// engine keeps these separate from the card catalog so a caller can opt into
+/// stack-backed trigger behavior without silently changing setup-only fixtures.
+#[must_use]
+pub fn rav_trigger_bindings() -> Vec<TriggeredAbilityBinding> {
+    vec![TriggeredAbilityBinding {
+        card_definition: "RAV-CARVEN-CARYATID",
+        ability: TriggeredAbility::EnterBattlefieldDrawController,
     }]
 }
 

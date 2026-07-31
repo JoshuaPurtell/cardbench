@@ -8,7 +8,8 @@ use crate::{
     Characteristics, Color, CombatBlock, ContinuousChange, ContinuousEffect, DeckList, Duration,
     Effect, GameEvent, Keyword, ManaAbilityActivation, ManaAbilityBinding, ManaAbilityOutput,
     ManaPaymentSelection, ObjectId, PlayerId, PlayerState, PolicyMoveKind, StackEffectResolution,
-    StackObject, StackResolutionPlan, Step, Target, TargetRequirement, TokenSpec, Zone,
+    StackObject, StackResolutionPlan, Step, Target, TargetRequirement, TokenSpec, TriggeredAbility,
+    TriggeredAbilityBinding, Zone,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -240,6 +241,13 @@ struct CombatState {
     first_strike_damage_sources: BTreeSet<ObjectId>,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct TriggeredStackItem {
+    source: ObjectId,
+    controller: PlayerId,
+    ability: TriggeredAbility,
+}
+
 /// A deterministic, two-or-more-player Magic game state.
 ///
 /// Setup helpers (`add_card`, `put_on_battlefield`, and `grant_mana`) intentionally
@@ -251,9 +259,14 @@ pub struct Game {
     mana_abilities: BTreeMap<&'static str, BTreeMap<&'static str, ActivatedManaAbility>>,
     basic_land_types: BTreeMap<&'static str, BasicLandType>,
     additional_spell_costs: BTreeMap<&'static str, Vec<AdditionalSpellCost>>,
+    triggered_abilities: BTreeMap<&'static str, Vec<TriggeredAbility>>,
     pub players: Vec<PlayerState>,
     objects: BTreeMap<ObjectId, CardObject>,
     pub stack: Vec<StackObject>,
+    /// Synthetic stack identities for triggered abilities. A triggered item
+    /// has no card object of its own, so it is kept beside (rather than inside)
+    /// the public `StackObject` shape used by existing spell fixtures.
+    triggered_stack: BTreeMap<ObjectId, TriggeredStackItem>,
     pub continuous_effects: Vec<ContinuousEffect>,
     pub active_player: PlayerId,
     pub priority: PlayerId,
@@ -451,9 +464,11 @@ impl Game {
             mana_abilities,
             basic_land_types,
             additional_spell_costs,
+            triggered_abilities: BTreeMap::new(),
             players,
             objects: BTreeMap::new(),
             stack: Vec::new(),
+            triggered_stack: BTreeMap::new(),
             continuous_effects: Vec::new(),
             active_player: PlayerId(0),
             priority: PlayerId(0),
@@ -475,6 +490,42 @@ impl Game {
         // Construction is the first observable state-machine boundary. Do not
         // hand a caller a game whose immutable catalog or initial seats already
         // violate the same contract every later transition relies on.
+        game.validate_invariants()?;
+        Ok(game)
+    }
+
+    /// Creates a game with a small expansion-neutral triggered-ability
+    /// catalog. Trigger bindings are validated against the immutable card
+    /// catalog and remain disabled unless an expansion opts into this
+    /// constructor, preserving existing fixture behavior while the substrate
+    /// grows beyond its first ETB operation.
+    pub fn new_with_triggers(
+        definitions: impl IntoIterator<Item = CardDefinition>,
+        player_count: usize,
+        bindings: impl IntoIterator<Item = TriggeredAbilityBinding>,
+    ) -> Result<Self, RulesError> {
+        let mut game = Self::new(definitions, player_count)?;
+        for binding in bindings {
+            let definition = game
+                .catalog
+                .get(binding.card_definition)
+                .ok_or(RulesError::UnknownDefinition(binding.card_definition))?;
+            if !definition.is_permanent() {
+                return Err(RulesError::IllegalAction(
+                    "a triggered-ability binding requires a permanent definition",
+                ));
+            }
+            let abilities = game
+                .triggered_abilities
+                .entry(binding.card_definition)
+                .or_default();
+            if abilities.contains(&binding.ability) {
+                return Err(RulesError::IllegalAction(
+                    "duplicate triggered-ability binding for card definition",
+                ));
+            }
+            abilities.push(binding.ability);
+        }
         game.validate_invariants()?;
         Ok(game)
     }
@@ -1166,6 +1217,7 @@ impl Game {
         let stack_spells = self
             .stack
             .iter()
+            .filter(|stack_object| !self.triggered_stack.contains_key(&stack_object.card))
             .map(|stack_object| self.card_view(stack_object.card))
             .collect::<Result<Vec<_>, _>>()?;
         Ok(GameView {
@@ -2353,6 +2405,18 @@ impl Game {
                 }
             }
         }
+        for (definition, abilities) in &self.triggered_abilities {
+            if !self.catalog.contains_key(definition) || abilities.is_empty() {
+                return Err(RulesError::IllegalAction(
+                    "triggered-ability binding names an invalid definition",
+                ));
+            }
+            if abilities.windows(2).any(|pair| pair[0] == pair[1]) {
+                return Err(RulesError::IllegalAction(
+                    "triggered-ability bindings are not unique",
+                ));
+            }
+        }
         let mut stack_cards = BTreeSet::new();
         for (stack_index, stack_object) in self.stack.iter().enumerate() {
             if !stack_cards.insert(stack_object.card) || locations.contains_key(&stack_object.card)
@@ -2360,6 +2424,24 @@ impl Game {
                 return Err(RulesError::IllegalAction(
                     "stack card must not also exist in a zone",
                 ));
+            }
+            if let Some(trigger) = self.triggered_stack.get(&stack_object.card) {
+                if trigger.controller != stack_object.controller
+                    || !stack_object.targets.is_empty()
+                    || !stack_object.effects.is_empty()
+                    || stack_object.mana_spent.is_some()
+                {
+                    return Err(RulesError::IllegalAction(
+                        "triggered stack item has an invalid payload",
+                    ));
+                }
+                self.player(trigger.controller)?;
+                if self.players[trigger.controller.0].lost {
+                    return Err(RulesError::IllegalAction(
+                        "a departed player controls a triggered stack item",
+                    ));
+                }
+                continue;
             }
             let object = self.object(stack_object.card)?;
             self.player(stack_object.controller)?;
@@ -2490,6 +2572,15 @@ impl Game {
                     }
                 }
             }
+        }
+        if self
+            .triggered_stack
+            .keys()
+            .any(|stack_id| !stack_cards.contains(stack_id))
+        {
+            return Err(RulesError::IllegalAction(
+                "triggered stack metadata lacks its public stack item",
+            ));
         }
         for card in self.objects.keys() {
             if !locations.contains_key(card) && !stack_cards.contains(card) {
@@ -2969,10 +3060,36 @@ impl Game {
         Ok(())
     }
 
+    #[allow(clippy::too_many_lines)] // Spell and triggered-item resolution share one atomic stack boundary.
     fn resolve_top_of_stack(&mut self) -> Result<(), RulesError> {
         let stack_object = self.stack.pop().ok_or(RulesError::IllegalAction(
             "attempted to resolve an empty stack",
         ))?;
+        if let Some(trigger) = self.triggered_stack.remove(&stack_object.card) {
+            if !stack_object.targets.is_empty()
+                || !stack_object.effects.is_empty()
+                || stack_object.mana_spent.is_some()
+                || stack_object.controller != trigger.controller
+            {
+                return Err(RulesError::IllegalAction(
+                    "triggered stack item has an invalid payload",
+                ));
+            }
+            match trigger.ability {
+                TriggeredAbility::EnterBattlefieldDrawController => {
+                    self.draw_card_from_spell_effect(trigger.controller)?;
+                }
+            }
+            self.record_event(GameEvent::TriggeredAbilityResolved {
+                source: trigger.source,
+                stack: stack_object.card,
+                controller: trigger.controller,
+                ability: trigger.ability,
+            });
+            self.check_state_based_actions()?;
+            self.priority = self.priority_after_resolution();
+            return Ok(());
+        }
         // Target legality is snapshotted once, per target occurrence, before
         // any instruction resolves to establish the all-illegal boundary. An
         // initially legal slot is rechecked before its own instruction: an
@@ -3067,6 +3184,7 @@ impl Game {
         });
         if self.card_definition(stack_object.card)?.is_permanent() {
             self.move_to_zone(stack_object.card, Zone::Battlefield)?;
+            self.queue_enter_battlefield_triggers(stack_object.card, stack_object.controller)?;
         } else {
             self.move_to_graveyard_or_remove_token(stack_object.card)?;
         }
@@ -3818,6 +3936,55 @@ impl Game {
             // changes zones. End-of-turn effects from instants remain because
             // their source was never a battlefield permanent.
             self.expire_continuous_effects_involving(card);
+        }
+        Ok(())
+    }
+
+    /// Puts each expansion-bound enter-the-battlefield ability on the shared
+    /// stack after the permanent's own resolution and zone-change receipt.
+    /// Synthetic identities are monotonic but deliberately do not allocate a
+    /// card object: a trigger is never a card in a zone and therefore cannot
+    /// be mistaken for one by target or ownership audits.
+    fn queue_enter_battlefield_triggers(
+        &mut self,
+        source: ObjectId,
+        controller: PlayerId,
+    ) -> Result<(), RulesError> {
+        let definition = self.card_definition(source)?.id;
+        let abilities = self
+            .triggered_abilities
+            .get(definition)
+            .cloned()
+            .unwrap_or_default();
+        for ability in abilities {
+            let stack_id = ObjectId(self.next_object_id);
+            self.next_object_id += 1;
+            let previous = self.triggered_stack.insert(
+                stack_id,
+                TriggeredStackItem {
+                    source,
+                    controller,
+                    ability,
+                },
+            );
+            if previous.is_some() {
+                return Err(RulesError::IllegalAction(
+                    "triggered stack identity was allocated twice",
+                ));
+            }
+            self.stack.push(StackObject {
+                card: stack_id,
+                controller,
+                targets: Vec::new(),
+                effects: Vec::new(),
+                mana_spent: None,
+            });
+            self.record_event(GameEvent::TriggeredAbilityPutOnStack {
+                source,
+                stack: stack_id,
+                controller,
+                ability,
+            });
         }
         Ok(())
     }
@@ -4773,6 +4940,21 @@ impl Game {
     /// zone. This must occur inside the loss transition, not as a later policy
     /// action, so no stale object can receive priority or participate in SBA.
     fn remove_departing_players_objects(&mut self, player: PlayerId) {
+        let departing_trigger_ids = self
+            .stack
+            .iter()
+            .filter_map(|stack_object| {
+                self.triggered_stack
+                    .get(&stack_object.card)
+                    .filter(|trigger| trigger.controller == player)
+                    .map(|_| stack_object.card)
+            })
+            .collect::<Vec<_>>();
+        for stack_id in departing_trigger_ids {
+            self.stack
+                .retain(|stack_object| stack_object.card != stack_id);
+            self.triggered_stack.remove(&stack_id);
+        }
         let owned_objects = self
             .objects
             .iter()
