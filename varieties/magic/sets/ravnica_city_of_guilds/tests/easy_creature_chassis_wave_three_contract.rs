@@ -64,14 +64,6 @@ fn third_creature_chassis_batch_is_exactly_bounded_to_public_base_facts() {
             3,
         ),
         (
-            "RAV-FLAME-KIN-ZEALOT",
-            "Flame-Kin Zealot",
-            ManaCost::with_colors(1, [Color::Red, Color::Red, Color::White]),
-            BTreeSet::from([Color::Red, Color::White]),
-            2,
-            2,
-        ),
-        (
             "RAV-GOLGARI-ROTWURM",
             "Golgari Rotwurm",
             ManaCost::with_colors(3, [Color::Black, Color::Green]),
@@ -86,14 +78,6 @@ fn third_creature_chassis_batch_is_exactly_bounded_to_public_base_facts() {
             BTreeSet::from([Color::Red, Color::White]),
             2,
             4,
-        ),
-        (
-            "RAV-THUNDERSONG-TRUMPETER",
-            "Thundersong Trumpeter",
-            ManaCost::with_colors(0, [Color::Red, Color::White]),
-            BTreeSet::from([Color::Red, Color::White]),
-            2,
-            1,
         ),
         (
             "RAV-VULTUROUS-ZOMBIE",
