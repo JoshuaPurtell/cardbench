@@ -35,7 +35,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 47] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 48] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SCATTER-THE-SEEDS",
@@ -83,6 +83,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 47] = [
     "RAV-TORPID-MOLOCH",
     "RAV-VIASHINO-FANGTAIL",
     "RAV-BOROS-GUILDMAGE",
+    "RAV-WOJEK-EMBERMAGE",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -2120,6 +2121,29 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
+        // Full fidelity: the tap ability uses the same resolution-time
+        // radiance damage batch as Cleansing Beam, with one damage per
+        // selected creature in the shared-color set.
+        CardDefinition {
+            id: "RAV-WOJEK-EMBERMAGE",
+            name: "Wojek Embermage",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(3, [Color::Red]),
+            colors: colors([Color::Red]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "tap-radiance-one-damage",
+            ],
+            power: Some(1),
+            toughness: Some(1),
+            keywords: vec![],
+            effects: vec![],
+        },
         signet_definition("RAV-BOROS-SIGNET", "Boros Signet"),
         signet_definition("RAV-DIMIR-SIGNET", "Dimir Signet"),
         signet_definition("RAV-GOLGARI-SIGNET", "Golgari Signet"),
@@ -2293,6 +2317,18 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 effects: vec![Effect::ModifyTargetKeywordUntilEndOfTurn {
                     keyword: Keyword::Haste,
                 }],
+            },
+        },
+        ActivatedAbilityBinding {
+            card_definition: "RAV-WOJEK-EMBERMAGE",
+            ability: ActivatedAbility {
+                id: "tap-radiance-one-damage",
+                mana_cost: ManaCost::new(0),
+                tap_cost: true,
+                sacrifice_source: false,
+                sacrifice_lands: 0,
+                targets: vec![cardbench_magic_engine::TargetRequirement::Creature],
+                effects: vec![Effect::RadianceDealDamageToCreatures { amount: 1 }],
             },
         },
         ActivatedAbilityBinding {
@@ -3077,7 +3113,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 106);
+        assert_eq!(first.len(), 108);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }
