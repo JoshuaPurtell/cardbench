@@ -241,7 +241,15 @@ fn every_live_blocker_assigns_combat_damage_after_a_multi_block_declaration() {
             source,
             permanent,
             amount: 2,
-        } if *source == second_blocker && *permanent == attacker
+            } if *source == second_blocker && *permanent == attacker
+    )));
+    assert!(game.event_log[event_start..].iter().any(|event| matches!(
+        event,
+        GameEvent::DamageDealtToPermanent {
+            source,
+            permanent,
+            amount: 2,
+        } if *source == attacker && *permanent == second_blocker
     )));
     game.validate_invariants()
         .expect("multi-block damage preserves the game state machine");
