@@ -4910,13 +4910,18 @@ impl Game {
                     controller,
                     ability,
                 } => {
-                    if !matches!(
-                        events.get(index.saturating_sub(1)),
+                    let follows_entry = match events.get(index.saturating_sub(1)) {
                         Some(GameEvent::CardMoved {
                             card,
                             to: Zone::Battlefield,
-                        }) if card == source
-                    ) {
+                        }) => card == source,
+                        Some(GameEvent::TriggeredAbilityPutOnStack {
+                            source: previous_source,
+                            ..
+                        }) => previous_source == source,
+                        _ => false,
+                    };
+                    if !follows_entry {
                         return Err(RulesError::IllegalAction(
                             "trigger placement lacks its source battlefield-entry receipt",
                         ));
