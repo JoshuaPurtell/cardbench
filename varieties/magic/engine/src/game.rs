@@ -4356,12 +4356,12 @@ impl Game {
                 if !self.target_matches(destination, TargetRequirement::PlayerOrCreature) {
                     return Err(RulesError::IllegalTarget(destination));
                 }
-                let pending =
-                    self.pending_damage_redirection
-                        .take()
-                        .ok_or(RulesError::IllegalAction(
-                            "damage-redirection destination lacks source",
-                        ))?;
+                let Some(pending) = self.pending_damage_redirection.take() else {
+                    // The protected target may have become illegal after the
+                    // first instruction was snapshotted. The remaining
+                    // destination instruction then has no work to do.
+                    return Ok(());
+                };
                 self.damage_redirections.push(DamageRedirection {
                     protected: pending.protected,
                     destination,
