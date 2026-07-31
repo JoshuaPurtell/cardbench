@@ -58,8 +58,7 @@ fn permanent_entry_queues_its_controller_trigger_before_priority_returns() {
 
 fn pass_to_top_resolution(game: &mut Game) {
     let first = game.priority;
-    game.pass_priority(first)
-        .expect("priority holder passes");
+    game.pass_priority(first).expect("priority holder passes");
     let second = game.priority;
     game.pass_priority(second)
         .expect("second player passes and the top spell resolves");

@@ -653,6 +653,10 @@ pub enum TargetRequirement {
     Land,
     /// A battlefield permanent with the Artifact card type.
     Artifact,
+    /// A battlefield permanent with either the Artifact or Enchantment card
+    /// type. This keeps the Sundering Vitae target boundary explicit rather
+    /// than treating every noncreature permanent as a legal target.
+    ArtifactOrEnchantment,
     Player,
     /// A player or battlefield creature, matching the executable pre-
     /// planeswalker direct-damage card slice.
@@ -907,6 +911,10 @@ pub enum Effect {
     /// Counter one targeted instant or sorcery spell. This is intentionally a
     /// semantic effect rather than a copied card-text string.
     CounterTargetInstantOrSorcerySpell,
+    /// Destroy the targeted artifact or enchantment permanent. The target is
+    /// rechecked as this instruction resolves, then changes zones using the
+    /// ordinary destruction lifecycle.
+    DestroyTargetArtifactOrEnchantment,
     /// Move one targeted creature from the battlefield to its owner's exile
     /// zone.  This is a zone-change instruction rather than lethal damage, so
     /// it bypasses regeneration and preserves the target's normal
@@ -945,6 +953,9 @@ impl Effect {
             Self::CreateTokenForTargetPlayer { .. } => Some(TargetRequirement::Player),
             Self::DestroyTargetLand => Some(TargetRequirement::Land),
             Self::DestroyTargetArtifact => Some(TargetRequirement::Artifact),
+            Self::DestroyTargetArtifactOrEnchantment => {
+                Some(TargetRequirement::ArtifactOrEnchantment)
+            }
             Self::CounterTargetInstantOrSorcerySpell => {
                 Some(TargetRequirement::InstantOrSorcerySpell)
             }

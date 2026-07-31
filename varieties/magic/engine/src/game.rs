@@ -3701,6 +3701,7 @@ impl Game {
                 | Effect::AddKeywordToControllerCreaturesUntilEndOfTurn { .. }
                 | Effect::DestroyTargetLand
                 | Effect::DestroyTargetArtifact
+                | Effect::DestroyTargetArtifactOrEnchantment
                 | Effect::ModifyControllerCreaturesPtUntilEndOfTurn { .. }
                 | Effect::RadianceUntapAndModifyUntilEndOfTurn { .. }
                 | Effect::RadianceModifyPtUntilEndOfTurn { .. }
@@ -4928,6 +4929,20 @@ impl Game {
                 let target = Self::target_permanent(target)?;
                 self.move_to_zone(target, Zone::Exile)?;
             }
+            Effect::DestroyTargetArtifactOrEnchantment => {
+                let target = Self::target_permanent(target)?;
+                if !self.target_matches(
+                    Target::Permanent(target),
+                    TargetRequirement::ArtifactOrEnchantment,
+                ) {
+                    return Err(RulesError::IllegalTarget(Target::Permanent(target)));
+                }
+                self.record_event(GameEvent::PermanentDestroyed {
+                    source,
+                    permanent: target,
+                });
+                self.move_to_graveyard_or_remove_token(target)?;
+            }
         }
         Ok(())
     }
@@ -5030,6 +5045,13 @@ impl Game {
                         .card_definition(card)
                         .is_ok_and(|definition| definition.card_types.contains(&CardType::Artifact))
             }
+            (Target::Permanent(card), TargetRequirement::ArtifactOrEnchantment) => {
+                self.zone_of(card) == Some(Zone::Battlefield)
+                    && self.characteristics(card).is_ok_and(|characteristics| {
+                        characteristics.card_types.contains(&CardType::Artifact)
+                            || characteristics.card_types.contains(&CardType::Enchantment)
+                    })
+            }
             (Target::Spell(card), TargetRequirement::InstantOrSorcerySpell) => {
                 self.stack
                     .iter()
@@ -5062,6 +5084,7 @@ impl Game {
                     | TargetRequirement::AttackingOrBlockingCreature
                     | TargetRequirement::Land
                     | TargetRequirement::Artifact
+                    | TargetRequirement::ArtifactOrEnchantment
                     | TargetRequirement::PlayerOrCreature
             ) | (Target::Spell(_), TargetRequirement::InstantOrSorcerySpell)
         )

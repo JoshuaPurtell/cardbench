@@ -35,7 +35,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 69] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 70] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -105,6 +105,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 69] = [
     "RAV-SURGE-OF-ZEAL",
     "RAV-SEISMIC-SPIKE",
     "RAV-SMASH",
+    "RAV-SUNDERING-VITAE",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -932,6 +933,27 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 power: 3,
                 toughness: 3,
             }],
+        },
+        // Full fidelity: Convoke payment, typed artifact-or-enchantment
+        // targets, and ordinary destruction are all executable.
+        CardDefinition {
+            id: "RAV-SUNDERING-VITAE",
+            name: "Sundering Vitae",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(2, [Color::Green]),
+            colors: colors([Color::Green]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Instant]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "convoke",
+                "targeted-artifact-or-enchantment-destruction",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![Keyword::Convoke],
+            effects: vec![Effect::DestroyTargetArtifactOrEnchantment],
         },
         // Public RAV verification establishes that this is a vanilla creature:
         // there is no printed functional ability omitted from this definition.

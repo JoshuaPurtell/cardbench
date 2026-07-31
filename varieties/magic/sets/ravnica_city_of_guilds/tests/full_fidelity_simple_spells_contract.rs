@@ -80,6 +80,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-SURGE-OF-ZEAL",
             "RAV-SEISMIC-SPIKE",
             "RAV-SMASH",
+            "RAV-SUNDERING-VITAE",
         ]
     );
     let definitions = card_definitions();
@@ -163,6 +164,10 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
         (
             "RAV-SMASH",
             vec![Effect::DestroyTargetArtifact, Effect::DrawController],
+        ),
+        (
+            "RAV-SUNDERING-VITAE",
+            vec![Effect::DestroyTargetArtifactOrEnchantment],
         ),
     ];
     for (id, effects) in exact {
