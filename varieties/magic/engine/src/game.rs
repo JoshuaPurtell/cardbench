@@ -4970,8 +4970,8 @@ impl Game {
                             to: Zone::Library,
                         });
                     }
-                    let count = u16::try_from(self.players[player_index].library.len())
-                        .unwrap_or(u16::MAX);
+                    let count =
+                        u16::try_from(self.players[player_index].library.len()).unwrap_or(u16::MAX);
                     self.shuffle_library(player);
                     self.record_event(GameEvent::LibraryShuffled {
                         player,
