@@ -4860,7 +4860,7 @@ digest = "fnv1a64:e78637d84b25b302"
 [[scenario]]
 id = "rav_riftcutter_excruciator_creature_chassis"
 seed = 0
-description = "Cast Barbarian Riftcutter and Excruciator with exact red costs, then verify only base P/T. Printed land-destruction activation and prevention exception are deliberately omitted."
+description = "Cast Barbarian Riftcutter and Excruciator with exact red costs, then verify their base P/T; Excruciator's static prevention exception is covered by the dedicated combat regression."
 
 [[scenario.card]]
 label = "riftcutter"
