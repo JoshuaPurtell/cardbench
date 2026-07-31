@@ -447,7 +447,11 @@ impl ManaPool {
 pub enum Keyword {
     Convoke,
     Defender,
+    /// Can be blocked only by a creature with Flying or Reach.
+    Flying,
     FirstStrike,
+    /// Can block a creature with Flying.
+    Reach,
     /// Declaring this creature as an attacker does not tap it.
     Vigilance,
     Dredge(u8),
