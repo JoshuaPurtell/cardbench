@@ -2298,17 +2298,25 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Flying, Keyword::Vigilance],
             effects: vec![],
         },
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed flying and activated combat
-        // behavior are deliberately omitted from this compatibility slice.
-        bounded_creature_chassis(
-            "RAV-DIVEBOMBER-GRIFFIN",
-            "Divebomber Griffin",
-            ManaCost::with_colors(3, [Color::White, Color::White]),
-            colors([Color::White]),
-            3,
-            2,
-        ),
+        // Compatibility scope: normal colored-cost creature casting, base
+        // characteristics, and Flying. Its activated sacrifice/damage ability
+        // remains deliberately unsupported, so this is not a full-fidelity
+        // card.
+        CardDefinition {
+            id: "RAV-DIVEBOMBER-GRIFFIN",
+            name: "Divebomber Griffin",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(3, [Color::White, Color::White]),
+            colors: colors([Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &["colored-cost-casting", "base-characteristics", "flying"],
+            power: Some(3),
+            toughness: Some(2),
+            keywords: vec![Keyword::Flying],
+            effects: vec![],
+        },
         // Compatibility scope: normal colored-cost creature casting and base
         // characteristics only. Its printed activated behavior is deliberately
         // omitted from this compatibility slice.
@@ -3672,7 +3680,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 114);
+        assert_eq!(first.len(), 115);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }
