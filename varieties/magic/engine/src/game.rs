@@ -689,6 +689,11 @@ impl Game {
         definition: &'static str,
         zone: Zone,
     ) -> Result<ObjectId, RulesError> {
+        if self.started {
+            return Err(RulesError::IllegalAction(
+                "cards may be added only before the game begins",
+            ));
+        }
         self.player(owner)?;
         if !self.catalog.contains_key(definition) {
             return Err(RulesError::UnknownDefinition(definition));
