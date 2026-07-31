@@ -38,7 +38,7 @@ fn barbarian_riftcutter_sacrifices_and_destroys_a_target_land() {
     game.set_entered_turn_for_setup(source, 0)
         .expect("old source");
     game.begin_game().expect("game starts");
-    game.grant_mana(PlayerId(0), Color::Red, 1)
+    game.add_mana_from_action(PlayerId(0), Color::Red, 1)
         .expect("red activation mana");
     game.activate_ability(
         PlayerId(0),
