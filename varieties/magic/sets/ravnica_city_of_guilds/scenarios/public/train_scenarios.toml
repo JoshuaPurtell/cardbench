@@ -6580,6 +6580,22 @@ kind = "pass"
 player = 1
 
 [[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
 kind = "declare_attackers"
 player = 0
 attackers = ["fiend"]
