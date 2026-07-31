@@ -572,6 +572,11 @@ impl Game {
         color: Color,
         amount: u8,
     ) -> Result<(), RulesError> {
+        if self.started {
+            return Err(RulesError::IllegalAction(
+                "mana may be granted only before the game begins",
+            ));
+        }
         self.player(player)?;
         if !self.players[player.0].mana_pool.can_add(color, amount) {
             return Err(RulesError::IllegalAction(
