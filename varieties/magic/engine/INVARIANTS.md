@@ -33,6 +33,10 @@ Oracle Magic rules coverage.
   its display name. A token with any such subtype must be a creature; the
   public `Characteristics` view preserves that type-line information and the
   token's static keywords through stack resolution and zone placement.
+- Tokens may attack and deal combat or effect damage without a catalog
+  definition. Definition-bound attack and damage triggers therefore dispatch
+  only for non-token sources; a token's legal declaration and damage batch must
+  not fail while attempting a definition lookup.
 - Object IDs never alias or regress. Object turn metadata cannot be from a
   future turn, marked damage cannot be negative, and a card outside the
   battlefield retains its owner's controller in the current no-control-change
