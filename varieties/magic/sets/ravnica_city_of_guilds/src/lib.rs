@@ -33,7 +33,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 15] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 16] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-LAST-GASP",
@@ -49,6 +49,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 15] = [
     "RAV-OVERWHELM",
     "RAV-GATHER-COURAGE",
     "RAV-SEEDS-OF-STRENGTH",
+    "RAV-DARKBLAST",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -164,6 +165,10 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 Effect::GainLifeController { amount: 3 },
             ],
         },
+        // Compatibility boundary: the token object has a name, color, card
+        // type, and power/toughness, but this engine has no creature-subtype
+        // substrate. The printed token's subtype is therefore not claimed as
+        // represented.
         CardDefinition {
             id: "RAV-SCATTER-THE-SEEDS",
             name: "Scatter the Seeds",
@@ -632,8 +637,9 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             ))],
             effects: vec![],
         },
-        // This compatibility definition covers only the target creature's
-        // temporary layer-7 modifier and dredge.
+        // Full fidelity: this card's complete functional behavior is the
+        // creature-targeted temporary layer-7 modifier plus its fixed Dredge
+        // replacement. Both are represented by the shared engine substrates.
         CardDefinition {
             id: "RAV-DARKBLAST",
             name: "Darkblast",
@@ -643,7 +649,7 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Instant]),
             is_basic_land: false,
-            supported_rules: &["targeted-layer-7-modifier", "dredge"],
+            supported_rules: &["full-rules-fidelity", "targeted-layer-7-modifier", "dredge"],
             power: None,
             toughness: None,
             keywords: vec![Keyword::Dredge(3)],
@@ -713,6 +719,9 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 toughness: -3,
             }],
         },
+        // Compatibility scope: normal creature casting, base characteristics,
+        // and the existing Convoke payment hook. Trample combat-damage
+        // assignment is intentionally unsupported.
         CardDefinition {
             id: "RAV-SIEGE-WURM",
             name: "Siege Wurm",
@@ -765,8 +774,8 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             effects: vec![],
         },
         // Compatibility scope: normal creature casting, base characteristics,
-        // and the existing Convoke payment hook. Its printed combat keyword is
-        // intentionally unsupported.
+        // and the existing Convoke payment hook. Vigilance's attack/tap rule
+        // is intentionally unsupported.
         CardDefinition {
             id: "RAV-GUARDIAN-OF-VITU-GHAZI",
             name: "Guardian of Vitu-Ghazi",

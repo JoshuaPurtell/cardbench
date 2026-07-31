@@ -1606,7 +1606,7 @@ digest = "fnv1a64:6fb497cc4073243c"
 [[scenario]]
 id = "rav_darkblast_modifier_and_dredge"
 seed = 0
-description = "Resolve Darkblast's scoped temporary modifier, then replace a draw with its scoped dredge ability."
+description = "Resolve Darkblast's temporary modifier, then replace a draw with its fixed Dredge replacement."
 
 [[scenario.card]]
 label = "darkblast"
