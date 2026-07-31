@@ -404,6 +404,12 @@ Oracle Magic rules coverage.
   snapshots that selection once, emits one damage receipt per selected
   creature, and applies all of those marks before its post-resolution SBA
   check.
+- A Radiance keyword effect uses the same one-time target-color snapshot and
+  installs one layer-6 continuous effect per selected creature. It may grant
+  Haste without changing power, toughness, or tapped state; an unrelated
+  creature receives no effect receipt. The target must remain a legal creature
+  through resolution, while each selected shared-color creature is independently
+  checked before installation.
 - A target-free global creature-and-player damage effect snapshots every
   battlefield creature in stable object-id order, emits one permanent-damage
   receipt for each, then emits one player-damage receipt for each surviving
