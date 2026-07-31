@@ -58,6 +58,7 @@ fn wojek_embermage_radiance_damages_the_target_and_shared_color_creature() {
             source,
             ability_id: "tap-radiance-one-damage",
             sacrifice_sources: vec![],
+            discard_cards: vec![],
             targets: vec![Target::Permanent(target)],
         },
     )

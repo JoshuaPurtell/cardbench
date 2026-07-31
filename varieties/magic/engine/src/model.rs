@@ -166,6 +166,10 @@ pub struct ActivatedAbility {
     pub sacrifice_source: bool,
     /// Number of controlled battlefield lands required as an explicit cost.
     pub sacrifice_lands: u8,
+    /// Number of cards the activating player must discard as an explicit cost.
+    /// The concrete hand objects are selected in `AbilityActivation` so a
+    /// policy cannot silently discard a hidden card or invent a cost payment.
+    pub discard_cards: u8,
     /// Target slots are consumed in this order from `PolicyAction`.
     pub targets: Vec<TargetRequirement>,
     pub effects: Vec<Effect>,
@@ -185,6 +189,8 @@ pub struct AbilityActivation {
     pub ability_id: &'static str,
     /// Explicit permanent selections paid as the ability's nonmana cost.
     pub sacrifice_sources: Vec<ObjectId>,
+    /// Explicit hand-card selections paid as the ability's discard cost.
+    pub discard_cards: Vec<ObjectId>,
     pub targets: Vec<Target>,
 }
 
@@ -1457,6 +1463,14 @@ pub enum GameEvent {
         player: PlayerId,
         source: ObjectId,
         permanent: ObjectId,
+    },
+    /// A selected hand card is discarded as an explicit activated-ability
+    /// cost. The receipt precedes the ability's activation receipt and the
+    /// card's `CardMoved { to: Graveyard }` receipt.
+    DiscardedAsAbilityCost {
+        player: PlayerId,
+        source: ObjectId,
+        card: ObjectId,
     },
     ConvokeUsed {
         player: PlayerId,

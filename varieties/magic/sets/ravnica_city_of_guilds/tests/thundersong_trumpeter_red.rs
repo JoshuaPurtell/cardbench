@@ -54,6 +54,7 @@ fn thundersong_trumpeter_taps_and_marks_a_target_as_unable_to_attack_or_block() 
             source,
             ability_id: "tap-prevent-target-combat",
             sacrifice_sources: vec![],
+            discard_cards: vec![],
             targets: vec![Target::Permanent(target)],
         },
     )

@@ -555,6 +555,7 @@ fn execute_action(
                     source,
                     ability_id,
                     sacrifice_sources: vec![],
+                    discard_cards: vec![],
                     targets,
                 },
             )

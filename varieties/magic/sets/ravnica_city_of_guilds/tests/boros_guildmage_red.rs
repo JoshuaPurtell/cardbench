@@ -59,6 +59,7 @@ fn boros_guildmage_grants_haste_and_first_strike_until_end_of_turn() {
             source: guildmage,
             ability_id: "grant-haste",
             sacrifice_sources: vec![],
+            discard_cards: vec![],
             targets: vec![Target::Permanent(target)],
         },
     )
@@ -82,6 +83,7 @@ fn boros_guildmage_grants_haste_and_first_strike_until_end_of_turn() {
             source: guildmage,
             ability_id: "grant-first-strike",
             sacrifice_sources: vec![],
+            discard_cards: vec![],
             targets: vec![Target::Permanent(target)],
         },
     )
