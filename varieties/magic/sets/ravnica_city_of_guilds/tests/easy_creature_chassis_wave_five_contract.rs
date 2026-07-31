@@ -31,6 +31,14 @@ fn first_range_creature_chassis_is_exactly_bounded_to_public_base_facts() {
             3,
         ),
         (
+            "RAV-VOTARY-OF-THE-CONCLAVE",
+            "Votary of the Conclave",
+            ManaCost::with_colors(0, [Color::White]),
+            BTreeSet::from([Color::White]),
+            1,
+            1,
+        ),
+        (
             "RAV-DRAKE-FAMILIAR",
             "Drake Familiar",
             ManaCost::with_colors(1, [Color::Blue]),

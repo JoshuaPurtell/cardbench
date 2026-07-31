@@ -34,7 +34,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 38] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 37] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SCATTER-THE-SEEDS",
@@ -72,7 +72,6 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 38] = [
     "RAV-BIRDS-OF-PARADISE",
     "RAV-FIERY-CONCLUSION",
     "RAV-RIBBONS-OF-NIGHT",
-    "RAV-VOTARY-OF-THE-CONCLAVE",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -1796,29 +1795,17 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             1,
             3,
         ),
-        // Full fidelity: this card's sole functional ability is Vigilance.
-        // The shared combat declaration substrate already preserves its
-        // untapped state while it attacks.
-        CardDefinition {
-            id: "RAV-VOTARY-OF-THE-CONCLAVE",
-            name: "Votary of the Conclave",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(0, [Color::White]),
-            colors: colors([Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "base-characteristics",
-                "vigilance",
-            ],
-            power: Some(1),
-            toughness: Some(1),
-            keywords: vec![Keyword::Vigilance],
-            effects: vec![],
-        },
+        // Compatibility scope: normal colored-cost creature casting and base
+        // characteristics only. Its printed combat keyword is deliberately
+        // omitted from this compatibility slice.
+        bounded_creature_chassis(
+            "RAV-VOTARY-OF-THE-CONCLAVE",
+            "Votary of the Conclave",
+            ManaCost::with_colors(0, [Color::White]),
+            colors([Color::White]),
+            1,
+            1,
+        ),
         // Compatibility scope: normal colored-cost creature casting and base
         // characteristics only. Its printed entry-triggered behavior is
         // deliberately omitted from this compatibility slice.
@@ -2753,7 +2740,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 98);
+        assert_eq!(first.len(), 97);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

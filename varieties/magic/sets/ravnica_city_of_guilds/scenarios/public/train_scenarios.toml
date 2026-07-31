@@ -4976,7 +4976,7 @@ digest = "fnv1a64:e78637d84b25b302"
 [[scenario]]
 id = "rav_easy_white_creature_chassis_wave_five"
 seed = 0
-description = "Cast full Flying/Vigilance Courier Hawk and full Vigilance Votary of the Conclave plus bounded Divebomber Griffin and Sandsower with exact white costs, then verify base P/T; keyword combat declarations are exercised separately."
+description = "Cast full Flying/Vigilance Courier Hawk plus bounded Divebomber Griffin, Sandsower, and Votary of the Conclave with exact white costs, then verify base P/T; Hawk's combat declarations are exercised separately."
 
 [[scenario.card]]
 label = "hawk"
@@ -5297,69 +5297,6 @@ stack_size = 0
 priority = 0
 event_markers = ["AttackersDeclared"]
 event_absent = ["PermanentsUntapped"]
-digest = "fnv1a64:2b40464c0df717b5"
-
-[[scenario]]
-id = "rav_votary_of_the_conclave_vigilance_attack"
-seed = 0
-description = "Declare the long-controlled Vigilance Votary of the Conclave as an attacker and preserve its untapped state through the attacker declaration."
-
-[[scenario.card]]
-label = "votary"
-owner = 0
-definition = "RAV-VOTARY-OF-THE-CONCLAVE"
-zone = "battlefield"
-entered_turn = 0
-
-[[scenario.action]]
-kind = "begin_game"
-player = 0
-
-[[scenario.action]]
-kind = "pass"
-player = 0
-
-[[scenario.action]]
-kind = "pass"
-player = 1
-
-[[scenario.action]]
-kind = "pass"
-player = 0
-
-[[scenario.action]]
-kind = "pass"
-player = 1
-
-[[scenario.action]]
-kind = "pass"
-player = 0
-
-[[scenario.action]]
-kind = "pass"
-player = 1
-
-[[scenario.action]]
-kind = "pass"
-player = 0
-
-[[scenario.action]]
-kind = "pass"
-player = 1
-
-[[scenario.action]]
-kind = "declare_attackers"
-player = 0
-attackers = ["votary"]
-
-[scenario.expected]
-zones = ["votary:battlefield"]
-powers = ["votary:1"]
-toughnesses = ["votary:1"]
-tapped = ["votary:false"]
-stack_size = 0
-priority = 0
-event_markers = ["StepBegan", "PriorityPassed", "AttackersDeclared"]
 digest = "fnv1a64:2b40464c0df717b5"
 
 [[scenario]]
