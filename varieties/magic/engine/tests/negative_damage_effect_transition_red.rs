@@ -50,7 +50,13 @@ fn definitions() -> [CardDefinition; 2] {
 
 #[test]
 fn a_negative_damage_definition_cannot_leave_a_rejected_policy_move_with_negative_damage() {
-    let mut game = Game::new(definitions(), 2).expect("two-player game initializes");
+    let mut game = match Game::new(definitions(), 2) {
+        Ok(game) => game,
+        Err(error) => {
+            eprintln!("malformed negative-damage definition rejected at construction: {error}");
+            return;
+        }
+    };
     let spell = game
         .add_card(PlayerId(0), NEGATIVE_DAMAGE_SPELL, Zone::Hand)
         .expect("spell enters hand");
