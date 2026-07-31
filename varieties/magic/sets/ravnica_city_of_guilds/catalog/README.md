@@ -222,12 +222,21 @@ unsupported. Five deterministic public scenarios exercise cast payment, stack
 resolution, zone movement, priority, and their retained base P/T values only.
 
 The first-range easy-creature wave adds Divebomber Griffin, Sandsower, Votary
-of the Conclave, Drake Familiar, Drift of Phantasms, Ethereal Usher, and
-Grozoth. Each supports only normal colored-cost creature casting and base
-power/toughness. Every printed keyword, activated ability, triggered ability,
-and hand-zone behavior is deliberately unsupported. Two deterministic public
-scenarios cover their exact colored-cost payments, stack resolution, zone
-movement, priority, and retained base P/T values only.
+of the Conclave, Drake Familiar, Ethereal Usher, and Grozoth. Each supports
+only normal colored-cost creature casting and base power/toughness. Every
+printed keyword, activated ability, triggered ability, and hand-zone behavior
+is deliberately unsupported. Two deterministic public scenarios cover their
+exact colored-cost payments, stack resolution, zone movement, priority, and
+retained base P/T values only.
+
+Drift of Phantasms is a narrower compatibility exception: its public definition
+does encode Defender and the established hand-zone Transmute operation, and a
+shown trace proves both the rejected Defender attack and the matching-value
+search receipt. It remains outside `RAV_FULL_FIDELITY_DEFINITION_IDS`: the
+current Transmute operation resolves immediately rather than becoming an
+activated ability on the stack, so opponents do not receive the printed response
+window. The ignored full-fidelity probe remains intentionally red until that
+engine gap is closed.
 
 The focused Flying/Reach/Haste audit promotes Conclave Equenaut, Snapping Drake,
 Goliath Spider, Courier Hawk, and Skyknight Legionnaire into the positive fidelity manifest. Their

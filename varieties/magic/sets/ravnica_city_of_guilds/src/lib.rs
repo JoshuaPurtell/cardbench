@@ -1817,17 +1817,34 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             2,
             1,
         ),
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed defender and hand-zone transmute
-        // behavior are deliberately omitted from this compatibility slice.
-        bounded_creature_chassis(
-            "RAV-DRIFT-OF-PHANTASMS",
-            "Drift of Phantasms",
-            ManaCost::with_colors(2, [Color::Blue]),
-            colors([Color::Blue]),
-            0,
-            5,
-        ),
+        // Compatibility scope: normal creature casting, base characteristics,
+        // Defender, and the existing immediate hand-zone Transmute operation.
+        // This remains deliberately outside the full-fidelity manifest because
+        // the shared Transmute substrate does not yet create a stack object or
+        // response window for its activated ability.
+        CardDefinition {
+            id: "RAV-DRIFT-OF-PHANTASMS",
+            name: "Drift of Phantasms",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(2, [Color::Blue]),
+            colors: colors([Color::Blue]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "colored-cost-casting",
+                "base-characteristics",
+                "defender",
+                "immediate-hand-zone-transmute-compatibility",
+            ],
+            power: Some(0),
+            toughness: Some(5),
+            keywords: vec![
+                Keyword::Defender,
+                Keyword::Transmute(ManaCost::with_colors(1, [Color::Blue, Color::Blue])),
+            ],
+            effects: vec![],
+        },
         // Compatibility scope: normal colored-cost creature casting and base
         // characteristics only. Its printed evasion and hand-zone transmute
         // behavior are deliberately omitted from this compatibility slice.
@@ -2706,7 +2723,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 96);
+        assert_eq!(first.len(), 97);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

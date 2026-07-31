@@ -1,8 +1,10 @@
-//! Red coverage contract for Drift of Phantasms.
+//! Ignored full-fidelity boundary probe for Drift of Phantasms.
 //!
-//! This is deliberately a card-coverage gap, not an engine-bug claim.  The
-//! shared substrate already exposes both Defender and hand-zone Transmute, but
-//! the RAV definition currently publishes only a bounded creature chassis.
+//! The represented Defender and immediate hand-zone Transmute slices are useful
+//! compatibility coverage, but real Transmute is an activated ability with a
+//! response window. The shared substrate resolves it immediately, so this
+//! positive-manifest assertion must remain red until stack-backed activated
+//! abilities exist.
 
 use std::collections::BTreeSet;
 
@@ -10,7 +12,8 @@ use cardbench_magic_engine::{CardType, Color, Keyword, ManaCost};
 use cardbench_magic_rav::card_definitions;
 
 #[test]
-fn drift_of_phantasms_can_be_promoted_without_new_engine_rules() {
+#[ignore = "Transmute is immediate rather than stack-backed, so full fidelity is not yet valid"]
+fn drift_of_phantasms_requires_stack_backed_transmute_for_full_fidelity() {
     let drift = card_definitions()
         .into_iter()
         .find(|definition| definition.id == "RAV-DRIFT-OF-PHANTASMS")
