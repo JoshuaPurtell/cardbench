@@ -1008,9 +1008,8 @@ pub enum PolicyMoveKind {
     ReportEngineWeakness,
 }
 
-/// One blocker assigned to one attacker. This initial combat substrate permits one
-/// blocker per attacker; cards requiring multi-block assignment are reported as a
-/// capability gap rather than being approximated.
+/// One blocker assignment. Multiple entries may name the same attacker; the
+/// declaration order is retained for this slice's combat-damage assignment.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct CombatBlock {
     pub attacker: ObjectId,

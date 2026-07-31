@@ -220,7 +220,11 @@ struct CombatState {
     /// assignment; this set is retained only as declaration provenance for
     /// the public combat audit.
     trampling_attackers: BTreeSet<ObjectId>,
-    blockers: BTreeMap<ObjectId, ObjectId>,
+    /// Ordered blockers for each attacker. The declaration order is the
+    /// damage-assignment order for this bounded combat slice; retaining every
+    /// blocker is required even before a richer explicit damage-order action
+    /// exists.
+    blockers: BTreeMap<ObjectId, Vec<ObjectId>>,
     /// Blockers admitted against a declared flying attacker because they had
     /// either Flying or Reach at blocker declaration. This is provenance, not
     /// an assertion that the blocker retains either keyword afterward.
@@ -1487,8 +1491,9 @@ impl Game {
         self.validate_invariants()
     }
 
-    /// Performs the turn-based action of assigning zero or one blocker to each
-    /// attacker in the initial combat slice.
+    /// Performs the turn-based action of assigning zero or more blockers to
+    /// each attacker. The declaration order is retained for bounded damage
+    /// assignment and event-log replay.
     pub fn declare_blockers(
         &mut self,
         player: PlayerId,
@@ -1512,12 +1517,10 @@ impl Game {
                 "only the defending player may declare blockers",
             ));
         }
-        let mut attackers = BTreeSet::new();
         let mut blockers = BTreeSet::new();
         let mut evasion_qualified_blockers = BTreeSet::new();
         for assignment in assignments {
             if !combat.attackers.contains(&assignment.attacker)
-                || !attackers.insert(assignment.attacker)
                 || !blockers.insert(assignment.blocker)
             {
                 return Err(RulesError::IllegalAction("invalid blocker assignment"));
@@ -1549,7 +1552,9 @@ impl Game {
         for assignment in assignments {
             combat
                 .blockers
-                .insert(assignment.attacker, assignment.blocker);
+                .entry(assignment.attacker)
+                .or_default()
+                .push(assignment.blocker);
         }
         combat.evasion_qualified_blockers = evasion_qualified_blockers;
         combat.blockers_declared = true;
@@ -2629,23 +2634,26 @@ impl Game {
                     "trample declaration provenance contains a nonattacker",
                 ));
             }
-            for (attacker, blocker) in &combat.blockers {
-                if !attackers.contains(attacker) || !blockers.insert(*blocker) {
+            for (attacker, assigned_blockers) in &combat.blockers {
+                if !attackers.contains(attacker) || assigned_blockers.is_empty() {
                     return Err(RulesError::IllegalAction("invalid combat blocker state"));
                 }
-                if self.zone_of(*blocker).is_some() {
-                    self.object(*blocker)?;
+                for blocker in assigned_blockers {
+                    if !blockers.insert(*blocker) {
+                        return Err(RulesError::IllegalAction(
+                            "a blocker was assigned more than once",
+                        ));
+                    }
+                    if self.zone_of(*blocker).is_some() {
+                        self.object(*blocker)?;
+                    }
                 }
             }
             let expected_evasion_blockers = combat
                 .blockers
                 .iter()
-                .filter_map(|(attacker, blocker)| {
-                    combat
-                        .flying_attackers
-                        .contains(attacker)
-                        .then_some(*blocker)
-                })
+                .filter(|(attacker, _)| combat.flying_attackers.contains(attacker))
+                .flat_map(|(_, assigned_blockers)| assigned_blockers.iter().copied())
                 .collect::<BTreeSet<_>>();
             if combat.evasion_qualified_blockers != expected_evasion_blockers {
                 return Err(RulesError::IllegalAction(
@@ -3566,12 +3574,12 @@ impl Game {
         let Some(combat) = &self.combat else {
             return Ok(false);
         };
-        for creature in combat
-            .attackers
-            .iter()
-            .copied()
-            .chain(combat.blockers.values().copied())
-        {
+        for creature in combat.attackers.iter().copied().chain(
+            combat
+                .blockers
+                .values()
+                .flat_map(|assigned_blockers| assigned_blockers.iter().copied()),
+        ) {
             if self.zone_of(creature) == Some(Zone::Battlefield)
                 && self
                     .characteristics(creature)?
@@ -3605,7 +3613,12 @@ impl Game {
                 .attackers
                 .iter()
                 .copied()
-                .chain(combat.blockers.values().copied())
+                .chain(
+                    combat
+                        .blockers
+                        .values()
+                        .flat_map(|assigned_blockers| assigned_blockers.iter().copied()),
+                )
                 .filter(|creature| {
                     self.zone_of(*creature) == Some(Zone::Battlefield)
                         && self
@@ -3650,10 +3663,15 @@ impl Game {
                 .characteristics(attacker)?
                 .keywords
                 .contains(&Keyword::Trample);
-            if let Some(blocker) = combat.blockers.get(&attacker).copied() {
-                if self.zone_of(blocker) != Some(Zone::Battlefield) {
-                    // A creature that was blocked remains blocked even if its
-                    // blocker leaves combat before damage. A live trample
+            if let Some(assigned_blockers) = combat.blockers.get(&attacker) {
+                let live_blockers = assigned_blockers
+                    .iter()
+                    .copied()
+                    .filter(|blocker| self.zone_of(*blocker) == Some(Zone::Battlefield))
+                    .collect::<Vec<_>>();
+                if live_blockers.is_empty() {
+                    // A creature that was blocked remains blocked even if all
+                    // blockers leave combat before damage. A live trample
                     // attacker can assign all of its positive damage to the
                     // defending player; other blocked attackers assign none.
                     if attacker_eligible && attacker_has_trample && attacker_power > 0 {
@@ -3661,37 +3679,46 @@ impl Game {
                     }
                     continue;
                 }
-                let blocker_power = self
-                    .characteristics(blocker)?
-                    .power
-                    .ok_or(RulesError::IllegalAction("blocker lacks power"))?;
                 if attacker_eligible && attacker_power > 0 {
                     if attacker_has_trample {
-                        let blocker_characteristics = self.characteristics(blocker)?;
-                        let blocker_toughness = blocker_characteristics
-                            .toughness
-                            .ok_or(RulesError::IllegalAction("blocker lacks toughness"))?;
-                        let marked_damage = self.object(blocker)?.damage;
-                        // The initial combat representation admits exactly
-                        // one blocker per attacker. With no deathtouch or
-                        // damage-prevention substrate, lethal damage is the
-                        // blocker's remaining toughness after damage already
-                        // marked on it; excess is assigned to the defender.
-                        let lethal = blocker_toughness.saturating_sub(marked_damage).max(0);
-                        let assigned_to_blocker = attacker_power.min(lethal);
-                        if assigned_to_blocker > 0 {
-                            permanent_damage.push((attacker, blocker, assigned_to_blocker));
+                        // Declaration order is the damage-order choice for
+                        // this bounded substrate. Assign lethal damage to
+                        // each blocker before assigning excess to the player.
+                        let mut remaining = attacker_power;
+                        for blocker in &live_blockers {
+                            let blocker_characteristics = self.characteristics(*blocker)?;
+                            let blocker_toughness = blocker_characteristics
+                                .toughness
+                                .ok_or(RulesError::IllegalAction("blocker lacks toughness"))?;
+                            let marked_damage = self.object(*blocker)?.damage;
+                            let lethal = blocker_toughness.saturating_sub(marked_damage).max(0);
+                            let assigned_to_blocker = remaining.min(lethal);
+                            if assigned_to_blocker > 0 {
+                                permanent_damage.push((attacker, *blocker, assigned_to_blocker));
+                            }
+                            remaining -= assigned_to_blocker;
+                            if remaining == 0 {
+                                break;
+                            }
                         }
-                        let excess = attacker_power - assigned_to_blocker;
-                        if excess > 0 {
-                            player_damage.push((attacker, defending_player, excess));
+                        if remaining > 0 {
+                            player_damage.push((attacker, defending_player, remaining));
                         }
                     } else {
-                        permanent_damage.push((attacker, blocker, attacker_power));
+                        // Without trample, this slice uses the first declared
+                        // blocker as the assignment recipient. All blockers
+                        // still deal their combat damage back below.
+                        permanent_damage.push((attacker, live_blockers[0], attacker_power));
                     }
                 }
-                if eligible(blocker) && blocker_power > 0 {
-                    permanent_damage.push((blocker, attacker, blocker_power));
+                for blocker in live_blockers {
+                    let blocker_power = self
+                        .characteristics(blocker)?
+                        .power
+                        .ok_or(RulesError::IllegalAction("blocker lacks power"))?;
+                    if eligible(blocker) && blocker_power > 0 {
+                        permanent_damage.push((blocker, attacker, blocker_power));
+                    }
                 }
             } else if attacker_eligible && attacker_power > 0 {
                 player_damage.push((attacker, defending_player, attacker_power));
