@@ -136,7 +136,7 @@
 128	Goblin Spelunkers	executable:RAV-GOBLIN-SPELUNKERS
 129	Greater Forgeling	executable:RAV-GREATER-FORGELING
 130	Hammerfist Giant
-131	Hunted Dragon
+131	Hunted Dragon	executable:RAV-HUNTED-DRAGON
 132	Incite Hysteria
 133	Indentured Oaf	executable:RAV-INDENTURED-OAF
 134	Instill Furor
@@ -149,7 +149,7 @@
 141	Seismic Spike
 142	Sell-Sword Brute	executable:RAV-SELL-SWORD-BRUTE
 143	Smash
-144	Sparkmage Apprentice
+144	Sparkmage Apprentice	executable:RAV-SPARKMAGE-APPRENTICE
 145	Stoneshaker Shaman
 146	Surge of Zeal
 147	Torpid Moloch	executable:RAV-TORPID-MOLOCH
@@ -228,7 +228,7 @@
 220	Psychic Drain
 221	Putrefy
 222	Rally the Righteous	executable:RAV-RALLY-THE-RIGHTEOUS
-223	Razia, Boros Archangel
+223	Razia, Boros Archangel	executable:RAV-RAZIA-BOROS-ARCHANGEL
 224	Razia's Purification
 225	Savra, Queen of the Golgari
 226	Searing Meditation
