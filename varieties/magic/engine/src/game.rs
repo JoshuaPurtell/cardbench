@@ -4940,9 +4940,9 @@ impl Game {
                 ) {
                     return Err(RulesError::IllegalTarget(Target::Permanent(target)));
                 }
-                self.record_event(GameEvent::PermanentDestroyed {
+                self.record_event(GameEvent::CardDestroyed {
                     source,
-                    permanent: target,
+                    card: target,
                 });
                 self.move_to_graveyard_or_remove_token(target)?;
             }
