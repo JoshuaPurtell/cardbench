@@ -43,6 +43,7 @@ fn invariant_audit_rejects_a_sorcery_fabricated_onto_an_opponents_turn() {
     game.stack.push(StackObject {
         card: spell,
         controller: nonactive_player,
+        ability_id: None,
         targets: Vec::<Target>::new(),
         effects: vec![Effect::DealDamageController { amount: 1 }],
         mana_spent: None,

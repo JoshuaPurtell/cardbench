@@ -9,6 +9,7 @@ fn three_target_object(targets: Vec<Target>) -> StackObject {
     StackObject {
         card: ObjectId(7),
         controller: PlayerId(0),
+        ability_id: None,
         targets,
         effects: vec![
             Effect::ModifyTargetPtUntilEndOfTurn {

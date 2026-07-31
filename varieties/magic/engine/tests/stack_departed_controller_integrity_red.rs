@@ -41,6 +41,7 @@ fn invariant_audit_rejects_a_lost_players_spell_left_on_the_stack() {
     game.stack.push(StackObject {
         card: spell,
         controller: departed,
+        ability_id: None,
         targets: Vec::<Target>::new(),
         effects: vec![Effect::DealDamageController { amount: 1 }],
         mana_spent: None,

@@ -111,6 +111,7 @@ fn mutation_audit_rejects_zone_and_stack_corruption() {
     zone_and_stack.stack.push(StackObject {
         card,
         controller: first,
+        ability_id: None,
         targets: vec![Target::Player(second)],
         effects: vec![Effect::DealDamage {
             amount: 1,
@@ -128,6 +129,7 @@ fn mutation_audit_rejects_zone_and_stack_corruption() {
     fabricated_stack_target.stack.push(StackObject {
         card,
         controller: first,
+        ability_id: None,
         targets: vec![Target::Player(second), Target::Player(first)],
         effects: vec![Effect::DealDamage {
             amount: 1,
@@ -144,6 +146,7 @@ fn mutation_audit_rejects_zone_and_stack_corruption() {
     unknown_stack_card.stack.push(StackObject {
         card: ObjectId(999),
         controller: first,
+        ability_id: None,
         targets: vec![],
         effects: vec![],
         mana_spent: None,

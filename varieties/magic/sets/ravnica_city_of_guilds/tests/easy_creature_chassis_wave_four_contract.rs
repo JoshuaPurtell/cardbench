@@ -1,13 +1,12 @@
 //! Public contract for the fourth bounded RAV creature-chassis batch.
 //!
 //! These compatibility definitions deliberately expose normal casting and base
-//! characteristics only, except for the separately contracted Haste slice on
-//! Goblin Fire Fiend. Their other printed activations, triggers, evasion,
-//! combat restrictions, and damage-prevention exception remain unimplemented.
+//! characteristics only. Goblin Fire Fiend is separately audited by its full
+//! fidelity contract and is excluded from the bounded matrix below.
 
 use std::collections::BTreeSet;
 
-use cardbench_magic_engine::{CardType, Color, Keyword, ManaCost};
+use cardbench_magic_engine::{CardType, Color, ManaCost};
 use cardbench_magic_rav::{card_definitions, run_all_scenarios};
 
 #[test]
@@ -92,21 +91,6 @@ fn fourth_creature_chassis_batch_is_exactly_bounded_to_public_base_facts() {
         assert!(definition.keywords.is_empty(), "{id}");
         assert!(definition.effects.is_empty(), "{id}");
     }
-
-    let fiend = definitions
-        .iter()
-        .find(|definition| definition.id == "RAV-GOBLIN-FIRE-FIEND")
-        .expect("Goblin Fire Fiend definition exists");
-    assert_eq!(fiend.name, "Goblin Fire Fiend");
-    assert_eq!(fiend.mana_cost, ManaCost::with_colors(3, [Color::Red]));
-    assert_eq!(fiend.colors, BTreeSet::from([Color::Red]));
-    assert_eq!(fiend.card_types, BTreeSet::from([CardType::Creature]));
-    assert_eq!((fiend.power, fiend.toughness), (Some(1), Some(1)));
-    assert_eq!(fiend.keywords, [Keyword::Haste]);
-    assert_eq!(
-        fiend.supported_rules,
-        ["colored-cost-casting", "base-characteristics", "haste",]
-    );
 }
 
 #[test]

@@ -41,6 +41,7 @@ fn invariant_audit_rejects_an_unsupported_instant_fabricated_onto_the_stack() {
     game.stack.push(StackObject {
         card: spell,
         controller,
+        ability_id: None,
         targets: Vec::<Target>::new(),
         effects: vec![],
         mana_spent: None,
