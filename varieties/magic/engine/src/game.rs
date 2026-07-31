@@ -2398,6 +2398,7 @@ impl Game {
         self.validate_additional_spell_cost_event_order()?;
         self.validate_stack_terminal_event_order()?;
         self.validate_ability_event_order()?;
+        Self::validate_triggered_ability_event_order(&self.event_log)?;
         if self.started && !self.is_game_over() && !self.step.grants_priority() {
             return Err(RulesError::IllegalAction(
                 "an automatic turn step remained stable with player priority",
@@ -4890,6 +4891,65 @@ impl Game {
                 return Err(RulesError::IllegalAction(
                     "spell mana-payment receipt is not immediately followed by its spell cast",
                 ));
+            }
+        }
+        Ok(())
+    }
+
+    /// Audits the causal boundary for stack-backed triggered abilities. A
+    /// measured event-log suffix may begin after trigger placement, but every
+    /// visible placement must follow the source's battlefield arrival and each
+    /// visible resolution must match its one placement.
+    fn validate_triggered_ability_event_order(events: &[GameEvent]) -> Result<(), RulesError> {
+        let mut placed = BTreeMap::<ObjectId, (ObjectId, PlayerId, TriggeredAbility)>::new();
+        for (index, event) in events.iter().enumerate() {
+            match event {
+                GameEvent::TriggeredAbilityPutOnStack {
+                    source,
+                    stack,
+                    controller,
+                    ability,
+                } => {
+                    if !matches!(
+                        events.get(index.saturating_sub(1)),
+                        Some(GameEvent::CardMoved {
+                            card,
+                            to: Zone::Battlefield,
+                        }) if card == source
+                    ) {
+                        return Err(RulesError::IllegalAction(
+                            "trigger placement lacks its source battlefield-entry receipt",
+                        ));
+                    }
+                    if placed
+                        .insert(*stack, (*source, *controller, *ability))
+                        .is_some()
+                    {
+                        return Err(RulesError::IllegalAction(
+                            "a triggered stack identity was placed twice",
+                        ));
+                    }
+                }
+                GameEvent::TriggeredAbilityResolved {
+                    source,
+                    stack,
+                    controller,
+                    ability,
+                } => {
+                    if let Some((placed_source, placed_controller, placed_ability)) =
+                        placed.remove(stack)
+                    {
+                        if placed_source != *source
+                            || placed_controller != *controller
+                            || placed_ability != *ability
+                        {
+                            return Err(RulesError::IllegalAction(
+                                "trigger resolution disagrees with its placement",
+                            ));
+                        }
+                    }
+                }
+                _ => {}
             }
         }
         Ok(())
