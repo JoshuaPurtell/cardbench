@@ -6570,6 +6570,88 @@ event_markers = ["AbilityActivated", "DamageDealtToPlayer", "AbilityResolved"]
 digest = "fnv1a64:fbc94a7a6f3d926f"
 
 [[scenario]]
+id = "rav_boros_guildmage_keyword_grants"
+seed = 48
+description = "Use Boros Guildmage's red and white activations to grant one creature haste and first strike through the stack."
+
+[[scenario.card]]
+label = "guildmage"
+owner = 0
+definition = "RAV-BOROS-GUILDMAGE"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "target"
+owner = 0
+definition = "RAV-WATCHWOLF"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "mountain"
+owner = 0
+definition = "RAV-MOUNTAIN"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "plains"
+owner = 0
+definition = "RAV-PLAINS"
+zone = "battlefield"
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "mountain"
+color = "red"
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "plains"
+color = "white"
+
+[[scenario.action]]
+kind = "activate_ability"
+player = 0
+card = "guildmage"
+ability = "grant-haste"
+target = "permanent:target"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "activate_ability"
+player = 0
+card = "guildmage"
+ability = "grant-first-strike"
+target = "permanent:target"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+life = [20, 20]
+stack_size = 0
+priority = 0
+event_markers = ["AbilityActivated", "ContinuousEffectCreated", "AbilityResolved"]
+digest = "fnv1a64:266ab101e99cfc68"
+
+[[scenario]]
 id = "rav_goblin_fire_fiend_haste_compatibility"
 seed = 0
 description = "Cast Goblin Fire Fiend with typed RAV lands, then declare it as a same-turn Haste attacker; its must-block and pump abilities remain bounded."

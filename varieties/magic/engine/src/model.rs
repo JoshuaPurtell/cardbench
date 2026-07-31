@@ -735,6 +735,9 @@ pub enum Effect {
         power: i16,
         toughness: i16,
     },
+    ModifyTargetKeywordUntilEndOfTurn {
+        keyword: Keyword,
+    },
     /// Apply a temporary layer-7 modifier to the permanent that activated the
     /// resolving ability. This is intentionally source-relative rather than a
     /// target slot, matching self-pump abilities such as Goblin Fire Fiend.
@@ -787,6 +790,7 @@ impl Effect {
             Self::DealDamage { target, .. }
             | Self::DealDamageEqualToAttackingCreatures { target } => Some(*target),
             Self::ModifyTargetPtUntilEndOfTurn { .. }
+            | Self::ModifyTargetKeywordUntilEndOfTurn { .. }
             | Self::RadianceDealDamageToCreatures { .. }
             | Self::RadianceUntapAndModifyUntilEndOfTurn { .. }
             | Self::RadianceModifyPtUntilEndOfTurn { .. } => Some(TargetRequirement::Creature),

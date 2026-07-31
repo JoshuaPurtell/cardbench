@@ -3391,6 +3391,7 @@ impl Game {
                 | Effect::DrawControllerIfManaColorSpent { .. }
                 | Effect::DealDamageEqualToAttackingCreatures { .. }
                 | Effect::ModifyTargetPtUntilEndOfTurn { .. }
+                | Effect::ModifyTargetKeywordUntilEndOfTurn { .. }
                 | Effect::ModifySourcePtUntilEndOfTurn { .. }
                 | Effect::RemoveSourceKeywordUntilEndOfTurn { .. }
                 | Effect::DestroyTargetLand
@@ -3753,6 +3754,21 @@ impl Game {
                     },
                     Duration::EndOfTurn(self.turn),
                 )?;
+            }
+            Effect::ModifyTargetKeywordUntilEndOfTurn { keyword } => {
+                let target = Self::target_permanent(target)?;
+                if self
+                    .characteristics(target)?
+                    .card_types
+                    .contains(&CardType::Creature)
+                {
+                    self.install_continuous_effect(
+                        source,
+                        target,
+                        ContinuousChange::AddKeyword(keyword.clone()),
+                        Duration::EndOfTurn(self.turn),
+                    )?;
+                }
             }
             Effect::ModifySourcePtUntilEndOfTurn { power, toughness } => {
                 if self.zone_of(source) != Some(Zone::Battlefield) {

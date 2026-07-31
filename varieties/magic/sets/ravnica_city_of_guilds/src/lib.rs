@@ -35,7 +35,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 46] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 47] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SCATTER-THE-SEEDS",
@@ -82,6 +82,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 46] = [
     "RAV-BARBARIAN-RIFTCUTTER",
     "RAV-TORPID-MOLOCH",
     "RAV-VIASHINO-FANGTAIL",
+    "RAV-BOROS-GUILDMAGE",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -2096,6 +2097,29 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::FirstStrike],
             effects: vec![],
         },
+        // Full fidelity: both targeted guild abilities use the shared stack
+        // and layer-6 keyword-grant substrate for their chosen color cost.
+        CardDefinition {
+            id: "RAV-BOROS-GUILDMAGE",
+            name: "Boros Guildmage",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(1, [Color::Red, Color::White]),
+            colors: colors([Color::Red, Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "activated-grant-haste",
+                "activated-grant-first-strike",
+            ],
+            power: Some(2),
+            toughness: Some(2),
+            keywords: vec![],
+            effects: vec![],
+        },
         signet_definition("RAV-BOROS-SIGNET", "Boros Signet"),
         signet_definition("RAV-DIMIR-SIGNET", "Dimir Signet"),
         signet_definition("RAV-GOLGARI-SIGNET", "Golgari Signet"),
@@ -2254,6 +2278,34 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 effects: vec![Effect::DealDamage {
                     amount: 1,
                     target: cardbench_magic_engine::TargetRequirement::PlayerOrCreature,
+                }],
+            },
+        },
+        ActivatedAbilityBinding {
+            card_definition: "RAV-BOROS-GUILDMAGE",
+            ability: ActivatedAbility {
+                id: "grant-haste",
+                mana_cost: ManaCost::with_colors(0, [Color::Red]),
+                tap_cost: false,
+                sacrifice_source: false,
+                sacrifice_lands: 0,
+                targets: vec![cardbench_magic_engine::TargetRequirement::Creature],
+                effects: vec![Effect::ModifyTargetKeywordUntilEndOfTurn {
+                    keyword: Keyword::Haste,
+                }],
+            },
+        },
+        ActivatedAbilityBinding {
+            card_definition: "RAV-BOROS-GUILDMAGE",
+            ability: ActivatedAbility {
+                id: "grant-first-strike",
+                mana_cost: ManaCost::with_colors(0, [Color::White]),
+                tap_cost: false,
+                sacrifice_source: false,
+                sacrifice_lands: 0,
+                targets: vec![cardbench_magic_engine::TargetRequirement::Creature],
+                effects: vec![Effect::ModifyTargetKeywordUntilEndOfTurn {
+                    keyword: Keyword::FirstStrike,
                 }],
             },
         },
