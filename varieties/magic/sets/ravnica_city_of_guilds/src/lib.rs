@@ -1360,17 +1360,24 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             4,
             6,
         ),
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed flying and regeneration activation
-        // are deliberately omitted from this compatibility slice.
-        bounded_creature_chassis(
-            "RAV-TATTERED-DRAKE",
-            "Tattered Drake",
-            ManaCost::with_colors(4, [Color::Blue]),
-            colors([Color::Blue]),
-            2,
-            2,
-        ),
+        // Compatibility scope: normal colored-cost creature casting, base
+        // characteristics, and Flying. Its regeneration activation remains
+        // deliberately unsupported, so this is not a full-fidelity card.
+        CardDefinition {
+            id: "RAV-TATTERED-DRAKE",
+            name: "Tattered Drake",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(4, [Color::Blue]),
+            colors: colors([Color::Blue]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &["colored-cost-casting", "base-characteristics", "flying"],
+            power: Some(2),
+            toughness: Some(2),
+            keywords: vec![Keyword::Flying],
+            effects: vec![],
+        },
         // Compatibility scope: normal colored-cost creature casting and base
         // characteristics only. Its printed enter-the-battlefield library
         // movement is deliberately omitted from this compatibility slice.

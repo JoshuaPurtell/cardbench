@@ -6381,3 +6381,88 @@ priority = 0
 event_markers = ["AttackersDeclared"]
 event_absent = ["BlockersDeclared"]
 digest = "fnv1a64:1dcdb2289fdaa917"
+
+[[scenario]]
+id = "rav_tattered_drake_flying_compatibility"
+seed = 45
+description = "Declare Tattered Drake as a Flying attacker, then reject a ground creature's block declaration; its regeneration activation remains unsupported."
+
+[[scenario.card]]
+label = "drake"
+owner = 0
+definition = "RAV-TATTERED-DRAKE"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.card]]
+label = "ground_blocker"
+owner = 1
+definition = "RAV-WATCHWOLF"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "declare_attackers"
+player = 0
+attackers = ["drake"]
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "declare_blockers"
+player = 1
+attackers = ["drake:ground_blocker"]
+expected_error = "flying attacker can be blocked only by flying or reach"
+
+[scenario.expected]
+zones = ["drake:battlefield", "ground_blocker:battlefield"]
+powers = ["drake:2", "ground_blocker:3"]
+toughnesses = ["drake:2", "ground_blocker:3"]
+tapped = ["drake:true", "ground_blocker:false"]
+stack_size = 0
+priority = 0
+event_markers = ["AttackersDeclared"]
+event_absent = ["BlockersDeclared"]
+digest = "fnv1a64:1dcdb2289fdaa917"

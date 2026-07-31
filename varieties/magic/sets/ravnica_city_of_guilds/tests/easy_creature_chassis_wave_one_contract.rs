@@ -39,14 +39,6 @@ fn easy_creature_wave_one_is_exactly_bounded_to_public_base_facts() {
             6,
         ),
         (
-            "RAV-TATTERED-DRAKE",
-            "Tattered Drake",
-            ManaCost::with_colors(4, [Color::Blue]),
-            BTreeSet::from([Color::Blue]),
-            2,
-            2,
-        ),
-        (
             "RAV-VEDALKEN-DISMISSER",
             "Vedalken Dismisser",
             ManaCost::with_colors(5, [Color::Blue]),
@@ -127,6 +119,20 @@ fn easy_creature_wave_one_is_exactly_bounded_to_public_base_facts() {
         griffin.supported_rules,
         ["colored-cost-casting", "base-characteristics", "flying"]
     );
+
+    let drake = definitions
+        .iter()
+        .find(|definition| definition.id == "RAV-TATTERED-DRAKE")
+        .expect("Tattered Drake definition exists");
+    assert_eq!(drake.name, "Tattered Drake");
+    assert_eq!(drake.mana_cost, ManaCost::with_colors(4, [Color::Blue]));
+    assert_eq!(drake.colors, BTreeSet::from([Color::Blue]));
+    assert_eq!(drake.card_types, BTreeSet::from([CardType::Creature]));
+    assert_eq!((drake.power, drake.toughness), (Some(2), Some(2)));
+    assert_eq!(
+        drake.supported_rules,
+        ["colored-cost-casting", "base-characteristics", "flying"]
+    );
 }
 
 #[test]
@@ -144,6 +150,7 @@ fn easy_creature_wave_one_has_deterministic_public_scenarios() {
         "rav_easy_black_red_creature_chassis",
         "rav_torpid_moloch_defender_compatibility",
         "rav_screeching_griffin_flying_compatibility",
+        "rav_tattered_drake_flying_compatibility",
     ] {
         assert!(scenarios.contains(id), "missing public scenario {id}");
     }
