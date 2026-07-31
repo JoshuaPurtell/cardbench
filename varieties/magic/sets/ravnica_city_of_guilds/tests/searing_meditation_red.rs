@@ -47,16 +47,32 @@ fn searing_meditation_pays_two_and_deals_two_after_life_gain() {
     let helix = game
         .add_card(PlayerId(0), "RAV-LIGHTNING-HELIX", Zone::Hand)
         .expect("Lightning Helix enters hand");
+    let red_sources = (0..4)
+        .map(|_| {
+            game.put_on_battlefield(PlayerId(0), "RAV-MOUNTAIN")
+                .expect("Mountain enters")
+        })
+        .collect::<Vec<_>>();
+    let white_sources = (0..2)
+        .map(|_| {
+            game.put_on_battlefield(PlayerId(0), "RAV-PLAINS")
+                .expect("Plains enters")
+        })
+        .collect::<Vec<_>>();
     game.begin_game().expect("game starts");
     for _ in 0..2 {
         game.pass_priority(PlayerId(0)).expect("early pass");
         game.pass_priority(PlayerId(1))
             .expect("early response pass");
     }
-    game.grant_mana(PlayerId(0), Color::Red, 4)
-        .expect("red mana");
-    game.grant_mana(PlayerId(0), Color::White, 2)
-        .expect("white mana");
+    for source in red_sources {
+        game.activate_mana_ability(PlayerId(0), source, Color::Red)
+            .expect("red mana");
+    }
+    for source in white_sources {
+        game.activate_mana_ability(PlayerId(0), source, Color::White)
+            .expect("white mana");
+    }
     game.cast_spell(
         PlayerId(0),
         CastRequest {
@@ -158,15 +174,21 @@ fn searing_meditation_may_decline_when_two_mana_is_unavailable() {
     let helix = game
         .add_card(PlayerId(0), "RAV-LIGHTNING-HELIX", Zone::Hand)
         .expect("Lightning Helix enters hand");
+    let red_source = game
+        .put_on_battlefield(PlayerId(0), "RAV-MOUNTAIN")
+        .expect("Mountain enters");
+    let white_source = game
+        .put_on_battlefield(PlayerId(0), "RAV-PLAINS")
+        .expect("Plains enters");
     game.begin_game().expect("game starts");
     for _ in 0..2 {
         game.pass_priority(PlayerId(0)).expect("early pass");
         game.pass_priority(PlayerId(1))
             .expect("early response pass");
     }
-    game.grant_mana(PlayerId(0), Color::Red, 1)
+    game.activate_mana_ability(PlayerId(0), red_source, Color::Red)
         .expect("red mana");
-    game.grant_mana(PlayerId(0), Color::White, 1)
+    game.activate_mana_ability(PlayerId(0), white_source, Color::White)
         .expect("white mana");
     game.cast_spell(
         PlayerId(0),
