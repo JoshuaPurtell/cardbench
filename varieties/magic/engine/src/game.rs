@@ -2450,6 +2450,7 @@ impl Game {
                 }
             }
             if !changed {
+                self.flush_pending_dies_triggers();
                 self.normalize_priority_after_elimination()?;
                 self.record_game_end_if_needed();
                 return Ok(());
