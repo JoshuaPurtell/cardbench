@@ -235,6 +235,11 @@ Their activation and regeneration behavior remains outside the executable
 scope, so each has a focused compatibility trace plus an ignored full-fidelity
 probe rather than a positive-manifest claim.
 
+Carven Caryatid is likewise bounded to its static Defender slice. Its
+enter-the-battlefield draw trigger remains outside the shared trigger substrate,
+so its public trace and ignored full-fidelity probe make that limitation
+explicit without promoting it to the positive manifest.
+
 Drift of Phantasms is a narrower compatibility exception: its public definition
 does encode Defender and the established hand-zone Transmute operation, and a
 shown trace proves both the rejected Defender attack and the matching-value

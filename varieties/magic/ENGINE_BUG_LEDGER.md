@@ -112,6 +112,7 @@ severity for `sorcery-cast-at-instant-speed` and
 ## RAV set and mechanic coverage gaps (not engine defects)
 
 | `votary-regeneration-not-represented` | RAV card-coverage gap — activated regeneration and its shield effect are not represented | Open; ignored red regression retained | The executable Votary definition is deliberately bounded to normal colored-cost casting and base characteristics. The prior Vigilance approximation was false and was reverted in `44d1534`. The ignored probe `cargo test -p cardbench-magic-rav --test votary_regeneration_coverage_red -- --ignored --nocapture` fails until the engine has a typed activated-ability/stack path and regeneration shield effect. |
+| `carven-caryatid-draw-trigger-not-represented` | RAV card-coverage gap — enter-the-battlefield draw trigger is not represented | Open; ignored red regression retained | Carven Caryatid now exposes only its static Defender compatibility slice. The ignored probe `cargo test -p cardbench-magic-rav --test carven_caryatid_full_fidelity_red -- --ignored --nocapture` remains red until the engine has a typed enter-the-battlefield trigger and draw effect; the bounded Defender scenario does not claim full-card fidelity. |
 
 The complete public inventory contains 306 printings / 291 unique names; the
 executable compatibility slice contains 136 printings / 121 unique names.
