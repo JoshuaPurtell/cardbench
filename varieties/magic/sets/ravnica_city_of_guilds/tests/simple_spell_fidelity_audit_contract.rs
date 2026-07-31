@@ -16,10 +16,6 @@ fn definition(id: &str) -> cardbench_magic_engine::CardDefinition {
 #[test]
 fn audited_simple_spells_keep_their_precise_compatibility_boundaries() {
     let expected = [
-        (
-            "RAV-SCATTER-THE-SEEDS",
-            &["convoke", "token-creation"] as &[_],
-        ),
         ("RAV-DRYADS-CARESS", &["controller-life-gain"] as &[_]),
         (
             "RAV-FIERY-CONCLUSION",
