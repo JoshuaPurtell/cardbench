@@ -3,6 +3,7 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 
 use crate::{
+    AbilityActivation, ActivatedAbility, ActivatedAbilityBinding,
     ActivatedManaAbility, AdditionalSpellCost, AdditionalSpellCostBinding, BasicLandType,
     BasicLandTypeBinding, CardDefinition, CardObject, CardType, CastPaymentManaAbility,
     Characteristics, Color, CombatBlock, ContinuousChange, ContinuousEffect, DeckList, Duration,
@@ -113,6 +114,12 @@ pub enum PolicyAction {
     ActivateBoundManaAbility {
         activation: ManaAbilityActivation,
     },
+    /// Activates a definition-bound non-mana ability. Unlike mana abilities,
+    /// the activation becomes a stack object and opens a normal response
+    /// window for every surviving player.
+    ActivateAbility {
+        activation: AbilityActivation,
+    },
     DeclareAttackers {
         attackers: Vec<ObjectId>,
     },
@@ -136,6 +143,7 @@ impl PolicyAction {
             Self::PlayLand { .. } => PolicyMoveKind::PlayLand,
             Self::ActivateManaAbility { .. } => PolicyMoveKind::ActivateManaAbility,
             Self::ActivateBoundManaAbility { .. } => PolicyMoveKind::ActivateBoundManaAbility,
+            Self::ActivateAbility { .. } => PolicyMoveKind::ActivateAbility,
             Self::DeclareAttackers { .. } => PolicyMoveKind::DeclareAttackers,
             Self::DeclareBlockers { .. } => PolicyMoveKind::DeclareBlockers,
             Self::ReportEngineWeakness { .. } => PolicyMoveKind::ReportEngineWeakness,
@@ -226,6 +234,7 @@ struct CombatState {
     /// blocker is required even before a richer explicit damage-order action
     /// exists.
     blockers: BTreeMap<ObjectId, Vec<ObjectId>>,
+    must_be_blocked_attackers: BTreeSet<ObjectId>,
     /// Blockers admitted against a declared flying attacker because they had
     /// either Flying or Reach at blocker declaration. This is provenance, not
     /// an assertion that the blocker retains either keyword afterward.
@@ -257,6 +266,7 @@ struct TriggeredStackItem {
 pub struct Game {
     catalog: BTreeMap<&'static str, CardDefinition>,
     mana_abilities: BTreeMap<&'static str, BTreeMap<&'static str, ActivatedManaAbility>>,
+    activated_abilities: BTreeMap<&'static str, BTreeMap<&'static str, ActivatedAbility>>,
     basic_land_types: BTreeMap<&'static str, BasicLandType>,
     additional_spell_costs: BTreeMap<&'static str, Vec<AdditionalSpellCost>>,
     triggered_abilities: BTreeMap<&'static str, Vec<TriggeredAbility>>,
@@ -462,6 +472,7 @@ impl Game {
         let game = Self {
             catalog,
             mana_abilities,
+            activated_abilities: BTreeMap::new(),
             basic_land_types,
             additional_spell_costs,
             triggered_abilities: BTreeMap::new(),
@@ -530,6 +541,50 @@ impl Game {
         Ok(game)
     }
 
+    /// Creates a game with expansion-provided, stack-using activated abilities
+    /// in addition to the existing mana/basic-land/additional-cost bindings.
+    pub fn new_with_all_bindings(
+        definitions: impl IntoIterator<Item = CardDefinition>,
+        player_count: usize,
+        mana_bindings: impl IntoIterator<Item = ManaAbilityBinding>,
+        basic_land_types: impl IntoIterator<Item = BasicLandTypeBinding>,
+        additional_spell_costs: impl IntoIterator<Item = AdditionalSpellCostBinding>,
+        ability_bindings: impl IntoIterator<Item = ActivatedAbilityBinding>,
+    ) -> Result<Self, RulesError> {
+        let mut game = Self::new_with_mana_abilities_basic_land_types_and_additional_spell_costs(
+            definitions,
+            player_count,
+            mana_bindings,
+            basic_land_types,
+            additional_spell_costs,
+        )?;
+        for binding in ability_bindings {
+            let definition = game
+                .catalog
+                .get(binding.card_definition)
+                .ok_or(RulesError::UnknownDefinition(binding.card_definition))?;
+            if !definition.is_permanent() {
+                return Err(RulesError::IllegalAction(
+                    "an activated ability binding requires a permanent source",
+                ));
+            }
+            Self::validate_activated_ability_definition(&binding.ability)?;
+            let abilities = game
+                .activated_abilities
+                .entry(binding.card_definition)
+                .or_default();
+            if abilities
+                .insert(binding.ability.id, binding.ability)
+                .is_some()
+            {
+                return Err(RulesError::IllegalAction(
+                    "duplicate activated ability id for card definition",
+                ));
+            }
+        }
+        game.validate_invariants()?;
+        Ok(game)
+    }
     /// Starts a prepared game at the real first-turn boundary. Deck loading,
     /// shuffling, and opening-hand setup must occur before this call so the
     /// canonical log never claims the turn began before setup completed.
@@ -909,6 +964,115 @@ impl Game {
         })
     }
 
+    /// Activates a definition-bound non-mana ability. Costs are paid
+    /// atomically, then the ability is placed on the stack and the activating
+    /// player retains priority under CR 117.3c. The source remains a normal
+    /// battlefield/graveyard object; `StackObject::ability_id` distinguishes
+    /// this stack item from a spell so resolution never moves the source card.
+    pub fn activate_ability(
+        &mut self,
+        player: PlayerId,
+        activation: AbilityActivation,
+    ) -> Result<(), RulesError> {
+        self.atomic_transition(|game| {
+            game.require_priority(player)?;
+            game.activate_ability_impl(player, activation)?;
+            game.check_state_based_actions()?;
+            game.validate_invariants()
+        })
+    }
+
+    fn activate_ability_impl(
+        &mut self,
+        player: PlayerId,
+        activation: AbilityActivation,
+    ) -> Result<(), RulesError> {
+        self.require_zone(activation.source, Zone::Battlefield)?;
+        let source = self.object(activation.source)?.clone();
+        if source.controller != player {
+            return Err(RulesError::IllegalAction(
+                "activated ability source must be controlled by its activator",
+            ));
+        }
+        let definition_id = source.definition.ok_or(RulesError::IllegalAction(
+            "a token has no definition-bound activated ability",
+        ))?;
+        let ability = self
+            .activated_abilities
+            .get(definition_id)
+            .and_then(|abilities| abilities.get(activation.ability_id))
+            .ok_or(RulesError::IllegalAction(
+                "source does not have the requested activated ability",
+            ))?
+            .clone();
+        if activation.targets.len() != ability.targets.len() {
+            return Err(RulesError::IllegalAction(
+                "activated ability target count does not match its definition",
+            ));
+        }
+        for (target, requirement) in activation.targets.iter().zip(&ability.targets) {
+            if !Self::target_shape_matches(*target, *requirement)
+                || !self.target_matches(*target, *requirement)
+            {
+                return Err(RulesError::IllegalTarget(*target));
+            }
+        }
+        let mut paid_pool = self.players[player.0].mana_pool.clone();
+        paid_pool
+            .pay(&ability.mana_cost)
+            .map_err(RulesError::Mana)?;
+        if ability.tap_cost {
+            if source.tapped {
+                return Err(RulesError::IllegalAction(
+                    "activated ability requires an untapped source",
+                ));
+            }
+            let characteristics = self.characteristics(activation.source)?;
+            if characteristics.card_types.contains(&CardType::Creature)
+                && source.entered_turn >= self.turn
+                && !characteristics.keywords.contains(&Keyword::Haste)
+            {
+                return Err(RulesError::IllegalAction(
+                    "a summoning-sick creature cannot pay an activated tap cost",
+                ));
+            }
+        }
+        self.players[player.0].mana_pool = paid_pool;
+        if ability.mana_cost.mana_value() > 0 {
+            self.record_event(GameEvent::AbilityManaPaid {
+                player,
+                source: activation.source,
+                ability: ability.id,
+                mana_cost: ability.mana_cost.clone(),
+            });
+        }
+        if ability.tap_cost {
+            self.objects
+                .get_mut(&activation.source)
+                .ok_or(RulesError::UnknownCard(activation.source))?
+                .tapped = true;
+        }
+        if ability.sacrifice_source {
+            self.move_to_graveyard_or_remove_token(activation.source)?;
+        }
+        self.stack.push(StackObject {
+            card: activation.source,
+            controller: player,
+            ability_id: Some(ability.id),
+            targets: activation.targets,
+            effects: ability.effects,
+            mana_spent: None,
+        });
+        self.record_event(GameEvent::AbilityActivated {
+            player,
+            source: activation.source,
+            ability: ability.id,
+        });
+        self.consecutive_passes = 0;
+        self.priority = player;
+        Ok(())
+    }
+
     /// Applies an already-authorized definition-bound mana ability. Public
     /// activation obtains priority before entering this primitive; cast
     /// payment instead holds the single cast transaction open around its
@@ -1266,6 +1430,9 @@ impl Game {
             PolicyAction::ActivateBoundManaAbility { activation } => {
                 self.activate_bound_mana_ability(player, activation)?;
             }
+            PolicyAction::ActivateAbility { activation } => {
+                self.activate_ability(player, activation)?;
+            }
             PolicyAction::DeclareAttackers { attackers } => {
                 self.declare_attackers(player, &attackers)?;
             }
@@ -1482,6 +1649,7 @@ impl Game {
         let mut flying_attackers = BTreeSet::new();
         let mut vigilant_attackers = BTreeSet::new();
         let mut trampling_attackers = BTreeSet::new();
+        let mut must_be_blocked_attackers = BTreeSet::new();
         for attacker in attackers {
             if !seen.insert(*attacker) {
                 return Err(RulesError::IllegalAction("an attacker was declared twice"));
@@ -1510,6 +1678,12 @@ impl Game {
             if characteristics.keywords.contains(&Keyword::Trample) {
                 trampling_attackers.insert(*attacker);
             }
+            if characteristics
+                .keywords
+                .contains(&Keyword::MustBeBlockedIfAble)
+            {
+                must_be_blocked_attackers.insert(*attacker);
+            }
         }
         for attacker in attackers {
             if !vigilant_attackers.contains(attacker) {
@@ -1529,6 +1703,7 @@ impl Game {
         combat.flying_attackers = flying_attackers;
         combat.vigilant_attackers = vigilant_attackers;
         combat.trampling_attackers = trampling_attackers;
+        combat.must_be_blocked_attackers = must_be_blocked_attackers;
         combat.defending_player = Some(defending_player);
         combat.attackers_declared = true;
         self.record_event(GameEvent::AttackersDeclared {
@@ -1595,6 +1770,37 @@ impl Game {
                     ));
                 }
                 evasion_qualified_blockers.insert(assignment.blocker);
+            }
+        }
+        for attacker in &combat.must_be_blocked_attackers {
+            if combat.attackers.contains(attacker) {
+                continue;
+            }
+            let has_legal_blocker = self.players[player.0].battlefield.iter().any(|candidate| {
+                if blockers.contains(candidate) {
+                    return false;
+                }
+                let Ok(object) = self.object(*candidate) else {
+                    return false;
+                };
+                let Ok(characteristics) = self.characteristics(*candidate) else {
+                    return false;
+                };
+                if object.tapped || !characteristics.card_types.contains(&CardType::Creature) {
+                    return false;
+                }
+                if combat.flying_attackers.contains(attacker)
+                    && !(characteristics.keywords.contains(&Keyword::Flying)
+                        || characteristics.keywords.contains(&Keyword::Reach))
+                {
+                    return false;
+                }
+                true
+            });
+            if has_legal_blocker {
+                return Err(RulesError::IllegalAction(
+                    "a must-be-blocked attacker had a legal unassigned blocker",
+                ));
             }
         }
         let combat = self
@@ -1765,6 +1971,7 @@ impl Game {
         self.stack.push(StackObject {
             card: request.card,
             controller: player,
+            ability_id: None,
             targets: spell_targets,
             effects: definition.effects,
             mana_spent: mana_spent.clone(),
@@ -2170,6 +2377,7 @@ impl Game {
         Self::validate_spell_mana_payment_event_order(&self.event_log)?;
         self.validate_additional_spell_cost_event_order()?;
         self.validate_stack_terminal_event_order()?;
+        self.validate_ability_event_order()?;
         if self.started && !self.is_game_over() && !self.step.grants_priority() {
             return Err(RulesError::IllegalAction(
                 "an automatic turn step remained stable with player priority",
@@ -2304,6 +2512,25 @@ impl Game {
                 Self::validate_mana_ability_definition(ability)?;
             }
         }
+        for (definition_id, abilities) in &self.activated_abilities {
+            let definition = self
+                .catalog
+                .get(definition_id)
+                .ok_or(RulesError::UnknownDefinition(definition_id))?;
+            if !definition.is_permanent() {
+                return Err(RulesError::IllegalAction(
+                    "an activated ability binding requires a permanent source",
+                ));
+            }
+            for (ability_id, ability) in abilities {
+                if *ability_id != ability.id {
+                    return Err(RulesError::IllegalAction(
+                        "activated ability catalog key does not match its ability identity",
+                    ));
+                }
+                Self::validate_activated_ability_definition(ability)?;
+            }
+        }
         for (definition_id, costs) in &self.additional_spell_costs {
             let definition = self
                 .catalog
@@ -2419,8 +2646,13 @@ impl Game {
         }
         let mut stack_cards = BTreeSet::new();
         for (stack_index, stack_object) in self.stack.iter().enumerate() {
-            if !stack_cards.insert(stack_object.card) || locations.contains_key(&stack_object.card)
-            {
+            let is_ability = stack_object.ability_id.is_some();
+            let stack_card_conflict = if is_ability {
+                false
+            } else {
+                locations.contains_key(&stack_object.card) || !stack_cards.insert(stack_object.card)
+            };
+            if stack_card_conflict {
                 return Err(RulesError::IllegalAction(
                     "stack card must not also exist in a zone",
                 ));
@@ -2450,9 +2682,17 @@ impl Game {
                     "a departed player controls a stack object",
                 ));
             }
-            if object.controller != stack_object.controller {
+            if !is_ability && object.controller != stack_object.controller {
                 return Err(RulesError::IllegalAction(
                     "stack controller does not match its card object",
+                ));
+            }
+            if is_ability
+                && self.zone_of(stack_object.card) == Some(Zone::Battlefield)
+                && object.controller != stack_object.controller
+            {
+                return Err(RulesError::IllegalAction(
+                    "a battlefield ability source must remain controlled by its activator",
                 ));
             }
             let definition = object
@@ -2461,17 +2701,18 @@ impl Game {
                 .ok_or(RulesError::IllegalAction(
                     "a stack object must be a non-token card with a catalog definition",
                 ))?;
-            if object.token.is_some() || definition.is_land() {
+            if object.token.is_some() || (!is_ability && definition.is_land()) {
                 return Err(RulesError::IllegalAction(
                     "a token or land occupies the stack",
                 ));
             }
-            if !definition.is_permanent() && definition.effects.is_empty() {
+            if !is_ability && !definition.is_permanent() && definition.effects.is_empty() {
                 return Err(RulesError::IllegalAction(
                     "an unsupported nonpermanent card occupies the stack",
                 ));
             }
-            if !definition.card_types.contains(&CardType::Instant)
+            if !is_ability
+                && !definition.card_types.contains(&CardType::Instant)
                 && (stack_index != 0
                     || stack_object.controller != self.active_player
                     || !self.step.is_main())
@@ -2480,15 +2721,32 @@ impl Game {
                     "a non-instant stack object has impossible sorcery timing",
                 ));
             }
-            if definition.effects != stack_object.effects {
+            if !is_ability && definition.effects != stack_object.effects {
                 return Err(RulesError::IllegalAction(
                     "stack effects do not match the card definition",
                 ));
             }
-            if definition
-                .effects
-                .iter()
-                .any(Effect::requires_explicit_mana_spend)
+            if let Some(ability_id) = stack_object.ability_id {
+                let ability = self
+                    .activated_abilities
+                    .get(definition.id)
+                    .and_then(|abilities| abilities.get(ability_id))
+                    .ok_or(RulesError::IllegalAction(
+                        "stack ability is not bound to its source definition",
+                    ))?;
+                if ability.effects != stack_object.effects
+                    || ability.targets.len() != stack_object.target_count()
+                {
+                    return Err(RulesError::IllegalAction(
+                        "stack ability does not match its bound definition",
+                    ));
+                }
+            }
+            if !is_ability
+                && definition
+                    .effects
+                    .iter()
+                    .any(Effect::requires_explicit_mana_spend)
                 && stack_object.mana_spent.as_ref().is_none_or(Vec::is_empty)
             {
                 return Err(RulesError::IllegalAction(
@@ -2723,6 +2981,11 @@ impl Game {
             if !combat.trampling_attackers.is_subset(&attackers) {
                 return Err(RulesError::IllegalAction(
                     "trample declaration provenance contains a nonattacker",
+                ));
+            }
+            if !combat.must_be_blocked_attackers.is_subset(&attackers) {
+                return Err(RulesError::IllegalAction(
+                    "must-block declaration provenance contains a nonattacker",
                 ));
             }
             for (attacker, assigned_blockers) in &combat.blockers {
@@ -3027,6 +3290,7 @@ impl Game {
                 | Effect::DrawControllerIfManaColorSpent { .. }
                 | Effect::DealDamageEqualToAttackingCreatures { .. }
                 | Effect::ModifyTargetPtUntilEndOfTurn { .. }
+                | Effect::ModifySourcePtUntilEndOfTurn { .. }
                 | Effect::ModifyControllerCreaturesPtUntilEndOfTurn { .. }
                 | Effect::RadianceUntapAndModifyUntilEndOfTurn { .. }
                 | Effect::RadianceModifyPtUntilEndOfTurn { .. }
@@ -3060,7 +3324,7 @@ impl Game {
         Ok(())
     }
 
-    #[allow(clippy::too_many_lines)] // Spell and triggered-item resolution share one atomic stack boundary.
+    #[allow(clippy::too_many_lines)] // Spell, activated ability, and trigger resolution share one atomic stack boundary.
     fn resolve_top_of_stack(&mut self) -> Result<(), RulesError> {
         let stack_object = self.stack.pop().ok_or(RulesError::IllegalAction(
             "attempted to resolve an empty stack",
@@ -3099,10 +3363,17 @@ impl Game {
             .resolution_plan(|target, requirement| self.target_matches(target, requirement))
             .map_err(|_| RulesError::IllegalAction("stack object has an invalid target count"))?;
         if matches!(plan, StackResolutionPlan::CounteredByRules) {
-            self.record_event(GameEvent::SpellCounteredByRules {
-                card: stack_object.card,
-            });
-            self.move_to_graveyard_or_remove_token(stack_object.card)?;
+            if let Some(ability) = stack_object.ability_id {
+                self.record_event(GameEvent::AbilityCounteredByRules {
+                    source: stack_object.card,
+                    ability,
+                });
+            } else {
+                self.record_event(GameEvent::SpellCounteredByRules {
+                    card: stack_object.card,
+                });
+                self.move_to_graveyard_or_remove_token(stack_object.card)?;
+            }
             self.check_state_based_actions()?;
             self.priority = self.priority_after_resolution();
             return Ok(());
@@ -3169,6 +3440,15 @@ impl Game {
                     });
                 }
             }
+        }
+        if let Some(ability) = stack_object.ability_id {
+            self.record_event(GameEvent::AbilityResolved {
+                source: stack_object.card,
+                ability,
+            });
+            self.check_state_based_actions()?;
+            self.priority = self.priority_after_resolution();
+            return Ok(());
         }
         if !self.objects.contains_key(&stack_object.card) {
             // CR 800.4a cleanup can remove the owner and this already-popped
@@ -3360,6 +3640,20 @@ impl Game {
                 self.install_continuous_effect(
                     source,
                     target,
+                    ContinuousChange::ModifyPowerToughness {
+                        power: *power,
+                        toughness: *toughness,
+                    },
+                    Duration::EndOfTurn(self.turn),
+                )?;
+            }
+            Effect::ModifySourcePtUntilEndOfTurn { power, toughness } => {
+                if self.zone_of(source) != Some(Zone::Battlefield) {
+                    return Ok(());
+                }
+                self.install_continuous_effect(
+                    source,
+                    source,
                     ContinuousChange::ModifyPowerToughness {
                         power: *power,
                         toughness: *toughness,
@@ -3702,7 +3996,8 @@ impl Game {
                 && self
                     .characteristics(creature)?
                     .keywords
-                    .contains(&Keyword::FirstStrike)
+                    .iter()
+                    .any(|keyword| matches!(keyword, Keyword::FirstStrike | Keyword::DoubleStrike))
             {
                 return Ok(true);
             }
@@ -3742,7 +4037,9 @@ impl Game {
                         && self
                             .characteristics(*creature)
                             .is_ok_and(|characteristics| {
-                                characteristics.keywords.contains(&Keyword::FirstStrike)
+                                characteristics.keywords.iter().any(|keyword| {
+                                    matches!(keyword, Keyword::FirstStrike | Keyword::DoubleStrike)
+                                })
                             })
                 })
                 .collect::<BTreeSet<_>>();
@@ -3763,8 +4060,17 @@ impl Game {
             combat.first_strike_damage_sources.clone()
         };
         let eligible = |creature| {
-            self.zone_of(creature) == Some(Zone::Battlefield)
-                && (first_strike_sources.contains(&creature) == first_strike)
+            if self.zone_of(creature) != Some(Zone::Battlefield) {
+                return false;
+            }
+            if first_strike {
+                first_strike_sources.contains(&creature)
+            } else {
+                !first_strike_sources.contains(&creature)
+                    || self.characteristics(creature).is_ok_and(|characteristics| {
+                        characteristics.keywords.contains(&Keyword::DoubleStrike)
+                    })
+            }
         };
         let mut permanent_damage = Vec::new();
         let mut player_damage = Vec::new();
@@ -3975,6 +4281,7 @@ impl Game {
             self.stack.push(StackObject {
                 card: stack_id,
                 controller,
+                ability_id: None,
                 targets: Vec::new(),
                 effects: Vec::new(),
                 mana_spent: None,
@@ -4080,6 +4387,45 @@ impl Game {
             return Err(RulesError::IllegalAction(
                 "mana ability color choice must not be empty",
             ));
+        }
+        Ok(())
+    }
+
+    fn validate_activated_ability_definition(ability: &ActivatedAbility) -> Result<(), RulesError> {
+        if ability.id.is_empty() {
+            return Err(RulesError::IllegalAction(
+                "activated ability lacks an identity",
+            ));
+        }
+        Self::validate_mana_cost(&ability.mana_cost)?;
+        let effect_targets = ability
+            .effects
+            .iter()
+            .filter_map(Effect::target_requirement)
+            .collect::<Vec<_>>();
+        if effect_targets != ability.targets {
+            return Err(RulesError::IllegalAction(
+                "activated ability targets do not match effect order",
+            ));
+        }
+        Self::validate_cast_effects_for_ability(&ability.effects)
+    }
+
+    fn validate_cast_effects_for_ability(effects: &[Effect]) -> Result<(), RulesError> {
+        for effect in effects {
+            let amount = match effect {
+                Effect::DealDamage { amount, .. }
+                | Effect::DealDamageController { amount }
+                | Effect::DealDamageToEachCreatureAndPlayer { amount }
+                | Effect::RadianceDealDamageToCreatures { amount }
+                | Effect::GainLifeController { amount } => *amount,
+                _ => continue,
+            };
+            if amount <= 0 {
+                return Err(RulesError::IllegalAction(
+                    "damage and life-gain effect amounts must be positive",
+                ));
+            }
         }
         Ok(())
     }
@@ -4600,6 +4946,58 @@ impl Game {
         }) {
             return Err(RulesError::IllegalAction(
                 "a visible spell-cast receipt has no live stack object or terminal outcome",
+            ));
+        }
+        Ok(())
+    }
+
+    fn validate_ability_event_order(&self) -> Result<(), RulesError> {
+        let mut open = BTreeMap::<(ObjectId, &'static str), usize>::new();
+        for event in &self.event_log {
+            match event {
+                GameEvent::AbilityActivated {
+                    source, ability, ..
+                } => {
+                    *open.entry((*source, *ability)).or_default() += 1;
+                }
+                GameEvent::AbilityResolved { source, ability }
+                | GameEvent::AbilityCounteredByRules { source, ability } => {
+                    let count =
+                        open.get_mut(&(*source, *ability))
+                            .ok_or(RulesError::IllegalAction(
+                                "ability terminal receipt lacks an activation receipt",
+                            ))?;
+                    if *count == 0 {
+                        return Err(RulesError::IllegalAction(
+                            "ability has more terminal receipts than activations",
+                        ));
+                    }
+                    *count -= 1;
+                }
+                _ => {}
+            }
+        }
+        let live = self
+            .stack
+            .iter()
+            .filter(|item| item.ability_id.is_some())
+            .fold(
+                BTreeMap::<(ObjectId, &'static str), usize>::new(),
+                |mut counts, item| {
+                    *counts
+                        .entry((item.card, item.ability_id.expect("checked above")))
+                        .or_default() += 1;
+                    counts
+                },
+            );
+        if open
+            .into_iter()
+            .filter(|(_, count)| *count > 0)
+            .collect::<BTreeMap<_, _>>()
+            != live
+        {
+            return Err(RulesError::IllegalAction(
+                "ability activation and terminal receipts disagree with the live stack",
             ));
         }
         Ok(())

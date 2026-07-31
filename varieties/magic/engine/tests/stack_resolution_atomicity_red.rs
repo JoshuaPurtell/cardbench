@@ -62,6 +62,7 @@ fn failed_resolution_restores_the_final_pass_and_authoritative_stack() {
         StackObject {
             card: target,
             controller: responder,
+            ability_id: None,
             targets: vec![],
             effects: vec![Effect::GainLifeController { amount: 1 }],
             mana_spent: None,
@@ -69,6 +70,7 @@ fn failed_resolution_restores_the_final_pass_and_authoritative_stack() {
         StackObject {
             card: malformed,
             controller: caster,
+            ability_id: None,
             targets: vec![Target::Spell(target)],
             effects: vec![Effect::DealDamage {
                 amount: 1,

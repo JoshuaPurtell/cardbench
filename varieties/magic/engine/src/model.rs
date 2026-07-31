@@ -150,6 +150,40 @@ pub struct ManaAbilityBinding {
     pub ability: ActivatedManaAbility,
 }
 
+/// A non-mana activated ability bound to one expansion card definition.
+///
+/// The engine deliberately keeps this separate from `CardDefinition`, just as
+/// it does for mana abilities: an expansion can opt into the stack substrate
+/// without changing the catalog's compact identity schema. Costs are explicit
+/// and paid before the ability is placed on the stack; effects resolve through
+/// the same target-legality and priority machinery as spells.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ActivatedAbility {
+    /// Stable identifier unique within its bound card definition.
+    pub id: &'static str,
+    pub mana_cost: ManaCost,
+    pub tap_cost: bool,
+    pub sacrifice_source: bool,
+    /// Target slots are consumed in this order from `PolicyAction`.
+    pub targets: Vec<TargetRequirement>,
+    pub effects: Vec<Effect>,
+}
+
+/// Binds one stack-using activated ability to a card definition.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ActivatedAbilityBinding {
+    pub card_definition: &'static str,
+    pub ability: ActivatedAbility,
+}
+
+/// A player's explicit request to activate a stack-using ability.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AbilityActivation {
+    pub source: ObjectId,
+    pub ability_id: &'static str,
+    pub targets: Vec<Target>,
+}
+
 /// A player's request to activate a bound mana ability.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct ManaAbilityActivation {
@@ -516,6 +550,18 @@ pub enum Keyword {
     /// This creature can attack and pay a tap cost on the turn it entered
     /// under its controller's control.
     Haste,
+    /// If able, this creature must be assigned at least one blocker when it
+    /// attacks. The combat declaration path enforces the restriction after
+    /// all blockers have been submitted.
+    MustBeBlockedIfAble,
+    /// This creature can't be blocked while the defending player controls the
+    /// named basic land type.
+    Mountainwalk,
+    /// This creature assigns combat damage in both first-strike and normal
+    /// combat-damage steps.
+    DoubleStrike,
+    /// Damage dealt by this source ignores prevention and redirection effects.
+    DamageCannotBePrevented,
     /// Can block a creature with Flying.
     Reach,
     /// When blocked, excess combat damage can be assigned to the defending
@@ -680,6 +726,13 @@ pub enum Effect {
         power: i16,
         toughness: i16,
     },
+    /// Apply a temporary layer-7 modifier to the permanent that activated the
+    /// resolving ability. This is intentionally source-relative rather than a
+    /// target slot, matching self-pump abilities such as Goblin Fire Fiend.
+    ModifySourcePtUntilEndOfTurn {
+        power: i16,
+        toughness: i16,
+    },
     /// Apply one temporary layer-7 power/toughness modifier to every creature
     /// the resolving spell's controller currently controls. The recipient set
     /// is snapshotted while the spell resolves before any state-based action
@@ -730,6 +783,7 @@ impl Effect {
             | Self::GainLifeController { .. }
             | Self::DrawControllerIfManaColorSpent { .. }
             | Self::CreateToken { .. }
+            | Self::ModifySourcePtUntilEndOfTurn { .. }
             | Self::ModifyControllerCreaturesPtUntilEndOfTurn { .. } => None,
         }
     }
@@ -1022,6 +1076,7 @@ pub enum PolicyMoveKind {
     PlayLand,
     ActivateManaAbility,
     ActivateBoundManaAbility,
+    ActivateAbility,
     DeclareAttackers,
     DeclareBlockers,
     ReportEngineWeakness,
@@ -1122,6 +1177,9 @@ impl PlayerState {
 pub struct StackObject {
     pub card: ObjectId,
     pub controller: PlayerId,
+    /// `None` denotes a spell; `Some` denotes a non-mana activated ability
+    /// whose source is `card` and whose printed identity is the bound id.
+    pub ability_id: Option<&'static str>,
     pub targets: Vec<Target>,
     pub effects: Vec<Effect>,
     /// Full color receipt for an explicitly selected spell payment. `None`
@@ -1329,6 +1387,19 @@ pub enum GameEvent {
         controller: PlayerId,
         ability: TriggeredAbility,
     },
+    /// A non-mana activated ability entered the stack. `source` remains on
+    /// the battlefield while this stack object resolves.
+    AbilityActivated {
+        player: PlayerId,
+        source: ObjectId,
+        ability: &'static str,
+    },
+    AbilityManaPaid {
+        player: PlayerId,
+        source: ObjectId,
+        ability: &'static str,
+        mana_cost: ManaCost,
+    },
     ConvokeUsed {
         player: PlayerId,
         creature: ObjectId,
@@ -1346,8 +1417,16 @@ pub enum GameEvent {
         controller: PlayerId,
         ability: TriggeredAbility,
     },
+    AbilityResolved {
+        source: ObjectId,
+        ability: &'static str,
+    },
     SpellCounteredByRules {
         card: ObjectId,
+    },
+    AbilityCounteredByRules {
+        source: ObjectId,
+        ability: &'static str,
     },
     /// A spell still resolved because it retained another legal target, but
     /// this particular target-bearing instruction did nothing. The stable

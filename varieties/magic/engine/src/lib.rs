@@ -14,7 +14,8 @@ pub use game::{
     RulesError, TransmuteSearchView,
 };
 pub use model::{
-    ActivatedManaAbility, AdditionalSpellCost, AdditionalSpellCostBinding,
+    AbilityActivation, ActivatedAbility, ActivatedAbilityBinding, ActivatedManaAbility,
+    AdditionalSpellCost, AdditionalSpellCostBinding,
     BasicLandManaAbilityActivation, BasicLandType, BasicLandTypeBinding, CardDefinition,
     CardObject, CardType, CastPaymentManaAbility, Characteristics, Color, CombatBlock,
     ContinuousChange, ContinuousEffect, CreatureSubtype, DeckEntry, DeckList, DeckRules,

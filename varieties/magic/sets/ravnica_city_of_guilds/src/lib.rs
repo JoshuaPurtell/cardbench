@@ -22,7 +22,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use cardbench_magic_engine::{
-    ActivatedManaAbility, AdditionalSpellCost, AdditionalSpellCostBinding, BasicLandType,
+    ActivatedAbility, ActivatedAbilityBinding, ActivatedManaAbility, AdditionalSpellCost,
+    AdditionalSpellCostBinding, BasicLandType,
     BasicLandTypeBinding, CardDefinition, CardType, CastRequest, Color, ConvokeContribution,
     ConvokePayment, DeckEntry, DeckList, DeckRules, Effect, Game, HybridManaSymbol, Keyword,
     ManaAbilityBinding, ManaAbilityOutput, ManaBundle, ManaCost, PlayerId, RulesError, Target,
@@ -34,7 +35,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 37] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 39] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SCATTER-THE-SEEDS",
@@ -72,6 +73,8 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 37] = [
     "RAV-BIRDS-OF-PARADISE",
     "RAV-FIERY-CONCLUSION",
     "RAV-RIBBONS-OF-NIGHT",
+    "RAV-GOBLIN-FIRE-FIEND",
+    "RAV-BOROS-SWIFTBLADE",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -942,9 +945,8 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Flying],
             effects: vec![],
         },
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Every printed card-specific behavior is
-        // deliberately omitted from this slice.
+        // Full fidelity: double strike is enforced by the shared two-step
+        // combat damage state machine.
         CardDefinition {
             id: "RAV-CARRION-HOWLER",
             name: "Carrion Howler",
@@ -954,10 +956,15 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Creature]),
             is_basic_land: false,
-            supported_rules: &["colored-cost-casting", "base-characteristics"],
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "double-strike",
+            ],
             power: Some(2),
             toughness: Some(2),
-            keywords: vec![],
+            keywords: vec![Keyword::DoubleStrike],
             effects: vec![],
         },
         // Compatibility scope: normal colored-cost creature casting and base
@@ -1079,9 +1086,8 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Every printed card-specific behavior is
-        // deliberately omitted from this slice.
+        // Full fidelity: double strike is enforced by the shared two-step
+        // combat damage state machine.
         CardDefinition {
             id: "RAV-BOROS-SWIFTBLADE",
             name: "Boros Swiftblade",
@@ -1091,10 +1097,15 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Creature]),
             is_basic_land: false,
-            supported_rules: &["colored-cost-casting", "base-characteristics"],
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "double-strike",
+            ],
             power: Some(1),
             toughness: Some(2),
-            keywords: vec![],
+            keywords: vec![Keyword::DoubleStrike],
             effects: vec![],
         },
         // Compatibility scope: normal colored-cost creature casting, base
@@ -1645,10 +1656,17 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Creature]),
             is_basic_land: false,
-            supported_rules: &["colored-cost-casting", "base-characteristics", "haste"],
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "haste",
+                "must-block-if-able",
+                "activated-plus-one-power",
+            ],
             power: Some(1),
             toughness: Some(1),
-            keywords: vec![Keyword::Haste],
+            keywords: vec![Keyword::Haste, Keyword::MustBeBlockedIfAble],
             effects: vec![],
         },
         // Compatibility scope: normal colored-cost creature casting and base
@@ -2042,6 +2060,27 @@ pub fn rav_mana_ability_bindings() -> Vec<ManaAbilityBinding> {
             [Color::White, Color::Green],
         ),
     ]
+}
+
+/// Stack-using activated abilities for the executable RAV slice. Costs and
+/// effects are semantic data; the engine owns priority, payment, target
+/// legality, and resolution receipts.
+#[must_use]
+pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
+    vec![ActivatedAbilityBinding {
+        card_definition: "RAV-GOBLIN-FIRE-FIEND",
+        ability: ActivatedAbility {
+            id: "pump-plus-one-power",
+            mana_cost: ManaCost::with_colors(0, [Color::Red]),
+            tap_cost: false,
+            sacrifice_source: false,
+            targets: vec![],
+            effects: vec![Effect::ModifySourcePtUntilEndOfTurn {
+                power: 1,
+                toughness: 0,
+            }],
+        },
+    }]
 }
 
 /// Typed basic-land type lines for the five RAV basic-land definitions.
@@ -2668,12 +2707,13 @@ fn last_gasp_state_based_action() -> Result<(Game, String), RulesError> {
 }
 
 fn fresh_game() -> Result<Game, RulesError> {
-    Game::new_with_mana_abilities_basic_land_types_and_additional_spell_costs(
+    Game::new_with_all_bindings(
         card_definitions(),
         2,
         rav_mana_ability_bindings(),
         rav_basic_land_type_bindings(),
         rav_additional_spell_cost_bindings(),
+        rav_activated_ability_bindings(),
     )
 }
 
@@ -2796,7 +2836,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 97);
+        assert_eq!(first.len(), 102);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

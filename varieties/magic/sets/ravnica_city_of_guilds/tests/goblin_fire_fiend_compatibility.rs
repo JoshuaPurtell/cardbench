@@ -1,4 +1,4 @@
-//! Bounded public contract for Goblin Fire Fiend's static Haste behavior.
+//! Public contract for Goblin Fire Fiend's complete represented behavior.
 
 use std::collections::BTreeSet;
 
@@ -17,13 +17,23 @@ fn goblin_fire_fiend_definition_is_explicit_about_omitted_behaviors() {
     assert_eq!(fiend.colors, BTreeSet::from([Color::Red]));
     assert_eq!(fiend.card_types, BTreeSet::from([CardType::Creature]));
     assert_eq!((fiend.power, fiend.toughness), (Some(1), Some(1)));
-    assert_eq!(fiend.keywords, [Keyword::Haste]);
+    assert_eq!(
+        fiend.keywords,
+        [Keyword::Haste, Keyword::MustBeBlockedIfAble]
+    );
     assert!(fiend.effects.is_empty());
     assert_eq!(
         fiend.supported_rules,
-        ["colored-cost-casting", "base-characteristics", "haste"]
+        [
+            "full-rules-fidelity",
+            "colored-cost-casting",
+            "base-characteristics",
+            "haste",
+            "must-block-if-able",
+            "activated-plus-one-power",
+        ]
     );
-    assert!(!RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&fiend.id));
+    assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&fiend.id));
 }
 
 #[test]
