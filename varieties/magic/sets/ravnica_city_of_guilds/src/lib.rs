@@ -796,10 +796,10 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Creature]),
             is_basic_land: false,
-            supported_rules: &["convoke", "base-characteristics"],
+            supported_rules: &["convoke", "base-characteristics", "trample"],
             power: Some(5),
             toughness: Some(5),
-            keywords: vec![Keyword::Convoke],
+            keywords: vec![Keyword::Convoke, Keyword::Trample],
             effects: vec![],
         },
         // Full fidelity: Convoke payment, base characteristics, and Flying
@@ -925,14 +925,20 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 "full-rules-fidelity",
                 "convoke",
                 "controller-creature-layer-7-modifier",
+                "controller-creature-layer-6-trample-grant",
             ],
             power: None,
             toughness: None,
             keywords: vec![Keyword::Convoke],
-            effects: vec![Effect::ModifyControllerCreaturesPtUntilEndOfTurn {
-                power: 3,
-                toughness: 3,
-            }],
+            effects: vec![
+                Effect::ModifyControllerCreaturesPtUntilEndOfTurn {
+                    power: 3,
+                    toughness: 3,
+                },
+                Effect::AddKeywordToControllerCreaturesUntilEndOfTurn {
+                    keyword: Keyword::Trample,
+                },
+            ],
         },
         // Full fidelity: Convoke payment, typed artifact-or-enchantment
         // targets, and ordinary destruction are all executable.
