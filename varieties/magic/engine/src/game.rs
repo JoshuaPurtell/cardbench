@@ -203,6 +203,10 @@ pub struct GameView {
 #[derive(Clone, Debug, Default)]
 struct CombatState {
     attackers: Vec<ObjectId>,
+    /// Attackers that had Haste when they were declared. This preserves the
+    /// declaration-time exception to summoning sickness separately from a
+    /// later characteristics query.
+    hasty_attackers: BTreeSet<ObjectId>,
     /// Attackers that had flying when they were declared. Blocking legality is
     /// determined at declaration time, so this cannot be reconstructed from a
     /// later characteristics query after a continuous effect changes a card.
@@ -770,8 +774,7 @@ impl Game {
     ///
     /// Every condition is preflighted before an object, life total, mana pool,
     /// pass sequence, or event changes. A creature's tap ability observes this
-    /// engine slice's summoning-sickness boundary; the current substrate has no
-    /// haste exception. Controller damage is an ability result rather than a
+    /// engine slice's summoning-sickness boundary unless it has Haste. Controller damage is an ability result rather than a
     /// life-payment cost, so it remains legal even when it will cause a loss.
     #[allow(clippy::too_many_lines)] // One method keeps the activation transaction atomic and auditable.
     pub fn activate_bound_mana_ability(
@@ -852,11 +855,10 @@ impl Game {
                     "mana ability requires an untapped source",
                 ));
             }
-            if self
-                .characteristics(activation.source)?
-                .card_types
-                .contains(&CardType::Creature)
+            let characteristics = self.characteristics(activation.source)?;
+            if characteristics.card_types.contains(&CardType::Creature)
                 && source.entered_turn >= self.turn
+                && !characteristics.keywords.contains(&Keyword::Haste)
             {
                 return Err(RulesError::IllegalAction(
                     "a summoning-sick creature cannot pay a tap mana-ability cost",
@@ -1358,6 +1360,7 @@ impl Game {
             return Err(RulesError::IllegalAction("attackers were already declared"));
         }
         let mut seen = BTreeSet::new();
+        let mut hasty_attackers = BTreeSet::new();
         let mut flying_attackers = BTreeSet::new();
         let mut vigilant_attackers = BTreeSet::new();
         for attacker in attackers {
@@ -1367,13 +1370,17 @@ impl Game {
             self.require_zone(*attacker, Zone::Battlefield)?;
             let object = self.object(*attacker)?;
             let characteristics = self.characteristics(*attacker)?;
+            let has_haste = characteristics.keywords.contains(&Keyword::Haste);
             if object.controller != player
                 || object.tapped
-                || object.entered_turn >= self.turn
+                || (object.entered_turn >= self.turn && !has_haste)
                 || !characteristics.card_types.contains(&CardType::Creature)
                 || characteristics.keywords.contains(&Keyword::Defender)
             {
                 return Err(RulesError::IllegalAction("illegal attacker"));
+            }
+            if has_haste {
+                hasty_attackers.insert(*attacker);
             }
             if characteristics.keywords.contains(&Keyword::Flying) {
                 flying_attackers.insert(*attacker);
@@ -1396,6 +1403,7 @@ impl Game {
             .as_mut()
             .ok_or(RulesError::IllegalAction("combat was not initialized"))?;
         combat.attackers = attackers.to_vec();
+        combat.hasty_attackers = hasty_attackers;
         combat.flying_attackers = flying_attackers;
         combat.vigilant_attackers = vigilant_attackers;
         combat.defending_player = Some(defending_player);
@@ -2332,7 +2340,9 @@ impl Game {
                 ));
             }
             if !combat.attackers_declared
-                && (!combat.flying_attackers.is_empty() || !combat.vigilant_attackers.is_empty())
+                && (!combat.hasty_attackers.is_empty()
+                    || !combat.flying_attackers.is_empty()
+                    || !combat.vigilant_attackers.is_empty())
             {
                 return Err(RulesError::IllegalAction(
                     "undeclared combat retained attacker keyword provenance",
@@ -2367,7 +2377,14 @@ impl Game {
                     return Err(RulesError::IllegalAction("invalid combat attacker state"));
                 }
                 if self.zone_of(*attacker) == Some(Zone::Battlefield) {
-                    self.object(*attacker)?;
+                    let object = self.object(*attacker)?;
+                    if object.entered_turn >= self.turn
+                        && !combat.hasty_attackers.contains(attacker)
+                    {
+                        return Err(RulesError::IllegalAction(
+                            "same-turn attacker lacks haste declaration provenance",
+                        ));
+                    }
                     let currently_vigilant = self
                         .characteristics(*attacker)?
                         .keywords
@@ -2382,6 +2399,11 @@ impl Game {
             if !combat.vigilant_attackers.is_subset(&attackers) {
                 return Err(RulesError::IllegalAction(
                     "vigilance declaration provenance contains a nonattacker",
+                ));
+            }
+            if !combat.hasty_attackers.is_subset(&attackers) {
+                return Err(RulesError::IllegalAction(
+                    "haste declaration provenance contains a nonattacker",
                 ));
             }
             if !combat.flying_attackers.is_subset(&attackers) {
@@ -3841,7 +3863,8 @@ impl Game {
         let can_attack = object.controller == self.active_player
             && self.zone_of(card) == Some(Zone::Battlefield)
             && !object.tapped
-            && object.entered_turn < self.turn
+            && (object.entered_turn < self.turn
+                || characteristics.keywords.contains(&Keyword::Haste))
             && characteristics.card_types.contains(&CardType::Creature)
             && !characteristics.keywords.contains(&Keyword::Defender);
         Ok(CardView {

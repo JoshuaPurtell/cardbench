@@ -70,6 +70,17 @@ fn haste_allows_a_same_turn_attack_without_an_illegal_transition() {
     reach_declare_attackers(&mut game);
     game.clear_event_log();
 
+    assert!(
+        game.view_for_player(player)
+            .expect("active player view")
+            .own_battlefield
+            .iter()
+            .find(|card| card.id == attacker)
+            .expect("attacker is visible")
+            .can_attack,
+        "the policy view must expose the legal same-turn Haste attack"
+    );
+
     let result = game.declare_attackers(player, &[attacker]);
 
     assert!(
