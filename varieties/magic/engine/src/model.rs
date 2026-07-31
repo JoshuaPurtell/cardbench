@@ -596,6 +596,8 @@ pub enum Keyword {
     Defender,
     /// Can be blocked only by a creature with Flying or Reach.
     Flying,
+    /// Can be blocked only by a black creature.
+    BlackEvasion,
     FirstStrike,
     /// This creature can attack and pay a tap cost on the turn it entered
     /// under its controller's control.

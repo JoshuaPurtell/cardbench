@@ -71,7 +71,7 @@ explicitly scoped compatibility slices.
 RAV shown scenarios are fixture-driven from
 `sets/ravnica_city_of_guilds/scenarios/public/train_scenarios.toml`; each declares
 setup, actions, state assertions, event markers, and a fixed digest. The
-current corpus contains 118 scenarios and covers:
+current corpus contains 119 scenarios and covers:
 
 - casting to the stack and both-player priority passes (`Lightning Helix`);
 - colored-cost creature casting and permanent characteristics (`Watchwolf`);
@@ -124,8 +124,9 @@ current corpus contains 118 scenarios and covers:
 - a full-fidelity life-gain trigger with optional resolution payment and
   resolution-time target selection (`Searing Meditation`);
 - bounded static Flying compatibility for `Belltower Sphinx`, `Screeching
-  Griffin`, and `Tattered Drake`, with their card-specific triggers or
-  activations intentionally left outside the fidelity manifest; and
+  Griffin`, and `Tattered Drake`, plus black-only evasion for `Undercity
+  Shade`, with their remaining card-specific triggers or activations
+  intentionally left outside the fidelity manifest; and
 - an opt-in, stack-backed enter-the-battlefield draw trigger binding for
   `Carven Caryatid`, with source/trigger identities and draw receipts audited
   separately from the default fixture constructor; and

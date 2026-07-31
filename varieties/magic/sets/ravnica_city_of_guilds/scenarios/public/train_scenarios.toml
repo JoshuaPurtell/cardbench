@@ -6436,6 +6436,91 @@ event_absent = ["BlockersDeclared"]
 digest = "fnv1a64:1dcdb2289fdaa917"
 
 [[scenario]]
+id = "rav_undercity_shade_black_evasion_compatibility"
+seed = 51
+description = "Declare Undercity Shade as a black-only evasion attacker, then reject a nonblack creature's block declaration; its temporary power activation remains unsupported."
+
+[[scenario.card]]
+label = "shade"
+owner = 0
+definition = "RAV-UNDERCITY-SHADE"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.card]]
+label = "ground_blocker"
+owner = 1
+definition = "RAV-WATCHWOLF"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "declare_attackers"
+player = 0
+attackers = ["shade"]
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "declare_blockers"
+player = 1
+attackers = ["shade:ground_blocker"]
+expected_error = "black-only evasion attacker can be blocked only by black creatures"
+
+[scenario.expected]
+zones = ["shade:battlefield", "ground_blocker:battlefield"]
+powers = ["shade:1", "ground_blocker:3"]
+toughnesses = ["shade:1", "ground_blocker:3"]
+tapped = ["shade:true", "ground_blocker:false"]
+stack_size = 0
+priority = 0
+event_markers = ["AttackersDeclared"]
+event_absent = ["BlockersDeclared"]
+digest = "fnv1a64:1dcdb2289fdaa917"
+
+[[scenario]]
 id = "rav_screeching_griffin_flying_compatibility"
 seed = 44
 description = "Declare Screeching Griffin as a Flying attacker, then reject a ground creature's block declaration; its activated ability remains unsupported."

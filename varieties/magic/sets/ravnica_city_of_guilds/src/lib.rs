@@ -1955,17 +1955,28 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             1,
             1,
         ),
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed evasion and temporary P/T
-        // activation are deliberately omitted from this compatibility slice.
-        bounded_creature_chassis(
-            "RAV-UNDERCITY-SHADE",
-            "Undercity Shade",
-            ManaCost::with_colors(4, [Color::Black]),
-            colors([Color::Black]),
-            1,
-            1,
-        ),
+        // Compatibility scope: normal colored-cost creature casting, base
+        // characteristics, and its static black-only evasion. The temporary
+        // power/toughness activation remains deliberately unsupported.
+        CardDefinition {
+            id: "RAV-UNDERCITY-SHADE",
+            name: "Undercity Shade",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(4, [Color::Black]),
+            colors: colors([Color::Black]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "colored-cost-casting",
+                "base-characteristics",
+                "black-only-evasion",
+            ],
+            power: Some(1),
+            toughness: Some(1),
+            keywords: vec![Keyword::BlackEvasion],
+            effects: vec![],
+        },
         // Compatibility scope: normal colored-cost creature casting and base
         // characteristics only. Its printed entry sacrifice and Saproling
         // blocking restriction are deliberately omitted from this slice.
@@ -3694,7 +3705,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 118);
+        assert_eq!(first.len(), 119);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

@@ -220,6 +220,8 @@ struct CombatState {
     /// determined at declaration time, so this cannot be reconstructed from a
     /// later characteristics query after a continuous effect changes a card.
     flying_attackers: BTreeSet<ObjectId>,
+    /// Attackers that had the RAV black-only evasion restriction when declared.
+    black_evasion_attackers: BTreeSet<ObjectId>,
     /// Attackers that were declared with vigilance. This is declaration
     /// provenance, not a live tapped-state assertion: a vigilant attacker can
     /// later pay a legal tap cost while it remains in combat.
@@ -236,6 +238,9 @@ struct CombatState {
     /// either Flying or Reach at blocker declaration. This is provenance, not
     /// an assertion that the blocker retains either keyword afterward.
     evasion_qualified_blockers: BTreeSet<ObjectId>,
+    /// Blockers admitted against a black-only evasion attacker because they
+    /// were black at blocker declaration.
+    black_evasion_qualified_blockers: BTreeSet<ObjectId>,
     /// This initial slice attacks the next living seat. It records that seat
     /// at declaration time rather than recomputing turn order after a player
     /// leaves in the middle of combat.
@@ -1812,6 +1817,7 @@ impl Game {
         let mut seen = BTreeSet::new();
         let mut hasty_attackers = BTreeSet::new();
         let mut flying_attackers = BTreeSet::new();
+        let mut black_evasion_attackers = BTreeSet::new();
         let mut vigilant_attackers = BTreeSet::new();
         let mut trampling_attackers = BTreeSet::new();
         let mut must_be_blocked_attackers = BTreeSet::new();
@@ -1840,6 +1846,9 @@ impl Game {
             }
             if characteristics.keywords.contains(&Keyword::Flying) {
                 flying_attackers.insert(*attacker);
+            }
+            if characteristics.keywords.contains(&Keyword::BlackEvasion) {
+                black_evasion_attackers.insert(*attacker);
             }
             if characteristics.keywords.contains(&Keyword::Vigilance) {
                 vigilant_attackers.insert(*attacker);
@@ -1873,6 +1882,7 @@ impl Game {
         combat.attackers = attackers.to_vec();
         combat.hasty_attackers = hasty_attackers;
         combat.flying_attackers = flying_attackers;
+        combat.black_evasion_attackers = black_evasion_attackers;
         combat.vigilant_attackers = vigilant_attackers;
         combat.trampling_attackers = trampling_attackers;
         combat.must_be_blocked_attackers = must_be_blocked_attackers;
@@ -1923,6 +1933,7 @@ impl Game {
         let mut attackers = BTreeSet::new();
         let mut blockers = BTreeSet::new();
         let mut evasion_qualified_blockers = BTreeSet::new();
+        let mut black_evasion_qualified_blockers = BTreeSet::new();
         for assignment in assignments {
             if !combat.attackers.contains(&assignment.attacker)
                 || !attackers.insert(assignment.attacker)
@@ -1957,6 +1968,21 @@ impl Game {
                     ));
                 }
                 evasion_qualified_blockers.insert(assignment.blocker);
+            }
+            if combat
+                .black_evasion_attackers
+                .contains(&assignment.attacker)
+                && !characteristics.colors.contains(&Color::Black)
+            {
+                return Err(RulesError::IllegalAction(
+                    "black-only evasion attacker can be blocked only by black creatures",
+                ));
+            }
+            if combat
+                .black_evasion_attackers
+                .contains(&assignment.attacker)
+            {
+                black_evasion_qualified_blockers.insert(assignment.blocker);
             }
             if combat.mountainwalk_attackers.contains(&assignment.attacker)
                 && self.player_controls_basic_land_type(player, BasicLandType::Mountain)
@@ -1999,6 +2025,11 @@ impl Game {
                 {
                     return false;
                 }
+                if combat.black_evasion_attackers.contains(attacker)
+                    && !characteristics.colors.contains(&Color::Black)
+                {
+                    return false;
+                }
                 if self.target_cannot_block_attacker(*candidate, *attacker) {
                     return false;
                 }
@@ -2020,6 +2051,7 @@ impl Game {
                 .insert(assignment.attacker, assignment.blocker);
         }
         combat.evasion_qualified_blockers = evasion_qualified_blockers;
+        combat.black_evasion_qualified_blockers = black_evasion_qualified_blockers;
         combat.blockers_declared = true;
         self.record_event(GameEvent::BlockersDeclared {
             player,
@@ -3194,6 +3226,7 @@ impl Game {
             if !combat.attackers_declared
                 && (!combat.hasty_attackers.is_empty()
                     || !combat.flying_attackers.is_empty()
+                    || !combat.black_evasion_attackers.is_empty()
                     || !combat.vigilant_attackers.is_empty()
                     || !combat.trampling_attackers.is_empty()
                     || !combat.must_be_blocked_attackers.is_empty()
@@ -3266,6 +3299,11 @@ impl Game {
                     "flying declaration provenance contains a nonattacker",
                 ));
             }
+            if !combat.black_evasion_attackers.is_subset(&attackers) {
+                return Err(RulesError::IllegalAction(
+                    "black-only evasion declaration provenance contains a nonattacker",
+                ));
+            }
             if !combat.trampling_attackers.is_subset(&attackers) {
                 return Err(RulesError::IllegalAction(
                     "trample declaration provenance contains a nonattacker",
@@ -3302,6 +3340,21 @@ impl Game {
             if combat.evasion_qualified_blockers != expected_evasion_blockers {
                 return Err(RulesError::IllegalAction(
                     "flying blocker declaration provenance is incoherent",
+                ));
+            }
+            let expected_black_evasion_blockers = combat
+                .blockers
+                .iter()
+                .filter_map(|(attacker, blocker)| {
+                    combat
+                        .black_evasion_attackers
+                        .contains(attacker)
+                        .then_some(*blocker)
+                })
+                .collect::<BTreeSet<_>>();
+            if combat.black_evasion_qualified_blockers != expected_black_evasion_blockers {
+                return Err(RulesError::IllegalAction(
+                    "black-only evasion blocker declaration provenance is incoherent",
                 ));
             }
             let combatants = attackers.union(&blockers).copied().collect::<BTreeSet<_>>();

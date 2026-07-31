@@ -361,10 +361,12 @@ Oracle Magic rules coverage.
   they control; every assigned attacker was declared; and each attacker may
   retain an ordered list of distinct blockers. A creature declared with
   Flying accepts only a blocker that had Flying or Reach at blocker
-  declaration; the combat state records that declaration-time qualification so
-  a later characteristic change cannot rewrite its legal history. If that
-  defender leaves the game, the declared attackers are removed from combat
-  rather than being retargeted to another surviving seat.
+  declaration; a creature declared with the RAV black-only evasion restriction
+  accepts only a black blocker. The combat state records each
+  declaration-time qualification so a later characteristic change cannot
+  rewrite its legal history. If that defender leaves the game, the declared
+  attackers are removed from combat rather than being retargeted to another
+  surviving seat.
 - Declare-blockers cannot begin without an attacker declaration, and combat
   damage cannot begin without both declarations. A participant may leave after
   declaration, so later combat bookkeeping preserves the declaration without
