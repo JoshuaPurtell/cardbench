@@ -1631,11 +1631,9 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             card_types: types([CardType::Creature]),
             is_basic_land: false,
             supported_rules: &[
-                "full-rules-fidelity",
                 "colored-cost-casting",
                 "base-characteristics",
                 "flying",
-                "activated-prevent-target-blocking-source",
             ],
             power: Some(2),
             toughness: Some(5),
