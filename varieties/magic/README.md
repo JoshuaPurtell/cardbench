@@ -71,7 +71,7 @@ explicitly scoped compatibility slices.
 RAV shown scenarios are fixture-driven from
 `sets/ravnica_city_of_guilds/scenarios/public/train_scenarios.toml`; each declares
 setup, actions, state assertions, event markers, and a fixed digest. The
-current corpus contains 115 scenarios and covers:
+current corpus contains 116 scenarios and covers:
 
 - casting to the stack and both-player priority passes (`Lightning Helix`);
 - colored-cost creature casting and permanent characteristics (`Watchwolf`);
@@ -94,7 +94,7 @@ current corpus contains 115 scenarios and covers:
   these cover only the named shared keyword plus normal casting/base
   characteristics, never omitted printed behavior (`Golgari Grave-Troll`,
   `Necroplasm`, `Grave-Shell Scarab`, `Shambling Shell`, `Conclave Phalanx`,
-  and `Autochthon Wurm`);
+  `Autochthon Wurm`, and the Stinkweed Imp Flying/Dredge slice);
 - a full-fidelity Convoke creature with typed vigilance combat behavior
   (`Guardian of Vitu-Ghazi`);
 - full-fidelity Flying/Reach blocker declaration and Flying/Vigilance attacker

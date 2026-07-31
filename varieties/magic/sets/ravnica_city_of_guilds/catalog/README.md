@@ -109,13 +109,13 @@ four RAV Signets are separately positive-manifest entries because their
 definition-bound abilities use the same ordered atomic cast-payment boundary.
 
 The creature batch for Golgari Thug, Stinkweed Imp, and Root-Kin Ally is
-explicitly compatibility-bounded. The first two support only normal creature
-casting, base characteristics, and the shared Dredge replacement; Root-Kin Ally
-supports only normal creature casting, base characteristics, and the shared
-Convoke payment hook. Every other printed ability on those cards is unsupported,
-including their card-specific triggered or combat behavior. The checked-in
-definitions and public scenarios make that omission visible without reproducing
-card rules text.
+explicitly compatibility-bounded. Golgari Thug supports only normal creature
+casting, base characteristics, and the shared Dredge replacement; Stinkweed Imp
+adds its static Flying evasion slice; Root-Kin Ally supports only normal creature
+casting, base characteristics, and the shared Convoke payment hook. Every other
+printed ability on those cards is unsupported, including their card-specific
+triggered or combat behavior. The checked-in definitions and public scenarios
+make that omission visible without reproducing card rules text.
 
 The generic-keyword coverage batch for Conclave Phalanx, Golgari Grave-Troll,
 Necroplasm, Grave-Shell Scarab, Shambling Shell, and Autochthon Wurm follows
@@ -238,9 +238,10 @@ retained base P/T values only.
 
 The following bounded keyword wave adds the static Defender slice for Torpid
 Moloch and the static Flying slices for Belltower Sphinx, Screeching Griffin,
-and Tattered Drake. Their trigger, activation, and regeneration behavior
-remains outside the executable scope, so each has a focused compatibility trace
-plus an ignored full-fidelity probe rather than a positive-manifest claim.
+Tattered Drake, and Stinkweed Imp. Their trigger, activation, regeneration,
+and damage-triggered destruction behavior remains outside the executable scope,
+so each has a focused compatibility trace plus an ignored full-fidelity probe
+rather than a positive-manifest claim.
 
 Carven Caryatid is likewise bounded to its static Defender slice in the
 default fixture constructor. The expansion now also publishes an opt-in typed

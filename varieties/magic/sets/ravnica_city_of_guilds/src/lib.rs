@@ -414,8 +414,8 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             effects: vec![],
         },
         // Compatibility scope: normal creature casting, base characteristics,
-        // and Dredge. Combat keywords and its damage-triggered destruction
-        // behavior are deliberately unsupported.
+        // Dredge, and static Flying. Its damage-triggered destruction behavior
+        // is deliberately unsupported.
         CardDefinition {
             id: "RAV-STINKWEED-IMP",
             name: "Stinkweed Imp",
@@ -425,10 +425,10 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Creature]),
             is_basic_land: false,
-            supported_rules: &["dredge", "base-characteristics"],
+            supported_rules: &["dredge", "base-characteristics", "flying"],
             power: Some(1),
             toughness: Some(2),
-            keywords: vec![Keyword::Dredge(5)],
+            keywords: vec![Keyword::Flying, Keyword::Dredge(5)],
             effects: vec![],
         },
         // Public RAV #169 audit: its sole functional rule is the shared Dredge
@@ -3680,7 +3680,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 115);
+        assert_eq!(first.len(), 116);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }
