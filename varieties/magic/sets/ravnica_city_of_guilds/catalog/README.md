@@ -63,6 +63,17 @@ currently absent, so collector `#246` is catalog-only with that explicit
 capability gap and its former scenario has been removed. This repository keeps
 only this CardBench-authored semantic summary, not upstream card prose or art.
 
+The same audit rechecked the remaining executable simple instants and sorceries
+that reuse existing `Effect` operations. No new positive-manifest entry was
+justified: Scatter the Seeds still lacks creature-subtype representation; Dryad's
+Caress lacks a graveyard-return operation; Fiery Conclusion lacks its required
+sacrifice cost; and Ribbons of Night lacks spent-mana-color tracking. Muddle the
+Mixture and Dizzy Spell retain their correctly tested effect and Transmute
+compatibility slices, but Transmute is executed immediately in this engine rather
+than as a stack object, so normal response behavior is absent. Their deterministic
+public scenarios assert receipts only for the represented slices. These are
+explicit coverage gaps, not no-op fallbacks or full-fidelity claims.
+
 The creature batch for Golgari Thug, Stinkweed Imp, Greater Mossdog, and
 Root-Kin Ally is explicitly compatibility-bounded. The first three support only
 normal creature casting, base characteristics, and the shared Dredge replacement;
