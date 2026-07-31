@@ -450,6 +450,9 @@ pub enum Keyword {
     /// Can be blocked only by a creature with Flying or Reach.
     Flying,
     FirstStrike,
+    /// This creature can attack and pay a tap cost on the turn it entered
+    /// under its controller's control.
+    Haste,
     /// Can block a creature with Flying.
     Reach,
     /// Declaring this creature as an attacker does not tap it.
