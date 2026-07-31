@@ -56,12 +56,14 @@ fn invariant_audit_rejects_a_stack_spell_targeting_itself() {
             controller: second,
             targets: vec![],
             effects: vec![Effect::GainLifeController { amount: 1 }],
+            mana_spent: None,
         },
         StackObject {
             card: counter,
             controller: first,
             targets: vec![Target::Spell(counter)],
             effects: vec![Effect::CounterTargetInstantOrSorcerySpell],
+            mana_spent: None,
         },
     ];
 

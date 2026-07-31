@@ -7,8 +7,8 @@ use crate::{
     BasicLandTypeBinding, CardDefinition, CardObject, CardType, CastPaymentManaAbility,
     Characteristics, Color, CombatBlock, ContinuousChange, ContinuousEffect, DeckList, Duration,
     Effect, GameEvent, Keyword, ManaAbilityActivation, ManaAbilityBinding, ManaAbilityOutput,
-    ObjectId, PlayerId, PlayerState, PolicyMoveKind, StackEffectResolution, StackObject,
-    StackResolutionPlan, Step, Target, TargetRequirement, TokenSpec, Zone,
+    ManaPaymentSelection, ObjectId, PlayerId, PlayerState, PolicyMoveKind, StackEffectResolution,
+    StackObject, StackResolutionPlan, Step, Target, TargetRequirement, TokenSpec, Zone,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -1572,16 +1572,30 @@ impl Game {
     }
 
     pub fn cast_spell(&mut self, player: PlayerId, request: CastRequest) -> Result<(), RulesError> {
-        self.atomic_transition(|game| game.cast_spell_impl(player, request))
+        self.atomic_transition(|game| game.cast_spell_impl(player, &request, None))
+    }
+
+    /// Casts a spell with explicit player-selected colors for all generic and
+    /// hybrid symbols still payable with mana after Convoke. The exact colors
+    /// are recorded before `SpellCast` and retained on the stack object.
+    pub fn cast_spell_with_mana_spend(
+        &mut self,
+        player: PlayerId,
+        request: CastRequest,
+        selection: ManaPaymentSelection,
+    ) -> Result<(), RulesError> {
+        self.atomic_transition(|game| game.cast_spell_impl(player, &request, Some(&selection)))
     }
 
     /// Applies a cast under one all-or-error transaction. Mana abilities named
     /// in `CastRequest::payment_mana_abilities` are the only non-stack actions
     /// admitted between cast validation and final spell-cost payment.
+    #[allow(clippy::too_many_lines)] // One cast transaction owns all cost receipts and rollback.
     fn cast_spell_impl(
         &mut self,
         player: PlayerId,
-        request: CastRequest,
+        request: &CastRequest,
+        mana_payment_selection: Option<&ManaPaymentSelection>,
     ) -> Result<(), RulesError> {
         self.require_priority(player)?;
         self.require_zone(request.card, Zone::Hand)?;
@@ -1592,6 +1606,16 @@ impl Game {
         if !definition.is_permanent() && definition.effects.is_empty() {
             return Err(RulesError::IllegalAction(
                 "this spell's front-face effect is unsupported; report an engine weakness",
+            ));
+        }
+        if definition
+            .effects
+            .iter()
+            .any(Effect::requires_explicit_mana_spend)
+            && mana_payment_selection.is_none()
+        {
+            return Err(RulesError::IllegalAction(
+                "spell requires an explicit mana-spend selection",
             ));
         }
         Self::validate_cast_effects(&definition)?;
@@ -1641,8 +1665,13 @@ impl Game {
                 }
             }
         }
-        let paid_cost =
-            self.pay_cost_with_convoke(player, request.card, &definition, &request.convoke)?;
+        let (paid_cost, mana_spent) = self.pay_cost_with_convoke(
+            player,
+            request.card,
+            &definition,
+            &request.convoke,
+            mana_payment_selection,
+        )?;
         self.players[player.0].mana_pool = paid_cost;
         for payment in &request.convoke {
             self.objects
@@ -1664,7 +1693,15 @@ impl Game {
             controller: player,
             targets: spell_targets,
             effects: definition.effects,
+            mana_spent: mana_spent.clone(),
         });
+        if let Some(colors) = mana_spent {
+            self.record_event(GameEvent::SpellManaPaid {
+                player,
+                card: request.card,
+                colors,
+            });
+        }
         self.record_event(GameEvent::SpellCast {
             player,
             card: request.card,
@@ -1778,6 +1815,26 @@ impl Game {
         if resolves_pending_draw {
             self.pending_draw_replacement = None;
         }
+        Ok(())
+    }
+
+    /// Draws the ordinary top card while a spell instruction resolves. This is
+    /// intentionally private: public live draws remain restricted to the
+    /// draw-step replacement boundary, while a resolved executable effect has
+    /// already passed through stack timing and target legality.
+    fn draw_card_from_spell_effect(&mut self, player: PlayerId) -> Result<(), RulesError> {
+        self.player(player)?;
+        let Some(card) = self.players[player.0].library.pop() else {
+            self.lose_player(player, "attempted to draw from an empty library");
+            self.normalize_priority_after_elimination()?;
+            self.record_game_end_if_needed();
+            return Ok(());
+        };
+        self.players[player.0].hand.push(card);
+        self.record_event(GameEvent::CardMoved {
+            card,
+            to: Zone::Hand,
+        });
         Ok(())
     }
 
@@ -2036,6 +2093,7 @@ impl Game {
             ));
         }
         Self::validate_mana_ability_event_order(&self.event_log)?;
+        Self::validate_spell_mana_payment_event_order(&self.event_log)?;
         self.validate_additional_spell_cost_event_order()?;
         self.validate_stack_terminal_event_order()?;
         if self.started && !self.is_game_over() && !self.step.grants_priority() {
@@ -2323,6 +2381,32 @@ impl Game {
                     "stack effects do not match the card definition",
                 ));
             }
+            if definition
+                .effects
+                .iter()
+                .any(Effect::requires_explicit_mana_spend)
+                && stack_object.mana_spent.as_ref().is_none_or(Vec::is_empty)
+            {
+                return Err(RulesError::IllegalAction(
+                    "a spent-mana conditional stack spell lacks its payment receipt",
+                ));
+            }
+            if let Some(colors) = &stack_object.mana_spent
+                && let Some(cast_index) = self.event_log.iter().rposition(|event| {
+                    matches!(event, GameEvent::SpellCast { card, .. } if *card == stack_object.card)
+                })
+                && !matches!(
+                    self.event_log.get(cast_index.saturating_sub(1)),
+                    Some(GameEvent::SpellManaPaid { player, card, colors: receipt_colors })
+                        if *player == stack_object.controller
+                            && *card == stack_object.card
+                            && receipt_colors == colors
+                )
+            {
+                return Err(RulesError::IllegalAction(
+                    "stack payment receipt disagrees with its visible cast receipt",
+                ));
+            }
             // Each target requirement records one distinct occurrence of the
             // word "target" in the executable effect model. A target may be
             // selected again for a later occurrence, but it still occupies a
@@ -2561,7 +2645,8 @@ impl Game {
         card: ObjectId,
         definition: &CardDefinition,
         payments: &[ConvokePayment],
-    ) -> Result<crate::ManaPool, RulesError> {
+        mana_payment_selection: Option<&ManaPaymentSelection>,
+    ) -> Result<(crate::ManaPool, Option<Vec<Color>>), RulesError> {
         if !definition.has_convoke() && !payments.is_empty() {
             return Err(RulesError::IllegalAction(
                 "only convoke spells accept convoke payments",
@@ -2622,9 +2707,17 @@ impl Game {
             }
         }
         let mut pool = self.players[player.0].mana_pool.clone();
-        pool.pay(&remaining).map_err(RulesError::Mana)?;
+        let mana_spent = if let Some(selection) = mana_payment_selection {
+            Some(
+                pool.pay_selected(&remaining, selection)
+                    .map_err(RulesError::Mana)?,
+            )
+        } else {
+            pool.pay(&remaining).map_err(RulesError::Mana)?;
+            None
+        };
         let _ = card;
-        Ok(pool)
+        Ok((pool, mana_spent))
     }
 
     fn validate_targets(
@@ -2786,6 +2879,7 @@ impl Game {
                 | Effect::RadianceDealDamageToCreatures { amount }
                 | Effect::GainLifeController { amount } => *amount,
                 Effect::CreateToken { .. }
+                | Effect::DrawControllerIfManaColorSpent { .. }
                 | Effect::DealDamageEqualToAttackingCreatures { .. }
                 | Effect::ModifyTargetPtUntilEndOfTurn { .. }
                 | Effect::ModifyControllerCreaturesPtUntilEndOfTurn { .. }
@@ -2856,7 +2950,13 @@ impl Game {
         {
             match target_resolution {
                 StackEffectResolution::Untargeted => {
-                    self.resolve_effect(stack_object.card, stack_object.controller, effect, None)?;
+                    self.resolve_effect(
+                        stack_object.card,
+                        stack_object.controller,
+                        stack_object.mana_spent.as_deref(),
+                        effect,
+                        None,
+                    )?;
                 }
                 StackEffectResolution::Targeted {
                     target,
@@ -2872,6 +2972,7 @@ impl Game {
                         self.resolve_effect(
                             stack_object.card,
                             stack_object.controller,
+                            stack_object.mana_spent.as_deref(),
                             effect,
                             Some(target),
                         )?;
@@ -2916,6 +3017,7 @@ impl Game {
         &mut self,
         source: ObjectId,
         controller: PlayerId,
+        mana_spent: Option<&[Color]>,
         effect: &Effect,
         target: Option<Target>,
     ) -> Result<(), RulesError> {
@@ -3057,6 +3159,11 @@ impl Game {
                     player: controller,
                     amount: *amount,
                 });
+            }
+            Effect::DrawControllerIfManaColorSpent { color } => {
+                if mana_spent.is_some_and(|spent| spent.contains(color)) {
+                    self.draw_card_from_spell_effect(controller)?;
+                }
             }
             Effect::CreateToken { token, count } => {
                 for _ in 0..*count {
@@ -4048,6 +4155,13 @@ impl Game {
                     }) if *receipt_player == player => {
                         cursor += 1;
                     }
+                    Some(GameEvent::SpellManaPaid {
+                        player: receipt_player,
+                        card: receipt_card,
+                        ..
+                    }) if *receipt_player == player && *receipt_card == card => {
+                        cursor += 1;
+                    }
                     Some(GameEvent::SpellCast {
                         player: receipt_player,
                         card: receipt_card,
@@ -4121,6 +4235,32 @@ impl Game {
                     }
                     output_index += 1;
                 }
+            }
+        }
+        Ok(())
+    }
+
+    /// Audits explicit spell-payment receipts independently of whether a cast
+    /// used a mana ability. A replay must never attach colors to a different
+    /// spell or insert a priority window between payment and stack entry.
+    fn validate_spell_mana_payment_event_order(events: &[GameEvent]) -> Result<(), RulesError> {
+        for (index, event) in events.iter().enumerate() {
+            let GameEvent::SpellManaPaid {
+                player,
+                card,
+                colors: _,
+            } = event
+            else {
+                continue;
+            };
+            if !matches!(
+                events.get(index + 1),
+                Some(GameEvent::SpellCast { player: caster, card: spell })
+                    if caster == player && spell == card
+            ) {
+                return Err(RulesError::IllegalAction(
+                    "spell mana-payment receipt is not immediately followed by its spell cast",
+                ));
             }
         }
         Ok(())

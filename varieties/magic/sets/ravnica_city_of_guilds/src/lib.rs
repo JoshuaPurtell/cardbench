@@ -34,7 +34,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 36] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 37] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SCATTER-THE-SEEDS",
@@ -71,6 +71,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 36] = [
     "RAV-SKYKNIGHT-LEGIONNAIRE",
     "RAV-BIRDS-OF-PARADISE",
     "RAV-FIERY-CONCLUSION",
+    "RAV-RIBBONS-OF-NIGHT",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -438,10 +439,9 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Dredge(2)],
             effects: vec![],
         },
-        // Compatibility scope: the fixed target-creature damage and life gain
-        // resolve together. The payment-color-conditioned card draw is
-        // deliberately omitted because this slice does not retain the colors
-        // spent to cast a spell; this is not full-card fidelity.
+        // Full fidelity: fixed target-creature damage and life gain resolve
+        // with the conditional draw keyed only to the explicit spell-payment
+        // receipt retained on this spell's stack object.
         CardDefinition {
             id: "RAV-RIBBONS-OF-NIGHT",
             name: "Ribbons of Night",
@@ -451,7 +451,12 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Sorcery]),
             is_basic_land: false,
-            supported_rules: &["targeted-creature-damage", "life-gain"],
+            supported_rules: &[
+                "full-rules-fidelity",
+                "targeted-creature-damage",
+                "life-gain",
+                "explicit-spent-mana-color-condition",
+            ],
             power: None,
             toughness: None,
             keywords: vec![],
@@ -461,6 +466,7 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                     target: cardbench_magic_engine::TargetRequirement::Creature,
                 },
                 Effect::GainLifeController { amount: 4 },
+                Effect::DrawControllerIfManaColorSpent { color: Color::Blue },
             ],
         },
         // Compatibility scope: normal creature casting, base characteristics,
@@ -2700,7 +2706,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 94);
+        assert_eq!(first.len(), 96);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

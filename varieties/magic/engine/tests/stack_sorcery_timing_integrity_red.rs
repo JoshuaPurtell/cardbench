@@ -45,6 +45,7 @@ fn invariant_audit_rejects_a_sorcery_fabricated_onto_an_opponents_turn() {
         controller: nonactive_player,
         targets: Vec::<Target>::new(),
         effects: vec![Effect::DealDamageController { amount: 1 }],
+        mana_spent: None,
     });
 
     let audit = game.validate_invariants();

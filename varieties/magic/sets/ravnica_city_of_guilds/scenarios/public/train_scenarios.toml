@@ -3933,7 +3933,7 @@ digest = "fnv1a64:e78637d84b25b302"
 [[scenario]]
 id = "rav_ribbons_of_night_damage_life_slice"
 seed = 0
-description = "Resolve Ribbons of Night's supported fixed creature damage and controller life gain. The payment-color-conditioned draw is deliberately outside this compatibility slice."
+description = "Resolve Ribbons of Night with an explicit non-Blue generic payment; the complete damage and life-gain instructions resolve without drawing."
 
 [[scenario.card]]
 label = "ribbons"
@@ -3962,6 +3962,7 @@ kind = "cast"
 player = 0
 card = "ribbons"
 target = "permanent:victim"
+mana_spend = ["generic:green", "generic:green", "generic:green", "generic:green"]
 
 [[scenario.action]]
 kind = "pass"
@@ -3974,8 +3975,62 @@ player = 1
 [scenario.expected]
 life = [24, 20]
 zones = ["ribbons:graveyard", "victim:graveyard"]
-event_markers = ["SpellCast", "DamageDealtToPermanent", "LifeGained", "SpellResolved", "StateBasedAction"]
-digest = "fnv1a64:39fb4c9170a31ff1"
+event_markers = ["SpellManaPaid", "SpellCast", "DamageDealtToPermanent", "LifeGained", "SpellResolved", "StateBasedAction"]
+digest = "fnv1a64:7c84594c12a3a99d"
+
+[[scenario]]
+id = "rav_ribbons_of_night_blue_spend_draw"
+seed = 0
+description = "Resolve Ribbons of Night with an explicit Blue generic payment and draw exactly one public library card from its stack-owned payment receipt."
+
+[[scenario.card]]
+label = "ribbons"
+owner = 0
+definition = "RAV-RIBBONS-OF-NIGHT"
+zone = "hand"
+
+[[scenario.card]]
+label = "victim"
+owner = 1
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "drawn"
+owner = 0
+definition = "RAV-WATCHWOLF"
+zone = "library"
+
+[[scenario.mana]]
+player = 0
+color = "black"
+amount = 1
+
+[[scenario.mana]]
+player = 0
+color = "blue"
+amount = 4
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "ribbons"
+target = "permanent:victim"
+mana_spend = ["generic:blue", "generic:blue", "generic:blue", "generic:blue"]
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+life = [24, 20]
+zones = ["ribbons:graveyard", "victim:graveyard", "drawn:hand"]
+event_markers = ["SpellManaPaid", "SpellCast", "DamageDealtToPermanent", "LifeGained", "CardMoved", "SpellResolved", "StateBasedAction"]
+digest = "fnv1a64:ef27c0265a519e88"
 
 [[scenario]]
 id = "rav_overwhelm_convoke_wide_modifier"

@@ -71,7 +71,7 @@ explicitly scoped compatibility slices.
 RAV shown scenarios are fixture-driven from
 `sets/ravnica_city_of_guilds/scenarios/public/train_scenarios.toml`; each declares
 setup, actions, state assertions, event markers, and a fixed digest. The
-current corpus contains 95 scenarios and covers:
+current corpus contains 96 scenarios and covers:
 
 - casting to the stack and both-player priority passes (`Lightning Helix`);
 - colored-cost creature casting and permanent characteristics (`Watchwolf`);
@@ -117,8 +117,9 @@ current corpus contains 95 scenarios and covers:
   Machinations`, `Shred Memory`, `Clutch of the Undercity`, and `Perplex`); and
 - full-fidelity combat-state-dependent player-or-creature damage (`Dogpile`), a
   full-fidelity controller-wide temporary Convoke modifier (`Overwhelm`), and
-  fixed creature damage plus life gain (`Ribbons of Night`). Ribbons'
-  payment-color-conditioned draw remains outside the executable slice; and
+  full-fidelity paid-color-conditioned resolution (`Ribbons of Night`), with
+  explicit Blue and non-Blue generic allocations retained on its stack object;
+  and
 - cleanup expiration, land-play limits, and rejected priority/convoke/dredge actions.
 
 ## Rust policy development match

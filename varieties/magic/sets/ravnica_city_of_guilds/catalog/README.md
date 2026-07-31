@@ -48,7 +48,7 @@ Cleansing Beam, Rally the Righteous, Wojek Siren, Rain of Embers, Dogpile,
 Overwhelm, Gather Courage, Seeds of Strength, Darkblast, Greater Mossdog, the
 four RAV Signets, the five RAV basic lands, Conclave Equenaut, Snapping Drake,
 Goliath Spider, Courier Hawk, Skyknight Legionnaire, Birds of Paradise, and
-Fiery Conclusion are listed only after an
+Fiery Conclusion, and Ribbons of Night are listed only after an
 ability-by-ability contract proves their complete represented behavior and
 public receipt traces. The radiance entries were
 checked against their public set identity and the official Comprehensive Rules'
@@ -89,8 +89,10 @@ The same audit rechecked the remaining executable simple instants and sorceries
 that reuse existing `Effect` operations. Fiery Conclusion now has its required
 controlled-creature sacrifice bound as an explicit, transactional cast cost;
 its public trace records the cost departure before the targeted spell enters the
-stack. Dryad's Caress still lacks a graveyard-return operation and Ribbons of
-Night still lacks spent-mana-color tracking. Muddle the Mixture and Dizzy Spell retain their correctly tested effect
+stack. Ribbons of Night now requires an explicit generic/hybrid mana selection,
+stores its ordered paid-color receipt on the stack object, and tests both its
+Blue-draw and non-Blue paths. Dryad's Caress still lacks a graveyard-return
+operation. Muddle the Mixture and Dizzy Spell retain their correctly tested effect
 and Transmute compatibility slices, but Transmute is executed immediately in this
 engine rather than as a stack object, so normal response behavior is absent. Their
 deterministic public scenarios assert receipts only for the represented slices.
@@ -201,9 +203,8 @@ scenarios cover exact single-, double-, and multicolored payment, stack
 resolution, graveyard movement, and retained base P/T; they do not assert any
 omitted abilities.
 
-The focused noncreature spell batch leaves Ribbons of Night compatibility-bounded:
-its payment-color-conditioned draw is deliberately excluded because paid mana
-colors are not retained. Dogpile and Overwhelm are ability-complete
+The focused noncreature spell batch promotes Ribbons of Night, Dogpile, and
+Overwhelm as ability-complete
 positive-manifest entries. Dogpile's original RAV player-or-creature target
 boundary uses the shared resolution-time count of controller-owned attacking
 creatures; Overwhelm uses the shared Convoke hook and a controller-wide
