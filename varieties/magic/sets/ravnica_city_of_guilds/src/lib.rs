@@ -33,7 +33,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 29] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 33] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SCATTER-THE-SEEDS",
@@ -63,6 +63,10 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 29] = [
     "RAV-SWAMP",
     "RAV-MOUNTAIN",
     "RAV-FOREST",
+    "RAV-CONCLAVE-EQUENAUT",
+    "RAV-SNAPPING-DRAKE",
+    "RAV-GOLIATH-SPIDER",
+    "RAV-COURIER-HAWK",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -729,9 +733,8 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Convoke],
             effects: vec![],
         },
-        // Compatibility scope: normal creature casting, base characteristics,
-        // and the existing Convoke payment hook. Its printed combat keyword is
-        // intentionally unsupported.
+        // Full fidelity: Convoke payment, base characteristics, and Flying
+        // blocker legality are all represented by the expansion-neutral engine.
         CardDefinition {
             id: "RAV-CONCLAVE-EQUENAUT",
             name: "Conclave Equenaut",
@@ -741,10 +744,15 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Creature]),
             is_basic_land: false,
-            supported_rules: &["convoke", "base-characteristics"],
+            supported_rules: &[
+                "full-rules-fidelity",
+                "convoke",
+                "base-characteristics",
+                "flying",
+            ],
             power: Some(3),
             toughness: Some(3),
-            keywords: vec![Keyword::Convoke],
+            keywords: vec![Keyword::Convoke, Keyword::Flying],
             effects: vec![],
         },
         // Compatibility scope: normal creature casting, base characteristics,
@@ -896,8 +904,8 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed flying is deliberately omitted.
+        // Full fidelity: normal colored-cost casting, base characteristics,
+        // and Flying blocker legality are represented by the shared engine.
         CardDefinition {
             id: "RAV-SNAPPING-DRAKE",
             name: "Snapping Drake",
@@ -907,10 +915,15 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Creature]),
             is_basic_land: false,
-            supported_rules: &["colored-cost-casting", "base-characteristics"],
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "flying",
+            ],
             power: Some(3),
             toughness: Some(2),
-            keywords: vec![],
+            keywords: vec![Keyword::Flying],
             effects: vec![],
         },
         // Compatibility scope: normal colored-cost creature casting and base
@@ -1194,14 +1207,29 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             3,
             4,
         ),
-        bounded_creature_chassis(
-            "RAV-GOLIATH-SPIDER",
-            "Goliath Spider",
-            ManaCost::with_colors(6, [Color::Green, Color::Green]),
-            colors([Color::Green]),
-            7,
-            6,
-        ),
+        // Full fidelity: normal colored-cost casting, base characteristics,
+        // and Reach's Flying-block declaration exception are represented by
+        // the shared engine.
+        CardDefinition {
+            id: "RAV-GOLIATH-SPIDER",
+            name: "Goliath Spider",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(6, [Color::Green, Color::Green]),
+            colors: colors([Color::Green]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "reach",
+            ],
+            power: Some(7),
+            toughness: Some(6),
+            keywords: vec![Keyword::Reach],
+            effects: vec![],
+        },
         // Compatibility scope: normal colored-cost creature casting and base
         // characteristics only. Its printed activated behavior is deliberately
         // omitted from this compatibility slice.
@@ -1697,14 +1725,30 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             3,
             6,
         ),
-        bounded_creature_chassis(
-            "RAV-COURIER-HAWK",
-            "Courier Hawk",
-            ManaCost::with_colors(1, [Color::White]),
-            colors([Color::White]),
-            1,
-            2,
-        ),
+        // Full fidelity: normal colored-cost casting, base characteristics,
+        // Flying blocker legality, and vigilance attack declaration are all
+        // represented by the shared engine.
+        CardDefinition {
+            id: "RAV-COURIER-HAWK",
+            name: "Courier Hawk",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(1, [Color::White]),
+            colors: colors([Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "flying",
+                "vigilance",
+            ],
+            power: Some(1),
+            toughness: Some(2),
+            keywords: vec![Keyword::Flying, Keyword::Vigilance],
+            effects: vec![],
+        },
         // Compatibility scope: normal colored-cost creature casting and base
         // characteristics only. Its printed flying and activated combat
         // behavior are deliberately omitted from this compatibility slice.
@@ -2627,7 +2671,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 89);
+        assert_eq!(first.len(), 92);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

@@ -111,9 +111,9 @@ including their card-specific triggered or combat behavior. The checked-in
 definitions and public scenarios make that omission visible without reproducing
 card rules text.
 
-The generic-keyword coverage batch for Conclave Equenaut, Conclave Phalanx,
-Golgari Grave-Troll, Necroplasm, Grave-Shell Scarab, Shambling Shell, and
-Autochthon Wurm follows the same fail-closed boundary. Each
+The generic-keyword coverage batch for Conclave Phalanx, Golgari Grave-Troll,
+Necroplasm, Grave-Shell Scarab, Shambling Shell, and Autochthon Wurm follows
+the same fail-closed boundary. Each
 definition records only its public identity, mana cost, color, type, base
 characteristics, and the engine's existing generic Dredge or Convoke hook. The
 public fixed scenarios exercise that generic hook and normal casting where it is
@@ -177,9 +177,9 @@ expressly transmute-only compatibility definitions: their hand-zone transmute
 activations are exercised in public scenarios, while each printed spell effect
 remains non-covered.
 
-The creature-chassis batch for Dromad Purebred, Snapping Drake, Carrion
-Howler, Coalhauler Swine, Bramble Elemental, Carven Caryatid, Boros Swiftblade,
-Loxodon Hierarch, Moroii, and Skyknight Legionnaire is also deliberately
+The creature-chassis batch for Dromad Purebred, Carrion Howler, Coalhauler
+Swine, Bramble Elemental, Carven Caryatid, Boros Swiftblade, Loxodon Hierarch,
+Moroii, and Skyknight Legionnaire is also deliberately
 bounded. Each records only public identity, mana cost, color, type, and base
 power/toughness facts, and supports only normal creature casting and those base
 characteristics. Every printed keyword, static rule, triggered behavior, and
@@ -188,8 +188,8 @@ public scenarios exercise exact colored-cost payment, stack resolution, zone
 movement, and base P/T values; they do not imply full-card fidelity.
 
 The second creature-chassis batch adds Elvish Skysweeper, Frenzied Goblin,
-Grayscaled Gharial, Greater Forgeling, Goliath Spider, Ivy Dancer, Lore Broker,
-Mortipede, Selesnya Evangel, and Selesnya Sagittars. These definitions likewise
+Grayscaled Gharial, Greater Forgeling, Ivy Dancer, Lore Broker, Mortipede,
+Selesnya Evangel, and Selesnya Sagittars. These definitions likewise
 record only public identity, mana cost, color, creature type, and base
 power/toughness. Their card-specific activated, triggered, evasion, token, and
 combat behavior is intentionally unsupported. Four public cast-and-resolve
@@ -216,13 +216,20 @@ Every printed keyword, activation, and triggered behavior remains deliberately
 unsupported. Five deterministic public scenarios exercise cast payment, stack
 resolution, zone movement, priority, and their retained base P/T values only.
 
-The first-range easy-creature wave adds Courier Hawk, Divebomber Griffin,
-Sandsower, Votary of the Conclave, Drake Familiar, Drift of Phantasms, Ethereal
-Usher, and Grozoth. Each supports only normal colored-cost creature casting and
-base power/toughness. Every printed keyword, activated ability, triggered
-ability, and hand-zone behavior is deliberately unsupported. Two deterministic
-public scenarios cover their exact colored-cost payments, stack resolution, zone
+The first-range easy-creature wave adds Divebomber Griffin, Sandsower, Votary
+of the Conclave, Drake Familiar, Drift of Phantasms, Ethereal Usher, and
+Grozoth. Each supports only normal colored-cost creature casting and base
+power/toughness. Every printed keyword, activated ability, triggered ability,
+and hand-zone behavior is deliberately unsupported. Two deterministic public
+scenarios cover their exact colored-cost payments, stack resolution, zone
 movement, priority, and retained base P/T values only.
+
+The focused Flying/Reach audit promotes Conclave Equenaut, Snapping Drake,
+Goliath Spider, and Courier Hawk into the positive fidelity manifest. Their
+complete printed functional behavior falls within Convoke, normal casting/base
+characteristics, Flying/Reach blocker declarations, and (for Courier Hawk)
+vigilance. Public scenarios retain canonical declarations for Flying blocked by
+Reach, Flying blocked by Flying, and an untapped Flying/Vigilance attacker.
 
 The TSV's structure and the Rust parser are CardBench-authored MIT-licensed code and
 data structure. Magic set names and card names are used solely as nominative

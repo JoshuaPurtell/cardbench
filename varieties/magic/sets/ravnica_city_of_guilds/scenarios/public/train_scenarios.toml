@@ -2496,7 +2496,7 @@ digest = "fnv1a64:6eb82ad42dbc780c"
 [[scenario]]
 id = "rav_conclave_equenaut_convoke_slice"
 seed = 0
-description = "Convoke Conclave Equenaut with four generic creature contributions and resolve its supported 3/3 base creature. Its printed combat keyword is outside this compatibility slice."
+description = "Convoke Conclave Equenaut with four generic creature contributions and resolve its full 3/3 creature slice; its Flying declaration is exercised separately."
 
 [[scenario.card]]
 label = "equenaut"
@@ -3065,7 +3065,7 @@ digest = "fnv1a64:3efe00bd81d03cdb"
 [[scenario]]
 id = "rav_white_blue_creature_chassis"
 seed = 0
-description = "Cast Dromad Purebred and Snapping Drake with their exact colored costs, then verify only their base P/T. All printed card-specific behavior is deliberately omitted."
+description = "Cast bounded Dromad Purebred and full Flying Snapping Drake with their exact colored costs, then verify base P/T; Drake's Flying declaration is exercised separately."
 
 [[scenario.card]]
 label = "dromad"
@@ -3619,7 +3619,7 @@ digest = "fnv1a64:e78637d84b25b302"
 [[scenario]]
 id = "rav_spider_sagittars_creature_chassis"
 seed = 0
-description = "Cast Goliath Spider and Selesnya Sagittars with exact large and multicolor costs, then verify only their base P/T. Their printed combat capabilities are deliberately omitted."
+description = "Cast full Reach Goliath Spider and bounded Selesnya Sagittars with exact large and multicolor costs, then verify base P/T; Spider's Reach block is exercised separately."
 
 [[scenario.card]]
 label = "spider"
@@ -4915,7 +4915,7 @@ digest = "fnv1a64:e78637d84b25b302"
 [[scenario]]
 id = "rav_easy_white_creature_chassis_wave_five"
 seed = 0
-description = "Cast Courier Hawk, Divebomber Griffin, Sandsower, and Votary of the Conclave with exact white costs, then verify only base P/T. Their printed keywords and activated abilities are deliberately omitted."
+description = "Cast full Flying/Vigilance Courier Hawk plus bounded Divebomber Griffin, Sandsower, and Votary of the Conclave with exact white costs, then verify base P/T; Hawk's combat declarations are exercised separately."
 
 [[scenario.card]]
 label = "hawk"
@@ -5007,6 +5007,236 @@ stack_size = 0
 priority = 0
 event_markers = ["SpellCast", "PriorityPassed", "SpellResolved"]
 digest = "fnv1a64:b3acee0b8c63b96d"
+
+[[scenario]]
+id = "rav_conclave_equenaut_flying_goliath_spider_reach_block"
+seed = 0
+description = "Declare the long-controlled Flying Conclave Equenaut, then legally block it with Goliath Spider's Reach and retain the declaration receipts."
+
+[[scenario.card]]
+label = "equenaut"
+owner = 0
+definition = "RAV-CONCLAVE-EQUENAUT"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.card]]
+label = "spider"
+owner = 1
+definition = "RAV-GOLIATH-SPIDER"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "declare_attackers"
+player = 0
+attackers = ["equenaut"]
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "declare_blockers"
+player = 1
+attackers = ["equenaut:spider"]
+
+[scenario.expected]
+zones = ["equenaut:battlefield", "spider:battlefield"]
+powers = ["equenaut:3", "spider:7"]
+toughnesses = ["equenaut:3", "spider:6"]
+tapped = ["equenaut:true", "spider:false"]
+stack_size = 0
+priority = 0
+event_markers = ["AttackersDeclared", "BlockersDeclared"]
+digest = "fnv1a64:81bd238f5dee061d"
+
+[[scenario]]
+id = "rav_snapping_drake_flying_courier_hawk_flying_block"
+seed = 0
+description = "Declare the long-controlled Flying Snapping Drake, then legally block it with Flying Courier Hawk and retain the declaration receipts."
+
+[[scenario.card]]
+label = "drake"
+owner = 0
+definition = "RAV-SNAPPING-DRAKE"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.card]]
+label = "hawk"
+owner = 1
+definition = "RAV-COURIER-HAWK"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "declare_attackers"
+player = 0
+attackers = ["drake"]
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "declare_blockers"
+player = 1
+attackers = ["drake:hawk"]
+
+[scenario.expected]
+zones = ["drake:battlefield", "hawk:battlefield"]
+powers = ["drake:3", "hawk:1"]
+toughnesses = ["drake:2", "hawk:2"]
+tapped = ["drake:true", "hawk:false"]
+stack_size = 0
+priority = 0
+event_markers = ["AttackersDeclared", "BlockersDeclared"]
+digest = "fnv1a64:81bd238f5dee061d"
+
+[[scenario]]
+id = "rav_courier_hawk_flying_vigilance_attack"
+seed = 0
+description = "Declare the long-controlled Flying Vigilance Courier Hawk and preserve its untapped state through the mandatory attacker declaration."
+
+[[scenario.card]]
+label = "hawk"
+owner = 0
+definition = "RAV-COURIER-HAWK"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "declare_attackers"
+player = 0
+attackers = ["hawk"]
+
+[scenario.expected]
+zones = ["hawk:battlefield"]
+powers = ["hawk:1"]
+toughnesses = ["hawk:2"]
+tapped = ["hawk:false"]
+stack_size = 0
+priority = 0
+event_markers = ["AttackersDeclared"]
+event_absent = ["PermanentsUntapped"]
+digest = "fnv1a64:2b40464c0df717b5"
 
 [[scenario]]
 id = "rav_elves_of_deep_shadow_complete_mana_ability"

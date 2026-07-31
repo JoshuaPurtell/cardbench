@@ -28,9 +28,9 @@ collector number, mana-cost/color/type facts, base power/toughness, and a
 CardBench-authored binding to the generic one-unit colored mana-ability model.
 It does not retain or reproduce card rules text, art, flavor, or source JSON.
 
-The creature-chassis batch (Dromad Purebred, Snapping Drake, Carrion Howler,
-Coalhauler Swine, Bramble Elemental, Carven Caryatid, Boros Swiftblade, Loxodon
-Hierarch, Moroii, and Skyknight Legionnaire) retains only public RAV identity,
+The creature-chassis batch (Dromad Purebred, Carrion Howler, Coalhauler Swine,
+Bramble Elemental, Carven Caryatid, Boros Swiftblade, Loxodon Hierarch, Moroii,
+and Skyknight Legionnaire) retains only public RAV identity,
 mana cost, color, type, and base power/toughness facts. Any printed ability is
 intentionally absent from its compatibility definition. The public source
 responses and their rules fields were not committed.
@@ -88,6 +88,16 @@ hash and reproduction details.
   cost, color, creature type, base power/toughness, and two keyword facts needed
   by its direct contracts were retained, along with the public rules reference
   for vigilance; no card prose, art, or response payload is checked in.
+- The focused Flying/Reach audit was checked on 2026-07-30 against public
+  Gatherer records for [Conclave Equenaut](https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=87915),
+  [Snapping Drake](https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=87986),
+  [Goliath Spider](https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=88959),
+  and [Courier Hawk](https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=87913),
+  together with the public Comprehensive Rules' Flying, Reach, and vigilance
+  keyword sections. The retained facts are only the public identity, cost,
+  color, creature type, base power/toughness, and keyword identities needed
+  for the direct contracts. No card prose, art, scans, source JSON, or response
+  payload is checked in.
 - The RAV basic-land boundary audit was checked on 2026-07-30 against the
   public official Gatherer records for representative RAV printings:
   [Plains](https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=95108),

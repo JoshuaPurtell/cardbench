@@ -14,14 +14,6 @@ fn first_range_creature_chassis_is_exactly_bounded_to_public_base_facts() {
     let definitions = card_definitions();
     let expected = [
         (
-            "RAV-COURIER-HAWK",
-            "Courier Hawk",
-            ManaCost::with_colors(1, [Color::White]),
-            BTreeSet::from([Color::White]),
-            1,
-            2,
-        ),
-        (
             "RAV-DIVEBOMBER-GRIFFIN",
             "Divebomber Griffin",
             ManaCost::with_colors(3, [Color::White, Color::White]),
