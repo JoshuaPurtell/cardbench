@@ -48,6 +48,7 @@ fn viashino_fangtail_taps_and_deals_one_damage_to_a_player() {
             source: fangtail,
             ability_id: "tap-deal-one-to-player-or-creature",
             sacrifice_sources: vec![],
+            discard_cards: vec![],
             targets: vec![Target::Player(PlayerId(1))],
         },
     )

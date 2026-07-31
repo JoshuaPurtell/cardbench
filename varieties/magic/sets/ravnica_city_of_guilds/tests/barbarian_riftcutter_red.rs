@@ -46,6 +46,7 @@ fn barbarian_riftcutter_sacrifices_and_destroys_a_target_land() {
             source,
             ability_id: "sacrifice-destroy-target-land",
             sacrifice_sources: vec![source],
+            discard_cards: vec![],
             targets: vec![Target::Permanent(land)],
         },
     )

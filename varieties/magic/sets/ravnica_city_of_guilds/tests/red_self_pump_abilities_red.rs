@@ -1,4 +1,4 @@
-use cardbench_magic_engine::{AbilityActivation, Color, Game, PlayerId};
+use cardbench_magic_engine::{AbilityActivation, Color, Game, PlayerId, Zone};
 use cardbench_magic_rav::{
     card_definitions, rav_activated_ability_bindings, rav_additional_spell_cost_bindings,
     rav_basic_land_type_bindings, rav_mana_ability_bindings,
@@ -34,6 +34,7 @@ fn greater_forgeling_pump_is_a_stack_ability() {
             source,
             ability_id: "pump-plus-three-minus-three",
             sacrifice_sources: vec![],
+            discard_cards: vec![],
             targets: vec![],
         },
     )
@@ -55,6 +56,9 @@ fn viashino_slasher_pump_is_a_stack_ability() {
         .expect("Viashino Slasher enters");
     game.set_entered_turn_for_setup(source, 0)
         .expect("old fixture entry");
+    let discarded = game
+        .add_card(PlayerId(0), "RAV-CHAR", Zone::Hand)
+        .expect("discardable card enters hand");
     game.grant_mana(PlayerId(0), Color::Red, 1)
         .expect("red mana");
     game.activate_ability(
@@ -63,6 +67,7 @@ fn viashino_slasher_pump_is_a_stack_ability() {
             source,
             ability_id: "pump-plus-one-minus-one",
             sacrifice_sources: vec![],
+            discard_cards: vec![discarded],
             targets: vec![],
         },
     )

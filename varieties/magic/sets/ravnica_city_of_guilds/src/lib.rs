@@ -2309,6 +2309,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 tap_cost: false,
                 sacrifice_source: false,
                 sacrifice_lands: 0,
+                discard_cards: 0,
                 targets: vec![],
                 effects: vec![Effect::ModifySourcePtUntilEndOfTurn {
                     power: 1,
@@ -2324,6 +2325,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 tap_cost: false,
                 sacrifice_source: false,
                 sacrifice_lands: 0,
+                discard_cards: 0,
                 targets: vec![],
                 effects: vec![Effect::ModifySourcePtUntilEndOfTurn {
                     power: 3,
@@ -2339,6 +2341,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 tap_cost: false,
                 sacrifice_source: false,
                 sacrifice_lands: 0,
+                discard_cards: 1,
                 targets: vec![],
                 effects: vec![Effect::ModifySourcePtUntilEndOfTurn {
                     power: 1,
@@ -2354,6 +2357,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 tap_cost: false,
                 sacrifice_source: true,
                 sacrifice_lands: 0,
+                discard_cards: 0,
                 targets: vec![cardbench_magic_engine::TargetRequirement::BlockingCreature],
                 effects: vec![Effect::DealDamage {
                     amount: 2,
@@ -2383,6 +2387,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 tap_cost: true,
                 sacrifice_source: false,
                 sacrifice_lands: 0,
+                discard_cards: 0,
                 targets: vec![cardbench_magic_engine::TargetRequirement::PlayerOrCreature],
                 effects: vec![Effect::DealDamage {
                     amount: 1,
@@ -2398,6 +2403,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 tap_cost: false,
                 sacrifice_source: false,
                 sacrifice_lands: 0,
+                discard_cards: 0,
                 targets: vec![],
                 effects: vec![Effect::AddSourceDamageShieldUntilEndOfTurn { amount: 1 }],
             },
@@ -2410,6 +2416,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 tap_cost: false,
                 sacrifice_source: false,
                 sacrifice_lands: 0,
+                discard_cards: 0,
                 targets: vec![cardbench_magic_engine::TargetRequirement::Creature],
                 effects: vec![Effect::ModifyTargetKeywordUntilEndOfTurn {
                     keyword: Keyword::Haste,
@@ -2424,6 +2431,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 tap_cost: true,
                 sacrifice_source: false,
                 sacrifice_lands: 0,
+                discard_cards: 0,
                 targets: vec![cardbench_magic_engine::TargetRequirement::Creature],
                 effects: vec![Effect::RadianceDealDamageToCreatures { amount: 1 }],
             },
@@ -2436,6 +2444,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 tap_cost: true,
                 sacrifice_source: false,
                 sacrifice_lands: 0,
+                discard_cards: 0,
                 targets: vec![cardbench_magic_engine::TargetRequirement::Creature],
                 effects: vec![Effect::ModifyTargetKeywordUntilEndOfTurn {
                     keyword: Keyword::CannotAttackOrBlock,
@@ -2450,9 +2459,25 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 tap_cost: false,
                 sacrifice_source: false,
                 sacrifice_lands: 0,
+                discard_cards: 0,
                 targets: vec![cardbench_magic_engine::TargetRequirement::Creature],
                 effects: vec![Effect::ModifyTargetKeywordUntilEndOfTurn {
                     keyword: Keyword::FirstStrike,
+                }],
+            },
+        },
+        ActivatedAbilityBinding {
+            card_definition: "RAV-TORPID-MOLOCH",
+            ability: ActivatedAbility {
+                id: "sacrifice-three-lands-remove-defender",
+                mana_cost: ManaCost::new(0),
+                tap_cost: false,
+                sacrifice_source: false,
+                sacrifice_lands: 3,
+                discard_cards: 0,
+                targets: vec![],
+                effects: vec![Effect::RemoveSourceKeywordUntilEndOfTurn {
+                    keyword: Keyword::Defender,
                 }],
             },
         },
@@ -2464,6 +2489,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 tap_cost: false,
                 sacrifice_source: true,
                 sacrifice_lands: 0,
+                discard_cards: 0,
                 targets: vec![cardbench_magic_engine::TargetRequirement::Land],
                 effects: vec![Effect::DestroyTargetLand],
             },

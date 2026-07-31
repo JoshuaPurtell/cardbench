@@ -49,6 +49,7 @@ fn goblin_fire_fiend_activated_pump_uses_stack_and_expires() {
             source: fiend,
             ability_id: "pump-plus-one-power",
             sacrifice_sources: vec![],
+            discard_cards: vec![],
             targets: vec![],
         },
     )

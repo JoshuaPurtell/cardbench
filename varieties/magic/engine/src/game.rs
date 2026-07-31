@@ -1099,6 +1099,25 @@ impl Game {
                 ));
             }
         }
+        if activation.discard_cards.len() != usize::from(ability.discard_cards) {
+            return Err(RulesError::IllegalAction(
+                "activated ability discard selection count does not match its definition",
+            ));
+        }
+        let mut selected_discards = BTreeSet::new();
+        for card in &activation.discard_cards {
+            if !selected_discards.insert(*card) {
+                return Err(RulesError::IllegalAction(
+                    "an activated ability cannot discard the same card twice",
+                ));
+            }
+            self.require_zone(*card, Zone::Hand)?;
+            if self.object(*card)?.owner != player {
+                return Err(RulesError::IllegalAction(
+                    "an activated ability can discard only the activating player's card",
+                ));
+            }
+        }
         let mut paid_pool = self.players[player.0].mana_pool.clone();
         paid_pool
             .pay(&ability.mana_cost)
@@ -1127,6 +1146,14 @@ impl Game {
                 ability: ability.id,
                 mana_cost: ability.mana_cost.clone(),
             });
+        }
+        for card in &activation.discard_cards {
+            self.record_event(GameEvent::DiscardedAsAbilityCost {
+                player,
+                source: activation.source,
+                card: *card,
+            });
+            self.move_to_graveyard_or_remove_token(*card)?;
         }
         if ability.tap_cost {
             self.objects
@@ -2540,6 +2567,7 @@ impl Game {
         self.validate_stack_terminal_event_order()?;
         self.validate_ability_event_order()?;
         Self::validate_triggered_ability_event_order(&self.event_log)?;
+        self.validate_ability_discard_cost_event_order()?;
         if self.started && !self.is_game_over() && !self.step.grants_priority() {
             return Err(RulesError::IllegalAction(
                 "an automatic turn step remained stable with player priority",
@@ -5432,6 +5460,74 @@ impl Game {
             return Err(RulesError::IllegalAction(
                 "ability activation and terminal receipts disagree with the live stack",
             ));
+        }
+        Ok(())
+    }
+
+    /// Audits explicit discard costs independently from stack lifecycle
+    /// receipts. A discard is a cost receipt, not an ability effect: it must
+    /// move an owned hand card immediately to the graveyard and precede the
+    /// matching activation receipt for a binding that actually requires it.
+    fn validate_ability_discard_cost_event_order(&self) -> Result<(), RulesError> {
+        for (index, event) in self.event_log.iter().enumerate() {
+            let GameEvent::DiscardedAsAbilityCost {
+                player,
+                source,
+                card,
+            } = event
+            else {
+                continue;
+            };
+            if !matches!(
+                self.event_log.get(index + 1),
+                Some(GameEvent::CardMoved {
+                    card: moved,
+                    to: Zone::Graveyard,
+                }) if moved == card
+            ) {
+                return Err(RulesError::IllegalAction(
+                    "discard-cost receipt is not followed by a graveyard move",
+                ));
+            }
+            let object = self.object(*card)?;
+            if object.owner != *player {
+                return Err(RulesError::IllegalAction(
+                    "discard-cost receipt names a card not owned by its payer",
+                ));
+            }
+            let source_definition =
+                self.object(*source)?
+                    .definition
+                    .ok_or(RulesError::IllegalAction(
+                        "discard-cost receipt names a token source",
+                    ))?;
+            let ability_id = self
+                .event_log
+                .iter()
+                .skip(index + 1)
+                .find_map(|event| match event {
+                    GameEvent::AbilityActivated {
+                        source: activated_source,
+                        ability,
+                        ..
+                    } if activated_source == source => Some(*ability),
+                    _ => None,
+                })
+                .ok_or(RulesError::IllegalAction(
+                    "discard-cost receipt has no matching ability activation",
+                ))?;
+            let ability = self
+                .activated_abilities
+                .get(source_definition)
+                .and_then(|abilities| abilities.get(ability_id))
+                .ok_or(RulesError::IllegalAction(
+                    "discard-cost receipt names an unbound ability",
+                ))?;
+            if ability.discard_cards == 0 {
+                return Err(RulesError::IllegalAction(
+                    "discard-cost receipt names an ability without a discard cost",
+                ));
+            }
         }
         Ok(())
     }
