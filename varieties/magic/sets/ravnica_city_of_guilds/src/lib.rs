@@ -35,7 +35,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 73] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 74] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -98,6 +98,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 73] = [
     "RAV-FRENZIED-GOBLIN",
     "RAV-SPARKMAGE-APPRENTICE",
     "RAV-HUNTED-DRAGON",
+    "RAV-KEENING-BANSHEE",
     "RAV-RAZIA-BOROS-ARCHANGEL",
     "RAV-HAMMERFIST-GIANT",
     "RAV-INCITE-HYSTERIA",
@@ -390,6 +391,30 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             power: Some(7),
             toughness: Some(7),
             keywords: vec![Keyword::Trample],
+            effects: vec![],
+        },
+        // Full fidelity: normal colored-cost casting, base characteristics,
+        // Flying, and the targeted ETB -2/-2 modifier all use the normal
+        // stack, target legality, and continuous-effect substrate.
+        CardDefinition {
+            id: "RAV-KEENING-BANSHEE",
+            name: "Keening Banshee",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(2, [Color::Black, Color::Black]),
+            colors: colors([Color::Black]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "flying",
+                "enter-battlefield-targeted-minus-two-minus-two",
+            ],
+            power: Some(2),
+            toughness: Some(2),
+            keywords: vec![Keyword::Flying],
             effects: vec![],
         },
         // Full fidelity: the typed artifact target is destroyed during
@@ -3061,6 +3086,20 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
             },
         },
         TriggeredAbilityBinding {
+            card_definition: "RAV-KEENING-BANSHEE",
+            ability: TriggeredAbility {
+                id: "etb-target-minus-two",
+                condition: TriggerCondition::EntersBattlefield,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![cardbench_magic_engine::TargetRequirement::Creature],
+                effects: vec![Effect::ModifyTargetPtUntilEndOfTurn {
+                    power: -2,
+                    toughness: -2,
+                }],
+            },
+        },
+        TriggeredAbilityBinding {
             card_definition: "RAV-FLAME-KIN-ZEALOT",
             ability: TriggeredAbility {
                 id: "etb-team-pump-haste",
@@ -3870,7 +3909,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 123);
+        assert_eq!(first.len(), 124);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

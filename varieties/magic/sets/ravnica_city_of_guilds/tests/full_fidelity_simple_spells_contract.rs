@@ -73,6 +73,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-FRENZIED-GOBLIN",
             "RAV-SPARKMAGE-APPRENTICE",
             "RAV-HUNTED-DRAGON",
+            "RAV-KEENING-BANSHEE",
             "RAV-RAZIA-BOROS-ARCHANGEL",
             "RAV-HAMMERFIST-GIANT",
             "RAV-INCITE-HYSTERIA",

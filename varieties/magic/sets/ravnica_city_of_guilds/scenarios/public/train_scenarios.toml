@@ -6563,6 +6563,123 @@ event_markers = ["SpellCast", "SpellResolved", "TriggeredAbilityStacked", "Token
 digest = "fnv1a64:bee1157cb84b6e57"
 
 [[scenario]]
+id = "rav_keening_banshee_etb_modifier"
+seed = 60
+description = "Cast Keening Banshee, stack its target-bearing ETB ability, and resolve the target creature's temporary -2/-2 modifier."
+triggers = true
+
+[[scenario.card]]
+label = "banshee"
+owner = 0
+definition = "RAV-KEENING-BANSHEE"
+zone = "hand"
+
+[[scenario.card]]
+label = "target"
+owner = 1
+definition = "RAV-WATCHWOLF"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "swamp1"
+owner = 0
+definition = "RAV-SWAMP"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "swamp2"
+owner = 0
+definition = "RAV-SWAMP"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "swamp3"
+owner = 0
+definition = "RAV-SWAMP"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "swamp4"
+owner = 0
+definition = "RAV-SWAMP"
+zone = "battlefield"
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "swamp1"
+color = "black"
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "swamp2"
+color = "black"
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "swamp3"
+color = "black"
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "swamp4"
+color = "black"
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "banshee"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["banshee:battlefield", "target:battlefield", "swamp1:battlefield", "swamp2:battlefield", "swamp3:battlefield", "swamp4:battlefield"]
+powers = ["banshee:2", "target:1"]
+toughnesses = ["banshee:2", "target:1"]
+stack_size = 0
+priority = 0
+mana = ["0:black:0"]
+event_markers = ["SpellCast", "SpellResolved", "TriggeredAbilityStacked", "ContinuousEffectCreated", "AbilityResolved"]
+digest = "fnv1a64:e8d8ac54c1e8b438"
+
+[[scenario]]
 id = "rav_undercity_shade_black_evasion_compatibility"
 seed = 51
 description = "Declare Undercity Shade as a black-only evasion attacker, then reject a nonblack creature's block declaration; its temporary power activation remains unsupported."
