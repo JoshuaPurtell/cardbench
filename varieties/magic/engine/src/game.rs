@@ -1728,6 +1728,9 @@ impl Game {
                 || (object.entered_turn >= self.turn && !has_haste)
                 || !characteristics.card_types.contains(&CardType::Creature)
                 || characteristics.keywords.contains(&Keyword::Defender)
+                || characteristics
+                    .keywords
+                    .contains(&Keyword::CannotAttackOrBlock)
             {
                 return Err(RulesError::IllegalAction("illegal attacker"));
             }
@@ -1828,6 +1831,9 @@ impl Game {
             if object.controller != player
                 || object.tapped
                 || !characteristics.card_types.contains(&CardType::Creature)
+                || characteristics
+                    .keywords
+                    .contains(&Keyword::CannotAttackOrBlock)
             {
                 return Err(RulesError::IllegalAction("illegal blocker"));
             }
@@ -1863,7 +1869,12 @@ impl Game {
                 let Ok(characteristics) = self.characteristics(*candidate) else {
                     return false;
                 };
-                if object.tapped || !characteristics.card_types.contains(&CardType::Creature) {
+                if object.tapped
+                    || !characteristics.card_types.contains(&CardType::Creature)
+                    || characteristics
+                        .keywords
+                        .contains(&Keyword::CannotAttackOrBlock)
+                {
                     return false;
                 }
                 if combat.flying_attackers.contains(attacker)

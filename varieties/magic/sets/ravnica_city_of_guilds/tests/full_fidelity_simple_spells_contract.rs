@@ -59,6 +59,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-VIASHINO-FANGTAIL",
             "RAV-BOROS-GUILDMAGE",
             "RAV-WOJEK-EMBERMAGE",
+            "RAV-THUNDERSONG-TRUMPETER",
         ]
     );
     let definitions = card_definitions();
