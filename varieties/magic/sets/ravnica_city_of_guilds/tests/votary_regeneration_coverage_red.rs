@@ -22,10 +22,7 @@ fn votary_requires_regeneration_instead_of_a_false_vigilance_promotion() {
         [CardType::Creature].into_iter().collect()
     );
     assert!(
-        votary
-            .supported_rules
-            .iter()
-            .any(|rule| *rule == "regeneration"),
+        votary.supported_rules.contains(&"regeneration"),
         "Votary's activated regeneration ability is missing from supported_rules"
     );
     assert!(
