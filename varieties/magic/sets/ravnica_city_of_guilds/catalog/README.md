@@ -201,7 +201,9 @@ power/toughness. Their card-specific activated, triggered, evasion, token, and
 combat behavior is intentionally unsupported. Four public cast-and-resolve
 scenarios cover exact single-, double-, and multicolored payment, stack
 resolution, graveyard movement, and retained base P/T; they do not assert any
-omitted abilities.
+omitted abilities. Goblin Fire Fiend is a later static-keyword exception: its
+Haste and same-turn attack are covered, while its must-block restriction and
+activated power boost remain bounded.
 
 The focused noncreature spell batch promotes Ribbons of Night, Dogpile, and
 Overwhelm as ability-complete

@@ -6531,6 +6531,73 @@ event_markers = ["AttackersDeclared", "BlockersDeclared"]
 digest = "fnv1a64:81bd238f5dee061d"
 
 [[scenario]]
+id = "rav_goblin_fire_fiend_haste_compatibility"
+seed = 0
+description = "Cast Goblin Fire Fiend with typed RAV lands, then declare it as a same-turn Haste attacker; its must-block and pump abilities remain bounded."
+
+[[scenario.card]]
+label = "mountain"
+owner = 0
+definition = "RAV-MOUNTAIN"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "forest"
+owner = 0
+definition = "RAV-FOREST"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "plains"
+owner = 0
+definition = "RAV-PLAINS"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "island"
+owner = 0
+definition = "RAV-ISLAND"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "fiend"
+owner = 0
+definition = "RAV-GOBLIN-FIRE-FIEND"
+zone = "hand"
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "fiend"
+payment_mana = ["mountain:basic-land", "forest:basic-land", "plains:basic-land", "island:basic-land"]
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "declare_attackers"
+player = 0
+attackers = ["fiend"]
+
+[scenario.expected]
+zones = ["mountain:battlefield", "forest:battlefield", "plains:battlefield", "island:battlefield", "fiend:battlefield"]
+powers = ["fiend:1"]
+toughnesses = ["fiend:1"]
+tapped = ["mountain:true", "forest:true", "plains:true", "island:true", "fiend:true"]
+mana = ["0:red:0", "0:green:0", "0:white:0", "0:blue:0"]
+mana_receipts = ["0:red:1", "0:green:1", "0:white:1", "0:blue:1"]
+stack_size = 0
+priority = 0
+event_markers = ["CastPaymentBasicLandManaAbilityActivated", "SpellCast", "SpellResolved", "AttackersDeclared"]
+event_absent = ["BlockersDeclared"]
+digest = "fnv1a64:966f0757a8d36c88"
+
+[[scenario]]
 id = "rav_tattered_drake_flying_compatibility"
 seed = 45
 description = "Declare Tattered Drake as a Flying attacker, then reject a ground creature's block declaration; its regeneration activation remains unsupported."

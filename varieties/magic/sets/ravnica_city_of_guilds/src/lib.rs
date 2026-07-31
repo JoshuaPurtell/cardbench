@@ -1625,17 +1625,25 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             7,
             7,
         ),
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed haste, attack restriction, and
-        // temporary power activation are deliberately omitted from this slice.
-        bounded_creature_chassis(
-            "RAV-GOBLIN-FIRE-FIEND",
-            "Goblin Fire Fiend",
-            ManaCost::with_colors(3, [Color::Red]),
-            colors([Color::Red]),
-            1,
-            1,
-        ),
+        // Compatibility scope: normal colored-cost creature casting, base
+        // characteristics, and Haste. Its must-block restriction and activated
+        // power boost remain deliberately unsupported, so this is not a
+        // full-fidelity card.
+        CardDefinition {
+            id: "RAV-GOBLIN-FIRE-FIEND",
+            name: "Goblin Fire Fiend",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(3, [Color::Red]),
+            colors: colors([Color::Red]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &["colored-cost-casting", "base-characteristics", "haste"],
+            power: Some(1),
+            toughness: Some(1),
+            keywords: vec![Keyword::Haste],
+            effects: vec![],
+        },
         // Compatibility scope: normal colored-cost creature casting and base
         // characteristics only. Its printed death damage trigger is
         // deliberately omitted from this compatibility slice.
