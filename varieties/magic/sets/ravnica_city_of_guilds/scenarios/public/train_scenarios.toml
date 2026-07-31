@@ -5453,6 +5453,122 @@ event_absent = ["SpellCast", "SpellResolved", "PriorityPassed"]
 digest = "fnv1a64:2ebe6d7e14855cd8"
 
 [[scenario]]
+id = "rav_nightguard_patrol_keywords"
+seed = 0
+description = "Cast Nightguard Patrol with its exact colored cost, then verify vigilance leaves its first-strike combat attacker untapped while a normal blocker is removed before normal damage."
+
+[[scenario.card]]
+label = "cast_patrol"
+owner = 0
+definition = "RAV-NIGHTGUARD-PATROL"
+zone = "hand"
+
+[[scenario.card]]
+label = "attacker"
+owner = 0
+definition = "RAV-NIGHTGUARD-PATROL"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.card]]
+label = "blocker"
+owner = 1
+definition = "RAV-FRENZIED-GOBLIN"
+zone = "battlefield"
+
+[[scenario.mana]]
+player = 0
+color = "white"
+amount = 3
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "cast_patrol"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "declare_attackers"
+player = 0
+attackers = ["attacker"]
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "declare_blockers"
+player = 1
+attackers = ["attacker:blocker"]
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["cast_patrol:battlefield", "attacker:battlefield", "blocker:graveyard"]
+powers = ["cast_patrol:2", "attacker:2"]
+toughnesses = ["cast_patrol:1", "attacker:1"]
+tapped = ["attacker:false"]
+mana = ["0:white:0"]
+stack_size = 0
+priority = 0
+event_markers = ["SpellCast", "FirstStrikeCombatDamage", "DamageDealtToPermanent"]
+event_absent = ["source: ObjectId(3)"]
+digest = "fnv1a64:9c23b1d2141a782f"
+
+[[scenario]]
 id = "rav_basic_land_cast_payment"
 seed = 0
 description = "Use two typed RAV basic lands while paying one colored spell cost, then preserve ordered intrinsic receipts through stack resolution."

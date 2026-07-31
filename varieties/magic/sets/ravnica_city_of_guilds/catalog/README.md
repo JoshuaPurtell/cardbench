@@ -42,7 +42,8 @@ an executable compatibility definition remain subject to that definition's
 
 `RAV_FULL_FIDELITY_DEFINITION_IDS` is a deliberately small positive manifest,
 not an inference from executable status. Char, Lightning Helix, Scatter the
-Seeds, Guardian of Vitu-Ghazi, Last Gasp, Elves of Deep Shadow, Boros Recruit, Watchwolf, Glass Golem,
+Seeds, Guardian of Vitu-Ghazi, Last Gasp, Elves of Deep Shadow, Boros Recruit,
+Nightguard Patrol, Watchwolf, Glass Golem,
 Cleansing Beam, Rally the Righteous, Wojek Siren, Rain of Embers, Dogpile,
 Overwhelm, Gather Courage, Seeds of Strength, Darkblast, Greater Mossdog, the
 four RAV Signets, and the five RAV basic lands are listed only after an
@@ -130,6 +131,12 @@ embed card rules text, art, flavor text, or upstream JSON. Watchwolf and Glass
 Golem are the positive vanilla-card examples and are in the full-fidelity
 manifest: their public printed functional rules fields are empty, so normal
 casting and their characteristics complete their represented functionality.
+Nightguard Patrol is the positive keyword-creature example: its public RAV
+record [#26](https://scryfall.com/card/rav/26/nightguard-patrol) was checked on
+2026-07-30 for identity, cost, color, type, base power/toughness, and its two
+generic combat keywords. The expansion-neutral first-strike and vigilance
+substrates, direct Rust contract, and public event trace represent both
+functional rules; the source response and card prose were not retained.
 Birds of Paradise is separately bounded to
 normal casting, base characteristics, and a CardBench-authored binding to the
 engine's generic tap-and-single-color-choice mana-ability substrate; no other

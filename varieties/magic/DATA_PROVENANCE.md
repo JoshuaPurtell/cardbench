@@ -111,6 +111,11 @@ hash and reproduction details.
   corroborated by the RAV inventory. The checked fields were identity, set,
   collector number, mana cost, type, power, toughness, and whether the public
   rules field was empty. The response and any card text remain uncommitted.
+- The Nightguard Patrol fidelity check was performed on 2026-07-30 against its
+  public [RAV printing record](https://scryfall.com/card/rav/26/nightguard-patrol).
+  It retained only identity, set, collector number, mana cost, color, type,
+  base power/toughness, and the presence of the two represented generic combat
+  keywords. The source response, card prose, art, and JSON remain uncommitted.
 - The creature-chassis compatibility facts were checked on 2026-07-30 against
   public [Scryfall named-card responses](https://api.scryfall.com/cards/named)
   and corroborated with the RAV catalog. Only identity, set, collector number,
