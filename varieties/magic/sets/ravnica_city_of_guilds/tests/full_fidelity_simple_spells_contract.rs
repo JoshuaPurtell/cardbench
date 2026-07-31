@@ -81,6 +81,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-SEISMIC-SPIKE",
             "RAV-SMASH",
             "RAV-SUNDERING-VITAE",
+            "RAV-RECOLLECT",
         ]
     );
     let definitions = card_definitions();
@@ -174,6 +175,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-SUNDERING-VITAE",
             vec![Effect::DestroyTargetArtifactOrEnchantment],
         ),
+        ("RAV-RECOLLECT", vec![Effect::ReturnTargetCardToHand]),
     ];
     for (id, effects) in exact {
         let definition = definitions

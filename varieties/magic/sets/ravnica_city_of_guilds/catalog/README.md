@@ -51,8 +51,10 @@ four RAV Signets, the five RAV basic lands, Conclave Equenaut, Snapping Drake,
 Goliath Spider, Courier Hawk, Skyknight Legionnaire, Birds of Paradise, and
 Fiery Conclusion, Ribbons of Night, and Smash are listed only after an
 ability-by-ability contract proves their complete represented behavior and
-public receipt traces. Sundering Vitae is now included after the typed
-artifact-or-enchantment target and destruction receipt contract. The radiance entries were
+public receipt traces. Sundering Vitae and Recollect are now included after
+their typed target and zone-transition contracts: Sundering Vitae's
+artifact-or-enchantment destruction receipt and Recollect's controller-scoped
+graveyard-return receipt. The radiance entries were
 checked against their public set identity and the official Comprehensive Rules'
 target, resolution, damage, continuous-effect, and state-based-action rules;
 this repository retains only CardBench-authored semantic operations, never card

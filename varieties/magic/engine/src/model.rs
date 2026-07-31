@@ -665,6 +665,10 @@ pub enum TargetRequirement {
     /// names the narrow RAV counterspell slice instead of claiming support for
     /// arbitrary abilities or every kind of spell target.
     InstantOrSorcerySpell,
+    /// A card in the resolving spell controller's graveyard. The controller
+    /// qualification stays in `Game` so this target remains reusable by other
+    /// expansions.
+    OwnGraveyardCard,
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -915,6 +919,9 @@ pub enum Effect {
     /// rechecked as this instruction resolves, then changes zones using the
     /// ordinary destruction lifecycle.
     DestroyTargetArtifactOrEnchantment,
+    /// Return the targeted card from the resolving spell controller's
+    /// graveyard to that player's hand.
+    ReturnTargetCardToHand,
     /// Move one targeted creature from the battlefield to its owner's exile
     /// zone.  This is a zone-change instruction rather than lethal damage, so
     /// it bypasses regeneration and preserves the target's normal
@@ -956,6 +963,7 @@ impl Effect {
             Self::DestroyTargetArtifactOrEnchantment => {
                 Some(TargetRequirement::ArtifactOrEnchantment)
             }
+            Self::ReturnTargetCardToHand => Some(TargetRequirement::OwnGraveyardCard),
             Self::CounterTargetInstantOrSorcerySpell => {
                 Some(TargetRequirement::InstantOrSorcerySpell)
             }

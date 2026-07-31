@@ -35,7 +35,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 70] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 71] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -106,6 +106,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 70] = [
     "RAV-SEISMIC-SPIKE",
     "RAV-SMASH",
     "RAV-SUNDERING-VITAE",
+    "RAV-RECOLLECT",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -960,6 +961,23 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             toughness: None,
             keywords: vec![Keyword::Convoke],
             effects: vec![Effect::DestroyTargetArtifactOrEnchantment],
+        },
+        // Full fidelity: this target is controller-scoped at both cast and
+        // resolution, then moves through the normal hand-zone lifecycle.
+        CardDefinition {
+            id: "RAV-RECOLLECT",
+            name: "Recollect",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(2, [Color::Green]),
+            colors: colors([Color::Green]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Sorcery]),
+            is_basic_land: false,
+            supported_rules: &["full-rules-fidelity", "targeted-own-graveyard-return"],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![Effect::ReturnTargetCardToHand],
         },
         // Public RAV verification establishes that this is a vanilla creature:
         // there is no printed functional ability omitted from this definition.

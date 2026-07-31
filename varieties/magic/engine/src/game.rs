@@ -3702,6 +3702,7 @@ impl Game {
                 | Effect::DestroyTargetLand
                 | Effect::DestroyTargetArtifact
                 | Effect::DestroyTargetArtifactOrEnchantment
+                | Effect::ReturnTargetCardToHand
                 | Effect::ModifyControllerCreaturesPtUntilEndOfTurn { .. }
                 | Effect::RadianceUntapAndModifyUntilEndOfTurn { .. }
                 | Effect::RadianceModifyPtUntilEndOfTurn { .. }
@@ -3749,7 +3750,9 @@ impl Game {
         // earlier instruction can legally remove a later repeated target.
         // The model-owned plan preserves repeated targets as independent slots.
         let plan = stack_object
-            .resolution_plan(|target, requirement| self.target_matches(target, requirement))
+            .resolution_plan(|target, requirement| {
+                self.target_matches_for_controller(stack_object.controller, target, requirement)
+            })
             .map_err(|_| RulesError::IllegalAction("stack object has an invalid target count"))?;
         if matches!(plan, StackResolutionPlan::CounteredByRules) {
             if let Some(ability) = stack_object.ability_id {
@@ -4943,6 +4946,17 @@ impl Game {
                 });
                 self.move_to_graveyard_or_remove_token(target)?;
             }
+            Effect::ReturnTargetCardToHand => {
+                let target = Self::target_permanent(target)?;
+                if !self.target_matches_for_controller(
+                    controller,
+                    Target::Permanent(target),
+                    TargetRequirement::OwnGraveyardCard,
+                ) {
+                    return Err(RulesError::IllegalTarget(Target::Permanent(target)));
+                }
+                self.move_to_zone(target, Zone::Hand)?;
+            }
         }
         Ok(())
     }
@@ -5052,6 +5066,9 @@ impl Game {
                             || characteristics.card_types.contains(&CardType::Enchantment)
                     })
             }
+            (Target::Permanent(card), TargetRequirement::OwnGraveyardCard) => {
+                self.zone_of(card) == Some(Zone::Graveyard)
+            }
             (Target::Spell(card), TargetRequirement::InstantOrSorcerySpell) => {
                 self.stack
                     .iter()
@@ -5063,6 +5080,24 @@ impl Game {
             }
             _ => false,
         }
+    }
+
+    /// Extends target legality with controller-scoped requirements. Keeping
+    /// this separate from the general target predicate lets stack validation
+    /// retain the original controller even after the source changes zones.
+    fn target_matches_for_controller(
+        &self,
+        controller: PlayerId,
+        target: Target,
+        requirement: TargetRequirement,
+    ) -> bool {
+        self.target_matches(target, requirement)
+            && match (target, requirement) {
+                (Target::Permanent(card), TargetRequirement::OwnGraveyardCard) => self
+                    .object(card)
+                    .is_ok_and(|object| object.owner == controller),
+                _ => true,
+            }
     }
 
     /// Checks the target variant that could have been selected at cast time,
@@ -5085,6 +5120,7 @@ impl Game {
                     | TargetRequirement::Land
                     | TargetRequirement::Artifact
                     | TargetRequirement::ArtifactOrEnchantment
+                    | TargetRequirement::OwnGraveyardCard
                     | TargetRequirement::PlayerOrCreature
             ) | (Target::Spell(_), TargetRequirement::InstantOrSorcerySpell)
         )
