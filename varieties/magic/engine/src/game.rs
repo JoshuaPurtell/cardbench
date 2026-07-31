@@ -1734,6 +1734,7 @@ impl Game {
     /// Performs the turn-based action of assigning zero or more blockers to
     /// each attacker. The declaration order is retained for bounded damage
     /// assignment and event-log replay.
+    #[allow(clippy::too_many_lines)] // Declaration validates every blocker restriction atomically.
     pub fn declare_blockers(
         &mut self,
         player: PlayerId,
