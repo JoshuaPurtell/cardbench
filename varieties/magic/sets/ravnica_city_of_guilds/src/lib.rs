@@ -1782,17 +1782,25 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed defender and prevention activation
-        // are deliberately omitted from this compatibility slice.
-        bounded_creature_chassis(
-            "RAV-BENEVOLENT-ANCESTOR",
-            "Benevolent Ancestor",
-            ManaCost::with_colors(2, [Color::White]),
-            colors([Color::White]),
-            0,
-            4,
-        ),
+        // Compatibility scope: normal colored-cost creature casting, base
+        // characteristics, and Defender. Its damage-prevention activation
+        // remains deliberately unsupported, so this is not a full-fidelity
+        // card.
+        CardDefinition {
+            id: "RAV-BENEVOLENT-ANCESTOR",
+            name: "Benevolent Ancestor",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(2, [Color::White]),
+            colors: colors([Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &["colored-cost-casting", "base-characteristics", "defender"],
+            power: Some(0),
+            toughness: Some(4),
+            keywords: vec![Keyword::Defender],
+            effects: vec![],
+        },
         // Compatibility scope: normal colored-cost creature casting and base
         // characteristics only. Its printed evasion and death-triggered
         // behavior are deliberately omitted from this compatibility slice.
