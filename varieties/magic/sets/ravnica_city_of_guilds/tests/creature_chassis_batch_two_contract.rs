@@ -47,14 +47,6 @@ fn second_creature_chassis_batch_is_exactly_bounded_to_public_base_facts() {
             4,
         ),
         (
-            "RAV-GOLIATH-SPIDER",
-            "Goliath Spider",
-            ManaCost::with_colors(6, [Color::Green, Color::Green]),
-            BTreeSet::from([Color::Green]),
-            7,
-            6,
-        ),
-        (
             "RAV-IVY-DANCER",
             "Ivy Dancer",
             ManaCost::with_colors(2, [Color::Green]),

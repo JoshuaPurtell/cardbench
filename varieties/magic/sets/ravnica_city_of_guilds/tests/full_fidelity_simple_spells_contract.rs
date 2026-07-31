@@ -40,6 +40,10 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-SWAMP",
             "RAV-MOUNTAIN",
             "RAV-FOREST",
+            "RAV-CONCLAVE-EQUENAUT",
+            "RAV-SNAPPING-DRAKE",
+            "RAV-GOLIATH-SPIDER",
+            "RAV-COURIER-HAWK",
         ]
     );
     let definitions = card_definitions();

@@ -71,7 +71,7 @@ explicitly scoped compatibility slices.
 RAV shown scenarios are fixture-driven from
 `sets/ravnica_city_of_guilds/scenarios/public/train_scenarios.toml`; each declares
 setup, actions, state assertions, event markers, and a fixed digest. The
-current corpus contains 90 scenarios and covers:
+current corpus contains 93 scenarios and covers:
 
 - casting to the stack and both-player priority passes (`Lightning Helix`);
 - colored-cost creature casting and permanent characteristics (`Watchwolf`);
@@ -92,10 +92,13 @@ current corpus contains 90 scenarios and covers:
 - declared generic Dredge/Convoke compatibility slices with fixed event logs;
   these cover only the named shared keyword plus normal casting/base
   characteristics, never omitted printed behavior (`Golgari Grave-Troll`,
-  `Necroplasm`, `Grave-Shell Scarab`, `Shambling Shell`, `Conclave Equenaut`,
-  `Conclave Phalanx`, and `Autochthon Wurm`);
+  `Necroplasm`, `Grave-Shell Scarab`, `Shambling Shell`, `Conclave Phalanx`,
+  and `Autochthon Wurm`);
 - a full-fidelity Convoke creature with typed vigilance combat behavior
   (`Guardian of Vitu-Ghazi`);
+- full-fidelity Flying/Reach blocker declaration and Flying/Vigilance attacker
+  declaration (`Conclave Equenaut`, `Snapping Drake`, `Goliath Spider`, and
+  `Courier Hawk`);
 - a target-instant-or-sorcery stack counter plus transmute, equal mana-value
   search, public reveal receipt, optional no-result search, and seeded
   deterministic shuffle (`Muddle the Mixture`). Its activated ability remains
