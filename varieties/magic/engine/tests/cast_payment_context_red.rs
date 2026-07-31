@@ -7,9 +7,9 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    ActivatedManaAbility, CardDefinition, CardType, CastRequest, Color, Game, GameEvent,
-    ManaAbilityActivation, ManaAbilityBinding, ManaAbilityOutput, ManaBundle, ManaCost, PlayerId,
-    RulesError, Zone,
+    ActivatedManaAbility, CardDefinition, CardType, CastPaymentManaAbility, CastRequest, Color,
+    Game, GameEvent, ManaAbilityActivation, ManaAbilityBinding, ManaAbilityOutput, ManaBundle,
+    ManaCost, PlayerId, RulesError, Zone,
 };
 
 const SIGNET: &str = "TEST-CAST-PAYMENT-SIGNET";
@@ -79,11 +79,13 @@ fn paid_bundle_mana_ability_can_pay_a_spell_cost_without_pre_floating() {
                 card: spell,
                 targets: vec![],
                 convoke: vec![],
-                payment_mana_abilities: vec![ManaAbilityActivation {
-                    source,
-                    ability_id: "two-color-bundle",
-                    chosen_color: None,
-                }],
+                payment_mana_abilities: vec![CastPaymentManaAbility::Bound(
+                    ManaAbilityActivation {
+                        source,
+                        ability_id: "two-color-bundle",
+                        chosen_color: None,
+                    },
+                )],
             },
         )
         .is_ok(),
@@ -164,11 +166,13 @@ fn failed_final_spell_payment_restores_all_payment_context_state() {
                 card: spell,
                 targets: vec![],
                 convoke: vec![],
-                payment_mana_abilities: vec![ManaAbilityActivation {
-                    source,
-                    ability_id: "two-color-bundle",
-                    chosen_color: None,
-                }],
+                payment_mana_abilities: vec![CastPaymentManaAbility::Bound(
+                    ManaAbilityActivation {
+                        source,
+                        ability_id: "two-color-bundle",
+                        chosen_color: None,
+                    },
+                )],
             },
         ),
         Err(RulesError::Mana("missing generic mana".to_owned()))
@@ -215,16 +219,16 @@ fn ordered_payment_activations_can_spend_earlier_mana_output() {
             targets: vec![],
             convoke: vec![],
             payment_mana_abilities: vec![
-                ManaAbilityActivation {
+                CastPaymentManaAbility::Bound(ManaAbilityActivation {
                     source: first_source,
                     ability_id: "two-color-bundle",
                     chosen_color: None,
-                },
-                ManaAbilityActivation {
+                }),
+                CastPaymentManaAbility::Bound(ManaAbilityActivation {
                     source: second_source,
                     ability_id: "two-color-bundle",
                     chosen_color: None,
-                },
+                }),
             ],
         },
     )
@@ -288,16 +292,16 @@ fn failed_later_payment_activation_restores_earlier_payment_context_state() {
                 targets: vec![],
                 convoke: vec![],
                 payment_mana_abilities: vec![
-                    ManaAbilityActivation {
+                    CastPaymentManaAbility::Bound(ManaAbilityActivation {
                         source,
                         ability_id: "two-color-bundle",
                         chosen_color: None,
-                    },
-                    ManaAbilityActivation {
+                    }),
+                    CastPaymentManaAbility::Bound(ManaAbilityActivation {
                         source,
                         ability_id: "two-color-bundle",
                         chosen_color: None,
-                    },
+                    }),
                 ],
             },
         ),

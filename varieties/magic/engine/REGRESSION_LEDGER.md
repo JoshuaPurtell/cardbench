@@ -39,3 +39,20 @@ rules prose or private benchmark material.
   spell receipt, and rejects paid-bundle receipt sequences with missing or
   reordered cost/output records. The regression passes for both the legal
   cast and an intentionally unaffordable final spell payment.
+
+## MTG-CAST-003 — typed basic-land mana during spell payment
+
+- **Rule boundary:** Comprehensive Rules 106.1, 117.1b, 305.6, and 601.2g.
+- **Failure contract:**
+  `basic_land_cast_payment_red::typed_rav_basic_lands_can_pay_a_colored_spell_cost_inside_one_cast`.
+- **Observed failure:** the cast request can now state the two explicit typed
+  basic-land activations, but the engine rejects the first one with
+  `intrinsic basic-land mana abilities are unavailable while paying a spell cost`.
+  A RAV player therefore cannot complete an ordinary colored spell payment
+  from untapped typed lands without artificially pre-floating mana in a
+  separate action.
+- **Required repair:** preserve the typed, ordered source-and-color choices
+  inside the existing atomic cast-payment transaction; validate each land,
+  tap it, add exactly its intrinsic color, write causally ordered receipts,
+  and restore all changes if a later activation or final spell payment fails.
+- **Resolution:** pending.
