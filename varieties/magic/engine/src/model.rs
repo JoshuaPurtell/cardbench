@@ -600,6 +600,10 @@ pub enum Keyword {
     Fear,
     /// Can be blocked only by a black creature.
     BlackEvasion,
+    /// This creature cannot be declared as blocked. The game records the
+    /// attacker's declaration-time evasion provenance so a later continuous
+    /// effect cannot retroactively legalize an already-illegal block.
+    Unblockable,
     FirstStrike,
     /// This creature can attack and pay a tap cost on the turn it entered
     /// under its controller's control.

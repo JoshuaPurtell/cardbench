@@ -2603,6 +2603,34 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             ],
             effects: vec![],
         },
+        // Compatibility scope: normal creature casting, base characteristics,
+        // static unblockability, and the existing immediate hand-zone
+        // Transmute operation. The shared Transmute substrate deliberately
+        // remains outside the full-fidelity manifest because it has no stack
+        // object or response window for an activated ability.
+        CardDefinition {
+            id: "RAV-DIMIR-INFILTRATOR",
+            name: "Dimir Infiltrator",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(0, [Color::Blue, Color::Black]),
+            colors: colors([Color::Blue, Color::Black]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "colored-cost-casting",
+                "base-characteristics",
+                "unblockable",
+                "immediate-hand-zone-transmute-compatibility",
+            ],
+            power: Some(1),
+            toughness: Some(3),
+            keywords: vec![
+                Keyword::Unblockable,
+                Keyword::Transmute(ManaCost::with_colors(1, [Color::Blue, Color::Black])),
+            ],
+            effects: vec![],
+        },
         // Compatibility scope: normal colored-cost creature casting and base
         // characteristics only. Its printed evasion and hand-zone transmute
         // behavior are deliberately omitted from this compatibility slice.
@@ -3944,7 +3972,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 125);
+        assert_eq!(first.len(), 126);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

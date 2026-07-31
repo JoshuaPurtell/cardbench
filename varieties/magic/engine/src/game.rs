@@ -226,6 +226,10 @@ struct CombatState {
     fear_attackers: BTreeSet<ObjectId>,
     /// Attackers that had the RAV black-only evasion restriction when declared.
     black_evasion_attackers: BTreeSet<ObjectId>,
+    /// Attackers that could not be blocked when they were declared. This is
+    /// declaration provenance: a later continuous effect does not retroactively
+    /// make an earlier block legal.
+    unblockable_attackers: BTreeSet<ObjectId>,
     /// Attackers that were declared with vigilance. This is declaration
     /// provenance, not a live tapped-state assertion: a vigilant attacker can
     /// later pay a legal tap cost while it remains in combat.
@@ -1828,6 +1832,7 @@ impl Game {
         let mut flying_attackers = BTreeSet::new();
         let mut fear_attackers = BTreeSet::new();
         let mut black_evasion_attackers = BTreeSet::new();
+        let mut unblockable_attackers = BTreeSet::new();
         let mut vigilant_attackers = BTreeSet::new();
         let mut trampling_attackers = BTreeSet::new();
         let mut must_be_blocked_attackers = BTreeSet::new();
@@ -1863,6 +1868,9 @@ impl Game {
             if characteristics.keywords.contains(&Keyword::BlackEvasion) {
                 black_evasion_attackers.insert(*attacker);
             }
+            if characteristics.keywords.contains(&Keyword::Unblockable) {
+                unblockable_attackers.insert(*attacker);
+            }
             if characteristics.keywords.contains(&Keyword::Vigilance) {
                 vigilant_attackers.insert(*attacker);
             }
@@ -1897,6 +1905,7 @@ impl Game {
         combat.flying_attackers = flying_attackers;
         combat.fear_attackers = fear_attackers;
         combat.black_evasion_attackers = black_evasion_attackers;
+        combat.unblockable_attackers = unblockable_attackers;
         combat.vigilant_attackers = vigilant_attackers;
         combat.trampling_attackers = trampling_attackers;
         combat.must_be_blocked_attackers = must_be_blocked_attackers;
@@ -1955,6 +1964,11 @@ impl Game {
                 || !blockers.insert(assignment.blocker)
             {
                 return Err(RulesError::IllegalAction("invalid blocker assignment"));
+            }
+            if combat.unblockable_attackers.contains(&assignment.attacker) {
+                return Err(RulesError::IllegalAction(
+                    "unblockable attacker cannot be blocked",
+                ));
             }
             self.require_zone(assignment.blocker, Zone::Battlefield)?;
             let object = self.object(assignment.blocker)?;
@@ -2020,6 +2034,9 @@ impl Game {
         }
         for attacker in &combat.must_be_blocked_attackers {
             if attackers.contains(attacker) {
+                continue;
+            }
+            if combat.unblockable_attackers.contains(attacker) {
                 continue;
             }
             let has_legal_blocker = self.players[player.0].battlefield.iter().any(|candidate| {
@@ -3261,6 +3278,7 @@ impl Game {
                     || !combat.flying_attackers.is_empty()
                     || !combat.fear_attackers.is_empty()
                     || !combat.black_evasion_attackers.is_empty()
+                    || !combat.unblockable_attackers.is_empty()
                     || !combat.vigilant_attackers.is_empty()
                     || !combat.trampling_attackers.is_empty()
                     || !combat.must_be_blocked_attackers.is_empty()
@@ -3343,6 +3361,11 @@ impl Game {
                     "black-only evasion declaration provenance contains a nonattacker",
                 ));
             }
+            if !combat.unblockable_attackers.is_subset(&attackers) {
+                return Err(RulesError::IllegalAction(
+                    "unblockable declaration provenance contains a nonattacker",
+                ));
+            }
             if !combat.trampling_attackers.is_subset(&attackers) {
                 return Err(RulesError::IllegalAction(
                     "trample declaration provenance contains a nonattacker",
@@ -3361,6 +3384,11 @@ impl Game {
             for (attacker, blocker) in &combat.blockers {
                 if !attackers.contains(attacker) || !blockers.insert(*blocker) {
                     return Err(RulesError::IllegalAction("invalid combat blocker state"));
+                }
+                if combat.unblockable_attackers.contains(attacker) {
+                    return Err(RulesError::IllegalAction(
+                        "unblockable attacker has blocker provenance",
+                    ));
                 }
                 if self.zone_of(*blocker).is_some() {
                     self.object(*blocker)?;
@@ -6691,6 +6719,7 @@ impl Game {
                 combat.flying_attackers.clear();
                 combat.fear_attackers.clear();
                 combat.black_evasion_attackers.clear();
+                combat.unblockable_attackers.clear();
                 combat.vigilant_attackers.clear();
                 combat.trampling_attackers.clear();
                 combat.must_be_blocked_attackers.clear();

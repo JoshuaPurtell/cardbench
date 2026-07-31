@@ -365,7 +365,8 @@ Oracle Magic rules coverage.
   Flying accepts only a blocker that had Flying or Reach at blocker
   declaration; a creature declared with Fear accepts only a black or artifact
   blocker; and a creature declared with the RAV black-only evasion restriction
-  accepts only a black blocker. The combat state records each
+  accepts only a black blocker. A creature declared with `Unblockable` accepts
+  no blocker. The combat state records each
   declaration-time qualification so a later characteristic change cannot
   rewrite its legal history. If that defender leaves the game, the declared
   attackers are removed from combat rather than being retargeted to another
@@ -374,6 +375,9 @@ Oracle Magic rules coverage.
   damage cannot begin without both declarations. A participant may leave after
   declaration, so later combat bookkeeping preserves the declaration without
   dereferencing a vanished token.
+- `unblockable_attackers` is declaration provenance only: it is a subset of
+  the uniquely declared attackers and no blocker map entry may name one of
+  those attackers. A rejected block writes no `BlockersDeclared` receipt.
 - A target constrained to an attacking-or-blocking creature has the normal
   permanent target shape, but must additionally identify a battlefield
   creature present in the active combat's attacker or blocker provenance at
