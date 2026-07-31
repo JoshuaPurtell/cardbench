@@ -80,6 +80,8 @@ current corpus contains 88 scenarios and covers:
 - full-fidelity paid fixed-bundle artifact mana, including activation while
   paying a spell cost, atomic rollback, and ordered event receipts (the four
   RAV Signets);
+- typed but bounded basic-land lines and nonstack intrinsic mana receipts; the
+  cast-payment substrate does not yet activate intrinsic land abilities;
 - a one-mana, fully convoked targeted temporary boost (`Gather Courage`),
   including its complete printed behavior;
 - three independently targeted temporary modifiers, including partial
