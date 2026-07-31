@@ -75,6 +75,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-HAMMERFIST-GIANT",
             "RAV-SCREECHING-GRIFFIN",
             "RAV-SURGE-OF-ZEAL",
+            "RAV-SEISMIC-SPIKE",
             "RAV-SMASH",
         ]
     );
