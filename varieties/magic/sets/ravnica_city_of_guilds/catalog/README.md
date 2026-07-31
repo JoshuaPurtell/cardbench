@@ -47,7 +47,8 @@ Nightguard Patrol, Watchwolf, Glass Golem,
 Cleansing Beam, Rally the Righteous, Wojek Siren, Rain of Embers, Dogpile,
 Overwhelm, Gather Courage, Seeds of Strength, Darkblast, Greater Mossdog, the
 four RAV Signets, the five RAV basic lands, Conclave Equenaut, Snapping Drake,
-Goliath Spider, Courier Hawk, and Skyknight Legionnaire are listed only after an
+Goliath Spider, Courier Hawk, Skyknight Legionnaire, Birds of Paradise, and
+Fiery Conclusion are listed only after an
 ability-by-ability contract proves their complete represented behavior and
 public receipt traces. The radiance entries were
 checked against their public set identity and the official Comprehensive Rules'
@@ -139,10 +140,11 @@ record [#26](https://scryfall.com/card/rav/26/nightguard-patrol) was checked on
 generic combat keywords. The expansion-neutral first-strike and vigilance
 substrates, direct Rust contract, and public event trace represent both
 functional rules; the source response and card prose were not retained.
-Birds of Paradise is separately bounded to
-normal casting, base characteristics, and a CardBench-authored binding to the
-engine's generic tap-and-single-color-choice mana-ability substrate; no other
-card-specific behavior is represented.
+Birds of Paradise is a positive-manifest entry: Flying, normal creature
+characteristics, each explicit single-color choice, summoning-sickness
+rejection, and atomic cast-payment receipts have direct Rust contracts and
+shown traces. The retained material is CardBench-authored semantic data, not
+card rules text, art, flavor, or source JSON.
 
 ## Vanilla/chassis audit boundary
 

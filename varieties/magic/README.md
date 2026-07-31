@@ -71,12 +71,13 @@ explicitly scoped compatibility slices.
 RAV shown scenarios are fixture-driven from
 `sets/ravnica_city_of_guilds/scenarios/public/train_scenarios.toml`; each declares
 setup, actions, state assertions, event markers, and a fixed digest. The
-current corpus contains 94 scenarios and covers:
+current corpus contains 95 scenarios and covers:
 
 - casting to the stack and both-player priority passes (`Lightning Helix`);
 - colored-cost creature casting and permanent characteristics (`Watchwolf`);
-- a bounded tap-for-one-of-five-colors mana ability, including summoning-sickness
-  rejection and next-turn activation (`Birds of Paradise`);
+- full-fidelity Flying plus a tap-for-one-of-five-colors mana ability, including
+  summoning-sickness rejection, explicit choice during cast payment, and
+  ordered nonstack receipts (`Birds of Paradise`);
 - full-fidelity paid fixed-bundle artifact mana, including activation while
   paying a spell cost, atomic rollback, and ordered event receipts (the four
   RAV Signets);

@@ -540,9 +540,26 @@ fn parse_cast_payment_mana_ability(
     game: &Game,
     labels: &BTreeMap<String, ObjectId>,
 ) -> Result<CastPaymentManaAbility, String> {
-    let (label, requested_ability) = split_pair(entry, "cast payment mana ability")?;
+    let mut fields = entry.split(':');
+    let label = fields
+        .next()
+        .ok_or_else(|| format!("cast payment mana ability `{entry}` lacks a source"))?;
+    let requested_ability = fields
+        .next()
+        .ok_or_else(|| format!("cast payment mana ability `{entry}` lacks an ability identity"))?;
+    let chosen_color = fields.next().map(parse_color).transpose()?;
+    if fields.next().is_some() {
+        return Err(format!(
+            "cast payment mana ability `{entry}` has too many colon-separated fields"
+        ));
+    }
     let source = lookup(labels, label)?;
     if requested_ability == "basic-land" {
+        if chosen_color.is_some() {
+            return Err(format!(
+                "typed basic land cast payment `{entry}` must not supply a color choice"
+            ));
+        }
         let color = game
             .basic_land_type(source)
             .map_err(rules_error)?
@@ -570,7 +587,7 @@ fn parse_cast_payment_mana_ability(
     Ok(CastPaymentManaAbility::Bound(ManaAbilityActivation {
         source,
         ability_id,
-        chosen_color: None,
+        chosen_color,
     }))
 }
 
