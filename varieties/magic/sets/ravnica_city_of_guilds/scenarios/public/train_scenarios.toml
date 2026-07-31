@@ -3247,7 +3247,7 @@ digest = "fnv1a64:e78637d84b25b302"
 [[scenario]]
 id = "rav_easy_blue_black_creatures_wave_two"
 seed = 0
-description = "Cast Terraformer and Sewerdreg with exact blue and black costs, then verify only their base P/T. Their printed land-type, evasion, and regeneration behavior is deliberately omitted."
+description = "Cast Terraformer and Sewerdreg with exact blue and black costs, then verify only their base P/T. Terraformer's land-type behavior and Sewerdreg's regeneration remain omitted; Fear is exercised separately."
 
 [[scenario.card]]
 label = "terraformer"
@@ -3916,7 +3916,7 @@ digest = "fnv1a64:e78637d84b25b302"
 [[scenario]]
 id = "rav_guild_creature_chassis"
 seed = 0
-description = "Cast Loxodon Hierarch and Moroii with their exact guild costs, then verify only their base P/T. All printed card-specific behavior is deliberately omitted."
+description = "Cast Loxodon Hierarch and Moroii with their exact guild costs, then verify only their base P/T. Moroii's Flying is exercised separately; remaining card-specific behavior is deliberately omitted."
 
 [[scenario.card]]
 label = "hierarch"
@@ -4855,7 +4855,7 @@ digest = "fnv1a64:e78637d84b25b302"
 [[scenario]]
 id = "rav_shade_mob_creature_chassis"
 seed = 0
-description = "Cast Undercity Shade and Vindictive Mob with exact black costs, then verify only base P/T. Printed evasion, P/T activation, entry sacrifice, and blocking restriction are deliberately omitted."
+description = "Cast Undercity Shade and Vindictive Mob with exact black costs, then verify only base P/T. Undercity Shade's black-only evasion is exercised separately; its P/T activation and Vindictive Mob's remaining behavior are deliberately omitted."
 
 [[scenario.card]]
 label = "shade"
@@ -7747,6 +7747,176 @@ zones = ["imp:battlefield", "ground_blocker:battlefield"]
 powers = ["imp:1", "ground_blocker:3"]
 toughnesses = ["imp:2", "ground_blocker:3"]
 tapped = ["imp:true", "ground_blocker:false"]
+stack_size = 0
+priority = 0
+event_markers = ["AttackersDeclared"]
+event_absent = ["BlockersDeclared"]
+digest = "fnv1a64:1dcdb2289fdaa917"
+
+[[scenario]]
+id = "rav_moroii_flying_compatibility"
+seed = 49
+description = "Declare Moroii as a Flying attacker, then reject a ground creature's block declaration; its upkeep life-loss trigger remains unsupported."
+
+[[scenario.card]]
+label = "moroii"
+owner = 0
+definition = "RAV-MOROII"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.card]]
+label = "ground_blocker"
+owner = 1
+definition = "RAV-WATCHWOLF"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "declare_attackers"
+player = 0
+attackers = ["moroii"]
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "declare_blockers"
+player = 1
+attackers = ["moroii:ground_blocker"]
+expected_error = "flying attacker can be blocked only by flying or reach"
+
+[scenario.expected]
+zones = ["moroii:battlefield", "ground_blocker:battlefield"]
+powers = ["moroii:4", "ground_blocker:3"]
+toughnesses = ["moroii:4", "ground_blocker:3"]
+tapped = ["moroii:true", "ground_blocker:false"]
+stack_size = 0
+priority = 0
+event_markers = ["AttackersDeclared"]
+event_absent = ["BlockersDeclared"]
+digest = "fnv1a64:1dcdb2289fdaa917"
+
+[[scenario]]
+id = "rav_sewerdreg_fear_compatibility"
+seed = 48
+description = "Declare Sewerdreg as a Fear attacker, then reject a nonblack, nonartifact creature's block declaration; its regeneration activation remains unsupported."
+
+[[scenario.card]]
+label = "sewerdreg"
+owner = 0
+definition = "RAV-SEWERDREG"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.card]]
+label = "ground_blocker"
+owner = 1
+definition = "RAV-WATCHWOLF"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "declare_attackers"
+player = 0
+attackers = ["sewerdreg"]
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "declare_blockers"
+player = 1
+attackers = ["sewerdreg:ground_blocker"]
+expected_error = "fear attacker can be blocked only by black or artifact creatures"
+
+[scenario.expected]
+zones = ["sewerdreg:battlefield", "ground_blocker:battlefield"]
+powers = ["sewerdreg:3", "ground_blocker:3"]
+toughnesses = ["sewerdreg:3", "ground_blocker:3"]
+tapped = ["sewerdreg:true", "ground_blocker:false"]
 stack_size = 0
 priority = 0
 event_markers = ["AttackersDeclared"]
