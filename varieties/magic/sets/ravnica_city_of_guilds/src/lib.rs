@@ -1869,18 +1869,35 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             2,
             3,
         ),
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed defender, entry-triggered, and
-        // hand-zone transmute behavior are deliberately omitted from this
-        // compatibility slice.
-        bounded_creature_chassis(
-            "RAV-GROZOTH",
-            "Grozoth",
-            ManaCost::with_colors(6, [Color::Blue, Color::Blue, Color::Blue]),
-            colors([Color::Blue]),
-            9,
-            9,
-        ),
+        // Compatibility scope: normal colored-cost creature casting, base
+        // characteristics, Defender, and the existing immediate hand-zone
+        // Transmute operation. Its entry-triggered library search remains
+        // unsupported, and Transmute remains outside the full-fidelity
+        // manifest because the shared substrate creates no stack object or
+        // response window for the activated ability.
+        CardDefinition {
+            id: "RAV-GROZOTH",
+            name: "Grozoth",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(6, [Color::Blue, Color::Blue, Color::Blue]),
+            colors: colors([Color::Blue]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "colored-cost-casting",
+                "base-characteristics",
+                "defender",
+                "immediate-hand-zone-transmute-compatibility",
+            ],
+            power: Some(9),
+            toughness: Some(9),
+            keywords: vec![
+                Keyword::Defender,
+                Keyword::Transmute(ManaCost::with_colors(1, [Color::Blue, Color::Blue])),
+            ],
+            effects: vec![],
+        },
         // Complete supported slice: ordinary colored-cost creature casting,
         // first-strike combat damage, and vigilance's no-tap attack exception
         // account for every printed functional behavior.

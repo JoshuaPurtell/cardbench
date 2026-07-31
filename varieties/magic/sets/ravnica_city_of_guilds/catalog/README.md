@@ -240,6 +240,13 @@ activated ability on the stack, so opponents do not receive the printed response
 window. The ignored full-fidelity probe remains intentionally red until that
 engine gap is closed.
 
+Grozoth has the same bounded Defender/immediate-Transmute compatibility slice:
+its public definition and shown trace cover its rejected attack declaration and
+matching-value hand-zone search. Its entry-triggered library search is not
+represented, and immediate Transmute still has no activated-ability stack
+object or response window. Accordingly Grozoth remains outside the positive
+fidelity manifest; its ignored full-fidelity probe documents both boundaries.
+
 The focused Flying/Reach/Haste audit promotes Conclave Equenaut, Snapping Drake,
 Goliath Spider, Courier Hawk, and Skyknight Legionnaire into the positive fidelity manifest. Their
 complete printed functional behavior falls within Convoke, normal casting/base

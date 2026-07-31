@@ -46,14 +46,6 @@ fn first_range_creature_chassis_is_exactly_bounded_to_public_base_facts() {
             2,
             3,
         ),
-        (
-            "RAV-GROZOTH",
-            "Grozoth",
-            ManaCost::with_colors(6, [Color::Blue, Color::Blue, Color::Blue]),
-            BTreeSet::from([Color::Blue]),
-            9,
-            9,
-        ),
     ];
 
     for (id, name, mana_cost, colors, power, toughness) in expected {
@@ -87,6 +79,28 @@ fn first_range_creature_chassis_is_exactly_bounded_to_public_base_facts() {
     assert_eq!((drift.power, drift.toughness), (Some(0), Some(5)));
     assert_eq!(
         drift.supported_rules,
+        [
+            "colored-cost-casting",
+            "base-characteristics",
+            "defender",
+            "immediate-hand-zone-transmute-compatibility",
+        ]
+    );
+
+    let grozoth = definitions
+        .iter()
+        .find(|definition| definition.id == "RAV-GROZOTH")
+        .expect("Grozoth definition exists");
+    assert_eq!(grozoth.name, "Grozoth");
+    assert_eq!(
+        grozoth.mana_cost,
+        ManaCost::with_colors(6, [Color::Blue, Color::Blue, Color::Blue])
+    );
+    assert_eq!(grozoth.colors, BTreeSet::from([Color::Blue]));
+    assert_eq!(grozoth.card_types, BTreeSet::from([CardType::Creature]));
+    assert_eq!((grozoth.power, grozoth.toughness), (Some(9), Some(9)));
+    assert_eq!(
+        grozoth.supported_rules,
         [
             "colored-cost-casting",
             "base-characteristics",
