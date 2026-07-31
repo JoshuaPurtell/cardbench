@@ -2396,7 +2396,9 @@ impl Game {
         let Some(card) = self.players[player.0].library.pop() else {
             self.lose_player(player, "attempted to draw from an empty library");
             self.normalize_priority_after_elimination()?;
-            self.record_game_end_if_needed();
+            // The enclosing stack resolver still owes its `AbilityResolved`
+            // or terminal source-lifecycle receipt. It records `GameEnded`
+            // only after that receipt so the terminal event stays last.
             return Ok(());
         };
         self.players[player.0].hand.push(card);
@@ -3919,6 +3921,7 @@ impl Game {
             // stack lifecycle receipt; do not manufacture a later resolution
             // or zone-move receipt by dereferencing the removed object.
             self.priority = self.priority_after_resolution();
+            self.record_game_end_if_needed();
             return Ok(());
         }
         self.record_event(GameEvent::SpellResolved {

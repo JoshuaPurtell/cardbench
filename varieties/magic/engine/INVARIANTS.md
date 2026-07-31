@@ -16,6 +16,11 @@ Oracle Magic rules coverage.
   emits exactly one `GameEnded { winner }` record (where `winner` is `None`
   for a draw). In a continuing multiplayer game, an eliminated player is
   skipped by turn order and may not hold priority or submit an action.
+- `GameEnded` is the final canonical receipt. If an effect causes a terminal
+  loss while a spell or ability is resolving, the resolver first records that
+  stack object's final lifecycle receipt (`AbilityResolved` or the applicable
+  source-departure receipt), then emits the single `GameEnded`; no later event
+  may follow it.
 - On a player-loss transition, objects owned by that player leave this game
   and emit `ObjectLeftGame`; a non-owned object under that player's control is
   exiled to its owner. No departed player's object may later appear in a zone,
