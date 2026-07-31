@@ -866,6 +866,12 @@ pub enum Effect {
         power: i16,
         toughness: i16,
     },
+    /// Grant one keyword to the target creature and every creature sharing a
+    /// color with it for the current turn. This is the keyword-only Radiance
+    /// substrate used by Surge of Zeal.
+    RadianceAddKeywordUntilEndOfTurn {
+        keyword: Keyword,
+    },
     /// Counter one targeted instant or sorcery spell. This is intentionally a
     /// semantic effect rather than a copied card-text string.
     CounterTargetInstantOrSorcerySpell,
@@ -889,6 +895,7 @@ impl Effect {
             | Self::RadianceDealDamageToCreatures { .. }
             | Self::RadianceUntapAndModifyUntilEndOfTurn { .. }
             | Self::RadianceModifyPtUntilEndOfTurn { .. }
+            | Self::RadianceAddKeywordUntilEndOfTurn { .. }
             | Self::BeginDamageRedirection { .. }
             | Self::PreventTargetBlockingSourceUntilEndOfTurn => Some(TargetRequirement::Creature),
             Self::CompleteDamageRedirection => Some(TargetRequirement::PlayerOrCreature),
