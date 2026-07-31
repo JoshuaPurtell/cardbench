@@ -3936,9 +3936,11 @@ impl Game {
                     .filter(|candidate| {
                         self.object(*candidate).is_ok_and(|object| {
                             object.controller == controller
-                                && self.characteristics(*candidate).is_ok_and(|characteristics| {
-                                    characteristics.card_types.contains(&CardType::Creature)
-                                })
+                                && self
+                                    .characteristics(*candidate)
+                                    .is_ok_and(|characteristics| {
+                                        characteristics.card_types.contains(&CardType::Creature)
+                                    })
                         })
                     })
                     .collect::<Vec<_>>();
@@ -5364,22 +5366,20 @@ impl Game {
                 item.ability_id
                     .map(|ability| (item.card, ability))
                     .or_else(|| {
-                        self.triggered_stack
-                            .get(&item.card)
-                            .and_then(|trigger| match trigger.ability {
+                        self.triggered_stack.get(&item.card).and_then(|trigger| {
+                            match trigger.ability {
                                 TriggeredAbility::EnterBattlefieldTeamPumpHaste => {
                                     Some((trigger.source, "etb-team-pump-haste"))
                                 }
                                 TriggeredAbility::EnterBattlefieldDrawController => None,
-                            })
+                            }
+                        })
                     })
             })
             .fold(
                 BTreeMap::<(ObjectId, &'static str), usize>::new(),
                 |mut counts, (source, ability)| {
-                    *counts
-                        .entry((source, ability))
-                        .or_default() += 1;
+                    *counts.entry((source, ability)).or_default() += 1;
                     counts
                 },
             );
