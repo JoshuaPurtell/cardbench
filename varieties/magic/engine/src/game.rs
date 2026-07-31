@@ -4237,11 +4237,18 @@ impl Game {
                 .cloned()
                 .collect::<Vec<_>>();
             for ability in triggers {
+                let Some(targets) = self.select_trigger_targets(controller, &ability.targets)
+                else {
+                    // A dies trigger with no legal mandatory target cannot be
+                    // put onto the stack. Optional choice handling remains
+                    // explicit at the binding layer.
+                    continue;
+                };
                 self.stack.push(StackObject {
                     card: pending.source,
                     controller,
                     ability_id: Some(ability.id),
-                    targets: vec![],
+                    targets,
                     effects: ability.effects,
                     mana_spent: None,
                 });
