@@ -17,6 +17,46 @@ pub enum Color {
     Green,
 }
 
+/// One of Magic's five typed basic-land subtypes.
+///
+/// This is deliberately distinct from a land's display name and from the
+/// `is_basic_land` deck-construction flag. A set binds this type to a specific
+/// land definition, and the rules engine validates that the definition's
+/// intrinsic mana ability produces exactly this type's color.
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub enum BasicLandType {
+    Plains,
+    Island,
+    Swamp,
+    Mountain,
+    Forest,
+}
+
+impl BasicLandType {
+    #[must_use]
+    pub const fn intrinsic_mana_color(self) -> Color {
+        match self {
+            Self::Plains => Color::White,
+            Self::Island => Color::Blue,
+            Self::Swamp => Color::Black,
+            Self::Mountain => Color::Red,
+            Self::Forest => Color::Green,
+        }
+    }
+}
+
+/// Binds a typed basic-land type line to a set's land definition.
+///
+/// Keeping this alongside `CardDefinition`, like definition-bound mana
+/// abilities, lets the engine remain expansion-neutral while preserving the
+/// compact catalog structure. `Game` rejects a binding unless it names a
+/// basic land whose intrinsic one-color mana ability matches the typed land.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct BasicLandTypeBinding {
+    pub card_definition: &'static str,
+    pub land_type: BasicLandType,
+}
+
 /// A deterministic, fixed bundle of mana produced by one mana ability.
 ///
 /// The bundle deliberately uses one entry per color. This makes an activation

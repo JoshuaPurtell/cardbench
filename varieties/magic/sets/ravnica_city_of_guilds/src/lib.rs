@@ -22,10 +22,10 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use cardbench_magic_engine::{
-    ActivatedManaAbility, CardDefinition, CardType, CastRequest, Color, ConvokeContribution,
-    ConvokePayment, DeckEntry, DeckList, DeckRules, Effect, Game, HybridManaSymbol, Keyword,
-    ManaAbilityBinding, ManaAbilityOutput, ManaBundle, ManaCost, PlayerId, RulesError, Target,
-    TokenSpec, Zone,
+    ActivatedManaAbility, BasicLandType, BasicLandTypeBinding, CardDefinition, CardType,
+    CastRequest, Color, ConvokeContribution, ConvokePayment, DeckEntry, DeckList, DeckRules,
+    Effect, Game, HybridManaSymbol, Keyword, ManaAbilityBinding, ManaAbilityOutput, ManaBundle,
+    ManaCost, PlayerId, RulesError, Target, TokenSpec, Zone,
 };
 
 pub const SET_CODE: &str = "RAV";
@@ -1805,11 +1805,11 @@ pub fn card_definitions() -> Vec<CardDefinition> {
         signet_definition("RAV-DIMIR-SIGNET", "Dimir Signet"),
         signet_definition("RAV-GOLGARI-SIGNET", "Golgari Signet"),
         signet_definition("RAV-SELESNYA-SIGNET", "Selesnya Signet"),
-        basic_land("RAV-PLAINS", "Plains", Color::White),
-        basic_land("RAV-ISLAND", "Island", Color::Blue),
-        basic_land("RAV-SWAMP", "Swamp", Color::Black),
-        basic_land("RAV-MOUNTAIN", "Mountain", Color::Red),
-        basic_land("RAV-FOREST", "Forest", Color::Green),
+        basic_land("RAV-PLAINS", "Plains", BasicLandType::Plains),
+        basic_land("RAV-ISLAND", "Island", BasicLandType::Island),
+        basic_land("RAV-SWAMP", "Swamp", BasicLandType::Swamp),
+        basic_land("RAV-MOUNTAIN", "Mountain", BasicLandType::Mountain),
+        basic_land("RAV-FOREST", "Forest", BasicLandType::Forest),
     ]
 }
 
@@ -1864,6 +1864,36 @@ pub fn rav_mana_ability_bindings() -> Vec<ManaAbilityBinding> {
             "selesnya-signet-gw",
             [Color::White, Color::Green],
         ),
+    ]
+}
+
+/// Typed basic-land type lines for the five RAV basic-land definitions.
+///
+/// The engine validates that every binding names a basic land and that its
+/// intrinsic one-color mana ability agrees with the registered type.
+#[must_use]
+pub fn rav_basic_land_type_bindings() -> Vec<BasicLandTypeBinding> {
+    vec![
+        BasicLandTypeBinding {
+            card_definition: "RAV-PLAINS",
+            land_type: BasicLandType::Plains,
+        },
+        BasicLandTypeBinding {
+            card_definition: "RAV-ISLAND",
+            land_type: BasicLandType::Island,
+        },
+        BasicLandTypeBinding {
+            card_definition: "RAV-SWAMP",
+            land_type: BasicLandType::Swamp,
+        },
+        BasicLandTypeBinding {
+            card_definition: "RAV-MOUNTAIN",
+            land_type: BasicLandType::Mountain,
+        },
+        BasicLandTypeBinding {
+            card_definition: "RAV-FOREST",
+            land_type: BasicLandType::Forest,
+        },
     ]
 }
 
@@ -2440,26 +2470,28 @@ fn last_gasp_state_based_action() -> Result<(Game, String), RulesError> {
 }
 
 fn fresh_game() -> Result<Game, RulesError> {
-    Game::new(card_definitions(), 2)
+    Game::new_with_mana_abilities_and_basic_land_types(
+        card_definitions(),
+        2,
+        rav_mana_ability_bindings(),
+        rav_basic_land_type_bindings(),
+    )
 }
 
-fn basic_land(id: &'static str, name: &'static str, color: Color) -> CardDefinition {
-    // Compatibility boundary: the land's fixed intrinsic one-color mana result
-    // and basic-land deck-construction exception are modeled, but generic mana
-    // abilities cannot yet be activated in the middle of paying a cost. These
-    // definitions must therefore remain outside the full-fidelity manifest.
+fn basic_land(id: &'static str, name: &'static str, land_type: BasicLandType) -> CardDefinition {
     CardDefinition {
         id,
         name,
         set_code: SET_CODE,
         mana_cost: ManaCost::new(0),
         colors: BTreeSet::new(),
-        mana_colors: BTreeSet::from([color]),
+        mana_colors: BTreeSet::from([land_type.intrinsic_mana_color()]),
         card_types: types([CardType::Land]),
         is_basic_land: true,
         supported_rules: &[
-            "basic-land-deck-construction",
+            "basic-land-type-line",
             "intrinsic-single-color-mana-ability",
+            "basic-land-deck-construction",
         ],
         power: None,
         toughness: None,

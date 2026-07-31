@@ -40,6 +40,12 @@ Oracle Magic rules coverage.
 - Every catalog definition has identity and a type. A basic land is a land;
   only lands have intrinsic mana colors; creatures have both power and
   toughness; and dredge values are positive.
+- A registered basic-land type line names exactly one basic-land definition and
+  its singleton intrinsic mana color agrees with the typed land identity.
+  `CardView` preserves that identity, and a typed intrinsic activation cannot
+  produce a different color. The cast-payment activation substrate currently
+  accepts only definition-bound mana abilities, so it must not be treated as a
+  hidden way to activate an intrinsic land ability while paying a cost.
 - A stack object has a unique card and a valid controller. Resolving or
   countering it removes it from the stack before it receives its resulting zone
   move.

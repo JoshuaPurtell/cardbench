@@ -10,6 +10,15 @@ printings plus four printings each of Plains, Island, Swamp, Mountain, and Fores
 The Rust validator enforces every number in that range, the expected 291 distinct
 names, and the four-printing basic-land exception.
 
+The five RAV basic-land definitions are typed compatibility entries, not
+full-fidelity positive-manifest entries. They use the expansion-neutral typed
+basic-land binding substrate: each public type line is bound to one basic-land
+definition, and the engine checks that its intrinsic mana ability produces the
+corresponding single color. The public five-land scenario records one activation
+and exact mana receipt for each type, with no stack object or priority-pass
+receipt. This repository retains only `CardBench` semantic identifiers and
+operations, never card prose or art.
+
 The source snapshot was extracted from the public [Scryfall cards API](https://api.scryfall.com/cards/search?q=e%3ARAV&unique=prints&order=set)
 on 2026-07-30, retaining only collector number and name. Its retained-field SHA-256
 is recorded in the manifest header so the inventory can be reproduced without
@@ -75,13 +84,13 @@ engine rather than as a stack object, so normal response behavior is absent. The
 deterministic public scenarios assert receipts only for the represented slices.
 These are explicit coverage gaps, not no-op fallbacks or full-fidelity claims.
 
-The five RAV basic-land definitions are also explicitly bounded. Their public
+The five RAV basic-land definitions remain explicitly bounded. Their typed
 single-color intrinsic mana result, tapping, and basic-land deck-construction
-exception are represented and checked in one public nonstack trace. The engine
-does not yet permit a mana ability to be activated while paying another cost, so
-the definitions cannot claim full Magic rules fidelity. The four RAV Signets
-share that existing payment-window limitation and remain bounded as documented in
-their contract.
+exception are represented and checked in one public nonstack trace. The
+cast-payment activation path currently admits only definition-bound mana
+abilities, not intrinsic land abilities, so these definitions cannot claim full
+Magic rules fidelity. The four RAV Signets are separately positive-manifest
+entries because their abilities use that supported definition-bound path.
 
 The creature batch for Golgari Thug, Stinkweed Imp, Greater Mossdog, and
 Root-Kin Ally is explicitly compatibility-bounded. The first three support only
