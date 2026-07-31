@@ -19,3 +19,7 @@ path = "src/lib.rs"
 [[bin]]
 name = "rav-engine-parity"
 path = "src/bin/rav_engine_parity.rs"
+
+[[bin]]
+name = "rav-coverage-report"
+path = "src/bin/rav_coverage_report.rs"
