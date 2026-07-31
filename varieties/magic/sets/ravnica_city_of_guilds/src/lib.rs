@@ -2366,20 +2366,6 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
             },
         },
         ActivatedAbilityBinding {
-            card_definition: "RAV-TORPID-MOLOCH",
-            ability: ActivatedAbility {
-                id: "sacrifice-three-lands-remove-defender",
-                mana_cost: ManaCost::new(0),
-                tap_cost: false,
-                sacrifice_source: false,
-                sacrifice_lands: 3,
-                targets: vec![],
-                effects: vec![Effect::RemoveSourceKeywordUntilEndOfTurn {
-                    keyword: Keyword::Defender,
-                }],
-            },
-        },
-        ActivatedAbilityBinding {
             card_definition: "RAV-VIASHINO-FANGTAIL",
             ability: ActivatedAbility {
                 id: "tap-deal-one-to-player-or-creature",
