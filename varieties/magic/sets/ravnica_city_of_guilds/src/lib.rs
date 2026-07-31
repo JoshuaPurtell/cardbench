@@ -35,7 +35,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 66] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 67] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SCATTER-THE-SEEDS",
@@ -98,6 +98,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 66] = [
     "RAV-HUNTED-DRAGON",
     "RAV-RAZIA-BOROS-ARCHANGEL",
     "RAV-HAMMERFIST-GIANT",
+    "RAV-INCITE-HYSTERIA",
     "RAV-SCREECHING-GRIFFIN",
     "RAV-SURGE-OF-ZEAL",
     "RAV-SEISMIC-SPIKE",
@@ -1207,6 +1208,29 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![Effect::RadianceAddKeywordUntilEndOfTurn {
                 keyword: Keyword::Haste,
+            }],
+        },
+        // Full fidelity: Radiance gives the target and each creature sharing
+        // one of its colors a temporary CannotBlock keyword.
+        CardDefinition {
+            id: "RAV-INCITE-HYSTERIA",
+            name: "Incite Hysteria",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(2, [Color::Red]),
+            colors: colors([Color::Red]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Sorcery]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "radiance-cannot-block",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![Effect::RadianceAddKeywordUntilEndOfTurn {
+                keyword: Keyword::CannotBlock,
             }],
         },
         // Compatibility scope: normal colored-cost creature casting and base
