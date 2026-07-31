@@ -17,3 +17,17 @@ rules prose or private benchmark material.
   contract passes for both a selected card and a legal no-result search.
 - **Scope note:** this ledger item does not assert that activated abilities are
   fully modeled on the stack; that remains a separate stack-abstraction gap.
+
+## MTG-CAST-002 — definition-bound mana activation during spell payment
+
+- **Rule boundary:** Comprehensive Rules 117.1b and 601.2g.
+- **Failure contract:** `cast_payment_context_red::paid_bundle_mana_ability_can_pay_a_spell_cost_without_pre_floating`.
+- **Observed failure:** a spell cast whose controller had exactly one mana to
+  pay a bound paid-bundle source's activation cost was rejected before that
+  source could produce its legal mana output. The request API could express
+  only pre-floated mana, so an ordinary mana-payment sequence was impossible.
+- **Required repair:** a typed cast-payment context must permit ordered,
+  definition-bound mana-ability activations without creating stack objects.
+  The complete cast, including activation costs, outputs, spell payment, zone
+  move, stack object, and canonical receipts, must remain atomic.
+- **Status:** red regression recorded; repair pending.
