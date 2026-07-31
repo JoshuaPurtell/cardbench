@@ -80,6 +80,9 @@ hash and reproduction details.
   The audit retained only the semantic facts needed to determine whether each
   executable substrate was complete. No source response, card prose, art, or
   JSON is checked in.
+  Scatter the Seeds was re-audited after the engine added typed token creature
+  subtypes; its positive manifest entry retains only CardBench-authored semantic
+  operations and the public event-log baseline, not source card prose or data.
 - The RAV basic-land boundary audit was checked on 2026-07-30 against the
   public official Gatherer records for representative RAV printings:
   [Plains](https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=95108),

@@ -33,9 +33,10 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 16] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 17] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
+    "RAV-SCATTER-THE-SEEDS",
     "RAV-LAST-GASP",
     "RAV-ELVES-OF-DEEP-SHADOW",
     "RAV-BOROS-RECRUIT",
@@ -165,10 +166,9 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 Effect::GainLifeController { amount: 3 },
             ],
         },
-        // Compatibility boundary: the token object has a name, color, card
-        // type, and power/toughness, but this engine has no creature-subtype
-        // substrate. The printed token's subtype is therefore not claimed as
-        // represented.
+        // Full fidelity: Convoke payment and the created token's count, color,
+        // type, typed Saproling subtype, and base power/toughness are all
+        // represented by shared engine substrates.
         CardDefinition {
             id: "RAV-SCATTER-THE-SEEDS",
             name: "Scatter the Seeds",
@@ -178,7 +178,7 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Instant]),
             is_basic_land: false,
-            supported_rules: &["convoke", "token-creation"],
+            supported_rules: &["full-rules-fidelity", "convoke", "token-creation"],
             power: None,
             toughness: None,
             keywords: vec![Keyword::Convoke],
