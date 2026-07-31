@@ -1179,7 +1179,7 @@ digest = "fnv1a64:57557ed8e6e9821d"
 [[scenario]]
 id = "rav_greater_mossdog_dredge_and_cast"
 seed = 0
-description = "Replace a draw with Greater Mossdog's supported dredge value, then cast the returned 3/3 creature. No card-specific behavior beyond Dredge is represented."
+description = "Replace a draw with Greater Mossdog's Dredge ability, then cast the returned 3/3 creature and record every complete-rule receipt."
 
 [[scenario.card]]
 label = "mossdog"
@@ -1236,7 +1236,7 @@ player = 1
 [scenario.expected]
 zones = ["mossdog:battlefield", "mill_one:graveyard", "mill_two:graveyard", "mill_three:graveyard"]
 powers = ["mossdog:3"]
-event_markers = ["Dredged", "SpellCast", "SpellResolved"]
+event_markers = ["Dredged", "CardMoved", "SpellCast", "SpellResolved"]
 digest = "fnv1a64:6eb82ad42dbc780c"
 
 [[scenario]]
