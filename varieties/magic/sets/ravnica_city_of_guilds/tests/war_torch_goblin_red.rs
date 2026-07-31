@@ -64,6 +64,7 @@ fn war_torch_sacrifices_source_and_damages_a_declared_blocker() {
             source,
             ability_id: "sacrifice-deal-two-to-blocker",
             sacrifice_sources: vec![source],
+            additional_tap_creatures: vec![],
             discard_cards: vec![],
             targets: vec![Target::Permanent(blocker)],
         },

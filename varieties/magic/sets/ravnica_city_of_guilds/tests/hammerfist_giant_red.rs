@@ -65,6 +65,7 @@ fn hammerfist_giant_damages_nonfliers_but_not_fliers() {
             source: giant,
             ability_id: "tap-global-nonflying-damage",
             sacrifice_sources: vec![],
+            additional_tap_creatures: vec![],
             discard_cards: vec![],
             targets: vec![],
         },

@@ -76,6 +76,7 @@ fn screeching_griffin_activation_rejects_only_the_selected_creature_as_its_block
             source: griffin,
             ability_id: "prevent-target-blocking-griffin",
             sacrifice_sources: vec![],
+            additional_tap_creatures: vec![],
             discard_cards: vec![],
             targets: vec![Target::Permanent(blocker)],
         },

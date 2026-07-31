@@ -163,6 +163,11 @@ pub struct ActivatedAbility {
     pub id: &'static str,
     pub mana_cost: ManaCost,
     pub tap_cost: bool,
+    /// Number of additional, distinct untapped creatures the activating
+    /// player selects and taps as an ability cost.  These are not tap-symbol
+    /// costs on those creatures, so summoning sickness does not constrain
+    /// them.
+    pub additional_tap_creatures: u8,
     pub sacrifice_source: bool,
     /// Number of controlled battlefield lands required as an explicit cost.
     pub sacrifice_lands: u8,
@@ -234,6 +239,9 @@ pub struct AbilityActivation {
     pub ability_id: &'static str,
     /// Explicit permanent selections paid as the ability's nonmana cost.
     pub sacrifice_sources: Vec<ObjectId>,
+    /// Explicit distinct controlled creatures tapped as a nonmana ability
+    /// cost, separate from the ability source's own tap-symbol cost.
+    pub additional_tap_creatures: Vec<ObjectId>,
     /// Explicit hand-card selections paid as the ability's discard cost.
     pub discard_cards: Vec<ObjectId>,
     pub targets: Vec<Target>,
@@ -1662,6 +1670,13 @@ pub enum GameEvent {
         source: ObjectId,
         ability: &'static str,
         mana_cost: ManaCost,
+    },
+    /// A controlled creature was selected and tapped as an explicit
+    /// additional cost for a non-mana activated ability.
+    AdditionalCreatureTappedAsAbilityCost {
+        player: PlayerId,
+        source: ObjectId,
+        permanent: ObjectId,
     },
     SacrificedAsAbilityCost {
         player: PlayerId,

@@ -1,7 +1,7 @@
 //! Red regression for Selesnya Evangel's compound activated-ability cost.
 
 use cardbench_magic_engine::{
-    AbilityActivation, CardType, Color, Game, GameEvent, ManaCost, PlayerId,
+    AbilityActivation, CardType, Color, Game, GameEvent, ManaCost, PlayerId, PolicyAction,
 };
 use cardbench_magic_rav::{
     RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, rav_activated_ability_bindings,
@@ -63,14 +63,41 @@ fn selesnya_evangel_pays_mana_and_two_distinct_creature_taps_before_stacking_tok
     game.begin_game().expect("game starts");
     game.activate_mana_ability(PlayerId(0), forest, Color::Green)
         .expect("Forest pays Evangel's generic cost");
-    game.activate_ability(
+    let event_checkpoint = game.canonical_event_log();
+    let rejected = game.submit_policy_move(
         PlayerId(0),
-        AbilityActivation {
-            source: evangel,
-            ability_id: "create-saproling",
-            sacrifice_sources: vec![],
-            discard_cards: vec![],
-            targets: vec![],
+        "selesnya-evangel-invalid-selection",
+        PolicyAction::ActivateAbility {
+            activation: AbilityActivation {
+                source: evangel,
+                ability_id: "create-saproling",
+                sacrifice_sources: vec![],
+                additional_tap_creatures: vec![evangel],
+                discard_cards: vec![],
+                targets: vec![],
+            },
+        },
+    );
+    assert!(
+        rejected.is_err(),
+        "the source cannot pay the other-creature cost"
+    );
+    assert_eq!(game.canonical_event_log(), event_checkpoint);
+    assert!(!game.object(evangel).expect("Evangel remains").tapped);
+    assert!(!game.object(companion).expect("companion remains").tapped);
+
+    game.submit_policy_move(
+        PlayerId(0),
+        "selesnya-evangel-regression",
+        PolicyAction::ActivateAbility {
+            activation: AbilityActivation {
+                source: evangel,
+                ability_id: "create-saproling",
+                sacrifice_sources: vec![],
+                additional_tap_creatures: vec![companion],
+                discard_cards: vec![],
+                targets: vec![],
+            },
         },
     )
     .expect("compound Evangel activation succeeds");
@@ -94,6 +121,11 @@ fn selesnya_evangel_pays_mana_and_two_distinct_creature_taps_before_stacking_tok
     assert!(game.event_log.iter().any(|event| matches!(
         event,
         GameEvent::TokenCreated { player, .. } if *player == PlayerId(0)
+    )));
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::AdditionalCreatureTappedAsAbilityCost { player, source, permanent }
+            if *player == PlayerId(0) && *source == evangel && *permanent == companion
     )));
     game.validate_invariants()
         .expect("compound tap activation preserves invariants");

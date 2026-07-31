@@ -1104,6 +1104,47 @@ impl Game {
                 return Err(RulesError::IllegalTarget(*target));
             }
         }
+        if activation.additional_tap_creatures.len()
+            != usize::from(ability.additional_tap_creatures)
+        {
+            return Err(RulesError::IllegalAction(
+                "activated ability additional tap selection count does not match its definition",
+            ));
+        }
+        let mut selected_taps = BTreeSet::new();
+        for permanent in &activation.additional_tap_creatures {
+            if *permanent == activation.source {
+                return Err(RulesError::IllegalAction(
+                    "an additional creature tap cost cannot name the ability source",
+                ));
+            }
+            if !selected_taps.insert(*permanent) {
+                return Err(RulesError::IllegalAction(
+                    "an activated ability cannot tap the same additional creature twice",
+                ));
+            }
+            self.require_zone(*permanent, Zone::Battlefield)?;
+            let object = self.object(*permanent)?;
+            if object.controller != player {
+                return Err(RulesError::IllegalAction(
+                    "an activated ability can tap only a controlled additional creature",
+                ));
+            }
+            if object.tapped {
+                return Err(RulesError::IllegalAction(
+                    "an activated ability requires each additional creature to be untapped",
+                ));
+            }
+            if !self
+                .characteristics(*permanent)?
+                .card_types
+                .contains(&CardType::Creature)
+            {
+                return Err(RulesError::IllegalAction(
+                    "an activated ability additional tap cost requires a creature",
+                ));
+            }
+        }
         let expected_sacrifices =
             usize::from(ability.sacrifice_lands) + usize::from(ability.sacrifice_source);
         if activation.sacrifice_sources.len() != expected_sacrifices {
@@ -1218,6 +1259,17 @@ impl Game {
                 permanent: *permanent,
             });
             self.move_to_graveyard_or_remove_token(*permanent)?;
+        }
+        for permanent in &activation.additional_tap_creatures {
+            self.objects
+                .get_mut(permanent)
+                .ok_or(RulesError::UnknownCard(*permanent))?
+                .tapped = true;
+            self.record_event(GameEvent::AdditionalCreatureTappedAsAbilityCost {
+                player,
+                source: activation.source,
+                permanent: *permanent,
+            });
         }
         self.stack.push(StackObject {
             card: activation.source,
@@ -2686,6 +2738,7 @@ impl Game {
         self.validate_stack_terminal_event_order()?;
         self.validate_ability_event_order()?;
         self.validate_ability_discard_cost_event_order()?;
+        self.validate_ability_additional_tap_cost_event_order()?;
         if self.started && !self.is_game_over() && !self.step.grants_priority() {
             return Err(RulesError::IllegalAction(
                 "an automatic turn step remained stable with player priority",
@@ -6442,6 +6495,76 @@ impl Game {
             if ability.discard_cards == 0 {
                 return Err(RulesError::IllegalAction(
                     "discard-cost receipt names an ability without a discard cost",
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// Audits explicit extra-creature tap selections. They are costs, not
+    /// effects: every receipt must be contiguous with its ability activation
+    /// and match the binding's declared cardinality.
+    fn validate_ability_additional_tap_cost_event_order(&self) -> Result<(), RulesError> {
+        let mut consumed = BTreeSet::new();
+        for (activation_index, event) in self.event_log.iter().enumerate() {
+            let GameEvent::AbilityActivated {
+                player,
+                source,
+                ability,
+            } = event
+            else {
+                continue;
+            };
+            let mut selected = Vec::new();
+            let mut index = activation_index;
+            while let Some(GameEvent::AdditionalCreatureTappedAsAbilityCost {
+                player: receipt_player,
+                source: receipt_source,
+                permanent,
+            }) = index
+                .checked_sub(1)
+                .and_then(|previous| self.event_log.get(previous))
+            {
+                if receipt_player != player || receipt_source != source {
+                    break;
+                }
+                index -= 1;
+                consumed.insert(index);
+                selected.push(*permanent);
+            }
+            let source_definition =
+                self.object(*source)?
+                    .definition
+                    .ok_or(RulesError::IllegalAction(
+                        "additional tap-cost receipt names a token source",
+                    ))?;
+            let bound = self
+                .activated_abilities
+                .get(source_definition)
+                .and_then(|abilities| abilities.get(ability))
+                .ok_or(RulesError::IllegalAction(
+                    "additional tap-cost receipt names an unbound ability",
+                ))?;
+            if selected.len() != usize::from(bound.additional_tap_creatures) {
+                return Err(RulesError::IllegalAction(
+                    "additional tap-cost receipts do not match the activated ability binding",
+                ));
+            }
+            let unique = selected.iter().copied().collect::<BTreeSet<_>>();
+            if unique.len() != selected.len() || unique.contains(source) {
+                return Err(RulesError::IllegalAction(
+                    "additional tap-cost receipts are not distinct non-source creatures",
+                ));
+            }
+        }
+        for (index, event) in self.event_log.iter().enumerate() {
+            if matches!(
+                event,
+                GameEvent::AdditionalCreatureTappedAsAbilityCost { .. }
+            ) && !consumed.contains(&index)
+            {
+                return Err(RulesError::IllegalAction(
+                    "additional tap-cost receipt has no matching ability activation",
                 ));
             }
         }

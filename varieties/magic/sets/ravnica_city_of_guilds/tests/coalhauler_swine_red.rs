@@ -33,6 +33,7 @@ fn coalhauler_swine_damage_trigger_stacks_then_deals_that_much_to_each_player() 
             source: fangtail,
             ability_id: "tap-deal-one-to-player-or-creature",
             sacrifice_sources: vec![],
+            additional_tap_creatures: vec![],
             discard_cards: vec![],
             targets: vec![Target::Permanent(swine)],
         },

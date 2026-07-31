@@ -35,7 +35,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 75] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 76] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -73,6 +73,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 75] = [
     "RAV-COURIER-HAWK",
     "RAV-SKYKNIGHT-LEGIONNAIRE",
     "RAV-MOROII",
+    "RAV-SELESNYA-EVANGEL",
     "RAV-BIRDS-OF-PARADISE",
     "RAV-FIERY-CONCLUSION",
     "RAV-RIBBONS-OF-NIGHT",
@@ -1743,17 +1744,29 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             4,
             1,
         ),
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed token-making activation is
-        // deliberately omitted from this compatibility slice.
-        bounded_creature_chassis(
-            "RAV-SELESNYA-EVANGEL",
-            "Selesnya Evangel",
-            ManaCost::with_colors(0, [Color::Green, Color::White]),
-            colors([Color::Green, Color::White]),
-            1,
-            2,
-        ),
+        // Full printed behavior: this creature's explicit generic cost plus
+        // source and other-creature tap costs are paid before its stack-backed
+        // Saproling creation resolves.
+        CardDefinition {
+            id: "RAV-SELESNYA-EVANGEL",
+            name: "Selesnya Evangel",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(0, [Color::Green, Color::White]),
+            colors: colors([Color::Green, Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "activated-token-creation-with-creature-tap-cost",
+            ],
+            power: Some(1),
+            toughness: Some(2),
+            keywords: vec![],
+            effects: vec![],
+        },
         // Compatibility scope: normal colored-cost creature casting, base
         // characteristics, and Reach. Its printed tap-to-damage activation
         // remains deliberately omitted from this compatibility slice.
@@ -2846,11 +2859,29 @@ pub fn rav_mana_ability_bindings() -> Vec<ManaAbilityBinding> {
 pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
     vec![
         ActivatedAbilityBinding {
+            card_definition: "RAV-SELESNYA-EVANGEL",
+            ability: ActivatedAbility {
+                id: "create-saproling",
+                mana_cost: ManaCost::new(1),
+                tap_cost: true,
+                additional_tap_creatures: 1,
+                sacrifice_source: false,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![],
+                effects: vec![Effect::CreateToken {
+                    token: TokenSpec::saproling(),
+                    count: 1,
+                }],
+            },
+        },
+        ActivatedAbilityBinding {
             card_definition: "RAV-GOBLIN-FIRE-FIEND",
             ability: ActivatedAbility {
                 id: "pump-plus-one-power",
                 mana_cost: ManaCost::with_colors(0, [Color::Red]),
                 tap_cost: false,
+                additional_tap_creatures: 0,
                 sacrifice_source: false,
                 sacrifice_lands: 0,
                 discard_cards: 0,
@@ -2867,6 +2898,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 id: "pump-plus-three-minus-three",
                 mana_cost: ManaCost::with_colors(1, [Color::Red]),
                 tap_cost: false,
+                additional_tap_creatures: 0,
                 sacrifice_source: false,
                 sacrifice_lands: 0,
                 discard_cards: 0,
@@ -2883,6 +2915,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 id: "pump-plus-one-minus-one",
                 mana_cost: ManaCost::with_colors(0, [Color::Red]),
                 tap_cost: false,
+                additional_tap_creatures: 0,
                 sacrifice_source: false,
                 sacrifice_lands: 0,
                 discard_cards: 1,
@@ -2899,6 +2932,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 id: "sacrifice-deal-two-to-blocker",
                 mana_cost: ManaCost::with_colors(0, [Color::Red]),
                 tap_cost: false,
+                additional_tap_creatures: 0,
                 sacrifice_source: true,
                 sacrifice_lands: 0,
                 discard_cards: 0,
@@ -2915,6 +2949,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 id: "tap-deal-one-to-player-or-creature",
                 mana_cost: ManaCost::new(0),
                 tap_cost: true,
+                additional_tap_creatures: 0,
                 sacrifice_source: false,
                 sacrifice_lands: 0,
                 discard_cards: 0,
@@ -2931,6 +2966,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 id: "prevent-one-damage-to-self",
                 mana_cost: ManaCost::with_colors(0, [Color::White]),
                 tap_cost: false,
+                additional_tap_creatures: 0,
                 sacrifice_source: false,
                 sacrifice_lands: 0,
                 discard_cards: 0,
@@ -2944,6 +2980,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 id: "grant-haste",
                 mana_cost: ManaCost::with_colors(0, [Color::Red]),
                 tap_cost: false,
+                additional_tap_creatures: 0,
                 sacrifice_source: false,
                 sacrifice_lands: 0,
                 discard_cards: 0,
@@ -2959,6 +2996,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 id: "tap-radiance-one-damage",
                 mana_cost: ManaCost::new(0),
                 tap_cost: true,
+                additional_tap_creatures: 0,
                 sacrifice_source: false,
                 sacrifice_lands: 0,
                 discard_cards: 0,
@@ -2972,6 +3010,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 id: "tap-prevent-target-combat",
                 mana_cost: ManaCost::new(0),
                 tap_cost: true,
+                additional_tap_creatures: 0,
                 sacrifice_source: false,
                 sacrifice_lands: 0,
                 discard_cards: 0,
@@ -2987,6 +3026,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 id: "prevent-target-blocking-griffin",
                 mana_cost: ManaCost::with_colors(0, [Color::Red]),
                 tap_cost: false,
+                additional_tap_creatures: 0,
                 sacrifice_source: false,
                 sacrifice_lands: 0,
                 discard_cards: 0,
@@ -3000,6 +3040,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 id: "tap-redirect-three-damage",
                 mana_cost: ManaCost::new(0),
                 tap_cost: true,
+                additional_tap_creatures: 0,
                 sacrifice_source: false,
                 sacrifice_lands: 0,
                 discard_cards: 0,
@@ -3019,6 +3060,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 id: "tap-global-nonflying-damage",
                 mana_cost: ManaCost::new(0),
                 tap_cost: true,
+                additional_tap_creatures: 0,
                 sacrifice_source: false,
                 sacrifice_lands: 0,
                 discard_cards: 0,
@@ -3032,6 +3074,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 id: "grant-first-strike",
                 mana_cost: ManaCost::with_colors(0, [Color::White]),
                 tap_cost: false,
+                additional_tap_creatures: 0,
                 sacrifice_source: false,
                 sacrifice_lands: 0,
                 discard_cards: 0,
@@ -3047,6 +3090,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 id: "sacrifice-three-lands-remove-defender",
                 mana_cost: ManaCost::new(0),
                 tap_cost: false,
+                additional_tap_creatures: 0,
                 sacrifice_source: false,
                 sacrifice_lands: 3,
                 discard_cards: 0,
@@ -3062,6 +3106,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 id: "sacrifice-destroy-target-land",
                 mana_cost: ManaCost::with_colors(0, [Color::Red]),
                 tap_cost: false,
+                additional_tap_creatures: 0,
                 sacrifice_source: true,
                 sacrifice_lands: 0,
                 discard_cards: 0,

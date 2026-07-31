@@ -185,6 +185,7 @@ fn razia_redirects_the_next_three_damage_to_the_second_target() {
             source: razia,
             ability_id: "tap-redirect-three-damage",
             sacrifice_sources: vec![],
+            additional_tap_creatures: vec![],
             discard_cards: vec![],
             targets: vec![
                 cardbench_magic_engine::Target::Permanent(razia),

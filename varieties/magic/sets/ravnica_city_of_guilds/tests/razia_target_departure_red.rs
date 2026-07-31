@@ -48,6 +48,7 @@ fn razia_target_departure_does_not_leak_a_failed_resolution() {
             source: razia,
             ability_id: "tap-redirect-three-damage",
             sacrifice_sources: vec![],
+            additional_tap_creatures: vec![],
             discard_cards: vec![],
             targets: vec![Target::Permanent(recruit), Target::Player(PlayerId(1))],
         },

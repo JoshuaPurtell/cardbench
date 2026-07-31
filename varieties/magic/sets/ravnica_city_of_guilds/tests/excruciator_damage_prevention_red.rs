@@ -90,6 +90,7 @@ fn excruciator_combat_damage_ignores_ordruun_shield() {
             source: commando,
             ability_id: "prevent-one-damage-to-self",
             sacrifice_sources: vec![],
+            additional_tap_creatures: vec![],
             discard_cards: vec![],
             targets: vec![],
         },

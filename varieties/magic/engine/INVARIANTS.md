@@ -222,6 +222,15 @@ Oracle Magic rules coverage.
   that card's graveyard move and before `AbilityActivated`. The invariant audit
   rejects orphaned discard receipts, receipts for abilities without a discard
   binding, and any non-graveyard destination.
+- An activated ability that requires additional creature taps receives exactly
+  that many explicit, distinct, controlled, untapped non-source creature
+  selections from the policy. These are cost taps rather than tap-symbol
+  activations of the selected creatures, so their summoning sickness is not a
+  restriction. All selections are validated before mana, zones, taps, stack,
+  or event history change. Every successful selected tap emits
+  `AdditionalCreatureTappedAsAbilityCost` immediately before its matching
+  `AbilityActivated`; the invariant audit rejects orphaned, duplicate,
+  wrong-source, or wrong-cardinality receipts.
 - Trigger bindings declare their condition, optional mana cost, target
   requirements, and effects as one checked shape. Every attack trigger stacks
   before any optional mana cost is evaluated, so its controller receives the

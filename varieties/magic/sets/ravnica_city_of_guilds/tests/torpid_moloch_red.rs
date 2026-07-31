@@ -46,6 +46,7 @@ fn torpid_moloch_sacrifices_three_lands_and_temporarily_loses_defender() {
             source: moloch,
             ability_id: "sacrifice-three-lands-remove-defender",
             sacrifice_sources: lands.to_vec(),
+            additional_tap_creatures: vec![],
             discard_cards: vec![],
             targets: vec![],
         },

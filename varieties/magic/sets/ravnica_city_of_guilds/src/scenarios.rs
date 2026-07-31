@@ -555,6 +555,7 @@ fn execute_action(
                     source,
                     ability_id,
                     sacrifice_sources: vec![],
+                    additional_tap_creatures: vec![],
                     discard_cards: vec![],
                     targets,
                 },

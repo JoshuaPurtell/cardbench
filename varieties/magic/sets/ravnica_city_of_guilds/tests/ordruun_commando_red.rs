@@ -66,6 +66,7 @@ fn ordruun_commando_prevents_the_next_damage_and_logs_the_shield() {
             source: commando,
             ability_id: "prevent-one-damage-to-self",
             sacrifice_sources: vec![],
+            additional_tap_creatures: vec![],
             discard_cards: vec![],
             targets: vec![],
         },
