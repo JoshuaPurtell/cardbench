@@ -17,10 +17,7 @@ fn benevolent_ancestor_exposes_its_supported_defender_compatibility_slice() {
         .expect("Benevolent Ancestor definition exists");
 
     assert_eq!(ancestor.name, "Benevolent Ancestor");
-    assert_eq!(
-        ancestor.mana_cost,
-        ManaCost::with_colors(2, [Color::White])
-    );
+    assert_eq!(ancestor.mana_cost, ManaCost::with_colors(2, [Color::White]));
     assert_eq!(ancestor.colors, BTreeSet::from([Color::White]));
     assert_eq!(ancestor.card_types, BTreeSet::from([CardType::Creature]));
     assert_eq!((ancestor.power, ancestor.toughness), (Some(0), Some(4)));

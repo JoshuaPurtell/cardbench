@@ -6,7 +6,7 @@
 
 use std::collections::BTreeSet;
 
-use cardbench_magic_engine::{CardType, Color, ManaCost};
+use cardbench_magic_engine::{CardType, Color, Keyword, ManaCost};
 use cardbench_magic_rav::{card_definitions, run_all_scenarios};
 
 #[test]
@@ -124,6 +124,22 @@ fn easy_creature_wave_one_is_exactly_bounded_to_public_base_facts() {
         ["colored-cost-casting", "base-characteristics", "flying"]
     );
 
+    let ancestor = definitions
+        .iter()
+        .find(|definition| definition.id == "RAV-BENEVOLENT-ANCESTOR")
+        .expect("Benevolent Ancestor definition exists");
+    assert_eq!(ancestor.name, "Benevolent Ancestor");
+    assert_eq!(ancestor.mana_cost, ManaCost::with_colors(2, [Color::White]));
+    assert_eq!(ancestor.colors, BTreeSet::from([Color::White]));
+    assert_eq!(ancestor.card_types, BTreeSet::from([CardType::Creature]));
+    assert_eq!((ancestor.power, ancestor.toughness), (Some(0), Some(4)));
+    assert_eq!(ancestor.keywords, [Keyword::Defender]);
+    assert!(ancestor.effects.is_empty());
+    assert_eq!(
+        ancestor.supported_rules,
+        ["colored-cost-casting", "base-characteristics", "defender"]
+    );
+
     let griffin = definitions
         .iter()
         .find(|definition| definition.id == "RAV-SCREECHING-GRIFFIN")
@@ -174,6 +190,7 @@ fn easy_creature_wave_one_has_deterministic_public_scenarios() {
         "rav_easy_blue_late_creature_chassis",
         "rav_easy_black_red_creature_chassis",
         "rav_torpid_moloch_defender_compatibility",
+        "rav_benevolent_ancestor_defender_compatibility",
         "rav_screeching_griffin_flying_compatibility",
         "rav_tattered_drake_flying_compatibility",
     ] {

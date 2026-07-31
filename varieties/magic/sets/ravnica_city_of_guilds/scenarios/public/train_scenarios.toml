@@ -6710,6 +6710,71 @@ event_absent = ["AttackersDeclared"]
 digest = "fnv1a64:582e991a894fa999"
 
 [[scenario]]
+id = "rav_benevolent_ancestor_defender_compatibility"
+seed = 46
+description = "Reject Benevolent Ancestor's attack declaration through its supported Defender rule; its damage-prevention activation remains unsupported."
+
+[[scenario.card]]
+label = "ancestor"
+owner = 0
+definition = "RAV-BENEVOLENT-ANCESTOR"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "declare_attackers"
+player = 0
+attackers = ["ancestor"]
+expected_error = "illegal attacker"
+
+[scenario.expected]
+zones = ["ancestor:battlefield"]
+powers = ["ancestor:0"]
+toughnesses = ["ancestor:4"]
+mana = ["0:white:0"]
+stack_size = 0
+priority = 0
+event_markers = ["StepBegan"]
+event_absent = ["AttackersDeclared"]
+digest = "fnv1a64:582e991a894fa999"
+
+[[scenario]]
 id = "rav_selesnya_sagittars_reach_compatibility"
 seed = 46
 description = "Declare the long-controlled Flying Snapping Drake, then legally block it with Selesnya Sagittars' Reach; its tap-to-damage activation remains unsupported."
