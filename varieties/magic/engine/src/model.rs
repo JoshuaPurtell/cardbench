@@ -455,6 +455,9 @@ pub enum Keyword {
     Haste,
     /// Can block a creature with Flying.
     Reach,
+    /// When blocked, excess combat damage can be assigned to the defending
+    /// player after lethal damage has been assigned to each blocker.
+    Trample,
     /// Declaring this creature as an attacker does not tap it.
     Vigilance,
     Dredge(u8),
