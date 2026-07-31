@@ -235,6 +235,7 @@ struct CombatState {
     /// exists.
     blockers: BTreeMap<ObjectId, Vec<ObjectId>>,
     must_be_blocked_attackers: BTreeSet<ObjectId>,
+    mountainwalk_attackers: BTreeSet<ObjectId>,
     /// Blockers admitted against a declared flying attacker because they had
     /// either Flying or Reach at blocker declaration. This is provenance, not
     /// an assertion that the blocker retains either keyword afterward.
@@ -1271,6 +1272,13 @@ impl Game {
             .and_then(|definition| self.basic_land_types.get(definition).copied()))
     }
 
+    fn player_controls_basic_land_type(&self, player: PlayerId, land_type: BasicLandType) -> bool {
+        self.players[player.0].battlefield.iter().any(|card| {
+            self.basic_land_type(*card)
+                .is_ok_and(|registered| registered == Some(land_type))
+        })
+    }
+
     /// Drops setup or prior-run events. This is useful at the start of a scenario's
     /// measured action sequence and never alters game state.
     pub fn clear_event_log(&mut self) {
@@ -1650,6 +1658,7 @@ impl Game {
         let mut vigilant_attackers = BTreeSet::new();
         let mut trampling_attackers = BTreeSet::new();
         let mut must_be_blocked_attackers = BTreeSet::new();
+        let mut mountainwalk_attackers = BTreeSet::new();
         for attacker in attackers {
             if !seen.insert(*attacker) {
                 return Err(RulesError::IllegalAction("an attacker was declared twice"));
@@ -1684,6 +1693,9 @@ impl Game {
             {
                 must_be_blocked_attackers.insert(*attacker);
             }
+            if characteristics.keywords.contains(&Keyword::Mountainwalk) {
+                mountainwalk_attackers.insert(*attacker);
+            }
         }
         for attacker in attackers {
             if !vigilant_attackers.contains(attacker) {
@@ -1704,6 +1716,7 @@ impl Game {
         combat.vigilant_attackers = vigilant_attackers;
         combat.trampling_attackers = trampling_attackers;
         combat.must_be_blocked_attackers = must_be_blocked_attackers;
+        combat.mountainwalk_attackers = mountainwalk_attackers;
         combat.defending_player = Some(defending_player);
         combat.attackers_declared = true;
         self.record_event(GameEvent::AttackersDeclared {
@@ -1770,6 +1783,13 @@ impl Game {
                     ));
                 }
                 evasion_qualified_blockers.insert(assignment.blocker);
+            }
+            if combat.mountainwalk_attackers.contains(&assignment.attacker)
+                && self.player_controls_basic_land_type(player, BasicLandType::Mountain)
+            {
+                return Err(RulesError::IllegalAction(
+                    "mountainwalk attacker cannot be blocked while defender controls a Mountain",
+                ));
             }
         }
         for attacker in &combat.must_be_blocked_attackers {
@@ -2909,7 +2929,9 @@ impl Game {
                 && (!combat.hasty_attackers.is_empty()
                     || !combat.flying_attackers.is_empty()
                     || !combat.vigilant_attackers.is_empty()
-                    || !combat.trampling_attackers.is_empty())
+                    || !combat.trampling_attackers.is_empty()
+                    || !combat.must_be_blocked_attackers.is_empty()
+                    || !combat.mountainwalk_attackers.is_empty())
             {
                 return Err(RulesError::IllegalAction(
                     "undeclared combat retained attacker keyword provenance",
@@ -2986,6 +3008,11 @@ impl Game {
             if !combat.must_be_blocked_attackers.is_subset(&attackers) {
                 return Err(RulesError::IllegalAction(
                     "must-block declaration provenance contains a nonattacker",
+                ));
+            }
+            if !combat.mountainwalk_attackers.is_subset(&attackers) {
+                return Err(RulesError::IllegalAction(
+                    "mountainwalk declaration provenance contains a nonattacker",
                 ));
             }
             for (attacker, assigned_blockers) in &combat.blockers {

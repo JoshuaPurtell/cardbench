@@ -55,14 +55,6 @@ fn easy_creature_wave_two_is_exactly_bounded_to_public_base_facts() {
             3,
         ),
         (
-            "RAV-GOBLIN-SPELUNKERS",
-            "Goblin Spelunkers",
-            ManaCost::with_colors(2, [Color::Red]),
-            BTreeSet::from([Color::Red]),
-            2,
-            2,
-        ),
-        (
             "RAV-ORDRUUN-COMMANDO",
             "Ordruun Commando",
             ManaCost::with_colors(3, [Color::Red]),
