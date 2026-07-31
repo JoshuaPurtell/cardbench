@@ -194,6 +194,10 @@ pub struct GameView {
 #[derive(Clone, Debug, Default)]
 struct CombatState {
     attackers: Vec<ObjectId>,
+    /// Attackers that were declared with vigilance. This is declaration
+    /// provenance, not a live tapped-state assertion: a vigilant attacker can
+    /// later pay a legal tap cost while it remains in combat.
+    vigilant_attackers: BTreeSet<ObjectId>,
     blockers: BTreeMap<ObjectId, ObjectId>,
     /// This initial slice attacks the next living seat. It records that seat
     /// at declaration time rather than recomputing turn order after a player
@@ -1187,6 +1191,7 @@ impl Game {
             return Err(RulesError::IllegalAction("attackers were already declared"));
         }
         let mut seen = BTreeSet::new();
+        let mut vigilant_attackers = BTreeSet::new();
         for attacker in attackers {
             if !seen.insert(*attacker) {
                 return Err(RulesError::IllegalAction("an attacker was declared twice"));
@@ -1202,12 +1207,17 @@ impl Game {
             {
                 return Err(RulesError::IllegalAction("illegal attacker"));
             }
+            if characteristics.keywords.contains(&Keyword::Vigilance) {
+                vigilant_attackers.insert(*attacker);
+            }
         }
         for attacker in attackers {
-            self.objects
-                .get_mut(attacker)
-                .ok_or(RulesError::UnknownCard(*attacker))?
-                .tapped = true;
+            if !vigilant_attackers.contains(attacker) {
+                self.objects
+                    .get_mut(attacker)
+                    .ok_or(RulesError::UnknownCard(*attacker))?
+                    .tapped = true;
+            }
         }
         let defending_player = self.next_player(player);
         let combat = self
@@ -1215,6 +1225,7 @@ impl Game {
             .as_mut()
             .ok_or(RulesError::IllegalAction("combat was not initialized"))?;
         combat.attackers = attackers.to_vec();
+        combat.vigilant_attackers = vigilant_attackers;
         combat.defending_player = Some(defending_player);
         combat.attackers_declared = true;
         self.record_event(GameEvent::AttackersDeclared {
@@ -2094,6 +2105,11 @@ impl Game {
                     "blocker declaration began before attackers were declared",
                 ));
             }
+            if !combat.attackers_declared && !combat.vigilant_attackers.is_empty() {
+                return Err(RulesError::IllegalAction(
+                    "undeclared combat retained vigilant attacker provenance",
+                ));
+            }
             if matches!(
                 self.step,
                 Step::FirstStrikeCombatDamage | Step::CombatDamage
@@ -2122,9 +2138,23 @@ impl Game {
                 if !attackers.insert(*attacker) {
                     return Err(RulesError::IllegalAction("invalid combat attacker state"));
                 }
-                if self.zone_of(*attacker).is_some() {
+                if self.zone_of(*attacker) == Some(Zone::Battlefield) {
                     self.object(*attacker)?;
+                    let currently_vigilant = self
+                        .characteristics(*attacker)?
+                        .keywords
+                        .contains(&Keyword::Vigilance);
+                    if currently_vigilant != combat.vigilant_attackers.contains(attacker) {
+                        return Err(RulesError::IllegalAction(
+                            "vigilance declaration provenance disagrees with attacker keyword",
+                        ));
+                    }
                 }
+            }
+            if !combat.vigilant_attackers.is_subset(&attackers) {
+                return Err(RulesError::IllegalAction(
+                    "vigilance declaration provenance contains a nonattacker",
+                ));
             }
             for (attacker, blocker) in &combat.blockers {
                 if !attackers.contains(attacker) || !blockers.insert(*blocker) {

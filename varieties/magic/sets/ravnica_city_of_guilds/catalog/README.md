@@ -33,7 +33,7 @@ an executable compatibility definition remain subject to that definition's
 
 `RAV_FULL_FIDELITY_DEFINITION_IDS` is a deliberately small positive manifest,
 not an inference from executable status. Char, Lightning Helix, Scatter the
-Seeds, Last Gasp, Elves of Deep Shadow, Boros Recruit, Watchwolf, Glass Golem,
+Seeds, Guardian of Vitu-Ghazi, Last Gasp, Elves of Deep Shadow, Boros Recruit, Watchwolf, Glass Golem,
 Cleansing Beam, Rally the Righteous, Wojek Siren, Rain of Embers, Dogpile,
 Overwhelm, Gather Courage, Seeds of Strength, and Darkblast are listed only after an
 ability-by-ability contract proves their complete represented behavior and
@@ -51,9 +51,10 @@ and the fixed Dredge replacement substrate, with an exact public event-log
 scenario. Scatter the Seeds is also in the positive manifest: its Convoke cost
 and each created token's count, color, card type, typed creature subtype, and
 base power/toughness are all represented and covered by a direct Rust contract
-and fixed public trace. Siege Wurm and Guardian of Vitu-Ghazi remain bounded
-because trample combat-damage assignment and vigilance's attack/tap exception are
-not executable.
+and fixed public trace. Guardian of Vitu-Ghazi is also in the positive manifest:
+its Convoke payment, base characteristics, and vigilance declaration exception
+are covered by direct Rust contracts and fixed public traces. Siege Wurm remains
+bounded because trample combat-damage assignment is not executable.
 
 The 2026-07-30 simple-spell audit removed Gaze of the Gorgon from the executable
 slice. A prior fixture had both an incorrect hybrid-cost model and an unrelated
@@ -92,8 +93,8 @@ checked-in definitions and public scenarios make that omission visible without
 reproducing card rules text.
 
 The generic-keyword coverage batch for Conclave Equenaut, Conclave Phalanx,
-Golgari Grave-Troll, Necroplasm, Grave-Shell Scarab, Shambling Shell, Guardian
-of Vitu-Ghazi, and Autochthon Wurm follows the same fail-closed boundary. Each
+Golgari Grave-Troll, Necroplasm, Grave-Shell Scarab, Shambling Shell, and
+Autochthon Wurm follows the same fail-closed boundary. Each
 definition records only its public identity, mana cost, color, type, base
 characteristics, and the engine's existing generic Dredge or Convoke hook. The
 public fixed scenarios exercise that generic hook and normal casting where it is

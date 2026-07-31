@@ -83,6 +83,11 @@ hash and reproduction details.
   Scatter the Seeds was re-audited after the engine added typed token creature
   subtypes; its positive manifest entry retains only CardBench-authored semantic
   operations and the public event-log baseline, not source card prose or data.
+  Guardian of Vitu-Ghazi was re-audited after the engine added the
+  expansion-neutral vigilance declaration substrate. Only the public identity,
+  cost, color, creature type, base power/toughness, and two keyword facts needed
+  by its direct contracts were retained, along with the public rules reference
+  for vigilance; no card prose, art, or response payload is checked in.
 - The RAV basic-land boundary audit was checked on 2026-07-30 against the
   public official Gatherer records for representative RAV printings:
   [Plains](https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=95108),

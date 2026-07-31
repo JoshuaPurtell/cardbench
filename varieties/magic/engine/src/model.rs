@@ -385,6 +385,8 @@ pub enum Keyword {
     Convoke,
     Defender,
     FirstStrike,
+    /// Declaring this creature as an attacker does not tap it.
+    Vigilance,
     Dredge(u8),
     Transmute(ManaCost),
 }

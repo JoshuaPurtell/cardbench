@@ -33,10 +33,11 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 17] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 18] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SCATTER-THE-SEEDS",
+    "RAV-GUARDIAN-OF-VITU-GHAZI",
     "RAV-LAST-GASP",
     "RAV-ELVES-OF-DEEP-SHADOW",
     "RAV-BOROS-RECRUIT",
@@ -753,9 +754,9 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Convoke],
             effects: vec![],
         },
-        // Compatibility scope: normal creature casting, base characteristics,
-        // and the existing Convoke payment hook. Vigilance's attack/tap rule
-        // is intentionally unsupported.
+        // Full fidelity: Convoke payment, base characteristics, and the
+        // expansion-neutral vigilance attack-declaration exception are all
+        // represented by the engine.
         CardDefinition {
             id: "RAV-GUARDIAN-OF-VITU-GHAZI",
             name: "Guardian of Vitu-Ghazi",
@@ -765,10 +766,15 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Creature]),
             is_basic_land: false,
-            supported_rules: &["convoke", "base-characteristics"],
+            supported_rules: &[
+                "full-rules-fidelity",
+                "convoke",
+                "base-characteristics",
+                "vigilance",
+            ],
             power: Some(4),
             toughness: Some(7),
-            keywords: vec![Keyword::Convoke],
+            keywords: vec![Keyword::Convoke, Keyword::Vigilance],
             effects: vec![],
         },
         // Compatibility scope: normal creature casting, base characteristics,
