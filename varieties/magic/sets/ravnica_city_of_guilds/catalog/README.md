@@ -44,7 +44,8 @@ an executable compatibility definition remain subject to that definition's
 not an inference from executable status. Char, Lightning Helix, Scatter the
 Seeds, Guardian of Vitu-Ghazi, Last Gasp, Elves of Deep Shadow, Boros Recruit, Watchwolf, Glass Golem,
 Cleansing Beam, Rally the Righteous, Wojek Siren, Rain of Embers, Dogpile,
-Overwhelm, Gather Courage, Seeds of Strength, and Darkblast are listed only after an
+Overwhelm, Gather Courage, Seeds of Strength, Darkblast, and the four RAV
+Signets are listed only after an
 ability-by-ability contract proves their complete represented behavior and
 public receipt traces. The radiance entries were
 checked against their public set identity and the official Comprehensive Rules'

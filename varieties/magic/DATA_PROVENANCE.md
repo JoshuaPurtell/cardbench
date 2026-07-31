@@ -96,9 +96,9 @@ hash and reproduction details.
   [Mountain](https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=95096),
   and [Forest](https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=95097).
   The public Comprehensive Rules' basic-land and mana-ability sections were
-  also consulted. Only the semantic identity, basic-land status, and one-color
-  mana result required by the bounded definitions are retained; no card prose,
-  art, or response payload is checked in.
+  also consulted. Only the semantic identity, basic-land status, typed land
+  identity, and one-color mana result required by the bounded definitions are
+  retained; no card prose, art, or response payload is checked in.
 - The Glass Golem compatibility facts were checked on 2026-07-30 against a
   single public [Scryfall named-card response](https://api.scryfall.com/cards/named?exact=Glass%20Golem),
   corroborated by the RAV inventory. The checked fields were identity, set,
