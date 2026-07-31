@@ -3704,6 +3704,7 @@ impl Game {
                 | Effect::DestroyTargetArtifact
                 | Effect::DestroyTargetArtifactOrEnchantment
                 | Effect::ReturnTargetCardToHand
+                | Effect::ShuffleGraveyardsIntoLibraries
                 | Effect::ModifyControllerCreaturesPtUntilEndOfTurn { .. }
                 | Effect::RadianceUntapAndModifyUntilEndOfTurn { .. }
                 | Effect::RadianceModifyPtUntilEndOfTurn { .. }
@@ -4957,6 +4958,26 @@ impl Game {
                     return Err(RulesError::IllegalTarget(Target::Permanent(target)));
                 }
                 self.move_to_zone(target, Zone::Hand)?;
+            }
+            Effect::ShuffleGraveyardsIntoLibraries => {
+                for player_index in 0..self.players.len() {
+                    let player = PlayerId(player_index);
+                    let cards = std::mem::take(&mut self.players[player_index].graveyard);
+                    for card in cards {
+                        self.players[player_index].library.push(card);
+                        self.record_event(GameEvent::CardMoved {
+                            card,
+                            to: Zone::Library,
+                        });
+                    }
+                    let count = u16::try_from(self.players[player_index].library.len())
+                        .unwrap_or(u16::MAX);
+                    self.shuffle_library(player);
+                    self.record_event(GameEvent::LibraryShuffled {
+                        player,
+                        cards: count,
+                    });
+                }
             }
         }
         Ok(())

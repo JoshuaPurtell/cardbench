@@ -35,7 +35,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 71] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 72] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -107,6 +107,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 71] = [
     "RAV-SMASH",
     "RAV-SUNDERING-VITAE",
     "RAV-RECOLLECT",
+    "RAV-MNEMONIC-NEXUS",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -576,6 +577,27 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 [Color::Blue, Color::Blue],
             ))],
             effects: vec![Effect::CounterTargetInstantOrSorcerySpell],
+        },
+        // Full fidelity: each owner's graveyard moves into that owner's
+        // library, and each library is shuffled at resolution.
+        CardDefinition {
+            id: "RAV-MNEMONIC-NEXUS",
+            name: "Mnemonic Nexus",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(3, [Color::Blue]),
+            colors: colors([Color::Blue]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Instant]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "graveyard-to-library",
+                "per-player-library-shuffle",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![Effect::ShuffleGraveyardsIntoLibraries],
         },
         // Only the hand-zone transmute activation is executable. The printed
         // spell effect is deliberately non-covered in this compatibility

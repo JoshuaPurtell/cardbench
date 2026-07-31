@@ -922,6 +922,9 @@ pub enum Effect {
     /// Return the targeted card from the resolving spell controller's
     /// graveyard to that player's hand.
     ReturnTargetCardToHand,
+    /// Move every player's graveyard into that player's library, then shuffle
+    /// each library. This is an untargeted, owner-preserving zone operation.
+    ShuffleGraveyardsIntoLibraries,
     /// Move one targeted creature from the battlefield to its owner's exile
     /// zone.  This is a zone-change instruction rather than lethal damage, so
     /// it bypasses regeneration and preserves the target's normal
@@ -979,6 +982,7 @@ impl Effect {
             | Self::AddManaController { .. }
             | Self::DrawControllerIfManaColorSpent { .. }
             | Self::CreateToken { .. }
+            | Self::ShuffleGraveyardsIntoLibraries
             | Self::ModifySourcePtUntilEndOfTurn { .. }
             | Self::RemoveSourceKeywordUntilEndOfTurn { .. }
             | Self::AddSourceDamageShieldUntilEndOfTurn { .. }

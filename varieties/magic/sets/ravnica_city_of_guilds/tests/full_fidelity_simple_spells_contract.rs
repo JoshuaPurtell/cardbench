@@ -82,6 +82,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-SMASH",
             "RAV-SUNDERING-VITAE",
             "RAV-RECOLLECT",
+            "RAV-MNEMONIC-NEXUS",
         ]
     );
     let definitions = card_definitions();

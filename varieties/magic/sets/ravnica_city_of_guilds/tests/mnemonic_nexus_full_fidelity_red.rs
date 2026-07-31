@@ -37,18 +37,40 @@ fn mnemonic_nexus_moves_each_graveyard_into_its_library_and_shuffles() {
     )
     .expect("Mnemonic Nexus casts");
     game.pass_priority(PlayerId(0)).expect("caster passes");
-    game.pass_priority(PlayerId(1)).expect("opponent passes and resolves");
+    game.pass_priority(PlayerId(1))
+        .expect("opponent passes and resolves");
+    println!("Mnemonic Nexus event log: {:?}", game.canonical_event_log());
 
     assert_eq!(game.zone_of(p0_graveyard), Some(Zone::Library));
     assert_eq!(game.zone_of(p1_graveyard), Some(Zone::Library));
-    assert!(game
+    assert_eq!(game.player(PlayerId(0)).unwrap().graveyard, vec![nexus]);
+    assert!(game.player(PlayerId(1)).unwrap().graveyard.is_empty());
+    let library_moves = game
         .event_log
         .iter()
-        .any(|event| matches!(event, cardbench_magic_engine::GameEvent::LibraryShuffled { player: PlayerId(0), .. })));
-    assert!(game
-        .event_log
-        .iter()
-        .any(|event| matches!(event, cardbench_magic_engine::GameEvent::LibraryShuffled { player: PlayerId(1), .. })));
+        .filter_map(|event| match event {
+            cardbench_magic_engine::GameEvent::CardMoved {
+                card,
+                to: Zone::Library,
+            } => Some(*card),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(library_moves, vec![p0_graveyard, p1_graveyard]);
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        cardbench_magic_engine::GameEvent::LibraryShuffled {
+            player: PlayerId(0),
+            ..
+        }
+    )));
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        cardbench_magic_engine::GameEvent::LibraryShuffled {
+            player: PlayerId(1),
+            ..
+        }
+    )));
     game.validate_invariants()
         .expect("library recovery preserves invariants");
 }
