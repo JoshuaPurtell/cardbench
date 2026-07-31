@@ -76,6 +76,54 @@ fn frenzied_goblin_attack_trigger_pays_red_and_restricts_a_blocker() {
 }
 
 #[test]
+fn frenzied_goblin_target_remains_able_to_attack() {
+    let mut game = Game::new_with_all_bindings_and_triggers(
+        card_definitions(),
+        2,
+        rav_mana_ability_bindings(),
+        rav_basic_land_type_bindings(),
+        rav_additional_spell_cost_bindings(),
+        rav_activated_ability_bindings(),
+        rav_triggered_ability_bindings(),
+    )
+    .expect("RAV game builds");
+    let goblin = game
+        .put_on_battlefield(PlayerId(0), "RAV-FRENZIED-GOBLIN")
+        .expect("Frenzied Goblin enters");
+    let blocker = game
+        .put_on_battlefield(PlayerId(1), "RAV-WATCHWOLF")
+        .expect("target creature enters");
+    game.set_entered_turn_for_setup(goblin, 0)
+        .expect("old fixture entry");
+    game.set_entered_turn_for_setup(blocker, 0)
+        .expect("old fixture entry");
+    game.begin_game().expect("game starts");
+    while game.step != cardbench_magic_engine::Step::DeclareAttackers {
+        let priority = game.priority;
+        game.pass_priority(priority).expect("advance to attackers");
+    }
+    game.grant_mana(PlayerId(0), cardbench_magic_engine::Color::Red, 1)
+        .expect("red trigger mana");
+    game.declare_attackers(PlayerId(0), &[goblin])
+        .expect("goblin attacks");
+    game.pass_priority(PlayerId(0))
+        .expect("trigger controller passes");
+    game.pass_priority(PlayerId(1))
+        .expect("attack trigger resolves");
+    let characteristics = game.characteristics(blocker).expect("blocker remains");
+    println!(
+        "Frenzied Goblin target restriction: {:?}",
+        characteristics.keywords
+    );
+    assert!(
+        !characteristics
+            .keywords
+            .contains(&cardbench_magic_engine::Keyword::CannotAttackOrBlock),
+        "Frenzied Goblin should restrict blocking only; target must remain able to attack"
+    );
+}
+
+#[test]
 fn sell_sword_brute_requires_its_death_damage_trigger() {
     let brute = card_definitions()
         .into_iter()
