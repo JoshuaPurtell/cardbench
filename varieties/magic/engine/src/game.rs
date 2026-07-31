@@ -4270,7 +4270,11 @@ impl Game {
                 self.deal_damage_to_player(source, controller, i32::from(*amount))?;
             }
             Effect::AddManaController { color, amount } => {
-                if *amount == 0 || !self.players[controller.0].mana_pool.can_add(*color, *amount) {
+                if *amount == 0
+                    || !self.players[controller.0]
+                        .mana_pool
+                        .can_add(*color, *amount)
+                {
                     return Err(RulesError::IllegalAction(
                         "spell effect cannot add the requested mana",
                     ));
