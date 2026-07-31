@@ -5335,6 +5335,11 @@ impl Game {
                 } => {
                     *open.entry((*source, *ability)).or_default() += 1;
                 }
+                GameEvent::TriggeredAbilityStacked {
+                    source, ability, ..
+                } => {
+                    *open.entry((*source, *ability)).or_default() += 1;
+                }
                 GameEvent::AbilityResolved { source, ability }
                 | GameEvent::AbilityCounteredByRules { source, ability } => {
                     let count =
@@ -5355,12 +5360,25 @@ impl Game {
         let live = self
             .stack
             .iter()
-            .filter(|item| item.ability_id.is_some())
+            .filter_map(|item| {
+                item.ability_id
+                    .map(|ability| (item.card, ability))
+                    .or_else(|| {
+                        self.triggered_stack
+                            .get(&item.card)
+                            .and_then(|trigger| match trigger.ability {
+                                TriggeredAbility::EnterBattlefieldTeamPumpHaste => {
+                                    Some((trigger.source, "etb-team-pump-haste"))
+                                }
+                                TriggeredAbility::EnterBattlefieldDrawController => None,
+                            })
+                    })
+            })
             .fold(
                 BTreeMap::<(ObjectId, &'static str), usize>::new(),
-                |mut counts, item| {
+                |mut counts, (source, ability)| {
                     *counts
-                        .entry((item.card, item.ability_id.expect("checked above")))
+                        .entry((source, ability))
                         .or_default() += 1;
                     counts
                 },

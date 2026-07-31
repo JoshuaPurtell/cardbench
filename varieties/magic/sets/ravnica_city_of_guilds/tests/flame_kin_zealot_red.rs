@@ -44,6 +44,15 @@ fn flame_kin_zealot_enters_and_resolves_its_team_trigger() {
         .expect("existing creature enters");
     game.set_entered_turn_for_setup(watchwolf, 0)
         .expect("old creature");
+    let mountains = (0..3)
+        .map(|_| {
+            game.put_on_battlefield(PlayerId(0), "RAV-MOUNTAIN")
+                .expect("Mountain enters")
+        })
+        .collect::<Vec<_>>();
+    let plains = game
+        .put_on_battlefield(PlayerId(0), "RAV-PLAINS")
+        .expect("Plains enters");
     game.begin_game().expect("game starts");
     while game.step != Step::PrecombatMain {
         let priority = game.priority;
@@ -51,9 +60,11 @@ fn flame_kin_zealot_enters_and_resolves_its_team_trigger() {
         game.pass_priority(PlayerId(1 - priority.0))
             .expect("pass turn priority");
     }
-    game.grant_mana(PlayerId(0), Color::Red, 3)
-        .expect("red mana");
-    game.grant_mana(PlayerId(0), Color::White, 1)
+    for mountain in mountains {
+        game.activate_mana_ability(PlayerId(0), mountain, Color::Red)
+            .expect("red mana");
+    }
+    game.activate_mana_ability(PlayerId(0), plains, Color::White)
         .expect("white mana");
     game.cast_spell(
         PlayerId(0),
