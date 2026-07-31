@@ -3734,17 +3734,18 @@ impl Game {
             else {
                 continue;
             };
-            let definition = self.card_definition(*card)?;
-            if !self
-                .additional_spell_costs
-                .get(definition.id)
-                .is_some_and(|costs| {
-                    costs.contains(&AdditionalSpellCost::SacrificeControlledCreature)
-                })
-            {
-                return Err(RulesError::IllegalAction(
-                    "sacrifice-cost receipt names a spell without that bound cost",
-                ));
+            if let Some(definition) = self.definition_for_historical_spell_receipt(index, *card)? {
+                if !self
+                    .additional_spell_costs
+                    .get(definition.id)
+                    .is_some_and(|costs| {
+                        costs.contains(&AdditionalSpellCost::SacrificeControlledCreature)
+                    })
+                {
+                    return Err(RulesError::IllegalAction(
+                        "sacrifice-cost receipt names a spell without that bound cost",
+                    ));
+                }
             }
             if permanent == card {
                 return Err(RulesError::IllegalAction(
@@ -3790,13 +3791,15 @@ impl Game {
             let GameEvent::SpellCast { player, card } = event else {
                 continue;
             };
-            let definition = self.card_definition(*card)?;
-            let needs_sacrifice_cost =
-                self.additional_spell_costs
-                    .get(definition.id)
-                    .is_some_and(|costs| {
-                        costs.contains(&AdditionalSpellCost::SacrificeControlledCreature)
-                    });
+            let needs_sacrifice_cost = self
+                .definition_for_historical_spell_receipt(index, *card)?
+                .is_some_and(|definition| {
+                    self.additional_spell_costs
+                        .get(definition.id)
+                        .is_some_and(|costs| {
+                            costs.contains(&AdditionalSpellCost::SacrificeControlledCreature)
+                        })
+                });
             let has_sacrifice_receipt = self.event_log[..index]
                 .iter()
                 .rev()
@@ -3823,6 +3826,37 @@ impl Game {
             }
         }
         Ok(())
+    }
+
+    /// Looks up a spell definition while auditing an event history. CR 800.4a
+    /// can legitimately remove an owned spell object from `objects` after its
+    /// cast receipt was recorded, so a later transition must not fail merely
+    /// because the historical receipt can no longer dereference that object.
+    ///
+    /// The sole tolerated absence is a later `ObjectLeftGame` terminal receipt
+    /// for the same card. All other missing objects remain invariant failures.
+    fn definition_for_historical_spell_receipt(
+        &self,
+        receipt_index: usize,
+        card: ObjectId,
+    ) -> Result<Option<&CardDefinition>, RulesError> {
+        match self.card_definition(card) {
+            Ok(definition) => Ok(Some(definition)),
+            Err(RulesError::UnknownCard(missing))
+                if missing == card
+                    && self
+                        .event_log
+                        .get(receipt_index.saturating_add(1)..)
+                        .is_some_and(|later_events| {
+                            later_events.iter().any(|event| {
+                                matches!(event, GameEvent::ObjectLeftGame { object, .. } if *object == card)
+                            })
+                        }) =>
+            {
+                Ok(None)
+            }
+            Err(error) => Err(error),
+        }
     }
 
     /// Audits the causally significant mana-ability receipt sequences. These

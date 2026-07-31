@@ -131,7 +131,10 @@ Oracle Magic rules coverage.
 - If the active player leaves while stack work remains, their turn continues
   without a living active player as required by CR 800.4i. The engine retains
   that departed seat only as current-turn identity, gives priority to the next
-  survivor, and begins the next turn only after the stack has emptied.
+  survivor, and begins the next turn only after the stack has emptied. Event
+  receipt audits must treat that departed owner's `ObjectLeftGame` as the
+  terminal path for historical stack receipts: a later transition may not
+  dereference an object that CR 800.4a correctly removed.
 - The expansion-neutral definition-bound mana-ability catalog contains only
   permanent definitions that exist in the game catalog. Every ability identity
   is nonempty and unique within its definition; its output amount is positive;

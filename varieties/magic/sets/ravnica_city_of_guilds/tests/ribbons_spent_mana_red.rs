@@ -2,13 +2,11 @@
 //!
 //! This intentionally names only semantic engine data, not card rules prose.
 
-use cardbench_magic_engine::{
-    CastRequest, Color, Game, GameEvent, ManaPaymentSelection, PlayerId, Target, Zone,
-};
+use cardbench_magic_engine::{CastRequest, Color, Game, PlayerId, RulesError, Target, Zone};
 use cardbench_magic_rav::card_definitions;
 
 #[test]
-fn ribbons_can_replay_a_nonblue_generic_payment_without_granting_the_conditional_draw() {
+fn ribbons_rejects_an_unselected_generic_payment_instead_of_silently_choosing_blue() {
     let caster = PlayerId(0);
     let opponent = PlayerId(1);
     let mut game = Game::new(card_definitions(), 2).expect("RAV game constructs");
@@ -18,16 +16,13 @@ fn ribbons_can_replay_a_nonblue_generic_payment_without_granting_the_conditional
     let target = game
         .put_on_battlefield(opponent, "RAV-GOLGARI-BROWNSCALE")
         .expect("target creature begins on the battlefield");
-    let drawn = game
-        .add_card(caster, "RAV-WATCHWOLF", Zone::Library)
-        .expect("public library fixture has one drawable card");
     for (color, amount) in [(Color::Black, 1), (Color::Blue, 4), (Color::Red, 4)] {
         game.grant_mana(caster, color, amount)
             .expect("fixture mana fits the bounded pool");
     }
     game.clear_event_log();
 
-    game.cast_spell_with_mana_spend(
+    let result = game.cast_spell(
         caster,
         CastRequest {
             card: ribbons,
@@ -35,36 +30,19 @@ fn ribbons_can_replay_a_nonblue_generic_payment_without_granting_the_conditional
             convoke: vec![],
             payment_mana_abilities: vec![],
         },
-        ManaPaymentSelection {
-            generic: vec![Color::Red; 4],
-            hybrid: vec![],
-        },
-    )
-    .expect("the player may select Red, rather than available Blue, for the four generic symbols");
-    assert_eq!(
-        game.event_log,
-        vec![
-            GameEvent::SpellManaPaid {
-                player: caster,
-                card: ribbons,
-                colors: vec![Color::Black, Color::Red, Color::Red, Color::Red, Color::Red],
-            },
-            GameEvent::SpellCast {
-                player: caster,
-                card: ribbons,
-            },
-        ],
-        "the selected allocation must be replayable from the ordered cast receipt"
     );
-
-    game.pass_priority(caster).expect("caster passes");
-    game.pass_priority(opponent).expect("opponent passes and resolves");
-    assert_eq!(game.zone_of(drawn), Some(Zone::Library));
+    println!("Ribbons unselected-payment result: {result:?}");
+    println!("Ribbons unselected-payment events: {:?}", game.event_log);
     assert_eq!(
-        game.player(caster).expect("caster exists").life,
-        24,
-        "the supported damage/life instructions still resolve"
+        result,
+        Err(RulesError::IllegalAction(
+            "spell requires an explicit mana-spend selection"
+        )),
+        "four Blue and four Red are both legal generic-payment allocations, but the legacy request cannot select either; the card must fail closed until a typed selection is submitted"
     );
+    assert_eq!(game.zone_of(ribbons), Some(Zone::Hand));
+    assert!(game.stack.is_empty());
+    assert!(game.event_log.is_empty());
     game.validate_invariants()
-        .expect("the paid-color receipt remains attached to the stack lifecycle");
+        .expect("the rejected ambiguous payment preserves the original state");
 }
