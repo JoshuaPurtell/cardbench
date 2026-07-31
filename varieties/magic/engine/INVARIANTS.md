@@ -60,10 +60,12 @@ Oracle Magic rules coverage.
   one ordered stack slot; the same object may occupy multiple slots when the
   source has multiple independent target occurrences. Tokens and lands cannot
   occupy the stack. A target may later become illegal, but it cannot be
-  absent, fabricated, or change enum kind after cast time. The invariant
-  validates that immutable target shape separately from dynamic target
-  legality; in particular, every stack player target names a seated player,
-  although that player may later have lost. At resolution, an all-illegal
+  absent, fabricated, or change enum kind after cast time. `Target::Spell`
+  additionally retains and validates the immutable instant-or-sorcery card
+  definition even after CR 800.4a removes that object from the live game.
+  The invariant validates that immutable target shape separately from dynamic
+  target legality; in particular, every stack player target names a seated
+  player, although that player may later have lost. At resolution, an all-illegal
   target set emits `SpellCounteredByRules`; if at least one target remains
   legal, the spell resolves and only instructions addressed to the now-illegal
   target slots do nothing. The engine snapshots initial legality in a

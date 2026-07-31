@@ -106,3 +106,63 @@ fn invariant_rejects_a_counterspell_retargeted_to_a_departed_creature_card() {
         "a departed creature card cannot be a historical instant-or-sorcery target"
     );
 }
+
+#[test]
+fn invariant_accepts_a_formerly_legal_departed_instant_target() {
+    let caster = PlayerId(0);
+    let responder = PlayerId(1);
+    let mut game = Game::new(
+        [
+            definition(
+                LOWER_INSTANT,
+                CardType::Instant,
+                vec![Effect::GainLifeController { amount: 1 }],
+            ),
+            definition(
+                COUNTER,
+                CardType::Instant,
+                vec![Effect::CounterTargetInstantOrSorcerySpell],
+            ),
+        ],
+        2,
+    )
+    .expect("fixture game initializes");
+    let lower = game
+        .add_card(caster, LOWER_INSTANT, Zone::Hand)
+        .expect("lower instant enters hand");
+    let counter = game
+        .add_card(responder, COUNTER, Zone::Hand)
+        .expect("counterspell enters hand");
+
+    game.cast_spell(
+        caster,
+        CastRequest {
+            card: lower,
+            targets: vec![],
+            convoke: vec![],
+            payment_mana_abilities: vec![],
+        },
+    )
+    .expect("lower instant is legally cast");
+    game.pass_priority(caster)
+        .expect("caster opens a response window");
+    game.cast_spell(
+        responder,
+        CastRequest {
+            card: counter,
+            targets: vec![Target::Spell(lower)],
+            convoke: vec![],
+            payment_mana_abilities: vec![],
+        },
+    )
+    .expect("counterspell legally targets the lower instant");
+
+    game.players[caster.0].life = 0;
+    game.check_state_based_actions()
+        .expect("owner departure removes the lower spell atomically");
+
+    assert!(game.zone_of(lower).is_none());
+    assert!(game.stack.iter().any(|stack| stack.card == counter));
+    game.validate_invariants()
+        .expect("a legal departed instant target remains a valid historical target");
+}
