@@ -72,7 +72,14 @@ fn bounded_effect_slices_state_only_the_semantics_that_are_executable() {
     );
 
     let conclusion = definition("RAV-FIERY-CONCLUSION");
-    assert_eq!(conclusion.supported_rules, ["targeted-creature-damage"]);
+    assert_eq!(
+        conclusion.supported_rules,
+        [
+            "full-rules-fidelity",
+            "additional-sacrifice-controlled-creature-cost",
+            "targeted-creature-damage",
+        ]
+    );
     assert_eq!(
         conclusion.effects,
         vec![Effect::DealDamage {
