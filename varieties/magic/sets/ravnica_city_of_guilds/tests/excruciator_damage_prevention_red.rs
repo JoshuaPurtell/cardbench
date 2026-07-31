@@ -68,6 +68,9 @@ fn excruciator_combat_damage_ignores_ordruun_shield() {
     let commando = game
         .put_on_battlefield(PlayerId(1), "RAV-ORDRUUN-COMMANDO")
         .expect("Ordruun enters");
+    let plains = game
+        .put_on_battlefield(PlayerId(1), "RAV-PLAINS")
+        .expect("Plains enters");
     game.set_entered_turn_for_setup(excruciator, 0)
         .expect("Excruciator is long-controlled");
     game.set_entered_turn_for_setup(commando, 0)
@@ -79,7 +82,7 @@ fn excruciator_combat_damage_ignores_ordruun_shield() {
     // the combat that follows.
     game.pass_priority(PlayerId(0))
         .expect("active player yields");
-    game.grant_mana(PlayerId(1), Color::White, 1)
+    game.activate_mana_ability(PlayerId(1), plains, Color::White)
         .expect("white activation mana");
     game.activate_ability(
         PlayerId(1),

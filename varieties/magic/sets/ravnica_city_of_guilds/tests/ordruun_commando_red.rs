@@ -39,6 +39,15 @@ fn ordruun_commando_prevents_the_next_damage_and_logs_the_shield() {
     let char = game
         .add_card(PlayerId(0), "RAV-CHAR", Zone::Hand)
         .expect("Char enters hand");
+    let plains = game
+        .put_on_battlefield(PlayerId(0), "RAV-PLAINS")
+        .expect("Plains enters");
+    let mountains = (0..3)
+        .map(|_| {
+            game.put_on_battlefield(PlayerId(0), "RAV-MOUNTAIN")
+                .expect("Mountain enters")
+        })
+        .collect::<Vec<_>>();
     game.set_entered_turn_for_setup(commando, 0)
         .expect("fixture makes Ordruun long-controlled");
     game.begin_game().expect("game starts");
@@ -49,7 +58,7 @@ fn ordruun_commando_prevents_the_next_damage_and_logs_the_shield() {
     }
     assert_eq!(game.step, Step::PrecombatMain);
 
-    game.grant_mana(PlayerId(0), Color::White, 1)
+    game.activate_mana_ability(PlayerId(0), plains, Color::White)
         .expect("white mana");
     game.activate_ability(
         PlayerId(0),
@@ -69,8 +78,10 @@ fn ordruun_commando_prevents_the_next_damage_and_logs_the_shield() {
         1
     );
 
-    game.grant_mana(PlayerId(0), Color::Red, 3)
-        .expect("Char mana");
+    for mountain in mountains {
+        game.activate_mana_ability(PlayerId(0), mountain, Color::Red)
+            .expect("Char mana");
+    }
     game.cast_spell(
         PlayerId(0),
         CastRequest {

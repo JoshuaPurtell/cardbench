@@ -36,14 +36,22 @@ fn indentured_oaf_prevents_all_damage_from_red_char() {
     let char = game
         .add_card(PlayerId(0), "RAV-CHAR", Zone::Hand)
         .expect("Char enters hand");
+    let mountains = (0..3)
+        .map(|_| {
+            game.put_on_battlefield(PlayerId(0), "RAV-MOUNTAIN")
+                .expect("Mountain enters")
+        })
+        .collect::<Vec<_>>();
     game.begin_game().expect("game starts");
     for _ in 0..2 {
         game.pass_priority(PlayerId(0)).expect("early pass");
         game.pass_priority(PlayerId(1))
             .expect("early response pass");
     }
-    game.grant_mana(PlayerId(0), Color::Red, 3)
-        .expect("Char mana");
+    for mountain in mountains {
+        game.activate_mana_ability(PlayerId(0), mountain, Color::Red)
+            .expect("Char mana");
+    }
     game.cast_spell(
         PlayerId(0),
         CastRequest {
