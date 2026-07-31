@@ -122,6 +122,7 @@ severity for `sorcery-cast-at-instant-speed` and
 | `frenzied-goblin-and-sell-sword-brute-trigger-substrate-missing` | Engine triggered-ability substrate / RAV card-fidelity gap — high severity, target-bearing attack and dies triggers plus optional triggered mana costs | Fixed for the exercised deterministic policy path; red milestone `fa7ff93`; green fix `c40e932` | Trigger bindings now support attack and dies conditions, target requirements, optional mana payment, source-specific target restriction, and dead-source stack objects. Focused scenarios cover the Goblin's paid attack trigger and the Brute's dies damage trigger. |
 | `coalhauler-swine-damage-received-trigger-missing` | RAV card-coverage gap — a damaged permanent must create a source-specific stack trigger that distributes the received amount to each player | Fixed; red milestone `ce8dee8`; green fix `c40e932` | Recipient-damage dispatch captures positive damage before SBAs, materializes the amount into a player-only damage effect, and stacks Coalhauler's trigger. The focused event log shows `DamageDealtToPermanent(amount:1)`, then `TriggeredAbilityStacked("damage-each-player")`, then one damage to each player. |
 | `frenzied-goblin-trigger-choice-not-policy-submitted` | RAV/engine fidelity gap — optional trigger payment and target choice are implicit | Open; medium severity | Attack triggers currently auto-pay an optional mana cost when the pool can pay and choose the first legal opponent creature. A policy cannot yet decline payment or choose among legal targets; add a pending-trigger decision boundary before claiming unrestricted fidelity. |
+| `additional-red-creature-coverage-missing` | RAV card-coverage gap — Sparkmage Apprentice, Hunted Dragon, and Razia creature abilities/keywords | Fixed; red milestone `82b2166`; green fix `746163a` (strict-Clippy follow-up `f6e77e6`) | The red probe `cargo test -p cardbench-magic-rav --test additional_red_creatures_red -- --nocapture` failed because all three definitions were absent. The green slice adds Sparkmage's targeted ETB damage, Hunted Dragon's one-targeted-opponent ETB with three 2/2 first-strike Knight tokens, and Razia's Flying/Vigilance/Haste plus its two-target tap redirection ability. The multiplayer target regression is explicit: Hunted Dragon's trigger stack object retains exactly one opponent target rather than creating tokens for every opponent. |
 
 | `votary-regeneration-not-represented` | RAV card-coverage gap — activated regeneration and its shield effect are not represented | Open; ignored red regression retained | The executable Votary definition is deliberately bounded to normal colored-cost casting and base characteristics. The prior Vigilance approximation was false and was reverted in `44d1534`. The ignored probe `cargo test -p cardbench-magic-rav --test votary_regeneration_coverage_red -- --ignored --nocapture` fails until the engine has a typed activated-ability/stack path and regeneration shield effect. |
 | `carven-caryatid-draw-trigger-not-represented` | RAV card-coverage gap — enter-the-battlefield draw trigger was not represented | Fixed; bounded red-to-green regression verified | The expansion-neutral engine now accepts an explicit `TriggeredAbilityBinding`, queues a synthetic trigger stack item after `SpellResolved`/`CardMoved { to: Battlefield }`, and emits ordered `TriggeredAbilityStacked`, draw `CardMoved`, and `AbilityResolved` receipts. The green regressions `cargo test -p cardbench-magic-rav --test carven_caryatid_etb_draw_red -- --nocapture` and `cargo test -p cardbench-magic-rav --test carven_caryatid_trigger_draw_loss_red -- --nocapture` print the full traces and check ordinary and empty-library terminal paths. The binding is opt-in through `rav_triggered_ability_bindings`; the default compatibility constructor and ignored full-fidelity manifest probe remain intentionally bounded. |
@@ -150,11 +151,11 @@ severity for `sorcery-cast-at-instant-speed` and
 | `boros-swiftblade-double-strike-missing` | RAV card-coverage gap — high severity, double-strike combat damage | Fixed; red-to-green regression verified | The executable Boros Swiftblade definition lacked a keyword for its two combat-damage steps. The red probe failed at `assertion failed: definition.keywords.contains(&Keyword::DoubleStrike)`; the engine now includes DoubleStrike sources in both first-strike and normal damage eligibility, with a regression requiring two player damage receipts, and the card is in the positive manifest. |
 
 The complete public inventory contains 306 printings / 291 unique names; the
-executable compatibility slice contains 144 printings / 129 unique names.
+executable compatibility slice contains 147 printings / 132 unique names.
 Twenty executable printings are the four printings of each of five basic lands;
-the other 124 executable names are nonbasic cards. Fifty-three of those
+the other 127 executable names are nonbasic cards. Fifty-six of those
 nonbasic cards plus all five typed basic lands are in the positive full-fidelity
-manifest (58 total); the remaining 71 nonbasic cards are deliberately bounded
+manifest (61 total); the remaining 71 nonbasic cards are deliberately bounded
 compatibility cards exercising generic casting, base characteristics, mana
 abilities (including source-aware controller damage), targeted/global damage,
 temporary modifiers, token creation, Convoke, Dredge, Radiance, Transmute,
@@ -169,7 +170,7 @@ The four advertised RAV mechanics have targeted compatibility examples
 set-wide mechanic or card-text fidelity. In particular, the executable
 Brownscale definition claims only its draw-replacement/base-characteristic
 slice, Muddle claims only its narrow counter/transmute slice, and the engine
-does not infer any semantics for the other cataloged cards. The 111 public
+does not infer any semantics for the other cataloged cards. The 112 public
 scenarios are behavioral probes for the implemented slice, not coverage of all
 291 names or all interactions among the four mechanics.
 
