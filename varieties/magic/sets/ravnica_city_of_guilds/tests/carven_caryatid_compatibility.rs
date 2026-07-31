@@ -8,7 +8,7 @@ use cardbench_magic_engine::{
 use cardbench_magic_rav::{card_definitions, run_all_scenarios};
 
 #[test]
-fn carven_caryatid_definition_is_explicit_about_its_omitted_draw_trigger() {
+fn carven_caryatid_definition_is_explicit_about_its_bounded_trigger_scope() {
     let caryatid = card_definitions()
         .into_iter()
         .find(|definition| definition.id == "RAV-CARVEN-CARYATID")

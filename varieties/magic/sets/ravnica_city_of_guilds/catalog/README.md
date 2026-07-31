@@ -239,7 +239,7 @@ plus an ignored full-fidelity probe rather than a positive-manifest claim.
 
 Carven Caryatid is likewise bounded to its static Defender slice in the
 default fixture constructor. The expansion now also publishes an opt-in typed
-enter-the-battlefield draw binding (`rav_trigger_bindings`); its stack-backed
+enter-the-battlefield draw binding (`rav_triggered_ability_bindings`); its stack-backed
 trace is covered separately, while the default compatibility trace and ignored
 full-fidelity probe keep the constructor boundary explicit.
 
