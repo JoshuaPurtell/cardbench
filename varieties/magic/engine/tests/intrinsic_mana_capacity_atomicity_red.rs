@@ -34,8 +34,8 @@ fn saturated_intrinsic_mana_ability_rejects_before_tapping_or_logging_output() {
         .put_on_battlefield(player, MOUNTAIN)
         .expect("land begins on the battlefield");
     game.begin_game().expect("fixture reaches upkeep priority");
-    game.grant_mana(player, Color::Red, u8::MAX)
-        .expect("the bounded pool accepts its maximum representable amount");
+    game.add_mana_from_action(player, Color::Red, u8::MAX)
+        .expect("the priority-bound mana path accepts the maximum pool amount");
     game.clear_event_log();
 
     let result = game.activate_mana_ability(player, land, Color::Red);

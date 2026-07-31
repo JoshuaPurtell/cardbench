@@ -68,12 +68,12 @@ fn paid_bundle_mana_ability_pays_one_and_adds_izzet_colors_without_a_stack_objec
         .put_on_battlefield(controller, SIGNET)
         .expect("Signet begins on battlefield");
     game.begin_game().expect("fixture reaches priority");
-    game.grant_mana(controller, Color::Green, 1)
-        .expect("setup grants the activation payment");
+    game.pass_priority(first)
+        .expect("controller receives priority for legal mana setup");
+    game.add_mana_from_action(controller, Color::Green, 1)
+        .expect("live setup uses the priority-bound mana path");
     game.clear_event_log();
 
-    game.pass_priority(first)
-        .expect("first player creates a pending pass");
     game.submit_policy_move(
         controller,
         "test.bound-bundle.v1",
@@ -100,7 +100,6 @@ fn paid_bundle_mana_ability_pays_one_and_adds_izzet_colors_without_a_stack_objec
     assert_eq!(
         game.event_log,
         vec![
-            GameEvent::PriorityPassed { player: first },
             GameEvent::BoundManaAbilityBundleActivated {
                 player: controller,
                 source,
@@ -154,8 +153,8 @@ fn paid_bundle_preserves_every_fixed_multi_unit_output_amount() {
         .put_on_battlefield(player, SIGNET)
         .expect("source begins on battlefield");
     game.begin_game().expect("fixture reaches priority");
-    game.grant_mana(player, Color::White, 1)
-        .expect("setup grants the activation payment");
+    game.add_mana_from_action(player, Color::White, 1)
+        .expect("live setup uses the priority-bound mana path");
     game.clear_event_log();
 
     game.activate_bound_mana_ability(
@@ -243,9 +242,9 @@ fn paid_bundle_rejections_are_atomic_for_missing_payment_and_output_overflow() {
     );
     assert!(!game.object(unpaid_source).expect("source exists").tapped);
 
-    game.grant_mana(player, Color::Blue, u8::MAX)
+    game.add_mana_from_action(player, Color::Blue, u8::MAX)
         .expect("setup fills blue pool");
-    game.grant_mana(player, Color::Green, 1)
+    game.add_mana_from_action(player, Color::Green, 1)
         .expect("setup pays the colored cost");
     let before_events = game.event_log.clone();
     let before_pool = game
