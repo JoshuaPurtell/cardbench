@@ -25,6 +25,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-CLEANSING-BEAM",
             "RAV-RALLY-THE-RIGHTEOUS",
             "RAV-WOJEK-SIREN",
+            "RAV-DEVOURING-LIGHT",
             "RAV-RAIN-OF-EMBERS",
             "RAV-DOGPILE",
             "RAV-OVERWHELM",
@@ -158,6 +159,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
                 keyword: Keyword::CannotBlock,
             }],
         ),
+        ("RAV-DEVOURING-LIGHT", vec![Effect::ExileTargetPermanent]),
         (
             "RAV-SMASH",
             vec![Effect::DestroyTargetArtifact, Effect::DrawController],

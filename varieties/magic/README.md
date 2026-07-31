@@ -86,6 +86,8 @@ current corpus contains 121 scenarios and covers:
   rollback and ordered event receipts;
 - a one-mana, fully convoked targeted temporary boost (`Gather Courage`),
   including its complete printed behavior;
+- a full-fidelity combat-scoped creature exile with Convoke (`Devouring
+  Light`), including rejection of noncombat creature targets;
 - three independently targeted temporary modifiers, including partial
   resolution after one target becomes illegal (`Seeds of Strength`);
 - colored and generic convoke payment plus token creation (`Scatter the Seeds`);

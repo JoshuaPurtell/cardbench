@@ -372,6 +372,11 @@ Oracle Magic rules coverage.
   damage cannot begin without both declarations. A participant may leave after
   declaration, so later combat bookkeeping preserves the declaration without
   dereferencing a vanished token.
+- A target constrained to an attacking-or-blocking creature has the normal
+  permanent target shape, but must additionally identify a battlefield
+  creature present in the active combat's attacker or blocker provenance at
+  cast and resolution time. A noncombat creature is rejected atomically rather
+  than being silently accepted by a generic creature-target effect.
 - Combat damage occurs only after attacker and blocker declarations. It is
   recorded as player/permanent damage events, then state-based actions run.
   A creature with zero or negative power assigns no combat damage and emits no
