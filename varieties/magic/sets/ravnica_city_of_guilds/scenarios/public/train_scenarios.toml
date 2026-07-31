@@ -6531,6 +6531,45 @@ event_markers = ["AttackersDeclared", "BlockersDeclared"]
 digest = "fnv1a64:81bd238f5dee061d"
 
 [[scenario]]
+id = "rav_viashino_fangtail_tap_damage"
+seed = 47
+description = "Activate Viashino Fangtail's tap ability against a player, then resolve one direct damage through the stack."
+
+[[scenario.card]]
+label = "fangtail"
+owner = 0
+definition = "RAV-VIASHINO-FANGTAIL"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "activate_ability"
+player = 0
+card = "fangtail"
+ability = "tap-deal-one-to-player-or-creature"
+target = "player:1"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+life = [20, 19]
+tapped = ["fangtail:true"]
+stack_size = 0
+priority = 0
+event_markers = ["AbilityActivated", "DamageDealtToPlayer", "AbilityResolved"]
+digest = "fnv1a64:fbc94a7a6f3d926f"
+
+[[scenario]]
 id = "rav_goblin_fire_fiend_haste_compatibility"
 seed = 0
 description = "Cast Goblin Fire Fiend with typed RAV lands, then declare it as a same-turn Haste attacker; its must-block and pump abilities remain bounded."

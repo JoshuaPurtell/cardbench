@@ -35,7 +35,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 45] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 46] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SCATTER-THE-SEEDS",
@@ -81,6 +81,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 45] = [
     "RAV-WAR-TORCH-GOBLIN",
     "RAV-BARBARIAN-RIFTCUTTER",
     "RAV-TORPID-MOLOCH",
+    "RAV-VIASHINO-FANGTAIL",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -1489,6 +1490,28 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Defender],
             effects: vec![],
         },
+        // Full-fidelity scope: colored-cost creature casting, base
+        // characteristics, and the typed tap-to-deal-one activated ability.
+        CardDefinition {
+            id: "RAV-VIASHINO-FANGTAIL",
+            name: "Viashino Fangtail",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(4, [Color::Red]),
+            colors: colors([Color::Red]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "tap-deal-one-to-player-or-creature",
+            ],
+            power: Some(3),
+            toughness: Some(3),
+            keywords: vec![],
+            effects: vec![],
+        },
         // Compatibility scope: normal colored-cost creature casting and base
         // characteristics only. Its printed defender and prevention activation
         // are deliberately omitted from this compatibility slice.
@@ -2216,6 +2239,21 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 targets: vec![],
                 effects: vec![Effect::RemoveSourceKeywordUntilEndOfTurn {
                     keyword: Keyword::Defender,
+                }],
+            },
+        },
+        ActivatedAbilityBinding {
+            card_definition: "RAV-VIASHINO-FANGTAIL",
+            ability: ActivatedAbility {
+                id: "tap-deal-one-to-player-or-creature",
+                mana_cost: ManaCost::new(0),
+                tap_cost: true,
+                sacrifice_source: false,
+                sacrifice_lands: 0,
+                targets: vec![cardbench_magic_engine::TargetRequirement::PlayerOrCreature],
+                effects: vec![Effect::DealDamage {
+                    amount: 1,
+                    target: cardbench_magic_engine::TargetRequirement::PlayerOrCreature,
                 }],
             },
         },
@@ -2987,7 +3025,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 105);
+        assert_eq!(first.len(), 106);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

@@ -8,14 +8,15 @@ use std::collections::BTreeMap;
 use std::fs;
 
 use cardbench_magic_engine::{
-    BasicLandManaAbilityActivation, CastPaymentManaAbility, CastRequest, Color, CombatBlock,
-    ConvokeContribution, ConvokePayment, Game, ManaAbilityActivation, ManaPaymentSelection,
-    ObjectId, PlayerId, RulesError, Target, Zone,
+    AbilityActivation, BasicLandManaAbilityActivation, CastPaymentManaAbility, CastRequest, Color,
+    CombatBlock, ConvokeContribution, ConvokePayment, Game, ManaAbilityActivation,
+    ManaPaymentSelection, ObjectId, PlayerId, RulesError, Target, Zone,
 };
 
 use crate::{
-    ScenarioResult, card_definitions, event_digest, rav_additional_spell_cost_bindings,
-    rav_basic_land_type_bindings, rav_mana_ability_bindings, set_root,
+    ScenarioResult, card_definitions, event_digest, rav_activated_ability_bindings,
+    rav_additional_spell_cost_bindings, rav_basic_land_type_bindings, rav_mana_ability_bindings,
+    set_root,
 };
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -320,12 +321,13 @@ fn set_expected_field(
 }
 
 fn execute_scenario(specification: &ScenarioSpec) -> Result<ScenarioResult, String> {
-    let mut game = Game::new_with_mana_abilities_basic_land_types_and_additional_spell_costs(
+    let mut game = Game::new_with_all_bindings(
         card_definitions(),
         2,
         rav_mana_ability_bindings(),
         rav_basic_land_type_bindings(),
         rav_additional_spell_cost_bindings(),
+        rav_activated_ability_bindings(),
     )
     .map_err(rules_error)?;
     game.set_shuffle_seed(specification.seed);
@@ -501,6 +503,45 @@ fn execute_action(
                     source,
                     ability_id,
                     chosen_color,
+                },
+            )
+            .map_err(rules_error)
+        }
+        "activate_ability" => {
+            let source = lookup(labels, &action.card)?;
+            let definition = game.card_definition(source).map_err(rules_error)?.id;
+            let ability_id = rav_activated_ability_bindings()
+                .into_iter()
+                .find(|binding| {
+                    binding.card_definition == definition && binding.ability.id == action.ability
+                })
+                .map(|binding| binding.ability.id)
+                .ok_or_else(|| {
+                    format!(
+                        "unknown RAV activated ability `{}` for `{definition}`",
+                        action.ability
+                    )
+                })?;
+            let targets = if action.targets.is_empty() {
+                (!action.target.is_empty())
+                    .then_some(action.target.as_str())
+                    .into_iter()
+                    .map(|target| parse_target(target, labels))
+                    .collect::<Result<Vec<_>, _>>()?
+            } else {
+                action
+                    .targets
+                    .iter()
+                    .map(|target| parse_target(target, labels))
+                    .collect::<Result<Vec<_>, _>>()?
+            };
+            game.activate_ability(
+                player,
+                AbilityActivation {
+                    source,
+                    ability_id,
+                    sacrifice_sources: vec![],
+                    targets,
                 },
             )
             .map_err(rules_error)
