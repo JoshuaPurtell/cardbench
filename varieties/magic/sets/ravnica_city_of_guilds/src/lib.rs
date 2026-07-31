@@ -35,7 +35,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 39] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 40] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SCATTER-THE-SEEDS",
@@ -75,6 +75,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 39] = [
     "RAV-RIBBONS-OF-NIGHT",
     "RAV-GOBLIN-FIRE-FIEND",
     "RAV-BOROS-SWIFTBLADE",
+    "RAV-GOBLIN-SPELUNKERS",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -1522,17 +1523,27 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             3,
             3,
         ),
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed landwalk ability is deliberately
-        // omitted from this compatibility slice.
-        bounded_creature_chassis(
-            "RAV-GOBLIN-SPELUNKERS",
-            "Goblin Spelunkers",
-            ManaCost::with_colors(2, [Color::Red]),
-            colors([Color::Red]),
-            2,
-            2,
-        ),
+        // Full fidelity for the printed Mountainwalk evasion restriction.
+        CardDefinition {
+            id: "RAV-GOBLIN-SPELUNKERS",
+            name: "Goblin Spelunkers",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(2, [Color::Red]),
+            colors: colors([Color::Red]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "mountainwalk",
+            ],
+            power: Some(2),
+            toughness: Some(2),
+            keywords: vec![Keyword::Mountainwalk],
+            effects: vec![],
+        },
         // Compatibility scope: normal colored-cost creature casting and base
         // characteristics only. Its printed damage-prevention activation is
         // deliberately omitted from this compatibility slice.

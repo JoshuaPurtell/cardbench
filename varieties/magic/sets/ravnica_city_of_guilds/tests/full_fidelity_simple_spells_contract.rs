@@ -50,6 +50,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-RIBBONS-OF-NIGHT",
             "RAV-GOBLIN-FIRE-FIEND",
             "RAV-BOROS-SWIFTBLADE",
+            "RAV-GOBLIN-SPELUNKERS",
         ]
     );
     let definitions = card_definitions();
