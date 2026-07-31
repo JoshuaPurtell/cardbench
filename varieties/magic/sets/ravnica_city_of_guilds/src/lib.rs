@@ -35,7 +35,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 49] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 50] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SCATTER-THE-SEEDS",
@@ -85,6 +85,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 49] = [
     "RAV-BOROS-GUILDMAGE",
     "RAV-WOJEK-EMBERMAGE",
     "RAV-THUNDERSONG-TRUMPETER",
+    "RAV-SABERTOOTH-ALLEY-CAT",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -1904,6 +1905,28 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
+        // Full fidelity: static blocker legality depends on the controller's
+        // current Mountain control, checked at declaration time.
+        CardDefinition {
+            id: "RAV-SABERTOOTH-ALLEY-CAT",
+            name: "Sabertooth Alley Cat",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(1, [Color::Red]),
+            colors: colors([Color::Red]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "mountain-required-to-block",
+            ],
+            power: Some(2),
+            toughness: Some(1),
+            keywords: vec![Keyword::CannotBlockUnlessControlsMountain],
+            effects: vec![],
+        },
         // Compatibility scope: normal colored-cost creature casting and base
         // characteristics only. Its printed evasion and library-movement trigger
         // are deliberately omitted from this compatibility slice.
@@ -3139,7 +3162,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 109);
+        assert_eq!(first.len(), 110);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

@@ -130,16 +130,16 @@ severity for `sorcery-cast-at-instant-speed` and
 | `thundersong-trumpeter-combat-restriction-missing` | RAV card-coverage gap — temporary target creature combat restriction | Fixed; red-to-green regression verified | The red probe `cargo test -p cardbench-magic-rav --test thundersong_trumpeter_red -- --nocapture` failed because `tap-prevent-target-combat` was absent. The `{T}` binding installs `CannotAttackOrBlock` through end of turn, and combat declaration rejects both attack and block attempts with the continuous-effect receipt retained. |
 
 The complete public inventory contains 306 printings / 291 unique names; the
-executable compatibility slice contains 140 printings / 125 unique names.
+executable compatibility slice contains 141 printings / 126 unique names.
 Twenty executable printings are the four printings of each of five basic lands;
-the other 120 executable names are nonbasic cards. Forty-four of those
+the other 121 executable names are nonbasic cards. Forty-five of those
 nonbasic cards plus all five typed basic lands are in the positive full-fidelity
-manifest (49 total); the remaining 76 nonbasic cards are deliberately bounded
+manifest (50 total); the remaining 76 nonbasic cards are deliberately bounded
 compatibility cards exercising generic casting, base characteristics, mana
 abilities (including source-aware controller damage), targeted/global damage,
 temporary modifiers, token creation, Convoke, Dredge, Radiance, Transmute,
 combat-count damage, controller-wide temporary modifiers, hybrid payment,
-typed basic-land lines, and first-strike combat damage. The remaining 166 unique names
+typed basic-land lines, and first-strike combat damage. The remaining 165 unique names
 are explicitly catalog-only and fail closed with
 `card-specific-rules-not-implemented`. This boundary is enforced by
 `catalog_coverage::executable_slice_size_is_explicit_and_does_not_masquerade_as_set_coverage`.

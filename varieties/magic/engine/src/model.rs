@@ -561,6 +561,8 @@ pub enum Keyword {
     /// This creature cannot be declared as an attacker or blocker for the
     /// current turn. It is used by temporary combat-restriction effects.
     CannotAttackOrBlock,
+    /// This creature can block only while its controller controls a Mountain.
+    CannotBlockUnlessControlsMountain,
     /// This creature can't be blocked while the defending player controls the
     /// named basic land type.
     Mountainwalk,
