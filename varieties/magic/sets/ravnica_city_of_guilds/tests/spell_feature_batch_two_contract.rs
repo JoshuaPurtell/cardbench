@@ -1,8 +1,7 @@
 //! Public RAV spell-feature contracts for a focused expansion batch.
 //!
-//! Ribbons of Night deliberately excludes its
-//! payment-color-conditioned draw because this engine slice does not preserve
-//! the colors spent to cast a spell.
+//! Ribbons of Night exercises the explicit-spent-mana receipt used by its
+//! conditional draw.
 
 use cardbench_magic_engine::{Color, Effect, Keyword, ManaCost, TargetRequirement};
 use cardbench_magic_rav::{
@@ -22,7 +21,12 @@ fn batch_card_metadata_and_executable_semantics_are_explicit() {
     assert_eq!(ribbons.mana_cost, ManaCost::with_colors(4, [Color::Black]));
     assert_eq!(
         ribbons.supported_rules,
-        ["targeted-creature-damage", "life-gain"]
+        [
+            "full-rules-fidelity",
+            "targeted-creature-damage",
+            "life-gain",
+            "explicit-spent-mana-color-condition"
+        ]
     );
     assert_eq!(
         ribbons.effects,
@@ -32,6 +36,7 @@ fn batch_card_metadata_and_executable_semantics_are_explicit() {
                 target: TargetRequirement::Creature,
             },
             Effect::GainLifeController { amount: 4 },
+            Effect::DrawControllerIfManaColorSpent { color: Color::Blue },
         ]
     );
 
@@ -63,15 +68,21 @@ fn batch_card_metadata_and_executable_semantics_are_explicit() {
             "full-rules-fidelity",
             "convoke",
             "controller-creature-layer-7-modifier",
+            "controller-creature-layer-6-trample-grant",
         ]
     );
     assert_eq!(overwhelm.keywords, vec![Keyword::Convoke]);
     assert_eq!(
         overwhelm.effects,
-        vec![Effect::ModifyControllerCreaturesPtUntilEndOfTurn {
-            power: 3,
-            toughness: 3,
-        }]
+        vec![
+            Effect::ModifyControllerCreaturesPtUntilEndOfTurn {
+                power: 3,
+                toughness: 3,
+            },
+            Effect::AddKeywordToControllerCreaturesUntilEndOfTurn {
+                keyword: Keyword::Trample,
+            },
+        ]
     );
 }
 
@@ -144,7 +155,7 @@ fn public_event_logs_capture_the_new_spells_meaningful_resolution_receipts() {
             .iter()
             .filter(|event| event.contains("ContinuousEffectCreated"))
             .count(),
-        5
+        10
     );
 
     let dogpile = find("rav_dogpile_combat_count_damage");

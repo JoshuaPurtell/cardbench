@@ -4088,7 +4088,7 @@ digest = "fnv1a64:ef27c0265a519e88"
 [[scenario]]
 id = "rav_overwhelm_convoke_wide_modifier"
 seed = 0
-description = "Convoke Overwhelm with five creatures, then verify every controller-owned creature receives its complete temporary +3/+3 modifier while an opposing creature remains unchanged."
+description = "Convoke Overwhelm with five creatures, then verify every controller-owned creature receives its temporary +3/+3 and Trample grants while an opposing creature remains unchanged."
 
 [[scenario.card]]
 label = "overwhelm"
@@ -4157,7 +4157,7 @@ powers = ["first:5", "second:5", "third:5", "fourth:5", "fifth:5", "opponent:2"]
 toughnesses = ["first:6", "second:6", "third:6", "fourth:6", "fifth:6", "opponent:3"]
 tapped = ["first:true", "second:true", "third:true", "fourth:true", "fifth:true"]
 event_markers = ["SpellCast", "ConvokeUsed", "ContinuousEffectCreated", "SpellResolved"]
-digest = "fnv1a64:c2d38d01274f19bb"
+digest = "fnv1a64:1a2adb4991fff975"
 
 [[scenario]]
 id = "rav_dogpile_combat_count_damage"

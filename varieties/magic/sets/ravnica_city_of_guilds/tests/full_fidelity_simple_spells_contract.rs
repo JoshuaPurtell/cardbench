@@ -142,10 +142,15 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
         ),
         (
             "RAV-OVERWHELM",
-            vec![Effect::ModifyControllerCreaturesPtUntilEndOfTurn {
-                power: 3,
-                toughness: 3,
-            }],
+            vec![
+                Effect::ModifyControllerCreaturesPtUntilEndOfTurn {
+                    power: 3,
+                    toughness: 3,
+                },
+                Effect::AddKeywordToControllerCreaturesUntilEndOfTurn {
+                    keyword: Keyword::Trample,
+                },
+            ],
         ),
         (
             "RAV-DARKBLAST",
