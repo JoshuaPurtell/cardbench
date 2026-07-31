@@ -46,7 +46,7 @@ Seeds, Guardian of Vitu-Ghazi, Last Gasp, Elves of Deep Shadow, Boros Recruit,
 Nightguard Patrol, Watchwolf, Glass Golem,
 Cleansing Beam, Rally the Righteous, Wojek Siren, Rain of Embers, Dogpile,
 Overwhelm, Gather Courage, Seeds of Strength, Darkblast, Greater Mossdog,
-Seismic Spike, Incite Hysteria, the
+Seismic Spike, Incite Hysteria, Searing Meditation, the
 four RAV Signets, the five RAV basic lands, Conclave Equenaut, Snapping Drake,
 Goliath Spider, Courier Hawk, Skyknight Legionnaire, Birds of Paradise, and
 Fiery Conclusion, Ribbons of Night, and Smash are listed only after an
