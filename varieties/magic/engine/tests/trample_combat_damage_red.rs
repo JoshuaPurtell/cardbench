@@ -130,33 +130,25 @@ fn advance_to(game: &mut Game, turn: u32, step: Step) {
                 .expect("take ordinary draw");
         }
         match game.step {
-            Step::DeclareAttackers => {
+            Step::DeclareAttackers
                 if !game
                     .view_for_player(game.next_policy_player())
                     .expect("combat view")
-                    .attackers_declared
-                {
-                    let player = game.next_policy_player();
-                    game.declare_attackers(player, &[])
-                        .expect("empty declaration is legal");
-                } else {
-                    let player = game.priority;
-                    game.pass_priority(player).expect("priority passes");
-                }
+                    .attackers_declared =>
+            {
+                let player = game.next_policy_player();
+                game.declare_attackers(player, &[])
+                    .expect("empty declaration is legal");
             }
-            Step::DeclareBlockers => {
+            Step::DeclareBlockers
                 if !game
                     .view_for_player(game.next_policy_player())
                     .expect("combat view")
-                    .blockers_declared
-                {
-                    let player = game.next_policy_player();
-                    game.declare_blockers(player, &[])
-                        .expect("empty declaration is legal");
-                } else {
-                    let player = game.priority;
-                    game.pass_priority(player).expect("priority passes");
-                }
+                    .blockers_declared =>
+            {
+                let player = game.next_policy_player();
+                game.declare_blockers(player, &[])
+                    .expect("empty declaration is legal");
             }
             _ => {
                 let player = game.priority;

@@ -347,7 +347,7 @@ impl Game {
     /// Creates a game with expansion-bound mana abilities, typed basic lands,
     /// and explicit additional spell costs. The cost bindings are immutable
     /// catalog data; a `CastRequest` selects their concrete permanents.
-    #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
     pub fn new_with_mana_abilities_basic_land_types_and_additional_spell_costs(
         definitions: impl IntoIterator<Item = CardDefinition>,
         player_count: usize,
@@ -1576,6 +1576,7 @@ impl Game {
         self.validate_invariants()
     }
 
+    #[allow(clippy::needless_pass_by_value)] // Public cast requests remain owned transactional inputs.
     pub fn cast_spell(&mut self, player: PlayerId, request: CastRequest) -> Result<(), RulesError> {
         self.atomic_transition(|game| game.cast_spell_impl(player, &request, None))
     }
@@ -1583,6 +1584,7 @@ impl Game {
     /// Casts a spell with explicit player-selected colors for all generic and
     /// hybrid symbols still payable with mana after Convoke. The exact colors
     /// are recorded before `SpellCast` and retained on the stack object.
+    #[allow(clippy::needless_pass_by_value)] // Selection ownership is consumed by the atomic closure boundary.
     pub fn cast_spell_with_mana_spend(
         &mut self,
         player: PlayerId,
@@ -2816,8 +2818,7 @@ impl Game {
         let costs = self
             .additional_spell_costs
             .get(definition.id)
-            .map(Vec::as_slice)
-            .unwrap_or(&[]);
+            .map_or(&[][..], Vec::as_slice);
         if costs.len() != selections.len() {
             return Err(RulesError::IllegalAction(
                 "additional spell cost selection count does not match its definition",
@@ -3548,6 +3549,7 @@ impl Game {
         Ok(false)
     }
 
+    #[allow(clippy::too_many_lines)] // Combat damage owns both assignment and SBA receipts.
     fn resolve_combat_damage(&mut self, first_strike: bool) -> Result<(), RulesError> {
         let combat = self.combat.clone().ok_or(RulesError::IllegalAction(
             "combat damage without combat state",
