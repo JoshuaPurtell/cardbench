@@ -35,7 +35,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 53] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 54] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SCATTER-THE-SEEDS",
@@ -89,6 +89,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 53] = [
     "RAV-FLAME-KIN-ZEALOT",
     "RAV-ORDRUUN-COMMANDO",
     "RAV-INDENTURED-OAF",
+    "RAV-EXCRUCIATOR",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -1738,17 +1739,29 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed damage-prevention exception is
-        // deliberately omitted from this compatibility slice.
-        bounded_creature_chassis(
-            "RAV-EXCRUCIATOR",
-            "Excruciator",
-            ManaCost::with_colors(6, [Color::Red, Color::Red]),
-            colors([Color::Red]),
-            7,
-            7,
-        ),
+        // Full fidelity: Excruciator's static source property is represented
+        // by the expansion-neutral damage-prevention keyword. Damage dealt by
+        // this source bypasses temporary prevention shields.
+        CardDefinition {
+            id: "RAV-EXCRUCIATOR",
+            name: "Excruciator",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(6, [Color::Red, Color::Red]),
+            colors: colors([Color::Red]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "damage-cannot-be-prevented",
+            ],
+            power: Some(7),
+            toughness: Some(7),
+            keywords: vec![Keyword::DamageCannotBePrevented],
+            effects: vec![],
+        },
         // Compatibility scope: normal colored-cost creature casting, base
         // characteristics, and Haste. Its must-block restriction and activated
         // power boost remain deliberately unsupported, so this is not a
