@@ -1022,6 +1022,7 @@ impl Game {
             Characteristics {
                 colors: token.colors.clone(),
                 card_types: token.card_types.clone(),
+                creature_subtypes: token.creature_subtypes.clone(),
                 power: Some(i32::from(token.power)),
                 toughness: Some(i32::from(token.toughness)),
                 keywords: Vec::new(),
@@ -1031,6 +1032,7 @@ impl Game {
             Characteristics {
                 colors: definition.colors.clone(),
                 card_types: definition.card_types.clone(),
+                creature_subtypes: BTreeSet::new(),
                 power: definition.power.map(i32::from),
                 toughness: definition.toughness.map(i32::from),
                 keywords: definition.keywords.clone(),
@@ -1901,7 +1903,15 @@ impl Game {
                                 ));
                             }
                         }
-                        (None, Some(_)) if zone == Zone::Battlefield => {}
+                        (None, Some(token)) if zone == Zone::Battlefield => {
+                            if !token.creature_subtypes.is_empty()
+                                && !token.card_types.contains(&CardType::Creature)
+                            {
+                                return Err(RulesError::IllegalAction(
+                                    "a creature subtype requires the creature card type",
+                                ));
+                            }
+                        }
                         (None, Some(_)) => {
                             return Err(RulesError::IllegalAction(
                                 "a token exists outside the battlefield",

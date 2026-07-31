@@ -89,6 +89,7 @@ fn definitions() -> Vec<CardDefinition> {
                     name: "Ephemeral 0/0",
                     colors: colors([Color::Green]),
                     card_types: types([CardType::Creature]),
+                    creature_subtypes: BTreeSet::new(),
                     power: 0,
                     toughness: 0,
                 },
