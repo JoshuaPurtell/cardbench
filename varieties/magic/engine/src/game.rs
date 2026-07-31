@@ -3577,6 +3577,7 @@ impl Game {
                 | Effect::AddSourceDamageShieldUntilEndOfTurn { .. }
                 | Effect::AddKeywordToControllerCreaturesUntilEndOfTurn { .. }
                 | Effect::DestroyTargetLand
+                | Effect::DestroyTargetArtifact
                 | Effect::ModifyControllerCreaturesPtUntilEndOfTurn { .. }
                 | Effect::RadianceUntapAndModifyUntilEndOfTurn { .. }
                 | Effect::RadianceModifyPtUntilEndOfTurn { .. }
@@ -4526,6 +4527,25 @@ impl Game {
                 self.record_event(GameEvent::CardDestroyed { source, card: land });
                 self.move_to_graveyard_or_remove_token(land)?;
             }
+            Effect::DestroyTargetArtifact => {
+                let target = target.ok_or(RulesError::IllegalAction("missing artifact target"))?;
+                let Target::Permanent(artifact) = target else {
+                    return Err(RulesError::IllegalTarget(target));
+                };
+                if self.zone_of(artifact) != Some(Zone::Battlefield)
+                    || !self
+                        .card_definition(artifact)?
+                        .card_types
+                        .contains(&CardType::Artifact)
+                {
+                    return Err(RulesError::IllegalTarget(target));
+                }
+                self.record_event(GameEvent::CardDestroyed {
+                    source,
+                    card: artifact,
+                });
+                self.move_to_graveyard_or_remove_token(artifact)?;
+            }
             Effect::ModifyControllerCreaturesPtUntilEndOfTurn { power, toughness } => {
                 // Snapshot the affected battlefield objects before installing
                 // any effects. State-based actions run only once the complete
@@ -4739,6 +4759,12 @@ impl Game {
                         .card_definition(card)
                         .is_ok_and(CardDefinition::is_land)
             }
+            (Target::Permanent(card), TargetRequirement::Artifact) => {
+                self.zone_of(card) == Some(Zone::Battlefield)
+                    && self
+                        .card_definition(card)
+                        .is_ok_and(|definition| definition.card_types.contains(&CardType::Artifact))
+            }
             (Target::Spell(card), TargetRequirement::InstantOrSorcerySpell) => {
                 self.stack
                     .iter()
@@ -4769,6 +4795,7 @@ impl Game {
                     | TargetRequirement::Creature
                     | TargetRequirement::BlockingCreature
                     | TargetRequirement::Land
+                    | TargetRequirement::Artifact
                     | TargetRequirement::PlayerOrCreature
             ) | (Target::Spell(_), TargetRequirement::InstantOrSorcerySpell)
         )

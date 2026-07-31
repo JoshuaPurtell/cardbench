@@ -639,6 +639,8 @@ pub enum TargetRequirement {
     /// damage abilities such as War-Torch Goblin.
     BlockingCreature,
     Land,
+    /// A battlefield permanent with the Artifact card type.
+    Artifact,
     Player,
     /// A player or battlefield creature, matching the executable pre-
     /// planeswalker direct-damage card slice.
@@ -850,6 +852,9 @@ pub enum Effect {
     /// Destroy the targeted land during resolution, sending it through the
     /// normal zone-change and continuous-effect lifecycle.
     DestroyTargetLand,
+    /// Destroy the targeted artifact during resolution, sending it through
+    /// the normal zone-change and continuous-effect lifecycle.
+    DestroyTargetArtifact,
     /// Apply one temporary layer-7 power/toughness modifier to every creature
     /// the resolving spell's controller currently controls. The recipient set
     /// is snapshotted while the spell resolves before any state-based action
@@ -908,6 +913,7 @@ impl Effect {
             Self::CompleteDamageRedirection => Some(TargetRequirement::PlayerOrCreature),
             Self::CreateTokenForTargetPlayer { .. } => Some(TargetRequirement::Player),
             Self::DestroyTargetLand => Some(TargetRequirement::Land),
+            Self::DestroyTargetArtifact => Some(TargetRequirement::Artifact),
             Self::CounterTargetInstantOrSorcerySpell => {
                 Some(TargetRequirement::InstantOrSorcerySpell)
             }
