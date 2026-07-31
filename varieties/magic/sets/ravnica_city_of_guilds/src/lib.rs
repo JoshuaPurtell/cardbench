@@ -35,7 +35,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 48] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 49] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SCATTER-THE-SEEDS",
@@ -84,6 +84,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 48] = [
     "RAV-VIASHINO-FANGTAIL",
     "RAV-BOROS-GUILDMAGE",
     "RAV-WOJEK-EMBERMAGE",
+    "RAV-THUNDERSONG-TRUMPETER",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -1881,17 +1882,28 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             2,
             4,
         ),
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed activated combat behavior is
-        // deliberately omitted from this compatibility slice.
-        bounded_creature_chassis(
-            "RAV-THUNDERSONG-TRUMPETER",
-            "Thundersong Trumpeter",
-            ManaCost::with_colors(0, [Color::Red, Color::White]),
-            colors([Color::Red, Color::White]),
-            2,
-            1,
-        ),
+        // Full fidelity: the tapped target ability installs a temporary
+        // combat-participation restriction through the shared ability layer.
+        CardDefinition {
+            id: "RAV-THUNDERSONG-TRUMPETER",
+            name: "Thundersong Trumpeter",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(0, [Color::Red, Color::White]),
+            colors: colors([Color::Red, Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "tap-prevent-target-combat",
+            ],
+            power: Some(2),
+            toughness: Some(1),
+            keywords: vec![],
+            effects: vec![],
+        },
         // Compatibility scope: normal colored-cost creature casting and base
         // characteristics only. Its printed evasion and library-movement trigger
         // are deliberately omitted from this compatibility slice.
@@ -2329,6 +2341,20 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 sacrifice_lands: 0,
                 targets: vec![cardbench_magic_engine::TargetRequirement::Creature],
                 effects: vec![Effect::RadianceDealDamageToCreatures { amount: 1 }],
+            },
+        },
+        ActivatedAbilityBinding {
+            card_definition: "RAV-THUNDERSONG-TRUMPETER",
+            ability: ActivatedAbility {
+                id: "tap-prevent-target-combat",
+                mana_cost: ManaCost::new(0),
+                tap_cost: true,
+                sacrifice_source: false,
+                sacrifice_lands: 0,
+                targets: vec![cardbench_magic_engine::TargetRequirement::Creature],
+                effects: vec![Effect::ModifyTargetKeywordUntilEndOfTurn {
+                    keyword: Keyword::CannotAttackOrBlock,
+                }],
             },
         },
         ActivatedAbilityBinding {
@@ -3113,7 +3139,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 108);
+        assert_eq!(first.len(), 109);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

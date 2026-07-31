@@ -6705,6 +6705,52 @@ event_markers = ["AbilityActivated", "DamageDealtToPermanent", "AbilityResolved"
 digest = "fnv1a64:7791f770f15e466d"
 
 [[scenario]]
+id = "rav_thundersong_trumpeter_combat_restriction"
+seed = 50
+description = "Activate Thundersong Trumpeter's tapped target ability and install a temporary no-attack-or-block restriction."
+
+[[scenario.card]]
+label = "trumpeter"
+owner = 0
+definition = "RAV-THUNDERSONG-TRUMPETER"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.card]]
+label = "target"
+owner = 1
+definition = "RAV-WATCHWOLF"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "activate_ability"
+player = 0
+card = "trumpeter"
+ability = "tap-prevent-target-combat"
+target = "permanent:target"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+life = [20, 20]
+tapped = ["trumpeter:true", "target:false"]
+stack_size = 0
+priority = 0
+event_markers = ["AbilityActivated", "ContinuousEffectCreated", "AbilityResolved"]
+digest = "fnv1a64:cca1a74ece4154a1"
+
+[[scenario]]
 id = "rav_goblin_fire_fiend_haste_compatibility"
 seed = 0
 description = "Cast Goblin Fire Fiend with typed RAV lands, then declare it as a same-turn Haste attacker; its must-block and pump abilities remain bounded."
