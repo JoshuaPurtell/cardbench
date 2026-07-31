@@ -2818,7 +2818,7 @@ digest = "fnv1a64:2b40464c0df717b5"
 [[scenario]]
 id = "rav_autochthon_wurm_convoke_slice"
 seed = 0
-description = "Convoke Autochthon Wurm with ten generic creature contributions and resolve its supported 9/14 base creature. Its printed combat keyword is outside this compatibility slice."
+description = "Convoke Autochthon Wurm with ten generic creature contributions and resolve its supported 9/14 Trample creature. Multi-block trample damage assignment remains outside this compatibility slice."
 
 [[scenario.card]]
 label = "wurm"
