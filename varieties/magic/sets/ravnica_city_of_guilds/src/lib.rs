@@ -35,7 +35,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 51] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 52] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SCATTER-THE-SEEDS",
@@ -87,6 +87,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 51] = [
     "RAV-THUNDERSONG-TRUMPETER",
     "RAV-SABERTOOTH-ALLEY-CAT",
     "RAV-FLAME-KIN-ZEALOT",
+    "RAV-ORDRUUN-COMMANDO",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -1593,17 +1594,28 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Mountainwalk],
             effects: vec![],
         },
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed damage-prevention activation is
-        // deliberately omitted from this compatibility slice.
-        bounded_creature_chassis(
-            "RAV-ORDRUUN-COMMANDO",
-            "Ordruun Commando",
-            ManaCost::with_colors(3, [Color::Red]),
-            colors([Color::Red]),
-            4,
-            1,
-        ),
+        // Full fidelity: the white activated prevention shield is represented
+        // by the expansion-neutral damage-prevention layer and stack binding.
+        CardDefinition {
+            id: "RAV-ORDRUUN-COMMANDO",
+            name: "Ordruun Commando",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(3, [Color::Red]),
+            colors: colors([Color::Red]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "activated-prevent-one-damage-to-self",
+            ],
+            power: Some(4),
+            toughness: Some(1),
+            keywords: vec![],
+            effects: vec![],
+        },
         // Full fidelity: the typed {R} self-pump uses the shared activated
         // ability stack and layer-7 temporary effect.
         CardDefinition {
@@ -2351,6 +2363,18 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                     amount: 1,
                     target: cardbench_magic_engine::TargetRequirement::PlayerOrCreature,
                 }],
+            },
+        },
+        ActivatedAbilityBinding {
+            card_definition: "RAV-ORDRUUN-COMMANDO",
+            ability: ActivatedAbility {
+                id: "prevent-one-damage-to-self",
+                mana_cost: ManaCost::with_colors(0, [Color::White]),
+                tap_cost: false,
+                sacrifice_source: false,
+                sacrifice_lands: 0,
+                targets: vec![],
+                effects: vec![Effect::AddSourceDamageShieldUntilEndOfTurn { amount: 1 }],
             },
         },
         ActivatedAbilityBinding {
