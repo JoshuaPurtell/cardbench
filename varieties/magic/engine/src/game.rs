@@ -3891,6 +3891,13 @@ impl Game {
     /// slots are selected from currently legal permanents in a deterministic
     /// opponent-first order so the submitted declaration remains atomic.
     fn enqueue_attack_triggers(&mut self, source: ObjectId) -> Result<(), RulesError> {
+        // Tokens have no catalog definition and therefore cannot have a
+        // definition-bound attack trigger in this substrate. Their attack is
+        // still fully legal; simply skip the definition lookup and continue
+        // through the ordinary post-declaration priority transition.
+        if self.object(source)?.token.is_some() {
+            return Ok(());
+        }
         let definition = self.card_definition(source)?.id;
         let controller = self.object(source)?.controller;
         let triggers = self
@@ -3980,7 +3987,10 @@ impl Game {
     /// Dynamic source-damage life gain is materialized when the enclosing
     /// damage batch finishes, not recomputed at later ability resolution.
     fn enqueue_damage_triggers(&mut self, source: ObjectId, amount: i32) -> Result<(), RulesError> {
-        if amount <= 0 || self.zone_of(source) != Some(Zone::Battlefield) {
+        if amount <= 0
+            || self.zone_of(source) != Some(Zone::Battlefield)
+            || self.object(source)?.token.is_some()
+        {
             return Ok(());
         }
         let definition = self.card_definition(source)?.id;
