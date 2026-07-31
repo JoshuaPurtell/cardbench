@@ -8,8 +8,7 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardDefinition, CardType, Color, CombatBlock, Game, GameEvent, ManaCost, PlayerId, Step,
-    Zone,
+    CardDefinition, CardType, Color, CombatBlock, Game, GameEvent, ManaCost, PlayerId, Step, Zone,
 };
 
 const LAND: &str = "TEST-LAND";
