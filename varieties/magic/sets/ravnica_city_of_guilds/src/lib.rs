@@ -2248,6 +2248,7 @@ pub fn rav_mana_ability_bindings() -> Vec<ManaAbilityBinding> {
 /// Stack-using activated abilities for the executable RAV slice. Costs and
 /// effects are semantic data; the engine owns priority, payment, target
 /// legality, and resolution receipts.
+#[allow(clippy::too_many_lines)]
 #[must_use]
 pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
     vec![
