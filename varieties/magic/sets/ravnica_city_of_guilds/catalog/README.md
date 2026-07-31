@@ -48,11 +48,13 @@ The focused Darkblast/Scatter the Seeds/Siege Wurm/Guardian of Vitu-Ghazi audit
 uses the same fail-closed rule. Darkblast is in the positive manifest because its
 entire functional behavior is covered by the creature-targeted temporary modifier
 and the fixed Dredge replacement substrate, with an exact public event-log
-scenario. Scatter the Seeds remains bounded: this engine represents the created
-token's name, color, card type, and power/toughness, but deliberately has no
-creature-subtype field. Siege Wurm and Guardian of Vitu-Ghazi remain bounded
+scenario. The original audit left Scatter the Seeds bounded for the absence of
+a creature-subtype field. The expansion-neutral engine now represents its
+Saproling token subtype explicitly, so Scatter is undergoing a fresh
+fidelity audit rather than retaining that superseded boundary. Siege Wurm and
+Guardian of Vitu-Ghazi remain bounded
 because trample combat-damage assignment and vigilance's attack/tap exception are
-not executable. None of the three bounded cards is a full-fidelity manifest entry.
+not executable. Neither remains a full-fidelity manifest entry.
 
 The 2026-07-30 simple-spell audit removed Gaze of the Gorgon from the executable
 slice. A prior fixture had both an incorrect hybrid-cost model and an unrelated
@@ -65,10 +67,11 @@ only this CardBench-authored semantic summary, not upstream card prose or art.
 
 The same audit rechecked the remaining executable simple instants and sorceries
 that reuse existing `Effect` operations. No new positive-manifest entry was
-justified: Scatter the Seeds still lacks creature-subtype representation; Dryad's
-Caress lacks a graveyard-return operation; Fiery Conclusion lacks its required
-sacrifice cost; and Ribbons of Night lacks spent-mana-color tracking. Muddle the
-Mixture and Dizzy Spell retain their correctly tested effect and Transmute
+justified: Dryad's Caress lacks a graveyard-return operation; Fiery Conclusion
+lacks its required sacrifice cost; and Ribbons of Night lacks spent-mana-color
+tracking. Scatter the Seeds is instead undergoing its follow-up audit against
+the now-typed Saproling token substrate. Muddle the Mixture and Dizzy Spell
+retain their correctly tested effect and Transmute
 compatibility slices, but Transmute is executed immediately in this engine rather
 than as a stack object, so normal response behavior is absent. Their deterministic
 public scenarios assert receipts only for the represented slices. These are
