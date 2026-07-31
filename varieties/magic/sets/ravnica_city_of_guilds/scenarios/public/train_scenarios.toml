@@ -6206,3 +6206,91 @@ priority = 0
 event_markers = ["CardRevealed", "LibraryShuffled", "Transmuted", "StepBegan"]
 event_absent = ["AttackersDeclared"]
 digest = "fnv1a64:74b1293dcdd0928b"
+
+[[scenario]]
+id = "rav_grozoth_defender_and_transmute_compatibility"
+seed = 42
+description = "Use Grozoth's supported immediate hand-zone search, then reject its later attack declaration because it has Defender; its entry trigger remains unsupported."
+
+[[scenario.card]]
+label = "grozoth_in_hand"
+owner = 0
+definition = "RAV-GROZOTH"
+zone = "hand"
+
+[[scenario.card]]
+label = "matching_value"
+owner = 0
+definition = "RAV-GROZOTH"
+zone = "library"
+
+[[scenario.card]]
+label = "defender"
+owner = 0
+definition = "RAV-GROZOTH"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.mana]]
+player = 0
+color = "blue"
+amount = 3
+
+[[scenario.action]]
+kind = "transmute"
+player = 0
+card = "grozoth_in_hand"
+found = "matching_value"
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "declare_attackers"
+player = 0
+attackers = ["defender"]
+expected_error = "illegal attacker"
+
+[scenario.expected]
+zones = ["grozoth_in_hand:graveyard", "matching_value:hand", "defender:battlefield"]
+powers = ["defender:9"]
+toughnesses = ["defender:9"]
+mana = ["0:blue:0"]
+stack_size = 0
+priority = 0
+event_markers = ["CardRevealed", "LibraryShuffled", "Transmuted", "StepBegan"]
+event_absent = ["AttackersDeclared"]
+digest = "fnv1a64:72bfadc28024561c"

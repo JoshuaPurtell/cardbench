@@ -18,7 +18,10 @@ fn grozoth_exposes_defender_and_bounded_transmute_compatibility() {
         .expect("Grozoth definition exists");
 
     assert_eq!(grozoth.name, "Grozoth");
-    assert_eq!(grozoth.mana_cost, ManaCost::with_colors(6, [Color::Blue; 3]));
+    assert_eq!(
+        grozoth.mana_cost,
+        ManaCost::with_colors(6, [Color::Blue; 3])
+    );
     assert_eq!(grozoth.colors, BTreeSet::from([Color::Blue]));
     assert_eq!(grozoth.card_types, BTreeSet::from([CardType::Creature]));
     assert_eq!((grozoth.power, grozoth.toughness), (Some(9), Some(9)));
