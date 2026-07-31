@@ -84,7 +84,6 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-RECOLLECT",
             "RAV-MNEMONIC-NEXUS",
             "RAV-PEEL-FROM-REALITY",
-            "RAV-PEEL-FROM-REALITY",
         ]
     );
     let definitions = card_definitions();

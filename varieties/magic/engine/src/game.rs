@@ -1804,6 +1804,7 @@ impl Game {
     }
 
     /// Performs the turn-based action of declaring attackers in the current combat.
+    #[allow(clippy::too_many_lines)] // Declaration captures every keyword's auditable provenance atomically.
     pub fn declare_attackers(
         &mut self,
         player: PlayerId,
@@ -4928,11 +4929,7 @@ impl Game {
                 });
                 self.move_to_graveyard_or_remove_token(target)?;
             }
-            Effect::ExileTargetCreature => {
-                let target = Self::target_permanent(target)?;
-                self.move_to_zone(target, Zone::Exile)?;
-            }
-            Effect::ExileTargetPermanent => {
+            Effect::ExileTargetCreature | Effect::ExileTargetPermanent => {
                 let target = Self::target_permanent(target)?;
                 self.move_to_zone(target, Zone::Exile)?;
             }
