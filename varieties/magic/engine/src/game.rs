@@ -6892,4 +6892,25 @@ mod tests {
             ))
         );
     }
+
+    #[test]
+    fn defending_player_departure_must_clear_attacker_keyword_provenance() {
+        let attacker = ObjectId(99);
+        let mut game = Game::new(Vec::<CardDefinition>::new(), 3).expect("three-player game");
+        game.step = Step::CombatDamage;
+        game.combat = Some(CombatState {
+            attackers_declared: true,
+            blockers_declared: true,
+            defending_player: Some(PlayerId(1)),
+            attackers: vec![attacker],
+            trampling_attackers: BTreeSet::from([attacker]),
+            ..CombatState::default()
+        });
+
+        game.lose_player(PlayerId(1), "fixture defender departure");
+
+        game.validate_invariants().expect(
+            "defender departure must not leave attacker keyword provenance after removing attackers from combat",
+        );
+    }
 }
