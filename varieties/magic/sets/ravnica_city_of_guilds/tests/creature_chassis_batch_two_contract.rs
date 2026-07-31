@@ -6,7 +6,7 @@
 
 use std::collections::BTreeSet;
 
-use cardbench_magic_engine::{CardType, Color, ManaCost};
+use cardbench_magic_engine::{CardType, Color, Keyword, ManaCost};
 use cardbench_magic_rav::{card_definitions, run_all_scenarios};
 
 #[test]
@@ -78,14 +78,6 @@ fn second_creature_chassis_batch_is_exactly_bounded_to_public_base_facts() {
             1,
             2,
         ),
-        (
-            "RAV-SELESNYA-SAGITTARS",
-            "Selesnya Sagittars",
-            ManaCost::with_colors(3, [Color::Green, Color::White]),
-            BTreeSet::from([Color::Green, Color::White]),
-            2,
-            5,
-        ),
     ];
 
     for (id, name, mana_cost, colors, power, toughness) in expected {
@@ -107,6 +99,27 @@ fn second_creature_chassis_batch_is_exactly_bounded_to_public_base_facts() {
         assert!(definition.keywords.is_empty(), "{id}");
         assert!(definition.effects.is_empty(), "{id}");
     }
+
+    let sagittars = definitions
+        .iter()
+        .find(|definition| definition.id == "RAV-SELESNYA-SAGITTARS")
+        .expect("Selesnya Sagittars definition exists");
+    assert_eq!(sagittars.name, "Selesnya Sagittars");
+    assert_eq!(
+        sagittars.mana_cost,
+        ManaCost::with_colors(3, [Color::Green, Color::White])
+    );
+    assert_eq!(
+        sagittars.colors,
+        BTreeSet::from([Color::Green, Color::White])
+    );
+    assert_eq!(sagittars.card_types, BTreeSet::from([CardType::Creature]));
+    assert_eq!((sagittars.power, sagittars.toughness), (Some(2), Some(5)));
+    assert_eq!(sagittars.keywords, [Keyword::Reach]);
+    assert_eq!(
+        sagittars.supported_rules,
+        ["colored-cost-casting", "base-characteristics", "reach"]
+    );
 }
 
 #[test]
