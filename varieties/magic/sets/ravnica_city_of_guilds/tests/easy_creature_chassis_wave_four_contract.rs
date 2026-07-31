@@ -47,14 +47,6 @@ fn fourth_creature_chassis_batch_is_exactly_bounded_to_public_base_facts() {
             5,
         ),
         (
-            "RAV-BARBARIAN-RIFTCUTTER",
-            "Barbarian Riftcutter",
-            ManaCost::with_colors(4, [Color::Red]),
-            BTreeSet::from([Color::Red]),
-            3,
-            3,
-        ),
-        (
             "RAV-EXCRUCIATOR",
             "Excruciator",
             ManaCost::with_colors(6, [Color::Red, Color::Red]),

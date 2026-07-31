@@ -235,13 +235,9 @@ impl Color {
 pub enum CardType {
     Artifact,
     Creature,
-    /// A battlefield creature currently assigned as a blocker in the active
-    /// combat. This keeps sacrifice-to-damage abilities from accepting an
-    /// arbitrary creature as a printed blocking-creature target.
-    BlockingCreature,
+    Land,
     Enchantment,
     Instant,
-    Land,
     Planeswalker,
     Sorcery,
 }
@@ -585,6 +581,7 @@ pub enum TargetRequirement {
     /// combat. This preserves the narrower target restriction of sacrifice
     /// damage abilities such as War-Torch Goblin.
     BlockingCreature,
+    Land,
     Player,
     /// A player or battlefield creature, matching the executable pre-
     /// planeswalker direct-damage card slice.
@@ -741,6 +738,9 @@ pub enum Effect {
         power: i16,
         toughness: i16,
     },
+    /// Destroy the targeted land during resolution, sending it through the
+    /// normal zone-change and continuous-effect lifecycle.
+    DestroyTargetLand,
     /// Apply one temporary layer-7 power/toughness modifier to every creature
     /// the resolving spell's controller currently controls. The recipient set
     /// is snapshotted while the spell resolves before any state-based action
@@ -783,6 +783,7 @@ impl Effect {
             | Self::RadianceDealDamageToCreatures { .. }
             | Self::RadianceUntapAndModifyUntilEndOfTurn { .. }
             | Self::RadianceModifyPtUntilEndOfTurn { .. } => Some(TargetRequirement::Creature),
+            Self::DestroyTargetLand => Some(TargetRequirement::Land),
             Self::CounterTargetInstantOrSorcerySpell => {
                 Some(TargetRequirement::InstantOrSorcerySpell)
             }
@@ -1292,6 +1293,10 @@ pub enum GameEvent {
     CardMoved {
         card: ObjectId,
         to: Zone,
+    },
+    CardDestroyed {
+        source: ObjectId,
+        card: ObjectId,
     },
     ManaAdded {
         player: PlayerId,

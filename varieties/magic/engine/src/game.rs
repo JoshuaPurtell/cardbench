@@ -3336,6 +3336,7 @@ impl Game {
                 | Effect::DealDamageEqualToAttackingCreatures { .. }
                 | Effect::ModifyTargetPtUntilEndOfTurn { .. }
                 | Effect::ModifySourcePtUntilEndOfTurn { .. }
+                | Effect::DestroyTargetLand
                 | Effect::ModifyControllerCreaturesPtUntilEndOfTurn { .. }
                 | Effect::RadianceUntapAndModifyUntilEndOfTurn { .. }
                 | Effect::RadianceModifyPtUntilEndOfTurn { .. }
@@ -3710,6 +3711,19 @@ impl Game {
                     Duration::EndOfTurn(self.turn),
                 )?;
             }
+            Effect::DestroyTargetLand => {
+                let target = target.ok_or(RulesError::IllegalAction("missing land target"))?;
+                let Target::Permanent(land) = target else {
+                    return Err(RulesError::IllegalTarget(target));
+                };
+                if self.zone_of(land) != Some(Zone::Battlefield)
+                    || !self.card_definition(land)?.is_land()
+                {
+                    return Err(RulesError::IllegalTarget(target));
+                }
+                self.record_event(GameEvent::CardDestroyed { source, card: land });
+                self.move_to_graveyard_or_remove_token(land)?;
+            }
             Effect::ModifyControllerCreaturesPtUntilEndOfTurn { power, toughness } => {
                 // Snapshot the affected battlefield objects before installing
                 // any effects. State-based actions run only once the complete
@@ -3885,6 +3899,12 @@ impl Game {
                                 .any(|blockers| blockers.contains(&card))
                         }))
             }
+            (Target::Permanent(card), TargetRequirement::Land) => {
+                self.zone_of(card) == Some(Zone::Battlefield)
+                    && self
+                        .card_definition(card)
+                        .is_ok_and(CardDefinition::is_land)
+            }
             (Target::Spell(card), TargetRequirement::InstantOrSorcerySpell) => {
                 self.stack
                     .iter()
@@ -3914,6 +3934,7 @@ impl Game {
                 TargetRequirement::Any
                     | TargetRequirement::Creature
                     | TargetRequirement::BlockingCreature
+                    | TargetRequirement::Land
                     | TargetRequirement::PlayerOrCreature
             ) | (Target::Spell(_), TargetRequirement::InstantOrSorcerySpell)
         )
