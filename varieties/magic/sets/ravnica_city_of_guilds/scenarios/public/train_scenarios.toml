@@ -4662,7 +4662,7 @@ digest = "fnv1a64:e78637d84b25b302"
 [[scenario]]
 id = "rav_easy_black_red_creature_chassis"
 seed = 0
-description = "Cast Sadistic Augermage, Indentured Oaf, and Torpid Moloch with exact colored costs, then verify only base P/T. Printed death, prevention, defender, and land-sacrifice behavior are deliberately omitted."
+description = "Cast Sadistic Augermage and Indentured Oaf with exact colored costs, then cast Torpid Moloch and verify its base P/T and Defender. The other creatures' printed triggers remain outside this chassis scenario."
 
 [[scenario.card]]
 label = "augermage"
@@ -6235,7 +6235,7 @@ digest = "fnv1a64:72bfadc28024561c"
 [[scenario]]
 id = "rav_torpid_moloch_defender_compatibility"
 seed = 43
-description = "Reject Torpid Moloch's attack declaration through its supported Defender rule; its land-sacrifice activation remains unsupported."
+description = "Reject Torpid Moloch's attack declaration through Defender; its separate three-land activation is covered by the full-fidelity red scenario."
 
 [[scenario.card]]
 label = "moloch"

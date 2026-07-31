@@ -45,6 +45,7 @@ fn barbarian_riftcutter_sacrifices_and_destroys_a_target_land() {
         AbilityActivation {
             source,
             ability_id: "sacrifice-destroy-target-land",
+            sacrifice_sources: vec![source],
             targets: vec![Target::Permanent(land)],
         },
     )

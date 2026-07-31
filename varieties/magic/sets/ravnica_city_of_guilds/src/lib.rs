@@ -35,7 +35,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 44] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 45] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SCATTER-THE-SEEDS",
@@ -80,6 +80,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 44] = [
     "RAV-VIASHINO-SLASHER",
     "RAV-WAR-TORCH-GOBLIN",
     "RAV-BARBARIAN-RIFTCUTTER",
+    "RAV-TORPID-MOLOCH",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -1465,9 +1466,8 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             4,
             3,
         ),
-        // Compatibility scope: normal colored-cost creature casting, base
-        // characteristics, and Defender. Its land-sacrifice activation remains
-        // deliberately unsupported, so this is not a full-fidelity card.
+        // Full-fidelity scope: colored-cost creature casting, base
+        // characteristics, Defender, and the three-land activation.
         CardDefinition {
             id: "RAV-TORPID-MOLOCH",
             name: "Torpid Moloch",
@@ -1477,7 +1477,13 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Creature]),
             is_basic_land: false,
-            supported_rules: &["colored-cost-casting", "base-characteristics", "defender"],
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "defender",
+                "sacrifice-three-lands-remove-defender",
+            ],
             power: Some(3),
             toughness: Some(2),
             keywords: vec![Keyword::Defender],
@@ -2146,6 +2152,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 mana_cost: ManaCost::with_colors(0, [Color::Red]),
                 tap_cost: false,
                 sacrifice_source: false,
+                sacrifice_lands: 0,
                 targets: vec![],
                 effects: vec![Effect::ModifySourcePtUntilEndOfTurn {
                     power: 1,
@@ -2160,6 +2167,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 mana_cost: ManaCost::with_colors(1, [Color::Red]),
                 tap_cost: false,
                 sacrifice_source: false,
+                sacrifice_lands: 0,
                 targets: vec![],
                 effects: vec![Effect::ModifySourcePtUntilEndOfTurn {
                     power: 3,
@@ -2174,6 +2182,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 mana_cost: ManaCost::with_colors(0, [Color::Red]),
                 tap_cost: false,
                 sacrifice_source: false,
+                sacrifice_lands: 0,
                 targets: vec![],
                 effects: vec![Effect::ModifySourcePtUntilEndOfTurn {
                     power: 1,
@@ -2188,10 +2197,25 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 mana_cost: ManaCost::with_colors(0, [Color::Red]),
                 tap_cost: false,
                 sacrifice_source: true,
+                sacrifice_lands: 0,
                 targets: vec![cardbench_magic_engine::TargetRequirement::BlockingCreature],
                 effects: vec![Effect::DealDamage {
                     amount: 2,
                     target: cardbench_magic_engine::TargetRequirement::BlockingCreature,
+                }],
+            },
+        },
+        ActivatedAbilityBinding {
+            card_definition: "RAV-TORPID-MOLOCH",
+            ability: ActivatedAbility {
+                id: "sacrifice-three-lands-remove-defender",
+                mana_cost: ManaCost::new(0),
+                tap_cost: false,
+                sacrifice_source: false,
+                sacrifice_lands: 3,
+                targets: vec![],
+                effects: vec![Effect::RemoveSourceKeywordUntilEndOfTurn {
+                    keyword: Keyword::Defender,
                 }],
             },
         },
@@ -2202,6 +2226,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 mana_cost: ManaCost::with_colors(0, [Color::Red]),
                 tap_cost: false,
                 sacrifice_source: true,
+                sacrifice_lands: 0,
                 targets: vec![cardbench_magic_engine::TargetRequirement::Land],
                 effects: vec![Effect::DestroyTargetLand],
             },
