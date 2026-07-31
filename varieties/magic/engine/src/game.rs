@@ -3687,22 +3687,42 @@ impl Game {
         })
     }
 
+    fn target_prevents_damage_from_source(&self, source: ObjectId, target: ObjectId) -> bool {
+        let Ok(source_characteristics) = self.characteristics(source) else {
+            return false;
+        };
+        let Ok(target_characteristics) = self.characteristics(target) else {
+            return false;
+        };
+        target_characteristics.keywords.iter().any(|keyword| {
+            if let Keyword::PreventDamageFromColor(color) = keyword {
+                source_characteristics.colors.contains(color)
+            } else {
+                false
+            }
+        })
+    }
+
     fn deal_damage_to_permanent(
         &mut self,
         source: ObjectId,
         permanent: ObjectId,
         amount: i32,
     ) -> Result<(), RulesError> {
-        let prevented = if self.damage_cannot_be_prevented(source) {
-            0
+        let (prevented, consumes_shield) = if self.damage_cannot_be_prevented(source) {
+            (0, false)
+        } else if self.target_prevents_damage_from_source(source, permanent) {
+            (amount, false)
         } else {
-            amount.min(self.object(permanent)?.damage_shield)
+            (amount.min(self.object(permanent)?.damage_shield), true)
         };
         if prevented > 0 {
-            self.objects
-                .get_mut(&permanent)
-                .ok_or(RulesError::UnknownCard(permanent))?
-                .damage_shield -= prevented;
+            if consumes_shield {
+                self.objects
+                    .get_mut(&permanent)
+                    .ok_or(RulesError::UnknownCard(permanent))?
+                    .damage_shield -= prevented;
+            }
             self.record_event(GameEvent::DamagePrevented {
                 source,
                 target: Target::Permanent(permanent),
