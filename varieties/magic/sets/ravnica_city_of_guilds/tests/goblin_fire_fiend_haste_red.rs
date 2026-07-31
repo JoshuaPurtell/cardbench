@@ -1,7 +1,7 @@
 //! Red coverage probe for Goblin Fire Fiend's shared Haste rule.
 //!
-//! Its must-block restriction and activated power boost are deliberately not
-//! approximated here; this probe requests only the reusable static keyword.
+//! Its full behavior is asserted separately; this probe retains only the
+//! reusable static Haste contract.
 
 use std::collections::BTreeSet;
 
@@ -20,11 +20,17 @@ fn goblin_fire_fiend_exposes_its_bounded_haste_slice() {
     assert_eq!(fiend.colors, BTreeSet::from([Color::Red]));
     assert_eq!(fiend.card_types, BTreeSet::from([CardType::Creature]));
     assert_eq!((fiend.power, fiend.toughness), (Some(1), Some(1)));
-    assert_eq!(fiend.keywords, [Keyword::Haste]);
+    assert!(fiend.keywords.contains(&Keyword::Haste));
     assert!(fiend.effects.is_empty());
     assert_eq!(
         fiend.supported_rules,
-        ["colored-cost-casting", "base-characteristics", "haste"],
-        "must-block and activated-pump behavior remain intentionally bounded"
+        [
+            "full-rules-fidelity",
+            "colored-cost-casting",
+            "base-characteristics",
+            "haste",
+            "must-block-if-able",
+            "activated-plus-one-power",
+        ]
     );
 }

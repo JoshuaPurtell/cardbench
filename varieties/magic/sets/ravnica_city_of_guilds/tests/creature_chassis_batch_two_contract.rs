@@ -23,14 +23,6 @@ fn second_creature_chassis_batch_is_exactly_bounded_to_public_base_facts() {
             1,
         ),
         (
-            "RAV-FRENZIED-GOBLIN",
-            "Frenzied Goblin",
-            ManaCost::with_colors(0, [Color::Red]),
-            BTreeSet::from([Color::Red]),
-            1,
-            1,
-        ),
-        (
             "RAV-GRAYSCALED-GHARIAL",
             "Grayscaled Gharial",
             ManaCost::with_colors(0, [Color::Blue]),

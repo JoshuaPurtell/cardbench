@@ -32,6 +32,12 @@ fn razia_target_departure_does_not_leak_a_failed_resolution() {
     let char = game
         .add_card(PlayerId(1), "RAV-CHAR", Zone::Hand)
         .expect("Char enters opponent hand");
+    let mountains = (0..3)
+        .map(|_| {
+            game.put_on_battlefield(PlayerId(1), "RAV-MOUNTAIN")
+                .expect("opponent red mana source enters before game start")
+        })
+        .collect::<Vec<_>>();
     game.begin_game().expect("game starts");
     for player in [PlayerId(0), PlayerId(1), PlayerId(0), PlayerId(1)] {
         game.pass_priority(player).expect("advance to first main");
@@ -49,8 +55,10 @@ fn razia_target_departure_does_not_leak_a_failed_resolution() {
     .expect("Razia ability activates");
     game.pass_priority(PlayerId(0))
         .expect("Razia controller passes");
-    game.grant_mana(PlayerId(1), Color::Red, 3)
-        .expect("opponent Char mana");
+    for mountain in mountains {
+        game.activate_mana_ability(PlayerId(1), mountain, Color::Red)
+            .expect("activate opponent red mana source");
+    }
     game.cast_spell(
         PlayerId(1),
         CastRequest {

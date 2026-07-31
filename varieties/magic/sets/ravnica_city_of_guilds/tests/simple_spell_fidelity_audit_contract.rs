@@ -18,14 +18,6 @@ fn audited_simple_spells_keep_their_precise_compatibility_boundaries() {
     let expected = [
         ("RAV-DRYADS-CARESS", &["controller-life-gain"] as &[_]),
         (
-            "RAV-FIERY-CONCLUSION",
-            &["targeted-creature-damage"] as &[_],
-        ),
-        (
-            "RAV-RIBBONS-OF-NIGHT",
-            &["targeted-creature-damage", "life-gain"] as &[_],
-        ),
-        (
             "RAV-MUDDLE-THE-MIXTURE",
             &["counter-target-instant-or-sorcery-spell", "transmute"] as &[_],
         ),

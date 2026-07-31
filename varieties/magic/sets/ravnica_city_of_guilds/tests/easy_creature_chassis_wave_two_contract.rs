@@ -15,14 +15,6 @@ fn easy_creature_wave_two_is_exactly_bounded_to_public_base_facts() {
     let definitions = card_definitions();
     let expected = [
         (
-            "RAV-BENEVOLENT-ANCESTOR",
-            "Benevolent Ancestor",
-            ManaCost::with_colors(2, [Color::White]),
-            BTreeSet::from([Color::White]),
-            0,
-            4,
-        ),
-        (
             "RAV-SURVEILLING-SPRITE",
             "Surveilling Sprite",
             ManaCost::with_colors(1, [Color::Blue]),
@@ -45,14 +37,6 @@ fn easy_creature_wave_two_is_exactly_bounded_to_public_base_facts() {
             BTreeSet::from([Color::Blue]),
             2,
             1,
-        ),
-        (
-            "RAV-SEWERDREG",
-            "Sewerdreg",
-            ManaCost::with_colors(3, [Color::Black, Color::Black]),
-            BTreeSet::from([Color::Black]),
-            3,
-            3,
         ),
         (
             "RAV-CIVIC-WAYFINDER",

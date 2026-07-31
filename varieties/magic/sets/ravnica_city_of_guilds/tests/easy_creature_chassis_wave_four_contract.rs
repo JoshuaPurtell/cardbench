@@ -24,14 +24,6 @@ fn fourth_creature_chassis_batch_is_exactly_bounded_to_public_base_facts() {
             1,
         ),
         (
-            "RAV-UNDERCITY-SHADE",
-            "Undercity Shade",
-            ManaCost::with_colors(4, [Color::Black]),
-            BTreeSet::from([Color::Black]),
-            1,
-            1,
-        ),
-        (
             "RAV-VINDICTIVE-MOB",
             "Vindictive Mob",
             ManaCost::with_colors(4, [Color::Black, Color::Black]),

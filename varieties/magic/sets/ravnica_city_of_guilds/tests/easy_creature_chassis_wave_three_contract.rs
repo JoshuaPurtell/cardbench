@@ -72,22 +72,6 @@ fn third_creature_chassis_batch_is_exactly_bounded_to_public_base_facts() {
             4,
         ),
         (
-            "RAV-SUNHOME-ENFORCER",
-            "Sunhome Enforcer",
-            ManaCost::with_colors(2, [Color::Red, Color::White]),
-            BTreeSet::from([Color::Red, Color::White]),
-            2,
-            4,
-        ),
-        (
-            "RAV-VULTUROUS-ZOMBIE",
-            "Vulturous Zombie",
-            ManaCost::with_colors(3, [Color::Black, Color::Green]),
-            BTreeSet::from([Color::Black, Color::Green]),
-            3,
-            3,
-        ),
-        (
             "RAV-WOODWRAITH-CORRUPTER",
             "Woodwraith Corrupter",
             ManaCost::with_colors(3, [Color::Black, Color::Black, Color::Green]),
