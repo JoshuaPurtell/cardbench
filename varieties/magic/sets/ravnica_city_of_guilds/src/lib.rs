@@ -915,8 +915,8 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             effects: vec![],
         },
         // Compatibility scope: normal creature casting, base characteristics,
-        // and the existing Convoke payment hook. Its printed combat keyword is
-        // intentionally unsupported.
+        // Convoke payment, and the printed Trample keyword. Multi-block
+        // damage assignment remains an explicit engine limitation.
         CardDefinition {
             id: "RAV-AUTOCHTHON-WURM",
             name: "Autochthon Wurm",
@@ -935,10 +935,10 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Creature]),
             is_basic_land: false,
-            supported_rules: &["convoke", "base-characteristics"],
+            supported_rules: &["convoke", "base-characteristics", "trample"],
             power: Some(9),
             toughness: Some(14),
-            keywords: vec![Keyword::Convoke],
+            keywords: vec![Keyword::Convoke, Keyword::Trample],
             effects: vec![],
         },
         // Compatibility scope: normal creature casting, base characteristics,
