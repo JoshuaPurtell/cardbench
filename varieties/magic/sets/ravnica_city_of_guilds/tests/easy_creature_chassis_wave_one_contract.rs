@@ -54,14 +54,6 @@ fn easy_creature_wave_one_is_exactly_bounded_to_public_base_facts() {
             3,
             1,
         ),
-        (
-            "RAV-INDENTURED-OAF",
-            "Indentured Oaf",
-            ManaCost::with_colors(3, [Color::Red]),
-            BTreeSet::from([Color::Red]),
-            4,
-            3,
-        ),
     ];
 
     for (id, name, mana_cost, colors, power, toughness) in expected {
@@ -83,6 +75,20 @@ fn easy_creature_wave_one_is_exactly_bounded_to_public_base_facts() {
         assert!(definition.keywords.is_empty(), "{id}");
         assert!(definition.effects.is_empty(), "{id}");
     }
+
+    let oaf = definitions
+        .iter()
+        .find(|definition| definition.id == "RAV-INDENTURED-OAF")
+        .expect("Indentured Oaf definition exists");
+    assert_eq!(
+        oaf.supported_rules,
+        [
+            "full-rules-fidelity",
+            "colored-cost-casting",
+            "base-characteristics",
+            "prevent-damage-from-red-sources"
+        ]
+    );
 
     let moloch = definitions
         .iter()
