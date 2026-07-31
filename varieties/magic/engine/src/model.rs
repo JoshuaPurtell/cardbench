@@ -185,6 +185,10 @@ pub struct ActivatedAbilityBinding {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum TriggerCondition {
     EntersBattlefield,
+    /// The source's controller gained positive life. The trigger is queued
+    /// at the life-gain receipt and may optionally pay its bound mana cost
+    /// before it is put on the stack.
+    LifeGained,
     /// The source dealt positive damage to a player or permanent. The damage
     /// amount is materialized into the triggered stack object's effects when
     /// the receipt is emitted, so a life-gain trigger cannot inspect a later
@@ -757,6 +761,14 @@ pub enum Effect {
     DealDamageController {
         amount: i16,
     },
+    /// Pay an optional life-gain trigger cost at resolution, then deal the
+    /// fixed amount to a deterministically selected legal target. The target
+    /// is intentionally not a stack slot because the printed ability chooses
+    /// it only after its optional payment succeeds.
+    DealDamageAfterOptionalManaPayment {
+        amount: i16,
+        target: TargetRequirement,
+    },
     /// Add a fixed amount of one color to the resolving spell controller's
     /// mana pool. This is a stack effect (not a mana ability), used by
     /// Seismic Spike after its targeted land destruction resolves.
@@ -918,6 +930,7 @@ impl Effect {
                 Some(TargetRequirement::InstantOrSorcerySpell)
             }
             Self::DealDamageController { .. }
+            | Self::DealDamageAfterOptionalManaPayment { .. }
             | Self::DealDamageToEachCreatureAndPlayer { .. }
             | Self::DealDamageToEachPlayer { .. }
             | Self::DealDamageToEachNonFlyingCreature { .. }

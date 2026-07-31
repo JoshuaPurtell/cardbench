@@ -269,6 +269,13 @@ struct PendingDamageRedirection {
 }
 
 #[derive(Clone, Debug)]
+struct PendingLifeGainTrigger {
+    source: ObjectId,
+    controller: PlayerId,
+    ability: crate::TriggeredAbility,
+}
+
+#[derive(Clone, Debug)]
 struct DamageRedirection {
     protected: ObjectId,
     destination: Target,
@@ -325,6 +332,7 @@ pub struct Game {
     /// resolving. This preserves Magic's event ordering and leaves one clean
     /// priority boundary for the resulting abilities.
     pending_damage_triggers: Vec<PendingDamageTrigger>,
+    pending_life_gain_triggers: Vec<PendingLifeGainTrigger>,
     pending_dies_triggers: Vec<PendingDiesTrigger>,
     pending_damage_redirection: Option<PendingDamageRedirection>,
     damage_redirections: Vec<DamageRedirection>,
@@ -520,6 +528,7 @@ impl Game {
             combat: None,
             pending_draw_replacement: None,
             pending_damage_triggers: Vec::new(),
+            pending_life_gain_triggers: Vec::new(),
             pending_dies_triggers: Vec::new(),
             pending_damage_redirection: None,
             damage_redirections: Vec::new(),
@@ -577,9 +586,10 @@ impl Game {
     }
 
     /// Creates a game with stack-using activated abilities and target-free
-    /// enter-the-battlefield or source-damage triggers. Enter triggers queue
-    /// after a permanent spell resolves; damage triggers queue after their
-    /// enclosing damage batch, so both expose a normal priority window.
+    /// enter-the-battlefield, life-gain, or source-damage triggers. Enter
+    /// triggers queue after a permanent spell resolves; damage and life-gain
+    /// triggers queue after their enclosing effect, so each exposes a normal
+    /// priority window.
     pub fn new_with_all_bindings_and_triggers(
         definitions: impl IntoIterator<Item = CardDefinition>,
         player_count: usize,
@@ -606,6 +616,7 @@ impl Game {
                 || !matches!(
                     binding.ability.condition,
                     TriggerCondition::EntersBattlefield
+                        | TriggerCondition::LifeGained
                         | TriggerCondition::DealsDamage
                         | TriggerCondition::ReceivesDamage
                         | TriggerCondition::Dies
@@ -2574,6 +2585,11 @@ impl Game {
                 "pending damage trigger escaped its enclosing damage batch",
             ));
         }
+        if !self.pending_life_gain_triggers.is_empty() {
+            return Err(RulesError::IllegalAction(
+                "pending life-gain trigger escaped its enclosing life-gain batch",
+            ));
+        }
         if !self.pending_dies_triggers.is_empty() {
             return Err(RulesError::IllegalAction(
                 "pending dies trigger escaped its state-based-action batch",
@@ -2753,6 +2769,7 @@ impl Game {
                     || !matches!(
                         ability.condition,
                         TriggerCondition::EntersBattlefield
+                            | TriggerCondition::LifeGained
                             | TriggerCondition::DealsDamage
                             | TriggerCondition::ReceivesDamage
                             | TriggerCondition::Dies
@@ -3555,6 +3572,7 @@ impl Game {
             let amount = match effect {
                 Effect::DealDamage { amount, .. }
                 | Effect::DealDamageController { amount }
+                | Effect::DealDamageAfterOptionalManaPayment { amount, .. }
                 | Effect::DealDamageToEachCreatureAndPlayer { amount }
                 | Effect::DealDamageToEachPlayer { amount }
                 | Effect::DealDamageToEachNonFlyingCreature { amount }
@@ -3649,12 +3667,41 @@ impl Game {
         else {
             unreachable!("rules-counter plan returned above");
         };
+        let mut life_gain_payment_paid = true;
+        if let Some(ability_id) = stack_object.ability_id
+            && let Some(ability) = self
+                .triggered_abilities
+                .get(self.card_definition(stack_object.card)?.id)
+                .and_then(|abilities| abilities.get(ability_id))
+            && ability.condition == TriggerCondition::LifeGained
+            && ability.mana_cost.mana_value() > 0
+        {
+            let mut paid_pool = self.players[stack_object.controller.0].mana_pool.clone();
+            match paid_pool.pay(&ability.mana_cost) {
+                Ok(()) => {
+                    self.players[stack_object.controller.0].mana_pool = paid_pool;
+                    self.record_event(GameEvent::AbilityManaPaid {
+                        player: stack_object.controller,
+                        source: stack_object.card,
+                        ability: ability.id,
+                        mana_cost: ability.mana_cost.clone(),
+                    });
+                }
+                Err(_error) if ability.optional => {
+                    life_gain_payment_paid = false;
+                }
+                Err(error) => return Err(RulesError::Mana(error)),
+            }
+        }
         for (effect_index, (effect, target_resolution)) in stack_object
             .effects
             .iter()
             .zip(effect_resolutions)
             .enumerate()
         {
+            if !life_gain_payment_paid {
+                continue;
+            }
             match target_resolution {
                 StackEffectResolution::Untargeted => {
                     self.resolve_effect(
@@ -3716,6 +3763,7 @@ impl Game {
             });
             self.check_state_based_actions()?;
             self.flush_pending_damage_triggers();
+            self.flush_pending_life_gain_triggers();
             self.flush_pending_dies_triggers();
             self.priority = self.priority_after_resolution();
             return Ok(());
@@ -3746,6 +3794,7 @@ impl Game {
             self.enqueue_enter_triggers(stack_object.card, definition_id, entering_controller);
         }
         self.flush_pending_damage_triggers();
+        self.flush_pending_life_gain_triggers();
         self.flush_pending_dies_triggers();
         self.priority = self.priority_after_resolution();
         Ok(())
@@ -4009,6 +4058,40 @@ impl Game {
             .push(PendingDiesTrigger { source, definition });
     }
 
+    /// Captures triggered abilities controlled by permanents on the
+    /// battlefield when a player gains positive life. Their optional mana
+    /// costs are paid at trigger resolution; the pending queue only retains
+    /// the source and bound ability until the enclosing resolution completes.
+    fn enqueue_life_gain_triggers(&mut self) {
+        let sources = self
+            .all_battlefield_cards()
+            .into_iter()
+            .filter_map(|source| {
+                let definition = self.card_definition(source).ok()?.id;
+                let controller = self.object(source).ok()?.controller;
+                Some((source, definition, controller))
+            })
+            .collect::<Vec<_>>();
+        for (source, definition, controller) in sources {
+            let triggers = self
+                .triggered_abilities
+                .get(definition)
+                .into_iter()
+                .flat_map(|abilities| abilities.values())
+                .filter(|ability| ability.condition == TriggerCondition::LifeGained)
+                .cloned()
+                .collect::<Vec<_>>();
+            for ability in triggers {
+                self.pending_life_gain_triggers
+                    .push(PendingLifeGainTrigger {
+                        source,
+                        controller,
+                        ability,
+                    });
+            }
+        }
+    }
+
     /// Places dies triggers above the already-completed action's stack object.
     /// Deferring until costs/effects finish preserves the rule that a trigger
     /// created during an activation cost is stacked after that activation.
@@ -4090,6 +4173,34 @@ impl Game {
         }
         if !self.pending_damage_triggers.is_empty() {
             unreachable!("pending damage triggers were not drained");
+        }
+        if !self.stack.is_empty() {
+            self.consecutive_passes = 0;
+        }
+    }
+
+    /// Puts life-gain triggers on the stack after the enclosing effect has
+    /// finished. Target legality is rechecked by the normal stack resolver,
+    /// while the trigger's source and controller remain historical identities.
+    fn flush_pending_life_gain_triggers(&mut self) {
+        let pending = std::mem::take(&mut self.pending_life_gain_triggers);
+        for pending in pending {
+            self.stack.push(StackObject {
+                card: pending.source,
+                controller: pending.controller,
+                ability_id: Some(pending.ability.id),
+                targets: vec![],
+                effects: pending.ability.effects,
+                mana_spent: None,
+            });
+            self.record_event(GameEvent::TriggeredAbilityStacked {
+                controller: pending.controller,
+                source: pending.source,
+                ability: pending.ability.id,
+            });
+        }
+        if !self.pending_life_gain_triggers.is_empty() {
+            unreachable!("pending life-gain triggers were not drained");
         }
         if !self.stack.is_empty() {
             self.consecutive_passes = 0;
@@ -4271,6 +4382,28 @@ impl Game {
             Effect::DealDamageController { amount } => {
                 self.deal_damage_to_player(source, controller, i32::from(*amount))?;
             }
+            Effect::DealDamageAfterOptionalManaPayment { amount, target } => {
+                let Some(selected) = self.select_trigger_targets(controller, &[*target]) else {
+                    return Ok(());
+                };
+                let Some(selected) = selected.first().copied() else {
+                    return Ok(());
+                };
+                match selected {
+                    Target::Player(player) => {
+                        self.deal_damage_to_player(source, player, i32::from(*amount))?;
+                    }
+                    Target::Permanent(permanent) => {
+                        self.deal_damage_to_permanent(source, permanent, i32::from(*amount))?;
+                    }
+                    Target::Spell(card) => {
+                        return Err(RulesError::IllegalTarget(Target::Spell(card)));
+                    }
+                    Target::SacrificePermanent(card) => {
+                        return Err(RulesError::IllegalTarget(Target::SacrificePermanent(card)));
+                    }
+                }
+            }
             Effect::AddManaController { color, amount } => {
                 if *amount == 0
                     || !self.players[controller.0]
@@ -4356,6 +4489,7 @@ impl Game {
                     player: controller,
                     amount: *amount,
                 });
+                self.enqueue_life_gain_triggers();
             }
             Effect::GainLifeControllerFromSourceDamage => {
                 return Err(RulesError::IllegalAction(
@@ -5082,6 +5216,7 @@ impl Game {
         }
         self.check_state_based_actions()?;
         self.flush_pending_damage_triggers();
+        self.flush_pending_life_gain_triggers();
         self.flush_pending_dies_triggers();
         Ok(())
     }

@@ -213,6 +213,12 @@ Oracle Magic rules coverage.
   optional cost before stacking and retain their selected target through
   resolution; received-damage triggers capture positive damage before SBAs;
   dies triggers retain the historical source object after a graveyard move.
+  A `LifeGained` trigger is captured from a positive `LifeGained` receipt while
+  its source is on the battlefield, then stacked only after the enclosing
+  spell or ability reaches its terminal receipt. Its optional mana cost is
+  paid at trigger resolution, not while the trigger is stacked; an unpaid
+  optional cost resolves with no damage, while a paid trigger selects a legal
+  creature-or-player target at resolution and deals its fixed amount.
   ETB triggers with targets retain one deterministic legal target per declared
   occurrence; a targeted opponent trigger cannot silently fan out to every
   opponent. A two-target redirection activation must resolve both target
@@ -221,7 +227,7 @@ Oracle Magic rules coverage.
   target becomes illegal before resolution, the paired destination instruction
   is a no-op rather than a resolver error or leaked final-pass transition.
   Every materialized dynamic effect is checked against its binding before it
-  can resolve, and no pending attack, damage, or dies trigger may survive its
+  can resolve, and no pending attack, damage, life-gain, or dies trigger may survive its
   enclosing transition.
 - Every public, intrinsic, or definition-bound mana producer preflights this
   bounded pool before it changes a source, pass state, pool, or event log. A
