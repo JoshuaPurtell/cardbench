@@ -1336,17 +1336,24 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Flying],
             effects: vec![],
         },
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed flying and damage-triggered
-        // behavior are deliberately omitted from this compatibility slice.
-        bounded_creature_chassis(
-            "RAV-BELLTOWER-SPHINX",
-            "Belltower Sphinx",
-            ManaCost::with_colors(4, [Color::Blue]),
-            colors([Color::Blue]),
-            2,
-            5,
-        ),
+        // Compatibility scope: normal colored-cost creature casting, base
+        // characteristics, and Flying. Its damage-triggered behavior remains
+        // deliberately unsupported, so this is not a full-fidelity card.
+        CardDefinition {
+            id: "RAV-BELLTOWER-SPHINX",
+            name: "Belltower Sphinx",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(4, [Color::Blue]),
+            colors: colors([Color::Blue]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &["colored-cost-casting", "base-characteristics", "flying"],
+            power: Some(2),
+            toughness: Some(5),
+            keywords: vec![Keyword::Flying],
+            effects: vec![],
+        },
         // Compatibility scope: normal colored-cost creature casting and base
         // characteristics only. Its printed flying and activated library
         // behavior are deliberately omitted from this compatibility slice.

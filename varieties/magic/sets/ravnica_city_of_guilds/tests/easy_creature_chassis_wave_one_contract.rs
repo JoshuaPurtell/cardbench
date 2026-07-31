@@ -15,14 +15,6 @@ fn easy_creature_wave_one_is_exactly_bounded_to_public_base_facts() {
     let definitions = card_definitions();
     let expected = [
         (
-            "RAV-BELLTOWER-SPHINX",
-            "Belltower Sphinx",
-            ManaCost::with_colors(4, [Color::Blue]),
-            BTreeSet::from([Color::Blue]),
-            2,
-            5,
-        ),
-        (
             "RAV-CERULEAN-SPHINX",
             "Cerulean Sphinx",
             ManaCost::with_colors(4, [Color::Blue, Color::Blue]),
@@ -106,6 +98,20 @@ fn easy_creature_wave_one_is_exactly_bounded_to_public_base_facts() {
         ["colored-cost-casting", "base-characteristics", "defender"]
     );
 
+    let sphinx = definitions
+        .iter()
+        .find(|definition| definition.id == "RAV-BELLTOWER-SPHINX")
+        .expect("Belltower Sphinx definition exists");
+    assert_eq!(sphinx.name, "Belltower Sphinx");
+    assert_eq!(sphinx.mana_cost, ManaCost::with_colors(4, [Color::Blue]));
+    assert_eq!(sphinx.colors, BTreeSet::from([Color::Blue]));
+    assert_eq!(sphinx.card_types, BTreeSet::from([CardType::Creature]));
+    assert_eq!((sphinx.power, sphinx.toughness), (Some(2), Some(5)));
+    assert_eq!(
+        sphinx.supported_rules,
+        ["colored-cost-casting", "base-characteristics", "flying"]
+    );
+
     let griffin = definitions
         .iter()
         .find(|definition| definition.id == "RAV-SCREECHING-GRIFFIN")
@@ -145,6 +151,7 @@ fn easy_creature_wave_one_has_deterministic_public_scenarios() {
     for id in [
         "rav_easy_white_creature_chassis",
         "rav_easy_blue_sphinx_chassis",
+        "rav_belltower_sphinx_flying_compatibility",
         "rav_easy_blue_phantasm_drake_chassis",
         "rav_easy_blue_late_creature_chassis",
         "rav_easy_black_red_creature_chassis",

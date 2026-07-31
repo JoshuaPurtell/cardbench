@@ -121,7 +121,9 @@ current corpus contains 102 scenarios and covers:
   full-fidelity controller-wide temporary Convoke modifier (`Overwhelm`), and
   full-fidelity paid-color-conditioned resolution (`Ribbons of Night`), with
   explicit Blue and non-Blue generic allocations retained on its stack object;
-  and
+- bounded static Flying compatibility for `Belltower Sphinx`, `Screeching
+  Griffin`, and `Tattered Drake`, with their card-specific triggers or
+  activations intentionally left outside the fidelity manifest; and
 - cleanup expiration, land-play limits, and rejected priority/convoke/dredge actions.
 
 ## Rust policy development match

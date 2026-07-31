@@ -232,10 +232,10 @@ exact colored-cost payments, stack resolution, zone movement, priority, and
 retained base P/T values only.
 
 The following bounded keyword wave adds the static Defender slice for Torpid
-Moloch and the static Flying slices for Screeching Griffin and Tattered Drake.
-Their activation and regeneration behavior remains outside the executable
-scope, so each has a focused compatibility trace plus an ignored full-fidelity
-probe rather than a positive-manifest claim.
+Moloch and the static Flying slices for Belltower Sphinx, Screeching Griffin,
+and Tattered Drake. Their trigger, activation, and regeneration behavior
+remains outside the executable scope, so each has a focused compatibility trace
+plus an ignored full-fidelity probe rather than a positive-manifest claim.
 
 Carven Caryatid is likewise bounded to its static Defender slice. Its
 enter-the-battlefield draw trigger remains outside the shared trigger substrate,
