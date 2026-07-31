@@ -24,7 +24,12 @@ fn screeching_griffin_exposes_its_supported_flying_compatibility_slice() {
     assert!(griffin.effects.is_empty());
     assert_eq!(
         griffin.supported_rules,
-        ["colored-cost-casting", "base-characteristics", "flying"],
-        "the card-specific activated behavior remains intentionally bounded"
+        [
+            "full-rules-fidelity",
+            "colored-cost-casting",
+            "base-characteristics",
+            "flying",
+            "activated-prevent-target-blocking-source"
+        ]
     );
 }

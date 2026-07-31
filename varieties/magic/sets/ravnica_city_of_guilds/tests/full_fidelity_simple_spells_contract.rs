@@ -73,6 +73,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-HUNTED-DRAGON",
             "RAV-RAZIA-BOROS-ARCHANGEL",
             "RAV-HAMMERFIST-GIANT",
+            "RAV-SCREECHING-GRIFFIN",
         ]
     );
     let definitions = card_definitions();

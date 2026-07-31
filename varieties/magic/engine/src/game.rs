@@ -1393,6 +1393,17 @@ impl Game {
         })
     }
 
+    fn target_cannot_block_attacker(&self, blocker: ObjectId, attacker: ObjectId) -> bool {
+        self.continuous_effects.iter().any(|effect| {
+            effect.target == blocker
+                && self.effect_is_active(effect)
+                && matches!(
+                    &effect.change,
+                    ContinuousChange::CannotBlockSource(source) if *source == attacker
+                )
+        })
+    }
+
     /// Drops setup or prior-run events. This is useful at the start of a scenario's
     /// measured action sequence and never alters game state.
     pub fn clear_event_log(&mut self) {
@@ -1643,7 +1654,7 @@ impl Game {
                         .keywords
                         .retain(|candidate| candidate != keyword);
                 }
-                ContinuousChange::AddDamageShield(_) => {}
+                ContinuousChange::CannotBlockSource(_) | ContinuousChange::AddDamageShield(_) => {}
                 ContinuousChange::ModifyPowerToughness { power, toughness } => {
                     characteristics.power = characteristics
                         .power
@@ -1904,6 +1915,7 @@ impl Game {
             if object.controller != player
                 || object.tapped
                 || !characteristics.card_types.contains(&CardType::Creature)
+                || self.target_cannot_block_attacker(assignment.blocker, assignment.attacker)
                 || characteristics
                     .keywords
                     .contains(&Keyword::CannotAttackOrBlock)
@@ -1964,6 +1976,9 @@ impl Game {
                     && !(characteristics.keywords.contains(&Keyword::Flying)
                         || characteristics.keywords.contains(&Keyword::Reach))
                 {
+                    return false;
+                }
+                if self.target_cannot_block_attacker(*candidate, *attacker) {
                     return false;
                 }
                 true
@@ -3545,6 +3560,7 @@ impl Game {
                 | Effect::DealDamageEqualToAttackingCreatures { .. }
                 | Effect::ModifyTargetPtUntilEndOfTurn { .. }
                 | Effect::ModifyTargetKeywordUntilEndOfTurn { .. }
+                | Effect::PreventTargetBlockingSourceUntilEndOfTurn
                 | Effect::ModifySourcePtUntilEndOfTurn { .. }
                 | Effect::RemoveSourceKeywordUntilEndOfTurn { .. }
                 | Effect::AddSourceDamageShieldUntilEndOfTurn { .. }
@@ -4414,6 +4430,23 @@ impl Game {
                         Duration::EndOfTurn(self.turn),
                     )?;
                 }
+            }
+            Effect::PreventTargetBlockingSourceUntilEndOfTurn => {
+                let target = Self::target_permanent(target)?;
+                if !self
+                    .characteristics(target)?
+                    .card_types
+                    .contains(&CardType::Creature)
+                    || self.zone_of(source) != Some(Zone::Battlefield)
+                {
+                    return Err(RulesError::IllegalTarget(Target::Permanent(target)));
+                }
+                self.install_continuous_effect(
+                    source,
+                    target,
+                    ContinuousChange::CannotBlockSource(source),
+                    Duration::EndOfTurn(self.turn),
+                )?;
             }
             Effect::ModifySourcePtUntilEndOfTurn { power, toughness } => {
                 if self.zone_of(source) != Some(Zone::Battlefield) {
