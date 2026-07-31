@@ -58,6 +58,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-TORPID-MOLOCH",
             "RAV-VIASHINO-FANGTAIL",
             "RAV-BOROS-GUILDMAGE",
+            "RAV-WOJEK-EMBERMAGE",
         ]
     );
     let definitions = card_definitions();

@@ -78,9 +78,9 @@ fn executable_slice_size_is_explicit_and_does_not_masquerade_as_set_coverage() {
     // compatibility slices. Clinging Darkness stays catalog-only
     // because Aura attachment, persistent modifiers, and regeneration are not
     // represented.
-    assert_eq!(executable_printings, 139);
-    assert_eq!(executable_names.len(), 124);
-    assert_eq!(catalog_only_names.len(), 167);
+    assert_eq!(executable_printings, 140);
+    assert_eq!(executable_names.len(), 125);
+    assert_eq!(catalog_only_names.len(), 166);
     assert!(executable_names.is_disjoint(&catalog_only_names));
 }
 
