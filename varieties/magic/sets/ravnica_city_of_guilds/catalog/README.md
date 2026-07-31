@@ -33,10 +33,11 @@ an executable compatibility definition remain subject to that definition's
 
 `RAV_FULL_FIDELITY_DEFINITION_IDS` is a deliberately small positive manifest,
 not an inference from executable status. Char, Lightning Helix, Last Gasp,
-Elves of Deep Shadow, Boros Recruit, Cleansing Beam, Rally the Righteous, and
-Wojek Siren, Rain of Embers, Dogpile, Overwhelm, Darkblast, Watchwolf, and Glass Golem
-are listed only after an ability-by-ability contract proves their complete
-represented behavior and public receipt traces. The radiance entries were
+Elves of Deep Shadow, Boros Recruit, Watchwolf, Glass Golem, Cleansing Beam,
+Rally the Righteous, Wojek Siren, Rain of Embers, Dogpile, Overwhelm, Gather
+Courage, Seeds of Strength, and Darkblast are listed only after an
+ability-by-ability contract proves their complete represented behavior and
+public receipt traces. The radiance entries were
 checked against their public set identity and the official Comprehensive Rules'
 target, resolution, damage, continuous-effect, and state-based-action rules;
 this repository retains only CardBench-authored semantic operations, never card
