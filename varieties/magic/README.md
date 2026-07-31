@@ -71,7 +71,7 @@ explicitly scoped compatibility slices.
 RAV shown scenarios are fixture-driven from
 `sets/ravnica_city_of_guilds/scenarios/public/train_scenarios.toml`; each declares
 setup, actions, state assertions, event markers, and a fixed digest. The
-current corpus contains 96 scenarios and covers:
+current corpus contains 98 scenarios and covers:
 
 - casting to the stack and both-player priority passes (`Lightning Helix`);
 - colored-cost creature casting and permanent characteristics (`Watchwolf`);
@@ -98,8 +98,8 @@ current corpus contains 96 scenarios and covers:
 - a full-fidelity Convoke creature with typed vigilance combat behavior
   (`Guardian of Vitu-Ghazi`);
 - full-fidelity Flying/Reach blocker declaration and Flying/Vigilance attacker
-  declaration (`Conclave Equenaut`, `Snapping Drake`, `Goliath Spider`, and
-  `Courier Hawk`);
+  declaration (`Conclave Equenaut`, `Snapping Drake`, `Goliath Spider`,
+  `Courier Hawk`, and `Votary of the Conclave`);
 - a full-fidelity same-turn Flying/Haste attacker after colored cast payment
   (`Skyknight Legionnaire`);
 - a target-instant-or-sorcery stack counter plus transmute, equal mana-value
