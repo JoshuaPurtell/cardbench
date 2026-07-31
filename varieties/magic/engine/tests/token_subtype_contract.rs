@@ -81,6 +81,7 @@ fn invariant_rejects_a_creature_subtype_on_a_noncreature_token() {
         colors: BTreeSet::new(),
         card_types: BTreeSet::from([CardType::Artifact]),
         creature_subtypes: BTreeSet::from([CreatureSubtype::Saproling]),
+        keywords: vec![],
         power: 0,
         toughness: 0,
     };

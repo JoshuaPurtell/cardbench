@@ -90,6 +90,7 @@ fn definitions() -> Vec<CardDefinition> {
                     colors: colors([Color::Green]),
                     card_types: types([CardType::Creature]),
                     creature_subtypes: BTreeSet::new(),
+                    keywords: vec![],
                     power: 0,
                     toughness: 0,
                 },

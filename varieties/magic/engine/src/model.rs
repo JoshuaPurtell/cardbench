@@ -687,6 +687,7 @@ pub struct AdditionalSpellCostBinding {
 /// interactions.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum CreatureSubtype {
+    Knight,
     Saproling,
 }
 
@@ -699,6 +700,7 @@ pub struct TokenSpec {
     /// name. An empty set is valid for a noncreature token or a token whose
     /// represented slice intentionally has no subtype.
     pub creature_subtypes: BTreeSet<CreatureSubtype>,
+    pub keywords: Vec<Keyword>,
     pub power: i16,
     pub toughness: i16,
 }
@@ -711,8 +713,22 @@ impl TokenSpec {
             colors: BTreeSet::from([Color::Green]),
             card_types: BTreeSet::from([CardType::Creature]),
             creature_subtypes: BTreeSet::from([CreatureSubtype::Saproling]),
+            keywords: vec![],
             power: 1,
             toughness: 1,
+        }
+    }
+
+    #[must_use]
+    pub fn knight() -> Self {
+        Self {
+            name: "Knight",
+            colors: BTreeSet::from([Color::White]),
+            card_types: BTreeSet::from([CardType::Creature]),
+            creature_subtypes: BTreeSet::from([CreatureSubtype::Knight]),
+            keywords: vec![Keyword::FirstStrike],
+            power: 2,
+            toughness: 2,
         }
     }
 }
@@ -780,6 +796,19 @@ pub enum Effect {
         token: TokenSpec,
         count: u8,
     },
+    /// Create tokens under the player selected by a targeted ETB ability.
+    /// Hunted Dragon uses one targeted opponent rather than all opponents.
+    CreateTokenForTargetPlayer {
+        token: TokenSpec,
+        count: u8,
+    },
+    /// First half of Razia's two-target replacement effect. The following
+    /// targeted effect supplies the alternate damage recipient.
+    BeginDamageRedirection {
+        amount: i16,
+    },
+    /// Completes the pending Razia redirection using its second target.
+    CompleteDamageRedirection,
     ModifyTargetPtUntilEndOfTurn {
         power: i16,
         toughness: i16,
@@ -849,6 +878,9 @@ impl Effect {
             | Self::RadianceDealDamageToCreatures { .. }
             | Self::RadianceUntapAndModifyUntilEndOfTurn { .. }
             | Self::RadianceModifyPtUntilEndOfTurn { .. } => Some(TargetRequirement::Creature),
+            Self::BeginDamageRedirection { .. } => Some(TargetRequirement::Creature),
+            Self::CompleteDamageRedirection => Some(TargetRequirement::PlayerOrCreature),
+            Self::CreateTokenForTargetPlayer { .. } => Some(TargetRequirement::Player),
             Self::DestroyTargetLand => Some(TargetRequirement::Land),
             Self::CounterTargetInstantOrSorcerySpell => {
                 Some(TargetRequirement::InstantOrSorcerySpell)
@@ -1548,6 +1580,12 @@ pub enum GameEvent {
     DamageDealtToPermanent {
         source: ObjectId,
         permanent: ObjectId,
+        amount: i32,
+    },
+    DamageRedirected {
+        source: ObjectId,
+        from: ObjectId,
+        to: Target,
         amount: i32,
     },
     DamagePrevented {
