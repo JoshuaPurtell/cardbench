@@ -1,0 +1,61 @@
+//! Red regression for Carven Caryatid's enter-the-battlefield draw trigger.
+//!
+//! The compatibility slice currently exposes only Defender.  This test keeps
+//! the missing trigger visible as executable back pressure: resolving the
+//! creature must put its controller's draw trigger on the stack and the
+//! resulting draw must be visible in the event log.
+
+use cardbench_magic_engine::{CastRequest, Color, Game, GameEvent, PlayerId, Step, Zone};
+use cardbench_magic_rav::card_definitions;
+
+fn advance_to_precombat_main(game: &mut Game) {
+    game.begin_game().expect("fixture starts");
+    for _ in 0..2 {
+        game.pass_priority(PlayerId(0)).expect("active pass");
+        game.pass_priority(PlayerId(1)).expect("response pass");
+    }
+    assert_eq!(game.step, Step::PrecombatMain);
+    assert_eq!(game.priority, PlayerId(0));
+}
+
+#[test]
+fn carven_caryatid_enters_and_draws_through_a_stack_trigger() {
+    let mut game = Game::new(card_definitions(), 2).expect("RAV catalog builds");
+    let caryatid = game
+        .add_card(PlayerId(0), "RAV-CARVEN-CARYATID", Zone::Hand)
+        .expect("Caryatid begins in hand");
+    let library_card = game
+        .add_card(PlayerId(0), "RAV-FOREST", Zone::Library)
+        .expect("library card exists");
+    advance_to_precombat_main(&mut game);
+    game.add_mana_from_action(PlayerId(0), Color::Green, 3)
+        .expect("green mana added during the main phase");
+    game.clear_event_log();
+
+    game.cast_spell(
+        PlayerId(0),
+        CastRequest {
+            card: caryatid,
+            targets: vec![],
+            convoke: vec![],
+            payment_mana_abilities: vec![],
+        },
+    )
+    .expect("Caryatid casts");
+    game.pass_priority(PlayerId(0)).expect("controller passes");
+    game.pass_priority(PlayerId(1)).expect("opponent passes");
+
+    assert_eq!(game.zone_of(caryatid), Some(Zone::Battlefield));
+    assert_eq!(
+        game.zone_of(library_card),
+        Some(Zone::Hand),
+        "Carven Caryatid's ETB trigger must draw its controller a card"
+    );
+    assert!(
+        !game
+            .event_log
+            .iter()
+            .any(|event| matches!(event, GameEvent::CardMoved { card, to: Zone::Hand } if *card == library_card)),
+        "the ETB trigger must leave a CardMoved receipt for the drawn card"
+    );
+}
