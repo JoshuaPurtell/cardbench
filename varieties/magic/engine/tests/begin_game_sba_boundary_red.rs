@@ -54,6 +54,18 @@ fn game_start_applies_zero_toughness_sba_before_upkeep_priority() {
         }),
         "the automatic SBA is auditable before first-upkeep priority"
     );
+    assert_eq!(
+        game.canonical_event_log(),
+        [
+            format!("StepBegan {{ turn: 1, active_player: {player:?}, step: Untap }}"),
+            format!(
+                "StateBasedAction {{ card: {creature:?}, reason: \"creature has toughness zero or less\" }}"
+            ),
+            format!("CardMoved {{ card: {creature:?}, to: Graveyard }}"),
+            format!("StepBegan {{ turn: 1, active_player: {player:?}, step: Upkeep }}"),
+        ],
+        "the turn boundary records Untap, stabilizes SBAs, then opens Upkeep priority"
+    );
     game.validate_invariants()
         .expect("the first priority state is structurally valid");
 }

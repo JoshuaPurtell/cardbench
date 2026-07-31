@@ -3538,6 +3538,12 @@ impl Game {
             }
             _ => {}
         }
+        if self.step == Step::Untap {
+            // Untap itself has no priority window. Stabilize the battlefield
+            // after its automatic work and before advancing to the first
+            // priority-bearing Upkeep state.
+            self.check_state_based_actions()?;
+        }
         if (self.step == Step::Untap || self.step == Step::Cleanup) && !self.is_game_over() {
             // CR 117.3a and 514.3: neither normal Untap nor this slice's
             // ordinary Cleanup gives priority. Advance immediately.
