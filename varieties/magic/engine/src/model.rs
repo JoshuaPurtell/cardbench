@@ -669,6 +669,11 @@ pub enum TargetRequirement {
     /// qualification stays in `Game` so this target remains reusable by other
     /// expansions.
     OwnGraveyardCard,
+    /// A battlefield creature controlled by the resolving spell's controller.
+    ControlledCreature,
+    /// A battlefield creature controlled by a different player from the
+    /// resolving spell's controller.
+    OpponentCreature,
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
@@ -925,6 +930,13 @@ pub enum Effect {
     /// Move every player's graveyard into that player's library, then shuffle
     /// each library. This is an untargeted, owner-preserving zone operation.
     ShuffleGraveyardsIntoLibraries,
+    /// Return a target creature controlled by the resolving spell's controller
+    /// to its owner's hand.
+    ReturnControlledCreatureToHand,
+    /// Return a target creature controlled by another player to its owner's
+    /// hand. This remains distinct so paired targets cannot silently select
+    /// two creatures on one side.
+    ReturnOpponentCreatureToHand,
     /// Move one targeted creature from the battlefield to its owner's exile
     /// zone.  This is a zone-change instruction rather than lethal damage, so
     /// it bypasses regeneration and preserves the target's normal
@@ -967,6 +979,8 @@ impl Effect {
                 Some(TargetRequirement::ArtifactOrEnchantment)
             }
             Self::ReturnTargetCardToHand => Some(TargetRequirement::OwnGraveyardCard),
+            Self::ReturnControlledCreatureToHand => Some(TargetRequirement::ControlledCreature),
+            Self::ReturnOpponentCreatureToHand => Some(TargetRequirement::OpponentCreature),
             Self::CounterTargetInstantOrSorcerySpell => {
                 Some(TargetRequirement::InstantOrSorcerySpell)
             }

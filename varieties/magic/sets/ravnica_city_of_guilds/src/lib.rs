@@ -35,7 +35,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 72] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 73] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -108,6 +108,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 72] = [
     "RAV-SUNDERING-VITAE",
     "RAV-RECOLLECT",
     "RAV-MNEMONIC-NEXUS",
+    "RAV-PEEL-FROM-REALITY",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -598,6 +599,31 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             toughness: None,
             keywords: vec![],
             effects: vec![Effect::ShuffleGraveyardsIntoLibraries],
+        },
+        // Full fidelity: the two target positions remain controller-relative,
+        // and both creatures return to their owners' hands on resolution.
+        CardDefinition {
+            id: "RAV-PEEL-FROM-REALITY",
+            name: "Peel from Reality",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(1, [Color::Blue]),
+            colors: colors([Color::Blue]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Instant]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "controlled-creature-target",
+                "opponent-creature-target",
+                "owner-preserving-bounce",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![
+                Effect::ReturnControlledCreatureToHand,
+                Effect::ReturnOpponentCreatureToHand,
+            ],
         },
         // Only the hand-zone transmute activation is executable. The printed
         // spell effect is deliberately non-covered in this compatibility

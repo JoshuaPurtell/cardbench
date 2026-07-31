@@ -3705,6 +3705,8 @@ impl Game {
                 | Effect::DestroyTargetArtifactOrEnchantment
                 | Effect::ReturnTargetCardToHand
                 | Effect::ShuffleGraveyardsIntoLibraries
+                | Effect::ReturnControlledCreatureToHand
+                | Effect::ReturnOpponentCreatureToHand
                 | Effect::ModifyControllerCreaturesPtUntilEndOfTurn { .. }
                 | Effect::RadianceUntapAndModifyUntilEndOfTurn { .. }
                 | Effect::RadianceModifyPtUntilEndOfTurn { .. }
@@ -4979,6 +4981,28 @@ impl Game {
                     });
                 }
             }
+            Effect::ReturnControlledCreatureToHand => {
+                let target = Self::target_permanent(target)?;
+                if !self.target_matches_for_controller(
+                    controller,
+                    Target::Permanent(target),
+                    TargetRequirement::ControlledCreature,
+                ) {
+                    return Err(RulesError::IllegalTarget(Target::Permanent(target)));
+                }
+                self.move_to_zone(target, Zone::Hand)?;
+            }
+            Effect::ReturnOpponentCreatureToHand => {
+                let target = Self::target_permanent(target)?;
+                if !self.target_matches_for_controller(
+                    controller,
+                    Target::Permanent(target),
+                    TargetRequirement::OpponentCreature,
+                ) {
+                    return Err(RulesError::IllegalTarget(Target::Permanent(target)));
+                }
+                self.move_to_zone(target, Zone::Hand)?;
+            }
         }
         Ok(())
     }
@@ -5053,7 +5077,9 @@ impl Game {
                 TargetRequirement::Creature
                 | TargetRequirement::PlayerOrCreature
                 | TargetRequirement::BlockingCreature
-                | TargetRequirement::AttackingOrBlockingCreature,
+                | TargetRequirement::AttackingOrBlockingCreature
+                | TargetRequirement::ControlledCreature
+                | TargetRequirement::OpponentCreature,
             ) => {
                 self.zone_of(card) == Some(Zone::Battlefield)
                     && self.characteristics(card).is_ok_and(|characteristics| {
@@ -5118,6 +5144,12 @@ impl Game {
                 (Target::Permanent(card), TargetRequirement::OwnGraveyardCard) => self
                     .object(card)
                     .is_ok_and(|object| object.owner == controller),
+                (Target::Permanent(card), TargetRequirement::ControlledCreature) => self
+                    .object(card)
+                    .is_ok_and(|object| object.controller == controller),
+                (Target::Permanent(card), TargetRequirement::OpponentCreature) => self
+                    .object(card)
+                    .is_ok_and(|object| object.controller != controller),
                 _ => true,
             }
     }
@@ -5143,6 +5175,8 @@ impl Game {
                     | TargetRequirement::Artifact
                     | TargetRequirement::ArtifactOrEnchantment
                     | TargetRequirement::OwnGraveyardCard
+                    | TargetRequirement::ControlledCreature
+                    | TargetRequirement::OpponentCreature
                     | TargetRequirement::PlayerOrCreature
             ) | (Target::Spell(_), TargetRequirement::InstantOrSorcerySpell)
         )
