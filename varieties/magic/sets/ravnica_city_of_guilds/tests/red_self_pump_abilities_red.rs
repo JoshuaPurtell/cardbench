@@ -24,7 +24,8 @@ fn greater_forgeling_pump_is_a_stack_ability() {
         .expect("Greater Forgeling enters");
     game.set_entered_turn_for_setup(source, 0)
         .expect("old fixture entry");
-    game.grant_mana(PlayerId(0), Color::Red, 1).expect("red mana");
+    game.grant_mana(PlayerId(0), Color::Red, 1)
+        .expect("red mana");
     game.grant_mana(PlayerId(0), Color::Red, 1)
         .expect("generic-compatible mana");
     game.activate_ability(
@@ -39,7 +40,10 @@ fn greater_forgeling_pump_is_a_stack_ability() {
     game.pass_priority(PlayerId(0)).expect("activator passes");
     game.pass_priority(PlayerId(1)).expect("pump resolves");
     let characteristics = game.characteristics(source).expect("live characteristics");
-    assert_eq!((characteristics.power, characteristics.toughness), (Some(6), Some(1)));
+    assert_eq!(
+        (characteristics.power, characteristics.toughness),
+        (Some(6), Some(1))
+    );
 }
 
 #[test]
@@ -50,7 +54,8 @@ fn viashino_slasher_pump_is_a_stack_ability() {
         .expect("Viashino Slasher enters");
     game.set_entered_turn_for_setup(source, 0)
         .expect("old fixture entry");
-    game.grant_mana(PlayerId(0), Color::Red, 1).expect("red mana");
+    game.grant_mana(PlayerId(0), Color::Red, 1)
+        .expect("red mana");
     game.activate_ability(
         PlayerId(0),
         AbilityActivation {
@@ -63,5 +68,8 @@ fn viashino_slasher_pump_is_a_stack_ability() {
     game.pass_priority(PlayerId(0)).expect("activator passes");
     game.pass_priority(PlayerId(1)).expect("pump resolves");
     let characteristics = game.characteristics(source).expect("live characteristics");
-    assert_eq!((characteristics.power, characteristics.toughness), (Some(2), Some(1)));
+    assert_eq!(
+        (characteristics.power, characteristics.toughness),
+        (Some(2), Some(1))
+    );
 }
