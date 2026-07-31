@@ -6477,6 +6477,92 @@ event_absent = ["BlockersDeclared"]
 digest = "fnv1a64:1dcdb2289fdaa917"
 
 [[scenario]]
+id = "rav_hunted_horror_centaur_compatibility"
+seed = 59
+description = "Cast Hunted Horror and resolve its ETB trigger for exactly two 3/3 green Centaurs under one opponent's control; their printed protection from black remains explicitly unsupported."
+triggers = true
+
+[[scenario.card]]
+label = "horror"
+owner = 0
+definition = "RAV-HUNTED-HORROR"
+zone = "hand"
+
+[[scenario.card]]
+label = "swamp1"
+owner = 0
+definition = "RAV-SWAMP"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "swamp2"
+owner = 0
+definition = "RAV-SWAMP"
+zone = "battlefield"
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "swamp1"
+color = "black"
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "swamp2"
+color = "black"
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "horror"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["horror:battlefield", "swamp1:battlefield", "swamp2:battlefield"]
+token_count = 2
+stack_size = 0
+priority = 0
+mana = ["0:black:0"]
+event_markers = ["SpellCast", "SpellResolved", "TriggeredAbilityStacked", "TokenCreated", "AbilityResolved"]
+digest = "fnv1a64:bee1157cb84b6e57"
+
+[[scenario]]
 id = "rav_undercity_shade_black_evasion_compatibility"
 seed = 51
 description = "Declare Undercity Shade as a black-only evasion attacker, then reject a nonblack creature's block declaration; its temporary power activation remains unsupported."

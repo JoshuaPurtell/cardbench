@@ -711,12 +711,14 @@ pub struct AdditionalSpellCostBinding {
 
 /// A creature subtype carried by a token's type line.
 ///
-/// The initial RAV substrate needs only Saproling, but this remains a typed
-/// semantic field rather than treating a display name as a rules identity.
+/// The initial RAV substrate needs only a small set of token subtypes, but
+/// this remains a typed semantic field rather than treating a display name as
+/// a rules identity.
 /// Future set modules can extend the enum as they introduce token-specific
 /// interactions.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum CreatureSubtype {
+    Centaur,
     Knight,
     Saproling,
 }
@@ -759,6 +761,19 @@ impl TokenSpec {
             keywords: vec![Keyword::FirstStrike],
             power: 2,
             toughness: 2,
+        }
+    }
+
+    #[must_use]
+    pub fn green_centaur() -> Self {
+        Self {
+            name: "Centaur",
+            colors: BTreeSet::from([Color::Green]),
+            card_types: BTreeSet::from([CardType::Creature]),
+            creature_subtypes: BTreeSet::from([CreatureSubtype::Centaur]),
+            keywords: vec![],
+            power: 3,
+            toughness: 3,
         }
     }
 }

@@ -366,6 +366,32 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 target: cardbench_magic_engine::TargetRequirement::Creature,
             }],
         },
+        // Compatibility scope: normal colored-cost casting, base
+        // characteristics, Trample, and the targeted-opponent ETB token
+        // creation are represented. The green Centaurs' printed protection
+        // from black is deliberately omitted until a complete protection
+        // substrate (targeting, damage, blocking, and attachments) exists.
+        CardDefinition {
+            id: "RAV-HUNTED-HORROR",
+            name: "Hunted Horror",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(0, [Color::Black, Color::Black]),
+            colors: colors([Color::Black]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "colored-cost-casting",
+                "base-characteristics",
+                "trample",
+                "enter-battlefield-targeted-opponent-token-creation",
+                "centaur-protection-from-black-omitted",
+            ],
+            power: Some(7),
+            toughness: Some(7),
+            keywords: vec![Keyword::Trample],
+            effects: vec![],
+        },
         // Full fidelity: the typed artifact target is destroyed during
         // resolution and the spell controller draws one card afterward.
         // The expansion-neutral engine owns target legality, zone movement,
@@ -3021,6 +3047,20 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
             },
         },
         TriggeredAbilityBinding {
+            card_definition: "RAV-HUNTED-HORROR",
+            ability: TriggeredAbility {
+                id: "etb-opponent-centaurs",
+                condition: TriggerCondition::EntersBattlefield,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![cardbench_magic_engine::TargetRequirement::Player],
+                effects: vec![Effect::CreateTokenForTargetPlayer {
+                    token: TokenSpec::green_centaur(),
+                    count: 2,
+                }],
+            },
+        },
+        TriggeredAbilityBinding {
             card_definition: "RAV-FLAME-KIN-ZEALOT",
             ability: TriggeredAbility {
                 id: "etb-team-pump-haste",
@@ -3830,7 +3870,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 122);
+        assert_eq!(first.len(), 123);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }
