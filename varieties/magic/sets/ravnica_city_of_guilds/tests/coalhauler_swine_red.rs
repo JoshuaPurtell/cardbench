@@ -43,7 +43,10 @@ fn coalhauler_swine_damage_trigger_stacks_then_deals_that_much_to_each_player() 
     game.pass_priority(PlayerId(0))
         .expect("Fangtail ability resolves");
 
-    println!("Coalhauler Swine missing-trigger events: {:#?}", game.event_log);
+    println!(
+        "Coalhauler Swine missing-trigger events: {:#?}",
+        game.event_log
+    );
     assert!(game.event_log.iter().any(|event| matches!(
         event,
         GameEvent::TriggeredAbilityStacked { source, ability, .. }

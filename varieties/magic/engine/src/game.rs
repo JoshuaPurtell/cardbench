@@ -9,7 +9,7 @@ use crate::{
     CombatBlock, ContinuousChange, ContinuousEffect, DeckList, Duration, Effect, GameEvent,
     Keyword, ManaAbilityActivation, ManaAbilityBinding, ManaAbilityOutput, ManaPaymentSelection,
     ObjectId, PlayerId, PlayerState, PolicyMoveKind, StackEffectResolution, StackObject,
-    StackResolutionPlan, Step, Target, TargetRequirement, TokenSpec, TriggeredAbility,
+    StackResolutionPlan, Step, Target, TargetRequirement, TokenSpec, TriggerCondition,
     TriggeredAbilityBinding, Zone,
 };
 
@@ -229,13 +229,9 @@ struct CombatState {
     /// assignment; this set is retained only as declaration provenance for
     /// the public combat audit.
     trampling_attackers: BTreeSet<ObjectId>,
-    /// Ordered blockers for each attacker. The declaration order is the
-    /// damage-assignment order for this bounded combat slice; retaining every
-    /// blocker is required even before a richer explicit damage-order action
-    /// exists.
-    blockers: BTreeMap<ObjectId, Vec<ObjectId>>,
     must_be_blocked_attackers: BTreeSet<ObjectId>,
     mountainwalk_attackers: BTreeSet<ObjectId>,
+    blockers: BTreeMap<ObjectId, ObjectId>,
     /// Blockers admitted against a declared flying attacker because they had
     /// either Flying or Reach at blocker declaration. This is provenance, not
     /// an assertion that the blocker retains either keyword afterward.
@@ -251,11 +247,18 @@ struct CombatState {
     first_strike_damage_sources: BTreeSet<ObjectId>,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-struct TriggeredStackItem {
+#[derive(Clone, Debug)]
+struct PendingDamageTrigger {
     source: ObjectId,
     controller: PlayerId,
-    ability: TriggeredAbility,
+    ability: crate::TriggeredAbility,
+    damage_amount: i16,
+}
+
+#[derive(Clone, Debug)]
+struct PendingDiesTrigger {
+    source: ObjectId,
+    definition: &'static str,
 }
 
 /// A deterministic, two-or-more-player Magic game state.
@@ -268,16 +271,12 @@ pub struct Game {
     catalog: BTreeMap<&'static str, CardDefinition>,
     mana_abilities: BTreeMap<&'static str, BTreeMap<&'static str, ActivatedManaAbility>>,
     activated_abilities: BTreeMap<&'static str, BTreeMap<&'static str, ActivatedAbility>>,
+    triggered_abilities: BTreeMap<&'static str, BTreeMap<&'static str, crate::TriggeredAbility>>,
     basic_land_types: BTreeMap<&'static str, BasicLandType>,
     additional_spell_costs: BTreeMap<&'static str, Vec<AdditionalSpellCost>>,
-    triggered_abilities: BTreeMap<&'static str, Vec<TriggeredAbility>>,
     pub players: Vec<PlayerState>,
     objects: BTreeMap<ObjectId, CardObject>,
     pub stack: Vec<StackObject>,
-    /// Synthetic stack identities for triggered abilities. A triggered item
-    /// has no card object of its own, so it is kept beside (rather than inside)
-    /// the public `StackObject` shape used by existing spell fixtures.
-    triggered_stack: BTreeMap<ObjectId, TriggeredStackItem>,
     pub continuous_effects: Vec<ContinuousEffect>,
     pub active_player: PlayerId,
     pub priority: PlayerId,
@@ -306,6 +305,12 @@ pub struct Game {
     /// dredge from becoming a free graveyard action and makes that compulsory
     /// decision visible to submitted policies.
     pending_draw_replacement: Option<PlayerId>,
+    /// Positive damage triggers are collected during a damage batch and only
+    /// put on the stack after the enclosing combat or stack object finishes
+    /// resolving. This preserves Magic's event ordering and leaves one clean
+    /// priority boundary for the resulting abilities.
+    pending_damage_triggers: Vec<PendingDamageTrigger>,
+    pending_dies_triggers: Vec<PendingDiesTrigger>,
 }
 
 impl Game {
@@ -474,13 +479,12 @@ impl Game {
             catalog,
             mana_abilities,
             activated_abilities: BTreeMap::new(),
+            triggered_abilities: BTreeMap::new(),
             basic_land_types,
             additional_spell_costs,
-            triggered_abilities: BTreeMap::new(),
             players,
             objects: BTreeMap::new(),
             stack: Vec::new(),
-            triggered_stack: BTreeMap::new(),
             continuous_effects: Vec::new(),
             active_player: PlayerId(0),
             priority: PlayerId(0),
@@ -498,46 +502,12 @@ impl Game {
             terminal_event_emitted: false,
             combat: None,
             pending_draw_replacement: None,
+            pending_damage_triggers: Vec::new(),
+            pending_dies_triggers: Vec::new(),
         };
         // Construction is the first observable state-machine boundary. Do not
         // hand a caller a game whose immutable catalog or initial seats already
         // violate the same contract every later transition relies on.
-        game.validate_invariants()?;
-        Ok(game)
-    }
-
-    /// Creates a game with a small expansion-neutral triggered-ability
-    /// catalog. Trigger bindings are validated against the immutable card
-    /// catalog and remain disabled unless an expansion opts into this
-    /// constructor, preserving existing fixture behavior while the substrate
-    /// grows beyond its first ETB operation.
-    pub fn new_with_triggers(
-        definitions: impl IntoIterator<Item = CardDefinition>,
-        player_count: usize,
-        bindings: impl IntoIterator<Item = TriggeredAbilityBinding>,
-    ) -> Result<Self, RulesError> {
-        let mut game = Self::new(definitions, player_count)?;
-        for binding in bindings {
-            let definition = game
-                .catalog
-                .get(binding.card_definition)
-                .ok_or(RulesError::UnknownDefinition(binding.card_definition))?;
-            if !definition.is_permanent() {
-                return Err(RulesError::IllegalAction(
-                    "a triggered-ability binding requires a permanent definition",
-                ));
-            }
-            let abilities = game
-                .triggered_abilities
-                .entry(binding.card_definition)
-                .or_default();
-            if abilities.contains(&binding.ability) {
-                return Err(RulesError::IllegalAction(
-                    "duplicate triggered-ability binding for card definition",
-                ));
-            }
-            abilities.push(binding.ability);
-        }
         game.validate_invariants()?;
         Ok(game)
     }
@@ -587,10 +557,10 @@ impl Game {
         Ok(game)
     }
 
-    /// Creates a game with the normal expansion bindings plus the bounded
-    /// stack-backed trigger substrate. Triggered abilities are deliberately
-    /// target-free in this initial slice; they use the same synthetic stack
-    /// identity and priority window as the earlier ETB draw trigger.
+    /// Creates a game with stack-using activated abilities and target-free
+    /// enter-the-battlefield or source-damage triggers. Enter triggers queue
+    /// after a permanent spell resolves; damage triggers queue after their
+    /// enclosing damage batch, so both expose a normal priority window.
     pub fn new_with_all_bindings_and_triggers(
         definitions: impl IntoIterator<Item = CardDefinition>,
         player_count: usize,
@@ -613,25 +583,44 @@ impl Game {
                 .catalog
                 .get(binding.card_definition)
                 .ok_or(RulesError::UnknownDefinition(binding.card_definition))?;
-            if !definition.is_permanent() {
+            if !definition.is_permanent()
+                || !matches!(
+                    binding.ability.condition,
+                    TriggerCondition::EntersBattlefield
+                        | TriggerCondition::DealsDamage
+                        | TriggerCondition::ReceivesDamage
+                        | TriggerCondition::Dies
+                        | TriggerCondition::Attacks
+                )
+                || binding.ability.targets
+                    != binding
+                        .ability
+                        .effects
+                        .iter()
+                        .filter_map(Effect::target_requirement)
+                        .collect::<Vec<_>>()
+            {
                 return Err(RulesError::IllegalAction(
-                    "a triggered-ability binding requires a permanent definition",
+                    "trigger binding requires a permanent and matching target requirements",
                 ));
             }
             let abilities = game
                 .triggered_abilities
                 .entry(binding.card_definition)
                 .or_default();
-            if abilities.contains(&binding.ability) {
+            if abilities
+                .insert(binding.ability.id, binding.ability)
+                .is_some()
+            {
                 return Err(RulesError::IllegalAction(
-                    "duplicate triggered-ability binding for card definition",
+                    "duplicate triggered ability id for card definition",
                 ));
             }
-            abilities.push(binding.ability);
         }
         game.validate_invariants()?;
         Ok(game)
     }
+
     /// Starts a prepared game at the real first-turn boundary. Deck loading,
     /// shuffling, and opening-hand setup must occur before this call so the
     /// canonical log never claims the turn began before setup completed.
@@ -681,11 +670,6 @@ impl Game {
         definition: &'static str,
         zone: Zone,
     ) -> Result<ObjectId, RulesError> {
-        if self.started {
-            return Err(RulesError::IllegalAction(
-                "cards may be added only before the game begins",
-            ));
-        }
         self.player(owner)?;
         if !self.catalog.contains_key(definition) {
             return Err(RulesError::UnknownDefinition(definition));
@@ -730,11 +714,6 @@ impl Game {
         color: Color,
         amount: u8,
     ) -> Result<(), RulesError> {
-        if self.started {
-            return Err(RulesError::IllegalAction(
-                "mana may be granted only before the game begins",
-            ));
-        }
         self.player(player)?;
         if !self.players[player.0].mana_pool.can_add(color, amount) {
             return Err(RulesError::IllegalAction(
@@ -1025,6 +1004,7 @@ impl Game {
         self.atomic_transition(|game| {
             game.require_priority(player)?;
             game.activate_ability_impl(player, activation)?;
+            game.flush_pending_dies_triggers();
             game.check_state_based_actions()?;
             game.validate_invariants()
         })
@@ -1331,7 +1311,7 @@ impl Game {
                 });
             }
             if let Some(amount) = ability.controller_damage {
-                self.deal_damage_to_player(activation.source, player, i32::from(amount));
+                self.deal_damage_to_player(activation.source, player, i32::from(amount))?;
             }
         } else {
             let color = color.expect("single-color mana ability output was preflighted");
@@ -1354,7 +1334,7 @@ impl Game {
                 amount: ability.amount,
             });
             if let Some(amount) = ability.controller_damage {
-                self.deal_damage_to_player(activation.source, player, i32::from(amount));
+                self.deal_damage_to_player(activation.source, player, i32::from(amount))?;
             }
         }
         Ok(())
@@ -1504,7 +1484,6 @@ impl Game {
         let stack_spells = self
             .stack
             .iter()
-            .filter(|stack_object| !self.triggered_stack.contains_key(&stack_object.card))
             .map(|stack_object| self.card_view(stack_object.card))
             .collect::<Result<Vec<_>, _>>()?;
         Ok(GameView {
@@ -1709,6 +1688,12 @@ impl Game {
             _ => {}
         }
         let layer = change.layer();
+        if let ContinuousChange::AddDamageShield(amount) = &change {
+            self.objects
+                .get_mut(&target)
+                .ok_or(RulesError::UnknownCard(target))?
+                .damage_shield += i32::from(*amount);
+        }
         self.continuous_effects.push(ContinuousEffect {
             source,
             target,
@@ -1717,17 +1702,6 @@ impl Game {
             timestamp: self.next_timestamp,
         });
         self.next_timestamp += 1;
-        if let ContinuousChange::AddDamageShield(amount) = &self
-            .continuous_effects
-            .last()
-            .expect("effect was just installed")
-            .change
-        {
-            self.objects
-                .get_mut(&target)
-                .ok_or(RulesError::UnknownCard(target))?
-                .damage_shield += i32::from(*amount);
-        }
         self.record_event(GameEvent::ContinuousEffectCreated {
             source,
             target,
@@ -1858,6 +1832,9 @@ impl Game {
             player,
             attackers: attackers.to_vec(),
         });
+        for attacker in attackers {
+            self.enqueue_attack_triggers(*attacker)?;
+        }
         self.consecutive_passes = 0;
         // CR 508.2: the active player receives priority after attackers are
         // declared. Declaration itself is a turn-based action, not a normal
@@ -1866,10 +1843,9 @@ impl Game {
         self.validate_invariants()
     }
 
-    /// Performs the turn-based action of assigning zero or more blockers to
-    /// each attacker. The declaration order is retained for bounded damage
-    /// assignment and event-log replay.
-    #[allow(clippy::too_many_lines)] // Declaration validates every blocker restriction atomically.
+    /// Performs the turn-based action of assigning zero or one blocker to each
+    /// attacker in the initial combat slice.
+    #[allow(clippy::too_many_lines)] // Declaration validates every evasion and restriction atomically.
     pub fn declare_blockers(
         &mut self,
         player: PlayerId,
@@ -1893,10 +1869,12 @@ impl Game {
                 "only the defending player may declare blockers",
             ));
         }
+        let mut attackers = BTreeSet::new();
         let mut blockers = BTreeSet::new();
         let mut evasion_qualified_blockers = BTreeSet::new();
         for assignment in assignments {
             if !combat.attackers.contains(&assignment.attacker)
+                || !attackers.insert(assignment.attacker)
                 || !blockers.insert(assignment.blocker)
             {
                 return Err(RulesError::IllegalAction("invalid blocker assignment"));
@@ -1936,7 +1914,7 @@ impl Game {
             }
         }
         for attacker in &combat.must_be_blocked_attackers {
-            if combat.attackers.contains(attacker) {
+            if attackers.contains(attacker) {
                 continue;
             }
             let has_legal_blocker = self.players[player.0].battlefield.iter().any(|candidate| {
@@ -1982,9 +1960,7 @@ impl Game {
         for assignment in assignments {
             combat
                 .blockers
-                .entry(assignment.attacker)
-                .or_default()
-                .push(assignment.blocker);
+                .insert(assignment.attacker, assignment.blocker);
         }
         combat.evasion_qualified_blockers = evasion_qualified_blockers;
         combat.blockers_declared = true;
@@ -2165,6 +2141,7 @@ impl Game {
         // after that player passes.
         self.priority = player;
         self.check_state_based_actions()?;
+        self.flush_pending_dies_triggers();
         Ok(())
     }
 
@@ -2281,22 +2258,6 @@ impl Game {
             self.lose_player(player, "attempted to draw from an empty library");
             self.normalize_priority_after_elimination()?;
             self.record_game_end_if_needed();
-            return Ok(());
-        };
-        self.players[player.0].hand.push(card);
-        self.record_event(GameEvent::CardMoved {
-            card,
-            to: Zone::Hand,
-        });
-        Ok(())
-    }
-
-    /// Draws for a triggered ability while deferring the terminal `GameEnded`
-    /// receipt to the enclosing resolver's state-based-action boundary.
-    fn draw_card_from_trigger(&mut self, player: PlayerId) -> Result<(), RulesError> {
-        self.player(player)?;
-        let Some(card) = self.players[player.0].library.pop() else {
-            self.lose_player(player, "attempted to draw from an empty library");
             return Ok(());
         };
         self.players[player.0].hand.push(card);
@@ -2561,12 +2522,21 @@ impl Game {
                 "canonical event log was mutated outside an engine transition",
             ));
         }
+        if !self.pending_damage_triggers.is_empty() {
+            return Err(RulesError::IllegalAction(
+                "pending damage trigger escaped its enclosing damage batch",
+            ));
+        }
+        if !self.pending_dies_triggers.is_empty() {
+            return Err(RulesError::IllegalAction(
+                "pending dies trigger escaped its state-based-action batch",
+            ));
+        }
         Self::validate_mana_ability_event_order(&self.event_log)?;
         Self::validate_spell_mana_payment_event_order(&self.event_log)?;
         self.validate_additional_spell_cost_event_order()?;
         self.validate_stack_terminal_event_order()?;
         self.validate_ability_event_order()?;
-        Self::validate_triggered_ability_event_order(&self.event_log)?;
         self.validate_ability_discard_cost_event_order()?;
         if self.started && !self.is_game_over() && !self.step.grants_priority() {
             return Err(RulesError::IllegalAction(
@@ -2721,6 +2691,39 @@ impl Game {
                 Self::validate_activated_ability_definition(ability)?;
             }
         }
+        for (definition_id, abilities) in &self.triggered_abilities {
+            let definition = self
+                .catalog
+                .get(definition_id)
+                .ok_or(RulesError::UnknownDefinition(definition_id))?;
+            if !definition.is_permanent() {
+                return Err(RulesError::IllegalAction(
+                    "a triggered ability binding requires a permanent source",
+                ));
+            }
+            for (ability_id, ability) in abilities {
+                if *ability_id != ability.id
+                    || !matches!(
+                        ability.condition,
+                        TriggerCondition::EntersBattlefield
+                            | TriggerCondition::DealsDamage
+                            | TriggerCondition::ReceivesDamage
+                            | TriggerCondition::Dies
+                            | TriggerCondition::Attacks
+                    )
+                    || ability.targets
+                        != ability
+                            .effects
+                            .iter()
+                            .filter_map(Effect::target_requirement)
+                            .collect::<Vec<_>>()
+                {
+                    return Err(RulesError::IllegalAction(
+                        "triggered ability binding has invalid target requirements",
+                    ));
+                }
+            }
+        }
         for (definition_id, costs) in &self.additional_spell_costs {
             let definition = self
                 .catalog
@@ -2825,18 +2828,6 @@ impl Game {
                 }
             }
         }
-        for (definition, abilities) in &self.triggered_abilities {
-            if !self.catalog.contains_key(definition) || abilities.is_empty() {
-                return Err(RulesError::IllegalAction(
-                    "triggered-ability binding names an invalid definition",
-                ));
-            }
-            if abilities.windows(2).any(|pair| pair[0] == pair[1]) {
-                return Err(RulesError::IllegalAction(
-                    "triggered-ability bindings are not unique",
-                ));
-            }
-        }
         let mut stack_cards = BTreeSet::new();
         for (stack_index, stack_object) in self.stack.iter().enumerate() {
             let is_ability = stack_object.ability_id.is_some();
@@ -2849,24 +2840,6 @@ impl Game {
                 return Err(RulesError::IllegalAction(
                     "stack card must not also exist in a zone",
                 ));
-            }
-            if let Some(trigger) = self.triggered_stack.get(&stack_object.card) {
-                if trigger.controller != stack_object.controller
-                    || !stack_object.targets.is_empty()
-                    || !stack_object.effects.is_empty()
-                    || stack_object.mana_spent.is_some()
-                {
-                    return Err(RulesError::IllegalAction(
-                        "triggered stack item has an invalid payload",
-                    ));
-                }
-                self.player(trigger.controller)?;
-                if self.players[trigger.controller.0].lost {
-                    return Err(RulesError::IllegalAction(
-                        "a departed player controls a triggered stack item",
-                    ));
-                }
-                continue;
             }
             let object = self.object(stack_object.card)?;
             self.player(stack_object.controller)?;
@@ -2920,16 +2893,55 @@ impl Game {
                 ));
             }
             if let Some(ability_id) = stack_object.ability_id {
-                let ability = self
+                let activated = self
                     .activated_abilities
                     .get(definition.id)
-                    .and_then(|abilities| abilities.get(ability_id))
+                    .and_then(|abilities| abilities.get(ability_id));
+                let triggered = self
+                    .triggered_abilities
+                    .get(definition.id)
+                    .and_then(|abilities| abilities.get(ability_id));
+                let (effects, target_count, trigger_condition) = activated
+                    .map(|ability| (&ability.effects, ability.targets.len(), None))
+                    .or_else(|| {
+                        triggered.map(|ability| {
+                            (
+                                &ability.effects,
+                                ability.targets.len(),
+                                Some(ability.condition),
+                            )
+                        })
+                    })
                     .ok_or(RulesError::IllegalAction(
                         "stack ability is not bound to its source definition",
                     ))?;
-                if ability.effects != stack_object.effects
-                    || ability.targets.len() != stack_object.target_count()
-                {
+                let effects_match = if matches!(
+                    trigger_condition,
+                    Some(TriggerCondition::DealsDamage | TriggerCondition::ReceivesDamage)
+                ) {
+                    effects.len() == stack_object.effects.len()
+                        && effects
+                            .iter()
+                            .zip(&stack_object.effects)
+                            .all(|(bound, actual)| {
+                                matches!(
+                                    (bound, actual),
+                                    (
+                                        Effect::GainLifeControllerFromSourceDamage,
+                                        Effect::GainLifeController { amount }
+                                    ) if *amount > 0
+                                ) || matches!(
+                                    (bound, actual),
+                                    (
+                                        Effect::DealDamageToEachPlayerFromReceivedDamage,
+                                        Effect::DealDamageToEachPlayer { amount }
+                                    ) if *amount > 0
+                                ) || bound == actual
+                            })
+                } else {
+                    *effects == stack_object.effects
+                };
+                if !effects_match || target_count != stack_object.target_count() {
                     return Err(RulesError::IllegalAction(
                         "stack ability does not match its bound definition",
                     ));
@@ -3023,15 +3035,6 @@ impl Game {
                     }
                 }
             }
-        }
-        if self
-            .triggered_stack
-            .keys()
-            .any(|stack_id| !stack_cards.contains(stack_id))
-        {
-            return Err(RulesError::IllegalAction(
-                "triggered stack metadata lacks its public stack item",
-            ));
         }
         for card in self.objects.keys() {
             if !locations.contains_key(card) && !stack_cards.contains(card) {
@@ -3188,26 +3191,23 @@ impl Game {
                     "mountainwalk declaration provenance contains a nonattacker",
                 ));
             }
-            for (attacker, assigned_blockers) in &combat.blockers {
-                if !attackers.contains(attacker) || assigned_blockers.is_empty() {
+            for (attacker, blocker) in &combat.blockers {
+                if !attackers.contains(attacker) || !blockers.insert(*blocker) {
                     return Err(RulesError::IllegalAction("invalid combat blocker state"));
                 }
-                for blocker in assigned_blockers {
-                    if !blockers.insert(*blocker) {
-                        return Err(RulesError::IllegalAction(
-                            "a blocker was assigned more than once",
-                        ));
-                    }
-                    if self.zone_of(*blocker).is_some() {
-                        self.object(*blocker)?;
-                    }
+                if self.zone_of(*blocker).is_some() {
+                    self.object(*blocker)?;
                 }
             }
             let expected_evasion_blockers = combat
                 .blockers
                 .iter()
-                .filter(|(attacker, _)| combat.flying_attackers.contains(attacker))
-                .flat_map(|(_, assigned_blockers)| assigned_blockers.iter().copied())
+                .filter_map(|(attacker, blocker)| {
+                    combat
+                        .flying_attackers
+                        .contains(attacker)
+                        .then_some(*blocker)
+                })
                 .collect::<BTreeSet<_>>();
             if combat.evasion_qualified_blockers != expected_evasion_blockers {
                 return Err(RulesError::IllegalAction(
@@ -3484,19 +3484,22 @@ impl Game {
                 Effect::DealDamage { amount, .. }
                 | Effect::DealDamageController { amount }
                 | Effect::DealDamageToEachCreatureAndPlayer { amount }
+                | Effect::DealDamageToEachPlayer { amount }
                 | Effect::RadianceDealDamageToCreatures { amount }
                 | Effect::GainLifeController { amount } => *amount,
                 Effect::CreateToken { .. }
                 | Effect::DrawControllerIfManaColorSpent { .. }
+                | Effect::GainLifeControllerFromSourceDamage
+                | Effect::DealDamageToEachPlayerFromReceivedDamage
                 | Effect::DealDamageEqualToAttackingCreatures { .. }
                 | Effect::ModifyTargetPtUntilEndOfTurn { .. }
                 | Effect::ModifyTargetKeywordUntilEndOfTurn { .. }
                 | Effect::ModifySourcePtUntilEndOfTurn { .. }
                 | Effect::RemoveSourceKeywordUntilEndOfTurn { .. }
                 | Effect::AddSourceDamageShieldUntilEndOfTurn { .. }
+                | Effect::AddKeywordToControllerCreaturesUntilEndOfTurn { .. }
                 | Effect::DestroyTargetLand
                 | Effect::ModifyControllerCreaturesPtUntilEndOfTurn { .. }
-                | Effect::AddKeywordToControllerCreaturesUntilEndOfTurn { .. }
                 | Effect::RadianceUntapAndModifyUntilEndOfTurn { .. }
                 | Effect::RadianceModifyPtUntilEndOfTurn { .. }
                 | Effect::CounterTargetInstantOrSorcerySpell => continue,
@@ -3529,65 +3532,11 @@ impl Game {
         Ok(())
     }
 
-    #[allow(clippy::too_many_lines)] // Spell, activated ability, and trigger resolution share one atomic stack boundary.
+    #[allow(clippy::too_many_lines)] // Spell and activated-ability resolution share one audited path.
     fn resolve_top_of_stack(&mut self) -> Result<(), RulesError> {
         let stack_object = self.stack.pop().ok_or(RulesError::IllegalAction(
             "attempted to resolve an empty stack",
         ))?;
-        if let Some(trigger) = self.triggered_stack.remove(&stack_object.card) {
-            if !stack_object.targets.is_empty()
-                || !stack_object.effects.is_empty()
-                || stack_object.mana_spent.is_some()
-                || stack_object.controller != trigger.controller
-            {
-                return Err(RulesError::IllegalAction(
-                    "triggered stack item has an invalid payload",
-                ));
-            }
-            match trigger.ability {
-                TriggeredAbility::EnterBattlefieldDrawController => {
-                    // Defer `GameEnded` until after the trigger's terminal
-                    // receipt. The ordinary spell-draw helper records game
-                    // end immediately, which would place
-                    // `TriggeredAbilityResolved` after the terminal event.
-                    self.draw_card_from_trigger(trigger.controller)?;
-                }
-                TriggeredAbility::EnterBattlefieldTeamPumpHaste => {
-                    self.resolve_effect(
-                        trigger.source,
-                        trigger.controller,
-                        None,
-                        &Effect::ModifyControllerCreaturesPtUntilEndOfTurn {
-                            power: 1,
-                            toughness: 1,
-                        },
-                        None,
-                    )?;
-                    self.resolve_effect(
-                        trigger.source,
-                        trigger.controller,
-                        None,
-                        &Effect::AddKeywordToControllerCreaturesUntilEndOfTurn {
-                            keyword: Keyword::Haste,
-                        },
-                        None,
-                    )?;
-                    self.record_event(GameEvent::AbilityResolved {
-                        source: trigger.source,
-                        ability: "etb-team-pump-haste",
-                    });
-                }
-            }
-            self.record_event(GameEvent::TriggeredAbilityResolved {
-                source: trigger.source,
-                stack: stack_object.card,
-                controller: trigger.controller,
-                ability: trigger.ability,
-            });
-            self.check_state_based_actions()?;
-            self.priority = self.priority_after_resolution();
-            return Ok(());
-        }
         // Target legality is snapshotted once, per target occurrence, before
         // any instruction resolves to establish the all-illegal boundary. An
         // initially legal slot is rechecked before its own instruction: an
@@ -3609,6 +3558,7 @@ impl Game {
                 self.move_to_graveyard_or_remove_token(stack_object.card)?;
             }
             self.check_state_based_actions()?;
+            self.flush_pending_dies_triggers();
             self.priority = self.priority_after_resolution();
             return Ok(());
         }
@@ -3681,6 +3631,8 @@ impl Game {
                 ability,
             });
             self.check_state_based_actions()?;
+            self.flush_pending_damage_triggers();
+            self.flush_pending_dies_triggers();
             self.priority = self.priority_after_resolution();
             return Ok(());
         }
@@ -3696,15 +3648,317 @@ impl Game {
         self.record_event(GameEvent::SpellResolved {
             card: stack_object.card,
         });
-        if self.card_definition(stack_object.card)?.is_permanent() {
+        let definition_id = self.card_definition(stack_object.card)?.id;
+        let permanent_resolution = self.card_definition(stack_object.card)?.is_permanent();
+        let entering_controller = self.object(stack_object.card)?.controller;
+        if permanent_resolution {
             self.move_to_zone(stack_object.card, Zone::Battlefield)?;
-            self.queue_enter_battlefield_triggers(stack_object.card, stack_object.controller)?;
         } else {
             self.move_to_graveyard_or_remove_token(stack_object.card)?;
         }
         self.check_state_based_actions()?;
+        self.flush_pending_dies_triggers();
+        if permanent_resolution {
+            self.enqueue_enter_triggers(stack_object.card, definition_id, entering_controller);
+        }
+        self.flush_pending_damage_triggers();
+        self.flush_pending_dies_triggers();
         self.priority = self.priority_after_resolution();
         Ok(())
+    }
+
+    fn enqueue_enter_triggers(
+        &mut self,
+        source: ObjectId,
+        definition: &'static str,
+        controller: PlayerId,
+    ) {
+        let triggers = self
+            .triggered_abilities
+            .get(definition)
+            .into_iter()
+            .flat_map(|abilities| abilities.values())
+            .filter(|ability| ability.condition == TriggerCondition::EntersBattlefield)
+            .cloned()
+            .collect::<Vec<_>>();
+        for ability in triggers {
+            self.stack.push(StackObject {
+                card: source,
+                controller,
+                ability_id: Some(ability.id),
+                targets: vec![],
+                effects: ability.effects,
+                mana_spent: None,
+            });
+            self.record_event(GameEvent::TriggeredAbilityStacked {
+                controller,
+                source,
+                ability: ability.id,
+            });
+        }
+        if !self.stack.is_empty() {
+            self.consecutive_passes = 0;
+        }
+    }
+
+    /// Stacks attack triggers after attacker declaration. Optional mana is
+    /// paid from the controller's pool before the trigger receipt; target
+    /// slots are selected from currently legal permanents in a deterministic
+    /// opponent-first order so the submitted declaration remains atomic.
+    fn enqueue_attack_triggers(&mut self, source: ObjectId) -> Result<(), RulesError> {
+        let definition = self.card_definition(source)?.id;
+        let controller = self.object(source)?.controller;
+        let triggers = self
+            .triggered_abilities
+            .get(definition)
+            .into_iter()
+            .flat_map(|abilities| abilities.values())
+            .filter(|ability| ability.condition == TriggerCondition::Attacks)
+            .cloned()
+            .collect::<Vec<_>>();
+        for ability in triggers {
+            let mut targets = Vec::with_capacity(ability.targets.len());
+            for requirement in &ability.targets {
+                let target = self
+                    .objects
+                    .keys()
+                    .copied()
+                    .filter(|candidate| self.zone_of(*candidate) == Some(Zone::Battlefield))
+                    .filter(|candidate| {
+                        self.object(*candidate)
+                            .is_ok_and(|object| object.controller != controller)
+                    })
+                    .map(Target::Permanent)
+                    .find(|target| self.target_matches(*target, *requirement))
+                    .or_else(|| {
+                        self.objects
+                            .keys()
+                            .copied()
+                            .filter(|candidate| self.zone_of(*candidate) == Some(Zone::Battlefield))
+                            .map(Target::Permanent)
+                            .find(|target| self.target_matches(*target, *requirement))
+                    });
+                let Some(target) = target else {
+                    if ability.optional {
+                        targets.clear();
+                        break;
+                    }
+                    return Err(RulesError::IllegalAction(
+                        "mandatory attack trigger has no legal target",
+                    ));
+                };
+                targets.push(target);
+            }
+            if targets.len() != ability.targets.len() {
+                continue;
+            }
+            let mut paid_pool = self.players[controller.0].mana_pool.clone();
+            if let Err(error) = paid_pool.pay(&ability.mana_cost) {
+                if ability.optional {
+                    continue;
+                }
+                return Err(RulesError::Mana(error));
+            }
+            self.players[controller.0].mana_pool = paid_pool;
+            if ability.mana_cost.mana_value() > 0 {
+                self.record_event(GameEvent::AbilityManaPaid {
+                    player: controller,
+                    source,
+                    ability: ability.id,
+                    mana_cost: ability.mana_cost.clone(),
+                });
+            }
+            self.stack.push(StackObject {
+                card: source,
+                controller,
+                ability_id: Some(ability.id),
+                targets,
+                effects: ability.effects,
+                mana_spent: None,
+            });
+            self.record_event(GameEvent::TriggeredAbilityStacked {
+                controller,
+                source,
+                ability: ability.id,
+            });
+        }
+        if !self.stack.is_empty() {
+            self.consecutive_passes = 0;
+        }
+        Ok(())
+    }
+
+    /// Queues source-specific damage triggers after a positive damage receipt.
+    /// The source and its definition are captured before state-based actions,
+    /// so a creature that deals and receives lethal damage in the same damage
+    /// batch still creates the pending trigger record that Magic requires.
+    /// Dynamic source-damage life gain is materialized when the enclosing
+    /// damage batch finishes, not recomputed at later ability resolution.
+    fn enqueue_damage_triggers(&mut self, source: ObjectId, amount: i32) -> Result<(), RulesError> {
+        if amount <= 0 || self.zone_of(source) != Some(Zone::Battlefield) {
+            return Ok(());
+        }
+        let definition = self.card_definition(source)?.id;
+        let controller = self.object(source)?.controller;
+        let triggers = self
+            .triggered_abilities
+            .get(definition)
+            .into_iter()
+            .flat_map(|abilities| abilities.values())
+            .filter(|ability| ability.condition == TriggerCondition::DealsDamage)
+            .cloned()
+            .collect::<Vec<_>>();
+        if triggers.is_empty() {
+            return Ok(());
+        }
+        let damage_amount = i16::try_from(amount).map_err(|_| {
+            RulesError::IllegalAction("damage-trigger life gain exceeds effect representation")
+        })?;
+        for ability in triggers {
+            self.pending_damage_triggers.push(PendingDamageTrigger {
+                source,
+                controller,
+                ability,
+                damage_amount,
+            });
+        }
+        Ok(())
+    }
+
+    /// Queues triggers caused by a permanent receiving positive damage. This
+    /// intentionally does not require the recipient to remain on the
+    /// battlefield: state-based actions run after the complete damage batch,
+    /// and a dies trigger may need the captured damage amount after the source
+    /// has moved to its graveyard.
+    fn enqueue_received_damage_triggers(
+        &mut self,
+        recipient: ObjectId,
+        amount: i32,
+    ) -> Result<(), RulesError> {
+        if amount <= 0 || self.object(recipient)?.token.is_some() {
+            return Ok(());
+        }
+        let definition = self.card_definition(recipient)?.id;
+        let controller = self.object(recipient)?.controller;
+        let triggers = self
+            .triggered_abilities
+            .get(definition)
+            .into_iter()
+            .flat_map(|abilities| abilities.values())
+            .filter(|ability| ability.condition == TriggerCondition::ReceivesDamage)
+            .cloned()
+            .collect::<Vec<_>>();
+        if triggers.is_empty() {
+            return Ok(());
+        }
+        let damage_amount = i16::try_from(amount).map_err(|_| {
+            RulesError::IllegalAction("received-damage trigger exceeds effect representation")
+        })?;
+        for ability in triggers {
+            self.pending_damage_triggers.push(PendingDamageTrigger {
+                source: recipient,
+                controller,
+                ability,
+                damage_amount,
+            });
+        }
+        Ok(())
+    }
+
+    /// Queues a source-specific dies trigger after the permanent changes
+    /// zones. Unlike damage-batch triggers this is stacked immediately at the
+    /// state-based-action boundary, while retaining the dead card object as
+    /// the historical source for resolution and event auditing.
+    fn enqueue_dies_triggers(&mut self, source: ObjectId, definition: &'static str) {
+        self.pending_dies_triggers
+            .push(PendingDiesTrigger { source, definition });
+    }
+
+    /// Places dies triggers above the already-completed action's stack object.
+    /// Deferring until costs/effects finish preserves the rule that a trigger
+    /// created during an activation cost is stacked after that activation.
+    fn flush_pending_dies_triggers(&mut self) {
+        let pending = std::mem::take(&mut self.pending_dies_triggers);
+        for pending in pending {
+            let controller = self
+                .object(pending.source)
+                .map(|object| object.controller)
+                .expect("dies source retained");
+            let definition = pending.definition;
+            let triggers = self
+                .triggered_abilities
+                .get(definition)
+                .into_iter()
+                .flat_map(|abilities| abilities.values())
+                .filter(|ability| ability.condition == TriggerCondition::Dies)
+                .cloned()
+                .collect::<Vec<_>>();
+            for ability in triggers {
+                self.stack.push(StackObject {
+                    card: pending.source,
+                    controller,
+                    ability_id: Some(ability.id),
+                    targets: vec![],
+                    effects: ability.effects,
+                    mana_spent: None,
+                });
+                self.record_event(GameEvent::TriggeredAbilityStacked {
+                    controller,
+                    source: pending.source,
+                    ability: ability.id,
+                });
+            }
+        }
+        if !self.pending_dies_triggers.is_empty() {
+            unreachable!("pending dies triggers were not drained");
+        }
+        if !self.stack.is_empty() {
+            self.consecutive_passes = 0;
+        }
+    }
+
+    /// Pushes all triggers observed during the just-completed damage batch.
+    /// Their effects are materialized from the captured event amount before
+    /// the `TriggeredAbilityStacked` receipt is emitted.
+    fn flush_pending_damage_triggers(&mut self) {
+        let pending = std::mem::take(&mut self.pending_damage_triggers);
+        for pending in pending {
+            let effects = pending
+                .ability
+                .effects
+                .into_iter()
+                .map(|effect| match effect {
+                    Effect::GainLifeControllerFromSourceDamage => Effect::GainLifeController {
+                        amount: pending.damage_amount,
+                    },
+                    Effect::DealDamageToEachPlayerFromReceivedDamage => {
+                        Effect::DealDamageToEachPlayer {
+                            amount: pending.damage_amount,
+                        }
+                    }
+                    effect => effect,
+                })
+                .collect();
+            self.stack.push(StackObject {
+                card: pending.source,
+                controller: pending.controller,
+                ability_id: Some(pending.ability.id),
+                targets: vec![],
+                effects,
+                mana_spent: None,
+            });
+            self.record_event(GameEvent::TriggeredAbilityStacked {
+                controller: pending.controller,
+                source: pending.source,
+                ability: pending.ability.id,
+            });
+        }
+        if !self.pending_damage_triggers.is_empty() {
+            unreachable!("pending damage triggers were not drained");
+        }
+        if !self.stack.is_empty() {
+            self.consecutive_passes = 0;
+        }
     }
 
     fn damage_cannot_be_prevented(&self, source: ObjectId) -> bool {
@@ -3719,15 +3973,14 @@ impl Game {
         let Ok(source_characteristics) = self.characteristics(source) else {
             return false;
         };
-        let Ok(target_characteristics) = self.characteristics(target) else {
-            return false;
-        };
-        target_characteristics.keywords.iter().any(|keyword| {
-            if let Keyword::PreventDamageFromColor(color) = keyword {
-                source_characteristics.colors.contains(color)
-            } else {
-                false
-            }
+        self.characteristics(target).is_ok_and(|characteristics| {
+            characteristics.keywords.iter().any(|keyword| {
+                matches!(
+                    keyword,
+                    Keyword::PreventDamageFromColor(color)
+                        if source_characteristics.colors.contains(color)
+                )
+            })
         })
     }
 
@@ -3742,7 +3995,8 @@ impl Game {
         } else if self.target_prevents_damage_from_source(source, permanent) {
             (amount, false)
         } else {
-            (amount.min(self.object(permanent)?.damage_shield), true)
+            let object = self.object(permanent)?;
+            (amount.min(object.damage_shield), true)
         };
         if prevented > 0 {
             if consumes_shield {
@@ -3768,17 +4022,25 @@ impl Game {
                 permanent,
                 amount: remaining,
             });
+            self.enqueue_damage_triggers(source, remaining)?;
+            self.enqueue_received_damage_triggers(permanent, remaining)?;
         }
         Ok(())
     }
 
-    fn deal_damage_to_player(&mut self, source: ObjectId, player: PlayerId, amount: i32) {
+    fn deal_damage_to_player(
+        &mut self,
+        source: ObjectId,
+        player: PlayerId,
+        amount: i32,
+    ) -> Result<(), RulesError> {
         self.players[player.0].life -= i64::from(amount);
         self.record_event(GameEvent::DamageDealtToPlayer {
             source,
             player,
             amount,
         });
+        self.enqueue_damage_triggers(source, amount)
     }
 
     #[allow(clippy::too_many_lines)] // Effect dispatch stays centralized so stack resolution has one rules path.
@@ -3795,7 +4057,7 @@ impl Game {
                 .ok_or(RulesError::IllegalAction("missing damage target"))?
             {
                 Target::Player(player) => {
-                    self.deal_damage_to_player(source, player, i32::from(*amount));
+                    self.deal_damage_to_player(source, player, i32::from(*amount))?;
                 }
                 Target::Permanent(permanent) => {
                     self.deal_damage_to_permanent(source, permanent, i32::from(*amount))?;
@@ -3813,7 +4075,7 @@ impl Game {
                 if amount != 0 {
                     match target.ok_or(RulesError::IllegalAction("missing damage target"))? {
                         Target::Player(player) => {
-                            self.deal_damage_to_player(source, player, amount);
+                            self.deal_damage_to_player(source, player, amount)?;
                         }
                         Target::Permanent(permanent) => {
                             self.deal_damage_to_permanent(source, permanent, amount)?;
@@ -3830,7 +4092,7 @@ impl Game {
                 }
             }
             Effect::DealDamageController { amount } => {
-                self.deal_damage_to_player(source, controller, i32::from(*amount));
+                self.deal_damage_to_player(source, controller, i32::from(*amount))?;
             }
             Effect::DealDamageToEachCreatureAndPlayer { amount } => {
                 // Snapshot the complete affected set before mutating the
@@ -3858,7 +4120,15 @@ impl Game {
                         continue;
                     }
                     let player = PlayerId(player);
-                    self.deal_damage_to_player(source, player, i32::from(*amount));
+                    self.deal_damage_to_player(source, player, i32::from(*amount))?;
+                }
+            }
+            Effect::DealDamageToEachPlayer { amount } => {
+                for player in 0..self.players.len() {
+                    if self.players[player].lost {
+                        continue;
+                    }
+                    self.deal_damage_to_player(source, PlayerId(player), i32::from(*amount))?;
                 }
             }
             Effect::RadianceDealDamageToCreatures { amount } => {
@@ -3876,6 +4146,16 @@ impl Game {
                     player: controller,
                     amount: *amount,
                 });
+            }
+            Effect::GainLifeControllerFromSourceDamage => {
+                return Err(RulesError::IllegalAction(
+                    "unmaterialized source-damage life-gain trigger",
+                ));
+            }
+            Effect::DealDamageToEachPlayerFromReceivedDamage => {
+                return Err(RulesError::IllegalAction(
+                    "unmaterialized received-damage trigger",
+                ));
             }
             Effect::DrawControllerIfManaColorSpent { color } => {
                 if mana_spent.is_some_and(|spent| spent.contains(color)) {
@@ -4160,10 +4440,7 @@ impl Game {
                     })
                     && (!matches!(requirement, TargetRequirement::BlockingCreature)
                         || self.combat.as_ref().is_some_and(|combat| {
-                            combat
-                                .blockers
-                                .values()
-                                .any(|blockers| blockers.contains(&card))
+                            combat.blockers.values().any(|blocker| *blocker == card)
                         }))
             }
             (Target::Permanent(card), TargetRequirement::Land) => {
@@ -4334,12 +4611,12 @@ impl Game {
         let Some(combat) = &self.combat else {
             return Ok(false);
         };
-        for creature in combat.attackers.iter().copied().chain(
-            combat
-                .blockers
-                .values()
-                .flat_map(|assigned_blockers| assigned_blockers.iter().copied()),
-        ) {
+        for creature in combat
+            .attackers
+            .iter()
+            .copied()
+            .chain(combat.blockers.values().copied())
+        {
             if self.zone_of(creature) == Some(Zone::Battlefield)
                 && self
                     .characteristics(creature)?
@@ -4374,12 +4651,7 @@ impl Game {
                 .attackers
                 .iter()
                 .copied()
-                .chain(
-                    combat
-                        .blockers
-                        .values()
-                        .flat_map(|assigned_blockers| assigned_blockers.iter().copied()),
-                )
+                .chain(combat.blockers.values().copied())
                 .filter(|creature| {
                     self.zone_of(*creature) == Some(Zone::Battlefield)
                         && self
@@ -4435,15 +4707,10 @@ impl Game {
                 .characteristics(attacker)?
                 .keywords
                 .contains(&Keyword::Trample);
-            if let Some(assigned_blockers) = combat.blockers.get(&attacker) {
-                let live_blockers = assigned_blockers
-                    .iter()
-                    .copied()
-                    .filter(|blocker| self.zone_of(*blocker) == Some(Zone::Battlefield))
-                    .collect::<Vec<_>>();
-                if live_blockers.is_empty() {
-                    // A creature that was blocked remains blocked even if all
-                    // blockers leave combat before damage. A live trample
+            if let Some(blocker) = combat.blockers.get(&attacker).copied() {
+                if self.zone_of(blocker) != Some(Zone::Battlefield) {
+                    // A creature that was blocked remains blocked even if its
+                    // blocker leaves combat before damage. A live trample
                     // attacker can assign all of its positive damage to the
                     // defending player; other blocked attackers assign none.
                     if attacker_eligible && attacker_has_trample && attacker_power > 0 {
@@ -4451,73 +4718,37 @@ impl Game {
                     }
                     continue;
                 }
+                let blocker_power = self
+                    .characteristics(blocker)?
+                    .power
+                    .ok_or(RulesError::IllegalAction("blocker lacks power"))?;
                 if attacker_eligible && attacker_power > 0 {
                     if attacker_has_trample {
-                        // Declaration order is the damage-order choice for
-                        // this bounded substrate. Assign lethal damage to
-                        // each blocker before assigning excess to the player.
-                        let mut remaining = attacker_power;
-                        for blocker in &live_blockers {
-                            let blocker_characteristics = self.characteristics(*blocker)?;
-                            let blocker_toughness = blocker_characteristics
-                                .toughness
-                                .ok_or(RulesError::IllegalAction("blocker lacks toughness"))?;
-                            let marked_damage = self.object(*blocker)?.damage;
-                            let lethal = blocker_toughness.saturating_sub(marked_damage).max(0);
-                            let assigned_to_blocker = remaining.min(lethal);
-                            if assigned_to_blocker > 0 {
-                                permanent_damage.push((attacker, *blocker, assigned_to_blocker));
-                            }
-                            remaining -= assigned_to_blocker;
-                            if remaining == 0 {
-                                break;
-                            }
+                        let blocker_characteristics = self.characteristics(blocker)?;
+                        let blocker_toughness = blocker_characteristics
+                            .toughness
+                            .ok_or(RulesError::IllegalAction("blocker lacks toughness"))?;
+                        let marked_damage = self.object(blocker)?.damage;
+                        // The initial combat representation admits exactly
+                        // one blocker per attacker. With no deathtouch or
+                        // damage-prevention substrate, lethal damage is the
+                        // blocker's remaining toughness after damage already
+                        // marked on it; excess is assigned to the defender.
+                        let lethal = blocker_toughness.saturating_sub(marked_damage).max(0);
+                        let assigned_to_blocker = attacker_power.min(lethal);
+                        if assigned_to_blocker > 0 {
+                            permanent_damage.push((attacker, blocker, assigned_to_blocker));
                         }
-                        if remaining > 0 {
-                            player_damage.push((attacker, defending_player, remaining));
+                        let excess = attacker_power - assigned_to_blocker;
+                        if excess > 0 {
+                            player_damage.push((attacker, defending_player, excess));
                         }
                     } else {
-                        // A single blocker receives the attacker's full combat
-                        // damage. With multiple blockers this bounded slice
-                        // uses declaration order and assigns only lethal
-                        // damage to each blocker; no excess reaches the player
-                        // without Trample. Every live blocker still deals its
-                        // combat damage back below.
-                        if live_blockers.len() == 1 {
-                            permanent_damage.push((attacker, live_blockers[0], attacker_power));
-                        } else {
-                            let mut remaining = attacker_power;
-                            for blocker in &live_blockers {
-                                let blocker_characteristics = self.characteristics(*blocker)?;
-                                let blocker_toughness = blocker_characteristics
-                                    .toughness
-                                    .ok_or(RulesError::IllegalAction("blocker lacks toughness"))?;
-                                let marked_damage = self.object(*blocker)?.damage;
-                                let lethal = blocker_toughness.saturating_sub(marked_damage).max(0);
-                                let assigned_to_blocker = remaining.min(lethal);
-                                if assigned_to_blocker > 0 {
-                                    permanent_damage.push((
-                                        attacker,
-                                        *blocker,
-                                        assigned_to_blocker,
-                                    ));
-                                }
-                                remaining -= assigned_to_blocker;
-                                if remaining == 0 {
-                                    break;
-                                }
-                            }
-                        }
+                        permanent_damage.push((attacker, blocker, attacker_power));
                     }
                 }
-                for blocker in live_blockers {
-                    let blocker_power = self
-                        .characteristics(blocker)?
-                        .power
-                        .ok_or(RulesError::IllegalAction("blocker lacks power"))?;
-                    if eligible(blocker) && blocker_power > 0 {
-                        permanent_damage.push((blocker, attacker, blocker_power));
-                    }
+                if eligible(blocker) && blocker_power > 0 {
+                    permanent_damage.push((blocker, attacker, blocker_power));
                 }
             } else if attacker_eligible && attacker_power > 0 {
                 player_damage.push((attacker, defending_player, attacker_power));
@@ -4527,9 +4758,11 @@ impl Game {
             self.deal_damage_to_permanent(source, permanent, amount)?;
         }
         for (source, player, amount) in player_damage {
-            self.deal_damage_to_player(source, player, amount);
+            self.deal_damage_to_player(source, player, amount)?;
         }
         self.check_state_based_actions()?;
+        self.flush_pending_damage_triggers();
+        self.flush_pending_dies_triggers();
         Ok(())
     }
 
@@ -4576,7 +4809,13 @@ impl Game {
             self.expire_continuous_effects_involving(card);
             return Ok(());
         }
-        self.move_to_zone(card, Zone::Graveyard)
+        let was_battlefield = self.zone_of(card) == Some(Zone::Battlefield);
+        let definition = self.card_definition(card)?.id;
+        self.move_to_zone(card, Zone::Graveyard)?;
+        if was_battlefield {
+            self.enqueue_dies_triggers(card, definition);
+        }
+        Ok(())
     }
 
     fn move_to_zone(&mut self, card: ObjectId, zone: Zone) -> Result<(), RulesError> {
@@ -4606,63 +4845,6 @@ impl Game {
             // changes zones. End-of-turn effects from instants remain because
             // their source was never a battlefield permanent.
             self.expire_continuous_effects_involving(card);
-        }
-        Ok(())
-    }
-
-    /// Puts each expansion-bound enter-the-battlefield ability on the shared
-    /// stack after the permanent's own resolution and zone-change receipt.
-    /// Synthetic identities are monotonic but deliberately do not allocate a
-    /// card object: a trigger is never a card in a zone and therefore cannot
-    /// be mistaken for one by target or ownership audits.
-    fn queue_enter_battlefield_triggers(
-        &mut self,
-        source: ObjectId,
-        controller: PlayerId,
-    ) -> Result<(), RulesError> {
-        let definition = self.card_definition(source)?.id;
-        let abilities = self
-            .triggered_abilities
-            .get(definition)
-            .cloned()
-            .unwrap_or_default();
-        for ability in abilities {
-            let stack_id = ObjectId(self.next_object_id);
-            self.next_object_id += 1;
-            let previous = self.triggered_stack.insert(
-                stack_id,
-                TriggeredStackItem {
-                    source,
-                    controller,
-                    ability,
-                },
-            );
-            if previous.is_some() {
-                return Err(RulesError::IllegalAction(
-                    "triggered stack identity was allocated twice",
-                ));
-            }
-            self.stack.push(StackObject {
-                card: stack_id,
-                controller,
-                ability_id: None,
-                targets: Vec::new(),
-                effects: Vec::new(),
-                mana_spent: None,
-            });
-            self.record_event(GameEvent::TriggeredAbilityPutOnStack {
-                source,
-                stack: stack_id,
-                controller,
-                ability,
-            });
-            if matches!(ability, TriggeredAbility::EnterBattlefieldTeamPumpHaste) {
-                self.record_event(GameEvent::TriggeredAbilityStacked {
-                    controller,
-                    source,
-                    ability: "etb-team-pump-haste",
-                });
-            }
         }
         Ok(())
     }
@@ -4800,6 +4982,7 @@ impl Game {
                 Effect::DealDamage { amount, .. }
                 | Effect::DealDamageController { amount }
                 | Effect::DealDamageToEachCreatureAndPlayer { amount }
+                | Effect::DealDamageToEachPlayer { amount }
                 | Effect::RadianceDealDamageToCreatures { amount }
                 | Effect::GainLifeController { amount } => *amount,
                 _ => continue,
@@ -5251,70 +5434,6 @@ impl Game {
         Ok(())
     }
 
-    /// Audits the causal boundary for stack-backed triggered abilities. A
-    /// measured event-log suffix may begin after trigger placement, but every
-    /// visible placement must follow the source's battlefield arrival and each
-    /// visible resolution must match its one placement.
-    fn validate_triggered_ability_event_order(events: &[GameEvent]) -> Result<(), RulesError> {
-        let mut placed = BTreeMap::<ObjectId, (ObjectId, PlayerId, TriggeredAbility)>::new();
-        for (index, event) in events.iter().enumerate() {
-            match event {
-                GameEvent::TriggeredAbilityPutOnStack {
-                    source,
-                    stack,
-                    controller,
-                    ability,
-                } => {
-                    let follows_entry = match events.get(index.saturating_sub(1)) {
-                        Some(GameEvent::CardMoved {
-                            card,
-                            to: Zone::Battlefield,
-                        }) => card == source,
-                        Some(GameEvent::TriggeredAbilityPutOnStack {
-                            source: previous_source,
-                            ..
-                        }) => previous_source == source,
-                        _ => false,
-                    };
-                    if !follows_entry {
-                        return Err(RulesError::IllegalAction(
-                            "trigger placement lacks its source battlefield-entry receipt",
-                        ));
-                    }
-                    if placed
-                        .insert(*stack, (*source, *controller, *ability))
-                        .is_some()
-                    {
-                        return Err(RulesError::IllegalAction(
-                            "a triggered stack identity was placed twice",
-                        ));
-                    }
-                }
-                GameEvent::TriggeredAbilityResolved {
-                    source,
-                    stack,
-                    controller,
-                    ability,
-                } => {
-                    if let Some((placed_source, placed_controller, placed_ability)) =
-                        placed.remove(stack)
-                    {
-                        if placed_source != *source
-                            || placed_controller != *controller
-                            || placed_ability != *ability
-                        {
-                            return Err(RulesError::IllegalAction(
-                                "trigger resolution disagrees with its placement",
-                            ));
-                        }
-                    }
-                }
-                _ => {}
-            }
-        }
-        Ok(())
-    }
-
     fn cast_payment_context(event: Option<&GameEvent>) -> Option<(PlayerId, ObjectId)> {
         match event {
             Some(
@@ -5430,24 +5549,13 @@ impl Game {
         let live = self
             .stack
             .iter()
-            .filter_map(|item| {
-                item.ability_id
-                    .map(|ability| (item.card, ability))
-                    .or_else(|| {
-                        self.triggered_stack.get(&item.card).and_then(|trigger| {
-                            match trigger.ability {
-                                TriggeredAbility::EnterBattlefieldTeamPumpHaste => {
-                                    Some((trigger.source, "etb-team-pump-haste"))
-                                }
-                                TriggeredAbility::EnterBattlefieldDrawController => None,
-                            }
-                        })
-                    })
-            })
+            .filter(|item| item.ability_id.is_some())
             .fold(
                 BTreeMap::<(ObjectId, &'static str), usize>::new(),
-                |mut counts, (source, ability)| {
-                    *counts.entry((source, ability)).or_default() += 1;
+                |mut counts, item| {
+                    *counts
+                        .entry((item.card, item.ability_id.expect("checked above")))
+                        .or_default() += 1;
                     counts
                 },
             );
@@ -5867,21 +5975,6 @@ impl Game {
     /// zone. This must occur inside the loss transition, not as a later policy
     /// action, so no stale object can receive priority or participate in SBA.
     fn remove_departing_players_objects(&mut self, player: PlayerId) {
-        let departing_trigger_ids = self
-            .stack
-            .iter()
-            .filter_map(|stack_object| {
-                self.triggered_stack
-                    .get(&stack_object.card)
-                    .filter(|trigger| trigger.controller == player)
-                    .map(|_| stack_object.card)
-            })
-            .collect::<Vec<_>>();
-        for stack_id in departing_trigger_ids {
-            self.stack
-                .retain(|stack_object| stack_object.card != stack_id);
-            self.triggered_stack.remove(&stack_id);
-        }
         let owned_objects = self
             .objects
             .iter()

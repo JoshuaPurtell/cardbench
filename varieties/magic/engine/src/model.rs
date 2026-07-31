@@ -182,6 +182,42 @@ pub struct ActivatedAbilityBinding {
     pub ability: ActivatedAbility,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum TriggerCondition {
+    EntersBattlefield,
+    /// The source dealt positive damage to a player or permanent. The damage
+    /// amount is materialized into the triggered stack object's effects when
+    /// the receipt is emitted, so a life-gain trigger cannot inspect a later
+    /// or unrelated damage event.
+    DealsDamage,
+    /// The source received positive damage. The source may leave the
+    /// battlefield during state-based actions before this trigger is stacked.
+    ReceivesDamage,
+    /// The source changed from the battlefield to its graveyard.
+    Dies,
+    /// The source was declared as an attacker. Optional trigger costs are
+    /// paid from the controller's pool when the trigger is stacked.
+    Attacks,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TriggeredAbility {
+    pub id: &'static str,
+    pub condition: TriggerCondition,
+    /// Optional mana paid while the trigger is put on the stack. This keeps
+    /// attack-trigger payment separate from the resolving effect.
+    pub mana_cost: ManaCost,
+    pub optional: bool,
+    pub targets: Vec<TargetRequirement>,
+    pub effects: Vec<Effect>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TriggeredAbilityBinding {
+    pub card_definition: &'static str,
+    pub ability: TriggeredAbility,
+}
+
 /// A player's explicit request to activate a stack-using ability.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AbilityActivation {
@@ -643,26 +679,6 @@ pub struct AdditionalSpellCostBinding {
     pub cost: AdditionalSpellCost,
 }
 
-/// One expansion-neutral triggered-ability semantic.  The initial substrate
-/// intentionally has one narrow operation: a permanent's controller draws a
-/// card when that permanent enters the battlefield.  The ability is put onto
-/// the shared stack rather than being applied as an immediate zone-change
-/// side effect, so priority and LIFO resolution remain observable.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum TriggeredAbility {
-    EnterBattlefieldDrawController,
-    EnterBattlefieldTeamPumpHaste,
-}
-
-/// Binds one typed triggered ability to a card definition.  Keeping trigger
-/// bindings outside `CardDefinition` lets existing catalogs remain source
-/// compatible while expansions opt into the common trigger substrate.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub struct TriggeredAbilityBinding {
-    pub card_definition: &'static str,
-    pub ability: TriggeredAbility,
-}
-
 /// A creature subtype carried by a token's type line.
 ///
 /// The initial RAV substrate needs only Saproling, but this remains a typed
@@ -727,6 +743,12 @@ pub enum Effect {
     DealDamageToEachCreatureAndPlayer {
         amount: i16,
     },
+    /// Deal a fixed amount to each surviving player, without affecting
+    /// creatures. This remains distinct from the all-creature batch so
+    /// recipient damage and state-based actions are auditable.
+    DealDamageToEachPlayer {
+        amount: i16,
+    },
     /// Deal damage to the targeted creature and every creature that shares at
     /// least one of its colors. The target remains included even if it has no
     /// colors, matching the shared radiance selection substrate.
@@ -736,6 +758,14 @@ pub enum Effect {
     GainLifeController {
         amount: i16,
     },
+    /// Gain life equal to the positive damage amount that caused this
+    /// source-specific triggered ability to fire. This is intentionally a
+    /// semantic operation rather than copied card text; the trigger queue
+    /// materializes it into `GainLifeController` before the ability resolves.
+    GainLifeControllerFromSourceDamage,
+    /// Materialized by a recipient-damage trigger after the source object has
+    /// received positive damage. The amount is captured at receipt time.
+    DealDamageToEachPlayerFromReceivedDamage,
     /// Draw one card only when this spell's explicit cast-payment receipt
     /// contains the named mana color. The receipt belongs to the stack object,
     /// so later floating mana or post-cast pool changes cannot affect it.
@@ -821,7 +851,10 @@ impl Effect {
             }
             Self::DealDamageController { .. }
             | Self::DealDamageToEachCreatureAndPlayer { .. }
+            | Self::DealDamageToEachPlayer { .. }
             | Self::GainLifeController { .. }
+            | Self::GainLifeControllerFromSourceDamage
+            | Self::DealDamageToEachPlayerFromReceivedDamage
             | Self::DrawControllerIfManaColorSpent { .. }
             | Self::CreateToken { .. }
             | Self::ModifySourcePtUntilEndOfTurn { .. }
@@ -1132,8 +1165,9 @@ pub enum PolicyMoveKind {
     ReportEngineWeakness,
 }
 
-/// One blocker assignment. Multiple entries may name the same attacker; the
-/// declaration order is retained for this slice's combat-damage assignment.
+/// One blocker assigned to one attacker. This initial combat substrate permits one
+/// blocker per attacker; cards requiring multi-block assignment are reported as a
+/// capability gap rather than being approximated.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct CombatBlock {
     pub attacker: ObjectId,
@@ -1432,15 +1466,6 @@ pub enum GameEvent {
         player: PlayerId,
         card: ObjectId,
     },
-    /// A triggered ability was placed on the shared stack after its event
-    /// occurred. `stack` is a synthetic identity because the ability is not a
-    /// card object and must not be moved between zones.
-    TriggeredAbilityPutOnStack {
-        source: ObjectId,
-        stack: ObjectId,
-        controller: PlayerId,
-        ability: TriggeredAbility,
-    },
     /// A non-mana activated ability entered the stack. `source` remains on
     /// the battlefield while this stack object resolves.
     AbilityActivated {
@@ -1482,12 +1507,6 @@ pub enum GameEvent {
     },
     SpellResolved {
         card: ObjectId,
-    },
-    TriggeredAbilityResolved {
-        source: ObjectId,
-        stack: ObjectId,
-        controller: PlayerId,
-        ability: TriggeredAbility,
     },
     AbilityResolved {
         source: ObjectId,
