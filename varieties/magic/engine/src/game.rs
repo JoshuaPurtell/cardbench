@@ -215,6 +215,11 @@ struct CombatState {
     /// provenance, not a live tapped-state assertion: a vigilant attacker can
     /// later pay a legal tap cost while it remains in combat.
     vigilant_attackers: BTreeSet<ObjectId>,
+    /// Attackers that had Trample when declared. Unlike evasion, trample is
+    /// evaluated from the attacker's live characteristics at combat-damage
+    /// assignment; this set is retained only as declaration provenance for
+    /// the public combat audit.
+    trampling_attackers: BTreeSet<ObjectId>,
     blockers: BTreeMap<ObjectId, ObjectId>,
     /// Blockers admitted against a declared flying attacker because they had
     /// either Flying or Reach at blocker declaration. This is provenance, not
@@ -1363,6 +1368,7 @@ impl Game {
         let mut hasty_attackers = BTreeSet::new();
         let mut flying_attackers = BTreeSet::new();
         let mut vigilant_attackers = BTreeSet::new();
+        let mut trampling_attackers = BTreeSet::new();
         for attacker in attackers {
             if !seen.insert(*attacker) {
                 return Err(RulesError::IllegalAction("an attacker was declared twice"));
@@ -1388,6 +1394,9 @@ impl Game {
             if characteristics.keywords.contains(&Keyword::Vigilance) {
                 vigilant_attackers.insert(*attacker);
             }
+            if characteristics.keywords.contains(&Keyword::Trample) {
+                trampling_attackers.insert(*attacker);
+            }
         }
         for attacker in attackers {
             if !vigilant_attackers.contains(attacker) {
@@ -1406,6 +1415,7 @@ impl Game {
         combat.hasty_attackers = hasty_attackers;
         combat.flying_attackers = flying_attackers;
         combat.vigilant_attackers = vigilant_attackers;
+        combat.trampling_attackers = trampling_attackers;
         combat.defending_player = Some(defending_player);
         combat.attackers_declared = true;
         self.record_event(GameEvent::AttackersDeclared {
@@ -2343,7 +2353,8 @@ impl Game {
             if !combat.attackers_declared
                 && (!combat.hasty_attackers.is_empty()
                     || !combat.flying_attackers.is_empty()
-                    || !combat.vigilant_attackers.is_empty())
+                    || !combat.vigilant_attackers.is_empty()
+                    || !combat.trampling_attackers.is_empty())
             {
                 return Err(RulesError::IllegalAction(
                     "undeclared combat retained attacker keyword provenance",
@@ -2410,6 +2421,11 @@ impl Game {
             if !combat.flying_attackers.is_subset(&attackers) {
                 return Err(RulesError::IllegalAction(
                     "flying declaration provenance contains a nonattacker",
+                ));
+            }
+            if !combat.trampling_attackers.is_subset(&attackers) {
+                return Err(RulesError::IllegalAction(
+                    "trample declaration provenance contains a nonattacker",
                 ));
             }
             for (attacker, blocker) in &combat.blockers {
@@ -3255,12 +3271,19 @@ impl Game {
                 .characteristics(attacker)?
                 .power
                 .ok_or(RulesError::IllegalAction("attacker lacks power"))?;
+            let attacker_has_trample = self
+                .characteristics(attacker)?
+                .keywords
+                .contains(&Keyword::Trample);
             if let Some(blocker) = combat.blockers.get(&attacker).copied() {
                 if self.zone_of(blocker) != Some(Zone::Battlefield) {
                     // A creature that was blocked remains blocked even if its
-                    // blocker leaves combat before damage. This slice has no
-                    // trample, so it deals no combat damage to the defending
-                    // player in that case.
+                    // blocker leaves combat before damage. A live trample
+                    // attacker can assign all of its positive damage to the
+                    // defending player; other blocked attackers assign none.
+                    if attacker_eligible && attacker_has_trample && attacker_power > 0 {
+                        player_damage.push((attacker, defending_player, attacker_power));
+                    }
                     continue;
                 }
                 let blocker_power = self
@@ -3268,7 +3291,29 @@ impl Game {
                     .power
                     .ok_or(RulesError::IllegalAction("blocker lacks power"))?;
                 if attacker_eligible && attacker_power > 0 {
-                    permanent_damage.push((attacker, blocker, attacker_power));
+                    if attacker_has_trample {
+                        let blocker_characteristics = self.characteristics(blocker)?;
+                        let blocker_toughness = blocker_characteristics
+                            .toughness
+                            .ok_or(RulesError::IllegalAction("blocker lacks toughness"))?;
+                        let marked_damage = self.object(blocker)?.damage;
+                        // The initial combat representation admits exactly
+                        // one blocker per attacker. With no deathtouch or
+                        // damage-prevention substrate, lethal damage is the
+                        // blocker's remaining toughness after damage already
+                        // marked on it; excess is assigned to the defender.
+                        let lethal = blocker_toughness.saturating_sub(marked_damage).max(0);
+                        let assigned_to_blocker = attacker_power.min(lethal);
+                        if assigned_to_blocker > 0 {
+                            permanent_damage.push((attacker, blocker, assigned_to_blocker));
+                        }
+                        let excess = attacker_power - assigned_to_blocker;
+                        if excess > 0 {
+                            player_damage.push((attacker, defending_player, excess));
+                        }
+                    } else {
+                        permanent_damage.push((attacker, blocker, attacker_power));
+                    }
                 }
                 if eligible(blocker) && blocker_power > 0 {
                     permanent_damage.push((blocker, attacker, blocker_power));
@@ -4396,6 +4441,25 @@ mod tests {
             game.validate_stack_terminal_event_order(),
             Err(RulesError::IllegalAction(
                 "a spell has more than one terminal stack receipt in one event trace",
+            ))
+        );
+    }
+
+    #[test]
+    fn invariant_rejects_trample_provenance_that_is_not_a_declared_attacker() {
+        let mut game = Game::new(Vec::<CardDefinition>::new(), 2).expect("two-player game");
+        game.step = Step::DeclareAttackers;
+        game.combat = Some(CombatState {
+            attackers_declared: true,
+            defending_player: Some(PlayerId(1)),
+            trampling_attackers: BTreeSet::from([ObjectId(99)]),
+            ..CombatState::default()
+        });
+
+        assert_eq!(
+            game.validate_invariants(),
+            Err(RulesError::IllegalAction(
+                "trample declaration provenance contains a nonattacker",
             ))
         );
     }

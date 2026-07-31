@@ -7,13 +7,15 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardDefinition, CardType, Color, CombatBlock, Game, GameEvent, Keyword, ManaCost, PlayerId,
-    Step, Zone,
+    CardDefinition, CardType, CastRequest, Color, CombatBlock, Effect, Game, GameEvent, Keyword,
+    ManaCost, PlayerId, Step, Target, TargetRequirement, Zone,
 };
 
 const LAND: &str = "TEST-LAND";
 const TRAMPLER: &str = "TEST-TRAMPLER";
 const BLOCKER: &str = "TEST-BLOCKER";
+const PING: &str = "TEST-PING";
+const REMOVAL: &str = "TEST-REMOVAL";
 
 fn colors(colors: impl IntoIterator<Item = Color>) -> BTreeSet<Color> {
     colors.into_iter().collect()
@@ -39,6 +41,42 @@ fn definitions() -> Vec<CardDefinition> {
             toughness: None,
             keywords: vec![],
             effects: vec![],
+        },
+        CardDefinition {
+            id: PING,
+            name: "Test Ping",
+            set_code: "TST",
+            mana_cost: ManaCost::new(0),
+            colors: BTreeSet::new(),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Instant]),
+            is_basic_land: false,
+            supported_rules: &["targeted-damage"],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![Effect::DealDamage {
+                amount: 1,
+                target: TargetRequirement::Creature,
+            }],
+        },
+        CardDefinition {
+            id: REMOVAL,
+            name: "Test Removal",
+            set_code: "TST",
+            mana_cost: ManaCost::new(0),
+            colors: BTreeSet::new(),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Instant]),
+            is_basic_land: false,
+            supported_rules: &["targeted-damage"],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![Effect::DealDamage {
+                amount: 2,
+                target: TargetRequirement::Creature,
+            }],
         },
         CardDefinition {
             id: TRAMPLER,
@@ -80,9 +118,8 @@ fn add_library(game: &mut Game, player: PlayerId) {
     }
 }
 
-fn advance_to_declare_attackers(game: &mut Game) {
-    game.begin_game().expect("game begins");
-    while !(game.turn == 3 && game.step == Step::DeclareAttackers) {
+fn advance_to(game: &mut Game, turn: u32, step: Step) {
+    while game.turn != turn || game.step != step {
         if game
             .view_for_player(game.next_policy_player())
             .expect("public view")
@@ -129,6 +166,29 @@ fn advance_to_declare_attackers(game: &mut Game) {
     }
 }
 
+fn advance_to_declare_attackers(game: &mut Game) {
+    advance_to(game, 3, Step::DeclareAttackers);
+}
+
+fn resolve_top(game: &mut Game) {
+    for _ in 0..2 {
+        let player = game.priority;
+        game.pass_priority(player)
+            .expect("spell resolves after passes");
+    }
+}
+
+fn advance_to_blockers(game: &mut Game, trampler: cardbench_magic_engine::ObjectId) {
+    advance_to_declare_attackers(game);
+    game.declare_attackers(PlayerId(0), &[trampler])
+        .expect("trampler attacks");
+    for _ in 0..2 {
+        let player = game.priority;
+        game.pass_priority(player).expect("advance to blockers");
+    }
+    assert_eq!(game.step, Step::DeclareBlockers);
+}
+
 #[test]
 fn trample_assigns_only_lethal_damage_to_a_single_blocker_and_excess_to_defender() {
     let attacker_player = PlayerId(0);
@@ -143,6 +203,7 @@ fn trample_assigns_only_lethal_damage_to_a_single_blocker_and_excess_to_defender
         .put_on_battlefield(defending_player, BLOCKER)
         .expect("blocker enters");
 
+    game.begin_game().expect("game begins");
     advance_to_declare_attackers(&mut game);
     game.declare_attackers(attacker_player, &[trampler])
         .expect("trampler attacks");
@@ -182,4 +243,110 @@ fn trample_assigns_only_lethal_damage_to_a_single_blocker_and_excess_to_defender
     );
     game.validate_invariants()
         .expect("trample damage transition remains valid");
+}
+
+#[test]
+fn trample_uses_previously_marked_damage_when_calculating_lethal_assignment() {
+    let mut game = Game::new(definitions(), 2).expect("game initializes");
+    add_library(&mut game, PlayerId(0));
+    add_library(&mut game, PlayerId(1));
+    let trampler = game
+        .put_on_battlefield(PlayerId(0), TRAMPLER)
+        .expect("trampler enters");
+    let blocker = game
+        .put_on_battlefield(PlayerId(1), BLOCKER)
+        .expect("blocker enters");
+    let ping = game
+        .add_card(PlayerId(0), PING, Zone::Hand)
+        .expect("ping enters hand");
+
+    game.begin_game().expect("game begins");
+    advance_to(&mut game, 3, Step::PrecombatMain);
+    game.cast_spell(
+        PlayerId(0),
+        CastRequest {
+            card: ping,
+            targets: vec![Target::Permanent(blocker)],
+            convoke: vec![],
+            payment_mana_abilities: vec![],
+        },
+    )
+    .expect("ping casts");
+    resolve_top(&mut game);
+    advance_to_blockers(&mut game, trampler);
+    game.declare_blockers(
+        PlayerId(1),
+        &[CombatBlock {
+            attacker: trampler,
+            blocker,
+        }],
+    )
+    .expect("single block is legal");
+    resolve_top(&mut game);
+
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::DamageDealtToPermanent { source, permanent, amount: 1 }
+            if *source == trampler && *permanent == blocker
+    )));
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::DamageDealtToPlayer { source, player: PlayerId(1), amount: 4 }
+            if *source == trampler
+    )));
+    assert_eq!(game.player(PlayerId(1)).expect("defender exists").life, 16);
+    game.validate_invariants().expect("state stays valid");
+}
+
+#[test]
+fn trample_assigns_all_positive_damage_to_defender_when_sole_blocker_leaves_combat() {
+    let mut game = Game::new(definitions(), 2).expect("game initializes");
+    add_library(&mut game, PlayerId(0));
+    add_library(&mut game, PlayerId(1));
+    let trampler = game
+        .put_on_battlefield(PlayerId(0), TRAMPLER)
+        .expect("trampler enters");
+    let blocker = game
+        .put_on_battlefield(PlayerId(1), BLOCKER)
+        .expect("blocker enters");
+    let removal = game
+        .add_card(PlayerId(0), REMOVAL, Zone::Hand)
+        .expect("removal enters hand");
+
+    game.begin_game().expect("game begins");
+    advance_to_blockers(&mut game, trampler);
+    game.declare_blockers(
+        PlayerId(1),
+        &[CombatBlock {
+            attacker: trampler,
+            blocker,
+        }],
+    )
+    .expect("single block is legal");
+    game.cast_spell(
+        PlayerId(0),
+        CastRequest {
+            card: removal,
+            targets: vec![Target::Permanent(blocker)],
+            convoke: vec![],
+            payment_mana_abilities: vec![],
+        },
+    )
+    .expect("removal casts after blockers");
+    resolve_top(&mut game);
+    assert_eq!(game.zone_of(blocker), Some(Zone::Graveyard));
+    resolve_top(&mut game);
+
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::DamageDealtToPlayer { source, player: PlayerId(1), amount: 5 }
+            if *source == trampler
+    )));
+    assert!(!game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::DamageDealtToPermanent { source, permanent, .. }
+            if *source == trampler && *permanent == blocker
+    )));
+    assert_eq!(game.player(PlayerId(1)).expect("defender exists").life, 15);
+    game.validate_invariants().expect("state stays valid");
 }
