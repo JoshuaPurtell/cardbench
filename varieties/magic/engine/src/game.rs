@@ -2257,7 +2257,6 @@ impl Game {
         let Some(card) = self.players[player.0].library.pop() else {
             self.lose_player(player, "attempted to draw from an empty library");
             self.normalize_priority_after_elimination()?;
-            self.record_game_end_if_needed();
             return Ok(());
         };
         self.players[player.0].hand.push(card);
@@ -3490,6 +3489,7 @@ impl Game {
                 | Effect::GainLifeController { amount } => *amount,
                 Effect::CreateToken { .. }
                 | Effect::DrawControllerIfManaColorSpent { .. }
+                | Effect::DrawController
                 | Effect::GainLifeControllerFromSourceDamage
                 | Effect::DealDamageToEachPlayerFromReceivedDamage
                 | Effect::DealDamageEqualToAttackingCreatures { .. }
@@ -4152,6 +4152,9 @@ impl Game {
                 return Err(RulesError::IllegalAction(
                     "unmaterialized source-damage life-gain trigger",
                 ));
+            }
+            Effect::DrawController => {
+                self.draw_card_from_spell_effect(controller)?;
             }
             Effect::DealDamageToEachPlayerFromReceivedDamage => {
                 return Err(RulesError::IllegalAction(

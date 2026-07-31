@@ -6383,6 +6383,98 @@ event_absent = ["BlockersDeclared"]
 digest = "fnv1a64:1dcdb2289fdaa917"
 
 [[scenario]]
+id = "rav_sunhome_enforcer_damage_trigger"
+seed = 0
+description = "Sunhome Enforcer combat damage queues a source-specific life-gain trigger after the damage receipt and resolves it through the normal priority window."
+triggers = true
+
+[[scenario.card]]
+label = "enforcer"
+owner = 0
+definition = "RAV-SUNHOME-ENFORCER"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "declare_attackers"
+player = 0
+attackers = ["enforcer"]
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "declare_blockers"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+life = [22, 18]
+zones = ["enforcer:battlefield"]
+tapped = ["enforcer:true"]
+stack_size = 0
+priority = 0
+event_markers = ["DamageDealtToPlayer", "TriggeredAbilityStacked", "LifeGained", "AbilityResolved"]
+event_absent = ["SpellCast"]
+digest = "fnv1a64:8edcecff9d12423c"
+
+[[scenario]]
 id = "rav_flame_kin_zealot_etb_team_trigger"
 seed = 52
 description = "Cast Flame-Kin Zealot, put its enter trigger on the stack, and resolve the team-wide +1/+1 and haste effect."
@@ -6497,12 +6589,12 @@ toughnesses = ["zealot:3", "watchwolf:4"]
 stack_size = 0
 priority = 0
 event_markers = ["SpellResolved", "TriggeredAbilityStacked", "ContinuousEffectCreated", "AbilityResolved"]
-digest = "fnv1a64:909d5099b9439daf"
+digest = "fnv1a64:f49730fc57bbf22d"
 
 [[scenario]]
 id = "rav_carven_caryatid_defender_compatibility"
 seed = 46
-description = "Reject Carven Caryatid's attack declaration through its supported Defender rule; its enter-the-battlefield draw trigger remains unsupported."
+description = "Reject Carven Caryatid's attack declaration through its supported Defender rule in the default compatibility scenario; its opt-in stack-backed draw trigger is covered separately."
 
 [[scenario.card]]
 label = "caryatid"

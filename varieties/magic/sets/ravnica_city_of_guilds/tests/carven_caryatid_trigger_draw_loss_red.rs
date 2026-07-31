@@ -6,7 +6,7 @@
 //! legal loss and rolls the trigger resolution back.
 
 use cardbench_magic_engine::{CastRequest, Color, Game, PlayerId, Step, Zone};
-use cardbench_magic_rav::{card_definitions, rav_trigger_bindings};
+use cardbench_magic_rav::{card_definitions, rav_triggered_ability_bindings};
 
 fn advance_to_precombat_main(game: &mut Game) {
     game.begin_game().expect("fixture starts");
@@ -19,8 +19,16 @@ fn advance_to_precombat_main(game: &mut Game) {
 
 #[test]
 fn carven_caryatid_trigger_draw_loss_is_atomic_and_terminal() {
-    let mut game = Game::new_with_triggers(card_definitions(), 2, rav_trigger_bindings())
-        .expect("RAV trigger-enabled catalog builds");
+    let mut game = Game::new_with_all_bindings_and_triggers(
+        card_definitions(),
+        2,
+        std::iter::empty(),
+        std::iter::empty(),
+        std::iter::empty(),
+        std::iter::empty(),
+        rav_triggered_ability_bindings(),
+    )
+    .expect("RAV trigger-enabled catalog builds");
     let caryatid = game
         .add_card(PlayerId(0), "RAV-CARVEN-CARYATID", Zone::Hand)
         .expect("Caryatid begins in hand");

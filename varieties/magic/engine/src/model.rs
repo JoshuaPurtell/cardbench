@@ -763,6 +763,10 @@ pub enum Effect {
     /// semantic operation rather than copied card text; the trigger queue
     /// materializes it into `GainLifeController` before the ability resolves.
     GainLifeControllerFromSourceDamage,
+    /// Draw one card for the controller when this effect resolves. This is
+    /// intentionally a stack-only operation so public live-game setup cannot
+    /// inject cards into a hand after the game has begun.
+    DrawController,
     /// Materialized by a recipient-damage trigger after the source object has
     /// received positive damage. The amount is captured at receipt time.
     DealDamageToEachPlayerFromReceivedDamage,
@@ -854,6 +858,7 @@ impl Effect {
             | Self::DealDamageToEachPlayer { .. }
             | Self::GainLifeController { .. }
             | Self::GainLifeControllerFromSourceDamage
+            | Self::DrawController
             | Self::DealDamageToEachPlayerFromReceivedDamage
             | Self::DrawControllerIfManaColorSpent { .. }
             | Self::CreateToken { .. }

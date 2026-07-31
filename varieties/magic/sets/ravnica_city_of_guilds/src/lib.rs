@@ -1143,10 +1143,10 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Creature]),
             is_basic_land: false,
-            supported_rules: &["colored-cost-casting", "base-characteristics"],
+            supported_rules: &["colored-cost-casting", "base-characteristics", "defender"],
             power: Some(2),
             toughness: Some(5),
-            keywords: vec![],
+            keywords: vec![Keyword::Defender],
             effects: vec![],
         },
         // Public RAV #261 verification establishes that this is a vanilla
@@ -1354,17 +1354,24 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             1,
             2,
         ),
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed combat capabilities are deliberately
-        // omitted from this compatibility slice.
-        bounded_creature_chassis(
-            "RAV-SELESNYA-SAGITTARS",
-            "Selesnya Sagittars",
-            ManaCost::with_colors(3, [Color::Green, Color::White]),
-            colors([Color::Green, Color::White]),
-            2,
-            5,
-        ),
+        // Compatibility scope: normal colored-cost creature casting, base
+        // characteristics, and Reach. Its printed tap-to-damage activation
+        // remains deliberately omitted from this compatibility slice.
+        CardDefinition {
+            id: "RAV-SELESNYA-SAGITTARS",
+            name: "Selesnya Sagittars",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(3, [Color::Green, Color::White]),
+            colors: colors([Color::Green, Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &["colored-cost-casting", "base-characteristics", "reach"],
+            power: Some(2),
+            toughness: Some(5),
+            keywords: vec![Keyword::Reach],
+            effects: vec![],
+        },
         // Compatibility scope: normal colored-cost creature casting, base
         // characteristics, and Flying. Its activated combat behavior remains
         // deliberately unsupported, so this is not a full-fidelity card.
@@ -1383,17 +1390,24 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Flying],
             effects: vec![],
         },
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed flying and damage-triggered
-        // behavior are deliberately omitted from this compatibility slice.
-        bounded_creature_chassis(
-            "RAV-BELLTOWER-SPHINX",
-            "Belltower Sphinx",
-            ManaCost::with_colors(4, [Color::Blue]),
-            colors([Color::Blue]),
-            2,
-            5,
-        ),
+        // Compatibility scope: normal colored-cost creature casting, base
+        // characteristics, and Flying. Its printed damage trigger remains
+        // deliberately omitted from this compatibility slice.
+        CardDefinition {
+            id: "RAV-BELLTOWER-SPHINX",
+            name: "Belltower Sphinx",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(4, [Color::Blue]),
+            colors: colors([Color::Blue]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &["colored-cost-casting", "base-characteristics", "flying"],
+            power: Some(2),
+            toughness: Some(5),
+            keywords: vec![Keyword::Flying],
+            effects: vec![],
+        },
         // Compatibility scope: normal colored-cost creature casting and base
         // characteristics only. Its printed flying and activated library
         // behavior are deliberately omitted from this compatibility slice.
@@ -2514,6 +2528,17 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
 pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
     vec![
         TriggeredAbilityBinding {
+            card_definition: "RAV-CARVEN-CARYATID",
+            ability: TriggeredAbility {
+                id: "etb-draw-controller",
+                condition: TriggerCondition::EntersBattlefield,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![Effect::DrawController],
+            },
+        },
+        TriggeredAbilityBinding {
             card_definition: "RAV-FLAME-KIN-ZEALOT",
             ability: TriggeredAbility {
                 id: "etb-team-pump-haste",
@@ -3323,7 +3348,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 109);
+        assert_eq!(first.len(), 112);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }
