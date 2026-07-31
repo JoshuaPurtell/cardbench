@@ -26,6 +26,11 @@ Oracle Magic rules coverage.
 - A card in a library, hand, graveyard, or exile is in its owner's zone. A
   permanent is in its controller's battlefield. Every non-token definition is
   present in the game catalog.
+- A targeted exile instruction may move only a currently legal battlefield
+  creature, records the ordinary `CardMoved { to: Exile }` receipt, and runs
+  zone-departure cleanup for the object and any continuous effects involving
+  it. It is not lethal damage and cannot be silently substituted with a
+  graveyard move.
 - A non-token object has exactly one catalog definition; a token has exactly
   one token specification and exists only on the battlefield. An object cannot
   be both, and no nonpermanent card can occupy the battlefield.

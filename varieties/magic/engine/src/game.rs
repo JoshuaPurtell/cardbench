@@ -3602,7 +3602,8 @@ impl Game {
                 | Effect::RadianceUntapAndModifyUntilEndOfTurn { .. }
                 | Effect::RadianceModifyPtUntilEndOfTurn { .. }
                 | Effect::RadianceAddKeywordUntilEndOfTurn { .. }
-                | Effect::CounterTargetInstantOrSorcerySpell => continue,
+                | Effect::CounterTargetInstantOrSorcerySpell
+                | Effect::ExileTargetCreature => continue,
             };
             if amount <= 0 {
                 return Err(RulesError::IllegalAction(
@@ -4814,6 +4815,10 @@ impl Game {
                     source,
                 });
                 self.move_to_graveyard_or_remove_token(target)?;
+            }
+            Effect::ExileTargetCreature => {
+                let target = Self::target_permanent(target)?;
+                self.move_to_zone(target, Zone::Exile)?;
             }
         }
         Ok(())
