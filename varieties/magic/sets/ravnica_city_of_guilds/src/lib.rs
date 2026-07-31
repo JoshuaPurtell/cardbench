@@ -35,7 +35,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 43] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 44] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SCATTER-THE-SEEDS",
@@ -79,6 +79,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 43] = [
     "RAV-GREATER-FORGELING",
     "RAV-VIASHINO-SLASHER",
     "RAV-WAR-TORCH-GOBLIN",
+    "RAV-BARBARIAN-RIFTCUTTER",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -1657,17 +1658,28 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             5,
             5,
         ),
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed sacrifice-to-destroy-land
-        // activation is deliberately omitted from this compatibility slice.
-        bounded_creature_chassis(
-            "RAV-BARBARIAN-RIFTCUTTER",
-            "Barbarian Riftcutter",
-            ManaCost::with_colors(4, [Color::Red]),
-            colors([Color::Red]),
-            3,
-            3,
-        ),
+        // Full fidelity: the `{R}, sacrifice` land-destruction activation is
+        // represented by the shared typed target and zone-change substrate.
+        CardDefinition {
+            id: "RAV-BARBARIAN-RIFTCUTTER",
+            name: "Barbarian Riftcutter",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(4, [Color::Red]),
+            colors: colors([Color::Red]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "sacrifice-source-destroy-land",
+            ],
+            power: Some(3),
+            toughness: Some(3),
+            keywords: vec![],
+            effects: vec![],
+        },
         // Compatibility scope: normal colored-cost creature casting and base
         // characteristics only. Its printed damage-prevention exception is
         // deliberately omitted from this compatibility slice.
@@ -2181,6 +2193,17 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                     amount: 2,
                     target: cardbench_magic_engine::TargetRequirement::BlockingCreature,
                 }],
+            },
+        },
+        ActivatedAbilityBinding {
+            card_definition: "RAV-BARBARIAN-RIFTCUTTER",
+            ability: ActivatedAbility {
+                id: "sacrifice-destroy-target-land",
+                mana_cost: ManaCost::with_colors(0, [Color::Red]),
+                tap_cost: false,
+                sacrifice_source: true,
+                targets: vec![cardbench_magic_engine::TargetRequirement::Land],
+                effects: vec![Effect::DestroyTargetLand],
             },
         },
     ]
