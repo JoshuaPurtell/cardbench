@@ -2787,6 +2787,13 @@ impl Game {
             .additional_spell_costs
             .get(definition.id)
             .map_or(0, Vec::len);
+        if cost_count == 0 {
+            // Preserve the ordinary target-validation path for spells without
+            // expansion-bound additional costs. This keeps a spurious target
+            // on a target-free spell classified as a target error rather than
+            // exposing the internal cost-selection partitioning.
+            return Ok((selections.to_vec(), Vec::new()));
+        }
         if selections.len() != target_count + cost_count {
             return Err(RulesError::IllegalAction(
                 "the supplied targets and additional-cost selections do not match this spell",
