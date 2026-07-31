@@ -64,14 +64,14 @@ The RAV crate implements only the semantic fragments stated by each card's
 `supported_rules` field. `full-rules-fidelity` is a positive exception: it is
 reserved for a definition whose complete printed functional behavior is
 represented and directly tested. The positive manifest names every such
-definition; Gather Courage, Seeds of Strength, and Scatter the Seeds are in
-the latest audited tranches. All other definitions remain explicitly scoped
-compatibility slices.
+definition; Gather Courage, Seeds of Strength, Scatter the Seeds, and Guardian
+of Vitu-Ghazi are in the latest audited tranches. All other definitions remain
+explicitly scoped compatibility slices.
 
 RAV shown scenarios are fixture-driven from
 `sets/ravnica_city_of_guilds/scenarios/public/train_scenarios.toml`; each declares
 setup, actions, state assertions, event markers, and a fixed digest. The
-current corpus contains 83 scenarios and covers:
+current corpus contains 84 scenarios and covers:
 
 - casting to the stack and both-player priority passes (`Lightning Helix`);
 - colored-cost creature casting and permanent characteristics (`Watchwolf`);
@@ -87,7 +87,9 @@ current corpus contains 83 scenarios and covers:
   these cover only the named shared keyword plus normal casting/base
   characteristics, never omitted printed behavior (`Golgari Grave-Troll`,
   `Necroplasm`, `Grave-Shell Scarab`, `Shambling Shell`, `Conclave Equenaut`,
-  `Conclave Phalanx`, `Guardian of Vitu-Ghazi`, and `Autochthon Wurm`);
+  `Conclave Phalanx`, and `Autochthon Wurm`);
+- a full-fidelity Convoke creature with typed vigilance combat behavior
+  (`Guardian of Vitu-Ghazi`);
 - a target-instant-or-sorcery stack counter plus transmute, equal mana-value
   search, public reveal receipt, optional no-result search, and seeded
   deterministic shuffle (`Muddle the Mixture`). Its activated ability remains
