@@ -2509,7 +2509,7 @@ digest = "fnv1a64:e6d94b7618cfb40f"
 [[scenario]]
 id = "rav_guardian_of_vitu_ghazi_convoke_slice"
 seed = 0
-description = "Convoke Guardian of Vitu-Ghazi with six generic creature contributions and resolve its supported 4/7 base creature. Its printed combat keyword is outside this compatibility slice."
+description = "Convoke Guardian of Vitu-Ghazi with six generic creature contributions and resolve its complete 4/7 creature slice."
 
 [[scenario.card]]
 label = "guardian"
@@ -2583,6 +2583,69 @@ powers = ["guardian:4"]
 tapped = ["one:true", "two:true", "three:true", "four:true", "five:true", "six:true"]
 event_markers = ["SpellCast", "ConvokeUsed", "SpellResolved"]
 digest = "fnv1a64:a68cdb671a037d94"
+
+[[scenario]]
+id = "rav_guardian_of_vitu_ghazi_vigilance_attack"
+seed = 0
+description = "Declare a long-controlled Guardian of Vitu-Ghazi as an attacker and preserve its untapped state through the vigilance declaration rule."
+
+[[scenario.card]]
+label = "guardian"
+owner = 0
+definition = "RAV-GUARDIAN-OF-VITU-GHAZI"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "declare_attackers"
+player = 0
+attackers = ["guardian"]
+
+[scenario.expected]
+zones = ["guardian:battlefield"]
+powers = ["guardian:4"]
+toughnesses = ["guardian:7"]
+tapped = ["guardian:false"]
+stack_size = 0
+priority = 0
+event_markers = ["StepBegan", "PriorityPassed", "AttackersDeclared"]
+digest = "fnv1a64:2b40464c0df717b5"
 
 [[scenario]]
 id = "rav_autochthon_wurm_convoke_slice"

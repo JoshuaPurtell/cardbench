@@ -14,6 +14,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-CHAR",
             "RAV-LIGHTNING-HELIX",
             "RAV-SCATTER-THE-SEEDS",
+            "RAV-GUARDIAN-OF-VITU-GHAZI",
             "RAV-LAST-GASP",
             "RAV-ELVES-OF-DEEP-SHADOW",
             "RAV-BOROS-RECRUIT",
