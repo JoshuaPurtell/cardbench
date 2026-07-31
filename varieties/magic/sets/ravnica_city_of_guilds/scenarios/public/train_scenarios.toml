@@ -5929,3 +5929,74 @@ stack_size = 0
 priority = 0
 event_markers = ["CastPaymentBasicLandManaAbilityActivated", "SpellCast", "SpellResolved", "AttackersDeclared"]
 digest = "fnv1a64:295ee29ac0f19820"
+
+[[scenario]]
+id = "rav_birds_of_paradise_flying_cast_payment"
+seed = 0
+description = "Use a long-controlled Birds of Paradise and a typed Forest to cast a two-color creature with an explicit white mana choice."
+
+[[scenario.card]]
+label = "birds"
+owner = 0
+definition = "RAV-BIRDS-OF-PARADISE"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.card]]
+label = "forest"
+owner = 0
+definition = "RAV-FOREST"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "watchwolf"
+owner = 0
+definition = "RAV-WATCHWOLF"
+zone = "hand"
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "watchwolf"
+payment_mana = ["birds:produce-one-color:white", "forest:basic-land"]
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["birds:battlefield", "forest:battlefield", "watchwolf:battlefield"]
+powers = ["birds:0", "watchwolf:3"]
+toughnesses = ["birds:1", "watchwolf:3"]
+tapped = ["birds:true", "forest:true", "watchwolf:false"]
+mana = ["0:white:0", "0:green:0"]
+mana_receipts = ["0:white:1", "0:green:1"]
+stack_size = 0
+priority = 0
+event_markers = ["CastPaymentManaAbilityActivated", "BoundManaAbilityActivated", "CastPaymentBasicLandManaAbilityActivated", "ManaAbilityActivated", "ManaAdded", "SpellCast", "SpellResolved"]
+event_absent = ["AttackersDeclared", "BlockersDeclared"]
+digest = "pending"
