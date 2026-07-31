@@ -43,7 +43,7 @@ fn sundering_vitae_is_cataloged_and_destroys_an_artifact_or_enchantment() {
     let events = game.canonical_event_log();
     let destroyed = events
         .iter()
-        .position(|event| event.contains("PermanentDestroyed"))
+        .position(|event| event.contains("CardDestroyed"))
         .expect("destruction receipt");
     assert!(events[destroyed + 1].contains("CardMoved"));
 }

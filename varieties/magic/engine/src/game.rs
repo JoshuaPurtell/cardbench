@@ -2182,7 +2182,7 @@ impl Game {
         }
         let (spell_targets, additional_cost_selections) =
             self.split_cast_targets(&definition, &request.targets)?;
-        self.validate_targets(&definition, &spell_targets)?;
+        self.validate_targets(player, &definition, &spell_targets)?;
         self.validate_additional_spell_cost_selections(
             &definition,
             player,
@@ -3517,6 +3517,7 @@ impl Game {
 
     fn validate_targets(
         &self,
+        controller: PlayerId,
         definition: &CardDefinition,
         targets: &[Target],
     ) -> Result<(), RulesError> {
@@ -3539,7 +3540,7 @@ impl Game {
             ));
         }
         for (target, requirement) in targets.iter().zip(requirements) {
-            if !self.target_matches(*target, requirement) {
+            if !self.target_matches_for_controller(controller, *target, requirement) {
                 return Err(RulesError::IllegalTarget(*target));
             }
         }
