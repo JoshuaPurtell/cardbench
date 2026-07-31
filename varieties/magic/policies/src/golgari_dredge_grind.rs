@@ -69,6 +69,7 @@ impl CodePolicy for GolgariDredgeGrindPolicy {
                 card: gasp,
                 targets: vec![Target::Permanent(target)],
                 convoke: vec![],
+                payment_mana_abilities: vec![],
             });
         }
 
@@ -90,6 +91,7 @@ impl CodePolicy for GolgariDredgeGrindPolicy {
                 card,
                 targets: vec![],
                 convoke,
+                payment_mana_abilities: vec![],
             });
         }
         if let Some(card) = card_in_hand(view, "RAV-GOLGARI-BROWNSCALE")
@@ -99,6 +101,7 @@ impl CodePolicy for GolgariDredgeGrindPolicy {
                 card,
                 targets: vec![],
                 convoke: vec![],
+                payment_mana_abilities: vec![],
             });
         }
         if let Some((land, color)) = select_mana_ability(view) {
@@ -309,6 +312,7 @@ mod tests {
                 card: gasp,
                 targets: vec![Target::Permanent(target)],
                 convoke: vec![],
+                payment_mana_abilities: vec![],
             })
         );
         game.submit_policy_move(PlayerId(0), policy.id(), action)

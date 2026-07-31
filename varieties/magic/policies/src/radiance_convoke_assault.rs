@@ -85,6 +85,7 @@ impl CodePolicy for RadianceConvokeAssaultPolicy {
                 card: scatter,
                 targets: vec![],
                 convoke,
+                payment_mana_abilities: vec![],
             });
         }
         if let Some(brownscale) = card_in_hand(view, "RAV-GOLGARI-BROWNSCALE")
@@ -94,6 +95,7 @@ impl CodePolicy for RadianceConvokeAssaultPolicy {
                 card: brownscale,
                 targets: vec![],
                 convoke: vec![],
+                payment_mana_abilities: vec![],
             });
         }
         if let (Some(rally), Some(target)) = (
@@ -127,6 +129,7 @@ fn cast_targeted(card: ObjectId, target: Target) -> PolicyAction {
         card,
         targets: vec![target],
         convoke: vec![],
+        payment_mana_abilities: vec![],
     })
 }
 

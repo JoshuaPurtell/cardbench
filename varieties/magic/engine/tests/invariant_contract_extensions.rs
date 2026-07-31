@@ -292,6 +292,7 @@ fn cast(game: &mut Game, player: PlayerId, card: ObjectId, target: Option<Target
             card,
             targets: target.into_iter().collect(),
             convoke: vec![],
+            payment_mana_abilities: vec![],
         },
     )
     .expect("test spell is legal to cast");
@@ -415,6 +416,7 @@ fn rejected_mana_and_convoke_actions_are_atomic() {
                     creature,
                     contribution: cardbench_magic_engine::ConvokeContribution::Color(Color::Red),
                 }],
+                payment_mana_abilities: vec![],
             },
         ),
         Err(RulesError::IllegalAction(_))
@@ -455,6 +457,7 @@ fn sorcery_cannot_be_cast_by_nonactive_player_in_response_to_a_spell() {
                 card: sorcery,
                 targets: vec![],
                 convoke: vec![],
+                payment_mana_abilities: vec![],
             },
         ),
         Err(RulesError::IllegalAction(

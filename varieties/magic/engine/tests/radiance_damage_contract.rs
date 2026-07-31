@@ -113,6 +113,7 @@ fn cast(game: &mut Game, player: PlayerId, card: ObjectId, target: ObjectId) {
             card,
             targets: vec![Target::Permanent(target)],
             convoke: vec![],
+            payment_mana_abilities: vec![],
         },
     )
     .expect("prepared cast is legal");
@@ -212,6 +213,7 @@ fn radiance_damage_rejects_noncreature_targets_at_cast_time() {
                 card: beam,
                 targets: vec![Target::Permanent(artifact)],
                 convoke: vec![],
+                payment_mana_abilities: vec![],
             },
         ),
         Err(RulesError::IllegalTarget(Target::Permanent(artifact)))

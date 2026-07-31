@@ -49,6 +49,7 @@ fn resolving_life_gain_at_the_representable_ceiling_is_not_a_partial_panicking_t
             card: helix,
             targets: vec![Target::Player(PlayerId(1))],
             convoke: vec![],
+            payment_mana_abilities: vec![],
         },
     )
     .expect("the spell is legal before it resolves");

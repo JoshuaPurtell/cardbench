@@ -172,6 +172,7 @@ fn cast(game: &mut Game, player: PlayerId, card: ObjectId, target: Target) {
             card,
             targets: vec![target],
             convoke: vec![],
+            payment_mana_abilities: vec![],
         },
     )
     .expect("test card is legal to cast");
@@ -199,6 +200,7 @@ fn rejected_cast_is_atomic_and_does_not_contaminate_the_event_log() {
                 card,
                 targets: vec![Target::Player(opponent)],
                 convoke: vec![],
+                payment_mana_abilities: vec![],
             },
         )
         .expect_err("a red spell cannot be cast from an empty mana pool");

@@ -1,8 +1,7 @@
-//! Public contract for the bounded RAV Signet compatibility slice.
+//! Public full-fidelity contract for the four RAV Signets.
 //!
-//! The fixed paid-bundle substrate is represented exactly, but the engine has
-//! no payment-context mana-activation window. The Signets therefore must not
-//! be promoted to the positive full-fidelity manifest yet.
+//! Their artifact casting, paid/tapped fixed mana bundles, and the legal
+//! payment-context activation window are all represented by typed engine data.
 
 use cardbench_magic_engine::{
     CardType, CastRequest, Color, Game, GameEvent, ManaAbilityOutput, ManaBundle, ManaCost,
@@ -21,6 +20,7 @@ struct Signet {
     ability_id: &'static str,
     colors: [Color; 2],
     scenario_id: &'static str,
+    payment_scenario_id: &'static str,
 }
 
 const SIGNETS: [Signet; 4] = [
@@ -31,6 +31,7 @@ const SIGNETS: [Signet; 4] = [
         ability_id: "boros-signet-wr",
         colors: [Color::White, Color::Red],
         scenario_id: "rav_boros_signet_paid_bundle",
+        payment_scenario_id: "rav_boros_signet_cast_payment",
     },
     Signet {
         collector_number: 260,
@@ -39,6 +40,7 @@ const SIGNETS: [Signet; 4] = [
         ability_id: "dimir-signet-ub",
         colors: [Color::Blue, Color::Black],
         scenario_id: "rav_dimir_signet_paid_bundle",
+        payment_scenario_id: "rav_dimir_signet_cast_payment",
     },
     Signet {
         collector_number: 262,
@@ -47,6 +49,7 @@ const SIGNETS: [Signet; 4] = [
         ability_id: "golgari-signet-bg",
         colors: [Color::Black, Color::Green],
         scenario_id: "rav_golgari_signet_paid_bundle",
+        payment_scenario_id: "rav_golgari_signet_cast_payment",
     },
     Signet {
         collector_number: 270,
@@ -55,11 +58,12 @@ const SIGNETS: [Signet; 4] = [
         ability_id: "selesnya-signet-gw",
         colors: [Color::White, Color::Green],
         scenario_id: "rav_selesnya_signet_paid_bundle",
+        payment_scenario_id: "rav_selesnya_signet_cast_payment",
     },
 ];
 
 #[test]
-fn rav_signets_have_exact_artifact_and_paid_bundle_compatibility_bindings() {
+fn rav_signets_have_complete_artifact_and_paid_bundle_bindings() {
     let definitions = card_definitions();
     let bindings = rav_mana_ability_bindings();
     for signet in SIGNETS {
@@ -81,7 +85,12 @@ fn rav_signets_have_exact_artifact_and_paid_bundle_compatibility_bindings() {
         assert!(definition.card_types.contains(&CardType::Artifact));
         assert_eq!(
             definition.supported_rules,
-            ["artifact-casting", "paid-fixed-two-color-mana-ability"]
+            [
+                "full-rules-fidelity",
+                "artifact-casting",
+                "paid-fixed-two-color-mana-ability",
+                "cast-payment-mana-activation",
+            ]
         );
 
         let binding = bindings
@@ -106,11 +115,11 @@ fn rav_signets_have_exact_artifact_and_paid_bundle_compatibility_bindings() {
 }
 
 #[test]
-fn rav_signets_remain_outside_full_fidelity_until_payment_window_activation_exists() {
+fn rav_signets_are_promoted_only_with_the_payment_context_activation_window() {
     for signet in SIGNETS {
         assert!(
-            !RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&signet.definition_id),
-            "{} must remain bounded: the engine currently only activates mana abilities with priority, not while paying a mana cost",
+            RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&signet.definition_id),
+            "{} is ability-complete only because the engine provides its typed payment-context mana-activation window",
             signet.name
         );
     }
@@ -136,6 +145,7 @@ fn rav_signets_cast_as_two_mana_artifacts_to_the_battlefield() {
                 card: signet_card,
                 targets: vec![],
                 convoke: vec![],
+                payment_mana_abilities: vec![],
             },
         )
         .expect("two generic mana casts each Signet artifact");
@@ -158,7 +168,8 @@ fn rav_signets_cast_as_two_mana_artifacts_to_the_battlefield() {
 }
 
 #[test]
-fn rav_signet_public_scenarios_emit_paid_bundle_receipts_without_stack_or_priority_events() {
+fn rav_signet_direct_activation_scenarios_emit_paid_bundle_receipts_without_stack_or_priority_events()
+ {
     let results = run_all_scenarios().expect("public RAV scenarios run");
     for signet in SIGNETS {
         let result = results
@@ -203,6 +214,51 @@ fn rav_signet_public_scenarios_emit_paid_bundle_receipts_without_stack_or_priori
                     && !event.contains("PriorityPassed")),
             "{} activation uses neither the stack nor a priority pass",
             signet.name
+        );
+    }
+}
+
+#[test]
+fn rav_signet_cast_payment_scenarios_preserve_causal_event_order() {
+    let results = run_all_scenarios().expect("public RAV scenarios run");
+    for signet in SIGNETS {
+        let result = results
+            .iter()
+            .find(|result| result.id == signet.payment_scenario_id)
+            .expect("every Signet has a payment-context scenario");
+        let event_index = |marker: &str| {
+            result
+                .event_log
+                .iter()
+                .position(|event| event.contains(marker))
+                .unwrap_or_else(|| panic!("{} lacks {marker}", signet.name))
+        };
+        let contextual_activation = event_index("CastPaymentManaAbilityActivated");
+        let bundle_activation = event_index("BoundManaAbilityBundleActivated");
+        let activation_payment = event_index("ManaAbilityManaPaid");
+        let spell_cast = event_index("SpellCast");
+        let spell_resolved = event_index("SpellResolved");
+        assert!(contextual_activation < bundle_activation, "{}", signet.name);
+        assert!(bundle_activation < activation_payment, "{}", signet.name);
+        for color in signet.colors {
+            let output = event_index(&format!(
+                "ManaAdded {{ player: PlayerId(0), color: {color:?}, amount: 1 }}"
+            ));
+            assert!(
+                activation_payment < output && output < spell_cast,
+                "{}",
+                signet.name
+            );
+        }
+        assert!(spell_cast < spell_resolved, "{}", signet.name);
+        assert_eq!(
+            result
+                .event_log
+                .iter()
+                .filter(|event| event.contains("SpellCast"))
+                .count(),
+            1,
+            "only the cast spell, never a mana ability, uses the stack"
         );
     }
 }

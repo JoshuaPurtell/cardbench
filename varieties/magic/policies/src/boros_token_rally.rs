@@ -83,6 +83,7 @@ impl CodePolicy for BorosTokenRallyPolicy {
                 card,
                 targets: vec![],
                 convoke,
+                payment_mana_abilities: vec![],
             });
         }
         if let Some(card) = card_in_hand(view, "RAV-RALLY-THE-RIGHTEOUS")
@@ -126,6 +127,7 @@ fn cast(card: ObjectId, targets: Vec<Target>) -> PolicyAction {
         card,
         targets,
         convoke: vec![],
+        payment_mana_abilities: vec![],
     })
 }
 

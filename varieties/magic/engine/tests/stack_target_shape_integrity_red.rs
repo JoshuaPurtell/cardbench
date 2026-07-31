@@ -53,6 +53,7 @@ fn invariant_audit_rejects_a_spell_target_for_a_player_only_stack_spell() {
             card: spell,
             targets: vec![Target::Player(opponent)],
             convoke: vec![],
+            payment_mana_abilities: vec![],
         },
     )
     .expect("the player-target spell is cast through the normal transition");

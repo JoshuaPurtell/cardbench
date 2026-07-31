@@ -154,6 +154,18 @@ Oracle Magic rules coverage.
   bounded pool before it changes a source, pass state, pool, or event log. A
   capacity rejection is atomic and cannot emit a `ManaAdded` receipt for mana
   the pool did not receive.
+- A `CastRequest` may name an ordered list of existing definition-bound mana
+  abilities for its own payment context. Such an ability is neither a priority
+  action nor a stack object: it is admitted only inside that one enclosing cast
+  transaction. The cast preflights spell legality, executes the listed
+  activations in request order, then pays the remaining spell cost and creates
+  exactly one spell stack object. Any later activation or final-payment
+  rejection restores every earlier source tap, life/mana change, zone, stack,
+  pass-state field, and receipt. Each contextual activation emits
+  `CastPaymentManaAbilityActivated`, immediately followed by its matching
+  bound-ability receipt; a matching `SpellCast` must occur before any priority
+  pass. Paid fixed bundles additionally require their cost receipt, optional
+  life-cost receipt, and every fixed mana-output receipt in declared order.
 - Player life totals use a wide signed `i64` representation, distinct from
   the `i16` effect and damage amounts. Life changes widen their amount before
   arithmetic, so an ordinary legal life-gain effect at the former `i16`

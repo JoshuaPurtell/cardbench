@@ -87,6 +87,7 @@ impl CodePolicy for GolgariWurmPressPolicy {
                 card: scatter,
                 targets: vec![],
                 convoke,
+                payment_mana_abilities: vec![],
             });
         }
         if let Some(wurm) = card_in_hand(view, "RAV-SIEGE-WURM")
@@ -96,6 +97,7 @@ impl CodePolicy for GolgariWurmPressPolicy {
                 card: wurm,
                 targets: vec![],
                 convoke,
+                payment_mana_abilities: vec![],
             });
         }
         if let Some(brownscale) = card_in_hand(view, "RAV-GOLGARI-BROWNSCALE")
@@ -105,6 +107,7 @@ impl CodePolicy for GolgariWurmPressPolicy {
                 card: brownscale,
                 targets: vec![],
                 convoke: vec![],
+                payment_mana_abilities: vec![],
             });
         }
         if let Some((land, color)) = select_mana_ability(view) {
@@ -119,6 +122,7 @@ fn cast_targeted(card: ObjectId, target: ObjectId) -> PolicyAction {
         card,
         targets: vec![Target::Permanent(target)],
         convoke: vec![],
+        payment_mana_abilities: vec![],
     })
 }
 
@@ -298,6 +302,7 @@ mod tests {
                 card: scatter,
                 targets: vec![],
                 convoke: vec![],
+                payment_mana_abilities: vec![],
             })
         );
         game.submit_policy_move(PlayerId(0), policy.id(), action)

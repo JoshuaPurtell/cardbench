@@ -68,6 +68,7 @@ fn active_player_departure_does_not_start_a_new_turn_before_remaining_stack_obje
             card: base,
             targets: vec![],
             convoke: vec![],
+            payment_mana_abilities: vec![],
         },
     )
     .expect("active player casts the base spell");
@@ -78,6 +79,7 @@ fn active_player_departure_does_not_start_a_new_turn_before_remaining_stack_obje
             card: response,
             targets: vec![],
             convoke: vec![],
+            payment_mana_abilities: vec![],
         },
     )
     .expect("first survivor responds");
@@ -89,6 +91,7 @@ fn active_player_departure_does_not_start_a_new_turn_before_remaining_stack_obje
             card: killer,
             targets: vec![Target::Player(active)],
             convoke: vec![],
+            payment_mana_abilities: vec![],
         },
     )
     .expect("second survivor casts the lethal response");

@@ -30,4 +30,12 @@ rules prose or private benchmark material.
   definition-bound mana-ability activations without creating stack objects.
   The complete cast, including activation costs, outputs, spell payment, zone
   move, stack object, and canonical receipts, must remain atomic.
-- **Status:** red regression recorded; repair pending.
+- **Resolution:** `CastRequest` now carries an ordered typed
+  `payment_mana_abilities` vector limited to existing definition-bound mana
+  abilities. The atomic cast transition emits a payment-context receipt,
+  matching bound activation/cost/output receipts, and then `SpellCast`; every
+  later failure restores the complete game state and event log. The invariant
+  audit rejects a payment-context receipt without its matching activation or
+  spell receipt, and rejects paid-bundle receipt sequences with missing or
+  reordered cost/output records. The regression passes for both the legal
+  cast and an intentionally unaffordable final spell payment.

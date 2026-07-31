@@ -131,19 +131,18 @@ Its current empty `keywords` or `effects` vector is a deliberately bounded
 engine representation, not evidence that the printing is vanilla. Public
 source responses, card prose, art, and JSON from this audit were not retained.
 
-The four RAV Signets are executable only through the shared paid fixed-bundle
-mana-ability substrate. Their compatibility slice records each artifact's
-colorless casting cost, artifact characteristics, and one generic-mana plus
-tap activation producing its two fixed guild colors. The public scenarios
-assert the cost-payment receipt, one receipt for each output color, an empty
-stack, and retained activator priority. They deliberately remain outside
-`RAV_FULL_FIDELITY_DEFINITION_IDS`: the shared engine currently permits a
-bound mana-ability activation only while its controller has priority and does
-not offer a mana-activation window while a spell, ability, rule, or effect is
-paying mana. This is a cross-cutting timing-coverage gap, not a claim that the
-printed Signet abilities are fully represented. The catalog maps Dimir Signet
-at its retained public collector number, `#260`; `#261` is Glass Golem and
-remains mapped to its separate executable definition.
+The four RAV Signets are positive-manifest entries. Their definitions record
+each artifact's colorless casting cost, artifact characteristics, and paid
+fixed two-color mana ability; the shared engine now also accepts an ordered,
+typed definition-bound mana-activation list within the enclosing
+`CastRequest` payment transaction. Public scenarios cover both direct
+activation and activating each Signet while paying a second artifact spell,
+with fixed event-log digests for context declaration, activation cost, two
+mana outputs, one spell cast, and spell resolution. The cast transaction is
+atomic, and the engine invariant audit rejects missing or reordered
+payment-context receipts. The catalog maps Dimir Signet at its retained public
+collector number, `#260`; `#261` is Glass Golem and remains mapped to its
+separate executable definition.
 
 Rain of Embers is an ability-complete positive-manifest entry: the shared,
 target-free global creature-and-player damage operation snapshots all affected

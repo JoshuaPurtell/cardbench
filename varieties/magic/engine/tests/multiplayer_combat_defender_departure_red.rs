@@ -174,6 +174,7 @@ fn departed_defender_does_not_retarget_declared_attackers_to_next_survivor() {
             card: burn,
             targets: vec![Target::Player(original_defender)],
             convoke: vec![],
+            payment_mana_abilities: vec![],
         }),
     )
     .expect("attacker controller has priority after declaring attackers");

@@ -81,6 +81,7 @@ impl CodePolicy for DimirTransmuteConvokePolicy {
                 card,
                 targets: vec![],
                 convoke,
+                payment_mana_abilities: vec![],
             });
         }
         if let Some(card) = card_in_hand(view, "RAV-GOLGARI-BROWNSCALE")
@@ -140,6 +141,7 @@ fn cast(card: ObjectId, targets: Vec<Target>) -> PolicyAction {
         card,
         targets,
         convoke: vec![],
+        payment_mana_abilities: vec![],
     })
 }
 

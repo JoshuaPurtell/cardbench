@@ -52,6 +52,7 @@ fn muddle_exercises_its_explicit_counterspell_and_transmute_compatibility_slices
                 card: char,
                 targets: vec![Target::Player(PlayerId(1))],
                 convoke: vec![],
+                payment_mana_abilities: vec![],
             },
         )
         .expect("target spell casts");
@@ -65,6 +66,7 @@ fn muddle_exercises_its_explicit_counterspell_and_transmute_compatibility_slices
                 card: muddle,
                 targets: vec![Target::Spell(char)],
                 convoke: vec![],
+                payment_mana_abilities: vec![],
             },
         )
         .expect("Muddle legally targets an instant spell on the stack");
@@ -150,6 +152,7 @@ fn gather_courage_uses_colored_convoke_and_applies_its_temporary_modifier() {
                 creature: target,
                 contribution: ConvokeContribution::Color(Color::Green),
             }],
+            payment_mana_abilities: vec![],
         },
     )
     .expect("a green creature pays the green convoke requirement");
@@ -215,6 +218,7 @@ fn seeds_tracks_three_target_slots_and_resolves_the_legal_slots_independently() 
                 Target::Permanent(survivor),
             ],
             convoke: vec![],
+            payment_mana_abilities: vec![],
         },
     )
     .expect("each printed target slot is supplied, including a repeated target");
@@ -226,6 +230,7 @@ fn seeds_tracks_three_target_slots_and_resolves_the_legal_slots_independently() 
             card: char,
             targets: vec![Target::Permanent(victim)],
             convoke: vec![],
+            payment_mana_abilities: vec![],
         },
     )
     .expect("response removes one Seeds target");

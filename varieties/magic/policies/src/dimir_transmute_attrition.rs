@@ -125,6 +125,7 @@ fn cast(card: ObjectId, target: Target) -> PolicyAction {
         card,
         targets: vec![target],
         convoke: vec![],
+        payment_mana_abilities: vec![],
     })
 }
 

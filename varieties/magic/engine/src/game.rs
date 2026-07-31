@@ -74,6 +74,12 @@ pub struct CastRequest {
     pub card: ObjectId,
     pub targets: Vec<Target>,
     pub convoke: Vec<ConvokePayment>,
+    /// Ordered definition-bound mana activations performed while this spell's
+    /// cost is being paid. These never become stack objects. The engine
+    /// preflights and applies them as part of the enclosing cast transaction,
+    /// so a later failed activation or spell payment restores every earlier
+    /// tap, mana-pool debit/output, and event receipt.
+    pub payment_mana_abilities: Vec<ManaAbilityActivation>,
 }
 
 /// A policy's proposed move. The engine performs all legality checks when submitted.
@@ -646,7 +652,27 @@ impl Game {
         player: PlayerId,
         activation: ManaAbilityActivation,
     ) -> Result<(), RulesError> {
-        self.require_priority(player)?;
+        self.atomic_transition(|game| {
+            game.require_priority(player)?;
+            game.activate_bound_mana_ability_impl(player, activation, None)?;
+            game.consecutive_passes = 0;
+            game.priority = player;
+            game.check_state_based_actions()?;
+            Ok(())
+        })
+    }
+
+    /// Applies an already-authorized definition-bound mana ability. Public
+    /// activation obtains priority before entering this primitive; cast
+    /// payment instead holds the single cast transaction open around its
+    /// ordered payment-context activations.
+    #[allow(clippy::too_many_lines)] // One primitive keeps the activation transaction auditable.
+    fn activate_bound_mana_ability_impl(
+        &mut self,
+        player: PlayerId,
+        activation: ManaAbilityActivation,
+        payment_spell: Option<ObjectId>,
+    ) -> Result<(), RulesError> {
         self.require_zone(activation.source, Zone::Battlefield)?;
         let source = self.object(activation.source)?.clone();
         if source.controller != player {
@@ -727,6 +753,15 @@ impl Game {
             ));
         }
 
+        if let Some(card) = payment_spell {
+            self.record_event(GameEvent::CastPaymentManaAbilityActivated {
+                player,
+                card,
+                source: activation.source,
+                ability: ability.id,
+            });
+        }
+
         if ability.tap_cost {
             self.objects
                 .get_mut(&activation.source)
@@ -796,10 +831,7 @@ impl Game {
                 });
             }
         }
-        self.consecutive_passes = 0;
-        self.priority = player;
-        self.check_state_based_actions()?;
-        self.validate_invariants()
+        Ok(())
     }
 
     #[must_use]
@@ -1330,6 +1362,17 @@ impl Game {
     }
 
     pub fn cast_spell(&mut self, player: PlayerId, request: CastRequest) -> Result<(), RulesError> {
+        self.atomic_transition(|game| game.cast_spell_impl(player, request))
+    }
+
+    /// Applies a cast under one all-or-error transaction. Mana abilities named
+    /// in `CastRequest::payment_mana_abilities` are the only non-stack actions
+    /// admitted between cast validation and final spell-cost payment.
+    fn cast_spell_impl(
+        &mut self,
+        player: PlayerId,
+        request: CastRequest,
+    ) -> Result<(), RulesError> {
         self.require_priority(player)?;
         self.require_zone(request.card, Zone::Hand)?;
         let definition = self.card_definition(request.card)?.clone();
@@ -1356,6 +1399,9 @@ impl Game {
         }
         self.validate_targets(&definition, &request.targets)?;
         self.validate_effect_capacity(&definition, player)?;
+        for activation in &request.payment_mana_abilities {
+            self.activate_bound_mana_ability_impl(player, *activation, Some(request.card))?;
+        }
         let paid_cost =
             self.pay_cost_with_convoke(player, request.card, &definition, &request.convoke)?;
         self.players[player.0].mana_pool = paid_cost;
@@ -1389,6 +1435,7 @@ impl Game {
         // receives priority again. Opponents get their response window only
         // after that player passes.
         self.priority = player;
+        self.check_state_based_actions()?;
         Ok(())
     }
 
@@ -1749,6 +1796,7 @@ impl Game {
                 "canonical event log was mutated outside an engine transition",
             ));
         }
+        Self::validate_mana_ability_event_order(&self.event_log)?;
         if self.started && !self.is_game_over() && !self.step.grants_priority() {
             return Err(RulesError::IllegalAction(
                 "an automatic turn step remained stable with player priority",
@@ -3180,6 +3228,123 @@ impl Game {
             return Err(RulesError::IllegalAction(
                 "mana ability color choice must not be empty",
             ));
+        }
+        Ok(())
+    }
+
+    /// Audits the causally significant mana-ability receipt sequences. These
+    /// are state-machine invariants rather than UI diagnostics: a replay must
+    /// never claim that a cast used a mana ability unless its bound activation
+    /// receipt and the enclosing spell-cast receipt occur in this order.
+    #[allow(clippy::too_many_lines)] // One ordered replay audit keeps receipt causality reviewable.
+    fn validate_mana_ability_event_order(events: &[GameEvent]) -> Result<(), RulesError> {
+        for (index, event) in events.iter().enumerate() {
+            if let GameEvent::CastPaymentManaAbilityActivated {
+                player,
+                card,
+                source,
+                ability,
+            } = event
+            {
+                let matching_activation = matches!(
+                    events.get(index + 1),
+                    Some(GameEvent::BoundManaAbilityActivated {
+                        player: receipt_player,
+                        source: receipt_source,
+                        ability: receipt_ability,
+                        ..
+                    })
+                        if receipt_player == player
+                            && receipt_source == source
+                            && receipt_ability == ability
+                ) || matches!(
+                    events.get(index + 1),
+                    Some(GameEvent::BoundManaAbilityBundleActivated {
+                        player: receipt_player,
+                        source: receipt_source,
+                        ability: receipt_ability,
+                        ..
+                    })
+                        if receipt_player == player
+                            && receipt_source == source
+                            && receipt_ability == ability
+                );
+                if !matching_activation {
+                    return Err(RulesError::IllegalAction(
+                        "cast-payment mana activation lacks its matching bound receipt",
+                    ));
+                }
+                let spell_was_cast = events[index + 1..]
+                    .iter()
+                    .take_while(|candidate| !matches!(candidate, GameEvent::PriorityPassed { .. }))
+                    .any(|candidate| {
+                        matches!(
+                            candidate,
+                            GameEvent::SpellCast {
+                                player: spell_player,
+                                card: spell_card,
+                            } if spell_player == player && spell_card == card
+                        )
+                    });
+                if !spell_was_cast {
+                    return Err(RulesError::IllegalAction(
+                        "cast-payment mana activation is not followed by its spell receipt",
+                    ));
+                }
+            }
+
+            if let GameEvent::BoundManaAbilityBundleActivated {
+                player,
+                mana_cost,
+                bundle,
+                life_payment,
+                ..
+            } = event
+            {
+                if !matches!(
+                    events.get(index + 1),
+                    Some(GameEvent::ManaAbilityManaPaid {
+                        player: receipt_player,
+                        mana_cost: receipt_cost,
+                    }) if receipt_player == player && receipt_cost == mana_cost
+                ) {
+                    return Err(RulesError::IllegalAction(
+                        "paid mana bundle activation lacks its payment receipt",
+                    ));
+                }
+                let mut output_index = index + 2;
+                if let Some(amount) = life_payment {
+                    if !matches!(
+                        events.get(output_index),
+                        Some(GameEvent::ManaAbilityLifePaid {
+                            player: receipt_player,
+                            amount: receipt_amount,
+                        }) if receipt_player == player && receipt_amount == amount
+                    ) {
+                        return Err(RulesError::IllegalAction(
+                            "paid mana bundle activation lacks its life-payment receipt",
+                        ));
+                    }
+                    output_index += 1;
+                }
+                for (color, amount) in bundle.iter() {
+                    if !matches!(
+                        events.get(output_index),
+                        Some(GameEvent::ManaAdded {
+                            player: receipt_player,
+                            color: receipt_color,
+                            amount: receipt_amount,
+                        }) if receipt_player == player
+                            && receipt_color == &color
+                            && receipt_amount == &amount
+                    ) {
+                        return Err(RulesError::IllegalAction(
+                            "paid mana bundle activation lacks an ordered mana-output receipt",
+                        ));
+                    }
+                    output_index += 1;
+                }
+            }
         }
         Ok(())
     }

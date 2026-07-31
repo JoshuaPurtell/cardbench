@@ -72,6 +72,7 @@ fn a_negative_damage_definition_cannot_leave_a_rejected_policy_move_with_negativ
             card: spell,
             targets: vec![Target::Permanent(target)],
             convoke: vec![],
+            payment_mana_abilities: vec![],
         }),
     );
     // A corrected engine may reject the malformed executable definition at

@@ -145,6 +145,7 @@ fn cast(game: &mut Game, player: PlayerId, card: ObjectId, targets: Vec<Target>)
             card,
             targets,
             convoke: vec![],
+            payment_mana_abilities: vec![],
         },
     )
     .expect("the test spell is legal to cast");
@@ -301,6 +302,7 @@ fn rejected_attempt_to_cast_an_opponents_hand_card_is_atomic() {
                 card: protected_card,
                 targets: vec![Target::Player(owner)],
                 convoke: vec![],
+                payment_mana_abilities: vec![],
             },
         ),
         Err(RulesError::IllegalAction(

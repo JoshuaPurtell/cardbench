@@ -119,6 +119,7 @@ fn probe_terminal_game_actions() -> Option<Finding> {
             card: char,
             targets: vec![Target::Player(PlayerId(1))],
             convoke: vec![],
+            payment_mana_abilities: vec![],
         },
     )
     .ok()?;
@@ -160,6 +161,7 @@ fn probe_terminal_game_draw() -> Option<Finding> {
             card: char,
             targets: vec![Target::Player(PlayerId(1))],
             convoke: vec![],
+            payment_mana_abilities: vec![],
         },
     )
     .ok()?;
@@ -385,6 +387,7 @@ fn probe_transmute_sorcery_timing() -> Option<Finding> {
             card: char,
             targets: vec![Target::Player(PlayerId(1))],
             convoke: vec![],
+            payment_mana_abilities: vec![],
         },
     )
     .ok()?;
@@ -442,6 +445,7 @@ fn probe_muddle_counterspell_resolution() -> Option<Finding> {
                 card: char,
                 targets: vec![Target::Player(PlayerId(1))],
                 convoke: Vec::new(),
+                payment_mana_abilities: vec![],
             },
         )
         .is_err()
@@ -464,6 +468,7 @@ fn probe_muddle_counterspell_resolution() -> Option<Finding> {
                 card: muddle,
                 targets: vec![Target::Spell(char)],
                 convoke: Vec::new(),
+                payment_mana_abilities: vec![],
             },
         )
         .is_err()
@@ -533,6 +538,7 @@ fn probe_combat_with_dead_token() -> Option<Finding> {
             card: scatter,
             targets: Vec::new(),
             convoke: Vec::new(),
+            payment_mana_abilities: vec![],
         },
     )
     .ok()?;

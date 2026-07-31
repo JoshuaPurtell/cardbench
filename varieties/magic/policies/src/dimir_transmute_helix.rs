@@ -173,6 +173,7 @@ fn cast(card: ObjectId, target: Target) -> PolicyAction {
         card,
         targets: vec![target],
         convoke: vec![],
+        payment_mana_abilities: vec![],
     })
 }
 
@@ -383,6 +384,7 @@ mod tests {
                 card: char,
                 targets: vec![Target::Player(PlayerId(0))],
                 convoke: vec![],
+                payment_mana_abilities: vec![],
             },
         )
         .expect("opponent casts Char");
@@ -440,6 +442,7 @@ mod tests {
                 card: char,
                 targets: vec![Target::Player(PlayerId(0))],
                 convoke: vec![],
+                payment_mana_abilities: vec![],
             },
         )
         .expect("opponent casts Char");

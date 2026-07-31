@@ -53,6 +53,10 @@ struct ActionSpec {
     target: String,
     targets: Vec<String>,
     convoke: Vec<String>,
+    /// `source_label:ability_id` entries activated only while this cast pays
+    /// its mana cost. The constrained fixture grammar deliberately exposes no
+    /// general activated-ability path here.
+    payment_mana: Vec<String>,
     attackers: Vec<String>,
     ability: String,
     color: String,
@@ -263,6 +267,7 @@ fn set_action_field(
         "target" => action.target = parse_string(value, line_number)?,
         "targets" => action.targets = parse_string_array(value, line_number)?,
         "convoke" => action.convoke = parse_string_array(value, line_number)?,
+        "payment_mana" => action.payment_mana = parse_string_array(value, line_number)?,
         "attackers" => action.attackers = parse_string_array(value, line_number)?,
         "ability" => action.ability = parse_string(value, line_number)?,
         "color" => action.color = parse_string(value, line_number)?,
@@ -388,12 +393,18 @@ fn execute_action(
                 .iter()
                 .map(|entry| parse_convoke(entry, labels))
                 .collect::<Result<Vec<_>, _>>()?;
+            let payment_mana_abilities = action
+                .payment_mana
+                .iter()
+                .map(|entry| parse_cast_payment_mana_ability(entry, game, labels))
+                .collect::<Result<Vec<_>, _>>()?;
             game.cast_spell(
                 player,
                 CastRequest {
                     card: lookup(labels, &action.card)?,
                     targets,
                     convoke,
+                    payment_mana_abilities,
                 },
             )
             .map_err(rules_error)
@@ -510,6 +521,34 @@ fn cast_targets(
         .into_iter()
         .map(|target| parse_target(target, labels))
         .collect()
+}
+
+/// Resolves the deliberately narrow public fixture notation for a
+/// definition-bound mana ability used while one cast pays its mana cost.
+fn parse_cast_payment_mana_ability(
+    entry: &str,
+    game: &Game,
+    labels: &BTreeMap<String, ObjectId>,
+) -> Result<ManaAbilityActivation, String> {
+    let (label, requested_ability) = split_pair(entry, "cast payment mana ability")?;
+    let source = lookup(labels, label)?;
+    let definition = game.card_definition(source).map_err(rules_error)?.id;
+    let ability_id = rav_mana_ability_bindings()
+        .into_iter()
+        .find(|binding| {
+            binding.card_definition == definition && binding.ability.id == requested_ability
+        })
+        .map(|binding| binding.ability.id)
+        .ok_or_else(|| {
+            format!(
+                "unknown RAV cast-payment mana ability `{requested_ability}` for `{definition}`"
+            )
+        })?;
+    Ok(ManaAbilityActivation {
+        source,
+        ability_id,
+        chosen_color: None,
+    })
 }
 
 #[allow(clippy::too_many_lines)] // Fixture assertion fields intentionally stay in one auditable parser path.

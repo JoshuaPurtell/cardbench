@@ -202,6 +202,7 @@ fn attacking_creature_damage_uses_the_resolution_time_combat_set() {
             card: spell,
             targets: vec![Target::Player(PlayerId(1))],
             convoke: vec![],
+            payment_mana_abilities: vec![],
         },
     )
     .expect("combat-count damage spell casts after attackers are declared");
@@ -241,6 +242,7 @@ fn attacking_creature_damage_records_no_damage_when_no_creature_is_attacking() {
             card: spell,
             targets: vec![Target::Player(PlayerId(1))],
             convoke: vec![],
+            payment_mana_abilities: vec![],
         },
     )
     .expect("spell remains legal outside combat");
@@ -284,6 +286,7 @@ fn controller_wide_modifier_selects_only_own_creatures_and_expires_at_cleanup() 
             card: spell,
             targets: vec![],
             convoke: vec![],
+            payment_mana_abilities: vec![],
         },
     )
     .expect("controller-wide boost casts without a target");

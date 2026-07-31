@@ -147,6 +147,7 @@ fn either_hybrid_color_pays_one_symbol_without_consuming_the_other() {
                 card: recruit,
                 targets: vec![],
                 convoke: vec![],
+                payment_mana_abilities: vec![],
             },
         )
         .expect("either legal hybrid color pays the recruit");
@@ -215,6 +216,7 @@ fn hybrid_payment_uses_a_feasible_allocation_instead_of_greedy_symbol_order() {
             card,
             targets: vec![],
             convoke: vec![],
+            payment_mana_abilities: vec![],
         },
     )
     .expect("white plus blue pays the two overlapping hybrid symbols");
@@ -239,6 +241,7 @@ fn missing_hybrid_color_rejects_the_cast_without_a_partial_pool_or_zone_mutation
                 card: recruit,
                 targets: vec![],
                 convoke: vec![],
+                payment_mana_abilities: vec![],
             },
         )
         .is_err()
