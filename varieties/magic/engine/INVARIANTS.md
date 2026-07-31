@@ -287,6 +287,17 @@ Oracle Magic rules coverage.
   Multi-block assignment, alternative combat restrictions, and other
   unsupported combat rules must be reported as capability gaps rather than
   approximated.
+- `trampling_attackers` is declaration provenance only: it is a subset of the
+  uniquely declared attackers and cannot exist before their declaration. At
+  combat damage, Trample is evaluated from the attacker's live characteristics,
+  so a later supported characteristic change can affect assignment without
+  corrupting the historical declaration. The single-blocker substrate admits at
+  most one blocker per attacker. A positive-power live Trample attacker assigns
+  only that blocker's remaining lethal damage (after marked damage) and its
+  positive excess exactly once to the fixed defender; if its sole blocker has
+  left combat, all its positive assignment goes to that defender. Multi-block
+  ordering, deathtouch, and prevention/replacement interactions remain explicit
+  capability gaps rather than approximated damage assignment.
 - When an attacking or blocking creature has first strike at the damage-step
   boundary, a dedicated `FirstStrikeCombatDamage` step precedes normal combat
   damage. Its recorded source set is a subset of the declared combatants and
