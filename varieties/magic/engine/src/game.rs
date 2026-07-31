@@ -669,7 +669,24 @@ impl Game {
         land: ObjectId,
         color: Color,
     ) -> Result<(), RulesError> {
-        self.require_priority(player)?;
+        self.atomic_transition(|game| {
+            game.require_priority(player)?;
+            game.activate_intrinsic_mana_ability_impl(player, land, color, None)?;
+            game.consecutive_passes = 0;
+            Ok(())
+        })
+    }
+
+    /// Applies an intrinsic land mana ability after the caller has established
+    /// its action context. Direct activation requires priority; cast payment
+    /// keeps its enclosing spell transaction open around this primitive.
+    fn activate_intrinsic_mana_ability_impl(
+        &mut self,
+        player: PlayerId,
+        land: ObjectId,
+        color: Color,
+        payment_spell: Option<ObjectId>,
+    ) -> Result<(), RulesError> {
         self.require_zone(land, Zone::Battlefield)?;
         let object = self.object(land)?;
         if object.controller != player || object.tapped {
@@ -696,6 +713,14 @@ impl Game {
                 "mana pool cannot hold the requested mana",
             ));
         }
+        if let Some(card) = payment_spell {
+            self.record_event(GameEvent::CastPaymentBasicLandManaAbilityActivated {
+                player,
+                card,
+                land,
+                color,
+            });
+        }
         self.objects
             .get_mut(&land)
             .ok_or(RulesError::UnknownCard(land))?
@@ -711,8 +736,26 @@ impl Game {
             color,
             amount: 1,
         });
-        self.consecutive_passes = 0;
-        self.validate_invariants()
+        Ok(())
+    }
+
+    /// Applies one explicitly selected typed basic-land mana ability while a
+    /// spell cost is paid. Only a registered type line may use this narrower
+    /// context, so an untyped land cannot masquerade as a basic intrinsic
+    /// source inside a cast request.
+    fn activate_cast_payment_basic_land_mana_ability(
+        &mut self,
+        player: PlayerId,
+        card: ObjectId,
+        land: ObjectId,
+        color: Color,
+    ) -> Result<(), RulesError> {
+        if self.basic_land_type(land)?.is_none() {
+            return Err(RulesError::IllegalAction(
+                "cast-payment intrinsic mana ability requires a typed basic land",
+            ));
+        }
+        self.activate_intrinsic_mana_ability_impl(player, land, color, Some(card))
     }
 
     /// Activates a definition-bound mana ability without using the stack.
@@ -1488,10 +1531,13 @@ impl Game {
                 CastPaymentManaAbility::Bound(activation) => {
                     self.activate_bound_mana_ability_impl(player, *activation, Some(request.card))?;
                 }
-                CastPaymentManaAbility::BasicLand(_) => {
-                    return Err(RulesError::IllegalAction(
-                        "intrinsic basic-land mana abilities are unavailable while paying a spell cost",
-                    ));
+                CastPaymentManaAbility::BasicLand(activation) => {
+                    self.activate_cast_payment_basic_land_mana_ability(
+                        player,
+                        request.card,
+                        activation.land,
+                        activation.color,
+                    )?;
                 }
             }
         }
@@ -3363,6 +3409,44 @@ impl Game {
     #[allow(clippy::too_many_lines)] // One ordered replay audit keeps receipt causality reviewable.
     fn validate_mana_ability_event_order(events: &[GameEvent]) -> Result<(), RulesError> {
         for (index, event) in events.iter().enumerate() {
+            if let GameEvent::CastPaymentBasicLandManaAbilityActivated {
+                player,
+                card,
+                land,
+                color,
+            } = event
+            {
+                if !matches!(
+                    events.get(index + 1),
+                    Some(GameEvent::ManaAbilityActivated {
+                        player: receipt_player,
+                        land: receipt_land,
+                        color: receipt_color,
+                    }) if receipt_player == player && receipt_land == land && receipt_color == color
+                ) {
+                    return Err(RulesError::IllegalAction(
+                        "cast-payment basic-land activation lacks its matching intrinsic receipt",
+                    ));
+                }
+                let spell_was_cast = events[index + 1..]
+                    .iter()
+                    .take_while(|candidate| !matches!(candidate, GameEvent::PriorityPassed { .. }))
+                    .any(|candidate| {
+                        matches!(
+                            candidate,
+                            GameEvent::SpellCast {
+                                player: spell_player,
+                                card: spell_card,
+                            } if spell_player == player && spell_card == card
+                        )
+                    });
+                if !spell_was_cast {
+                    return Err(RulesError::IllegalAction(
+                        "cast-payment basic-land activation is not followed by its spell receipt",
+                    ));
+                }
+            }
+
             if let GameEvent::CastPaymentManaAbilityActivated {
                 player,
                 card,

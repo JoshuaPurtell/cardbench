@@ -1105,6 +1105,15 @@ pub enum GameEvent {
         land: ObjectId,
         color: Color,
     },
+    /// A typed basic land activated as one explicitly selected step while a
+    /// spell's cost is paid. This receipt precedes the intrinsic activation
+    /// and mana-output receipts; it is not a stack object.
+    CastPaymentBasicLandManaAbilityActivated {
+        player: PlayerId,
+        card: ObjectId,
+        land: ObjectId,
+        color: Color,
+    },
     /// A definition-bound mana ability declared in the typed payment context
     /// of one spell cast. This receipt precedes that ability's normal bound
     /// activation and mana-output events; it is not a stack object.

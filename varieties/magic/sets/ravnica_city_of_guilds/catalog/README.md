@@ -44,8 +44,8 @@ an executable compatibility definition remain subject to that definition's
 not an inference from executable status. Char, Lightning Helix, Scatter the
 Seeds, Guardian of Vitu-Ghazi, Last Gasp, Elves of Deep Shadow, Boros Recruit, Watchwolf, Glass Golem,
 Cleansing Beam, Rally the Righteous, Wojek Siren, Rain of Embers, Dogpile,
-Overwhelm, Gather Courage, Seeds of Strength, Darkblast, Greater Mossdog, and the four RAV
-Signets are listed only after an
+Overwhelm, Gather Courage, Seeds of Strength, Darkblast, Greater Mossdog, the
+four RAV Signets, and the five RAV basic lands are listed only after an
 ability-by-ability contract proves their complete represented behavior and
 public receipt traces. The radiance entries were
 checked against their public set identity and the official Comprehensive Rules'
@@ -92,13 +92,14 @@ engine rather than as a stack object, so normal response behavior is absent. The
 deterministic public scenarios assert receipts only for the represented slices.
 These are explicit coverage gaps, not no-op fallbacks or full-fidelity claims.
 
-The five RAV basic-land definitions remain explicitly bounded. Their typed
+The five RAV basic-land definitions are positive-manifest entries. Their typed
 single-color intrinsic mana result, tapping, and basic-land deck-construction
-exception are represented and checked in one public nonstack trace. The
-cast-payment activation path currently admits only definition-bound mana
-abilities, not intrinsic land abilities, so these definitions cannot claim full
-Magic rules fidelity. The four RAV Signets are separately positive-manifest
-entries because their abilities use that supported definition-bound path.
+exception are represented and checked in public nonstack and cast-payment
+traces. A cast request explicitly names each typed basic-land source; the
+engine validates its fixed color, writes ordered intrinsic receipts, and rolls
+back every source, pool, stack, and log mutation if a later payment fails. The
+four RAV Signets are separately positive-manifest entries because their
+definition-bound abilities use the same ordered atomic cast-payment boundary.
 
 The creature batch for Golgari Thug, Stinkweed Imp, and Root-Kin Ally is
 explicitly compatibility-bounded. The first two support only normal creature
