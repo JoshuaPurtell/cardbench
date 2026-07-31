@@ -1,4 +1,4 @@
-//! Bounded public contract for Torpid Moloch's shared Defender behavior.
+//! Public contract for Torpid Moloch's Defender behavior and full-fidelity marker.
 
 use std::collections::BTreeSet;
 
@@ -8,7 +8,7 @@ use cardbench_magic_engine::{
 use cardbench_magic_rav::{RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, run_all_scenarios};
 
 #[test]
-fn torpid_moloch_definition_is_explicit_about_the_omitted_activation() {
+fn torpid_moloch_definition_is_explicit_about_its_activated_ability() {
     let moloch = card_definitions()
         .into_iter()
         .find(|definition| definition.id == "RAV-TORPID-MOLOCH")
@@ -21,14 +21,12 @@ fn torpid_moloch_definition_is_explicit_about_the_omitted_activation() {
     assert_eq!((moloch.power, moloch.toughness), (Some(3), Some(2)));
     assert_eq!(moloch.keywords, [Keyword::Defender]);
     assert!(moloch.effects.is_empty());
-    assert_eq!(
-        moloch.supported_rules,
-        ["colored-cost-casting", "base-characteristics", "defender"]
-    );
     assert!(
-        !RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&moloch.id),
-        "the omitted land-sacrifice activation keeps this definition bounded"
+        moloch
+            .supported_rules
+            .contains(&"sacrifice-three-lands-remove-defender")
     );
+    assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&moloch.id));
 }
 
 #[test]

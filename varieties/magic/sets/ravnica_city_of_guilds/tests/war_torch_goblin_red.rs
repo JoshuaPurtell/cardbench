@@ -63,6 +63,7 @@ fn war_torch_sacrifices_source_and_damages_a_declared_blocker() {
         AbilityActivation {
             source,
             ability_id: "sacrifice-deal-two-to-blocker",
+            sacrifice_sources: vec![source],
             targets: vec![Target::Permanent(blocker)],
         },
     )

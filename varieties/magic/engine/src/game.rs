@@ -983,6 +983,7 @@ impl Game {
         })
     }
 
+    #[allow(clippy::too_many_lines)]
     fn activate_ability_impl(
         &mut self,
         player: PlayerId,
@@ -1016,6 +1017,39 @@ impl Game {
                 || !self.target_matches(*target, *requirement)
             {
                 return Err(RulesError::IllegalTarget(*target));
+            }
+        }
+        let expected_sacrifices =
+            usize::from(ability.sacrifice_lands) + usize::from(ability.sacrifice_source);
+        if activation.sacrifice_sources.len() != expected_sacrifices {
+            return Err(RulesError::IllegalAction(
+                "activated ability sacrifice selection count does not match its definition",
+            ));
+        }
+        let mut selected_sacrifices = BTreeSet::new();
+        for (index, permanent) in activation.sacrifice_sources.iter().enumerate() {
+            if !selected_sacrifices.insert(*permanent) {
+                return Err(RulesError::IllegalAction(
+                    "an activated ability cannot sacrifice the same permanent twice",
+                ));
+            }
+            self.require_zone(*permanent, Zone::Battlefield)?;
+            let object = self.object(*permanent)?;
+            if object.controller != player {
+                return Err(RulesError::IllegalAction(
+                    "an activated ability can sacrifice only a controlled permanent",
+                ));
+            }
+            if index < usize::from(ability.sacrifice_source) {
+                if *permanent != activation.source {
+                    return Err(RulesError::IllegalAction(
+                        "the source sacrifice selection must name the ability source",
+                    ));
+                }
+            } else if !self.card_definition(*permanent)?.is_land() {
+                return Err(RulesError::IllegalAction(
+                    "this activated ability requires a sacrificed land",
+                ));
             }
         }
         let mut paid_pool = self.players[player.0].mana_pool.clone();
@@ -1054,7 +1088,24 @@ impl Game {
                 .tapped = true;
         }
         if ability.sacrifice_source {
+            self.record_event(GameEvent::SacrificedAsAbilityCost {
+                player,
+                source: activation.source,
+                permanent: activation.source,
+            });
             self.move_to_graveyard_or_remove_token(activation.source)?;
+        }
+        for permanent in activation
+            .sacrifice_sources
+            .iter()
+            .skip(usize::from(ability.sacrifice_source))
+        {
+            self.record_event(GameEvent::SacrificedAsAbilityCost {
+                player,
+                source: activation.source,
+                permanent: *permanent,
+            });
+            self.move_to_graveyard_or_remove_token(*permanent)?;
         }
         self.stack.push(StackObject {
             card: activation.source,
@@ -1524,6 +1575,11 @@ impl Game {
                 }
                 ContinuousChange::AddKeyword(keyword) => {
                     characteristics.keywords.push(keyword.clone());
+                }
+                ContinuousChange::RemoveKeyword(keyword) => {
+                    characteristics
+                        .keywords
+                        .retain(|candidate| candidate != keyword);
                 }
                 ContinuousChange::ModifyPowerToughness { power, toughness } => {
                     characteristics.power = characteristics
@@ -3336,6 +3392,7 @@ impl Game {
                 | Effect::DealDamageEqualToAttackingCreatures { .. }
                 | Effect::ModifyTargetPtUntilEndOfTurn { .. }
                 | Effect::ModifySourcePtUntilEndOfTurn { .. }
+                | Effect::RemoveSourceKeywordUntilEndOfTurn { .. }
                 | Effect::DestroyTargetLand
                 | Effect::ModifyControllerCreaturesPtUntilEndOfTurn { .. }
                 | Effect::RadianceUntapAndModifyUntilEndOfTurn { .. }
@@ -3708,6 +3765,17 @@ impl Game {
                         power: *power,
                         toughness: *toughness,
                     },
+                    Duration::EndOfTurn(self.turn),
+                )?;
+            }
+            Effect::RemoveSourceKeywordUntilEndOfTurn { keyword } => {
+                if self.zone_of(source) != Some(Zone::Battlefield) {
+                    return Ok(());
+                }
+                self.install_continuous_effect(
+                    source,
+                    source,
+                    ContinuousChange::RemoveKeyword(keyword.clone()),
                     Duration::EndOfTurn(self.turn),
                 )?;
             }

@@ -164,6 +164,8 @@ pub struct ActivatedAbility {
     pub mana_cost: ManaCost,
     pub tap_cost: bool,
     pub sacrifice_source: bool,
+    /// Number of controlled battlefield lands required as an explicit cost.
+    pub sacrifice_lands: u8,
     /// Target slots are consumed in this order from `PolicyAction`.
     pub targets: Vec<TargetRequirement>,
     pub effects: Vec<Effect>,
@@ -181,6 +183,8 @@ pub struct ActivatedAbilityBinding {
 pub struct AbilityActivation {
     pub source: ObjectId,
     pub ability_id: &'static str,
+    /// Explicit permanent selections paid as the ability's nonmana cost.
+    pub sacrifice_sources: Vec<ObjectId>,
     pub targets: Vec<Target>,
 }
 
@@ -738,6 +742,9 @@ pub enum Effect {
         power: i16,
         toughness: i16,
     },
+    RemoveSourceKeywordUntilEndOfTurn {
+        keyword: Keyword,
+    },
     /// Destroy the targeted land during resolution, sending it through the
     /// normal zone-change and continuous-effect lifecycle.
     DestroyTargetLand,
@@ -793,6 +800,7 @@ impl Effect {
             | Self::DrawControllerIfManaColorSpent { .. }
             | Self::CreateToken { .. }
             | Self::ModifySourcePtUntilEndOfTurn { .. }
+            | Self::RemoveSourceKeywordUntilEndOfTurn { .. }
             | Self::ModifyControllerCreaturesPtUntilEndOfTurn { .. } => None,
         }
     }
@@ -1036,6 +1044,7 @@ pub enum ContinuousChange {
     AddCardType(CardType),
     AddColor(Color),
     AddKeyword(Keyword),
+    RemoveKeyword(Keyword),
     ModifyPowerToughness { power: i16, toughness: i16 },
 }
 
@@ -1045,7 +1054,7 @@ impl ContinuousChange {
         match self {
             Self::AddCardType(_) => Layer::Type,
             Self::AddColor(_) => Layer::Color,
-            Self::AddKeyword(_) => Layer::Ability,
+            Self::AddKeyword(_) | Self::RemoveKeyword(_) => Layer::Ability,
             Self::ModifyPowerToughness { .. } => Layer::PowerToughness,
         }
     }
@@ -1412,6 +1421,11 @@ pub enum GameEvent {
         source: ObjectId,
         ability: &'static str,
         mana_cost: ManaCost,
+    },
+    SacrificedAsAbilityCost {
+        player: PlayerId,
+        source: ObjectId,
+        permanent: ObjectId,
     },
     ConvokeUsed {
         player: PlayerId,

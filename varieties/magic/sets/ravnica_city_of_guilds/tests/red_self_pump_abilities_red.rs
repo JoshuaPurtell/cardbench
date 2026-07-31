@@ -33,6 +33,7 @@ fn greater_forgeling_pump_is_a_stack_ability() {
         AbilityActivation {
             source,
             ability_id: "pump-plus-three-minus-three",
+            sacrifice_sources: vec![],
             targets: vec![],
         },
     )
@@ -61,6 +62,7 @@ fn viashino_slasher_pump_is_a_stack_ability() {
         AbilityActivation {
             source,
             ability_id: "pump-plus-one-minus-one",
+            sacrifice_sources: vec![],
             targets: vec![],
         },
     )

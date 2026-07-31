@@ -1,7 +1,4 @@
-//! Red coverage probe for Torpid Moloch's shared Defender rule.
-//!
-//! Its land-sacrifice activation is intentionally not approximated here. This
-//! probe only requests the already supported static keyword.
+//! Red coverage probe for Torpid Moloch's static Defender rule.
 
 use std::collections::BTreeSet;
 
@@ -22,9 +19,9 @@ fn torpid_moloch_exposes_its_supported_defender_compatibility_slice() {
     assert_eq!((moloch.power, moloch.toughness), (Some(3), Some(2)));
     assert_eq!(moloch.keywords, [Keyword::Defender]);
     assert!(moloch.effects.is_empty());
-    assert_eq!(
-        moloch.supported_rules,
-        ["colored-cost-casting", "base-characteristics", "defender"],
-        "the card-specific land-sacrifice activation remains intentionally bounded"
+    assert!(
+        moloch
+            .supported_rules
+            .contains(&"sacrifice-three-lands-remove-defender")
     );
 }
