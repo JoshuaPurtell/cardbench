@@ -2,7 +2,7 @@
 
 use std::collections::BTreeSet;
 
-use cardbench_magic_engine::{CardType, Color, Effect, ManaCost, TargetRequirement};
+use cardbench_magic_engine::{CardType, Color, Effect, Keyword, ManaCost, TargetRequirement};
 use cardbench_magic_rav::{RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, run_all_scenarios};
 
 #[test]
@@ -26,6 +26,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-OVERWHELM",
             "RAV-GATHER-COURAGE",
             "RAV-SEEDS-OF-STRENGTH",
+            "RAV-DARKBLAST",
         ]
     );
     let definitions = card_definitions();
@@ -92,6 +93,13 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
                 toughness: 3,
             }],
         ),
+        (
+            "RAV-DARKBLAST",
+            vec![Effect::ModifyTargetPtUntilEndOfTurn {
+                power: -1,
+                toughness: -1,
+            }],
+        ),
     ];
     for (id, effects) in exact {
         let definition = definitions
@@ -149,6 +157,29 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
         .expect("Wojek Siren definition exists");
     assert_eq!(siren.mana_cost, ManaCost::with_colors(0, [Color::White]));
     assert_eq!(siren.colors, [Color::White].into_iter().collect());
+
+    let darkblast = definitions
+        .iter()
+        .find(|definition| definition.id == "RAV-DARKBLAST")
+        .expect("Darkblast definition exists");
+    assert_eq!(
+        darkblast.supported_rules,
+        ["full-rules-fidelity", "targeted-layer-7-modifier", "dredge"]
+    );
+    assert_eq!(
+        darkblast.mana_cost,
+        ManaCost::with_colors(0, [Color::Black])
+    );
+    assert_eq!(darkblast.colors, [Color::Black].into_iter().collect());
+    assert_eq!(
+        darkblast.card_types,
+        [CardType::Instant].into_iter().collect()
+    );
+    assert_eq!(darkblast.keywords, [Keyword::Dredge(3)]);
+    assert_eq!(
+        darkblast.effects[0].target_requirement(),
+        Some(TargetRequirement::Creature)
+    );
 
     for (id, mana_cost, card_colors, card_types) in [
         (
@@ -250,6 +281,8 @@ fn full_fidelity_card_scenarios_emit_their_complete_effect_receipts() {
         }
     }
 
+    assert_darkblast_trace(&results);
+
     let rejected_target = results
         .iter()
         .find(|result| result.id == "rav_cleansing_beam_requires_creature_target")
@@ -257,5 +290,46 @@ fn full_fidelity_card_scenarios_emit_their_complete_effect_receipts() {
     assert!(
         rejected_target.event_log.is_empty(),
         "an invalid target must not put the spell on the stack or emit receipts"
+    );
+}
+
+fn assert_darkblast_trace(results: &[cardbench_magic_rav::ScenarioResult]) {
+    let darkblast = results
+        .iter()
+        .find(|result| result.id == "rav_darkblast_modifier_and_dredge")
+        .expect("Darkblast scenario exists");
+    assert_eq!(darkblast.digest, "fnv1a64:c3dd582e9ae7447f");
+    for marker in [
+        "SpellCast",
+        "ContinuousEffectCreated",
+        "SpellResolved",
+        "Dredged",
+    ] {
+        assert!(
+            darkblast
+                .event_log
+                .iter()
+                .any(|event| event.contains(marker)),
+            "rav_darkblast_modifier_and_dredge lacks {marker}"
+        );
+    }
+    let effect = darkblast
+        .event_log
+        .iter()
+        .position(|event| event.contains("ContinuousEffectCreated"))
+        .expect("Darkblast modifier receipt");
+    let resolved = darkblast
+        .event_log
+        .iter()
+        .position(|event| event.contains("SpellResolved"))
+        .expect("Darkblast resolution receipt");
+    let dredged = darkblast
+        .event_log
+        .iter()
+        .position(|event| event.contains("Dredged"))
+        .expect("Darkblast Dredge receipt");
+    assert!(
+        effect < resolved && resolved < dredged,
+        "Darkblast must resolve before its later Dredge replacement"
     );
 }

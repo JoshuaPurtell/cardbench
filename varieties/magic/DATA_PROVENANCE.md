@@ -71,6 +71,15 @@ hash and reproduction details.
   Only identity, set, collector number, mana cost, color, type, and keyword
   facts required by the scoped compatibility definitions were retained; no
   card text, image, or response payload is checked in.
+- The focused Darkblast/Scatter the Seeds/Siege Wurm/Guardian of Vitu-Ghazi
+  fidelity audit was checked on 2026-07-30 against their public official
+  Gatherer records ([Darkblast](https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=87922),
+  [Scatter the Seeds](https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=87931),
+  [Siege Wurm](https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=87932),
+  and [Guardian of Vitu-Ghazi](https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=89030)).
+  The audit retained only the semantic facts needed to determine whether each
+  executable substrate was complete. No source response, card prose, art, or
+  JSON is checked in.
 - The Glass Golem compatibility facts were checked on 2026-07-30 against a
   single public [Scryfall named-card response](https://api.scryfall.com/cards/named?exact=Glass%20Golem),
   corroborated by the RAV inventory. The checked fields were identity, set,

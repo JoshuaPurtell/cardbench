@@ -34,7 +34,7 @@ an executable compatibility definition remain subject to that definition's
 `RAV_FULL_FIDELITY_DEFINITION_IDS` is a deliberately small positive manifest,
 not an inference from executable status. Char, Lightning Helix, Last Gasp,
 Elves of Deep Shadow, Boros Recruit, Cleansing Beam, Rally the Righteous, and
-Wojek Siren, Rain of Embers, Dogpile, Overwhelm, Watchwolf, and Glass Golem
+Wojek Siren, Rain of Embers, Dogpile, Overwhelm, Darkblast, Watchwolf, and Glass Golem
 are listed only after an ability-by-ability contract proves their complete
 represented behavior and public receipt traces. The radiance entries were
 checked against their public set identity and the official Comprehensive Rules'
@@ -42,6 +42,16 @@ target, resolution, damage, continuous-effect, and state-based-action rules;
 this repository retains only CardBench-authored semantic operations, never card
 rules text. Every other executable definition remains a bounded compatibility
 slice unless it is explicitly added to that manifest after the same audit.
+
+The focused Darkblast/Scatter the Seeds/Siege Wurm/Guardian of Vitu-Ghazi audit
+uses the same fail-closed rule. Darkblast is in the positive manifest because its
+entire functional behavior is covered by the creature-targeted temporary modifier
+and the fixed Dredge replacement substrate, with an exact public event-log
+scenario. Scatter the Seeds remains bounded: this engine represents the created
+token's name, color, card type, and power/toughness, but deliberately has no
+creature-subtype field. Siege Wurm and Guardian of Vitu-Ghazi remain bounded
+because trample combat-damage assignment and vigilance's attack/tap exception are
+not executable. None of the three bounded cards is a full-fidelity manifest entry.
 
 The creature batch for Golgari Thug, Stinkweed Imp, Greater Mossdog, and
 Root-Kin Ally is explicitly compatibility-bounded. The first three support only
