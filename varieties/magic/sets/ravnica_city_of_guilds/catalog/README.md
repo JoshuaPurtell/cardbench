@@ -77,6 +77,14 @@ than as a stack object, so normal response behavior is absent. Their determinist
 public scenarios assert receipts only for the represented slices. These are
 explicit coverage gaps, not no-op fallbacks or full-fidelity claims.
 
+The five RAV basic-land definitions are also explicitly bounded. Their public
+single-color intrinsic mana result, tapping, and basic-land deck-construction
+exception are represented and checked in one public nonstack trace. The engine
+does not yet permit a mana ability to be activated while paying another cost, so
+the definitions cannot claim full Magic rules fidelity. The four RAV Signets
+share that existing payment-window limitation and remain bounded as documented in
+their contract.
+
 The creature batch for Golgari Thug, Stinkweed Imp, Greater Mossdog, and
 Root-Kin Ally is explicitly compatibility-bounded. The first three support only
 normal creature casting, base characteristics, and the shared Dredge replacement;

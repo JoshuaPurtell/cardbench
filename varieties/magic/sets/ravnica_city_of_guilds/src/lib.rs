@@ -2430,6 +2430,10 @@ fn fresh_game() -> Result<Game, RulesError> {
 }
 
 fn basic_land(id: &'static str, name: &'static str, color: Color) -> CardDefinition {
+    // Compatibility boundary: the land's fixed intrinsic one-color mana result
+    // and basic-land deck-construction exception are modeled, but generic mana
+    // abilities cannot yet be activated in the middle of paying a cost. These
+    // definitions must therefore remain outside the full-fidelity manifest.
     CardDefinition {
         id,
         name,
@@ -2439,7 +2443,10 @@ fn basic_land(id: &'static str, name: &'static str, color: Color) -> CardDefinit
         mana_colors: BTreeSet::from([color]),
         card_types: types([CardType::Land]),
         is_basic_land: true,
-        supported_rules: &["basic-land-deck-construction"],
+        supported_rules: &[
+            "basic-land-deck-construction",
+            "intrinsic-single-color-mana-ability",
+        ],
         power: None,
         toughness: None,
         keywords: vec![],
@@ -2538,7 +2545,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 82);
+        assert_eq!(first.len(), 83);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }
