@@ -6231,3 +6231,68 @@ priority = 0
 event_markers = ["CardRevealed", "LibraryShuffled", "Transmuted", "StepBegan"]
 event_absent = ["AttackersDeclared"]
 digest = "fnv1a64:72bfadc28024561c"
+
+[[scenario]]
+id = "rav_torpid_moloch_defender_compatibility"
+seed = 43
+description = "Reject Torpid Moloch's attack declaration through its supported Defender rule; its land-sacrifice activation remains unsupported."
+
+[[scenario.card]]
+label = "moloch"
+owner = 0
+definition = "RAV-TORPID-MOLOCH"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "declare_attackers"
+player = 0
+attackers = ["moloch"]
+expected_error = "illegal attacker"
+
+[scenario.expected]
+zones = ["moloch:battlefield"]
+powers = ["moloch:3"]
+toughnesses = ["moloch:2"]
+mana = ["0:red:0"]
+stack_size = 0
+priority = 0
+event_markers = ["StepBegan"]
+event_absent = ["AttackersDeclared"]
+digest = "fnv1a64:582e991a894fa999"

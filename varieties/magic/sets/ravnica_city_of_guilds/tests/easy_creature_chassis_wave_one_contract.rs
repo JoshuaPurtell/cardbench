@@ -86,14 +86,6 @@ fn easy_creature_wave_one_is_exactly_bounded_to_public_base_facts() {
             4,
             3,
         ),
-        (
-            "RAV-TORPID-MOLOCH",
-            "Torpid Moloch",
-            ManaCost::with_colors(0, [Color::Red]),
-            BTreeSet::from([Color::Red]),
-            3,
-            2,
-        ),
     ];
 
     for (id, name, mana_cost, colors, power, toughness) in expected {
@@ -115,6 +107,20 @@ fn easy_creature_wave_one_is_exactly_bounded_to_public_base_facts() {
         assert!(definition.keywords.is_empty(), "{id}");
         assert!(definition.effects.is_empty(), "{id}");
     }
+
+    let moloch = definitions
+        .iter()
+        .find(|definition| definition.id == "RAV-TORPID-MOLOCH")
+        .expect("Torpid Moloch definition exists");
+    assert_eq!(moloch.name, "Torpid Moloch");
+    assert_eq!(moloch.mana_cost, ManaCost::with_colors(0, [Color::Red]));
+    assert_eq!(moloch.colors, BTreeSet::from([Color::Red]));
+    assert_eq!(moloch.card_types, BTreeSet::from([CardType::Creature]));
+    assert_eq!((moloch.power, moloch.toughness), (Some(3), Some(2)));
+    assert_eq!(
+        moloch.supported_rules,
+        ["colored-cost-casting", "base-characteristics", "defender"]
+    );
 }
 
 #[test]
@@ -130,6 +136,7 @@ fn easy_creature_wave_one_has_deterministic_public_scenarios() {
         "rav_easy_blue_phantasm_drake_chassis",
         "rav_easy_blue_late_creature_chassis",
         "rav_easy_black_red_creature_chassis",
+        "rav_torpid_moloch_defender_compatibility",
     ] {
         assert!(scenarios.contains(id), "missing public scenario {id}");
     }
