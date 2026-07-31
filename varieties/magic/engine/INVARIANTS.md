@@ -60,9 +60,11 @@ Oracle Magic rules coverage.
   although that player may later have lost. At resolution, an all-illegal
   target set emits `SpellCounteredByRules`; if at least one target remains
   legal, the spell resolves and only instructions addressed to the now-illegal
-  target slots do nothing. The engine snapshots this ordered decision in a
-  `StackResolutionPlan` before it begins any effect, and no later effect can
-  rewrite it. Each skipped instruction emits its own
+  target slots do nothing. The engine snapshots initial legality in a
+  `StackResolutionPlan` before it begins any effect to establish the
+  all-targets-illegal boundary. An initially legal slot is rechecked before its
+  own instruction, so an earlier instruction that removes a repeated target
+  cannot make the complete resolution fail. Each skipped instruction emits its own
   `TargetInstructionSkipped { effect_index, target }` diagnostic receipt. A
   resolving counter effect emits the distinct `SpellCountered` receipt.
 - A stack spell target that remains on the stack must be below its source,

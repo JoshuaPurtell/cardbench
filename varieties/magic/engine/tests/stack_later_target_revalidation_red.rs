@@ -97,9 +97,20 @@ fn second_targeted_instruction_skips_a_spell_target_removed_by_the_first() {
     assert_eq!(game.zone_of(lower), Some(Zone::Graveyard));
     assert_eq!(game.zone_of(response), Some(Zone::Graveyard));
     let events = game.canonical_event_log();
-    assert!(events.iter().any(|event| event == &format!(
-        "TargetInstructionSkipped {{ card: {response:?}, effect_index: 1, target: Spell({lower:?}) }}"
-    )));
+    assert_eq!(
+        &events[before_events.len()..],
+        [
+            format!("PriorityPassed {{ player: {caster:?} }}"),
+            format!("SpellCountered {{ card: {lower:?}, source: {response:?} }}"),
+            format!("CardMoved {{ card: {lower:?}, to: Graveyard }}"),
+            format!(
+                "TargetInstructionSkipped {{ card: {response:?}, effect_index: 1, target: Spell({lower:?}) }}"
+            ),
+            format!("SpellResolved {{ card: {response:?} }}"),
+            format!("CardMoved {{ card: {response:?}, to: Graveyard }}"),
+        ],
+        "the first counter, later target skip, and response lifecycle have one canonical order"
+    );
     game.validate_invariants()
         .expect("a completed partial targeted resolution preserves invariants");
 }

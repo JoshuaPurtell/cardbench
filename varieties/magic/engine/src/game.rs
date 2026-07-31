@@ -2494,9 +2494,10 @@ impl Game {
             "attempted to resolve an empty stack",
         ))?;
         // Target legality is snapshotted once, per target occurrence, before
-        // any instruction resolves. The model-owned plan preserves repeated
-        // targets as independent slots and makes the all-illegal boundary
-        // explicit.
+        // any instruction resolves to establish the all-illegal boundary. An
+        // initially legal slot is rechecked before its own instruction: an
+        // earlier instruction can legally remove a later repeated target.
+        // The model-owned plan preserves repeated targets as independent slots.
         let plan = stack_object
             .resolution_plan(|target, requirement| self.target_matches(target, requirement))
             .map_err(|_| RulesError::IllegalAction("stack object has an invalid target count"))?;
@@ -2529,12 +2530,26 @@ impl Game {
                     target,
                     legal: true,
                 } => {
-                    self.resolve_effect(
-                        stack_object.card,
-                        stack_object.controller,
-                        effect,
-                        Some(target),
-                    )?;
+                    let requirement =
+                        effect
+                            .target_requirement()
+                            .ok_or(RulesError::IllegalAction(
+                                "target-resolution plan named an untargeted effect",
+                            ))?;
+                    if self.target_matches(target, requirement) {
+                        self.resolve_effect(
+                            stack_object.card,
+                            stack_object.controller,
+                            effect,
+                            Some(target),
+                        )?;
+                    } else {
+                        self.record_event(GameEvent::TargetInstructionSkipped {
+                            card: stack_object.card,
+                            effect_index,
+                            target,
+                        });
+                    }
                 }
                 StackEffectResolution::Targeted {
                     target,
