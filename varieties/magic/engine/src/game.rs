@@ -262,6 +262,10 @@ pub struct Game {
     seated_player_count: usize,
     next_object_id: u64,
     next_timestamp: u64,
+    /// Immutable definitions retained for cards removed by CR 800.4a. A
+    /// departed spell may remain named by a lower stack object's historical
+    /// target even though its live object and zone membership are gone.
+    departed_card_definitions: BTreeMap<ObjectId, &'static str>,
     consecutive_passes: usize,
     shuffle_seed: u64,
     /// `Game::new` intentionally leaves a fixture/setup state available. A
@@ -456,6 +460,7 @@ impl Game {
             seated_player_count: player_count,
             next_object_id: 1,
             next_timestamp: 1,
+            departed_card_definitions: BTreeMap::new(),
             consecutive_passes: 0,
             shuffle_seed: 0,
             started: false,
@@ -2433,16 +2438,29 @@ impl Game {
                 if let Target::Player(player) = target {
                     self.player(*player)?;
                 }
-                if let Target::Spell(card) = target
-                    && self
+                if let Target::Spell(card) = target {
+                    let target_definition = self
+                        .object(*card)
+                        .ok()
+                        .and_then(|object| object.definition)
+                        .or_else(|| self.departed_card_definitions.get(card).copied())
+                        .and_then(|definition| self.catalog.get(definition));
+                    if !target_definition.is_some_and(|definition| {
+                        definition.card_types.contains(&CardType::Instant)
+                            || definition.card_types.contains(&CardType::Sorcery)
+                    }) {
+                        return Err(RulesError::IllegalTarget(*target));
+                    }
+                    if self
                         .stack
                         .iter()
                         .position(|candidate| candidate.card == *card)
                         .is_some_and(|target_index| target_index >= stack_index)
-                {
-                    return Err(RulesError::IllegalAction(
-                        "a stack spell target must be lower than its source",
-                    ));
+                    {
+                        return Err(RulesError::IllegalAction(
+                            "a stack spell target must be lower than its source",
+                        ));
+                    }
                 }
             }
         }
@@ -4687,9 +4705,14 @@ impl Game {
         let owned_objects = self
             .objects
             .iter()
-            .filter_map(|(id, object)| (object.owner == player).then_some((*id, object.owner)))
+            .filter_map(|(id, object)| {
+                (object.owner == player).then_some((*id, object.owner, object.definition))
+            })
             .collect::<Vec<_>>();
-        for (object, object_owner) in owned_objects {
+        for (object, object_owner, definition) in owned_objects {
+            if let Some(definition) = definition {
+                self.departed_card_definitions.insert(object, definition);
+            }
             self.remove_from_all_zones(object);
             self.stack
                 .retain(|stack_object| stack_object.card != object);
