@@ -5847,3 +5847,79 @@ priority = 0
 event_markers = ["CastPaymentBasicLandManaAbilityActivated", "ManaAbilityActivated", "ManaAdded", "SpellCast", "SpellResolved"]
 event_absent = ["BoundManaAbilityActivated", "BoundManaAbilityBundleActivated"]
 digest = "fnv1a64:092e92750db81bd3"
+
+[[scenario]]
+id = "rav_skyknight_legionnaire_flying_haste_attack"
+seed = 0
+description = "Cast Skyknight Legionnaire using typed RAV basic lands, resolve it, then declare the same creature as a Flying Haste attacker on its entry turn."
+
+[[scenario.card]]
+label = "mountain"
+owner = 0
+definition = "RAV-MOUNTAIN"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "plains"
+owner = 0
+definition = "RAV-PLAINS"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "forest"
+owner = 0
+definition = "RAV-FOREST"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "legionnaire"
+owner = 0
+definition = "RAV-SKYKNIGHT-LEGIONNAIRE"
+zone = "hand"
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "legionnaire"
+payment_mana = ["mountain:basic-land", "plains:basic-land", "forest:basic-land"]
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "declare_attackers"
+player = 0
+attackers = ["legionnaire"]
+
+[scenario.expected]
+zones = ["mountain:battlefield", "plains:battlefield", "forest:battlefield", "legionnaire:battlefield"]
+powers = ["legionnaire:2"]
+toughnesses = ["legionnaire:2"]
+tapped = ["mountain:true", "plains:true", "forest:true", "legionnaire:true"]
+mana = ["0:red:0", "0:white:0", "0:green:0"]
+mana_receipts = ["0:red:1", "0:white:1", "0:green:1"]
+stack_size = 0
+priority = 0
+event_markers = ["CastPaymentBasicLandManaAbilityActivated", "SpellCast", "SpellResolved", "AttackersDeclared"]
+digest = "fnv1a64:295ee29ac0f19820"

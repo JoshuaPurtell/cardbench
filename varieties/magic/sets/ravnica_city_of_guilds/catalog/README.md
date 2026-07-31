@@ -46,7 +46,8 @@ Seeds, Guardian of Vitu-Ghazi, Last Gasp, Elves of Deep Shadow, Boros Recruit,
 Nightguard Patrol, Watchwolf, Glass Golem,
 Cleansing Beam, Rally the Righteous, Wojek Siren, Rain of Embers, Dogpile,
 Overwhelm, Gather Courage, Seeds of Strength, Darkblast, Greater Mossdog, the
-four RAV Signets, and the five RAV basic lands are listed only after an
+four RAV Signets, the five RAV basic lands, Conclave Equenaut, Snapping Drake,
+Goliath Spider, Courier Hawk, and Skyknight Legionnaire are listed only after an
 ability-by-ability contract proves their complete represented behavior and
 public receipt traces. The radiance entries were
 checked against their public set identity and the official Comprehensive Rules'
@@ -179,7 +180,7 @@ remains non-covered.
 
 The creature-chassis batch for Dromad Purebred, Carrion Howler, Coalhauler
 Swine, Bramble Elemental, Carven Caryatid, Boros Swiftblade, Loxodon Hierarch,
-Moroii, and Skyknight Legionnaire is also deliberately
+and Moroii is also deliberately
 bounded. Each records only public identity, mana cost, color, type, and base
 power/toughness facts, and supports only normal creature casting and those base
 characteristics. Every printed keyword, static rule, triggered behavior, and
@@ -224,12 +225,13 @@ and hand-zone behavior is deliberately unsupported. Two deterministic public
 scenarios cover their exact colored-cost payments, stack resolution, zone
 movement, priority, and retained base P/T values only.
 
-The focused Flying/Reach audit promotes Conclave Equenaut, Snapping Drake,
-Goliath Spider, and Courier Hawk into the positive fidelity manifest. Their
+The focused Flying/Reach/Haste audit promotes Conclave Equenaut, Snapping Drake,
+Goliath Spider, Courier Hawk, and Skyknight Legionnaire into the positive fidelity manifest. Their
 complete printed functional behavior falls within Convoke, normal casting/base
 characteristics, Flying/Reach blocker declarations, and (for Courier Hawk)
 vigilance. Public scenarios retain canonical declarations for Flying blocked by
-Reach, Flying blocked by Flying, and an untapped Flying/Vigilance attacker.
+Reach, Flying blocked by Flying, an untapped Flying/Vigilance attacker, and a
+same-turn Flying/Haste attack after the creature resolves.
 
 The TSV's structure and the Rust parser are CardBench-authored MIT-licensed code and
 data structure. Magic set names and card names are used solely as nominative

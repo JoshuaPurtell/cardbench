@@ -33,7 +33,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 33] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 34] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SCATTER-THE-SEEDS",
@@ -67,6 +67,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 33] = [
     "RAV-SNAPPING-DRAKE",
     "RAV-GOLIATH-SPIDER",
     "RAV-COURIER-HAWK",
+    "RAV-SKYKNIGHT-LEGIONNAIRE",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -1004,9 +1005,8 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Every printed card-specific behavior is
-        // deliberately omitted from this slice.
+        // Complete scoped behavior: normal colored-cost creature casting,
+        // base characteristics, and the two represented combat keywords.
         CardDefinition {
             id: "RAV-SKYKNIGHT-LEGIONNAIRE",
             name: "Skyknight Legionnaire",
@@ -1016,10 +1016,16 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Creature]),
             is_basic_land: false,
-            supported_rules: &["colored-cost-casting", "base-characteristics"],
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "flying",
+                "haste",
+            ],
             power: Some(2),
             toughness: Some(2),
-            keywords: vec![],
+            keywords: vec![Keyword::Flying, Keyword::Haste],
             effects: vec![],
         },
         // Compatibility scope: normal colored-cost creature casting and base
@@ -2671,7 +2677,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 93);
+        assert_eq!(first.len(), 94);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

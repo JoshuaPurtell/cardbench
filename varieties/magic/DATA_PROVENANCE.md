@@ -29,8 +29,8 @@ CardBench-authored binding to the generic one-unit colored mana-ability model.
 It does not retain or reproduce card rules text, art, flavor, or source JSON.
 
 The creature-chassis batch (Dromad Purebred, Carrion Howler, Coalhauler Swine,
-Bramble Elemental, Carven Caryatid, Boros Swiftblade, Loxodon Hierarch, Moroii,
-and Skyknight Legionnaire) retains only public RAV identity,
+Bramble Elemental, Carven Caryatid, Boros Swiftblade, Loxodon Hierarch, and Moroii)
+retains only public RAV identity,
 mana cost, color, type, and base power/toughness facts. Any printed ability is
 intentionally absent from its compatibility definition. The public source
 responses and their rules fields were not committed.
@@ -98,6 +98,14 @@ hash and reproduction details.
   color, creature type, base power/toughness, and keyword identities needed
   for the direct contracts. No card prose, art, scans, source JSON, or response
   payload is checked in.
+- The focused Haste audit was checked on 2026-07-30 against the public
+  [Skyknight Legionnaire RAV printing record](https://scryfall.com/card/rav/232/skyknight-legionnaire)
+  and the official [Magic keyword glossary](https://magic.wizards.com/en/keyword-glossary).
+  It retained only the public identity, cost, color, creature type, base
+  power/toughness, and the two represented generic keyword identities. The
+  source response, card prose, art, scans, and JSON remain uncommitted. The
+  other RAV Haste candidates retain unrepresented non-keyword functionality and
+  therefore remain bounded rather than being approximated.
 - The RAV basic-land boundary audit was checked on 2026-07-30 against the
   public official Gatherer records for representative RAV printings:
   [Plains](https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=95108),
