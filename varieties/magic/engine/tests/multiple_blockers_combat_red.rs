@@ -7,11 +7,13 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardDefinition, CardType, Color, CombatBlock, Game, GameEvent, ManaCost, PlayerId, Step, Zone,
+    CardDefinition, CardType, Color, CombatBlock, Game, GameEvent, Keyword, ManaCost, PlayerId,
+    Step, Zone,
 };
 
 const LAND: &str = "TEST-LAND";
 const ATTACKER: &str = "TEST-ATTACKER";
+const TRAMPLE_ATTACKER: &str = "TEST-TRAMPLE-ATTACKER";
 const BLOCKER: &str = "TEST-BLOCKER";
 
 fn colors(colors: impl IntoIterator<Item = Color>) -> BTreeSet<Color> {
@@ -52,6 +54,21 @@ fn definitions() -> Vec<CardDefinition> {
             power: Some(5),
             toughness: Some(5),
             keywords: vec![],
+            effects: vec![],
+        },
+        CardDefinition {
+            id: TRAMPLE_ATTACKER,
+            name: "Test Trample Attacker",
+            set_code: "TST",
+            mana_cost: ManaCost::new(0),
+            colors: colors([Color::Green]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &["base-characteristics", "trample"],
+            power: Some(5),
+            toughness: Some(5),
+            keywords: vec![Keyword::Trample],
             effects: vec![],
         },
         CardDefinition {
@@ -228,4 +245,64 @@ fn every_live_blocker_assigns_combat_damage_after_a_multi_block_declaration() {
     )));
     game.validate_invariants()
         .expect("multi-block damage preserves the game state machine");
+}
+
+#[test]
+fn trample_assigns_lethal_damage_through_each_ordered_blocker_before_excess() {
+    let mut game = Game::new(definitions(), 2).expect("game initializes");
+    add_library(&mut game, PlayerId(0));
+    add_library(&mut game, PlayerId(1));
+    let attacker = game
+        .put_on_battlefield(PlayerId(0), TRAMPLE_ATTACKER)
+        .expect("trample attacker enters");
+    let first_blocker = game
+        .put_on_battlefield(PlayerId(1), BLOCKER)
+        .expect("first blocker enters");
+    let second_blocker = game
+        .put_on_battlefield(PlayerId(1), BLOCKER)
+        .expect("second blocker enters");
+
+    game.begin_game().expect("game begins");
+    advance_to_blockers(&mut game, attacker);
+    game.declare_blockers(
+        PlayerId(1),
+        &[
+            CombatBlock {
+                attacker,
+                blocker: first_blocker,
+            },
+            CombatBlock {
+                attacker,
+                blocker: second_blocker,
+            },
+        ],
+    )
+    .expect("ordered blockers are legal");
+    let event_start = game.event_log.len();
+    for _ in 0..2 {
+        let player = game.priority;
+        game.pass_priority(player).expect("resolve trample damage");
+    }
+
+    let events = &game.event_log[event_start..];
+    for blocker in [first_blocker, second_blocker] {
+        assert!(events.iter().any(|event| matches!(
+            event,
+            GameEvent::DamageDealtToPermanent {
+                source,
+                permanent,
+                amount: 2,
+            } if *source == attacker && *permanent == blocker
+        )));
+    }
+    assert!(events.iter().any(|event| matches!(
+        event,
+        GameEvent::DamageDealtToPlayer {
+            source,
+            player: PlayerId(1),
+            amount: 1,
+        } if *source == attacker
+    )));
+    game.validate_invariants()
+        .expect("trample multi-block damage preserves invariants");
 }
