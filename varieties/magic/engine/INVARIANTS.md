@@ -49,6 +49,12 @@ Oracle Magic rules coverage.
 - A stack object has a unique card and a valid controller. Resolving or
   countering it removes it from the stack before it receives its resulting zone
   move.
+- A stack instruction that depends on colors spent to cast its spell requires
+  a nonempty `mana_spent` receipt on that exact stack object. When the visible
+  event log contains its `SpellCast`, the immediately preceding
+  `SpellManaPaid` receipt must name the same controller, card, and ordered
+  colors. Floating mana added or spent after casting cannot alter this
+  resolution-time provenance.
 - Stack controller, effects, and target-slot count must match the represented
   card definition. Every executable occurrence of a target requirement owns
   one ordered stack slot; the same object may occupy multiple slots when the
@@ -198,6 +204,14 @@ Oracle Magic rules coverage.
   with that spell's `SpellCast` before any priority pass. Paid fixed bundles
   additionally require their cost receipt, optional life-cost receipt, and
   every fixed mana-output receipt in declared order.
+- `Game::cast_spell_with_mana_spend` is the explicit path for selecting colors
+  for every remaining generic and hybrid symbol after Convoke. The selection
+  has exact residual arity; each color must be available and each hybrid choice
+  must match its symbol. The atomic transition emits `SpellManaPaid`
+  immediately before `SpellCast` and copies the same ordered colors onto its
+  stack object. A card that inspects paid colors rejects legacy deterministic
+  `cast_spell`, so engine-selected generic draining never masquerades as the
+  controller's choice.
 - An expansion may bind an explicit additional spell cost to a nonland
   definition. Its `CastRequest` selection follows ordinary effect targets but
   never enters the resulting stack object's target slots. A bound controlled-

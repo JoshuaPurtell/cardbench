@@ -43,6 +43,7 @@ fn invariant_audit_rejects_an_unsupported_instant_fabricated_onto_the_stack() {
         controller,
         targets: Vec::<Target>::new(),
         effects: vec![],
+        mana_spent: None,
     });
 
     let audit = game.validate_invariants();

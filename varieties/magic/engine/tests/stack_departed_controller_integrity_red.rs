@@ -43,6 +43,7 @@ fn invariant_audit_rejects_a_lost_players_spell_left_on_the_stack() {
         controller: departed,
         targets: Vec::<Target>::new(),
         effects: vec![Effect::DealDamageController { amount: 1 }],
+        mana_spent: None,
     });
     game.players[departed.0].lost = true;
 

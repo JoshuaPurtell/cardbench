@@ -64,6 +64,7 @@ fn failed_resolution_restores_the_final_pass_and_authoritative_stack() {
             controller: responder,
             targets: vec![],
             effects: vec![Effect::GainLifeController { amount: 1 }],
+            mana_spent: None,
         },
         StackObject {
             card: malformed,
@@ -73,6 +74,7 @@ fn failed_resolution_restores_the_final_pass_and_authoritative_stack() {
                 amount: 1,
                 target: TargetRequirement::InstantOrSorcerySpell,
             }],
+            mana_spent: None,
         },
     ];
     game.clear_event_log();

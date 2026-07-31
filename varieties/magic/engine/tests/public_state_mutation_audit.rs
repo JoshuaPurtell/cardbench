@@ -116,6 +116,7 @@ fn mutation_audit_rejects_zone_and_stack_corruption() {
             amount: 1,
             target: TargetRequirement::Player,
         }],
+        mana_spent: None,
     });
     assert_rejected(&zone_and_stack, "a stack card remains in a player zone");
 
@@ -132,6 +133,7 @@ fn mutation_audit_rejects_zone_and_stack_corruption() {
             amount: 1,
             target: TargetRequirement::Player,
         }],
+        mana_spent: None,
     });
     assert_rejected(
         &fabricated_stack_target,
@@ -144,6 +146,7 @@ fn mutation_audit_rejects_zone_and_stack_corruption() {
         controller: first,
         targets: vec![],
         effects: vec![],
+        mana_spent: None,
     });
     assert_rejected(
         &unknown_stack_card,

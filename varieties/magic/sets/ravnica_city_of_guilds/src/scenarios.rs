@@ -9,8 +9,8 @@ use std::fs;
 
 use cardbench_magic_engine::{
     BasicLandManaAbilityActivation, CastPaymentManaAbility, CastRequest, Color, CombatBlock,
-    ConvokeContribution, ConvokePayment, Game, ManaAbilityActivation, ObjectId, PlayerId,
-    RulesError, Target, Zone,
+    ConvokeContribution, ConvokePayment, Game, ManaAbilityActivation, ManaPaymentSelection,
+    ObjectId, PlayerId, RulesError, Target, Zone,
 };
 
 use crate::{
@@ -62,6 +62,9 @@ struct ActionSpec {
     /// this cast pays its mana cost. The constrained fixture grammar
     /// deliberately exposes no general activated-ability path here.
     payment_mana: Vec<String>,
+    /// Explicit colors chosen for the remaining generic or hybrid symbols in
+    /// one cast. Entries use `generic:color` or `hybrid:color`.
+    mana_spend: Vec<String>,
     attackers: Vec<String>,
     ability: String,
     color: String,
@@ -273,6 +276,7 @@ fn set_action_field(
         "targets" => action.targets = parse_string_array(value, line_number)?,
         "convoke" => action.convoke = parse_string_array(value, line_number)?,
         "payment_mana" => action.payment_mana = parse_string_array(value, line_number)?,
+        "mana_spend" => action.mana_spend = parse_string_array(value, line_number)?,
         "attackers" => action.attackers = parse_string_array(value, line_number)?,
         "ability" => action.ability = parse_string(value, line_number)?,
         "color" => action.color = parse_string(value, line_number)?,
@@ -408,16 +412,22 @@ fn execute_action(
                 .iter()
                 .map(|entry| parse_cast_payment_mana_ability(entry, game, labels))
                 .collect::<Result<Vec<_>, _>>()?;
-            game.cast_spell(
-                player,
-                CastRequest {
-                    card: lookup(labels, &action.card)?,
-                    targets,
-                    convoke,
-                    payment_mana_abilities,
-                },
-            )
-            .map_err(rules_error)
+            let request = CastRequest {
+                card: lookup(labels, &action.card)?,
+                targets,
+                convoke,
+                payment_mana_abilities,
+            };
+            if action.mana_spend.is_empty() {
+                game.cast_spell(player, request).map_err(rules_error)
+            } else {
+                game.cast_spell_with_mana_spend(
+                    player,
+                    request,
+                    parse_mana_payment_selection(&action.mana_spend)?,
+                )
+                .map_err(rules_error)
+            }
         }
         "pass" => game.pass_priority(player).map_err(rules_error),
         "declare_attackers" => {
@@ -589,6 +599,23 @@ fn parse_cast_payment_mana_ability(
         ability_id,
         chosen_color,
     }))
+}
+
+fn parse_mana_payment_selection(entries: &[String]) -> Result<ManaPaymentSelection, String> {
+    let mut selection = ManaPaymentSelection::default();
+    for entry in entries {
+        let (symbol_kind, color) = split_pair(entry, "mana-spend selection")?;
+        match symbol_kind {
+            "generic" => selection.generic.push(parse_color(color)?),
+            "hybrid" => selection.hybrid.push(parse_color(color)?),
+            _ => {
+                return Err(format!(
+                    "mana-spend selection `{entry}` must name `generic` or `hybrid`"
+                ));
+            }
+        }
+    }
+    Ok(selection)
 }
 
 #[allow(clippy::too_many_lines)] // Fixture assertion fields intentionally stay in one auditable parser path.

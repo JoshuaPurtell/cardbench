@@ -218,6 +218,17 @@ pub struct ManaCost {
     pub hybrid: Vec<HybridManaSymbol>,
 }
 
+/// The controller's explicit color choices for mana symbols whose color is
+/// not fixed by the printed cost. `generic` is in generic-symbol order and
+/// `hybrid` is in hybrid-symbol order after any Convoke contributions have
+/// reduced the cost. Each vector must account for the remaining symbols
+/// exactly; omission is not an engine-selected fallback.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct ManaPaymentSelection {
+    pub generic: Vec<Color>,
+    pub hybrid: Vec<Color>,
+}
+
 impl std::fmt::Debug for ManaCost {
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut debug = formatter.debug_struct("ManaCost");
@@ -329,6 +340,58 @@ impl ManaPool {
         paid.pay_in_place(cost)?;
         *self = paid;
         Ok(())
+    }
+
+    /// Pays a cost using the controller's explicit choices for every generic
+    /// and hybrid symbol, returning the complete ordered color receipt. Fixed
+    /// colored symbols are represented first in their cost order, followed by
+    /// hybrid choices and then generic choices.
+    ///
+    /// This is separate from [`Self::pay`], whose deterministic compatibility
+    /// order is intentionally not a player decision and therefore cannot
+    /// support cards that inspect colors spent to cast them.
+    pub(crate) fn pay_selected(
+        &mut self,
+        cost: &ManaCost,
+        selection: &ManaPaymentSelection,
+    ) -> Result<Vec<Color>, String> {
+        if selection.generic.len() != usize::from(cost.generic) {
+            return Err("generic mana selection does not match the remaining cost".to_owned());
+        }
+        if selection.hybrid.len() != cost.hybrid.len() {
+            return Err("hybrid mana selection does not match the remaining cost".to_owned());
+        }
+
+        let mut paid = self.clone();
+        let mut colors = Vec::with_capacity(
+            cost.colored.len() + selection.hybrid.len() + selection.generic.len(),
+        );
+        for color in &cost.colored {
+            if paid.amount(*color) == 0 {
+                return Err(format!("missing {color:?} mana"));
+            }
+            paid.amounts[color.index()] -= 1;
+            colors.push(*color);
+        }
+        for (symbol, color) in cost.hybrid.iter().zip(&selection.hybrid) {
+            if *color != symbol.first && *color != symbol.second {
+                return Err("selected color cannot pay that hybrid symbol".to_owned());
+            }
+            if paid.amount(*color) == 0 {
+                return Err(format!("missing {color:?} mana"));
+            }
+            paid.amounts[color.index()] -= 1;
+            colors.push(*color);
+        }
+        for color in &selection.generic {
+            if paid.amount(*color) == 0 {
+                return Err(format!("missing {color:?} mana"));
+            }
+            paid.amounts[color.index()] -= 1;
+            colors.push(*color);
+        }
+        *self = paid;
+        Ok(colors)
     }
 
     /// Internal payment mutation after `pay` has made the caller's pool
@@ -584,6 +647,12 @@ pub enum Effect {
     GainLifeController {
         amount: i16,
     },
+    /// Draw one card only when this spell's explicit cast-payment receipt
+    /// contains the named mana color. The receipt belongs to the stack object,
+    /// so later floating mana or post-cast pool changes cannot affect it.
+    DrawControllerIfManaColorSpent {
+        color: Color,
+    },
     CreateToken {
         token: TokenSpec,
         count: u8,
@@ -618,6 +687,13 @@ pub enum Effect {
 }
 
 impl Effect {
+    /// Whether resolving this instruction is defined only from the spell's
+    /// explicit mana-payment receipt rather than a deterministic pool drain.
+    #[must_use]
+    pub const fn requires_explicit_mana_spend(&self) -> bool {
+        matches!(self, Self::DrawControllerIfManaColorSpent { .. })
+    }
+
     #[must_use]
     pub const fn target_requirement(&self) -> Option<TargetRequirement> {
         match self {
@@ -633,6 +709,7 @@ impl Effect {
             Self::DealDamageController { .. }
             | Self::DealDamageToEachCreatureAndPlayer { .. }
             | Self::GainLifeController { .. }
+            | Self::DrawControllerIfManaColorSpent { .. }
             | Self::CreateToken { .. }
             | Self::ModifyControllerCreaturesPtUntilEndOfTurn { .. } => None,
         }
@@ -1029,6 +1106,10 @@ pub struct StackObject {
     pub controller: PlayerId,
     pub targets: Vec<Target>,
     pub effects: Vec<Effect>,
+    /// Full color receipt for an explicitly selected spell payment. `None`
+    /// denotes the legacy deterministic payment path, which is deliberately
+    /// unavailable to effects that inspect colors spent to cast the spell.
+    pub mana_spent: Option<Vec<Color>>,
 }
 
 /// The resolution status for the target occurrence, if any, owned by one
@@ -1208,6 +1289,14 @@ pub enum GameEvent {
     OpeningHandDrawn {
         player: PlayerId,
         cards: u8,
+    },
+    /// Exact colors consumed from the controller's mana pool while one spell
+    /// was cast through an explicit payment selection. This is recorded before
+    /// `SpellCast` and copied to its stack object for resolution-time effects.
+    SpellManaPaid {
+        player: PlayerId,
+        card: ObjectId,
+        colors: Vec<Color>,
     },
     SpellCast {
         player: PlayerId,
