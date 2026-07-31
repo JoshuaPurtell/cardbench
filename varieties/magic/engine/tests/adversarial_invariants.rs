@@ -451,6 +451,30 @@ fn state_based_actions_reach_a_fixed_point_for_multiple_lethal_creatures() {
 }
 
 #[test]
+fn public_sba_transition_flushes_death_trigger_queue_before_invariant_audit() {
+    let mut game = Game::new(definitions(), 2).expect("game initializes");
+    let source = game
+        .put_on_battlefield(PlayerId(0), SOURCE)
+        .expect("source enters");
+    let target = game
+        .put_on_battlefield(PlayerId(1), BODY)
+        .expect("target enters");
+    game.add_continuous_effect(
+        source,
+        target,
+        ContinuousChange::ModifyPowerToughness {
+            power: -1,
+            toughness: -1,
+        },
+        Duration::Permanent,
+    )
+    .expect("the public transition reaches a fixed SBA point");
+    assert_eq!(game.zone_of(target), Some(Zone::Graveyard));
+    game.validate_invariants()
+        .expect("no pending dies trigger escapes the public transition");
+}
+
+#[test]
 fn multiplayer_priority_skips_eliminated_players_and_ends_with_one_survivor() {
     let first = PlayerId(0);
     let second = PlayerId(1);
