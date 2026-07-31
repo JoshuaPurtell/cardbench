@@ -76,4 +76,21 @@ fn resolution_completes_when_its_draw_eliminates_its_controller() {
             .any(|event| event.starts_with("GameEnded")),
         "the terminal loss lifecycle is recorded"
     );
+    assert_eq!(
+        game.canonical_event_log(),
+        [
+            format!("SpellManaPaid {{ player: {caster:?}, card: {spell:?}, colors: [Blue] }}"),
+            format!("SpellCast {{ player: {caster:?}, card: {spell:?} }}"),
+            format!("PriorityPassed {{ player: {caster:?} }}"),
+            format!("PriorityPassed {{ player: {responder:?} }}"),
+            format!(
+                "PlayerLost {{ player: {caster:?}, reason: \"attempted to draw from an empty library\" }}"
+            ),
+            format!("ObjectLeftGame {{ object: {spell:?}, owner: {caster:?} }}"),
+            format!("GameEnded {{ winner: Some({responder:?}) }}"),
+        ],
+        "source departure closes the cast lifecycle; no later SpellResolved or zone move names a removed object"
+    );
+    game.validate_invariants()
+        .expect("the source-departure terminal lifecycle is auditable");
 }
