@@ -1,9 +1,8 @@
 //! Red regression for ordinary multi-block combat declaration.
 //!
-//! The compact combat model must not reject a legal declaration merely because
-//! two ordinary creatures block the same attacker.  This probe deliberately
-//! stops at declaration: it exposes the missing game-state representation
-//! before any damage-order or assignment implementation can hide it.
+//! Two ordinary blockers may be assigned to the same attacker. The regression
+//! also checks that the ordered declaration is retained in the event log and
+//! passes the engine's state-machine audit.
 
 use std::collections::BTreeSet;
 
@@ -132,7 +131,6 @@ fn advance_to_blockers(game: &mut Game, attacker: cardbench_magic_engine::Object
 }
 
 #[test]
-#[ignore = "open engine limitation: combat stores only one blocker per attacker"]
 fn ordinary_defender_can_assign_two_blockers_to_one_attacker_atomically() {
     let mut game = Game::new(definitions(), 2).expect("game initializes");
     add_library(&mut game, PlayerId(0));
