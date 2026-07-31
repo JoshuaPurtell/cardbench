@@ -35,7 +35,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 74] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 75] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -72,6 +72,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 74] = [
     "RAV-GOLIATH-SPIDER",
     "RAV-COURIER-HAWK",
     "RAV-SKYKNIGHT-LEGIONNAIRE",
+    "RAV-MOROII",
     "RAV-BIRDS-OF-PARADISE",
     "RAV-FIERY-CONCLUSION",
     "RAV-RIBBONS-OF-NIGHT",
@@ -1466,9 +1467,9 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Flying, Keyword::Haste],
             effects: vec![],
         },
-        // Compatibility scope: normal colored-cost creature casting, base
-        // characteristics, and static Flying. Its upkeep life-loss trigger is
-        // deliberately unsupported.
+        // Full printed behavior: normal colored-cost creature casting, base
+        // characteristics, Flying, and its controller's upkeep life-loss
+        // trigger, which is stack-backed before upkeep priority.
         CardDefinition {
             id: "RAV-MOROII",
             name: "Moroii",
@@ -1478,7 +1479,13 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Creature]),
             is_basic_land: false,
-            supported_rules: &["colored-cost-casting", "base-characteristics", "flying"],
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "flying",
+                "upkeep-controller-life-loss",
+            ],
             power: Some(4),
             toughness: Some(4),
             keywords: vec![Keyword::Flying],
@@ -3070,6 +3077,17 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
 #[allow(clippy::too_many_lines)] // Keep the declarative trigger registry centralized for audit review.
 pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
     vec![
+        TriggeredAbilityBinding {
+            card_definition: "RAV-MOROII",
+            ability: TriggeredAbility {
+                id: "upkeep-lose-one-life",
+                condition: TriggerCondition::BeginningOfUpkeep,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![Effect::LoseLifeController { amount: 1 }],
+            },
+        },
         TriggeredAbilityBinding {
             card_definition: "RAV-SEARING-MEDITATION",
             ability: TriggeredAbility {

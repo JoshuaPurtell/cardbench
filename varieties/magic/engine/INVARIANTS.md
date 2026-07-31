@@ -333,6 +333,10 @@ Oracle Magic rules coverage.
   policy action in either is rejected.
 - `StepBegan` is emitted before any automatic work in that step (untapping,
   drawing, combat damage, cleanup, state-based actions, or terminal loss).
+  At `Upkeep`, every beginning-of-upkeep trigger controlled by the active
+  player is stacked after that marker and before the first priority window;
+  its life-loss receipts are never damage receipts and resolve only through
+  the ordinary stack path.
   Cleanup emits one `ContinuousEffectExpired` per expiring effect; token SBAs
   emit `TokenCeasedToExist`; and every transmute shuffle emits
   `LibraryShuffled`. These lifecycle receipts let a runner audit transitions

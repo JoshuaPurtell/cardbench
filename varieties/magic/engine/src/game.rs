@@ -633,6 +633,7 @@ impl Game {
                 || !matches!(
                     binding.ability.condition,
                     TriggerCondition::EntersBattlefield
+                        | TriggerCondition::BeginningOfUpkeep
                         | TriggerCondition::LifeGained
                         | TriggerCondition::DealsDamage
                         | TriggerCondition::ReceivesDamage
@@ -2853,6 +2854,7 @@ impl Game {
                     || !matches!(
                         ability.condition,
                         TriggerCondition::EntersBattlefield
+                            | TriggerCondition::BeginningOfUpkeep
                             | TriggerCondition::LifeGained
                             | TriggerCondition::DealsDamage
                             | TriggerCondition::ReceivesDamage
@@ -3708,6 +3710,7 @@ impl Game {
             let amount = match effect {
                 Effect::DealDamage { amount, .. }
                 | Effect::LoseLifeTarget { amount }
+                | Effect::LoseLifeController { amount }
                 | Effect::DealDamageController { amount }
                 | Effect::DealDamageAfterOptionalManaPayment { amount, .. }
                 | Effect::DealDamageToEachCreatureAndPlayer { amount }
@@ -3991,6 +3994,56 @@ impl Game {
         if !self.stack.is_empty() {
             self.consecutive_passes = 0;
         }
+    }
+
+    /// Stacks each permanent controlled by the active player whose ability
+    /// triggers at the beginning of upkeep.  This runs after the public
+    /// `StepBegan` receipt and before either player receives priority, which
+    /// preserves the mandatory trigger window at the state-machine boundary.
+    fn enqueue_upkeep_triggers(&mut self) -> Result<(), RulesError> {
+        let controller = self.active_player;
+        let sources = self.players[controller.0].battlefield.clone();
+        for source in sources {
+            let object = self.object(source)?;
+            if object.controller != controller || object.token.is_some() {
+                continue;
+            }
+            let definition = self.card_definition(source)?.id;
+            let triggers = self
+                .triggered_abilities
+                .get(definition)
+                .into_iter()
+                .flat_map(|abilities| abilities.values())
+                .filter(|ability| ability.condition == TriggerCondition::BeginningOfUpkeep)
+                .cloned()
+                .collect::<Vec<_>>();
+            for ability in triggers {
+                let Some(targets) = self.select_trigger_targets(controller, &ability.targets)
+                else {
+                    // A mandatory trigger with no legal target is not put on
+                    // the stack. This matches the existing ETB trigger
+                    // boundary and avoids creating an illegal stack object.
+                    continue;
+                };
+                self.stack.push(StackObject {
+                    card: source,
+                    controller,
+                    ability_id: Some(ability.id),
+                    targets,
+                    effects: ability.effects,
+                    mana_spent: None,
+                });
+                self.record_event(GameEvent::TriggeredAbilityStacked {
+                    controller,
+                    source,
+                    ability: ability.id,
+                });
+            }
+        }
+        if !self.stack.is_empty() {
+            self.consecutive_passes = 0;
+        }
+        Ok(())
     }
 
     fn select_trigger_targets(
@@ -4518,6 +4571,14 @@ impl Game {
                 self.record_event(GameEvent::LifeLost {
                     source,
                     player,
+                    amount: *amount,
+                });
+            }
+            Effect::LoseLifeController { amount } => {
+                self.players[controller.0].life -= i64::from(*amount);
+                self.record_event(GameEvent::LifeLost {
+                    source,
+                    player: controller,
                     amount: *amount,
                 });
             }
@@ -5261,6 +5322,9 @@ impl Game {
             active_player: self.active_player,
             step: self.step,
         });
+        if self.step == Step::Upkeep {
+            self.enqueue_upkeep_triggers()?;
+        }
         if self.step == Step::FirstStrikeCombatDamage {
             self.resolve_combat_damage(true)?;
         }
@@ -5722,6 +5786,7 @@ impl Game {
             let amount = match effect {
                 Effect::DealDamage { amount, .. }
                 | Effect::LoseLifeTarget { amount }
+                | Effect::LoseLifeController { amount }
                 | Effect::DealDamageController { amount }
                 | Effect::DealDamageAfterOptionalManaPayment { amount, .. }
                 | Effect::DealDamageToEachCreatureAndPlayer { amount }

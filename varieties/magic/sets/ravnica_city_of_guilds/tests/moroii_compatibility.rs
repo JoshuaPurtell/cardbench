@@ -1,4 +1,4 @@
-//! Bounded public contract for Moroii's shared Flying rule.
+//! Full public contract for Moroii's Flying and upkeep life-loss rules.
 
 use std::collections::BTreeSet;
 
@@ -6,7 +6,7 @@ use cardbench_magic_engine::{CardType, Color, Keyword, ManaCost};
 use cardbench_magic_rav::{RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, run_all_scenarios};
 
 #[test]
-fn moroii_definition_is_explicit_about_flying_and_omitted_upkeep_trigger() {
+fn moroii_definition_is_explicit_about_flying_and_upkeep_trigger() {
     let moroii = card_definitions()
         .into_iter()
         .find(|definition| definition.id == "RAV-MOROII")
@@ -23,9 +23,15 @@ fn moroii_definition_is_explicit_about_flying_and_omitted_upkeep_trigger() {
     assert!(moroii.effects.is_empty());
     assert_eq!(
         moroii.supported_rules,
-        ["colored-cost-casting", "base-characteristics", "flying"]
+        [
+            "full-rules-fidelity",
+            "colored-cost-casting",
+            "base-characteristics",
+            "flying",
+            "upkeep-controller-life-loss",
+        ]
     );
-    assert!(!RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&moroii.id));
+    assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&moroii.id));
 }
 
 #[test]

@@ -3916,7 +3916,7 @@ digest = "fnv1a64:e78637d84b25b302"
 [[scenario]]
 id = "rav_guild_creature_chassis"
 seed = 0
-description = "Cast Loxodon Hierarch and Moroii with their exact guild costs, then verify only their base P/T. Moroii's Flying is exercised separately; remaining card-specific behavior is deliberately omitted."
+description = "Cast Loxodon Hierarch and Moroii with their exact guild costs, then verify their base P/T. Moroii's Flying and upkeep life-loss trigger have dedicated coverage; Loxodon Hierarch's printed behavior remains deliberately omitted."
 
 [[scenario.card]]
 label = "hierarch"
@@ -8053,7 +8053,7 @@ digest = "fnv1a64:1dcdb2289fdaa917"
 [[scenario]]
 id = "rav_moroii_flying_compatibility"
 seed = 49
-description = "Declare Moroii as a Flying attacker, then reject a ground creature's block declaration; its upkeep life-loss trigger remains unsupported."
+description = "Declare Moroii as a Flying attacker, then reject a ground creature's block declaration; its stack-backed upkeep life-loss trigger has dedicated coverage."
 
 [[scenario.card]]
 label = "moroii"

@@ -188,12 +188,14 @@ activations are exercised in public scenarios, while each printed spell effect
 remains non-covered.
 
 The creature-chassis batch for Dromad Purebred, Carrion Howler, Coalhauler
-Swine, Bramble Elemental, Carven Caryatid, Boros Swiftblade, Loxodon Hierarch,
-and Moroii is also deliberately
+Swine, Bramble Elemental, Carven Caryatid, Boros Swiftblade, and Loxodon
+Hierarch is also deliberately
 bounded. Each records only public identity, mana cost, color, type, and base
 power/toughness facts, and supports only normal creature casting and those base
 characteristics. Every printed keyword, static rule, triggered behavior, and
-activation on those cards is intentionally outside the executable slice. The
+activation on those cards is intentionally outside the executable slice. Moroii
+has since been promoted: its Flying and stack-backed upkeep life-loss trigger
+are fully represented. The
 public scenarios exercise exact colored-cost payment, stack resolution, zone
 movement, and base P/T values; they do not imply full-card fidelity.
 

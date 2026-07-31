@@ -1,7 +1,6 @@
 //! Red coverage probe for Moroii's static Flying keyword.
 //!
-//! Its upkeep life-loss trigger remains intentionally outside this static
-//! keyword probe and must not be approximated.
+//! The separate upkeep regression covers its stack-backed life-loss trigger.
 
 use cardbench_magic_engine::Keyword;
 use cardbench_magic_rav::card_definitions;
@@ -15,6 +14,12 @@ fn moroii_exposes_its_supported_flying_slice() {
     assert_eq!(moroii.keywords, [Keyword::Flying]);
     assert_eq!(
         moroii.supported_rules,
-        ["colored-cost-casting", "base-characteristics", "flying"]
+        [
+            "full-rules-fidelity",
+            "colored-cost-casting",
+            "base-characteristics",
+            "flying",
+            "upkeep-controller-life-loss",
+        ]
     );
 }

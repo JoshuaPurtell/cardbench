@@ -185,6 +185,10 @@ pub struct ActivatedAbilityBinding {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum TriggerCondition {
     EntersBattlefield,
+    /// The active player's upkeep began.  Only permanents they control are
+    /// eligible; the resulting abilities are put on the stack before either
+    /// player receives that upkeep's first priority.
+    BeginningOfUpkeep,
     /// The source's controller gained positive life. The trigger is queued
     /// at the life-gain receipt and may optionally pay its bound mana cost
     /// before it is put on the stack.
@@ -795,6 +799,11 @@ pub enum Effect {
     LoseLifeTarget {
         amount: i16,
     },
+    /// Make the resolving ability's controller lose life without dealing
+    /// damage. Unlike `LoseLifeTarget`, this has no target slot.
+    LoseLifeController {
+        amount: i16,
+    },
     /// Deal damage to one target equal to the number of creatures controlled
     /// by this spell's controller that are still attacking as it resolves.
     ///
@@ -1012,6 +1021,7 @@ impl Effect {
                 Some(TargetRequirement::InstantOrSorcerySpell)
             }
             Self::DealDamageController { .. }
+            | Self::LoseLifeController { .. }
             | Self::DealDamageAfterOptionalManaPayment { .. }
             | Self::DealDamageToEachCreatureAndPlayer { .. }
             | Self::DealDamageToEachPlayer { .. }

@@ -39,6 +39,8 @@ fn moroii_stacks_and_resolves_its_upkeep_life_loss() {
     game.pass_priority(PlayerId(1))
         .expect("opponent passes upkeep trigger");
 
+    println!("Moroii upkeep trace: {:?}", game.canonical_event_log());
+
     assert_eq!(
         game.player(PlayerId(0)).expect("controller exists").life,
         19
