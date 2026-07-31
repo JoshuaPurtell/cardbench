@@ -2140,6 +2140,22 @@ impl Game {
         Ok(())
     }
 
+    /// Draws for a triggered ability while deferring the terminal `GameEnded`
+    /// receipt to the enclosing resolver's state-based-action boundary.
+    fn draw_card_from_trigger(&mut self, player: PlayerId) -> Result<(), RulesError> {
+        self.player(player)?;
+        let Some(card) = self.players[player.0].library.pop() else {
+            self.lose_player(player, "attempted to draw from an empty library");
+            return Ok(());
+        };
+        self.players[player.0].hand.push(card);
+        self.record_event(GameEvent::CardMoved {
+            card,
+            to: Zone::Hand,
+        });
+        Ok(())
+    }
+
     /// Resolves the draw replacement decision exposed during a normal draw step.
     /// `None` takes the ordinary draw; a card selects that card's dredge ability.
     pub fn resolve_pending_draw(
@@ -3370,7 +3386,11 @@ impl Game {
             }
             match trigger.ability {
                 TriggeredAbility::EnterBattlefieldDrawController => {
-                    self.draw_card_from_spell_effect(trigger.controller)?;
+                    // Defer `GameEnded` until after the trigger's terminal
+                    // receipt. The ordinary spell-draw helper records game
+                    // end immediately, which would place
+                    // `TriggeredAbilityResolved` after the terminal event.
+                    self.draw_card_from_trigger(trigger.controller)?;
                 }
             }
             self.record_event(GameEvent::TriggeredAbilityResolved {
