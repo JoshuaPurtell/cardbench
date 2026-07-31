@@ -159,6 +159,29 @@ pub struct ManaAbilityActivation {
     pub chosen_color: Option<Color>,
 }
 
+/// A player's explicit request to use a typed basic land's intrinsic mana
+/// ability while paying one spell cost.
+///
+/// The selected color is kept in the request so the cast transaction can
+/// validate the type-to-color binding before it taps the named land. This is
+/// separate from definition-bound mana abilities because basic land mana is a
+/// rules-derived intrinsic ability, not catalog card text.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct BasicLandManaAbilityActivation {
+    pub land: ObjectId,
+    pub color: Color,
+}
+
+/// One ordered mana ability used during a spell's cost-payment transaction.
+///
+/// Each request is intentionally explicit: the engine never selects a mana
+/// source or color on the policy's behalf.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum CastPaymentManaAbility {
+    Bound(ManaAbilityActivation),
+    BasicLand(BasicLandManaAbilityActivation),
+}
+
 impl Color {
     pub const ALL: [Self; 5] = [Self::White, Self::Blue, Self::Black, Self::Red, Self::Green];
 

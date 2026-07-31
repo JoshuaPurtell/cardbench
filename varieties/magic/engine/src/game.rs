@@ -4,10 +4,11 @@ use std::fmt::{Display, Formatter};
 
 use crate::{
     ActivatedManaAbility, BasicLandType, BasicLandTypeBinding, CardDefinition, CardObject,
-    CardType, Characteristics, Color, CombatBlock, ContinuousChange, ContinuousEffect, DeckList,
-    Duration, Effect, GameEvent, Keyword, ManaAbilityActivation, ManaAbilityBinding,
-    ManaAbilityOutput, ObjectId, PlayerId, PlayerState, PolicyMoveKind, StackEffectResolution,
-    StackObject, StackResolutionPlan, Step, Target, TargetRequirement, TokenSpec, Zone,
+    CardType, CastPaymentManaAbility, Characteristics, Color, CombatBlock, ContinuousChange,
+    ContinuousEffect, DeckList, Duration, Effect, GameEvent, Keyword, ManaAbilityActivation,
+    ManaAbilityBinding, ManaAbilityOutput, ObjectId, PlayerId, PlayerState, PolicyMoveKind,
+    StackEffectResolution, StackObject, StackResolutionPlan, Step, Target, TargetRequirement,
+    TokenSpec, Zone,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -74,12 +75,12 @@ pub struct CastRequest {
     pub card: ObjectId,
     pub targets: Vec<Target>,
     pub convoke: Vec<ConvokePayment>,
-    /// Ordered definition-bound mana activations performed while this spell's
-    /// cost is being paid. These never become stack objects. The engine
+    /// Ordered mana activations performed while this spell's cost is being
+    /// paid. These never become stack objects. The engine
     /// preflights and applies them as part of the enclosing cast transaction,
     /// so a later failed activation or spell payment restores every earlier
     /// tap, mana-pool debit/output, and event receipt.
-    pub payment_mana_abilities: Vec<ManaAbilityActivation>,
+    pub payment_mana_abilities: Vec<CastPaymentManaAbility>,
 }
 
 /// A policy's proposed move. The engine performs all legality checks when submitted.
@@ -1483,7 +1484,16 @@ impl Game {
         self.validate_targets(&definition, &request.targets)?;
         self.validate_effect_capacity(&definition, player)?;
         for activation in &request.payment_mana_abilities {
-            self.activate_bound_mana_ability_impl(player, *activation, Some(request.card))?;
+            match activation {
+                CastPaymentManaAbility::Bound(activation) => {
+                    self.activate_bound_mana_ability_impl(player, *activation, Some(request.card))?;
+                }
+                CastPaymentManaAbility::BasicLand(_) => {
+                    return Err(RulesError::IllegalAction(
+                        "intrinsic basic-land mana abilities are unavailable while paying a spell cost",
+                    ));
+                }
+            }
         }
         let paid_cost =
             self.pay_cost_with_convoke(player, request.card, &definition, &request.convoke)?;

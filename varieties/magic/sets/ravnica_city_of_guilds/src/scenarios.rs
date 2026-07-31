@@ -8,8 +8,8 @@ use std::collections::BTreeMap;
 use std::fs;
 
 use cardbench_magic_engine::{
-    CastRequest, Color, CombatBlock, ConvokeContribution, ConvokePayment, Game,
-    ManaAbilityActivation, ObjectId, PlayerId, RulesError, Target, Zone,
+    CastPaymentManaAbility, CastRequest, Color, CombatBlock, ConvokeContribution, ConvokePayment,
+    Game, ManaAbilityActivation, ObjectId, PlayerId, RulesError, Target, Zone,
 };
 
 use crate::{
@@ -404,6 +404,7 @@ fn execute_action(
                 .payment_mana
                 .iter()
                 .map(|entry| parse_cast_payment_mana_ability(entry, game, labels))
+                .map(|activation| activation.map(CastPaymentManaAbility::Bound))
                 .collect::<Result<Vec<_>, _>>()?;
             game.cast_spell(
                 player,
