@@ -73,6 +73,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-HUNTED-DRAGON",
             "RAV-RAZIA-BOROS-ARCHANGEL",
             "RAV-HAMMERFIST-GIANT",
+            "RAV-INCITE-HYSTERIA",
             "RAV-SCREECHING-GRIFFIN",
             "RAV-SURGE-OF-ZEAL",
             "RAV-SEISMIC-SPIKE",
@@ -148,6 +149,12 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             vec![Effect::ModifyTargetPtUntilEndOfTurn {
                 power: -1,
                 toughness: -1,
+            }],
+        ),
+        (
+            "RAV-INCITE-HYSTERIA",
+            vec![Effect::RadianceAddKeywordUntilEndOfTurn {
+                keyword: Keyword::CannotBlock,
             }],
         ),
         (
