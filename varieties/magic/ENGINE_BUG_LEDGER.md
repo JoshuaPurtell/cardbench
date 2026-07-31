@@ -114,6 +114,8 @@ Severity for the newly fixed engine findings is high for
 severity for `sorcery-cast-at-instant-speed` and
 `casting-hands-priority-to-opponent`.
 
+| `damage-shield-cleanup-underflow` | Engine prevention-layer invariant defect — high severity, any consumed temporary damage shield | Open; red repro `cargo test -p cardbench-magic-rav --test ordruun_commando_red ordruun_commando_prevents_the_next_damage_and_logs_the_shield -- --nocapture` returns `IllegalAction("object has impossible turn metadata or negative damage/shield")` after the `DamagePrevented` path consumes a one-damage shield and zone cleanup subtracts it a second time | A consumed `AddDamageShield` effect must leave a zero shield when its target later leaves the battlefield. The cleanup path subtracted the full installed amount from the already-consumed shield, producing `damage_shield=-1` during the same Char resolution and rolling back the stack transition. Cleanup must clamp at zero and retain the ordered prevention and damage receipts. |
+
 ## RAV set and mechanic coverage gaps (not engine defects)
 
 | `belltower-sphinx-damage-trigger-not-represented` | RAV card-coverage gap — static Flying is represented, but the damage-triggered behavior is not | Open; ignored red regression retained | The executable Belltower Sphinx definition now claims only colored-cost casting, base characteristics, and Flying. The ignored probe `cargo test -p cardbench-magic-rav --test belltower_sphinx_full_fidelity_red -- --ignored --nocapture` remains red until the trigger substrate is available; no trigger behavior is approximated. |
