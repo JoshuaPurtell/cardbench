@@ -592,6 +592,9 @@ impl Game {
     /// Scenario setup hook for a permanent that began the measured sequence tapped.
     /// It neither represents an in-game action nor writes to the event log.
     pub fn set_tapped_for_setup(&mut self, card: ObjectId, tapped: bool) -> Result<(), RulesError> {
+        if self.started {
+            return Err(RulesError::IllegalAction("tap state is setup-only"));
+        }
         self.require_zone(card, Zone::Battlefield)?;
         self.objects
             .get_mut(&card)

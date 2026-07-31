@@ -33,7 +33,8 @@ fn setup_tap_hook_rejects_live_game_mutation_after_a_mana_ability() {
     let land = game
         .add_card(player, MOUNTAIN, Zone::Battlefield)
         .expect("land begins on battlefield");
-    game.begin_game().expect("first turn reaches upkeep priority");
+    game.begin_game()
+        .expect("first turn reaches upkeep priority");
     game.activate_mana_ability(player, land, Color::Red)
         .expect("legal intrinsic activation taps the source");
     game.clear_event_log();
