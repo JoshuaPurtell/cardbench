@@ -1629,8 +1629,8 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
-        // Full fidelity: the typed {R} self-pump uses the shared activated
-        // ability stack and layer-7 temporary effect.
+        // Full fidelity: the typed {R}, discard-a-card self-pump uses the
+        // shared activated ability stack and layer-7 temporary effect.
         CardDefinition {
             id: "RAV-VIASHINO-SLASHER",
             name: "Viashino Slasher",
