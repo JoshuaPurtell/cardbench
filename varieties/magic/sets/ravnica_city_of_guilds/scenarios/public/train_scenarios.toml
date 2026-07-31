@@ -1163,7 +1163,7 @@ digest = "fnv1a64:22d84ec03922474e"
 [[scenario]]
 id = "rav_stinkweed_imp_dredge_and_cast"
 seed = 0
-description = "Replace a draw with Stinkweed Imp's supported dredge value, then cast the returned 1/2 creature. Its combat keywords and damage-triggered behavior are unsupported."
+description = "Replace a draw with Stinkweed Imp's supported dredge value, then cast the returned 1/2 creature. Its Flying is supported; its damage-triggered behavior remains unsupported."
 
 [[scenario.card]]
 label = "imp"
@@ -4502,7 +4502,7 @@ digest = "fnv1a64:cbf29ce484222325"
 [[scenario]]
 id = "rav_easy_white_creature_chassis"
 seed = 0
-description = "Cast Screeching Griffin and verify its exact colored cost and base P/T. Printed flying and activated combat behavior are deliberately omitted."
+description = "Cast Screeching Griffin and verify its exact colored cost and base P/T. Its Flying declaration is exercised separately; its activated combat behavior remains unsupported."
 
 [[scenario.card]]
 label = "griffin"
@@ -4599,7 +4599,7 @@ digest = "fnv1a64:e78637d84b25b302"
 [[scenario]]
 id = "rav_easy_blue_phantasm_drake_chassis"
 seed = 0
-description = "Cast Hunted Phantasm and Tattered Drake with exact blue costs, then verify only their base P/T. Printed evasion, token entry, flying, and regeneration behavior are deliberately omitted."
+description = "Cast Hunted Phantasm and Tattered Drake with exact blue costs, then verify only their base P/T. Tattered Drake's Flying declaration is exercised separately; its regeneration and Hunted Phantasm's token entry remain unsupported."
 
 [[scenario.card]]
 label = "phantasm"
@@ -7407,6 +7407,91 @@ zones = ["sphinx:battlefield", "ground_blocker:battlefield"]
 powers = ["sphinx:2", "ground_blocker:3"]
 toughnesses = ["sphinx:5", "ground_blocker:3"]
 tapped = ["sphinx:true", "ground_blocker:false"]
+stack_size = 0
+priority = 0
+event_markers = ["AttackersDeclared"]
+event_absent = ["BlockersDeclared"]
+digest = "fnv1a64:1dcdb2289fdaa917"
+
+[[scenario]]
+id = "rav_stinkweed_imp_flying_compatibility"
+seed = 46
+description = "Declare Stinkweed Imp as a Flying attacker, then reject a ground creature's block declaration; its damage-triggered destruction behavior remains unsupported."
+
+[[scenario.card]]
+label = "imp"
+owner = 0
+definition = "RAV-STINKWEED-IMP"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.card]]
+label = "ground_blocker"
+owner = 1
+definition = "RAV-WATCHWOLF"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "declare_attackers"
+player = 0
+attackers = ["imp"]
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "declare_blockers"
+player = 1
+attackers = ["imp:ground_blocker"]
+expected_error = "flying attacker can be blocked only by flying or reach"
+
+[scenario.expected]
+zones = ["imp:battlefield", "ground_blocker:battlefield"]
+powers = ["imp:1", "ground_blocker:3"]
+toughnesses = ["imp:2", "ground_blocker:3"]
+tapped = ["imp:true", "ground_blocker:false"]
 stack_size = 0
 priority = 0
 event_markers = ["AttackersDeclared"]
