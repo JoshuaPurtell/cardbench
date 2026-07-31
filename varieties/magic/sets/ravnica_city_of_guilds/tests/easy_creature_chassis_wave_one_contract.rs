@@ -15,14 +15,6 @@ fn easy_creature_wave_one_is_exactly_bounded_to_public_base_facts() {
     let definitions = card_definitions();
     let expected = [
         (
-            "RAV-SCREECHING-GRIFFIN",
-            "Screeching Griffin",
-            ManaCost::with_colors(3, [Color::White]),
-            BTreeSet::from([Color::White]),
-            2,
-            2,
-        ),
-        (
             "RAV-BELLTOWER-SPHINX",
             "Belltower Sphinx",
             ManaCost::with_colors(4, [Color::Blue]),
@@ -121,6 +113,20 @@ fn easy_creature_wave_one_is_exactly_bounded_to_public_base_facts() {
         moloch.supported_rules,
         ["colored-cost-casting", "base-characteristics", "defender"]
     );
+
+    let griffin = definitions
+        .iter()
+        .find(|definition| definition.id == "RAV-SCREECHING-GRIFFIN")
+        .expect("Screeching Griffin definition exists");
+    assert_eq!(griffin.name, "Screeching Griffin");
+    assert_eq!(griffin.mana_cost, ManaCost::with_colors(3, [Color::White]));
+    assert_eq!(griffin.colors, BTreeSet::from([Color::White]));
+    assert_eq!(griffin.card_types, BTreeSet::from([CardType::Creature]));
+    assert_eq!((griffin.power, griffin.toughness), (Some(2), Some(2)));
+    assert_eq!(
+        griffin.supported_rules,
+        ["colored-cost-casting", "base-characteristics", "flying"]
+    );
 }
 
 #[test]
@@ -137,6 +143,7 @@ fn easy_creature_wave_one_has_deterministic_public_scenarios() {
         "rav_easy_blue_late_creature_chassis",
         "rav_easy_black_red_creature_chassis",
         "rav_torpid_moloch_defender_compatibility",
+        "rav_screeching_griffin_flying_compatibility",
     ] {
         assert!(scenarios.contains(id), "missing public scenario {id}");
     }

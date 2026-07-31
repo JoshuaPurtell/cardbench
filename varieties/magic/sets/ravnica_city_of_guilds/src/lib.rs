@@ -1309,17 +1309,24 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             2,
             5,
         ),
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed evasion and activated combat
-        // behavior are deliberately omitted from this compatibility slice.
-        bounded_creature_chassis(
-            "RAV-SCREECHING-GRIFFIN",
-            "Screeching Griffin",
-            ManaCost::with_colors(3, [Color::White]),
-            colors([Color::White]),
-            2,
-            2,
-        ),
+        // Compatibility scope: normal colored-cost creature casting, base
+        // characteristics, and Flying. Its activated combat behavior remains
+        // deliberately unsupported, so this is not a full-fidelity card.
+        CardDefinition {
+            id: "RAV-SCREECHING-GRIFFIN",
+            name: "Screeching Griffin",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(3, [Color::White]),
+            colors: colors([Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &["colored-cost-casting", "base-characteristics", "flying"],
+            power: Some(2),
+            toughness: Some(2),
+            keywords: vec![Keyword::Flying],
+            effects: vec![],
+        },
         // Compatibility scope: normal colored-cost creature casting and base
         // characteristics only. Its printed flying and damage-triggered
         // behavior are deliberately omitted from this compatibility slice.
