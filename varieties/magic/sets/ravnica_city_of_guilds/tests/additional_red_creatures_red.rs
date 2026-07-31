@@ -1,7 +1,7 @@
 //! Red discovery probes for the next easy creature/ETB/static slice.
 
 use cardbench_magic_engine::{
-    CardType, CastRequest, Color, Game, GameEvent, Keyword, PlayerId, Zone,
+    CardType, CastRequest, Color, Game, GameEvent, Keyword, ObjectId, PlayerId, Zone,
 };
 use cardbench_magic_rav::{RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions};
 use cardbench_magic_rav::{
@@ -51,8 +51,8 @@ fn razia_requires_flying_vigilance_and_haste() {
     assert!(definition.keywords.contains(&Keyword::Haste));
 }
 
-fn game_at_first_main() -> Game {
-    let mut game = Game::new_with_all_bindings_and_triggers(
+fn fixture_game() -> Game {
+    Game::new_with_all_bindings_and_triggers(
         card_definitions(),
         2,
         rav_mana_ability_bindings(),
@@ -61,24 +61,41 @@ fn game_at_first_main() -> Game {
         rav_activated_ability_bindings(),
         rav_triggered_ability_bindings(),
     )
-    .expect("RAV game builds");
+    .expect("RAV game builds")
+}
+
+fn advance_to_first_main(game: &mut Game) {
     game.begin_game().expect("game starts");
     for player in [PlayerId(0), PlayerId(1), PlayerId(0), PlayerId(1)] {
         game.pass_priority(player).expect("advance to first main");
     }
-    game
+}
+
+fn setup_mountains(game: &mut Game, count: usize) -> Vec<ObjectId> {
+    (0..count)
+        .map(|_| {
+            game.put_on_battlefield(PlayerId(0), "RAV-MOUNTAIN")
+                .expect("Mountain setup")
+        })
+        .collect()
+}
+
+fn activate_mountains(game: &mut Game, mountains: &[ObjectId]) {
+    for mountain in mountains {
+        game.activate_mana_ability(PlayerId(0), *mountain, Color::Red)
+            .expect("activate red Mountain");
+    }
 }
 
 #[test]
 fn sparkmage_apprentice_etb_targets_opponent_and_deals_one() {
-    let mut game = game_at_first_main();
+    let mut game = fixture_game();
     let sparkmage = game
         .add_card(PlayerId(0), "RAV-SPARKMAGE-APPRENTICE", Zone::Hand)
         .expect("Sparkmage enters hand");
-    game.grant_mana(PlayerId(0), Color::Red, 1)
-        .expect("red mana");
-    game.grant_mana(PlayerId(0), Color::Red, 1)
-        .expect("generic red mana");
+    let mountains = setup_mountains(&mut game, 2);
+    advance_to_first_main(&mut game);
+    activate_mountains(&mut game, &mountains);
     game.cast_spell(
         PlayerId(0),
         CastRequest {
@@ -109,16 +126,13 @@ fn sparkmage_apprentice_etb_targets_opponent_and_deals_one() {
 
 #[test]
 fn hunted_dragon_etb_creates_three_first_strike_knights_for_one_targeted_opponent() {
-    let mut game = game_at_first_main();
+    let mut game = fixture_game();
     let dragon = game
         .add_card(PlayerId(0), "RAV-HUNTED-DRAGON", Zone::Hand)
         .expect("Hunted Dragon enters hand");
-    game.grant_mana(PlayerId(0), Color::Red, 2)
-        .expect("red mana");
-    game.grant_mana(PlayerId(0), Color::Red, 2)
-        .expect("more red mana");
-    game.grant_mana(PlayerId(0), Color::Red, 1)
-        .expect("third red mana");
+    let mountains = setup_mountains(&mut game, 5);
+    advance_to_first_main(&mut game);
+    activate_mountains(&mut game, &mountains);
     game.cast_spell(
         PlayerId(0),
         CastRequest {
@@ -154,16 +168,7 @@ fn hunted_dragon_etb_creates_three_first_strike_knights_for_one_targeted_opponen
 
 #[test]
 fn razia_redirects_the_next_three_damage_to_the_second_target() {
-    let mut game = Game::new_with_all_bindings_and_triggers(
-        card_definitions(),
-        2,
-        rav_mana_ability_bindings(),
-        rav_basic_land_type_bindings(),
-        rav_additional_spell_cost_bindings(),
-        rav_activated_ability_bindings(),
-        rav_triggered_ability_bindings(),
-    )
-    .expect("RAV game builds");
+    let mut game = fixture_game();
     let razia = game
         .put_on_battlefield(PlayerId(0), "RAV-RAZIA-BOROS-ARCHANGEL")
         .expect("Razia enters");
@@ -172,10 +177,8 @@ fn razia_redirects_the_next_three_damage_to_the_second_target() {
     let char = game
         .add_card(PlayerId(0), "RAV-CHAR", Zone::Hand)
         .expect("Char enters hand");
-    game.begin_game().expect("game starts");
-    for player in [PlayerId(0), PlayerId(1), PlayerId(0), PlayerId(1)] {
-        game.pass_priority(player).expect("advance to first main");
-    }
+    let mountains = setup_mountains(&mut game, 3);
+    advance_to_first_main(&mut game);
     game.activate_ability(
         PlayerId(0),
         cardbench_magic_engine::AbilityActivation {
@@ -194,8 +197,7 @@ fn razia_redirects_the_next_three_damage_to_the_second_target() {
         .expect("ability controller passes");
     game.pass_priority(PlayerId(1))
         .expect("redirection resolves");
-    game.grant_mana(PlayerId(0), Color::Red, 3)
-        .expect("Char mana");
+    activate_mountains(&mut game, &mountains);
     game.cast_spell(
         PlayerId(0),
         CastRequest {
