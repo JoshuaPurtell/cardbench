@@ -48,7 +48,7 @@ Cleansing Beam, Rally the Righteous, Wojek Siren, Rain of Embers, Dogpile,
 Overwhelm, Gather Courage, Seeds of Strength, Darkblast, Greater Mossdog, the
 four RAV Signets, the five RAV basic lands, Conclave Equenaut, Snapping Drake,
 Goliath Spider, Courier Hawk, Skyknight Legionnaire, Birds of Paradise, and
-Fiery Conclusion, and Ribbons of Night are listed only after an
+Fiery Conclusion, Ribbons of Night, and Smash are listed only after an
 ability-by-ability contract proves their complete represented behavior and
 public receipt traces. The radiance entries were
 checked against their public set identity and the official Comprehensive Rules'
