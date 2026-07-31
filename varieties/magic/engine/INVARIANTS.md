@@ -31,8 +31,8 @@ Oracle Magic rules coverage.
   be both, and no nonpermanent card can occupy the battlefield.
 - A token's mechanically relevant creature subtypes are typed separately from
   its display name. A token with any such subtype must be a creature; the
-  public `Characteristics` view preserves that type-line information through
-  stack resolution and zone placement.
+  public `Characteristics` view preserves that type-line information and the
+  token's static keywords through stack resolution and zone placement.
 - Object IDs never alias or regress. Object turn metadata cannot be from a
   future turn, marked damage cannot be negative, and a card outside the
   battlefield retains its owner's controller in the current no-control-change
@@ -202,6 +202,11 @@ Oracle Magic rules coverage.
   optional cost before stacking and retain their selected target through
   resolution; received-damage triggers capture positive damage before SBAs;
   dies triggers retain the historical source object after a graveyard move.
+  ETB triggers with targets retain one deterministic legal target per declared
+  occurrence; a targeted opponent trigger cannot silently fan out to every
+  opponent. A two-target redirection activation must resolve both target
+  instructions before installing its replacement shield, and an incomplete
+  or countered activation cannot leak a pending half-effect.
   Every materialized dynamic effect is checked against its binding before it
   can resolve, and no pending attack, damage, or dies trigger may survive its
   enclosing transition.
