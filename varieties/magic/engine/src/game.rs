@@ -3877,9 +3877,12 @@ impl Game {
                     && self.characteristics(card).is_ok_and(|characteristics| {
                         characteristics.card_types.contains(&CardType::Creature)
                     })
-                    && (!matches!(requirement, TargetRequirement::BlockingCreature)
+                        && (!matches!(requirement, TargetRequirement::BlockingCreature)
                         || self.combat.as_ref().is_some_and(|combat| {
-                            combat.blockers.values().any(|blocker| *blocker == card)
+                            combat
+                                .blockers
+                                .values()
+                                .any(|blockers| blockers.contains(&card))
                         }))
             }
             (Target::Spell(card), TargetRequirement::InstantOrSorcerySpell) => {
