@@ -2303,6 +2303,7 @@ impl Game {
         let Some(card) = self.players[player.0].library.pop() else {
             self.lose_player(player, "attempted to draw from an empty library");
             self.normalize_priority_after_elimination()?;
+            self.record_game_end_if_needed();
             return Ok(());
         };
         self.players[player.0].hand.push(card);
