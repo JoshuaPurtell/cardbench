@@ -180,3 +180,52 @@ fn ordinary_defender_can_assign_two_blockers_to_one_attacker_atomically() {
     game.validate_invariants()
         .expect("multi-block declaration preserves the game state machine");
 }
+
+#[test]
+fn every_live_blocker_assigns_combat_damage_after_a_multi_block_declaration() {
+    let mut game = Game::new(definitions(), 2).expect("game initializes");
+    add_library(&mut game, PlayerId(0));
+    add_library(&mut game, PlayerId(1));
+    let attacker = game
+        .put_on_battlefield(PlayerId(0), ATTACKER)
+        .expect("attacker enters");
+    let first_blocker = game
+        .put_on_battlefield(PlayerId(1), BLOCKER)
+        .expect("first blocker enters");
+    let second_blocker = game
+        .put_on_battlefield(PlayerId(1), BLOCKER)
+        .expect("second blocker enters");
+
+    game.begin_game().expect("game begins");
+    advance_to_blockers(&mut game, attacker);
+    game.declare_blockers(
+        PlayerId(1),
+        &[
+            CombatBlock {
+                attacker,
+                blocker: first_blocker,
+            },
+            CombatBlock {
+                attacker,
+                blocker: second_blocker,
+            },
+        ],
+    )
+    .expect("two blockers are retained for combat damage");
+    let event_start = game.event_log.len();
+    for _ in 0..2 {
+        let player = game.priority;
+        game.pass_priority(player).expect("resolve combat damage");
+    }
+
+    assert!(game.event_log[event_start..].iter().any(|event| matches!(
+        event,
+        GameEvent::DamageDealtToPermanent {
+            source,
+            permanent,
+            amount: 2,
+        } if *source == second_blocker && *permanent == attacker
+    )));
+    game.validate_invariants()
+        .expect("multi-block damage preserves the game state machine");
+}
