@@ -3,12 +3,12 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 
 use crate::{
-    ActivatedManaAbility, BasicLandType, BasicLandTypeBinding, CardDefinition, CardObject,
-    CardType, CastPaymentManaAbility, Characteristics, Color, CombatBlock, ContinuousChange,
-    ContinuousEffect, DeckList, Duration, Effect, GameEvent, Keyword, ManaAbilityActivation,
-    ManaAbilityBinding, ManaAbilityOutput, ObjectId, PlayerId, PlayerState, PolicyMoveKind,
-    StackEffectResolution, StackObject, StackResolutionPlan, Step, Target, TargetRequirement,
-    TokenSpec, Zone,
+    ActivatedManaAbility, AdditionalSpellCost, AdditionalSpellCostBinding, BasicLandType,
+    BasicLandTypeBinding, CardDefinition, CardObject, CardType, CastPaymentManaAbility,
+    Characteristics, Color, CombatBlock, ContinuousChange, ContinuousEffect, DeckList, Duration,
+    Effect, GameEvent, Keyword, ManaAbilityActivation, ManaAbilityBinding, ManaAbilityOutput,
+    ObjectId, PlayerId, PlayerState, PolicyMoveKind, StackEffectResolution, StackObject,
+    StackResolutionPlan, Step, Target, TargetRequirement, TokenSpec, Zone,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -246,6 +246,7 @@ pub struct Game {
     catalog: BTreeMap<&'static str, CardDefinition>,
     mana_abilities: BTreeMap<&'static str, BTreeMap<&'static str, ActivatedManaAbility>>,
     basic_land_types: BTreeMap<&'static str, BasicLandType>,
+    additional_spell_costs: BTreeMap<&'static str, Vec<AdditionalSpellCost>>,
     pub players: Vec<PlayerState>,
     objects: BTreeMap<ObjectId, CardObject>,
     pub stack: Vec<StackObject>,
@@ -330,6 +331,26 @@ impl Game {
         bindings: impl IntoIterator<Item = ManaAbilityBinding>,
         basic_land_type_bindings: impl IntoIterator<Item = BasicLandTypeBinding>,
     ) -> Result<Self, RulesError> {
+        Self::new_with_mana_abilities_basic_land_types_and_additional_spell_costs(
+            definitions,
+            player_count,
+            bindings,
+            basic_land_type_bindings,
+            std::iter::empty::<AdditionalSpellCostBinding>(),
+        )
+    }
+
+    /// Creates a game with expansion-bound mana abilities, typed basic lands,
+    /// and explicit additional spell costs. The cost bindings are immutable
+    /// catalog data; a `CastRequest` selects their concrete permanents.
+    #[allow(clippy::too_many_arguments)]
+    pub fn new_with_mana_abilities_basic_land_types_and_additional_spell_costs(
+        definitions: impl IntoIterator<Item = CardDefinition>,
+        player_count: usize,
+        bindings: impl IntoIterator<Item = ManaAbilityBinding>,
+        basic_land_type_bindings: impl IntoIterator<Item = BasicLandTypeBinding>,
+        additional_spell_cost_bindings: impl IntoIterator<Item = AdditionalSpellCostBinding>,
+    ) -> Result<Self, RulesError> {
         if player_count < 2 {
             return Err(RulesError::IllegalAction(
                 "Magic games need at least two seated players",
@@ -394,6 +415,26 @@ impl Game {
                 ));
             }
         }
+        let mut additional_spell_costs = BTreeMap::<&'static str, Vec<AdditionalSpellCost>>::new();
+        for binding in additional_spell_cost_bindings {
+            let definition = catalog
+                .get(binding.card_definition)
+                .ok_or(RulesError::UnknownDefinition(binding.card_definition))?;
+            if definition.is_land() {
+                return Err(RulesError::IllegalAction(
+                    "an additional spell cost binding requires a nonland spell definition",
+                ));
+            }
+            let costs = additional_spell_costs
+                .entry(binding.card_definition)
+                .or_default();
+            if costs.contains(&binding.cost) {
+                return Err(RulesError::IllegalAction(
+                    "duplicate additional spell cost binding for card definition",
+                ));
+            }
+            costs.push(binding.cost);
+        }
         let players = (0..player_count)
             .map(|index| PlayerState::new(PlayerId(index)))
             .collect();
@@ -401,6 +442,7 @@ impl Game {
             catalog,
             mana_abilities,
             basic_land_types,
+            additional_spell_costs,
             players,
             objects: BTreeMap::new(),
             stack: Vec::new(),
@@ -1565,8 +1607,25 @@ impl Game {
                 "only your own hand card may be cast",
             ));
         }
-        self.validate_targets(&definition, &request.targets)?;
+        let (spell_targets, additional_cost_selections) =
+            self.split_cast_targets(&definition, &request.targets)?;
+        self.validate_targets(&definition, &spell_targets)?;
+        self.validate_additional_spell_cost_selections(
+            &definition,
+            player,
+            &additional_cost_selections,
+        )?;
         self.validate_effect_capacity(&definition, player)?;
+        // The selected sacrifice is a genuine component of paying the total
+        // cost, not an effect. Keeping it before later selected mana
+        // activations also exercises the enclosing atomic cast boundary: a
+        // later failed activation restores this zone move and its receipt.
+        self.pay_additional_spell_costs(
+            &definition,
+            player,
+            request.card,
+            &additional_cost_selections,
+        )?;
         for activation in &request.payment_mana_abilities {
             match activation {
                 CastPaymentManaAbility::Bound(activation) => {
@@ -1603,7 +1662,7 @@ impl Game {
         self.stack.push(StackObject {
             card: request.card,
             controller: player,
-            targets: request.targets,
+            targets: spell_targets,
             effects: definition.effects,
         });
         self.record_event(GameEvent::SpellCast {
@@ -1977,6 +2036,7 @@ impl Game {
             ));
         }
         Self::validate_mana_ability_event_order(&self.event_log)?;
+        self.validate_additional_spell_cost_event_order()?;
         self.validate_stack_terminal_event_order()?;
         if self.started && !self.is_game_over() && !self.step.grants_priority() {
             return Err(RulesError::IllegalAction(
@@ -2110,6 +2170,23 @@ impl Game {
                     ));
                 }
                 Self::validate_mana_ability_definition(ability)?;
+            }
+        }
+        for (definition_id, costs) in &self.additional_spell_costs {
+            let definition = self
+                .catalog
+                .get(definition_id)
+                .ok_or(RulesError::UnknownDefinition(definition_id))?;
+            if definition.is_land() || costs.is_empty() {
+                return Err(RulesError::IllegalAction(
+                    "additional spell cost binding must name a nonland spell and at least one cost",
+                ));
+            }
+            let mut unique_costs = BTreeSet::new();
+            if costs.iter().any(|cost| !unique_costs.insert(*cost)) {
+                return Err(RulesError::IllegalAction(
+                    "additional spell cost binding has duplicate cost kinds",
+                ));
             }
         }
         let mut locations = BTreeMap::<ObjectId, Zone>::new();
@@ -2581,6 +2658,121 @@ impl Game {
         Ok(())
     }
 
+    /// Separates effect targets from the explicitly selected additional-cost
+    /// permanents carried in a cast request. Cost selections use their own
+    /// `Target` variant solely to preserve the established compact request
+    /// shape; they are never copied onto the resulting stack object.
+    fn split_cast_targets(
+        &self,
+        definition: &CardDefinition,
+        selections: &[Target],
+    ) -> Result<(Vec<Target>, Vec<Target>), RulesError> {
+        let target_count = definition
+            .effects
+            .iter()
+            .filter(|effect| effect.target_requirement().is_some())
+            .count();
+        let cost_count = self
+            .additional_spell_costs
+            .get(definition.id)
+            .map_or(0, Vec::len);
+        if selections.len() != target_count + cost_count {
+            return Err(RulesError::IllegalAction(
+                "the supplied targets and additional-cost selections do not match this spell",
+            ));
+        }
+        Ok((
+            selections[..target_count].to_vec(),
+            selections[target_count..].to_vec(),
+        ))
+    }
+
+    /// Validates the concrete choices for expansion-bound additional spell
+    /// costs before mana, convoke taps, zones, stack, or event log mutate.
+    fn validate_additional_spell_cost_selections(
+        &self,
+        definition: &CardDefinition,
+        player: PlayerId,
+        selections: &[Target],
+    ) -> Result<(), RulesError> {
+        let costs = self
+            .additional_spell_costs
+            .get(definition.id)
+            .map(Vec::as_slice)
+            .unwrap_or(&[]);
+        if costs.len() != selections.len() {
+            return Err(RulesError::IllegalAction(
+                "additional spell cost selection count does not match its definition",
+            ));
+        }
+        let mut used_permanents = BTreeSet::new();
+        for (cost, selection) in costs.iter().zip(selections) {
+            match (cost, selection) {
+                (
+                    AdditionalSpellCost::SacrificeControlledCreature,
+                    Target::SacrificePermanent(card),
+                ) => {
+                    if !used_permanents.insert(*card) {
+                        return Err(RulesError::IllegalAction(
+                            "the same permanent cannot pay two additional spell costs",
+                        ));
+                    }
+                    if self.zone_of(*card) != Some(Zone::Battlefield)
+                        || self.object(*card)?.controller != player
+                        || !self
+                            .characteristics(*card)?
+                            .card_types
+                            .contains(&CardType::Creature)
+                    {
+                        return Err(RulesError::IllegalAction(
+                            "additional sacrifice cost requires a controlled battlefield creature",
+                        ));
+                    }
+                }
+                (AdditionalSpellCost::SacrificeControlledCreature, target) => {
+                    return Err(RulesError::IllegalTarget(*target));
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Pays validated nonmana additional costs in request order. This runs
+    /// after mana/convoke payment so a creature may legally convoke and then
+    /// be sacrificed, but before the spell card leaves hand for the stack.
+    fn pay_additional_spell_costs(
+        &mut self,
+        definition: &CardDefinition,
+        player: PlayerId,
+        spell: ObjectId,
+        selections: &[Target],
+    ) -> Result<(), RulesError> {
+        let costs = self
+            .additional_spell_costs
+            .get(definition.id)
+            .cloned()
+            .unwrap_or_default();
+        for (cost, selection) in costs.iter().zip(selections) {
+            match (cost, selection) {
+                (
+                    AdditionalSpellCost::SacrificeControlledCreature,
+                    Target::SacrificePermanent(card),
+                ) => {
+                    self.record_event(GameEvent::SacrificedAsAdditionalSpellCost {
+                        player,
+                        card: spell,
+                        permanent: *card,
+                    });
+                    self.move_to_graveyard_or_remove_token(*card)?;
+                }
+                (AdditionalSpellCost::SacrificeControlledCreature, target) => {
+                    return Err(RulesError::IllegalTarget(*target));
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// Reject malformed executable effect data before any casting cost, zone,
     /// stack, or event transition can be committed.  Printed modifiers may be
     /// negative, but the currently modelled damage and life-gain operations
@@ -2751,6 +2943,9 @@ impl Game {
                     });
                 }
                 Target::Spell(card) => return Err(RulesError::IllegalTarget(Target::Spell(card))),
+                Target::SacrificePermanent(card) => {
+                    return Err(RulesError::IllegalTarget(Target::SacrificePermanent(card)));
+                }
             },
             Effect::DealDamageEqualToAttackingCreatures { .. } => {
                 let amount = self.attacking_creature_count(controller)?;
@@ -2780,6 +2975,11 @@ impl Game {
                         }
                         Target::Spell(card) => {
                             return Err(RulesError::IllegalTarget(Target::Spell(card)));
+                        }
+                        Target::SacrificePermanent(card) => {
+                            return Err(RulesError::IllegalTarget(Target::SacrificePermanent(
+                                card,
+                            )));
                         }
                     }
                 }
@@ -2976,6 +3176,9 @@ impl Game {
             Some(Target::Permanent(card)) => Ok(card),
             Some(Target::Player(player)) => Err(RulesError::IllegalTarget(Target::Player(player))),
             Some(Target::Spell(card)) => Err(RulesError::IllegalTarget(Target::Spell(card))),
+            Some(Target::SacrificePermanent(card)) => {
+                Err(RulesError::IllegalTarget(Target::SacrificePermanent(card)))
+            }
             None => Err(RulesError::IllegalAction("missing permanent target")),
         }
     }
@@ -3014,6 +3217,9 @@ impl Game {
             Some(Target::Player(player)) => Err(RulesError::IllegalTarget(Target::Player(player))),
             Some(Target::Permanent(card)) => {
                 Err(RulesError::IllegalTarget(Target::Permanent(card)))
+            }
+            Some(Target::SacrificePermanent(card)) => {
+                Err(RulesError::IllegalTarget(Target::SacrificePermanent(card)))
             }
             None => Err(RulesError::IllegalAction("missing spell target")),
         }
@@ -3511,6 +3717,110 @@ impl Game {
             return Err(RulesError::IllegalAction(
                 "mana ability color choice must not be empty",
             ));
+        }
+        Ok(())
+    }
+
+    /// Audits the additional-cost receipt boundary. A sacrifice is not an
+    /// effect or a target: its selected permanent must change zones before
+    /// the spell becomes a stack object, with no intervening priority event.
+    fn validate_additional_spell_cost_event_order(&self) -> Result<(), RulesError> {
+        for (index, event) in self.event_log.iter().enumerate() {
+            let GameEvent::SacrificedAsAdditionalSpellCost {
+                player,
+                card,
+                permanent,
+            } = event
+            else {
+                continue;
+            };
+            let definition = self.card_definition(*card)?;
+            if !self
+                .additional_spell_costs
+                .get(definition.id)
+                .is_some_and(|costs| {
+                    costs.contains(&AdditionalSpellCost::SacrificeControlledCreature)
+                })
+            {
+                return Err(RulesError::IllegalAction(
+                    "sacrifice-cost receipt names a spell without that bound cost",
+                ));
+            }
+            if permanent == card {
+                return Err(RulesError::IllegalAction(
+                    "a spell card cannot sacrifice itself from hand as its additional cost",
+                ));
+            }
+            if !matches!(
+                self.event_log.get(index + 1),
+                Some(GameEvent::CardMoved { card: moved, to: Zone::Graveyard }) if moved == permanent
+            ) && !matches!(
+                self.event_log.get(index + 1),
+                Some(GameEvent::TokenCeasedToExist { token }) if token == permanent
+            ) {
+                return Err(RulesError::IllegalAction(
+                    "sacrifice-cost receipt lacks its immediate battlefield departure receipt",
+                ));
+            }
+            let cast_follows = self.event_log[index + 2..]
+                .iter()
+                .find(|candidate| {
+                    matches!(
+                        candidate,
+                        GameEvent::SpellCast { .. } | GameEvent::PriorityPassed { .. }
+                    )
+                })
+                .is_some_and(|candidate| {
+                    matches!(
+                        candidate,
+                        GameEvent::SpellCast {
+                            player: caster,
+                            card: spell,
+                        } if caster == player && spell == card
+                    )
+                });
+            if !cast_follows {
+                return Err(RulesError::IllegalAction(
+                    "sacrifice-cost receipt is not followed by its spell cast before priority",
+                ));
+            }
+        }
+
+        for (index, event) in self.event_log.iter().enumerate() {
+            let GameEvent::SpellCast { player, card } = event else {
+                continue;
+            };
+            let definition = self.card_definition(*card)?;
+            let needs_sacrifice_cost =
+                self.additional_spell_costs
+                    .get(definition.id)
+                    .is_some_and(|costs| {
+                        costs.contains(&AdditionalSpellCost::SacrificeControlledCreature)
+                    });
+            let has_sacrifice_receipt = self.event_log[..index]
+                .iter()
+                .rev()
+                .take_while(|candidate| {
+                    !matches!(
+                        candidate,
+                        GameEvent::SpellCast { .. } | GameEvent::PriorityPassed { .. }
+                    )
+                })
+                .any(|candidate| {
+                    matches!(
+                        candidate,
+                        GameEvent::SacrificedAsAdditionalSpellCost {
+                            player: payer,
+                            card: spell,
+                            ..
+                        } if payer == player && spell == card
+                    )
+                });
+            if needs_sacrifice_cost && !has_sacrifice_receipt {
+                return Err(RulesError::IllegalAction(
+                    "a spell with a bound sacrifice cost was cast without its cost receipt",
+                ));
+            }
         }
         Ok(())
     }

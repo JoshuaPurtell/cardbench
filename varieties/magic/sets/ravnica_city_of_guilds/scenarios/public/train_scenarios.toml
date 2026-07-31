@@ -440,9 +440,9 @@ event_markers = ["LifeGained", "SpellResolved"]
 digest = "fnv1a64:ff38507e57a246b3"
 
 [[scenario]]
-id = "rav_fiery_conclusion_damage"
+id = "rav_fiery_conclusion_sacrifice_damage"
 seed = 0
-description = "Resolve the bounded Fiery Conclusion target-damage component and run SBAs."
+description = "Sacrifice a controlled creature as Fiery Conclusion's additional cost, then resolve its targeted damage and SBAs."
 
 [[scenario.card]]
 label = "conclusion"
@@ -456,6 +456,12 @@ owner = 1
 definition = "RAV-GOLGARI-BROWNSCALE"
 zone = "battlefield"
 
+[[scenario.card]]
+label = "sacrifice"
+owner = 0
+definition = "RAV-FRENZIED-GOBLIN"
+zone = "battlefield"
+
 [[scenario.mana]]
 player = 0
 color = "red"
@@ -465,7 +471,7 @@ amount = 2
 kind = "cast"
 player = 0
 card = "conclusion"
-target = "permanent:target"
+targets = ["permanent:target", "sacrifice:sacrifice"]
 
 [[scenario.action]]
 kind = "pass"
@@ -476,9 +482,9 @@ kind = "pass"
 player = 1
 
 [scenario.expected]
-zones = ["conclusion:graveyard", "target:graveyard"]
-event_markers = ["DamageDealtToPermanent", "StateBasedAction", "SpellResolved"]
-digest = "fnv1a64:785bd1745621db64"
+zones = ["conclusion:graveyard", "target:graveyard", "sacrifice:graveyard"]
+event_markers = ["SacrificedAsAdditionalSpellCost", "CardMoved", "DamageDealtToPermanent", "StateBasedAction", "SpellResolved"]
+digest = "fnv1a64:052445229da19b58"
 
 [[scenario]]
 id = "rav_stack_lightning_helix"

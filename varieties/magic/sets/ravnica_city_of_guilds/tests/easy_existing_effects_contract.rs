@@ -115,7 +115,7 @@ fn public_scenarios_exercise_each_existing_effect_card_slice() {
         "rav_seeds_of_strength_three_modifiers",
         "rav_fists_of_ironwood_tokens",
         "rav_dryads_caress_life",
-        "rav_fiery_conclusion_damage",
+        "rav_fiery_conclusion_sacrifice_damage",
     ] {
         assert!(scenario_ids.contains(id), "missing public scenario {id}");
     }

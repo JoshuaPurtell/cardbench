@@ -486,6 +486,29 @@ pub enum Target {
     /// `ObjectId` remains stable while the card changes zones, so the engine
     /// verifies that it is still a qualifying spell when the effect resolves.
     Spell(ObjectId),
+    /// An explicitly selected permanent used to pay a spell's bound additional
+    /// sacrifice cost. This is intentionally not a spell target: it is removed
+    /// from the request before the spell is placed on the stack and it never
+    /// occupies a `StackObject` target slot.
+    SacrificePermanent(ObjectId),
+}
+
+/// A semantic additional cost bound by an expansion to a spell definition.
+///
+/// The initial substrate represents the common "sacrifice a creature" cost.
+/// It remains separate from effects and targets: a legal cast pays it before
+/// its card becomes a stack object, and an atomic cast rollback restores the
+/// permanent if any later cost cannot be paid.
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub enum AdditionalSpellCost {
+    SacrificeControlledCreature,
+}
+
+/// Binds an expansion-neutral additional spell cost to one card definition.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct AdditionalSpellCostBinding {
+    pub card_definition: &'static str,
+    pub cost: AdditionalSpellCost,
 }
 
 /// A creature subtype carried by a token's type line.
@@ -1132,6 +1155,14 @@ pub enum GameEvent {
         card: ObjectId,
         source: ObjectId,
         ability: &'static str,
+    },
+    /// A selected permanent is being sacrificed as an explicit additional
+    /// cost for this spell. It is immediately followed by its zone-change
+    /// receipt and always precedes this spell's `SpellCast` receipt.
+    SacrificedAsAdditionalSpellCost {
+        player: PlayerId,
+        card: ObjectId,
+        permanent: ObjectId,
     },
     /// Receipt for the generic definition-bound mana-ability substrate. It is
     /// intentionally distinct from the legacy intrinsic-land receipt above.

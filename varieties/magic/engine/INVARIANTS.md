@@ -195,6 +195,16 @@ Oracle Magic rules coverage.
   with that spell's `SpellCast` before any priority pass. Paid fixed bundles
   additionally require their cost receipt, optional life-cost receipt, and
   every fixed mana-output receipt in declared order.
+- An expansion may bind an explicit additional spell cost to a nonland
+  definition. Its `CastRequest` selection follows ordinary effect targets but
+  never enters the resulting stack object's target slots. A bound controlled-
+  creature sacrifice selection must name one distinct creature the caster
+  controls on the battlefield. Its `SacrificedAsAdditionalSpellCost` receipt
+  is immediately followed by the selected permanent's graveyard move (or a
+  token-ceases receipt) and precedes the same spell's `SpellCast` before any
+  priority pass. Target, selection, mana-activation, and final-payment
+  rejections are one atomic cast boundary: no sacrifice zone move, stack
+  object, tapped source, mana debit, or cost receipt may remain after failure.
 - Player life totals use a wide signed `i64` representation, distinct from
   the `i16` effect and damage amounts. Life changes widen their amount before
   arithmetic, so an ordinary legal life-gain effect at the former `i16`

@@ -73,7 +73,7 @@ fn audited_spell_scenarios_retain_only_their_supported_public_receipts() {
         ),
         ("rav_dryads_caress_life", ["LifeGained"].as_slice()),
         (
-            "rav_fiery_conclusion_damage",
+            "rav_fiery_conclusion_sacrifice_damage",
             ["DamageDealtToPermanent", "StateBasedAction"].as_slice(),
         ),
         (
