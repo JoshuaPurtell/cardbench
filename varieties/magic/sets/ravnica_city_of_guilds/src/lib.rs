@@ -2786,6 +2786,20 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
 pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
     vec![
         TriggeredAbilityBinding {
+            card_definition: "RAV-SEARING-MEDITATION",
+            ability: TriggeredAbility {
+                id: "life-gain-deal-two",
+                condition: TriggerCondition::LifeGained,
+                mana_cost: ManaCost::with_colors(2, []),
+                optional: true,
+                targets: vec![],
+                effects: vec![Effect::DealDamageAfterOptionalManaPayment {
+                    amount: 2,
+                    target: cardbench_magic_engine::TargetRequirement::PlayerOrCreature,
+                }],
+            },
+        },
+        TriggeredAbilityBinding {
             card_definition: "RAV-CARVEN-CARYATID",
             ability: TriggeredAbility {
                 id: "etb-draw-controller",
