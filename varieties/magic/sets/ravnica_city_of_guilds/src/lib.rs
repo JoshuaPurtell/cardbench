@@ -35,7 +35,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 40] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 42] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SCATTER-THE-SEEDS",
@@ -76,6 +76,8 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 40] = [
     "RAV-GOBLIN-FIRE-FIEND",
     "RAV-BOROS-SWIFTBLADE",
     "RAV-GOBLIN-SPELUNKERS",
+    "RAV-GREATER-FORGELING",
+    "RAV-VIASHINO-SLASHER",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -1233,17 +1235,28 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             1,
             1,
         ),
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed activated power/toughness change
-        // is deliberately omitted from this compatibility slice.
-        bounded_creature_chassis(
-            "RAV-GREATER-FORGELING",
-            "Greater Forgeling",
-            ManaCost::with_colors(3, [Color::Red, Color::Red]),
-            colors([Color::Red]),
-            3,
-            4,
-        ),
+        // Full fidelity: the typed {1}{R} self-pump uses the shared activated
+        // ability stack and layer-7 temporary effect.
+        CardDefinition {
+            id: "RAV-GREATER-FORGELING",
+            name: "Greater Forgeling",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(3, [Color::Red, Color::Red]),
+            colors: colors([Color::Red]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "activated-plus-three-minus-three",
+            ],
+            power: Some(3),
+            toughness: Some(4),
+            keywords: vec![],
+            effects: vec![],
+        },
         // Full fidelity: normal colored-cost casting, base characteristics,
         // and Reach's Flying-block declaration exception are represented by
         // the shared engine.
@@ -1555,17 +1568,28 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             4,
             1,
         ),
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed power/toughness activation is
-        // deliberately omitted from this compatibility slice.
-        bounded_creature_chassis(
-            "RAV-VIASHINO-SLASHER",
-            "Viashino Slasher",
-            ManaCost::with_colors(1, [Color::Red]),
-            colors([Color::Red]),
-            1,
-            2,
-        ),
+        // Full fidelity: the typed {R} self-pump uses the shared activated
+        // ability stack and layer-7 temporary effect.
+        CardDefinition {
+            id: "RAV-VIASHINO-SLASHER",
+            name: "Viashino Slasher",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(1, [Color::Red]),
+            colors: colors([Color::Red]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "activated-plus-one-minus-one",
+            ],
+            power: Some(1),
+            toughness: Some(2),
+            keywords: vec![],
+            effects: vec![],
+        },
         // Compatibility scope: normal colored-cost creature casting and base
         // characteristics only. Its printed land-search triggered behavior is
         // deliberately omitted from this compatibility slice.
@@ -2078,20 +2102,50 @@ pub fn rav_mana_ability_bindings() -> Vec<ManaAbilityBinding> {
 /// legality, and resolution receipts.
 #[must_use]
 pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
-    vec![ActivatedAbilityBinding {
-        card_definition: "RAV-GOBLIN-FIRE-FIEND",
-        ability: ActivatedAbility {
-            id: "pump-plus-one-power",
-            mana_cost: ManaCost::with_colors(0, [Color::Red]),
-            tap_cost: false,
-            sacrifice_source: false,
-            targets: vec![],
-            effects: vec![Effect::ModifySourcePtUntilEndOfTurn {
-                power: 1,
-                toughness: 0,
-            }],
+    vec![
+        ActivatedAbilityBinding {
+            card_definition: "RAV-GOBLIN-FIRE-FIEND",
+            ability: ActivatedAbility {
+                id: "pump-plus-one-power",
+                mana_cost: ManaCost::with_colors(0, [Color::Red]),
+                tap_cost: false,
+                sacrifice_source: false,
+                targets: vec![],
+                effects: vec![Effect::ModifySourcePtUntilEndOfTurn {
+                    power: 1,
+                    toughness: 0,
+                }],
+            },
         },
-    }]
+        ActivatedAbilityBinding {
+            card_definition: "RAV-GREATER-FORGELING",
+            ability: ActivatedAbility {
+                id: "pump-plus-three-minus-three",
+                mana_cost: ManaCost::with_colors(1, [Color::Red]),
+                tap_cost: false,
+                sacrifice_source: false,
+                targets: vec![],
+                effects: vec![Effect::ModifySourcePtUntilEndOfTurn {
+                    power: 3,
+                    toughness: -3,
+                }],
+            },
+        },
+        ActivatedAbilityBinding {
+            card_definition: "RAV-VIASHINO-SLASHER",
+            ability: ActivatedAbility {
+                id: "pump-plus-one-minus-one",
+                mana_cost: ManaCost::with_colors(0, [Color::Red]),
+                tap_cost: false,
+                sacrifice_source: false,
+                targets: vec![],
+                effects: vec![Effect::ModifySourcePtUntilEndOfTurn {
+                    power: 1,
+                    toughness: -1,
+                }],
+            },
+        },
+    ]
 }
 
 /// Typed basic-land type lines for the five RAV basic-land definitions.

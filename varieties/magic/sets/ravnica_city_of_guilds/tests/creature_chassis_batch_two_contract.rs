@@ -39,14 +39,6 @@ fn second_creature_chassis_batch_is_exactly_bounded_to_public_base_facts() {
             1,
         ),
         (
-            "RAV-GREATER-FORGELING",
-            "Greater Forgeling",
-            ManaCost::with_colors(3, [Color::Red, Color::Red]),
-            BTreeSet::from([Color::Red]),
-            3,
-            4,
-        ),
-        (
             "RAV-IVY-DANCER",
             "Ivy Dancer",
             ManaCost::with_colors(2, [Color::Green]),

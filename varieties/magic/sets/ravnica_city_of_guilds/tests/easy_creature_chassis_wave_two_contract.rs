@@ -63,14 +63,6 @@ fn easy_creature_wave_two_is_exactly_bounded_to_public_base_facts() {
             1,
         ),
         (
-            "RAV-VIASHINO-SLASHER",
-            "Viashino Slasher",
-            ManaCost::with_colors(1, [Color::Red]),
-            BTreeSet::from([Color::Red]),
-            1,
-            2,
-        ),
-        (
             "RAV-CIVIC-WAYFINDER",
             "Civic Wayfinder",
             ManaCost::with_colors(2, [Color::Green]),

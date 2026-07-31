@@ -51,6 +51,8 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-GOBLIN-FIRE-FIEND",
             "RAV-BOROS-SWIFTBLADE",
             "RAV-GOBLIN-SPELUNKERS",
+            "RAV-GREATER-FORGELING",
+            "RAV-VIASHINO-SLASHER",
         ]
     );
     let definitions = card_definitions();
