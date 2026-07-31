@@ -35,7 +35,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 52] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 53] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SCATTER-THE-SEEDS",
@@ -88,6 +88,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 52] = [
     "RAV-SABERTOOTH-ALLEY-CAT",
     "RAV-FLAME-KIN-ZEALOT",
     "RAV-ORDRUUN-COMMANDO",
+    "RAV-INDENTURED-OAF",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -1462,17 +1463,28 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             3,
             1,
         ),
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed prevention behavior is deliberately
-        // omitted from this compatibility slice.
-        bounded_creature_chassis(
-            "RAV-INDENTURED-OAF",
-            "Indentured Oaf",
-            ManaCost::with_colors(3, [Color::Red]),
-            colors([Color::Red]),
-            4,
-            3,
-        ),
+        // Full fidelity: red-source damage is prevented by a static target
+        // keyword evaluated by the expansion-neutral damage dispatcher.
+        CardDefinition {
+            id: "RAV-INDENTURED-OAF",
+            name: "Indentured Oaf",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(3, [Color::Red]),
+            colors: colors([Color::Red]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "prevent-damage-from-red-sources",
+            ],
+            power: Some(4),
+            toughness: Some(3),
+            keywords: vec![Keyword::PreventDamageFromColor(Color::Red)],
+            effects: vec![],
+        },
         // Full-fidelity scope: colored-cost creature casting, base
         // characteristics, Defender, and the three-land activation.
         CardDefinition {

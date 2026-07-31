@@ -571,6 +571,9 @@ pub enum Keyword {
     DoubleStrike,
     /// Damage dealt by this source ignores prevention and redirection effects.
     DamageCannotBePrevented,
+    /// Damage dealt by a source of the named color is prevented when it would
+    /// be dealt to this permanent.
+    PreventDamageFromColor(Color),
     /// Can block a creature with Flying.
     Reach,
     /// When blocked, excess combat damage can be assigned to the defending
