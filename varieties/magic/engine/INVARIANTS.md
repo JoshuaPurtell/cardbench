@@ -190,6 +190,13 @@ Oracle Magic rules coverage.
   consumed a shared color. Hybrid symbols have mana value one and are eligible
   for a matching-color convoke contribution. A failed hybrid allocation leaves
   the entire pool, card zone, stack, and event history unchanged.
+- Every explicit discard cost is represented by a policy-selected,
+  controller-owned hand object. The engine rejects missing, duplicated,
+  wrong-zone, or opponent-owned selections before paying any other cost; a
+  successful discard emits `DiscardedAsAbilityCost` immediately followed by
+  that card's graveyard move and before `AbilityActivated`. The invariant audit
+  rejects orphaned discard receipts, receipts for abilities without a discard
+  binding, and any non-graveyard destination.
 - Every public, intrinsic, or definition-bound mana producer preflights this
   bounded pool before it changes a source, pass state, pool, or event log. A
   capacity rejection is atomic and cannot emit a `ManaAdded` receipt for mana
