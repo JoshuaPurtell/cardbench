@@ -87,6 +87,7 @@ fn scatter_the_seeds_direct_trace_creates_three_typed_tokens_before_resolution_r
                     contribution: ConvokeContribution::Generic,
                 },
             ],
+            payment_mana_abilities: vec![],
         },
     )
     .expect("convoke payment is legal");
