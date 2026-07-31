@@ -329,6 +329,10 @@ impl Game {
             combat: None,
             pending_draw_replacement: None,
         };
+        // Construction is the first observable state-machine boundary. Do not
+        // hand a caller a game whose immutable catalog or initial seats already
+        // violate the same contract every later transition relies on.
+        game.validate_invariants()?;
         Ok(game)
     }
 
