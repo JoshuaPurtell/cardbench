@@ -10,14 +10,14 @@ printings plus four printings each of Plains, Island, Swamp, Mountain, and Fores
 The Rust validator enforces every number in that range, the expected 291 distinct
 names, and the four-printing basic-land exception.
 
-The five RAV basic-land definitions are typed compatibility entries, not
-full-fidelity positive-manifest entries. They use the expansion-neutral typed
-basic-land binding substrate: each public type line is bound to one basic-land
-definition, and the engine checks that its intrinsic mana ability produces the
-corresponding single color. The public five-land scenario records one activation
-and exact mana receipt for each type, with no stack object or priority-pass
-receipt. This repository retains only `CardBench` semantic identifiers and
-operations, never card prose or art.
+The five RAV basic-land definitions are full-fidelity positive-manifest entries.
+They use the expansion-neutral typed basic-land binding substrate: each public
+type line is bound to one basic-land definition, and the engine checks that its
+intrinsic mana ability produces the corresponding single color. Public traces
+cover both a direct intrinsic activation and explicit in-cast payment, including
+the ordered receipts and full rollback of a failed final payment. This repository
+retains only `CardBench` semantic identifiers and operations, never card prose
+or art.
 
 The source snapshot was extracted from the public [Scryfall cards API](https://api.scryfall.com/cards/search?q=e%3ARAV&unique=prints&order=set)
 on 2026-07-30, retaining only collector number and name. Its retained-field SHA-256
