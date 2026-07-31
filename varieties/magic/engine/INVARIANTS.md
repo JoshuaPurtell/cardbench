@@ -197,6 +197,14 @@ Oracle Magic rules coverage.
   that card's graveyard move and before `AbilityActivated`. The invariant audit
   rejects orphaned discard receipts, receipts for abilities without a discard
   binding, and any non-graveyard destination.
+- Trigger bindings declare their condition, optional mana cost, target
+  requirements, and effects as one checked shape. Attack triggers pay an
+  optional cost before stacking and retain their selected target through
+  resolution; received-damage triggers capture positive damage before SBAs;
+  dies triggers retain the historical source object after a graveyard move.
+  Every materialized dynamic effect is checked against its binding before it
+  can resolve, and no pending attack, damage, or dies trigger may survive its
+  enclosing transition.
 - Every public, intrinsic, or definition-bound mana producer preflights this
   bounded pool before it changes a source, pass state, pool, or event log. A
   capacity rejection is atomic and cannot emit a `ManaAdded` receipt for mana
