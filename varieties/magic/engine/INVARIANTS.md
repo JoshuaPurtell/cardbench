@@ -199,6 +199,9 @@ Oracle Magic rules coverage.
   transition are rejected atomically, without changing state or emitting
   accepted-action events. Setup hooks remain deliberately separate from
   gameplay methods.
+- Setup-only provenance helpers, including battlefield-entry and tapped-state
+  shaping, reject a live game. They cannot erase a paid tap cost or otherwise
+  rewrite gameplay state without an engine action and its canonical receipt.
 - Mana pools clear on each step change. Land plays are limited to one per
   player turn and only occur during that player's main phase with an empty
   stack. The active player's land-play count resets at that player's untap
