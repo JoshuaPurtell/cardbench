@@ -306,3 +306,4 @@ blockers or damage. The corpus did not naturally produce
 `SpellCounteredByRules` or `EngineWeaknessRevealed`; those are retained as
 targeted public invariant/reporting tests rather than misrepresented as
 whole-deck coverage.
+| `hunted-horror-definition-and-etb-token-gap` | RAV card-coverage gap — Hunted Horror was catalog-only, so its targeted opponent token ETB could not be exercised | Open; red reproduction committed | `cargo test -p cardbench-magic-rav --test hunted_horror_etb_red -- --nocapture` fails at setup with `UnknownDefinition("RAV-HUNTED-HORROR")`; canonical event log is `[]`. Implement the definition, target-opponent ETB binding, Centaur first-strike token characteristics, and stack/event coverage before marking fixed. |
