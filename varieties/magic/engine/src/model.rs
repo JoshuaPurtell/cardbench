@@ -899,6 +899,11 @@ pub enum Effect {
     /// Counter one targeted instant or sorcery spell. This is intentionally a
     /// semantic effect rather than a copied card-text string.
     CounterTargetInstantOrSorcerySpell,
+    /// Move one targeted creature from the battlefield to its owner's exile
+    /// zone.  This is a zone-change instruction rather than lethal damage, so
+    /// it bypasses regeneration and preserves the target's normal
+    /// zone-departure lifecycle.
+    ExileTargetCreature,
 }
 
 impl Effect {
@@ -921,7 +926,8 @@ impl Effect {
             | Self::RadianceModifyPtUntilEndOfTurn { .. }
             | Self::RadianceAddKeywordUntilEndOfTurn { .. }
             | Self::BeginDamageRedirection { .. }
-            | Self::PreventTargetBlockingSourceUntilEndOfTurn => Some(TargetRequirement::Creature),
+            | Self::PreventTargetBlockingSourceUntilEndOfTurn
+            | Self::ExileTargetCreature => Some(TargetRequirement::Creature),
             Self::CompleteDamageRedirection => Some(TargetRequirement::PlayerOrCreature),
             Self::CreateTokenForTargetPlayer { .. } => Some(TargetRequirement::Player),
             Self::DestroyTargetLand => Some(TargetRequirement::Land),
