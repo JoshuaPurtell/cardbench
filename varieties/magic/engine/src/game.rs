@@ -3794,13 +3794,10 @@ impl Game {
                 .filter(|player| !self.players[player.0].lost)
                 .map(Target::Player)
                 .find(|target| self.target_matches(*target, *requirement));
-            let Some(target) = opponent_player
+            let target = opponent_player
                 .or(opponent_permanent)
                 .or(any_permanent)
-                .or(any_player)
-            else {
-                return None;
-            };
+                .or(any_player)?;
             targets.push(target);
         }
         Some(targets)

@@ -877,8 +877,8 @@ impl Effect {
             | Self::ModifyTargetKeywordUntilEndOfTurn { .. }
             | Self::RadianceDealDamageToCreatures { .. }
             | Self::RadianceUntapAndModifyUntilEndOfTurn { .. }
-            | Self::RadianceModifyPtUntilEndOfTurn { .. } => Some(TargetRequirement::Creature),
-            Self::BeginDamageRedirection { .. } => Some(TargetRequirement::Creature),
+            | Self::RadianceModifyPtUntilEndOfTurn { .. }
+            | Self::BeginDamageRedirection { .. } => Some(TargetRequirement::Creature),
             Self::CompleteDamageRedirection => Some(TargetRequirement::PlayerOrCreature),
             Self::CreateTokenForTargetPlayer { .. } => Some(TargetRequirement::Player),
             Self::DestroyTargetLand => Some(TargetRequirement::Land),
