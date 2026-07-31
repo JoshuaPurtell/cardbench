@@ -424,6 +424,12 @@ Oracle Magic rules coverage.
   power/toughness effect snapshots every creature the controller currently
   controls, installs one layer-seven effect for each recipient, then runs SBAs
   only after the spell's complete recipient set is processed.
+- A stack effect that adds mana to its controller is validated as a positive,
+  capacity-checked operation. For Seismic Spike, the targeted land leaves the
+  battlefield first; only then does the same resolution append one
+  `ManaAdded` receipt for exactly two red mana. If the bounded mana pool cannot
+  hold the addition, the enclosing transition rejects atomically rather than
+  claiming mana that is not present.
 - Card and mechanic implementations may only claim the semantic fragments
   listed in their `supported_rules`. Unsupported text is not silently inferred.
 - A nonpermanent card with no supported cast effect is rejected at cast time;
