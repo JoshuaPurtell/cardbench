@@ -56,7 +56,7 @@ fn war_torch_sacrifices_source_and_damages_a_declared_blocker() {
         .expect("advance to blockers");
     game.declare_blockers(PlayerId(1), &[CombatBlock { attacker, blocker }])
         .expect("blocker declared");
-    game.grant_mana(PlayerId(0), Color::Red, 1)
+    game.add_mana_from_action(PlayerId(0), Color::Red, 1)
         .expect("red activation mana");
     game.activate_ability(
         PlayerId(0),
