@@ -5451,3 +5451,53 @@ event_markers = ["ManaAbilityActivated", "ManaAdded"]
 mana_receipts = ["0:white:1", "0:blue:1", "0:black:1", "0:red:1", "0:green:1"]
 event_absent = ["SpellCast", "SpellResolved", "PriorityPassed"]
 digest = "fnv1a64:2ebe6d7e14855cd8"
+
+[[scenario]]
+id = "rav_basic_land_cast_payment"
+seed = 0
+description = "Use two typed RAV basic lands while paying one colored spell cost, then preserve ordered intrinsic receipts through stack resolution."
+
+[[scenario.card]]
+label = "forest"
+owner = 0
+definition = "RAV-FOREST"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "plains"
+owner = 0
+definition = "RAV-PLAINS"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "watchwolf"
+owner = 0
+definition = "RAV-WATCHWOLF"
+zone = "hand"
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "watchwolf"
+payment_mana = ["forest:basic-land", "plains:basic-land"]
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["forest:battlefield", "plains:battlefield", "watchwolf:battlefield"]
+powers = ["watchwolf:3"]
+toughnesses = ["watchwolf:3"]
+tapped = ["forest:true", "plains:true"]
+mana = ["0:green:0", "0:white:0"]
+mana_receipts = ["0:green:1", "0:white:1"]
+stack_size = 0
+priority = 0
+event_markers = ["CastPaymentBasicLandManaAbilityActivated", "ManaAbilityActivated", "ManaAdded", "SpellCast", "SpellResolved"]
+event_absent = ["BoundManaAbilityActivated", "BoundManaAbilityBundleActivated"]
+digest = "fnv1a64:092e92750db81bd3"

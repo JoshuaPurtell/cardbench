@@ -34,6 +34,11 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-DIMIR-SIGNET",
             "RAV-GOLGARI-SIGNET",
             "RAV-SELESNYA-SIGNET",
+            "RAV-PLAINS",
+            "RAV-ISLAND",
+            "RAV-SWAMP",
+            "RAV-MOUNTAIN",
+            "RAV-FOREST",
         ]
     );
     let definitions = card_definitions();

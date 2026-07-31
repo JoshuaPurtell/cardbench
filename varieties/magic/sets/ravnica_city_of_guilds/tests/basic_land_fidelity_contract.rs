@@ -71,7 +71,7 @@ fn typed_rav_game() -> Game {
 }
 
 #[test]
-fn rav_basic_land_definitions_and_type_bindings_are_exact_and_explicitly_bounded() {
+fn rav_basic_land_definitions_and_type_bindings_are_exact_and_ability_complete() {
     let definitions = card_definitions();
     let bindings = rav_basic_land_type_bindings();
     assert_eq!(bindings.len(), BASIC_LANDS.len());
@@ -89,14 +89,15 @@ fn rav_basic_land_definitions_and_type_bindings_are_exact_and_explicitly_bounded
         assert_eq!(
             definition.supported_rules,
             [
+                "full-rules-fidelity",
                 "basic-land-type-line",
                 "intrinsic-single-color-mana-ability",
                 "basic-land-deck-construction",
             ]
         );
         assert!(
-            !RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&basic.definition_id),
-            "{} stays bounded until the cast-payment path supports intrinsic land abilities",
+            RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&basic.definition_id),
+            "{} is positive-manifest only after the typed cast-payment path is covered",
             basic.name
         );
         assert_eq!(basic.land_type.intrinsic_mana_color(), basic.color);
@@ -210,5 +211,36 @@ fn rav_basic_land_public_scenario_has_one_receipt_per_type_and_no_stack_events()
                 && !event.contains("SpellResolved")
                 && !event.contains("PriorityPassed")),
         "typed basic-land abilities never use the stack or a priority pass"
+    );
+}
+
+#[test]
+fn rav_basic_land_cast_payment_scenario_has_ordered_intrinsic_receipts() {
+    let scenario = run_all_scenarios()
+        .expect("public RAV scenarios run")
+        .into_iter()
+        .find(|result| result.id == "rav_basic_land_cast_payment")
+        .expect("typed basic-land cast-payment scenario exists");
+    assert_eq!(scenario.digest, "fnv1a64:092e92750db81bd3");
+    assert_eq!(
+        scenario.event_log[..7],
+        [
+            "CastPaymentBasicLandManaAbilityActivated { player: PlayerId(0), card: ObjectId(3), land: ObjectId(1), color: Green }",
+            "ManaAbilityActivated { player: PlayerId(0), land: ObjectId(1), color: Green }",
+            "ManaAdded { player: PlayerId(0), color: Green, amount: 1 }",
+            "CastPaymentBasicLandManaAbilityActivated { player: PlayerId(0), card: ObjectId(3), land: ObjectId(2), color: White }",
+            "ManaAbilityActivated { player: PlayerId(0), land: ObjectId(2), color: White }",
+            "ManaAdded { player: PlayerId(0), color: White, amount: 1 }",
+            "SpellCast { player: PlayerId(0), card: ObjectId(3) }",
+        ],
+        "each explicit typed source is recorded before its intrinsic receipt and the enclosing spell receipt"
+    );
+    assert!(
+        scenario
+            .event_log
+            .iter()
+            .all(|event| !event.contains("BoundManaAbilityActivated")
+                && !event.contains("BoundManaAbilityBundleActivated")),
+        "basic-land payment uses the intrinsic substrate rather than a catalog-bound substitute"
     );
 }

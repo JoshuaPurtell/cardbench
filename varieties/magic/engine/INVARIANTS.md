@@ -43,9 +43,9 @@ Oracle Magic rules coverage.
 - A registered basic-land type line names exactly one basic-land definition and
   its singleton intrinsic mana color agrees with the typed land identity.
   `CardView` preserves that identity, and a typed intrinsic activation cannot
-  produce a different color. The cast-payment activation substrate currently
-  accepts only definition-bound mana abilities, so it must not be treated as a
-  hidden way to activate an intrinsic land ability while paying a cost.
+  produce a different color. A cast-payment basic-land request must name one
+  such typed land and its intrinsic color; it cannot use an untyped land or
+  produce a different color while paying a spell cost.
 - A stack object has a unique card and a valid controller. Resolving or
   countering it removes it from the stack before it receives its resulting zone
   move.
@@ -162,18 +162,22 @@ Oracle Magic rules coverage.
   bounded pool before it changes a source, pass state, pool, or event log. A
   capacity rejection is atomic and cannot emit a `ManaAdded` receipt for mana
   the pool did not receive.
-- A `CastRequest` may name an ordered list of existing definition-bound mana
-  abilities for its own payment context. Such an ability is neither a priority
-  action nor a stack object: it is admitted only inside that one enclosing cast
-  transaction. The cast preflights spell legality, executes the listed
-  activations in request order, then pays the remaining spell cost and creates
-  exactly one spell stack object. Any later activation or final-payment
-  rejection restores every earlier source tap, life/mana change, zone, stack,
-  pass-state field, and receipt. Each contextual activation emits
+- A `CastRequest` may name an ordered list of definition-bound mana abilities
+  and explicitly selected typed basic-land intrinsic abilities for its own
+  payment context. Such an ability is neither a priority action nor a stack
+  object: it is admitted only inside that one enclosing cast transaction. The
+  cast preflights spell legality, executes the listed activations in request
+  order, then pays the remaining spell cost and creates exactly one spell stack
+  object. Any later activation or final-payment rejection restores every
+  earlier source tap, life/mana change, zone, stack, pass-state field, and
+  receipt. A bound contextual activation emits
   `CastPaymentManaAbilityActivated`, immediately followed by its matching
-  bound-ability receipt; a matching `SpellCast` must occur before any priority
-  pass. Paid fixed bundles additionally require their cost receipt, optional
-  life-cost receipt, and every fixed mana-output receipt in declared order.
+  bound-ability receipt. A basic-land contextual activation emits
+  `CastPaymentBasicLandManaAbilityActivated`, immediately followed by its
+  matching intrinsic `ManaAbilityActivated` receipt. In either case, a
+  matching `SpellCast` must occur before any priority pass. Paid fixed bundles
+  additionally require their cost receipt, optional life-cost receipt, and
+  every fixed mana-output receipt in declared order.
 - Player life totals use a wide signed `i64` representation, distinct from
   the `i16` effect and damage amounts. Life changes widen their amount before
   arithmetic, so an ordinary legal life-gain effect at the former `i16`

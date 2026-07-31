@@ -55,4 +55,13 @@ rules prose or private benchmark material.
   inside the existing atomic cast-payment transaction; validate each land,
   tap it, add exactly its intrinsic color, write causally ordered receipts,
   and restore all changes if a later activation or final spell payment fails.
-- **Resolution:** pending.
+- **Resolution:** `CastRequest::payment_mana_abilities` now carries the
+  explicit `CastPaymentManaAbility::BasicLand` variant alongside existing
+  definition-bound requests. The enclosing atomic cast transition validates
+  the typed binding and fixed color, records
+  `CastPaymentBasicLandManaAbilityActivated` immediately before the intrinsic
+  activation and mana-output receipts, then pays the spell. A failed later
+  payment restores all earlier source taps, pool changes, stack changes, and
+  receipts. The ordered-receipt invariant rejects a contextual basic-land
+  marker that is not immediately followed by its matching intrinsic receipt
+  or that is not followed by the enclosing spell receipt.

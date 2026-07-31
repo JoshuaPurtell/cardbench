@@ -33,7 +33,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 23] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 28] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SCATTER-THE-SEEDS",
@@ -57,6 +57,11 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 23] = [
     "RAV-DIMIR-SIGNET",
     "RAV-GOLGARI-SIGNET",
     "RAV-SELESNYA-SIGNET",
+    "RAV-PLAINS",
+    "RAV-ISLAND",
+    "RAV-SWAMP",
+    "RAV-MOUNTAIN",
+    "RAV-FOREST",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -2490,6 +2495,7 @@ fn basic_land(id: &'static str, name: &'static str, land_type: BasicLandType) ->
         card_types: types([CardType::Land]),
         is_basic_land: true,
         supported_rules: &[
+            "full-rules-fidelity",
             "basic-land-type-line",
             "intrinsic-single-color-mana-ability",
             "basic-land-deck-construction",
@@ -2597,7 +2603,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 88);
+        assert_eq!(first.len(), 89);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

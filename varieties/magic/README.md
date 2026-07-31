@@ -71,7 +71,7 @@ explicitly scoped compatibility slices.
 RAV shown scenarios are fixture-driven from
 `sets/ravnica_city_of_guilds/scenarios/public/train_scenarios.toml`; each declares
 setup, actions, state assertions, event markers, and a fixed digest. The
-current corpus contains 88 scenarios and covers:
+current corpus contains 89 scenarios and covers:
 
 - casting to the stack and both-player priority passes (`Lightning Helix`);
 - colored-cost creature casting and permanent characteristics (`Watchwolf`);
@@ -80,8 +80,9 @@ current corpus contains 88 scenarios and covers:
 - full-fidelity paid fixed-bundle artifact mana, including activation while
   paying a spell cost, atomic rollback, and ordered event receipts (the four
   RAV Signets);
-- typed but bounded basic-land lines and nonstack intrinsic mana receipts; the
-  cast-payment substrate does not yet activate intrinsic land abilities;
+- full-fidelity typed basic-land lines and intrinsic mana receipts, including
+  explicit basic-land activations during spell-cost payment with atomic
+  rollback and ordered event receipts;
 - a one-mana, fully convoked targeted temporary boost (`Gather Courage`),
   including its complete printed behavior;
 - three independently targeted temporary modifiers, including partial
