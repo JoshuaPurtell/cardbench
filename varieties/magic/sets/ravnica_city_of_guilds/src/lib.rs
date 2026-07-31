@@ -1082,10 +1082,9 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Flying, Keyword::Haste],
             effects: vec![],
         },
-        // Full fidelity for the represented static and mana-activated slice:
-        // the legendary Boros creature carries all three printed combat
-        // keywords.  Its damage-redirection activation is bound below once the
-        // engine's replacement-effect substrate is present.
+        // Full fidelity: the legendary Boros creature carries its three
+        // printed combat keywords and its two-target damage-redirection tap
+        // activation is bound through the shared replacement substrate below.
         CardDefinition {
             id: "RAV-RAZIA-BOROS-ARCHANGEL",
             name: "Razia, Boros Archangel",
