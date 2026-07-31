@@ -35,7 +35,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 58] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 61] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SCATTER-THE-SEEDS",
@@ -94,6 +94,9 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 58] = [
     "RAV-COALHAULER-SWINE",
     "RAV-SELL-SWORD-BRUTE",
     "RAV-FRENZIED-GOBLIN",
+    "RAV-SPARKMAGE-APPRENTICE",
+    "RAV-HUNTED-DRAGON",
+    "RAV-RAZIA-BOROS-ARCHANGEL",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -1031,6 +1034,84 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             effects: vec![Effect::DealDamageEqualToAttackingCreatures {
                 target: cardbench_magic_engine::TargetRequirement::PlayerOrCreature,
             }],
+        },
+        // Full fidelity: the enter-the-battlefield trigger selects a legal
+        // player or creature and deals one damage when that trigger resolves.
+        CardDefinition {
+            id: "RAV-SPARKMAGE-APPRENTICE",
+            name: "Sparkmage Apprentice",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(1, [Color::Red]),
+            colors: colors([Color::Red]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "etb-targeted-damage",
+            ],
+            power: Some(1),
+            toughness: Some(1),
+            keywords: vec![],
+            effects: vec![],
+        },
+        // Full fidelity: haste/flying are static characteristics and the ETB
+        // trigger creates three first-striking 2/2 white Knight creature
+        // tokens for one targeted opponent.
+        CardDefinition {
+            id: "RAV-HUNTED-DRAGON",
+            name: "Hunted Dragon",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(3, [Color::Red, Color::Red]),
+            colors: colors([Color::Red]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "flying",
+                "haste",
+                "etb-targeted-opponent-knight-tokens",
+            ],
+            power: Some(6),
+            toughness: Some(6),
+            keywords: vec![Keyword::Flying, Keyword::Haste],
+            effects: vec![],
+        },
+        // Full fidelity for the represented static and mana-activated slice:
+        // the legendary Boros creature carries all three printed combat
+        // keywords.  Its damage-redirection activation is bound below once the
+        // engine's replacement-effect substrate is present.
+        CardDefinition {
+            id: "RAV-RAZIA-BOROS-ARCHANGEL",
+            name: "Razia, Boros Archangel",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(
+                4,
+                [Color::Red, Color::Red, Color::White, Color::White],
+            ),
+            colors: colors([Color::Red, Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "flying",
+                "first-strike",
+                "vigilance",
+                "haste",
+                "tap-redirect-three-damage",
+            ],
+            power: Some(6),
+            toughness: Some(3),
+            keywords: vec![Keyword::Flying, Keyword::Vigilance, Keyword::Haste],
+            effects: vec![],
         },
         // Compatibility scope: normal colored-cost creature casting and base
         // characteristics only. Every printed card-specific behavior is
@@ -2478,6 +2559,25 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
             },
         },
         ActivatedAbilityBinding {
+            card_definition: "RAV-RAZIA-BOROS-ARCHANGEL",
+            ability: ActivatedAbility {
+                id: "tap-redirect-three-damage",
+                mana_cost: ManaCost::new(0),
+                tap_cost: true,
+                sacrifice_source: false,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![
+                    cardbench_magic_engine::TargetRequirement::Creature,
+                    cardbench_magic_engine::TargetRequirement::PlayerOrCreature,
+                ],
+                effects: vec![
+                    Effect::BeginDamageRedirection { amount: 3 },
+                    Effect::CompleteDamageRedirection,
+                ],
+            },
+        },
+        ActivatedAbilityBinding {
             card_definition: "RAV-BOROS-GUILDMAGE",
             ability: ActivatedAbility {
                 id: "grant-first-strike",
@@ -2536,6 +2636,34 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                 optional: false,
                 targets: vec![],
                 effects: vec![Effect::DrawController],
+            },
+        },
+        TriggeredAbilityBinding {
+            card_definition: "RAV-SPARKMAGE-APPRENTICE",
+            ability: TriggeredAbility {
+                id: "etb-deal-one",
+                condition: TriggerCondition::EntersBattlefield,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![cardbench_magic_engine::TargetRequirement::PlayerOrCreature],
+                effects: vec![Effect::DealDamage {
+                    amount: 1,
+                    target: cardbench_magic_engine::TargetRequirement::PlayerOrCreature,
+                }],
+            },
+        },
+        TriggeredAbilityBinding {
+            card_definition: "RAV-HUNTED-DRAGON",
+            ability: TriggeredAbility {
+                id: "etb-opponent-knights",
+                condition: TriggerCondition::EntersBattlefield,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![cardbench_magic_engine::TargetRequirement::Player],
+                effects: vec![Effect::CreateTokenForTargetPlayer {
+                    token: TokenSpec::knight(),
+                    count: 3,
+                }],
             },
         },
         TriggeredAbilityBinding {

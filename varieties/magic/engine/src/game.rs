@@ -261,6 +261,21 @@ struct PendingDiesTrigger {
     definition: &'static str,
 }
 
+#[derive(Clone, Debug)]
+struct PendingDamageRedirection {
+    source: ObjectId,
+    protected: ObjectId,
+    remaining: i32,
+}
+
+#[derive(Clone, Debug)]
+struct DamageRedirection {
+    protected: ObjectId,
+    destination: Target,
+    remaining: i32,
+    expires_turn: u32,
+}
+
 /// A deterministic, two-or-more-player Magic game state.
 ///
 /// Setup helpers (`add_card`, `put_on_battlefield`, and `grant_mana`) intentionally
@@ -311,6 +326,8 @@ pub struct Game {
     /// priority boundary for the resulting abilities.
     pending_damage_triggers: Vec<PendingDamageTrigger>,
     pending_dies_triggers: Vec<PendingDiesTrigger>,
+    pending_damage_redirection: Option<PendingDamageRedirection>,
+    damage_redirections: Vec<DamageRedirection>,
 }
 
 impl Game {
@@ -504,6 +521,8 @@ impl Game {
             pending_draw_replacement: None,
             pending_damage_triggers: Vec::new(),
             pending_dies_triggers: Vec::new(),
+            pending_damage_redirection: None,
+            damage_redirections: Vec::new(),
         };
         // Construction is the first observable state-machine boundary. Do not
         // hand a caller a game whose immutable catalog or initial seats already
@@ -1589,7 +1608,7 @@ impl Game {
                 creature_subtypes: token.creature_subtypes.clone(),
                 power: Some(i32::from(token.power)),
                 toughness: Some(i32::from(token.toughness)),
-                keywords: Vec::new(),
+                keywords: token.keywords.clone(),
             }
         } else {
             let definition = self.card_definition(card)?;
@@ -3081,6 +3100,31 @@ impl Game {
                 Duration::Permanent => {}
             }
         }
+        for redirect in &self.damage_redirections {
+            self.object(redirect.protected)?;
+            if redirect.remaining <= 0 || redirect.expires_turn < self.turn {
+                return Err(RulesError::IllegalAction(
+                    "damage redirection has invalid remaining amount or lifetime",
+                ));
+            }
+            if !matches!(
+                redirect.destination,
+                Target::Player(_) | Target::Permanent(_)
+            ) {
+                return Err(RulesError::IllegalAction(
+                    "damage redirection destination has invalid target shape",
+                ));
+            }
+        }
+        if let Some(pending) = &self.pending_damage_redirection {
+            self.object(pending.source)?;
+            self.object(pending.protected)?;
+            if pending.remaining <= 0 {
+                return Err(RulesError::IllegalAction(
+                    "pending damage redirection has nonpositive amount",
+                ));
+            }
+        }
         if let Some(combat) = &self.combat {
             if !matches!(
                 self.step,
@@ -3486,8 +3530,11 @@ impl Game {
                 | Effect::DealDamageToEachCreatureAndPlayer { amount }
                 | Effect::DealDamageToEachPlayer { amount }
                 | Effect::RadianceDealDamageToCreatures { amount }
+                | Effect::BeginDamageRedirection { amount }
                 | Effect::GainLifeController { amount } => *amount,
                 Effect::CreateToken { .. }
+                | Effect::CreateTokenForTargetPlayer { .. }
+                | Effect::CompleteDamageRedirection
                 | Effect::DrawControllerIfManaColorSpent { .. }
                 | Effect::DrawController
                 | Effect::GainLifeControllerFromSourceDamage
@@ -3626,6 +3673,9 @@ impl Game {
                 }
             }
         }
+        // A malformed or countered two-target redirection ability must not
+        // leave a half-built replacement effect behind for a later action.
+        self.pending_damage_redirection = None;
         if let Some(ability) = stack_object.ability_id {
             self.record_event(GameEvent::AbilityResolved {
                 source: stack_object.card,
@@ -3683,11 +3733,18 @@ impl Game {
             .cloned()
             .collect::<Vec<_>>();
         for ability in triggers {
+            let Some(targets) = self.select_trigger_targets(controller, &ability.targets) else {
+                // A mandatory trigger with no legal target is not stackable;
+                // an optional one simply does not trigger.  Current RAV ETB
+                // bindings use an opponent-first deterministic selector until
+                // policy-submitted triggered choices are exposed.
+                continue;
+            };
             self.stack.push(StackObject {
                 card: source,
                 controller,
                 ability_id: Some(ability.id),
-                targets: vec![],
+                targets,
                 effects: ability.effects,
                 mana_spent: None,
             });
@@ -3700,6 +3757,53 @@ impl Game {
         if !self.stack.is_empty() {
             self.consecutive_passes = 0;
         }
+    }
+
+    fn select_trigger_targets(
+        &self,
+        controller: PlayerId,
+        requirements: &[TargetRequirement],
+    ) -> Option<Vec<Target>> {
+        let mut targets = Vec::with_capacity(requirements.len());
+        for requirement in requirements {
+            let opponent_player = (0..self.players.len())
+                .map(PlayerId)
+                .find(|player| *player != controller && !self.players[player.0].lost)
+                .map(Target::Player)
+                .filter(|target| self.target_matches(*target, *requirement));
+            let opponent_permanent = self
+                .objects
+                .keys()
+                .copied()
+                .filter(|candidate| self.zone_of(*candidate) == Some(Zone::Battlefield))
+                .filter(|candidate| {
+                    self.object(*candidate)
+                        .is_ok_and(|object| object.controller != controller)
+                })
+                .map(Target::Permanent)
+                .find(|target| self.target_matches(*target, *requirement));
+            let any_permanent = self
+                .objects
+                .keys()
+                .copied()
+                .filter(|candidate| self.zone_of(*candidate) == Some(Zone::Battlefield))
+                .map(Target::Permanent)
+                .find(|target| self.target_matches(*target, *requirement));
+            let any_player = (0..self.players.len())
+                .map(PlayerId)
+                .filter(|player| !self.players[player.0].lost)
+                .map(Target::Player)
+                .find(|target| self.target_matches(*target, *requirement));
+            let Some(target) = opponent_player
+                .or(opponent_permanent)
+                .or(any_permanent)
+                .or(any_player)
+            else {
+                return None;
+            };
+            targets.push(target);
+        }
+        Some(targets)
     }
 
     /// Stacks attack triggers after attacker declaration. Optional mana is
@@ -3991,6 +4095,48 @@ impl Game {
         permanent: ObjectId,
         amount: i32,
     ) -> Result<(), RulesError> {
+        let redirect_index = self
+            .damage_redirections
+            .iter()
+            .position(|redirect| redirect.protected == permanent && redirect.remaining > 0);
+        if let Some(index) = redirect_index {
+            let destination = self.damage_redirections[index].destination;
+            let destination_is_legal = self
+                .target_matches(destination, TargetRequirement::PlayerOrCreature)
+                && destination != Target::Permanent(permanent);
+            if destination_is_legal {
+                let redirected = amount.min(self.damage_redirections[index].remaining);
+                self.damage_redirections[index].remaining -= redirected;
+                self.record_event(GameEvent::DamageRedirected {
+                    source,
+                    from: permanent,
+                    to: destination,
+                    amount: redirected,
+                });
+                match destination {
+                    Target::Player(player) => {
+                        self.deal_damage_to_player(source, player, redirected)?;
+                    }
+                    Target::Permanent(target) => {
+                        self.deal_damage_to_permanent(source, target, redirected)?;
+                    }
+                    Target::Spell(_) | Target::SacrificePermanent(_) => {
+                        return Err(RulesError::IllegalTarget(destination));
+                    }
+                }
+                if amount == redirected {
+                    if self.damage_redirections[index].remaining == 0 {
+                        self.damage_redirections.remove(index);
+                    }
+                    return Ok(());
+                }
+                if self.damage_redirections[index].remaining == 0 {
+                    self.damage_redirections.remove(index);
+                }
+                return self.deal_damage_to_permanent(source, permanent, amount - redirected);
+            }
+            self.damage_redirections.remove(index);
+        }
         let (prevented, consumes_shield) = if self.damage_cannot_be_prevented(source) {
             (0, false)
         } else if self.target_prevents_damage_from_source(source, permanent) {
@@ -4174,6 +4320,57 @@ impl Game {
                         token: token_id,
                     });
                 }
+            }
+            Effect::CreateTokenForTargetPlayer { token, count } => {
+                let target_player = match target {
+                    Some(Target::Player(player)) if !self.players[player.0].lost => player,
+                    Some(other) => return Err(RulesError::IllegalTarget(other)),
+                    None => return Err(RulesError::IllegalAction("missing token-player target")),
+                };
+                for _ in 0..*count {
+                    let token_id = self.create_token(target_player, token.clone())?;
+                    self.record_event(GameEvent::TokenCreated {
+                        player: target_player,
+                        token: token_id,
+                    });
+                }
+            }
+            Effect::BeginDamageRedirection { amount } => {
+                let protected = Self::target_permanent(target)?;
+                if *amount <= 0
+                    || self.zone_of(source) != Some(Zone::Battlefield)
+                    || self.zone_of(protected) != Some(Zone::Battlefield)
+                    || !self
+                        .object(protected)
+                        .is_ok_and(|object| object.controller == controller)
+                {
+                    return Err(RulesError::IllegalTarget(Target::Permanent(protected)));
+                }
+                self.pending_damage_redirection = Some(PendingDamageRedirection {
+                    source,
+                    protected,
+                    remaining: i32::from(*amount),
+                });
+            }
+            Effect::CompleteDamageRedirection => {
+                let destination = target.ok_or(RulesError::IllegalAction(
+                    "missing damage-redirection destination",
+                ))?;
+                if !self.target_matches(destination, TargetRequirement::PlayerOrCreature) {
+                    return Err(RulesError::IllegalTarget(destination));
+                }
+                let pending =
+                    self.pending_damage_redirection
+                        .take()
+                        .ok_or(RulesError::IllegalAction(
+                            "damage-redirection destination lacks source",
+                        ))?;
+                self.damage_redirections.push(DamageRedirection {
+                    protected: pending.protected,
+                    destination,
+                    remaining: pending.remaining,
+                    expires_turn: self.turn,
+                });
             }
             Effect::ModifyTargetPtUntilEndOfTurn { power, toughness } => {
                 let target = Self::target_permanent(target)?;
@@ -4585,6 +4782,8 @@ impl Game {
                     .collect::<Vec<_>>();
                 self.continuous_effects
                     .retain(|effect| effect.duration != Duration::EndOfTurn(self.turn));
+                self.damage_redirections
+                    .retain(|redirect| redirect.expires_turn != self.turn);
                 for effect in expired {
                     self.remove_damage_shield_for_effect(&effect);
                     self.record_event(GameEvent::ContinuousEffectExpired {
@@ -4854,6 +5053,8 @@ impl Game {
     }
 
     fn expire_continuous_effects_involving(&mut self, card: ObjectId) {
+        self.damage_redirections
+            .retain(|redirect| redirect.protected != card);
         let expired = self
             .continuous_effects
             .iter()

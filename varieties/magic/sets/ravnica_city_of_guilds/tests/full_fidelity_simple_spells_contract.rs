@@ -68,6 +68,9 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-COALHAULER-SWINE",
             "RAV-SELL-SWORD-BRUTE",
             "RAV-FRENZIED-GOBLIN",
+            "RAV-SPARKMAGE-APPRENTICE",
+            "RAV-HUNTED-DRAGON",
+            "RAV-RAZIA-BOROS-ARCHANGEL",
         ]
     );
     let definitions = card_definitions();
