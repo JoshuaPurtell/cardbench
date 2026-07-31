@@ -6680,6 +6680,59 @@ event_markers = ["SpellCast", "SpellResolved", "TriggeredAbilityStacked", "Conti
 digest = "fnv1a64:e8d8ac54c1e8b438"
 
 [[scenario]]
+id = "rav_infectious_host_dies_targeted_life_loss"
+seed = 61
+description = "Destroy Infectious Host, stack its dies trigger after state-based actions, and make the deterministically selected opponent lose two life without dealing damage."
+triggers = true
+
+[[scenario.card]]
+label = "host"
+owner = 0
+definition = "RAV-INFECTIOUS-HOST"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "gasp"
+owner = 0
+definition = "RAV-LAST-GASP"
+zone = "hand"
+
+[[scenario.mana]]
+player = 0
+color = "black"
+amount = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "gasp"
+target = "permanent:host"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+life = [20, 18]
+zones = ["gasp:graveyard", "host:graveyard"]
+stack_size = 0
+priority = 0
+event_markers = ["SpellCast", "StateBasedAction", "TriggeredAbilityStacked", "LifeLost", "AbilityResolved"]
+digest = "fnv1a64:911b129f50a167fe"
+
+[[scenario]]
 id = "rav_undercity_shade_black_evasion_compatibility"
 seed = 51
 description = "Declare Undercity Shade as a black-only evasion attacker, then reject a nonblack creature's block declaration; its temporary power activation remains unsupported."

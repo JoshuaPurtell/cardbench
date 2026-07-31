@@ -3677,6 +3677,7 @@ impl Game {
         for effect in &definition.effects {
             let amount = match effect {
                 Effect::DealDamage { amount, .. }
+                | Effect::LoseLifeTarget { amount }
                 | Effect::DealDamageController { amount }
                 | Effect::DealDamageAfterOptionalManaPayment { amount, .. }
                 | Effect::DealDamageToEachCreatureAndPlayer { amount }
@@ -4487,6 +4488,19 @@ impl Game {
                     return Err(RulesError::IllegalTarget(Target::SacrificePermanent(card)));
                 }
             },
+            Effect::LoseLifeTarget { amount } => {
+                let player =
+                    match target.ok_or(RulesError::IllegalAction("missing life-loss target"))? {
+                        Target::Player(player) if !self.players[player.0].lost => player,
+                        other => return Err(RulesError::IllegalTarget(other)),
+                    };
+                self.players[player.0].life -= i64::from(*amount);
+                self.record_event(GameEvent::LifeLost {
+                    source,
+                    player,
+                    amount: *amount,
+                });
+            }
             Effect::DealDamageEqualToAttackingCreatures { .. } => {
                 let amount = self.attacking_creature_count(controller)?;
                 // Magic treats zero damage as no damage. Keeping that boundary
@@ -5687,6 +5701,7 @@ impl Game {
         for effect in effects {
             let amount = match effect {
                 Effect::DealDamage { amount, .. }
+                | Effect::LoseLifeTarget { amount }
                 | Effect::DealDamageController { amount }
                 | Effect::DealDamageAfterOptionalManaPayment { amount, .. }
                 | Effect::DealDamageToEachCreatureAndPlayer { amount }

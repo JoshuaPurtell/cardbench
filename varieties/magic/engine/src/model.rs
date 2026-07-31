@@ -785,6 +785,11 @@ pub enum Effect {
         amount: i16,
         target: TargetRequirement,
     },
+    /// Make one targeted player lose life without dealing damage. Prevention,
+    /// redirection, and damage triggers therefore do not apply.
+    LoseLifeTarget {
+        amount: i16,
+    },
     /// Deal damage to one target equal to the number of creatures controlled
     /// by this spell's controller that are still attacking as it resolves.
     ///
@@ -987,7 +992,9 @@ impl Effect {
             | Self::ExileTargetCreature => Some(TargetRequirement::Creature),
             Self::ExileTargetPermanent => Some(TargetRequirement::AttackingOrBlockingCreature),
             Self::CompleteDamageRedirection => Some(TargetRequirement::PlayerOrCreature),
-            Self::CreateTokenForTargetPlayer { .. } => Some(TargetRequirement::Player),
+            Self::LoseLifeTarget { .. } | Self::CreateTokenForTargetPlayer { .. } => {
+                Some(TargetRequirement::Player)
+            }
             Self::DestroyTargetLand => Some(TargetRequirement::Land),
             Self::DestroyTargetArtifact => Some(TargetRequirement::Artifact),
             Self::DestroyTargetArtifactOrEnchantment => {
@@ -1696,6 +1703,12 @@ pub enum GameEvent {
         source: ObjectId,
         player: PlayerId,
         amount: i32,
+    },
+    /// A non-damage effect made one target player lose life.
+    LifeLost {
+        source: ObjectId,
+        player: PlayerId,
+        amount: i16,
     },
     DamageDealtToPermanent {
         source: ObjectId,

@@ -417,6 +417,30 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Flying],
             effects: vec![],
         },
+        // Compatibility scope: normal colored-cost casting, base
+        // characteristics, and its stack-backed dies trigger are represented.
+        // The printed target player is selected deterministically
+        // opponent-first until triggered-choice actions are policy-submitted.
+        CardDefinition {
+            id: "RAV-INFECTIOUS-HOST",
+            name: "Infectious Host",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(1, [Color::Black]),
+            colors: colors([Color::Black]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "colored-cost-casting",
+                "base-characteristics",
+                "dies-target-player-life-loss",
+                "deterministic-opponent-target-choice",
+            ],
+            power: Some(1),
+            toughness: Some(1),
+            keywords: vec![],
+            effects: vec![],
+        },
         // Full fidelity: the typed artifact target is destroyed during
         // resolution and the spell controller draws one card afterward.
         // The expansion-neutral engine owns target legality, zone movement,
@@ -3100,6 +3124,17 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
             },
         },
         TriggeredAbilityBinding {
+            card_definition: "RAV-INFECTIOUS-HOST",
+            ability: TriggeredAbility {
+                id: "dies-target-player-life-loss",
+                condition: TriggerCondition::Dies,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![cardbench_magic_engine::TargetRequirement::Player],
+                effects: vec![Effect::LoseLifeTarget { amount: 2 }],
+            },
+        },
+        TriggeredAbilityBinding {
             card_definition: "RAV-FLAME-KIN-ZEALOT",
             ability: TriggeredAbility {
                 id: "etb-team-pump-haste",
@@ -3909,7 +3944,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 124);
+        assert_eq!(first.len(), 125);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }
