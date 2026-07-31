@@ -3706,7 +3706,8 @@ impl Game {
                 | Effect::RadianceModifyPtUntilEndOfTurn { .. }
                 | Effect::RadianceAddKeywordUntilEndOfTurn { .. }
                 | Effect::CounterTargetInstantOrSorcerySpell
-                | Effect::ExileTargetCreature => continue,
+                | Effect::ExileTargetCreature
+                | Effect::ExileTargetPermanent => continue,
             };
             if amount <= 0 {
                 return Err(RulesError::IllegalAction(
@@ -4923,6 +4924,10 @@ impl Game {
                 let target = Self::target_permanent(target)?;
                 self.move_to_zone(target, Zone::Exile)?;
             }
+            Effect::ExileTargetPermanent => {
+                let target = Self::target_permanent(target)?;
+                self.move_to_zone(target, Zone::Exile)?;
+            }
         }
         Ok(())
     }
@@ -4996,7 +5001,8 @@ impl Game {
                 Target::Permanent(card),
                 TargetRequirement::Creature
                 | TargetRequirement::PlayerOrCreature
-                | TargetRequirement::BlockingCreature,
+                | TargetRequirement::BlockingCreature
+                | TargetRequirement::AttackingOrBlockingCreature,
             ) => {
                 self.zone_of(card) == Some(Zone::Battlefield)
                     && self.characteristics(card).is_ok_and(|characteristics| {
@@ -5005,6 +5011,11 @@ impl Game {
                     && (!matches!(requirement, TargetRequirement::BlockingCreature)
                         || self.combat.as_ref().is_some_and(|combat| {
                             combat.blockers.values().any(|blocker| *blocker == card)
+                        }))
+                    && (!matches!(requirement, TargetRequirement::AttackingOrBlockingCreature)
+                        || self.combat.as_ref().is_some_and(|combat| {
+                            combat.attackers.contains(&card)
+                                || combat.blockers.values().any(|blocker| *blocker == card)
                         }))
             }
             (Target::Permanent(card), TargetRequirement::Land) => {
@@ -5048,6 +5059,7 @@ impl Game {
                 TargetRequirement::Any
                     | TargetRequirement::Creature
                     | TargetRequirement::BlockingCreature
+                    | TargetRequirement::AttackingOrBlockingCreature
                     | TargetRequirement::Land
                     | TargetRequirement::Artifact
                     | TargetRequirement::PlayerOrCreature

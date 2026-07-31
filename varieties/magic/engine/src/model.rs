@@ -646,6 +646,10 @@ pub enum TargetRequirement {
     /// combat. This preserves the narrower target restriction of sacrifice
     /// damage abilities such as War-Torch Goblin.
     BlockingCreature,
+    /// A battlefield creature currently declared as an attacker or blocker
+    /// in the active combat. This preserves the targeted-combat restriction
+    /// of Devouring Light without weakening generic creature-exile effects.
+    AttackingOrBlockingCreature,
     Land,
     /// A battlefield permanent with the Artifact card type.
     Artifact,
@@ -908,6 +912,10 @@ pub enum Effect {
     /// it bypasses regeneration and preserves the target's normal
     /// zone-departure lifecycle.
     ExileTargetCreature,
+    /// Move a creature that is currently attacking or blocking to exile.
+    /// This remains distinct from `ExileTargetCreature`, whose target may be
+    /// any battlefield creature.
+    ExileTargetPermanent,
 }
 
 impl Effect {
@@ -932,6 +940,7 @@ impl Effect {
             | Self::BeginDamageRedirection { .. }
             | Self::PreventTargetBlockingSourceUntilEndOfTurn
             | Self::ExileTargetCreature => Some(TargetRequirement::Creature),
+            Self::ExileTargetPermanent => Some(TargetRequirement::AttackingOrBlockingCreature),
             Self::CompleteDamageRedirection => Some(TargetRequirement::PlayerOrCreature),
             Self::CreateTokenForTargetPlayer { .. } => Some(TargetRequirement::Player),
             Self::DestroyTargetLand => Some(TargetRequirement::Land),

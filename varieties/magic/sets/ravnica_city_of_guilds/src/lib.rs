@@ -35,7 +35,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 68] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 69] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -50,6 +50,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 68] = [
     "RAV-CLEANSING-BEAM",
     "RAV-RALLY-THE-RIGHTEOUS",
     "RAV-WOJEK-SIREN",
+    "RAV-DEVOURING-LIGHT",
     "RAV-RAIN-OF-EMBERS",
     "RAV-DOGPILE",
     "RAV-OVERWHELM",
@@ -2329,6 +2330,29 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             toughness: Some(2),
             keywords: vec![Keyword::Flying, Keyword::Vigilance],
             effects: vec![],
+        },
+        // Full fidelity: Convoke payment and resolution-time validation that
+        // the target is a creature still attacking or blocking, followed by a
+        // normal zone change to exile.
+        CardDefinition {
+            id: "RAV-DEVOURING-LIGHT",
+            name: "Devouring Light",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(1, [Color::White, Color::White]),
+            colors: colors([Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Instant]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "convoke",
+                "attacking-or-blocking-creature-target",
+                "exile",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![Keyword::Convoke],
+            effects: vec![Effect::ExileTargetPermanent],
         },
         // Compatibility scope: normal colored-cost creature casting, base
         // characteristics, and Flying. Its activated sacrifice/damage ability
