@@ -62,6 +62,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-THUNDERSONG-TRUMPETER",
             "RAV-SABERTOOTH-ALLEY-CAT",
             "RAV-FLAME-KIN-ZEALOT",
+            "RAV-ORDRUUN-COMMANDO",
         ]
     );
     let definitions = card_definitions();

@@ -701,6 +701,7 @@ impl Game {
                 controller: owner,
                 tapped: false,
                 damage: 0,
+                damage_shield: 0,
                 counters: BTreeMap::new(),
                 entered_turn: self.turn,
                 token: None,
@@ -1303,12 +1304,7 @@ impl Game {
                 });
             }
             if let Some(amount) = ability.controller_damage {
-                self.players[player.0].life -= i64::from(amount);
-                self.record_event(GameEvent::DamageDealtToPlayer {
-                    source: activation.source,
-                    player,
-                    amount: i32::from(amount),
-                });
+                self.deal_damage_to_player(activation.source, player, i32::from(amount));
             }
         } else {
             let color = color.expect("single-color mana ability output was preflighted");
@@ -1331,12 +1327,7 @@ impl Game {
                 amount: ability.amount,
             });
             if let Some(amount) = ability.controller_damage {
-                self.players[player.0].life -= i64::from(amount);
-                self.record_event(GameEvent::DamageDealtToPlayer {
-                    source: activation.source,
-                    player,
-                    amount: i32::from(amount),
-                });
+                self.deal_damage_to_player(activation.source, player, i32::from(amount));
             }
         }
         Ok(())
@@ -1627,6 +1618,7 @@ impl Game {
                         .keywords
                         .retain(|candidate| candidate != keyword);
                 }
+                ContinuousChange::AddDamageShield(_) => {}
                 ContinuousChange::ModifyPowerToughness { power, toughness } => {
                     characteristics.power = characteristics
                         .power
@@ -1698,6 +1690,17 @@ impl Game {
             timestamp: self.next_timestamp,
         });
         self.next_timestamp += 1;
+        if let ContinuousChange::AddDamageShield(amount) = &self
+            .continuous_effects
+            .last()
+            .expect("effect was just installed")
+            .change
+        {
+            self.objects
+                .get_mut(&target)
+                .ok_or(RulesError::UnknownCard(target))?
+                .damage_shield += i32::from(*amount);
+        }
         self.record_event(GameEvent::ContinuousEffectCreated {
             source,
             target,
@@ -2741,9 +2744,12 @@ impl Game {
                             "card is in the wrong player's zone",
                         ));
                     }
-                    if object.entered_turn > self.turn || object.damage < 0 {
+                    if object.entered_turn > self.turn
+                        || object.damage < 0
+                        || object.damage_shield < 0
+                    {
                         return Err(RulesError::IllegalAction(
-                            "object has impossible turn metadata or negative damage",
+                            "object has impossible turn metadata or negative damage/shield",
                         ));
                     }
                     match (object.definition, object.token.as_ref()) {
@@ -3459,6 +3465,7 @@ impl Game {
                 | Effect::ModifyTargetKeywordUntilEndOfTurn { .. }
                 | Effect::ModifySourcePtUntilEndOfTurn { .. }
                 | Effect::RemoveSourceKeywordUntilEndOfTurn { .. }
+                | Effect::AddSourceDamageShieldUntilEndOfTurn { .. }
                 | Effect::DestroyTargetLand
                 | Effect::ModifyControllerCreaturesPtUntilEndOfTurn { .. }
                 | Effect::AddKeywordToControllerCreaturesUntilEndOfTurn { .. }
@@ -3672,6 +3679,60 @@ impl Game {
         Ok(())
     }
 
+    fn damage_cannot_be_prevented(&self, source: ObjectId) -> bool {
+        self.characteristics(source).is_ok_and(|characteristics| {
+            characteristics
+                .keywords
+                .contains(&Keyword::DamageCannotBePrevented)
+        })
+    }
+
+    fn deal_damage_to_permanent(
+        &mut self,
+        source: ObjectId,
+        permanent: ObjectId,
+        amount: i32,
+    ) -> Result<(), RulesError> {
+        let prevented = if self.damage_cannot_be_prevented(source) {
+            0
+        } else {
+            amount.min(self.object(permanent)?.damage_shield)
+        };
+        if prevented > 0 {
+            self.objects
+                .get_mut(&permanent)
+                .ok_or(RulesError::UnknownCard(permanent))?
+                .damage_shield -= prevented;
+            self.record_event(GameEvent::DamagePrevented {
+                source,
+                target: Target::Permanent(permanent),
+                amount: prevented,
+            });
+        }
+        let remaining = amount - prevented;
+        if remaining > 0 {
+            self.objects
+                .get_mut(&permanent)
+                .ok_or(RulesError::UnknownCard(permanent))?
+                .damage += remaining;
+            self.record_event(GameEvent::DamageDealtToPermanent {
+                source,
+                permanent,
+                amount: remaining,
+            });
+        }
+        Ok(())
+    }
+
+    fn deal_damage_to_player(&mut self, source: ObjectId, player: PlayerId, amount: i32) {
+        self.players[player.0].life -= i64::from(amount);
+        self.record_event(GameEvent::DamageDealtToPlayer {
+            source,
+            player,
+            amount,
+        });
+    }
+
     #[allow(clippy::too_many_lines)] // Effect dispatch stays centralized so stack resolution has one rules path.
     fn resolve_effect(
         &mut self,
@@ -3686,23 +3747,10 @@ impl Game {
                 .ok_or(RulesError::IllegalAction("missing damage target"))?
             {
                 Target::Player(player) => {
-                    self.players[player.0].life -= i64::from(*amount);
-                    self.record_event(GameEvent::DamageDealtToPlayer {
-                        source,
-                        player,
-                        amount: i32::from(*amount),
-                    });
+                    self.deal_damage_to_player(source, player, i32::from(*amount));
                 }
                 Target::Permanent(permanent) => {
-                    self.objects
-                        .get_mut(&permanent)
-                        .ok_or(RulesError::UnknownCard(permanent))?
-                        .damage += i32::from(*amount);
-                    self.record_event(GameEvent::DamageDealtToPermanent {
-                        source,
-                        permanent,
-                        amount: i32::from(*amount),
-                    });
+                    self.deal_damage_to_permanent(source, permanent, i32::from(*amount))?;
                 }
                 Target::Spell(card) => return Err(RulesError::IllegalTarget(Target::Spell(card))),
                 Target::SacrificePermanent(card) => {
@@ -3717,23 +3765,10 @@ impl Game {
                 if amount != 0 {
                     match target.ok_or(RulesError::IllegalAction("missing damage target"))? {
                         Target::Player(player) => {
-                            self.players[player.0].life -= i64::from(amount);
-                            self.record_event(GameEvent::DamageDealtToPlayer {
-                                source,
-                                player,
-                                amount,
-                            });
+                            self.deal_damage_to_player(source, player, amount);
                         }
                         Target::Permanent(permanent) => {
-                            self.objects
-                                .get_mut(&permanent)
-                                .ok_or(RulesError::UnknownCard(permanent))?
-                                .damage += amount;
-                            self.record_event(GameEvent::DamageDealtToPermanent {
-                                source,
-                                permanent,
-                                amount,
-                            });
+                            self.deal_damage_to_permanent(source, permanent, amount)?;
                         }
                         Target::Spell(card) => {
                             return Err(RulesError::IllegalTarget(Target::Spell(card)));
@@ -3747,12 +3782,7 @@ impl Game {
                 }
             }
             Effect::DealDamageController { amount } => {
-                self.players[controller.0].life -= i64::from(*amount);
-                self.record_event(GameEvent::DamageDealtToPlayer {
-                    source,
-                    player: controller,
-                    amount: i32::from(*amount),
-                });
+                self.deal_damage_to_player(source, controller, i32::from(*amount));
             }
             Effect::DealDamageToEachCreatureAndPlayer { amount } => {
                 // Snapshot the complete affected set before mutating the
@@ -3773,27 +3803,14 @@ impl Game {
                     })
                     .collect::<Vec<_>>();
                 for creature in creatures {
-                    self.objects
-                        .get_mut(&creature)
-                        .ok_or(RulesError::UnknownCard(creature))?
-                        .damage += i32::from(*amount);
-                    self.record_event(GameEvent::DamageDealtToPermanent {
-                        source,
-                        permanent: creature,
-                        amount: i32::from(*amount),
-                    });
+                    self.deal_damage_to_permanent(source, creature, i32::from(*amount))?;
                 }
                 for player in 0..self.players.len() {
                     if self.players[player].lost {
                         continue;
                     }
                     let player = PlayerId(player);
-                    self.players[player.0].life -= i64::from(*amount);
-                    self.record_event(GameEvent::DamageDealtToPlayer {
-                        source,
-                        player,
-                        amount: i32::from(*amount),
-                    });
+                    self.deal_damage_to_player(source, player, i32::from(*amount));
                 }
             }
             Effect::RadianceDealDamageToCreatures { amount } => {
@@ -3802,15 +3819,7 @@ impl Game {
                 // after the complete spell resolves, so every selected
                 // creature receives this effect's damage in the same batch.
                 for candidate in self.radiance_creatures_sharing_color(target)? {
-                    self.objects
-                        .get_mut(&candidate)
-                        .ok_or(RulesError::UnknownCard(candidate))?
-                        .damage += i32::from(*amount);
-                    self.record_event(GameEvent::DamageDealtToPermanent {
-                        source,
-                        permanent: candidate,
-                        amount: i32::from(*amount),
-                    });
+                    self.deal_damage_to_permanent(source, candidate, i32::from(*amount))?;
                 }
             }
             Effect::GainLifeController { amount } => {
@@ -3883,6 +3892,17 @@ impl Game {
                     source,
                     source,
                     ContinuousChange::RemoveKeyword(keyword.clone()),
+                    Duration::EndOfTurn(self.turn),
+                )?;
+            }
+            Effect::AddSourceDamageShieldUntilEndOfTurn { amount } => {
+                if *amount <= 0 || self.zone_of(source) != Some(Zone::Battlefield) {
+                    return Ok(());
+                }
+                self.install_continuous_effect(
+                    source,
+                    source,
+                    ContinuousChange::AddDamageShield(*amount),
                     Duration::EndOfTurn(self.turn),
                 )?;
             }
@@ -4237,6 +4257,7 @@ impl Game {
                 self.continuous_effects
                     .retain(|effect| effect.duration != Duration::EndOfTurn(self.turn));
                 for effect in expired {
+                    self.remove_damage_shield_for_effect(&effect);
                     self.record_event(GameEvent::ContinuousEffectExpired {
                         source: effect.source,
                         target: effect.target,
@@ -4455,23 +4476,10 @@ impl Game {
             }
         }
         for (source, permanent, amount) in permanent_damage {
-            self.objects
-                .get_mut(&permanent)
-                .ok_or(RulesError::UnknownCard(permanent))?
-                .damage += amount;
-            self.record_event(GameEvent::DamageDealtToPermanent {
-                source,
-                permanent,
-                amount,
-            });
+            self.deal_damage_to_permanent(source, permanent, amount)?;
         }
         for (source, player, amount) in player_damage {
-            self.players[player.0].life -= i64::from(amount);
-            self.record_event(GameEvent::DamageDealtToPlayer {
-                source,
-                player,
-                amount,
-            });
+            self.deal_damage_to_player(source, player, amount);
         }
         self.check_state_based_actions()?;
         Ok(())
@@ -4502,6 +4510,7 @@ impl Game {
                 controller,
                 tapped: false,
                 damage: 0,
+                damage_shield: 0,
                 counters: BTreeMap::new(),
                 entered_turn: self.turn,
                 token: Some(token),
@@ -4539,6 +4548,7 @@ impl Game {
                 .ok_or(RulesError::UnknownCard(card))?;
             battlefield_object.tapped = false;
             battlefield_object.damage = 0;
+            battlefield_object.damage_shield = 0;
             battlefield_object.entered_turn = self.turn;
         }
         self.place_in_zone(destination_owner, card, zone)?;
@@ -4619,11 +4629,23 @@ impl Game {
         self.continuous_effects
             .retain(|effect| effect.source != card && effect.target != card);
         for effect in expired {
+            self.remove_damage_shield_for_effect(&effect);
             self.record_event(GameEvent::ContinuousEffectExpired {
                 source: effect.source,
                 target: effect.target,
                 layer: effect.change.layer(),
             });
+        }
+    }
+
+    fn remove_damage_shield_for_effect(&mut self, effect: &ContinuousEffect) {
+        if let ContinuousChange::AddDamageShield(amount) = &effect.change {
+            if let Some(object) = self.objects.get_mut(&effect.target) {
+                object.damage_shield = object
+                    .damage_shield
+                    .saturating_sub(i32::from(*amount))
+                    .max(0);
+            }
         }
     }
 

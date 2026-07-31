@@ -754,6 +754,9 @@ pub enum Effect {
     RemoveSourceKeywordUntilEndOfTurn {
         keyword: Keyword,
     },
+    AddSourceDamageShieldUntilEndOfTurn {
+        amount: i16,
+    },
     /// Destroy the targeted land during resolution, sending it through the
     /// normal zone-change and continuous-effect lifecycle.
     DestroyTargetLand,
@@ -814,6 +817,7 @@ impl Effect {
             | Self::CreateToken { .. }
             | Self::ModifySourcePtUntilEndOfTurn { .. }
             | Self::RemoveSourceKeywordUntilEndOfTurn { .. }
+            | Self::AddSourceDamageShieldUntilEndOfTurn { .. }
             | Self::ModifyControllerCreaturesPtUntilEndOfTurn { .. }
             | Self::AddKeywordToControllerCreaturesUntilEndOfTurn { .. } => None,
         }
@@ -1024,6 +1028,8 @@ pub struct CardObject {
     /// than a card's printed power/toughness so repeated legal effects never
     /// wrap or panic part way through stack resolution.
     pub damage: i32,
+    /// Temporary prevention shield units waiting to absorb damage.
+    pub damage_shield: i32,
     pub counters: BTreeMap<&'static str, i16>,
     pub entered_turn: u32,
     pub token: Option<TokenSpec>,
@@ -1059,6 +1065,7 @@ pub enum ContinuousChange {
     AddColor(Color),
     AddKeyword(Keyword),
     RemoveKeyword(Keyword),
+    AddDamageShield(i16),
     ModifyPowerToughness { power: i16, toughness: i16 },
 }
 
@@ -1068,7 +1075,9 @@ impl ContinuousChange {
         match self {
             Self::AddCardType(_) => Layer::Type,
             Self::AddColor(_) => Layer::Color,
-            Self::AddKeyword(_) | Self::RemoveKeyword(_) => Layer::Ability,
+            Self::AddKeyword(_) | Self::RemoveKeyword(_) | Self::AddDamageShield(_) => {
+                Layer::Ability
+            }
             Self::ModifyPowerToughness { .. } => Layer::PowerToughness,
         }
     }
@@ -1498,6 +1507,11 @@ pub enum GameEvent {
     DamageDealtToPermanent {
         source: ObjectId,
         permanent: ObjectId,
+        amount: i32,
+    },
+    DamagePrevented {
+        source: ObjectId,
+        target: Target,
         amount: i32,
     },
     LifeGained {
