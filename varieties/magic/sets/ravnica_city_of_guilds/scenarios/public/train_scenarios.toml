@@ -487,6 +487,59 @@ event_markers = ["SacrificedAsAdditionalSpellCost", "CardMoved", "DamageDealtToP
 digest = "fnv1a64:052445229da19b58"
 
 [[scenario]]
+id = "rav_incite_hysteria_radiance_blockers"
+seed = 0
+description = "Apply a Radiance blocker restriction to a red target and its same-color peer."
+
+[[scenario.card]]
+label = "incite"
+owner = 0
+definition = "RAV-INCITE-HYSTERIA"
+zone = "hand"
+
+[[scenario.card]]
+label = "target"
+owner = 1
+definition = "RAV-FRENZIED-GOBLIN"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "shared"
+owner = 1
+definition = "RAV-GOBLIN-SPELUNKERS"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "other"
+owner = 1
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+
+[[scenario.mana]]
+player = 0
+color = "red"
+amount = 3
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "incite"
+target = "permanent:target"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["incite:graveyard", "target:battlefield", "shared:battlefield", "other:battlefield"]
+event_markers = ["ContinuousEffectCreated", "SpellResolved"]
+digest = "fnv1a64:28fbb1bf8d88508b"
+
+[[scenario]]
 id = "rav_stack_lightning_helix"
 seed = 0
 description = "Cast a targeted instant, pass priority around the stack, and verify the life swing."

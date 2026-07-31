@@ -39,8 +39,8 @@ fn incite_hysteria_definition_declares_radiance_blocker_restriction() {
             keyword: Keyword::CannotBlock,
         }]
     );
-    assert!(incite.supported_rules.contains(&"radiance"));
-    assert!(incite.supported_rules.contains(&"cannot-block"));
+    assert!(incite.supported_rules.contains(&"full-rules-fidelity"));
+    assert!(incite.supported_rules.contains(&"radiance-cannot-block"));
 }
 
 #[test]

@@ -417,6 +417,13 @@ Oracle Magic rules coverage.
   creature receives no effect receipt. The target must remain a legal creature
   through resolution, while each selected shared-color creature is independently
   checked before installation.
+- A Radiance `CannotBlock` effect installs one layer-six restriction for the
+  target and each shared-color creature, never for unrelated colors. The
+  restriction expires at end of turn and does not alter attacker legality.
+- An unconditional spell draw is performed only after all earlier spell
+  instructions resolve successfully, moves exactly one library card to hand
+  (or performs the normal empty-library loss), and records the ordinary card
+  movement receipt before the spell itself leaves the stack.
 - A target-free global creature-and-player damage effect snapshots every
   battlefield creature in stable object-id order, emits one permanent-damage
   receipt for each, then emits one player-damage receipt for each surviving
