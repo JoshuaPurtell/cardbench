@@ -2041,6 +2041,190 @@ event_absent = ["SpellCast", "SpellResolved", "PriorityPassed"]
 digest = "fnv1a64:dd3c3f052b014b85"
 
 [[scenario]]
+id = "rav_boros_signet_cast_payment"
+seed = 0
+description = "Use Boros Signet while paying the cost of a second artifact spell, then resolve only that spell through the stack."
+
+[[scenario.card]]
+label = "source"
+owner = 0
+definition = "RAV-BOROS-SIGNET"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "spell"
+owner = 0
+definition = "RAV-BOROS-SIGNET"
+zone = "hand"
+
+[[scenario.mana]]
+player = 0
+color = "blue"
+amount = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "spell"
+payment_mana = ["source:boros-signet-wr"]
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["source:battlefield", "spell:battlefield"]
+tapped = ["source:true", "spell:false"]
+mana = ["0:white:0", "0:blue:0", "0:black:0", "0:red:0", "0:green:0"]
+stack_size = 0
+priority = 0
+event_markers = ["CastPaymentManaAbilityActivated", "BoundManaAbilityBundleActivated", "ManaAbilityManaPaid", "ManaAdded", "SpellCast", "SpellResolved"]
+mana_receipts = ["0:white:1", "0:red:1"]
+digest = "fnv1a64:3f573ef9429b7e39"
+
+[[scenario]]
+id = "rav_dimir_signet_cast_payment"
+seed = 0
+description = "Use Dimir Signet while paying the cost of a second artifact spell, then resolve only that spell through the stack."
+
+[[scenario.card]]
+label = "source"
+owner = 0
+definition = "RAV-DIMIR-SIGNET"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "spell"
+owner = 0
+definition = "RAV-DIMIR-SIGNET"
+zone = "hand"
+
+[[scenario.mana]]
+player = 0
+color = "green"
+amount = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "spell"
+payment_mana = ["source:dimir-signet-ub"]
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["source:battlefield", "spell:battlefield"]
+tapped = ["source:true", "spell:false"]
+mana = ["0:white:0", "0:blue:0", "0:black:0", "0:red:0", "0:green:0"]
+stack_size = 0
+priority = 0
+event_markers = ["CastPaymentManaAbilityActivated", "BoundManaAbilityBundleActivated", "ManaAbilityManaPaid", "ManaAdded", "SpellCast", "SpellResolved"]
+mana_receipts = ["0:blue:1", "0:black:1"]
+digest = "fnv1a64:6d5779fe95ab3801"
+
+[[scenario]]
+id = "rav_golgari_signet_cast_payment"
+seed = 0
+description = "Use Golgari Signet while paying the cost of a second artifact spell, then resolve only that spell through the stack."
+
+[[scenario.card]]
+label = "source"
+owner = 0
+definition = "RAV-GOLGARI-SIGNET"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "spell"
+owner = 0
+definition = "RAV-GOLGARI-SIGNET"
+zone = "hand"
+
+[[scenario.mana]]
+player = 0
+color = "red"
+amount = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "spell"
+payment_mana = ["source:golgari-signet-bg"]
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["source:battlefield", "spell:battlefield"]
+tapped = ["source:true", "spell:false"]
+mana = ["0:white:0", "0:blue:0", "0:black:0", "0:red:0", "0:green:0"]
+stack_size = 0
+priority = 0
+event_markers = ["CastPaymentManaAbilityActivated", "BoundManaAbilityBundleActivated", "ManaAbilityManaPaid", "ManaAdded", "SpellCast", "SpellResolved"]
+mana_receipts = ["0:black:1", "0:green:1"]
+digest = "fnv1a64:1c83c12e8229cad9"
+
+[[scenario]]
+id = "rav_selesnya_signet_cast_payment"
+seed = 0
+description = "Use Selesnya Signet while paying the cost of a second artifact spell, then resolve only that spell through the stack."
+
+[[scenario.card]]
+label = "source"
+owner = 0
+definition = "RAV-SELESNYA-SIGNET"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "spell"
+owner = 0
+definition = "RAV-SELESNYA-SIGNET"
+zone = "hand"
+
+[[scenario.mana]]
+player = 0
+color = "blue"
+amount = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "spell"
+payment_mana = ["source:selesnya-signet-gw"]
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["source:battlefield", "spell:battlefield"]
+tapped = ["source:true", "spell:false"]
+mana = ["0:white:0", "0:blue:0", "0:black:0", "0:red:0", "0:green:0"]
+stack_size = 0
+priority = 0
+event_markers = ["CastPaymentManaAbilityActivated", "BoundManaAbilityBundleActivated", "ManaAbilityManaPaid", "ManaAdded", "SpellCast", "SpellResolved"]
+mana_receipts = ["0:white:1", "0:green:1"]
+digest = "fnv1a64:509a60b50efd545f"
+
+[[scenario]]
 id = "rav_cleansing_beam_radiance_damage"
 seed = 0
 description = "Resolve Cleansing Beam's radiance damage over its target and one shared-color peer before state-based actions."

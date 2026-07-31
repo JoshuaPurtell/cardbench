@@ -104,6 +104,7 @@ fn independently_targeted_effects_survive_one_target_becoming_illegal() {
                 Target::Permanent(last),
             ],
             convoke: vec![],
+            payment_mana_abilities: vec![],
         },
     );
     eprintln!(

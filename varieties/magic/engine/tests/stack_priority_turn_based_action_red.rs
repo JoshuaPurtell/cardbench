@@ -78,6 +78,7 @@ fn instant_cannot_be_cast_before_mandatory_attacker_declaration() {
             card: ping,
             targets: vec![Target::Player(opponent)],
             convoke: vec![],
+            payment_mana_abilities: vec![],
         },
     );
 
@@ -125,6 +126,7 @@ fn instant_cannot_be_cast_before_mandatory_blocker_declaration() {
             card: ping,
             targets: vec![Target::Player(opponent)],
             convoke: vec![],
+            payment_mana_abilities: vec![],
         },
     );
 

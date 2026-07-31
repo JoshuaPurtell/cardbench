@@ -598,6 +598,7 @@ fn selected_action(game: &Game, player: PlayerId, rng: &mut TraceRng) -> PolicyA
                     card: card.id,
                     targets: vec![Target::Player(living_opponent(game, player))],
                     convoke: vec![],
+                    payment_mana_abilities: vec![],
                 }));
             }
             actions.swap_remove(rng.choose(actions.len()))
@@ -736,6 +737,7 @@ fn run_trace(seed: u64) -> TraceReceipt {
             card: fixture.token_maker,
             targets: vec![],
             convoke: vec![],
+            payment_mana_abilities: vec![],
         }),
     );
     operation += 1;
@@ -760,6 +762,7 @@ fn run_trace(seed: u64) -> TraceReceipt {
             card: fixture.radiance,
             targets: vec![Target::Permanent(fixture.base_creatures[0])],
             convoke: vec![],
+            payment_mana_abilities: vec![],
         }),
     );
     operation += 1;
@@ -796,6 +799,7 @@ fn run_trace(seed: u64) -> TraceReceipt {
                     contribution: ConvokeContribution::Generic,
                 },
             ],
+            payment_mana_abilities: vec![],
         }),
     );
     operation += 1;
@@ -824,6 +828,7 @@ fn run_trace(seed: u64) -> TraceReceipt {
                     contribution: ConvokeContribution::Generic,
                 },
             ],
+            payment_mana_abilities: vec![],
         }),
     );
     operation += 1;
@@ -857,6 +862,7 @@ fn run_trace(seed: u64) -> TraceReceipt {
             card: fixture.shrink,
             targets: vec![Target::Permanent(first_tokens[0])],
             convoke: vec![],
+            payment_mana_abilities: vec![],
         }),
     );
     operation += 1;

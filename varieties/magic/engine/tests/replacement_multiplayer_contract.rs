@@ -247,6 +247,7 @@ fn policy_draw_replacement_rejects_interleaved_priority_and_invalid_choices_atom
                 card: instant,
                 targets: vec![],
                 convoke: vec![],
+                payment_mana_abilities: vec![],
             }),
         ),
         Err(RulesError::IllegalAction(

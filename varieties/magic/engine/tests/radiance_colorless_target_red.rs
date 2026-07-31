@@ -72,6 +72,7 @@ fn colorless_radiance_target_receives_its_modifier() {
             card: spell,
             targets: vec![Target::Permanent(target)],
             convoke: vec![],
+            payment_mana_abilities: vec![],
         },
     )
     .expect("targeted radiance cast is legal");

@@ -149,6 +149,7 @@ fn cast(card: ObjectId, targets: Vec<Target>) -> PolicyAction {
         card,
         targets,
         convoke: vec![],
+        payment_mana_abilities: vec![],
     })
 }
 
@@ -157,6 +158,7 @@ fn cast_with_convoke(card: ObjectId, convoke: Vec<ConvokePayment>) -> PolicyActi
         card,
         targets: vec![],
         convoke,
+        payment_mana_abilities: vec![],
     })
 }
 

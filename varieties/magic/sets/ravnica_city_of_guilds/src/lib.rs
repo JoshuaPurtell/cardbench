@@ -33,7 +33,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 18] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 22] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SCATTER-THE-SEEDS",
@@ -52,6 +52,10 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 18] = [
     "RAV-GATHER-COURAGE",
     "RAV-SEEDS-OF-STRENGTH",
     "RAV-DARKBLAST",
+    "RAV-BOROS-SIGNET",
+    "RAV-DIMIR-SIGNET",
+    "RAV-GOLGARI-SIGNET",
+    "RAV-SELESNYA-SIGNET",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -1811,10 +1815,10 @@ pub fn card_definitions() -> Vec<CardDefinition> {
 
 /// Definition-bound RAV mana abilities used by the shown mana-development scenarios.
 ///
-/// Each binding is intentionally a narrow compatibility slice: pay one mana,
-/// tap the artifact, and add its two fixed guild colors. The shared engine owns
-/// cost payment, atomically emitted receipts, priority retention, and the fact
-/// that a mana ability does not use the stack.
+/// Each Signet binding pays one mana, taps the artifact, and adds its two fixed
+/// guild colors. The shared engine owns cost payment, atomically emitted
+/// receipts, priority retention, payment-context activation during a spell
+/// cast, and the fact that a mana ability does not use the stack.
 #[must_use]
 pub fn rav_mana_ability_bindings() -> Vec<ManaAbilityBinding> {
     vec![
@@ -2254,6 +2258,7 @@ fn stack_lightning_helix() -> Result<(Game, String), RulesError> {
             card: helix,
             targets: vec![Target::Player(PlayerId(1))],
             convoke: vec![],
+            payment_mana_abilities: vec![],
         },
     )?;
     game.pass_priority(PlayerId(1))?;
@@ -2299,6 +2304,7 @@ fn convoke_scatter_the_seeds() -> Result<(Game, String), RulesError> {
                     contribution: ConvokeContribution::Generic,
                 },
             ],
+            payment_mana_abilities: vec![],
         },
     )?;
     game.pass_priority(PlayerId(1))?;
@@ -2386,6 +2392,7 @@ fn radiance_layers() -> Result<(Game, String), RulesError> {
             card: rally,
             targets: vec![Target::Permanent(target)],
             convoke: vec![],
+            payment_mana_abilities: vec![],
         },
     )?;
     game.pass_priority(PlayerId(1))?;
@@ -2416,6 +2423,7 @@ fn last_gasp_state_based_action() -> Result<(Game, String), RulesError> {
             card: gasp,
             targets: vec![Target::Permanent(victim)],
             convoke: vec![],
+            payment_mana_abilities: vec![],
         },
     )?;
     game.pass_priority(PlayerId(1))?;
@@ -2488,10 +2496,10 @@ fn bounded_creature_chassis(
     }
 }
 
-/// CardBench-authored compatibility definition for the four RAV Signets.
-/// It intentionally records only public identity, artifact type, colorless
-/// casting cost, and the shared paid two-color mana-ability hook; it contains
-/// no copied card rules text, art, flavor text, or full-card fidelity claim.
+/// CardBench-authored executable definition for the four RAV Signets.
+/// It records only public identity, artifact type, colorless casting cost, and
+/// the shared paid two-color mana-ability hook; it contains no copied card
+/// rules text, art, flavor text, or card-database payload.
 fn signet_definition(id: &'static str, name: &'static str) -> CardDefinition {
     CardDefinition {
         id,
@@ -2502,7 +2510,12 @@ fn signet_definition(id: &'static str, name: &'static str) -> CardDefinition {
         mana_colors: BTreeSet::new(),
         card_types: types([CardType::Artifact]),
         is_basic_land: false,
-        supported_rules: &["artifact-casting", "paid-fixed-two-color-mana-ability"],
+        supported_rules: &[
+            "full-rules-fidelity",
+            "artifact-casting",
+            "paid-fixed-two-color-mana-ability",
+            "cast-payment-mana-activation",
+        ],
         power: None,
         toughness: None,
         keywords: vec![],
@@ -2551,7 +2564,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 84);
+        assert_eq!(first.len(), 88);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

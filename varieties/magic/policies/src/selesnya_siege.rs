@@ -82,6 +82,7 @@ impl CodePolicy for SelesnyaSiegePolicy {
                 card: card.id,
                 targets: vec![],
                 convoke,
+                payment_mana_abilities: vec![],
             });
         }
         if let Some(card) = view
@@ -94,6 +95,7 @@ impl CodePolicy for SelesnyaSiegePolicy {
                 card: card.id,
                 targets: vec![],
                 convoke,
+                payment_mana_abilities: vec![],
             });
         }
         if let Some(card) = view
@@ -106,6 +108,7 @@ impl CodePolicy for SelesnyaSiegePolicy {
                 card: card.id,
                 targets: vec![],
                 convoke: vec![],
+                payment_mana_abilities: vec![],
             });
         }
 
@@ -233,6 +236,7 @@ mod tests {
                 card: wurm,
                 targets: vec![],
                 convoke: vec![],
+                payment_mana_abilities: vec![],
             })
         );
         game.submit_policy_move(PlayerId(0), policy.id(), action)

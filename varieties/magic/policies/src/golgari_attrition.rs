@@ -70,6 +70,7 @@ impl CodePolicy for GolgariAttritionPolicy {
                 card: gasp,
                 targets: vec![Target::Permanent(target)],
                 convoke: vec![],
+                payment_mana_abilities: vec![],
             });
         }
 
@@ -93,6 +94,7 @@ impl CodePolicy for GolgariAttritionPolicy {
                 card: card.id,
                 targets: vec![],
                 convoke,
+                payment_mana_abilities: vec![],
             });
         }
         if let Some(card) = view
@@ -105,6 +107,7 @@ impl CodePolicy for GolgariAttritionPolicy {
                 card: card.id,
                 targets: vec![],
                 convoke,
+                payment_mana_abilities: vec![],
             });
         }
         if let Some(card) = view
@@ -117,6 +120,7 @@ impl CodePolicy for GolgariAttritionPolicy {
                 card: card.id,
                 targets: vec![],
                 convoke: vec![],
+                payment_mana_abilities: vec![],
             });
         }
 
@@ -325,6 +329,7 @@ mod tests {
                 card: gasp,
                 targets: vec![Target::Permanent(target)],
                 convoke: vec![],
+                payment_mana_abilities: vec![],
             })
         );
         game.submit_policy_move(PlayerId(0), policy.id(), action)

@@ -48,6 +48,7 @@ fn a_colored_cost_above_the_per_color_pool_limit_is_not_silently_underpaid() {
             card: spell,
             targets: vec![],
             convoke: vec![],
+            payment_mana_abilities: vec![],
         },
     );
 

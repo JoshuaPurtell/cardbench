@@ -75,6 +75,7 @@ fn a_multi_effect_damage_resolution_does_not_panic_after_marking_partial_damage(
             // target slots.
             targets: vec![Target::Permanent(target), Target::Permanent(target)],
             convoke: vec![],
+            payment_mana_abilities: vec![],
         },
     )
     .expect("the model permits both representable damage effects");

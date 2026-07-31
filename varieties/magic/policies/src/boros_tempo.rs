@@ -89,6 +89,7 @@ impl CodePolicy for BorosTempoPolicy {
                 card: card.id,
                 targets: vec![Target::Player(opponent)],
                 convoke: vec![],
+                payment_mana_abilities: vec![],
             });
         }
         if let Some(card) = char
@@ -99,6 +100,7 @@ impl CodePolicy for BorosTempoPolicy {
                 card: card.id,
                 targets: vec![Target::Player(opponent)],
                 convoke: vec![],
+                payment_mana_abilities: vec![],
             });
         }
         let needed = if helix.is_some() && view.mana_pool.amount(Color::White) == 0 {

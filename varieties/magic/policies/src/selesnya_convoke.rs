@@ -102,6 +102,7 @@ impl CodePolicy for SelesnyaConvokePolicy {
                         contribution: ConvokeContribution::Generic,
                     },
                 ],
+                payment_mana_abilities: vec![],
             });
         }
         if view.stack_depth != 0 {
@@ -129,6 +130,7 @@ impl CodePolicy for SelesnyaConvokePolicy {
                 card: card.id,
                 targets: vec![],
                 convoke: vec![],
+                payment_mana_abilities: vec![],
             });
         }
         let wants_green = view

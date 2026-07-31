@@ -1042,6 +1042,15 @@ pub enum GameEvent {
         land: ObjectId,
         color: Color,
     },
+    /// A definition-bound mana ability declared in the typed payment context
+    /// of one spell cast. This receipt precedes that ability's normal bound
+    /// activation and mana-output events; it is not a stack object.
+    CastPaymentManaAbilityActivated {
+        player: PlayerId,
+        card: ObjectId,
+        source: ObjectId,
+        ability: &'static str,
+    },
     /// Receipt for the generic definition-bound mana-ability substrate. It is
     /// intentionally distinct from the legacy intrinsic-land receipt above.
     BoundManaAbilityActivated {

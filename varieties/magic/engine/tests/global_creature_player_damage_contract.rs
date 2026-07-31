@@ -106,6 +106,7 @@ fn global_damage_snapshots_all_creatures_before_sbas_and_hits_each_player() {
             card: sweep,
             targets: vec![],
             convoke: vec![],
+            payment_mana_abilities: vec![],
         },
     )
     .expect("target-free global spell casts");
@@ -158,6 +159,7 @@ fn global_damage_rejects_spurious_targets_without_mutating_state() {
                 card: sweep,
                 targets: vec![Target::Player(PlayerId(1))],
                 convoke: vec![],
+                payment_mana_abilities: vec![],
             },
         ),
         Err(RulesError::IllegalAction(

@@ -364,6 +364,7 @@ fn token_creation_sba_and_disappearance_are_complete_and_chronological() {
             card: spell,
             targets: vec![],
             convoke: vec![],
+            payment_mana_abilities: vec![],
         },
     )
     .expect("zero-cost token spell is cast");

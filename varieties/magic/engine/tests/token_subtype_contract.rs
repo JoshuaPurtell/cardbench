@@ -44,6 +44,7 @@ fn resolved_saproling_game() -> (Game, cardbench_magic_engine::ObjectId) {
             card: spell,
             targets: vec![],
             convoke: vec![],
+            payment_mana_abilities: vec![],
         },
     )
     .expect("token spell casts");
@@ -94,6 +95,7 @@ fn invariant_rejects_a_creature_subtype_on_a_noncreature_token() {
             card: spell,
             targets: vec![],
             convoke: vec![],
+            payment_mana_abilities: vec![],
         },
     )
     .expect("spell may be placed on the stack before its invalid outcome is known");

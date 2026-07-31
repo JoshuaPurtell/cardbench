@@ -127,6 +127,7 @@ fn cast_at_priority_target(card: ObjectId, target: Target) -> PolicyAction {
         card,
         targets: vec![target],
         convoke: vec![],
+        payment_mana_abilities: vec![],
     })
 }
 

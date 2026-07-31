@@ -22,6 +22,7 @@ fn lightning_helix_rejects_a_noncreature_permanent_target() {
             card: helix,
             targets: vec![Target::Permanent(plains)],
             convoke: vec![],
+            payment_mana_abilities: vec![],
         },
     );
 

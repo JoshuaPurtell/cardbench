@@ -19,6 +19,7 @@ fn cast(game: &mut Game, player: PlayerId, card: u64, target: Target) {
             card: cardbench_magic_engine::ObjectId(card),
             targets: vec![target],
             convoke: vec![],
+            payment_mana_abilities: vec![],
         },
     )
     .expect("prepared RAV spell is legal");

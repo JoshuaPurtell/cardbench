@@ -52,6 +52,7 @@ fn invariant_audit_rejects_an_out_of_range_stack_player_target() {
             card: spell,
             targets: vec![Target::Player(opponent)],
             convoke: vec![],
+            payment_mana_abilities: vec![],
         },
     )
     .expect("the legal spell is cast through the normal transition");
