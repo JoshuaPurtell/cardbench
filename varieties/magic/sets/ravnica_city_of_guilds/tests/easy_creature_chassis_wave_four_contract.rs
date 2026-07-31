@@ -47,14 +47,6 @@ fn fourth_creature_chassis_batch_is_exactly_bounded_to_public_base_facts() {
             5,
         ),
         (
-            "RAV-EXCRUCIATOR",
-            "Excruciator",
-            ManaCost::with_colors(6, [Color::Red, Color::Red]),
-            BTreeSet::from([Color::Red]),
-            7,
-            7,
-        ),
-        (
             "RAV-SELL-SWORD-BRUTE",
             "Sell-Sword Brute",
             ManaCost::with_colors(1, [Color::Red]),
@@ -83,6 +75,20 @@ fn fourth_creature_chassis_batch_is_exactly_bounded_to_public_base_facts() {
         assert!(definition.keywords.is_empty(), "{id}");
         assert!(definition.effects.is_empty(), "{id}");
     }
+
+    let excruciator = definitions
+        .iter()
+        .find(|definition| definition.id == "RAV-EXCRUCIATOR")
+        .expect("Excruciator definition exists");
+    assert_eq!(
+        excruciator.supported_rules,
+        [
+            "full-rules-fidelity",
+            "colored-cost-casting",
+            "base-characteristics",
+            "damage-cannot-be-prevented"
+        ]
+    );
 }
 
 #[test]
