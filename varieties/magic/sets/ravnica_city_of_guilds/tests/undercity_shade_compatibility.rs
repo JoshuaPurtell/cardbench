@@ -2,7 +2,9 @@
 
 use std::collections::BTreeSet;
 
-use cardbench_magic_engine::{CardType, Color, Keyword, ManaCost};
+use cardbench_magic_engine::{
+    CardType, Color, CombatBlock, Game, GameEvent, Keyword, ManaCost, PlayerId, Step, Zone,
+};
 use cardbench_magic_rav::{RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, run_all_scenarios};
 
 #[test]
@@ -50,4 +52,52 @@ fn undercity_shade_public_scenario_rejects_a_nonblack_blocker() {
             .iter()
             .any(|event| event.contains("BlockersDeclared"))
     );
+}
+
+#[test]
+fn undercity_shade_accepts_a_black_blocker() {
+    let mut game = Game::new(card_definitions(), 2).expect("RAV game builds");
+    let shade = game
+        .add_card(PlayerId(0), "RAV-UNDERCITY-SHADE", Zone::Battlefield)
+        .expect("Undercity Shade begins on battlefield");
+    let black_blocker = game
+        .add_card(PlayerId(1), "RAV-SEWERDREG", Zone::Battlefield)
+        .expect("black blocker begins on battlefield");
+    game.set_entered_turn_for_setup(shade, 0)
+        .expect("shade predates the measured turn");
+    game.set_entered_turn_for_setup(black_blocker, 0)
+        .expect("black blocker predates the measured turn");
+    advance_to_blockers(&mut game, shade);
+    game.declare_blockers(
+        PlayerId(1),
+        &[CombatBlock {
+            attacker: shade,
+            blocker: black_blocker,
+        }],
+    )
+    .expect("black creatures may block a black-only evasion attacker");
+    assert!(
+        game.event_log
+            .iter()
+            .any(|event| matches!(event, GameEvent::BlockersDeclared { .. }))
+    );
+    game.validate_invariants()
+        .expect("accepted black block preserves engine invariants");
+}
+
+fn advance_to_blockers(game: &mut Game, shade: cardbench_magic_engine::ObjectId) {
+    game.begin_game().expect("fixture starts game");
+    for _ in 0..4 {
+        game.pass_priority(PlayerId(0))
+            .expect("active player passes toward combat");
+        game.pass_priority(PlayerId(1))
+            .expect("opponent passes toward combat");
+    }
+    game.declare_attackers(PlayerId(0), &[shade])
+        .expect("shade may attack");
+    game.pass_priority(PlayerId(0))
+        .expect("attacker passes after declaration");
+    game.pass_priority(PlayerId(1))
+        .expect("defender passes into blocker declaration");
+    assert_eq!(game.step, Step::DeclareBlockers);
 }
