@@ -71,7 +71,7 @@ fn frenzied_goblin_attack_trigger_pays_red_and_restricts_a_blocker() {
         game.characteristics(blocker)
             .expect("blocker characteristics")
             .keywords
-            .contains(&cardbench_magic_engine::Keyword::CannotAttackOrBlock)
+            .contains(&cardbench_magic_engine::Keyword::CannotBlock)
     );
 }
 

@@ -2693,7 +2693,7 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                 optional: true,
                 targets: vec![cardbench_magic_engine::TargetRequirement::Creature],
                 effects: vec![Effect::ModifyTargetKeywordUntilEndOfTurn {
-                    keyword: Keyword::CannotAttackOrBlock,
+                    keyword: Keyword::CannotBlock,
                 }],
             },
         },
