@@ -642,6 +642,7 @@ pub struct AdditionalSpellCostBinding {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum TriggeredAbility {
     EnterBattlefieldDrawController,
+    EnterBattlefieldTeamPumpHaste,
 }
 
 /// Binds one typed triggered ability to a card definition.  Keeping trigger
@@ -764,6 +765,9 @@ pub enum Effect {
         power: i16,
         toughness: i16,
     },
+    AddKeywordToControllerCreaturesUntilEndOfTurn {
+        keyword: Keyword,
+    },
     RadianceUntapAndModifyUntilEndOfTurn {
         power: i16,
         toughness: i16,
@@ -810,7 +814,8 @@ impl Effect {
             | Self::CreateToken { .. }
             | Self::ModifySourcePtUntilEndOfTurn { .. }
             | Self::RemoveSourceKeywordUntilEndOfTurn { .. }
-            | Self::ModifyControllerCreaturesPtUntilEndOfTurn { .. } => None,
+            | Self::ModifyControllerCreaturesPtUntilEndOfTurn { .. }
+            | Self::AddKeywordToControllerCreaturesUntilEndOfTurn { .. } => None,
         }
     }
 }
@@ -1422,6 +1427,11 @@ pub enum GameEvent {
     /// the battlefield while this stack object resolves.
     AbilityActivated {
         player: PlayerId,
+        source: ObjectId,
+        ability: &'static str,
+    },
+    TriggeredAbilityStacked {
+        controller: PlayerId,
         source: ObjectId,
         ability: &'static str,
     },

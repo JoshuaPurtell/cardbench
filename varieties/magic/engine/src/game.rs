@@ -586,6 +586,52 @@ impl Game {
         game.validate_invariants()?;
         Ok(game)
     }
+
+    /// Creates a game with the normal expansion bindings plus the bounded
+    /// stack-backed trigger substrate. Triggered abilities are deliberately
+    /// target-free in this initial slice; they use the same synthetic stack
+    /// identity and priority window as the earlier ETB draw trigger.
+    pub fn new_with_all_bindings_and_triggers(
+        definitions: impl IntoIterator<Item = CardDefinition>,
+        player_count: usize,
+        mana_bindings: impl IntoIterator<Item = ManaAbilityBinding>,
+        basic_land_types: impl IntoIterator<Item = BasicLandTypeBinding>,
+        additional_spell_costs: impl IntoIterator<Item = AdditionalSpellCostBinding>,
+        ability_bindings: impl IntoIterator<Item = ActivatedAbilityBinding>,
+        trigger_bindings: impl IntoIterator<Item = TriggeredAbilityBinding>,
+    ) -> Result<Self, RulesError> {
+        let mut game = Self::new_with_all_bindings(
+            definitions,
+            player_count,
+            mana_bindings,
+            basic_land_types,
+            additional_spell_costs,
+            ability_bindings,
+        )?;
+        for binding in trigger_bindings {
+            let definition = game
+                .catalog
+                .get(binding.card_definition)
+                .ok_or(RulesError::UnknownDefinition(binding.card_definition))?;
+            if !definition.is_permanent() {
+                return Err(RulesError::IllegalAction(
+                    "a triggered-ability binding requires a permanent definition",
+                ));
+            }
+            let abilities = game
+                .triggered_abilities
+                .entry(binding.card_definition)
+                .or_default();
+            if abilities.contains(&binding.ability) {
+                return Err(RulesError::IllegalAction(
+                    "duplicate triggered-ability binding for card definition",
+                ));
+            }
+            abilities.push(binding.ability);
+        }
+        game.validate_invariants()?;
+        Ok(game)
+    }
     /// Starts a prepared game at the real first-turn boundary. Deck loading,
     /// shuffling, and opening-hand setup must occur before this call so the
     /// canonical log never claims the turn began before setup completed.
@@ -3415,6 +3461,7 @@ impl Game {
                 | Effect::RemoveSourceKeywordUntilEndOfTurn { .. }
                 | Effect::DestroyTargetLand
                 | Effect::ModifyControllerCreaturesPtUntilEndOfTurn { .. }
+                | Effect::AddKeywordToControllerCreaturesUntilEndOfTurn { .. }
                 | Effect::RadianceUntapAndModifyUntilEndOfTurn { .. }
                 | Effect::RadianceModifyPtUntilEndOfTurn { .. }
                 | Effect::CounterTargetInstantOrSorcerySpell => continue,
@@ -3469,6 +3516,31 @@ impl Game {
                     // end immediately, which would place
                     // `TriggeredAbilityResolved` after the terminal event.
                     self.draw_card_from_trigger(trigger.controller)?;
+                }
+                TriggeredAbility::EnterBattlefieldTeamPumpHaste => {
+                    self.resolve_effect(
+                        trigger.source,
+                        trigger.controller,
+                        None,
+                        &Effect::ModifyControllerCreaturesPtUntilEndOfTurn {
+                            power: 1,
+                            toughness: 1,
+                        },
+                        None,
+                    )?;
+                    self.resolve_effect(
+                        trigger.source,
+                        trigger.controller,
+                        None,
+                        &Effect::AddKeywordToControllerCreaturesUntilEndOfTurn {
+                            keyword: Keyword::Haste,
+                        },
+                        None,
+                    )?;
+                    self.record_event(GameEvent::AbilityResolved {
+                        source: trigger.source,
+                        ability: "etb-team-pump-haste",
+                    });
                 }
             }
             self.record_event(GameEvent::TriggeredAbilityResolved {
@@ -3853,6 +3925,28 @@ impl Game {
                             power: *power,
                             toughness: *toughness,
                         },
+                        Duration::EndOfTurn(self.turn),
+                    )?;
+                }
+            }
+            Effect::AddKeywordToControllerCreaturesUntilEndOfTurn { keyword } => {
+                let creatures = self
+                    .all_battlefield_cards()
+                    .into_iter()
+                    .filter(|candidate| {
+                        self.object(*candidate).is_ok_and(|object| {
+                            object.controller == controller
+                                && self.characteristics(*candidate).is_ok_and(|characteristics| {
+                                    characteristics.card_types.contains(&CardType::Creature)
+                                })
+                        })
+                    })
+                    .collect::<Vec<_>>();
+                for creature in creatures {
+                    self.install_continuous_effect(
+                        source,
+                        creature,
+                        ContinuousChange::AddKeyword(keyword.clone()),
                         Duration::EndOfTurn(self.turn),
                     )?;
                 }
@@ -4502,6 +4596,13 @@ impl Game {
                 controller,
                 ability,
             });
+            if matches!(ability, TriggeredAbility::EnterBattlefieldTeamPumpHaste) {
+                self.record_event(GameEvent::TriggeredAbilityStacked {
+                    controller,
+                    source,
+                    ability: "etb-team-pump-haste",
+                });
+            }
         }
         Ok(())
     }

@@ -136,7 +136,7 @@ executable compatibility slice contains 141 printings / 126 unique names.
 Twenty executable printings are the four printings of each of five basic lands;
 the other 121 executable names are nonbasic cards. Forty-five of those
 nonbasic cards plus all five typed basic lands are in the positive full-fidelity
-manifest (50 total); the remaining 76 nonbasic cards are deliberately bounded
+manifest (51 total); the remaining 75 nonbasic cards are deliberately bounded
 compatibility cards exercising generic casting, base characteristics, mana
 abilities (including source-aware controller damage), targeted/global damage,
 temporary modifiers, token creation, Convoke, Dredge, Radiance, Transmute,

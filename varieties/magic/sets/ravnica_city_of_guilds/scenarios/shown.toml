@@ -2,6 +2,6 @@ schema_version = "cardbench.magic.scenario-index.v2"
 set = "RAV"
 visibility = "shown"
 train_scenarios = "public/train_scenarios.toml"
-scenario_count = 110
+scenario_count = 111
 runner = "cargo run -p cardbench-magic-rav --bin rav-engine-parity"
 contract = "Each train scenario declares setup, actions, assertions (including mana receipts and stack/priority state where needed), event markers, and a fixed digest."

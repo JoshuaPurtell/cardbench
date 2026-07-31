@@ -61,6 +61,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-WOJEK-EMBERMAGE",
             "RAV-THUNDERSONG-TRUMPETER",
             "RAV-SABERTOOTH-ALLEY-CAT",
+            "RAV-FLAME-KIN-ZEALOT",
         ]
     );
     let definitions = card_definitions();
