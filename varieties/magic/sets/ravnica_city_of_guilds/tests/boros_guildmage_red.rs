@@ -51,7 +51,7 @@ fn boros_guildmage_grants_haste_and_first_strike_until_end_of_turn() {
         .put_on_battlefield(PlayerId(0), "RAV-WATCHWOLF")
         .expect("target creature enters");
     game.begin_game().expect("game starts");
-    game.grant_mana(PlayerId(0), Color::Red, 1)
+    game.add_mana_from_action(PlayerId(0), Color::Red, 1)
         .expect("red ability mana");
     game.activate_ability(
         PlayerId(0),
@@ -74,7 +74,7 @@ fn boros_guildmage_grants_haste_and_first_strike_until_end_of_turn() {
             .contains(&Keyword::Haste)
     );
 
-    game.grant_mana(PlayerId(0), Color::White, 1)
+    game.add_mana_from_action(PlayerId(0), Color::White, 1)
         .expect("white ability mana");
     game.activate_ability(
         PlayerId(0),
