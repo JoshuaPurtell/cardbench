@@ -3,13 +3,13 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 
 use crate::{
-    AbilityActivation, ActivatedAbility, ActivatedAbilityBinding,
-    ActivatedManaAbility, AdditionalSpellCost, AdditionalSpellCostBinding, BasicLandType,
-    BasicLandTypeBinding, CardDefinition, CardObject, CardType, CastPaymentManaAbility,
-    Characteristics, Color, CombatBlock, ContinuousChange, ContinuousEffect, DeckList, Duration,
-    Effect, GameEvent, Keyword, ManaAbilityActivation, ManaAbilityBinding, ManaAbilityOutput,
-    ManaPaymentSelection, ObjectId, PlayerId, PlayerState, PolicyMoveKind, StackEffectResolution,
-    StackObject, StackResolutionPlan, Step, Target, TargetRequirement, TokenSpec, TriggeredAbility,
+    AbilityActivation, ActivatedAbility, ActivatedAbilityBinding, ActivatedManaAbility,
+    AdditionalSpellCost, AdditionalSpellCostBinding, BasicLandType, BasicLandTypeBinding,
+    CardDefinition, CardObject, CardType, CastPaymentManaAbility, Characteristics, Color,
+    CombatBlock, ContinuousChange, ContinuousEffect, DeckList, Duration, Effect, GameEvent,
+    Keyword, ManaAbilityActivation, ManaAbilityBinding, ManaAbilityOutput, ManaPaymentSelection,
+    ObjectId, PlayerId, PlayerState, PolicyMoveKind, StackEffectResolution, StackObject,
+    StackResolutionPlan, Step, Target, TargetRequirement, TokenSpec, TriggeredAbility,
     TriggeredAbilityBinding, Zone,
 };
 
@@ -3994,7 +3994,7 @@ impl Game {
                     && self.characteristics(card).is_ok_and(|characteristics| {
                         characteristics.card_types.contains(&CardType::Creature)
                     })
-                        && (!matches!(requirement, TargetRequirement::BlockingCreature)
+                    && (!matches!(requirement, TargetRequirement::BlockingCreature)
                         || self.combat.as_ref().is_some_and(|combat| {
                             combat
                                 .blockers
@@ -4324,14 +4324,18 @@ impl Game {
                             let mut remaining = attacker_power;
                             for blocker in &live_blockers {
                                 let blocker_characteristics = self.characteristics(*blocker)?;
-                                let blocker_toughness = blocker_characteristics.toughness.ok_or(
-                                    RulesError::IllegalAction("blocker lacks toughness"),
-                                )?;
+                                let blocker_toughness = blocker_characteristics
+                                    .toughness
+                                    .ok_or(RulesError::IllegalAction("blocker lacks toughness"))?;
                                 let marked_damage = self.object(*blocker)?.damage;
                                 let lethal = blocker_toughness.saturating_sub(marked_damage).max(0);
                                 let assigned_to_blocker = remaining.min(lethal);
                                 if assigned_to_blocker > 0 {
-                                    permanent_damage.push((attacker, *blocker, assigned_to_blocker));
+                                    permanent_damage.push((
+                                        attacker,
+                                        *blocker,
+                                        assigned_to_blocker,
+                                    ));
                                 }
                                 remaining -= assigned_to_blocker;
                                 if remaining == 0 {
