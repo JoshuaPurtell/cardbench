@@ -4158,10 +4158,27 @@ impl Game {
                             player_damage.push((attacker, defending_player, remaining));
                         }
                     } else {
-                        // Without trample, this slice uses the first declared
-                        // blocker as the assignment recipient. All blockers
-                        // still deal their combat damage back below.
-                        permanent_damage.push((attacker, live_blockers[0], attacker_power));
+                        // Without trample, assign lethal damage to blockers in
+                        // declaration order. Any remaining damage is not
+                        // assigned to the defending player, but every live
+                        // blocker can still deal its combat damage back below.
+                        let mut remaining = attacker_power;
+                        for blocker in &live_blockers {
+                            let blocker_characteristics = self.characteristics(*blocker)?;
+                            let blocker_toughness = blocker_characteristics
+                                .toughness
+                                .ok_or(RulesError::IllegalAction("blocker lacks toughness"))?;
+                            let marked_damage = self.object(*blocker)?.damage;
+                            let lethal = blocker_toughness.saturating_sub(marked_damage).max(0);
+                            let assigned_to_blocker = remaining.min(lethal);
+                            if assigned_to_blocker > 0 {
+                                permanent_damage.push((attacker, *blocker, assigned_to_blocker));
+                            }
+                            remaining -= assigned_to_blocker;
+                            if remaining == 0 {
+                                break;
+                            }
+                        }
                     }
                 }
                 for blocker in live_blockers {
