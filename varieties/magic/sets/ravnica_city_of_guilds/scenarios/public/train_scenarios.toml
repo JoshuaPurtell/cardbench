@@ -4160,6 +4160,47 @@ event_markers = ["SpellCast", "ConvokeUsed", "ContinuousEffectCreated", "SpellRe
 digest = "fnv1a64:1a2adb4991fff975"
 
 [[scenario]]
+id = "rav_recollect_graveyard_return"
+seed = 0
+description = "Resolve Recollect against the controller's graveyard and verify the selected card changes zones to that player's hand."
+
+[[scenario.card]]
+label = "recollect"
+owner = 0
+definition = "RAV-RECOLLECT"
+zone = "hand"
+
+[[scenario.card]]
+label = "target"
+owner = 0
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "graveyard"
+
+[[scenario.mana]]
+player = 0
+color = "green"
+amount = 3
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "recollect"
+target = "permanent:target"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["recollect:graveyard", "target:hand"]
+event_markers = ["SpellCast", "CardMoved", "SpellResolved"]
+digest = "fnv1a64:7ce8ed29de3cb37e"
+
+[[scenario]]
 id = "rav_dogpile_combat_count_damage"
 seed = 0
 description = "Advance a real two-player game to player 0's third-turn combat, attack with two established creatures, then resolve Dogpile for two damage to a target creature."
