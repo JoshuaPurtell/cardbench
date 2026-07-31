@@ -95,7 +95,13 @@ fn easy_creature_wave_one_is_exactly_bounded_to_public_base_facts() {
     assert_eq!((moloch.power, moloch.toughness), (Some(3), Some(2)));
     assert_eq!(
         moloch.supported_rules,
-        ["colored-cost-casting", "base-characteristics", "defender"]
+        [
+            "full-rules-fidelity",
+            "colored-cost-casting",
+            "base-characteristics",
+            "defender",
+            "sacrifice-three-lands-remove-defender"
+        ]
     );
 
     let sphinx = definitions
