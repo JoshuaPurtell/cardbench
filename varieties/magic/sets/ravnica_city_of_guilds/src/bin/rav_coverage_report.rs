@@ -47,19 +47,20 @@ fn main() {
     println!("unique_names.partial={}", partial_names.len());
     println!("unique_names.catalog_only={}", catalog_only_names.len());
     println!(
-        "unique_names.percentages=full:{:.1},partial:{:.1},catalog_only:{:.1}",
+        "unique_names.percentages=full:{},partial:{},catalog_only:{}",
         percentage(full_names.len(), total_names),
         percentage(partial_names.len(), total_names),
         percentage(catalog_only_names.len(), total_names),
     );
     println!(
-        "printings.percentages=full:{:.1},partial:{:.1},catalog_only:{:.1}",
+        "printings.percentages=full:{},partial:{},catalog_only:{}",
         percentage(full_printings, total_printings),
         percentage(partial_printings, total_printings),
         percentage(catalog_only_printings, total_printings),
     );
 }
 
-fn percentage(part: usize, total: usize) -> f64 {
-    (part as f64) * 100.0 / (total as f64)
+fn percentage(part: usize, total: usize) -> String {
+    let tenths = (part * 1_000 + total / 2) / total;
+    format!("{}.{:01}", tenths / 10, tenths % 10)
 }
