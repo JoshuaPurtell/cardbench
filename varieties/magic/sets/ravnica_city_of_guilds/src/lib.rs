@@ -35,9 +35,10 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 67] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 68] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
+    "RAV-SEARING-MEDITATION",
     "RAV-SCATTER-THE-SEEDS",
     "RAV-GUARDIAN-OF-VITU-GHAZI",
     "RAV-LAST-GASP",
@@ -1184,6 +1185,27 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             ],
             power: Some(5),
             toughness: Some(4),
+            keywords: vec![],
+            effects: vec![],
+        },
+        // Full fidelity: the enchantment's life-gain trigger pays its
+        // optional generic cost before stacking a two-damage target effect.
+        CardDefinition {
+            id: "RAV-SEARING-MEDITATION",
+            name: "Searing Meditation",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(1, [Color::Red, Color::White]),
+            colors: colors([Color::Red, Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Enchantment]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "life-gain-trigger",
+            ],
+            power: None,
+            toughness: None,
             keywords: vec![],
             effects: vec![],
         },
