@@ -2709,6 +2709,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
 
 /// Target-free stack triggers bound to RAV permanents.
 #[must_use]
+#[allow(clippy::too_many_lines)] // Keep the declarative trigger registry centralized for audit review.
 pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
     vec![
         TriggeredAbilityBinding {
