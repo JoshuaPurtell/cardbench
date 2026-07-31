@@ -1834,6 +1834,10 @@ impl Game {
                 || characteristics
                     .keywords
                     .contains(&Keyword::CannotAttackOrBlock)
+                || (characteristics
+                    .keywords
+                    .contains(&Keyword::CannotBlockUnlessControlsMountain)
+                    && !self.player_controls_basic_land_type(player, BasicLandType::Mountain))
             {
                 return Err(RulesError::IllegalAction("illegal blocker"));
             }
@@ -1874,6 +1878,10 @@ impl Game {
                     || characteristics
                         .keywords
                         .contains(&Keyword::CannotAttackOrBlock)
+                    || (characteristics
+                        .keywords
+                        .contains(&Keyword::CannotBlockUnlessControlsMountain)
+                        && !self.player_controls_basic_land_type(player, BasicLandType::Mountain))
                 {
                     return false;
                 }

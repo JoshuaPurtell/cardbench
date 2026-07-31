@@ -6751,6 +6751,89 @@ event_markers = ["AbilityActivated", "ContinuousEffectCreated", "AbilityResolved
 digest = "fnv1a64:cca1a74ece4154a1"
 
 [[scenario]]
+id = "rav_sabertooth_alley_cat_mountain_block_restriction"
+seed = 51
+description = "Reject Sabertooth Alley Cat's block declaration while its controller controls no Mountain."
+
+[[scenario.card]]
+label = "attacker"
+owner = 0
+definition = "RAV-WATCHWOLF"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.card]]
+label = "cat"
+owner = 1
+definition = "RAV-SABERTOOTH-ALLEY-CAT"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "declare_attackers"
+player = 0
+attackers = ["attacker"]
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "declare_blockers"
+player = 1
+attackers = ["attacker:cat"]
+expected_error = "illegal blocker"
+
+[scenario.expected]
+life = [20, 20]
+tapped = ["attacker:true", "cat:false"]
+stack_size = 0
+priority = 0
+event_markers = ["AttackersDeclared"]
+event_absent = ["BlockersDeclared"]
+digest = "fnv1a64:1dcdb2289fdaa917"
+
+[[scenario]]
 id = "rav_goblin_fire_fiend_haste_compatibility"
 seed = 0
 description = "Cast Goblin Fire Fiend with typed RAV lands, then declare it as a same-turn Haste attacker; its must-block and pump abilities remain bounded."
