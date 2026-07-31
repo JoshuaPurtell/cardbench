@@ -99,7 +99,9 @@ current corpus contains 98 scenarios and covers:
   (`Guardian of Vitu-Ghazi`);
 - full-fidelity Flying/Reach blocker declaration and Flying/Vigilance attacker
   declaration (`Conclave Equenaut`, `Snapping Drake`, `Goliath Spider`,
-  `Courier Hawk`, and `Votary of the Conclave`);
+  and `Courier Hawk`); `Votary of the Conclave` remains a bounded creature
+  chassis because its printed activated regeneration ability is not yet
+  represented;
 - a full-fidelity same-turn Flying/Haste attacker after colored cast payment
   (`Skyknight Legionnaire`);
 - a target-instant-or-sorcery stack counter plus transmute, equal mana-value

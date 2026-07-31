@@ -107,12 +107,14 @@ severity for `sorcery-cast-at-instant-speed` and
 
 ## RAV set and mechanic coverage gaps (not engine defects)
 
+| `votary-regeneration-not-represented` | RAV card-coverage gap — activated regeneration and its shield effect are not represented | Open; ignored red regression retained | The executable Votary definition is deliberately bounded to normal colored-cost casting and base characteristics. The prior Vigilance approximation was false and was reverted in `44d1534`. The ignored probe `cargo test -p cardbench-magic-rav --test votary_regeneration_coverage_red -- --ignored --nocapture` fails until the engine has a typed activated-ability/stack path and regeneration shield effect. |
+
 The complete public inventory contains 306 printings / 291 unique names; the
 executable compatibility slice contains 136 printings / 121 unique names.
 Twenty executable printings are the four printings of each of five basic lands;
-the other 116 executable names are nonbasic cards. Thirty-three of those
+the other 116 executable names are nonbasic cards. Thirty-two of those
 nonbasic cards plus all five typed basic lands are in the positive full-fidelity
-manifest (38 total); the remaining 83 nonbasic cards are deliberately bounded
+manifest (37 total); the remaining 84 nonbasic cards are deliberately bounded
 compatibility cards exercising generic casting, base characteristics, mana
 abilities (including source-aware controller damage), targeted/global damage,
 temporary modifiers, token creation, Convoke, Dredge, Radiance, Transmute,
