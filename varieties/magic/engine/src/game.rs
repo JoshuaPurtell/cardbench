@@ -5334,10 +5334,8 @@ impl Game {
             match event {
                 GameEvent::AbilityActivated {
                     source, ability, ..
-                } => {
-                    *open.entry((*source, *ability)).or_default() += 1;
                 }
-                GameEvent::TriggeredAbilityStacked {
+                | GameEvent::TriggeredAbilityStacked {
                     source, ability, ..
                 } => {
                     *open.entry((*source, *ability)).or_default() += 1;
