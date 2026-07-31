@@ -985,12 +985,12 @@ pub enum StackEffectResolution {
     Targeted { target: Target, legal: bool },
 }
 
-/// A complete, immutable target-resolution decision for one stack object.
+/// The initial target-resolution decision for one stack object.
 ///
 /// The game evaluates target legality once immediately before it begins
-/// resolving effects. This prevents a later effect from accidentally changing
-/// the legality decision for an earlier target occurrence and makes the
-/// all-targets-illegal rules-counter boundary explicit.
+/// resolving effects, making the all-targets-illegal rules-counter boundary
+/// explicit. An initially legal occurrence is dynamically rechecked before its
+/// own instruction because an earlier instruction can remove that target.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum StackResolutionPlan {
     CounteredByRules,
