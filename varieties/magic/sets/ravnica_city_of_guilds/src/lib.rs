@@ -33,7 +33,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 28] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 29] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SCATTER-THE-SEEDS",
@@ -41,6 +41,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 28] = [
     "RAV-LAST-GASP",
     "RAV-ELVES-OF-DEEP-SHADOW",
     "RAV-BOROS-RECRUIT",
+    "RAV-NIGHTGUARD-PATROL",
     "RAV-WATCHWOLF",
     "RAV-GLASS-GOLEM",
     "RAV-CLEANSING-BEAM",
@@ -1782,6 +1783,29 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             9,
             9,
         ),
+        // Complete supported slice: ordinary colored-cost creature casting,
+        // first-strike combat damage, and vigilance's no-tap attack exception
+        // account for every printed functional behavior.
+        CardDefinition {
+            id: "RAV-NIGHTGUARD-PATROL",
+            name: "Nightguard Patrol",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(2, [Color::White]),
+            colors: colors([Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "first-strike",
+                "vigilance",
+            ],
+            power: Some(2),
+            toughness: Some(1),
+            keywords: vec![Keyword::FirstStrike, Keyword::Vigilance],
+            effects: vec![],
+        },
         // Complete supported slice: either color pays the one hybrid symbol,
         // and first-strike creatures assign combat damage in the dedicated
         // earlier damage step. There are no additional printed abilities.

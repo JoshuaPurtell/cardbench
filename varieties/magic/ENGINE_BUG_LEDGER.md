@@ -102,9 +102,9 @@ severity for `sorcery-cast-at-instant-speed` and
 The complete public inventory contains 306 printings / 291 unique names; the
 executable compatibility slice contains 135 printings / 120 unique names.
 Twenty executable printings are the four printings of each of five basic lands;
-the other 115 executable names are nonbasic cards. Twenty-three of those
+the other 116 executable names are nonbasic cards. Twenty-four of those
 nonbasic cards plus all five typed basic lands are in the positive full-fidelity
-manifest (28 total); the remaining 92 nonbasic cards are deliberately bounded
+manifest (29 total); the remaining 92 nonbasic cards are deliberately bounded
 compatibility cards exercising generic casting, base characteristics, mana
 abilities (including source-aware controller damage), targeted/global damage,
 temporary modifiers, token creation, Convoke, Dredge, Radiance, Transmute,
