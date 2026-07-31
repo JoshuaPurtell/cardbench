@@ -49,6 +49,13 @@ Oracle Magic rules coverage.
 - A stack object has a unique card and a valid controller. Resolving or
   countering it removes it from the stack before it receives its resulting zone
   move.
+- A bound triggered ability has a synthetic stack identity that is not a card
+  object or zone member. Its private metadata and public stack item must agree
+  on source, controller, and ability, carry no spell targets/effects/payment,
+  and be removed together when it resolves or its controller leaves. Trigger
+  placement follows the source permanent's `CardMoved { to: Battlefield }`
+  receipt; resolution emits the draw/effect receipts before its terminal
+  `TriggeredAbilityResolved` receipt.
 - A stack instruction that depends on colors spent to cast its spell requires
   a nonempty `mana_spent` receipt on that exact stack object. When the visible
   event log contains its `SpellCast`, the immediately preceding

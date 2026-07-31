@@ -124,6 +124,9 @@ current corpus contains 105 scenarios and covers:
 - bounded static Flying compatibility for `Belltower Sphinx`, `Screeching
   Griffin`, and `Tattered Drake`, with their card-specific triggers or
   activations intentionally left outside the fidelity manifest; and
+- an opt-in, stack-backed enter-the-battlefield draw trigger binding for
+  `Carven Caryatid`, with source/trigger identities and draw receipts audited
+  separately from the default fixture constructor; and
 - cleanup expiration, land-play limits, and rejected priority/convoke/dredge actions.
 
 ## Rust policy development match

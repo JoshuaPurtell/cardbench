@@ -6,7 +6,7 @@
 //! resulting draw must be visible in the event log.
 
 use cardbench_magic_engine::{CastRequest, Color, Game, GameEvent, PlayerId, Step, Zone};
-use cardbench_magic_rav::card_definitions;
+use cardbench_magic_rav::{card_definitions, rav_trigger_bindings};
 
 fn advance_to_precombat_main(game: &mut Game) {
     game.begin_game().expect("fixture starts");
@@ -20,7 +20,8 @@ fn advance_to_precombat_main(game: &mut Game) {
 
 #[test]
 fn carven_caryatid_enters_and_draws_through_a_stack_trigger() {
-    let mut game = Game::new(card_definitions(), 2).expect("RAV catalog builds");
+    let mut game = Game::new_with_triggers(card_definitions(), 2, rav_trigger_bindings())
+        .expect("RAV trigger-enabled catalog builds");
     let caryatid = game
         .add_card(PlayerId(0), "RAV-CARVEN-CARYATID", Zone::Hand)
         .expect("Caryatid begins in hand");
@@ -44,7 +45,12 @@ fn carven_caryatid_enters_and_draws_through_a_stack_trigger() {
     .expect("Caryatid casts");
     game.pass_priority(PlayerId(0)).expect("controller passes");
     game.pass_priority(PlayerId(1)).expect("opponent passes");
+    game.pass_priority(PlayerId(0))
+        .expect("controller passes ETB trigger");
+    game.pass_priority(PlayerId(1))
+        .expect("opponent passes ETB trigger");
 
+    println!("Carven Caryatid trigger trace: {:?}", game.event_log);
     assert_eq!(game.zone_of(caryatid), Some(Zone::Battlefield));
     assert_eq!(
         game.zone_of(library_card),
@@ -52,10 +58,17 @@ fn carven_caryatid_enters_and_draws_through_a_stack_trigger() {
         "Carven Caryatid's ETB trigger must draw its controller a card"
     );
     assert!(
-        !game
+        game
             .event_log
             .iter()
             .any(|event| matches!(event, GameEvent::CardMoved { card, to: Zone::Hand } if *card == library_card)),
         "the ETB trigger must leave a CardMoved receipt for the drawn card"
     );
+    assert_eq!(
+        game.stack.len(),
+        0,
+        "the trigger resolves from the shared stack"
+    );
+    game.validate_invariants()
+        .expect("ETB trigger resolution preserves engine invariants");
 }

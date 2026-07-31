@@ -237,10 +237,11 @@ and Tattered Drake. Their trigger, activation, and regeneration behavior
 remains outside the executable scope, so each has a focused compatibility trace
 plus an ignored full-fidelity probe rather than a positive-manifest claim.
 
-Carven Caryatid is likewise bounded to its static Defender slice. Its
-enter-the-battlefield draw trigger remains outside the shared trigger substrate,
-so its public trace and ignored full-fidelity probe make that limitation
-explicit without promoting it to the positive manifest.
+Carven Caryatid is likewise bounded to its static Defender slice in the
+default fixture constructor. The expansion now also publishes an opt-in typed
+enter-the-battlefield draw binding (`rav_trigger_bindings`); its stack-backed
+trace is covered separately, while the default compatibility trace and ignored
+full-fidelity probe keep the constructor boundary explicit.
 
 Selesnya Sagittars extends that wave with the shared static Reach slice. Its
 tap-to-damage activation remains outside the executable scope; the public trace

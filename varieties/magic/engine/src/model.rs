@@ -574,6 +574,25 @@ pub struct AdditionalSpellCostBinding {
     pub cost: AdditionalSpellCost,
 }
 
+/// One expansion-neutral triggered-ability semantic.  The initial substrate
+/// intentionally has one narrow operation: a permanent's controller draws a
+/// card when that permanent enters the battlefield.  The ability is put onto
+/// the shared stack rather than being applied as an immediate zone-change
+/// side effect, so priority and LIFO resolution remain observable.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum TriggeredAbility {
+    EnterBattlefieldDrawController,
+}
+
+/// Binds one typed triggered ability to a card definition.  Keeping trigger
+/// bindings outside `CardDefinition` lets existing catalogs remain source
+/// compatible while expansions opt into the common trigger substrate.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct TriggeredAbilityBinding {
+    pub card_definition: &'static str,
+    pub ability: TriggeredAbility,
+}
+
 /// A creature subtype carried by a token's type line.
 ///
 /// The initial RAV substrate needs only Saproling, but this remains a typed
@@ -1301,6 +1320,15 @@ pub enum GameEvent {
         player: PlayerId,
         card: ObjectId,
     },
+    /// A triggered ability was placed on the shared stack after its event
+    /// occurred. `stack` is a synthetic identity because the ability is not a
+    /// card object and must not be moved between zones.
+    TriggeredAbilityPutOnStack {
+        source: ObjectId,
+        stack: ObjectId,
+        controller: PlayerId,
+        ability: TriggeredAbility,
+    },
     ConvokeUsed {
         player: PlayerId,
         creature: ObjectId,
@@ -1311,6 +1339,12 @@ pub enum GameEvent {
     },
     SpellResolved {
         card: ObjectId,
+    },
+    TriggeredAbilityResolved {
+        source: ObjectId,
+        stack: ObjectId,
+        controller: PlayerId,
+        ability: TriggeredAbility,
     },
     SpellCounteredByRules {
         card: ObjectId,
