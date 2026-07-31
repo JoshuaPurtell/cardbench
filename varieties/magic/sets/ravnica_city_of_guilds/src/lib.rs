@@ -22,10 +22,11 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use cardbench_magic_engine::{
-    ActivatedManaAbility, BasicLandType, BasicLandTypeBinding, CardDefinition, CardType,
-    CastRequest, Color, ConvokeContribution, ConvokePayment, DeckEntry, DeckList, DeckRules,
-    Effect, Game, HybridManaSymbol, Keyword, ManaAbilityBinding, ManaAbilityOutput, ManaBundle,
-    ManaCost, PlayerId, RulesError, Target, TokenSpec, Zone,
+    ActivatedManaAbility, AdditionalSpellCost, AdditionalSpellCostBinding, BasicLandType,
+    BasicLandTypeBinding, CardDefinition, CardType, CastRequest, Color, ConvokeContribution,
+    ConvokePayment, DeckEntry, DeckList, DeckRules, Effect, Game, HybridManaSymbol, Keyword,
+    ManaAbilityBinding, ManaAbilityOutput, ManaBundle, ManaCost, PlayerId, RulesError, Target,
+    TokenSpec, Zone,
 };
 
 pub const SET_CODE: &str = "RAV";
@@ -33,7 +34,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 34] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 35] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SCATTER-THE-SEEDS",
@@ -68,6 +69,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 34] = [
     "RAV-GOLIATH-SPIDER",
     "RAV-COURIER-HAWK",
     "RAV-SKYKNIGHT-LEGIONNAIRE",
+    "RAV-FIERY-CONCLUSION",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -299,8 +301,10 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![Effect::GainLifeController { amount: 1 }],
         },
-        // Compatibility scope: target-creature damage only. Its additional
-        // sacrifice cost is deliberately omitted rather than silently paid.
+        // Complete public slice: the expansion binds its required controlled
+        // creature sacrifice as an explicit cast cost; the shared engine then
+        // moves that creature before placing this targeted damage spell on the
+        // stack.
         CardDefinition {
             id: "RAV-FIERY-CONCLUSION",
             name: "Fiery Conclusion",
@@ -310,7 +314,11 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Instant]),
             is_basic_land: false,
-            supported_rules: &["targeted-creature-damage"],
+            supported_rules: &[
+                "full-rules-fidelity",
+                "additional-sacrifice-controlled-creature-cost",
+                "targeted-creature-damage",
+            ],
             power: None,
             toughness: None,
             keywords: vec![],
@@ -1977,6 +1985,16 @@ pub fn rav_basic_land_type_bindings() -> Vec<BasicLandTypeBinding> {
     ]
 }
 
+/// Expansion-owned additional spell costs. The engine owns the transactional
+/// cost payment; RAV only declares which public definition requires it.
+#[must_use]
+pub fn rav_additional_spell_cost_bindings() -> Vec<AdditionalSpellCostBinding> {
+    vec![AdditionalSpellCostBinding {
+        card_definition: "RAV-FIERY-CONCLUSION",
+        cost: AdditionalSpellCost::SacrificeControlledCreature,
+    }]
+}
+
 fn signet_binding(
     card_definition: &'static str,
     id: &'static str,
@@ -2550,11 +2568,12 @@ fn last_gasp_state_based_action() -> Result<(Game, String), RulesError> {
 }
 
 fn fresh_game() -> Result<Game, RulesError> {
-    Game::new_with_mana_abilities_and_basic_land_types(
+    Game::new_with_mana_abilities_basic_land_types_and_additional_spell_costs(
         card_definitions(),
         2,
         rav_mana_ability_bindings(),
         rav_basic_land_type_bindings(),
+        rav_additional_spell_cost_bindings(),
     )
 }
 

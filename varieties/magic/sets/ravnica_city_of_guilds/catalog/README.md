@@ -85,10 +85,11 @@ capability gap and its former scenario has been removed. This repository keeps
 only this CardBench-authored semantic summary, not upstream card prose or art.
 
 The same audit rechecked the remaining executable simple instants and sorceries
-that reuse existing `Effect` operations. No other positive-manifest entry was
-justified: Dryad's Caress lacks a graveyard-return operation; Fiery Conclusion
-lacks its required sacrifice cost; and Ribbons of Night lacks spent-mana-color
-tracking. Muddle the Mixture and Dizzy Spell retain their correctly tested effect
+that reuse existing `Effect` operations. Fiery Conclusion now has its required
+controlled-creature sacrifice bound as an explicit, transactional cast cost;
+its public trace records the cost departure before the targeted spell enters the
+stack. Dryad's Caress still lacks a graveyard-return operation and Ribbons of
+Night still lacks spent-mana-color tracking. Muddle the Mixture and Dizzy Spell retain their correctly tested effect
 and Transmute compatibility slices, but Transmute is executed immediately in this
 engine rather than as a stack object, so normal response behavior is absent. Their
 deterministic public scenarios assert receipts only for the represented slices.

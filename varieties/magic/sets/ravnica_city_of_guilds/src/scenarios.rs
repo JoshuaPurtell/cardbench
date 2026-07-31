@@ -14,8 +14,8 @@ use cardbench_magic_engine::{
 };
 
 use crate::{
-    ScenarioResult, card_definitions, event_digest, rav_basic_land_type_bindings,
-    rav_mana_ability_bindings, set_root,
+    ScenarioResult, card_definitions, event_digest, rav_additional_spell_cost_bindings,
+    rav_basic_land_type_bindings, rav_mana_ability_bindings, set_root,
 };
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -316,11 +316,12 @@ fn set_expected_field(
 }
 
 fn execute_scenario(specification: &ScenarioSpec) -> Result<ScenarioResult, String> {
-    let mut game = Game::new_with_mana_abilities_and_basic_land_types(
+    let mut game = Game::new_with_mana_abilities_basic_land_types_and_additional_spell_costs(
         card_definitions(),
         2,
         rav_mana_ability_bindings(),
         rav_basic_land_type_bindings(),
+        rav_additional_spell_cost_bindings(),
     )
     .map_err(rules_error)?;
     game.set_shuffle_seed(specification.seed);
@@ -768,6 +769,7 @@ fn parse_target(value: &str, labels: &BTreeMap<String, ObjectId>) -> Result<Targ
         )?)),
         "permanent" => Ok(Target::Permanent(lookup(labels, target)?)),
         "spell" => Ok(Target::Spell(lookup(labels, target)?)),
+        "sacrifice" => Ok(Target::SacrificePermanent(lookup(labels, target)?)),
         _ => Err(format!("unknown target kind `{kind}`")),
     }
 }
