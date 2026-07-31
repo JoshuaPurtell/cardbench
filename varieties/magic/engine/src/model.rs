@@ -768,6 +768,11 @@ pub enum Effect {
     DealDamageToEachPlayer {
         amount: i16,
     },
+    /// Deal fixed damage to every current creature whose characteristics do
+    /// not include Flying. The affected set is snapshotted at resolution.
+    DealDamageToEachNonFlyingCreature {
+        amount: i16,
+    },
     /// Deal damage to the targeted creature and every creature that shares at
     /// least one of its colors. The target remains included even if it has no
     /// colors, matching the shared radiance selection substrate.
@@ -891,6 +896,7 @@ impl Effect {
             Self::DealDamageController { .. }
             | Self::DealDamageToEachCreatureAndPlayer { .. }
             | Self::DealDamageToEachPlayer { .. }
+            | Self::DealDamageToEachNonFlyingCreature { .. }
             | Self::GainLifeController { .. }
             | Self::GainLifeControllerFromSourceDamage
             | Self::DrawController

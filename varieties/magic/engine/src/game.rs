@@ -3531,6 +3531,7 @@ impl Game {
                 | Effect::DealDamageController { amount }
                 | Effect::DealDamageToEachCreatureAndPlayer { amount }
                 | Effect::DealDamageToEachPlayer { amount }
+                | Effect::DealDamageToEachNonFlyingCreature { amount }
                 | Effect::RadianceDealDamageToCreatures { amount }
                 | Effect::BeginDamageRedirection { amount }
                 | Effect::GainLifeController { amount } => *amount,
@@ -4275,6 +4276,22 @@ impl Game {
                         continue;
                     }
                     self.deal_damage_to_player(source, PlayerId(player), i32::from(*amount))?;
+                }
+            }
+            Effect::DealDamageToEachNonFlyingCreature { amount } => {
+                let creatures = self
+                    .all_battlefield_cards()
+                    .into_iter()
+                    .filter(|candidate| {
+                        self.characteristics(*candidate)
+                            .is_ok_and(|characteristics| {
+                                characteristics.card_types.contains(&CardType::Creature)
+                                    && !characteristics.keywords.contains(&Keyword::Flying)
+                            })
+                    })
+                    .collect::<Vec<_>>();
+                for creature in creatures {
+                    self.deal_damage_to_permanent(source, creature, i32::from(*amount))?;
                 }
             }
             Effect::RadianceDealDamageToCreatures { amount } => {

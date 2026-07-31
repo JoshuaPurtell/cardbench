@@ -35,7 +35,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 61] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 62] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SCATTER-THE-SEEDS",
@@ -97,6 +97,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 61] = [
     "RAV-SPARKMAGE-APPRENTICE",
     "RAV-HUNTED-DRAGON",
     "RAV-RAZIA-BOROS-ARCHANGEL",
+    "RAV-HAMMERFIST-GIANT",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -1110,6 +1111,28 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             power: Some(6),
             toughness: Some(3),
             keywords: vec![Keyword::Flying, Keyword::Vigilance, Keyword::Haste],
+            effects: vec![],
+        },
+        // Full fidelity: the tap ability snapshots every non-Flying creature
+        // and deals four damage to each through the normal damage/SBA batch.
+        CardDefinition {
+            id: "RAV-HAMMERFIST-GIANT",
+            name: "Hammerfist Giant",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(4, [Color::Red, Color::Red]),
+            colors: colors([Color::Red]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "tap-global-nonflying-damage",
+            ],
+            power: Some(5),
+            toughness: Some(4),
+            keywords: vec![],
             effects: vec![],
         },
         // Compatibility scope: normal colored-cost creature casting and base
@@ -2574,6 +2597,19 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                     Effect::BeginDamageRedirection { amount: 3 },
                     Effect::CompleteDamageRedirection,
                 ],
+            },
+        },
+        ActivatedAbilityBinding {
+            card_definition: "RAV-HAMMERFIST-GIANT",
+            ability: ActivatedAbility {
+                id: "tap-global-nonflying-damage",
+                mana_cost: ManaCost::new(0),
+                tap_cost: true,
+                sacrifice_source: false,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![],
+                effects: vec![Effect::DealDamageToEachNonFlyingCreature { amount: 4 }],
             },
         },
         ActivatedAbilityBinding {
