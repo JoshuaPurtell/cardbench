@@ -2,7 +2,8 @@
 //!
 //! These compatibility definitions deliberately expose normal casting and base
 //! characteristics only. Goblin Fire Fiend is separately audited by its full
-//! fidelity contract and is excluded from the bounded matrix below.
+//! fidelity contract and is excluded from the bounded matrix below. Woebringer
+//! Demon separately exposes its static Flying compatibility slice.
 
 use std::collections::BTreeSet;
 
@@ -14,14 +15,6 @@ use cardbench_magic_rav::{card_definitions, run_all_scenarios};
 fn fourth_creature_chassis_batch_is_exactly_bounded_to_public_base_facts() {
     let definitions = card_definitions();
     let expected = [
-        (
-            "RAV-WOEBRINGER-DEMON",
-            "Woebringer Demon",
-            ManaCost::with_colors(3, [Color::Black, Color::Black]),
-            BTreeSet::from([Color::Black]),
-            4,
-            4,
-        ),
         (
             "RAV-THOUGHTPICKER-WITCH",
             "Thoughtpicker Witch",
@@ -89,6 +82,25 @@ fn fourth_creature_chassis_batch_is_exactly_bounded_to_public_base_facts() {
             "damage-cannot-be-prevented"
         ]
     );
+
+    let demon = definitions
+        .iter()
+        .find(|definition| definition.id == "RAV-WOEBRINGER-DEMON")
+        .expect("Woebringer Demon remains in the fourth chassis wave");
+    assert_eq!(demon.name, "Woebringer Demon");
+    assert_eq!(
+        demon.mana_cost,
+        ManaCost::with_colors(3, [Color::Black, Color::Black])
+    );
+    assert_eq!(demon.colors, BTreeSet::from([Color::Black]));
+    assert_eq!(demon.card_types, BTreeSet::from([CardType::Creature]));
+    assert_eq!((demon.power, demon.toughness), (Some(4), Some(4)));
+    assert_eq!(demon.keywords, [cardbench_magic_engine::Keyword::Flying]);
+    assert_eq!(
+        demon.supported_rules,
+        ["colored-cost-casting", "base-characteristics", "flying"]
+    );
+    assert!(demon.effects.is_empty());
 }
 
 #[test]
@@ -104,6 +116,7 @@ fn public_fourth_chassis_scenarios_cover_costs_stack_zones_and_base_pt() {
         "rav_riftcutter_excruciator_creature_chassis",
         "rav_fire_fiend_brute_creature_chassis",
         "rav_goblin_fire_fiend_haste_compatibility",
+        "rav_woebringer_demon_flying_compatibility",
     ] {
         assert!(scenarios.contains(id), "missing public scenario {id}");
     }

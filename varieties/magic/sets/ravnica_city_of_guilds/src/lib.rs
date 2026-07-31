@@ -1926,17 +1926,24 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             3,
             4,
         ),
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed flying and upkeep sacrifice
-        // triggers are deliberately omitted from this compatibility slice.
-        bounded_creature_chassis(
-            "RAV-WOEBRINGER-DEMON",
-            "Woebringer Demon",
-            ManaCost::with_colors(3, [Color::Black, Color::Black]),
-            colors([Color::Black]),
-            4,
-            4,
-        ),
+        // Compatibility scope: normal colored-cost creature casting, base
+        // characteristics, and static Flying. Its upkeep sacrifice behavior
+        // is deliberately unsupported.
+        CardDefinition {
+            id: "RAV-WOEBRINGER-DEMON",
+            name: "Woebringer Demon",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(3, [Color::Black, Color::Black]),
+            colors: colors([Color::Black]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &["colored-cost-casting", "base-characteristics", "flying"],
+            power: Some(4),
+            toughness: Some(4),
+            keywords: vec![Keyword::Flying],
+            effects: vec![],
+        },
         // Compatibility scope: normal colored-cost creature casting and base
         // characteristics only. Its printed sacrifice-and-library activation
         // is deliberately omitted from this compatibility slice.
@@ -3680,7 +3687,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 116);
+        assert_eq!(first.len(), 117);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }
