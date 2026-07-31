@@ -3035,6 +3035,15 @@ impl Game {
                 }
             }
         }
+        if !self.objects.contains_key(&stack_object.card) {
+            // CR 800.4a cleanup can remove the owner and this already-popped
+            // source while an instruction resolves (for example, an empty
+            // library draw). `ObjectLeftGame` is then the source's terminal
+            // stack lifecycle receipt; do not manufacture a later resolution
+            // or zone-move receipt by dereferencing the removed object.
+            self.priority = self.priority_after_resolution();
+            return Ok(());
+        }
         self.record_event(GameEvent::SpellResolved {
             card: stack_object.card,
         });
