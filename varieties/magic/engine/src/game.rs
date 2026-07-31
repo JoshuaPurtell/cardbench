@@ -6613,7 +6613,19 @@ impl Game {
                     .as_mut()
                     .expect("combat was present when the departed defender was checked");
                 combat.attackers.clear();
+                combat.hasty_attackers.clear();
+                combat.flying_attackers.clear();
+                combat.fear_attackers.clear();
+                combat.black_evasion_attackers.clear();
+                combat.vigilant_attackers.clear();
+                combat.trampling_attackers.clear();
+                combat.must_be_blocked_attackers.clear();
+                combat.mountainwalk_attackers.clear();
                 combat.blockers.clear();
+                combat.evasion_qualified_blockers.clear();
+                combat.fear_qualified_blockers.clear();
+                combat.black_evasion_qualified_blockers.clear();
+                combat.first_strike_damage_sources.clear();
             }
         }
     }
