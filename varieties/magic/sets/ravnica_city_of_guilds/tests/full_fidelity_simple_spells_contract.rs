@@ -53,6 +53,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-GOBLIN-SPELUNKERS",
             "RAV-GREATER-FORGELING",
             "RAV-VIASHINO-SLASHER",
+            "RAV-WAR-TORCH-GOBLIN",
         ]
     );
     let definitions = card_definitions();

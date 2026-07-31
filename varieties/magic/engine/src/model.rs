@@ -235,6 +235,10 @@ impl Color {
 pub enum CardType {
     Artifact,
     Creature,
+    /// A battlefield creature currently assigned as a blocker in the active
+    /// combat. This keeps sacrifice-to-damage abilities from accepting an
+    /// arbitrary creature as a printed blocking-creature target.
+    BlockingCreature,
     Enchantment,
     Instant,
     Land,
@@ -577,6 +581,10 @@ pub enum Keyword {
 pub enum TargetRequirement {
     Any,
     Creature,
+    /// A battlefield creature currently assigned as a blocker in the active
+    /// combat. This preserves the narrower target restriction of sacrifice
+    /// damage abilities such as War-Torch Goblin.
+    BlockingCreature,
     Player,
     /// A player or battlefield creature, matching the executable pre-
     /// planeswalker direct-damage card slice.

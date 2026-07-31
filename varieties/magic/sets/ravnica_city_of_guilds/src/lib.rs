@@ -35,7 +35,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 42] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 43] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SCATTER-THE-SEEDS",
@@ -78,6 +78,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 42] = [
     "RAV-GOBLIN-SPELUNKERS",
     "RAV-GREATER-FORGELING",
     "RAV-VIASHINO-SLASHER",
+    "RAV-WAR-TORCH-GOBLIN",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -1715,6 +1716,29 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             2,
             2,
         ),
+        // Full fidelity: `{R}, sacrifice this creature` is a typed stack
+        // ability that deals two damage to a blocking creature.
+        CardDefinition {
+            id: "RAV-WAR-TORCH-GOBLIN",
+            name: "War-Torch Goblin",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(0, [Color::Red]),
+            colors: colors([Color::Red]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "sacrifice-source",
+                "targeted-damage",
+            ],
+            power: Some(1),
+            toughness: Some(1),
+            keywords: vec![],
+            effects: vec![],
+        },
         // Compatibility scope: normal colored-cost creature casting and base
         // characteristics only. Its printed creature-cast trigger is deliberately
         // omitted from this compatibility slice.
@@ -2142,6 +2166,20 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 effects: vec![Effect::ModifySourcePtUntilEndOfTurn {
                     power: 1,
                     toughness: -1,
+                }],
+            },
+        },
+        ActivatedAbilityBinding {
+            card_definition: "RAV-WAR-TORCH-GOBLIN",
+            ability: ActivatedAbility {
+                id: "sacrifice-deal-two-to-blocker",
+                mana_cost: ManaCost::with_colors(0, [Color::Red]),
+                tap_cost: false,
+                sacrifice_source: true,
+                targets: vec![cardbench_magic_engine::TargetRequirement::BlockingCreature],
+                effects: vec![Effect::DealDamage {
+                    amount: 2,
+                    target: cardbench_magic_engine::TargetRequirement::BlockingCreature,
                 }],
             },
         },
