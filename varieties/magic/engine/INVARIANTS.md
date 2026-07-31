@@ -206,7 +206,9 @@ Oracle Magic rules coverage.
   occurrence; a targeted opponent trigger cannot silently fan out to every
   opponent. A two-target redirection activation must resolve both target
   instructions before installing its replacement shield, and an incomplete
-  or countered activation cannot leak a pending half-effect.
+  or countered activation cannot leak a pending half-effect. If the protected
+  target becomes illegal before resolution, the paired destination instruction
+  is a no-op rather than a resolver error or leaked final-pass transition.
   Every materialized dynamic effect is checked against its binding before it
   can resolve, and no pending attack, damage, or dies trigger may survive its
   enclosing transition.
