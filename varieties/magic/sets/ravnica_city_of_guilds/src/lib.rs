@@ -1630,11 +1630,7 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Creature]),
             is_basic_land: false,
-            supported_rules: &[
-                "colored-cost-casting",
-                "base-characteristics",
-                "flying",
-            ],
+            supported_rules: &["colored-cost-casting", "base-characteristics", "flying"],
             power: Some(2),
             toughness: Some(5),
             keywords: vec![Keyword::Flying],
