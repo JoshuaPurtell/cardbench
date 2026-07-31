@@ -6497,7 +6497,7 @@ toughnesses = ["zealot:3", "watchwolf:4"]
 stack_size = 0
 priority = 0
 event_markers = ["SpellResolved", "TriggeredAbilityStacked", "ContinuousEffectCreated", "AbilityResolved"]
-digest = "fnv1a64:f49730fc57bbf22d"
+digest = "fnv1a64:909d5099b9439daf"
 
 [[scenario]]
 id = "rav_carven_caryatid_defender_compatibility"

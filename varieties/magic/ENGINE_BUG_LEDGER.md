@@ -133,16 +133,16 @@ severity for `sorcery-cast-at-instant-speed` and
 | `flame-kin-zealot-etb-team-buff-missing` | RAV card-coverage gap — target-free enter-the-battlefield team modifier trigger | Fixed; red-to-green regression verified | The red probe `cargo test -p cardbench-magic-rav --test flame_kin_zealot_red -- --nocapture` initially failed because `etb-team-pump-haste` was absent. Flame-Kin Zealot now queues an ETB trigger on the shared stack, applies +1/+1 and Haste through end of turn, and records `TriggeredAbilityStacked`, `ContinuousEffectCreated`, and `AbilityResolved` receipts. |
 
 The complete public inventory contains 306 printings / 291 unique names; the
-executable compatibility slice contains 142 printings / 127 unique names.
+executable compatibility slice contains 141 printings / 126 unique names.
 Twenty executable printings are the four printings of each of five basic lands;
-the other 122 executable names are nonbasic cards. Forty-six of those
+the other 121 executable names are nonbasic cards. Forty-six of those
 nonbasic cards plus all five typed basic lands are in the positive full-fidelity
-manifest (51 total); the remaining 76 nonbasic cards are deliberately bounded
+manifest (51 total); the remaining 75 nonbasic cards are deliberately bounded
 compatibility cards exercising generic casting, base characteristics, mana
 abilities (including source-aware controller damage), targeted/global damage,
 temporary modifiers, token creation, Convoke, Dredge, Radiance, Transmute,
 combat-count damage, controller-wide temporary modifiers, hybrid payment,
-typed basic-land lines, and first-strike combat damage. The remaining 164 unique names
+typed basic-land lines, and first-strike combat damage. The remaining 165 unique names
 are explicitly catalog-only and fail closed with
 `card-specific-rules-not-implemented`. This boundary is enforced by
 `catalog_coverage::executable_slice_size_is_explicit_and_does_not_masquerade_as_set_coverage`.
