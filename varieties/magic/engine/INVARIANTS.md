@@ -95,6 +95,13 @@ Oracle Magic rules coverage.
   player” targeting scope reject noncreature permanents at cast time and at
   resolution. The broader `Any` requirement is not used to approximate that
   narrower card rule.
+- An `Artifact` target requirement names only a current battlefield permanent
+  whose resolved characteristics include the `Artifact` card type. The
+  `DestroyTargetArtifact` instruction records `CardDestroyed` and the normal
+  graveyard/token departure before any later instruction in that spell (such
+  as a draw) runs; if the sole artifact target is illegal at resolution, the
+  targeted spell is countered by rules and none of its untargeted instructions
+  execute.
 - A global non-Flying damage effect snapshots only current battlefield
   creatures whose resolved characteristics lack `Flying`; Flying creatures
   are not accidental recipients, and all selected damage is applied before

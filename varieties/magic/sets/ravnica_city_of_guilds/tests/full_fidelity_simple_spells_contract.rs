@@ -75,6 +75,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-HAMMERFIST-GIANT",
             "RAV-SCREECHING-GRIFFIN",
             "RAV-SURGE-OF-ZEAL",
+            "RAV-SMASH",
         ]
     );
     let definitions = card_definitions();
@@ -147,6 +148,10 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
                 power: -1,
                 toughness: -1,
             }],
+        ),
+        (
+            "RAV-SMASH",
+            vec![Effect::DestroyTargetArtifact, Effect::DrawController],
         ),
     ];
     for (id, effects) in exact {

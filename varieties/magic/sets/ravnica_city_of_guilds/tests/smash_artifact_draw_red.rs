@@ -4,10 +4,12 @@
 //! target, destruction, then one controller draw) without copying printed
 //! Oracle text or card art.
 
-use cardbench_magic_engine::{CardType, Color, Game, GameEvent, ManaCost, PlayerId, Target, Zone};
+use cardbench_magic_engine::{
+    CardType, Color, Effect, Game, GameEvent, ManaCost, PlayerId, Target, Zone,
+};
 use cardbench_magic_rav::{
-    card_definitions, rav_activated_ability_bindings, rav_additional_spell_cost_bindings,
-    rav_basic_land_type_bindings, rav_mana_ability_bindings, RAV_FULL_FIDELITY_DEFINITION_IDS,
+    RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, rav_activated_ability_bindings,
+    rav_additional_spell_cost_bindings, rav_basic_land_type_bindings, rav_mana_ability_bindings,
 };
 
 fn game() -> Game {
@@ -32,6 +34,10 @@ fn smash_definition_declares_artifact_destruction_and_draw() {
     assert_eq!(smash.name, "Smash");
     assert_eq!(smash.mana_cost, ManaCost::with_colors(1, [Color::Red]));
     assert_eq!(smash.card_types, [CardType::Instant].into());
+    assert_eq!(
+        smash.effects,
+        vec![Effect::DestroyTargetArtifact, Effect::DrawController]
+    );
     assert!(smash.supported_rules.contains(&"artifact-destruction"));
     assert!(smash.supported_rules.contains(&"draw"));
 }
@@ -48,7 +54,7 @@ fn smash_destroys_an_artifact_then_draws_one_card() {
     let drawn = game
         .add_card(PlayerId(0), "RAV-FOREST", Zone::Library)
         .expect("draw card enters library");
-    game.grant_mana(PlayerId(0), Color::Red, 1)
+    game.grant_mana(PlayerId(0), Color::Red, 2)
         .expect("Smash mana");
     game.clear_event_log();
 

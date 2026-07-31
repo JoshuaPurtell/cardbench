@@ -101,6 +101,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 65] = [
     "RAV-SCREECHING-GRIFFIN",
     "RAV-SURGE-OF-ZEAL",
     "RAV-SEISMIC-SPIKE",
+    "RAV-SMASH",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -357,6 +358,25 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 amount: 5,
                 target: cardbench_magic_engine::TargetRequirement::Creature,
             }],
+        },
+        // Full fidelity: the typed artifact target is destroyed during
+        // resolution and the spell controller draws one card afterward.
+        // The expansion-neutral engine owns target legality, zone movement,
+        // and the draw receipt; this definition contains only semantic data.
+        CardDefinition {
+            id: "RAV-SMASH",
+            name: "Smash",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(1, [Color::Red]),
+            colors: colors([Color::Red]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Instant]),
+            is_basic_land: false,
+            supported_rules: &["full-rules-fidelity", "artifact-destruction", "draw"],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![Effect::DestroyTargetArtifact, Effect::DrawController],
         },
         CardDefinition {
             id: "RAV-GOLGARI-BROWNSCALE",
