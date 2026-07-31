@@ -1967,6 +1967,7 @@ impl Game {
             ));
         }
         Self::validate_mana_ability_event_order(&self.event_log)?;
+        self.validate_stack_terminal_event_order()?;
         if self.started && !self.is_game_over() && !self.step.grants_priority() {
             return Err(RulesError::IllegalAction(
                 "an automatic turn step remained stable with player priority",
@@ -3471,103 +3472,215 @@ impl Game {
 
     /// Audits the causally significant mana-ability receipt sequences. These
     /// are state-machine invariants rather than UI diagnostics: a replay must
-    /// never claim that a cast used a mana ability unless its bound activation
-    /// receipt and the enclosing spell-cast receipt occur in this order.
+    /// never claim that a cast used a mana ability unless every activation,
+    /// output, and enclosing spell-cast receipt occurs in one causal order.
     #[allow(clippy::too_many_lines)] // One ordered replay audit keeps receipt causality reviewable.
     fn validate_mana_ability_event_order(events: &[GameEvent]) -> Result<(), RulesError> {
+        let mut index = 0;
+        while index < events.len() {
+            let Some((player, card)) = Self::cast_payment_context(events.get(index)) else {
+                index += 1;
+                continue;
+            };
+
+            let output_end = match events.get(index) {
+                Some(GameEvent::CastPaymentBasicLandManaAbilityActivated {
+                    land, color, ..
+                }) => {
+                    if !matches!(
+                        events.get(index + 1),
+                        Some(GameEvent::ManaAbilityActivated {
+                            player: receipt_player,
+                            land: receipt_land,
+                            color: receipt_color,
+                        }) if *receipt_player == player && receipt_land == land && receipt_color == color
+                    ) {
+                        return Err(RulesError::IllegalAction(
+                            "cast-payment basic-land activation lacks its matching intrinsic receipt",
+                        ));
+                    }
+                    if !matches!(
+                        events.get(index + 2),
+                        Some(GameEvent::ManaAdded {
+                            player: receipt_player,
+                            color: receipt_color,
+                            amount: 1,
+                        }) if *receipt_player == player && receipt_color == color
+                    ) {
+                        return Err(RulesError::IllegalAction(
+                            "cast-payment basic-land activation lacks its matching mana-output receipt",
+                        ));
+                    }
+                    index + 3
+                }
+                Some(GameEvent::CastPaymentManaAbilityActivated {
+                    source, ability, ..
+                }) => {
+                    let receipt_index = index + 1;
+                    let mut output_index = match events.get(receipt_index) {
+                        Some(GameEvent::BoundManaAbilityActivated {
+                            player: receipt_player,
+                            source: receipt_source,
+                            ability: receipt_ability,
+                            color,
+                            amount,
+                            life_payment,
+                            ..
+                        }) if *receipt_player == player
+                            && receipt_source == source
+                            && receipt_ability == ability =>
+                        {
+                            let mut output_index = receipt_index + 1;
+                            if let Some(life_amount) = life_payment {
+                                if !matches!(
+                                    events.get(output_index),
+                                    Some(GameEvent::ManaAbilityLifePaid {
+                                        player: receipt_player,
+                                        amount: receipt_amount,
+                                    }) if *receipt_player == player && receipt_amount == life_amount
+                                ) {
+                                    return Err(RulesError::IllegalAction(
+                                        "cast-payment mana activation lacks its life-payment receipt",
+                                    ));
+                                }
+                                output_index += 1;
+                            }
+                            if !matches!(
+                                events.get(output_index),
+                                Some(GameEvent::ManaAdded {
+                                    player: receipt_player,
+                                    color: receipt_color,
+                                    amount: receipt_amount,
+                                }) if *receipt_player == player
+                                    && receipt_color == color
+                                    && receipt_amount == amount
+                            ) {
+                                return Err(RulesError::IllegalAction(
+                                    "cast-payment mana activation lacks its matching mana-output receipt",
+                                ));
+                            }
+                            output_index + 1
+                        }
+                        Some(GameEvent::BoundManaAbilityBundleActivated {
+                            player: receipt_player,
+                            source: receipt_source,
+                            ability: receipt_ability,
+                            mana_cost,
+                            bundle,
+                            life_payment,
+                            ..
+                        }) if *receipt_player == player
+                            && receipt_source == source
+                            && receipt_ability == ability =>
+                        {
+                            if !matches!(
+                                events.get(receipt_index + 1),
+                                Some(GameEvent::ManaAbilityManaPaid {
+                                    player: payment_player,
+                                    mana_cost: receipt_cost,
+                                }) if *payment_player == player && receipt_cost == mana_cost
+                            ) {
+                                return Err(RulesError::IllegalAction(
+                                    "cast-payment paid-bundle activation lacks its payment receipt",
+                                ));
+                            }
+                            let mut output_index = receipt_index + 2;
+                            if let Some(life_amount) = life_payment {
+                                if !matches!(
+                                    events.get(output_index),
+                                    Some(GameEvent::ManaAbilityLifePaid {
+                                        player: receipt_player,
+                                        amount: receipt_amount,
+                                    }) if *receipt_player == player && receipt_amount == life_amount
+                                ) {
+                                    return Err(RulesError::IllegalAction(
+                                        "cast-payment paid-bundle activation lacks its life-payment receipt",
+                                    ));
+                                }
+                                output_index += 1;
+                            }
+                            for (color, amount) in bundle.iter() {
+                                if !matches!(
+                                    events.get(output_index),
+                                    Some(GameEvent::ManaAdded {
+                                        player: receipt_player,
+                                        color: receipt_color,
+                                        amount: receipt_amount,
+                                    }) if *receipt_player == player
+                                        && receipt_color == &color
+                                        && receipt_amount == &amount
+                                ) {
+                                    return Err(RulesError::IllegalAction(
+                                        "cast-payment paid-bundle activation lacks an ordered mana-output receipt",
+                                    ));
+                                }
+                                output_index += 1;
+                            }
+                            output_index
+                        }
+                        _ => {
+                            return Err(RulesError::IllegalAction(
+                                "cast-payment mana activation lacks its matching bound receipt",
+                            ));
+                        }
+                    };
+                    if matches!(
+                        events.get(output_index),
+                        Some(GameEvent::DamageDealtToPlayer {
+                            source: receipt_source,
+                            player: receipt_player,
+                            ..
+                        }) if receipt_source == source && *receipt_player == player
+                    ) {
+                        output_index += 1;
+                    }
+                    output_index
+                }
+                _ => unreachable!("payment context helper only accepts payment marker events"),
+            };
+
+            let mut cursor = output_end;
+            loop {
+                match events.get(cursor) {
+                    Some(candidate) if Self::cast_payment_context(Some(candidate)).is_some() => {
+                        let (next_player, next_card) = Self::cast_payment_context(Some(candidate))
+                            .expect("marker was checked");
+                        if next_player != player || next_card != card {
+                            return Err(RulesError::IllegalAction(
+                                "cast-payment receipts changed their enclosing spell before SpellCast",
+                            ));
+                        }
+                        index = cursor;
+                        break;
+                    }
+                    Some(GameEvent::ConvokeUsed {
+                        player: receipt_player,
+                        ..
+                    }) if *receipt_player == player => {
+                        cursor += 1;
+                    }
+                    Some(GameEvent::SpellCast {
+                        player: receipt_player,
+                        card: receipt_card,
+                    }) if *receipt_player == player && *receipt_card == card => {
+                        index = cursor + 1;
+                        break;
+                    }
+                    Some(GameEvent::PriorityPassed { .. }) => {
+                        return Err(RulesError::IllegalAction(
+                            "cast-payment activation is not followed by its spell receipt before priority passes",
+                        ));
+                    }
+                    _ => {
+                        return Err(RulesError::IllegalAction(
+                            "cast-payment receipts do not form one ordered spell-cost transaction",
+                        ));
+                    }
+                }
+            }
+        }
+
         for (index, event) in events.iter().enumerate() {
-            if let GameEvent::CastPaymentBasicLandManaAbilityActivated {
-                player,
-                card,
-                land,
-                color,
-            } = event
-            {
-                if !matches!(
-                    events.get(index + 1),
-                    Some(GameEvent::ManaAbilityActivated {
-                        player: receipt_player,
-                        land: receipt_land,
-                        color: receipt_color,
-                    }) if receipt_player == player && receipt_land == land && receipt_color == color
-                ) {
-                    return Err(RulesError::IllegalAction(
-                        "cast-payment basic-land activation lacks its matching intrinsic receipt",
-                    ));
-                }
-                let spell_was_cast = events[index + 1..]
-                    .iter()
-                    .take_while(|candidate| !matches!(candidate, GameEvent::PriorityPassed { .. }))
-                    .any(|candidate| {
-                        matches!(
-                            candidate,
-                            GameEvent::SpellCast {
-                                player: spell_player,
-                                card: spell_card,
-                            } if spell_player == player && spell_card == card
-                        )
-                    });
-                if !spell_was_cast {
-                    return Err(RulesError::IllegalAction(
-                        "cast-payment basic-land activation is not followed by its spell receipt",
-                    ));
-                }
-            }
-
-            if let GameEvent::CastPaymentManaAbilityActivated {
-                player,
-                card,
-                source,
-                ability,
-            } = event
-            {
-                let matching_activation = matches!(
-                    events.get(index + 1),
-                    Some(GameEvent::BoundManaAbilityActivated {
-                        player: receipt_player,
-                        source: receipt_source,
-                        ability: receipt_ability,
-                        ..
-                    })
-                        if receipt_player == player
-                            && receipt_source == source
-                            && receipt_ability == ability
-                ) || matches!(
-                    events.get(index + 1),
-                    Some(GameEvent::BoundManaAbilityBundleActivated {
-                        player: receipt_player,
-                        source: receipt_source,
-                        ability: receipt_ability,
-                        ..
-                    })
-                        if receipt_player == player
-                            && receipt_source == source
-                            && receipt_ability == ability
-                );
-                if !matching_activation {
-                    return Err(RulesError::IllegalAction(
-                        "cast-payment mana activation lacks its matching bound receipt",
-                    ));
-                }
-                let spell_was_cast = events[index + 1..]
-                    .iter()
-                    .take_while(|candidate| !matches!(candidate, GameEvent::PriorityPassed { .. }))
-                    .any(|candidate| {
-                        matches!(
-                            candidate,
-                            GameEvent::SpellCast {
-                                player: spell_player,
-                                card: spell_card,
-                            } if spell_player == player && spell_card == card
-                        )
-                    });
-                if !spell_was_cast {
-                    return Err(RulesError::IllegalAction(
-                        "cast-payment mana activation is not followed by its spell receipt",
-                    ));
-                }
-            }
-
             if let GameEvent::BoundManaAbilityBundleActivated {
                 player,
                 mana_cost,
@@ -3621,6 +3734,132 @@ impl Game {
                 }
             }
         }
+        Ok(())
+    }
+
+    fn cast_payment_context(event: Option<&GameEvent>) -> Option<(PlayerId, ObjectId)> {
+        match event {
+            Some(
+                GameEvent::CastPaymentBasicLandManaAbilityActivated { player, card, .. }
+                | GameEvent::CastPaymentManaAbilityActivated { player, card, .. },
+            ) => Some((*player, *card)),
+            _ => None,
+        }
+    }
+
+    /// Audits terminal stack receipts that remain meaningful in a trace suffix.
+    /// `clear_event_log` intentionally permits a measured log to begin after a
+    /// cast, so a terminal receipt need not have a visible `SpellCast` before
+    /// it. Once a cast is visible, though, it has one visible terminal path:
+    /// resolution, a rules/effect counter, or an owner leaving the game.
+    fn validate_stack_terminal_event_order(&self) -> Result<(), RulesError> {
+        let mut open_casts = BTreeSet::new();
+        let mut terminal_cards = BTreeSet::new();
+
+        for (index, event) in self.event_log.iter().enumerate() {
+            match event {
+                GameEvent::SpellCast { card, .. } => {
+                    if !open_casts.insert(*card) {
+                        return Err(RulesError::IllegalAction(
+                            "spell receipt opened a second stack lifecycle for the same card",
+                        ));
+                    }
+                    terminal_cards.remove(card);
+                }
+                GameEvent::SpellResolved { card } => {
+                    Self::validate_terminal_destination(&self.event_log, index, *card, false)?;
+                    Self::close_stack_receipt_lifecycle(
+                        &mut open_casts,
+                        &mut terminal_cards,
+                        *card,
+                    )?;
+                }
+                GameEvent::SpellCounteredByRules { card } => {
+                    Self::validate_terminal_destination(&self.event_log, index, *card, true)?;
+                    Self::close_stack_receipt_lifecycle(
+                        &mut open_casts,
+                        &mut terminal_cards,
+                        *card,
+                    )?;
+                }
+                GameEvent::SpellCountered { card, source } => {
+                    if card == source {
+                        return Err(RulesError::IllegalAction(
+                            "a resolving spell cannot counter itself",
+                        ));
+                    }
+                    Self::validate_terminal_destination(&self.event_log, index, *card, true)?;
+                    Self::close_stack_receipt_lifecycle(
+                        &mut open_casts,
+                        &mut terminal_cards,
+                        *card,
+                    )?;
+                }
+                GameEvent::ObjectLeftGame { object, .. } => {
+                    // CR 800.4a removes a departed owner's spell from the
+                    // stack without treating it as a resolved or countered
+                    // spell. It is still a terminal lifecycle outcome for a
+                    // visible `SpellCast` receipt.
+                    open_casts.remove(object);
+                    terminal_cards.insert(*object);
+                }
+                _ => {}
+            }
+        }
+
+        if open_casts.iter().any(|card| {
+            !self
+                .stack
+                .iter()
+                .any(|stack_object| stack_object.card == *card)
+        }) {
+            return Err(RulesError::IllegalAction(
+                "a visible spell-cast receipt has no live stack object or terminal outcome",
+            ));
+        }
+        Ok(())
+    }
+
+    fn validate_terminal_destination(
+        events: &[GameEvent],
+        index: usize,
+        card: ObjectId,
+        must_move_to_graveyard: bool,
+    ) -> Result<(), RulesError> {
+        let destination_is_valid = matches!(
+            events.get(index + 1),
+            Some(GameEvent::CardMoved {
+                card: moved_card,
+                to: Zone::Graveyard,
+            }) if *moved_card == card
+        ) || (!must_move_to_graveyard
+            && matches!(
+                events.get(index + 1),
+                Some(GameEvent::CardMoved {
+                    card: moved_card,
+                    to: Zone::Battlefield,
+                }) if *moved_card == card
+            ));
+        if destination_is_valid {
+            Ok(())
+        } else {
+            Err(RulesError::IllegalAction(
+                "terminal stack receipt lacks its immediate destination move",
+            ))
+        }
+    }
+
+    fn close_stack_receipt_lifecycle(
+        open_casts: &mut BTreeSet<ObjectId>,
+        terminal_cards: &mut BTreeSet<ObjectId>,
+        card: ObjectId,
+    ) -> Result<(), RulesError> {
+        if !open_casts.remove(&card) && !terminal_cards.insert(card) {
+            return Err(RulesError::IllegalAction(
+                "a spell has more than one terminal stack receipt in one event trace",
+            ));
+        }
+        terminal_cards.insert(card);
         Ok(())
     }
 
@@ -3999,5 +4238,165 @@ mod tests {
         assert_eq!(game.active_player, PlayerId(1));
         assert_eq!(game.step, Step::Upkeep);
         assert_eq!(game.priority, PlayerId(1));
+    }
+
+    #[test]
+    fn payment_trace_rejects_a_basic_land_marker_without_its_mana_output() {
+        let player = PlayerId(0);
+        let card = ObjectId(10);
+        let land = ObjectId(11);
+        let events = vec![
+            GameEvent::CastPaymentBasicLandManaAbilityActivated {
+                player,
+                card,
+                land,
+                color: Color::Green,
+            },
+            GameEvent::ManaAbilityActivated {
+                player,
+                land,
+                color: Color::Green,
+            },
+            GameEvent::SpellCast { player, card },
+        ];
+
+        assert_eq!(
+            Game::validate_mana_ability_event_order(&events),
+            Err(RulesError::IllegalAction(
+                "cast-payment basic-land activation lacks its matching mana-output receipt",
+            ))
+        );
+    }
+
+    #[test]
+    fn payment_trace_requires_mixed_basic_and_bound_receipts_to_close_one_cast() {
+        let player = PlayerId(0);
+        let card = ObjectId(10);
+        let other_card = ObjectId(12);
+        let land = ObjectId(11);
+        let source = ObjectId(13);
+        let events = vec![
+            GameEvent::CastPaymentBasicLandManaAbilityActivated {
+                player,
+                card,
+                land,
+                color: Color::Green,
+            },
+            GameEvent::ManaAbilityActivated {
+                player,
+                land,
+                color: Color::Green,
+            },
+            GameEvent::ManaAdded {
+                player,
+                color: Color::Green,
+                amount: 1,
+            },
+            GameEvent::CastPaymentManaAbilityActivated {
+                player,
+                card,
+                source,
+                ability: "bundle",
+            },
+            GameEvent::BoundManaAbilityBundleActivated {
+                player,
+                source,
+                ability: "bundle",
+                mana_cost: crate::ManaCost::new(1),
+                bundle: crate::ManaBundle::new([(Color::Blue, 1), (Color::Red, 1)]),
+                tapped: true,
+                life_payment: None,
+            },
+            GameEvent::ManaAbilityManaPaid {
+                player,
+                mana_cost: crate::ManaCost::new(1),
+            },
+            GameEvent::ManaAdded {
+                player,
+                color: Color::Blue,
+                amount: 1,
+            },
+            GameEvent::ManaAdded {
+                player,
+                color: Color::Red,
+                amount: 1,
+            },
+            GameEvent::SpellCast { player, card },
+        ];
+        Game::validate_mana_ability_event_order(&events)
+            .expect("the mixed receipt trace is ordered and closes its cast");
+
+        let mut interleaved = events;
+        interleaved[3] = GameEvent::CastPaymentManaAbilityActivated {
+            player,
+            card: other_card,
+            source,
+            ability: "bundle",
+        };
+        interleaved[8] = GameEvent::SpellCast {
+            player,
+            card: other_card,
+        };
+        assert_eq!(
+            Game::validate_mana_ability_event_order(&interleaved),
+            Err(RulesError::IllegalAction(
+                "cast-payment receipts changed their enclosing spell before SpellCast",
+            ))
+        );
+    }
+
+    #[test]
+    fn stack_terminal_trace_requires_one_immediate_destination_move() {
+        let player = PlayerId(0);
+        let card = ObjectId(10);
+        let mut game = Game::new(Vec::<CardDefinition>::new(), 2).expect("two-player game");
+        game.event_log = vec![
+            GameEvent::SpellCast { player, card },
+            GameEvent::SpellResolved { card },
+            GameEvent::ManaAdded {
+                player,
+                color: Color::Blue,
+                amount: 1,
+            },
+        ];
+        game.event_log_integrity = game.event_log.clone();
+
+        assert_eq!(
+            game.validate_stack_terminal_event_order(),
+            Err(RulesError::IllegalAction(
+                "terminal stack receipt lacks its immediate destination move",
+            ))
+        );
+    }
+
+    #[test]
+    fn stack_terminal_trace_allows_a_measured_suffix_but_rejects_double_terminal_receipts() {
+        let card = ObjectId(10);
+        let mut game = Game::new(Vec::<CardDefinition>::new(), 2).expect("two-player game");
+        game.event_log = vec![
+            GameEvent::SpellCounteredByRules { card },
+            GameEvent::CardMoved {
+                card,
+                to: Zone::Graveyard,
+            },
+        ];
+        game.event_log_integrity = game.event_log.clone();
+        game.validate_stack_terminal_event_order()
+            .expect("a measured trace may begin during an existing stack lifecycle");
+
+        game.event_log.extend([
+            GameEvent::SpellResolved { card },
+            GameEvent::CardMoved {
+                card,
+                to: Zone::Graveyard,
+            },
+        ]);
+        game.event_log_integrity = game.event_log.clone();
+        assert_eq!(
+            game.validate_stack_terminal_event_order(),
+            Err(RulesError::IllegalAction(
+                "a spell has more than one terminal stack receipt in one event trace",
+            ))
+        );
     }
 }

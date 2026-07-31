@@ -121,7 +121,13 @@ Oracle Magic rules coverage.
   state before that final pass. A successful stack object has exactly one
   terminal outcome: `SpellCounteredByRules` followed by its destination move,
   or ordered effect receipts followed by `SpellResolved` and its destination
-  move; no partial outcome may survive.
+  move; no partial outcome may survive. The invariant audit requires every
+  terminal stack receipt to be immediately followed by its own destination
+  move (`Graveyard` for a counter, `Battlefield` or `Graveyard` for a normal
+  resolution), rejects a second terminal receipt for the same visible cast,
+  and requires every visible unterminated `SpellCast` to remain on the live
+  stack. An owner leaving the game is the explicit exceptional terminal path:
+  `ObjectLeftGame` removes that owner's stack object under CR 800.4a.
 - If the active player leaves while stack work remains, their turn continues
   without a living active player as required by CR 800.4i. The engine retains
   that departed seat only as current-turn identity, gives priority to the next
@@ -180,10 +186,13 @@ Oracle Magic rules coverage.
   earlier source tap, life/mana change, zone, stack, pass-state field, and
   receipt. A bound contextual activation emits
   `CastPaymentManaAbilityActivated`, immediately followed by its matching
-  bound-ability receipt. A basic-land contextual activation emits
+  bound-ability receipt and its required mana-output receipts. A basic-land
+  contextual activation emits
   `CastPaymentBasicLandManaAbilityActivated`, immediately followed by its
-  matching intrinsic `ManaAbilityActivated` receipt. In either case, a
-  matching `SpellCast` must occur before any priority pass. Paid fixed bundles
+  matching intrinsic `ManaAbilityActivated` and one matching
+  `ManaAdded { amount: 1 }` receipt. Mixed bound/basic payment entries remain
+  in the caller's declared order, all name the same enclosing spell, and close
+  with that spell's `SpellCast` before any priority pass. Paid fixed bundles
   additionally require their cost receipt, optional life-cost receipt, and
   every fixed mana-output receipt in declared order.
 - Player life totals use a wide signed `i64` representation, distinct from
