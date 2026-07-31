@@ -12,7 +12,10 @@ use cardbench_magic_engine::{
     ManaAbilityActivation, ObjectId, PlayerId, RulesError, Target, Zone,
 };
 
-use crate::{ScenarioResult, card_definitions, event_digest, rav_mana_ability_bindings, set_root};
+use crate::{
+    ScenarioResult, card_definitions, event_digest, rav_basic_land_type_bindings,
+    rav_mana_ability_bindings, set_root,
+};
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 struct ScenarioSpec {
@@ -311,9 +314,13 @@ fn set_expected_field(
 }
 
 fn execute_scenario(specification: &ScenarioSpec) -> Result<ScenarioResult, String> {
-    let mut game =
-        Game::new_with_mana_abilities(card_definitions(), 2, rav_mana_ability_bindings())
-            .map_err(rules_error)?;
+    let mut game = Game::new_with_mana_abilities_and_basic_land_types(
+        card_definitions(),
+        2,
+        rav_mana_ability_bindings(),
+        rav_basic_land_type_bindings(),
+    )
+    .map_err(rules_error)?;
     game.set_shuffle_seed(specification.seed);
     let mut labels = BTreeMap::new();
     for setup in &specification.cards {

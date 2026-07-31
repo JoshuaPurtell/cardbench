@@ -14,10 +14,11 @@ pub use game::{
     RulesError, TransmuteSearchView,
 };
 pub use model::{
-    ActivatedManaAbility, CardDefinition, CardObject, CardType, Characteristics, Color,
-    CombatBlock, ContinuousChange, ContinuousEffect, CreatureSubtype, DeckEntry, DeckList,
-    DeckRules, DeckValidationError, Duration, Effect, GameEvent, HybridManaSymbol, Keyword, Layer,
-    ManaAbilityActivation, ManaAbilityBinding, ManaAbilityOutput, ManaBundle, ManaCost, ManaPool,
-    ObjectId, PlayerId, PlayerState, PolicyMoveKind, StackEffectResolution, StackObject,
-    StackResolutionPlan, StackTargetArityError, Step, Target, TargetRequirement, TokenSpec, Zone,
+    ActivatedManaAbility, BasicLandType, BasicLandTypeBinding, CardDefinition, CardObject,
+    CardType, Characteristics, Color, CombatBlock, ContinuousChange, ContinuousEffect,
+    CreatureSubtype, DeckEntry, DeckList, DeckRules, DeckValidationError, Duration, Effect,
+    GameEvent, HybridManaSymbol, Keyword, Layer, ManaAbilityActivation, ManaAbilityBinding,
+    ManaAbilityOutput, ManaBundle, ManaCost, ManaPool, ObjectId, PlayerId, PlayerState,
+    PolicyMoveKind, StackEffectResolution, StackObject, StackResolutionPlan, StackTargetArityError,
+    Step, Target, TargetRequirement, TokenSpec, Zone,
 };

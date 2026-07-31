@@ -4,81 +4,6 @@ visibility = "shown"
 format = "ravnica-block"
 
 [[scenario]]
-id = "rav_basic_land_intrinsic_mana_slice"
-seed = 0
-description = "Activate each supported RAV basic-land intrinsic mana ability from a fixed battlefield without using the stack."
-
-[[scenario.card]]
-label = "plains"
-owner = 0
-definition = "RAV-PLAINS"
-zone = "battlefield"
-
-[[scenario.card]]
-label = "island"
-owner = 0
-definition = "RAV-ISLAND"
-zone = "battlefield"
-
-[[scenario.card]]
-label = "swamp"
-owner = 0
-definition = "RAV-SWAMP"
-zone = "battlefield"
-
-[[scenario.card]]
-label = "mountain"
-owner = 0
-definition = "RAV-MOUNTAIN"
-zone = "battlefield"
-
-[[scenario.card]]
-label = "forest"
-owner = 0
-definition = "RAV-FOREST"
-zone = "battlefield"
-
-[[scenario.action]]
-kind = "activate_mana_ability"
-player = 0
-card = "plains"
-color = "white"
-
-[[scenario.action]]
-kind = "activate_mana_ability"
-player = 0
-card = "island"
-color = "blue"
-
-[[scenario.action]]
-kind = "activate_mana_ability"
-player = 0
-card = "swamp"
-color = "black"
-
-[[scenario.action]]
-kind = "activate_mana_ability"
-player = 0
-card = "mountain"
-color = "red"
-
-[[scenario.action]]
-kind = "activate_mana_ability"
-player = 0
-card = "forest"
-color = "green"
-
-[scenario.expected]
-tapped = ["plains:true", "island:true", "swamp:true", "mountain:true", "forest:true"]
-mana = ["0:white:1", "0:blue:1", "0:black:1", "0:red:1", "0:green:1"]
-mana_receipts = ["0:white:1", "0:blue:1", "0:black:1", "0:red:1", "0:green:1"]
-stack_size = 0
-priority = 0
-event_markers = ["ManaAbilityActivated", "ManaAdded"]
-event_absent = ["SpellCast", "SpellResolved", "PriorityPassed"]
-digest = "fnv1a64:2ebe6d7e14855cd8"
-
-[[scenario]]
 id = "rav_wave_three_green_creature_chassis"
 seed = 0
 description = "Cast five green creature chassis with exact colored costs and verify their bounded base P/T only. Their printed triggers and activations are deliberately omitted."
@@ -5451,3 +5376,78 @@ stack_size = 0
 priority = 0
 event_markers = ["SpellCast", "PriorityPassed", "SpellResolved"]
 digest = "fnv1a64:b3acee0b8c63b96d"
+[[scenario]]
+id = "rav_basic_land_type_lines"
+seed = 0
+description = "Activate each typed RAV basic land once and record its fixed intrinsic mana receipt without using the stack."
+
+[[scenario.card]]
+label = "plains"
+owner = 0
+definition = "RAV-PLAINS"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "island"
+owner = 0
+definition = "RAV-ISLAND"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "swamp"
+owner = 0
+definition = "RAV-SWAMP"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "mountain"
+owner = 0
+definition = "RAV-MOUNTAIN"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "forest"
+owner = 0
+definition = "RAV-FOREST"
+zone = "battlefield"
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "plains"
+color = "white"
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "island"
+color = "blue"
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "swamp"
+color = "black"
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "mountain"
+color = "red"
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "forest"
+color = "green"
+
+[scenario.expected]
+zones = ["plains:battlefield", "island:battlefield", "swamp:battlefield", "mountain:battlefield", "forest:battlefield"]
+tapped = ["plains:true", "island:true", "swamp:true", "mountain:true", "forest:true"]
+mana = ["0:white:1", "0:blue:1", "0:black:1", "0:red:1", "0:green:1"]
+stack_size = 0
+priority = 0
+event_markers = ["ManaAbilityActivated", "ManaAdded"]
+mana_receipts = ["0:white:1", "0:blue:1", "0:black:1", "0:red:1", "0:green:1"]
+event_absent = ["SpellCast", "SpellResolved", "PriorityPassed"]
+digest = "fnv1a64:2ebe6d7e14855cd8"

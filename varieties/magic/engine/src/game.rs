@@ -3,11 +3,11 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 
 use crate::{
-    ActivatedManaAbility, CardDefinition, CardObject, CardType, Characteristics, Color,
-    CombatBlock, ContinuousChange, ContinuousEffect, DeckList, Duration, Effect, GameEvent,
-    Keyword, ManaAbilityActivation, ManaAbilityBinding, ManaAbilityOutput, ObjectId, PlayerId,
-    PlayerState, PolicyMoveKind, StackEffectResolution, StackObject, StackResolutionPlan, Step,
-    Target, TargetRequirement, TokenSpec, Zone,
+    ActivatedManaAbility, BasicLandType, BasicLandTypeBinding, CardDefinition, CardObject,
+    CardType, Characteristics, Color, CombatBlock, ContinuousChange, ContinuousEffect, DeckList,
+    Duration, Effect, GameEvent, Keyword, ManaAbilityActivation, ManaAbilityBinding,
+    ManaAbilityOutput, ObjectId, PlayerId, PlayerState, PolicyMoveKind, StackEffectResolution,
+    StackObject, StackResolutionPlan, Step, Target, TargetRequirement, TokenSpec, Zone,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -150,6 +150,8 @@ pub struct CardView {
     pub tapped: bool,
     pub colors: BTreeSet<Color>,
     pub mana_colors: BTreeSet<Color>,
+    /// Typed basic-land type line, when this card's expansion registered one.
+    pub basic_land_type: Option<BasicLandType>,
     pub card_types: BTreeSet<CardType>,
     pub can_attack: bool,
 }
@@ -225,6 +227,7 @@ struct CombatState {
 pub struct Game {
     catalog: BTreeMap<&'static str, CardDefinition>,
     mana_abilities: BTreeMap<&'static str, BTreeMap<&'static str, ActivatedManaAbility>>,
+    basic_land_types: BTreeMap<&'static str, BasicLandType>,
     pub players: Vec<PlayerState>,
     objects: BTreeMap<ObjectId, CardObject>,
     pub stack: Vec<StackObject>,
@@ -259,10 +262,28 @@ impl Game {
         definitions: impl IntoIterator<Item = CardDefinition>,
         player_count: usize,
     ) -> Result<Self, RulesError> {
-        Self::new_with_mana_abilities(
+        Self::new_with_mana_abilities_and_basic_land_types(
             definitions,
             player_count,
             std::iter::empty::<ManaAbilityBinding>(),
+            std::iter::empty::<BasicLandTypeBinding>(),
+        )
+    }
+
+    /// Creates a game with expansion-provided typed basic-land definitions.
+    ///
+    /// Existing `Game::new` callers stay valid when a set does not yet expose
+    /// a typed basic-land type line.
+    pub fn new_with_basic_land_types(
+        definitions: impl IntoIterator<Item = CardDefinition>,
+        player_count: usize,
+        basic_land_type_bindings: impl IntoIterator<Item = BasicLandTypeBinding>,
+    ) -> Result<Self, RulesError> {
+        Self::new_with_mana_abilities_and_basic_land_types(
+            definitions,
+            player_count,
+            std::iter::empty::<ManaAbilityBinding>(),
+            basic_land_type_bindings,
         )
     }
 
@@ -273,6 +294,23 @@ impl Game {
         definitions: impl IntoIterator<Item = CardDefinition>,
         player_count: usize,
         bindings: impl IntoIterator<Item = ManaAbilityBinding>,
+    ) -> Result<Self, RulesError> {
+        Self::new_with_mana_abilities_and_basic_land_types(
+            definitions,
+            player_count,
+            bindings,
+            std::iter::empty::<BasicLandTypeBinding>(),
+        )
+    }
+
+    /// Creates a game with both definition-bound mana abilities and typed
+    /// basic-land type lines supplied by an expansion module.
+    #[allow(clippy::too_many_lines)] // Construction validates immutable expansion bindings together.
+    pub fn new_with_mana_abilities_and_basic_land_types(
+        definitions: impl IntoIterator<Item = CardDefinition>,
+        player_count: usize,
+        bindings: impl IntoIterator<Item = ManaAbilityBinding>,
+        basic_land_type_bindings: impl IntoIterator<Item = BasicLandTypeBinding>,
     ) -> Result<Self, RulesError> {
         if player_count < 2 {
             return Err(RulesError::IllegalAction(
@@ -289,6 +327,31 @@ impl Game {
             }
             if catalog.insert(definition.id, definition).is_some() {
                 return Err(RulesError::IllegalAction("duplicate card definition id"));
+            }
+        }
+        let mut basic_land_types = BTreeMap::<&'static str, BasicLandType>::new();
+        for binding in basic_land_type_bindings {
+            let definition = catalog
+                .get(binding.card_definition)
+                .ok_or(RulesError::UnknownDefinition(binding.card_definition))?;
+            if !definition.is_basic_land || !definition.is_land() {
+                return Err(RulesError::IllegalAction(
+                    "a basic land type binding requires a basic land definition",
+                ));
+            }
+            if definition.mana_colors != BTreeSet::from([binding.land_type.intrinsic_mana_color()])
+            {
+                return Err(RulesError::IllegalAction(
+                    "a basic land type must match its intrinsic mana color",
+                ));
+            }
+            if basic_land_types
+                .insert(binding.card_definition, binding.land_type)
+                .is_some()
+            {
+                return Err(RulesError::IllegalAction(
+                    "duplicate basic land type binding for card definition",
+                ));
             }
         }
         let mut mana_abilities =
@@ -319,6 +382,7 @@ impl Game {
         let game = Self {
             catalog,
             mana_abilities,
+            basic_land_types,
             players,
             objects: BTreeMap::new(),
             stack: Vec::new(),
@@ -615,6 +679,14 @@ impl Game {
                 "that land cannot produce the requested color",
             ));
         }
+        if self
+            .basic_land_type(land)?
+            .is_some_and(|land_type| land_type.intrinsic_mana_color() != color)
+        {
+            return Err(RulesError::IllegalAction(
+                "that basic land type cannot produce the requested color",
+            ));
+        }
         if !self.players[player.0].mana_pool.can_add(color, 1) {
             return Err(RulesError::IllegalAction(
                 "mana pool cannot hold the requested mana",
@@ -851,6 +923,14 @@ impl Game {
                 None
             }
         })
+    }
+
+    /// Returns the registered typed basic-land type line for a card object.
+    pub fn basic_land_type(&self, card: ObjectId) -> Result<Option<BasicLandType>, RulesError> {
+        let object = self.object(card)?;
+        Ok(object
+            .definition
+            .and_then(|definition| self.basic_land_types.get(definition).copied()))
     }
 
     /// Drops setup or prior-run events. This is useful at the start of a scenario's
@@ -1893,6 +1973,22 @@ impl Game {
             {
                 return Err(RulesError::IllegalAction(
                     "card definition has missing or duplicate supported-rule markers",
+                ));
+            }
+        }
+        for (definition_id, land_type) in &self.basic_land_types {
+            let definition = self
+                .catalog
+                .get(definition_id)
+                .ok_or(RulesError::UnknownDefinition(definition_id))?;
+            if !definition.is_basic_land || !definition.is_land() {
+                return Err(RulesError::IllegalAction(
+                    "a basic land type binding requires a basic land definition",
+                ));
+            }
+            if definition.mana_colors != BTreeSet::from([land_type.intrinsic_mana_color()]) {
+                return Err(RulesError::IllegalAction(
+                    "a basic land type must match its intrinsic mana color",
                 ));
             }
         }
@@ -3582,6 +3678,9 @@ impl Game {
             .definition
             .and_then(|definition| self.catalog.get(definition))
             .map_or_else(BTreeSet::new, |definition| definition.mana_colors.clone());
+        let basic_land_type = object
+            .definition
+            .and_then(|definition| self.basic_land_types.get(definition).copied());
         let can_attack = object.controller == self.active_player
             && self.zone_of(card) == Some(Zone::Battlefield)
             && !object.tapped
@@ -3595,6 +3694,7 @@ impl Game {
             tapped: object.tapped,
             colors: characteristics.colors,
             mana_colors,
+            basic_land_type,
             card_types: characteristics.card_types,
             can_attack,
         })
