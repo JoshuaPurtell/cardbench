@@ -39,14 +39,6 @@ fn fourth_creature_chassis_batch_is_exactly_bounded_to_public_base_facts() {
             5,
             5,
         ),
-        (
-            "RAV-SELL-SWORD-BRUTE",
-            "Sell-Sword Brute",
-            ManaCost::with_colors(1, [Color::Red]),
-            BTreeSet::from([Color::Red]),
-            2,
-            2,
-        ),
     ];
 
     for (id, name, mana_cost, colors, power, toughness) in expected {
@@ -80,6 +72,20 @@ fn fourth_creature_chassis_batch_is_exactly_bounded_to_public_base_facts() {
             "colored-cost-casting",
             "base-characteristics",
             "damage-cannot-be-prevented"
+        ]
+    );
+
+    let brute = definitions
+        .iter()
+        .find(|definition| definition.id == "RAV-SELL-SWORD-BRUTE")
+        .expect("Sell-Sword Brute definition exists");
+    assert_eq!(
+        brute.supported_rules,
+        [
+            "full-rules-fidelity",
+            "colored-cost-casting",
+            "base-characteristics",
+            "dies-deal-two-to-controller"
         ]
     );
 
