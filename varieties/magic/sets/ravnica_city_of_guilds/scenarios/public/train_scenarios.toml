@@ -3499,7 +3499,7 @@ digest = "fnv1a64:e78637d84b25b302"
 [[scenario]]
 id = "rav_red_black_creature_chassis_two"
 seed = 0
-description = "Cast Frenzied Goblin and Mortipede with exact red and black costs, then verify only their base P/T. Their printed combat behavior is deliberately omitted."
+description = "Cast Frenzied Goblin and Mortipede with exact red and black costs, then verify base P/T; Frenzied Goblin's optional attack trigger is covered by a dedicated target-bearing regression."
 
 [[scenario.card]]
 label = "goblin"
@@ -3688,7 +3688,7 @@ digest = "fnv1a64:3d74cd919c9d23aa"
 [[scenario]]
 id = "rav_black_red_creature_chassis"
 seed = 0
-description = "Cast Carrion Howler and Coalhauler Swine with their exact colored costs, then verify only their base P/T. All printed card-specific behavior is deliberately omitted."
+description = "Cast Carrion Howler and Coalhauler Swine with their exact colored costs, then verify base P/T; Coalhauler Swine's received-damage trigger is covered by a dedicated event-log regression."
 
 [[scenario.card]]
 label = "howler"
@@ -4918,7 +4918,7 @@ digest = "fnv1a64:e78637d84b25b302"
 [[scenario]]
 id = "rav_fire_fiend_brute_creature_chassis"
 seed = 0
-description = "Cast Goblin Fire Fiend and Sell-Sword Brute with exact red costs, then verify only base P/T. Printed haste, attack restriction, power activation, and death trigger are deliberately omitted."
+description = "Cast Goblin Fire Fiend and Sell-Sword Brute with exact red costs, then verify base P/T; Fire Fiend's attack rules and Brute's dies trigger are covered by dedicated regressions."
 
 [[scenario.card]]
 label = "fiend"
