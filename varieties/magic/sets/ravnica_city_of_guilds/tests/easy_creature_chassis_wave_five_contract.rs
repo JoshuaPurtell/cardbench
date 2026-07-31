@@ -6,7 +6,7 @@
 
 use std::collections::BTreeSet;
 
-use cardbench_magic_engine::{CardType, Color, ManaCost};
+use cardbench_magic_engine::{CardType, Color, Keyword, ManaCost};
 use cardbench_magic_rav::{card_definitions, run_all_scenarios};
 
 #[test]
@@ -14,14 +14,6 @@ use cardbench_magic_rav::{card_definitions, run_all_scenarios};
 fn first_range_creature_chassis_is_exactly_bounded_to_public_base_facts() {
     let definitions = card_definitions();
     let expected = [
-        (
-            "RAV-DIVEBOMBER-GRIFFIN",
-            "Divebomber Griffin",
-            ManaCost::with_colors(3, [Color::White, Color::White]),
-            BTreeSet::from([Color::White]),
-            3,
-            2,
-        ),
         (
             "RAV-SANDSOWER",
             "Sandsower",
@@ -76,6 +68,25 @@ fn first_range_creature_chassis_is_exactly_bounded_to_public_base_facts() {
         assert!(definition.effects.is_empty(), "{id}");
     }
 
+    let divebomber = definitions
+        .iter()
+        .find(|definition| definition.id == "RAV-DIVEBOMBER-GRIFFIN")
+        .expect("Divebomber Griffin definition exists");
+    assert_eq!(divebomber.name, "Divebomber Griffin");
+    assert_eq!(
+        divebomber.mana_cost,
+        ManaCost::with_colors(3, [Color::White, Color::White])
+    );
+    assert_eq!(divebomber.colors, BTreeSet::from([Color::White]));
+    assert_eq!(divebomber.card_types, BTreeSet::from([CardType::Creature]));
+    assert_eq!((divebomber.power, divebomber.toughness), (Some(3), Some(2)));
+    assert_eq!(divebomber.keywords, [Keyword::Flying]);
+    assert!(divebomber.effects.is_empty());
+    assert_eq!(
+        divebomber.supported_rules,
+        ["colored-cost-casting", "base-characteristics", "flying"]
+    );
+
     let drift = definitions
         .iter()
         .find(|definition| definition.id == "RAV-DRIFT-OF-PHANTASMS")
@@ -127,6 +138,7 @@ fn first_range_creature_chassis_has_deterministic_public_scenarios() {
         .collect::<BTreeSet<_>>();
     for id in [
         "rav_easy_white_creature_chassis_wave_five",
+        "rav_divebomber_griffin_flying_compatibility",
         "rav_easy_blue_creature_chassis_wave_five",
     ] {
         assert!(scenarios.contains(id), "missing public scenario {id}");

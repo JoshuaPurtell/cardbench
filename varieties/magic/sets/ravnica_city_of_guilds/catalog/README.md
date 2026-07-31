@@ -229,9 +229,10 @@ Defender attack declaration.
 
 The first-range easy-creature wave adds Divebomber Griffin, Sandsower, Votary
 of the Conclave, Drake Familiar, Ethereal Usher, and Grozoth. Each supports
-only normal colored-cost creature casting and base power/toughness. Every
-printed keyword, activated ability, triggered ability, and hand-zone behavior
-is deliberately unsupported. Two deterministic public scenarios cover their
+normal colored-cost creature casting, base power/toughness, and (for Divebomber
+Griffin) static Flying. Every
+other printed keyword, activated ability, triggered ability, and hand-zone
+behavior is deliberately unsupported. Three deterministic public scenarios cover their
 exact colored-cost payments, stack resolution, zone movement, priority, and
 retained base P/T values only.
 
