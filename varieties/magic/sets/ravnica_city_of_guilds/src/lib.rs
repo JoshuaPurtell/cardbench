@@ -1500,9 +1500,8 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Reach],
             effects: vec![],
         },
-        // Compatibility scope: normal colored-cost creature casting, base
-        // characteristics, and Flying. Its activated combat behavior remains
-        // deliberately unsupported, so this is not a full-fidelity card.
+        // Full fidelity: Flying and the source-relative blocker restriction
+        // are represented by the shared combat and layer substrates.
         CardDefinition {
             id: "RAV-SCREECHING-GRIFFIN",
             name: "Screeching Griffin",
