@@ -65,6 +65,9 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-ORDRUUN-COMMANDO",
             "RAV-INDENTURED-OAF",
             "RAV-EXCRUCIATOR",
+            "RAV-COALHAULER-SWINE",
+            "RAV-SELL-SWORD-BRUTE",
+            "RAV-FRENZIED-GOBLIN",
         ]
     );
     let definitions = card_definitions();

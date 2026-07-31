@@ -26,8 +26,8 @@ use cardbench_magic_engine::{
     AdditionalSpellCostBinding, BasicLandType, BasicLandTypeBinding, CardDefinition, CardType,
     CastRequest, Color, ConvokeContribution, ConvokePayment, DeckEntry, DeckList, DeckRules,
     Effect, Game, HybridManaSymbol, Keyword, ManaAbilityBinding, ManaAbilityOutput, ManaBundle,
-    ManaCost, PlayerId, RulesError, Target, TokenSpec, TriggeredAbility, TriggeredAbilityBinding,
-    Zone,
+    ManaCost, PlayerId, RulesError, Target, TokenSpec, TriggerCondition, TriggeredAbility,
+    TriggeredAbilityBinding, Zone,
 };
 
 pub const SET_CODE: &str = "RAV";
@@ -35,7 +35,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 54] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 58] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SCATTER-THE-SEEDS",
@@ -87,9 +87,13 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 54] = [
     "RAV-THUNDERSONG-TRUMPETER",
     "RAV-SABERTOOTH-ALLEY-CAT",
     "RAV-FLAME-KIN-ZEALOT",
+    "RAV-SUNHOME-ENFORCER",
     "RAV-ORDRUUN-COMMANDO",
     "RAV-INDENTURED-OAF",
     "RAV-EXCRUCIATOR",
+    "RAV-COALHAULER-SWINE",
+    "RAV-SELL-SWORD-BRUTE",
+    "RAV-FRENZIED-GOBLIN",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -982,9 +986,8 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::DoubleStrike],
             effects: vec![],
         },
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Every printed card-specific behavior is
-        // deliberately omitted from this slice.
+        // Full fidelity: positive damage received creates a source-specific
+        // trigger whose captured amount is dealt to every surviving player.
         CardDefinition {
             id: "RAV-COALHAULER-SWINE",
             name: "Coalhauler Swine",
@@ -994,7 +997,12 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Creature]),
             is_basic_land: false,
-            supported_rules: &["colored-cost-casting", "base-characteristics"],
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "damage-received-to-each-player",
+            ],
             power: Some(4),
             toughness: Some(4),
             keywords: vec![],
@@ -1123,10 +1131,9 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::DoubleStrike],
             effects: vec![],
         },
-        // Compatibility scope: normal colored-cost creature casting, base
-        // characteristics, and Defender. Its enter-the-battlefield draw
-        // trigger remains deliberately unsupported, so this is not a
-        // full-fidelity card.
+        // Compatibility scope: normal colored-cost creature casting and base
+        // characteristics only. Every printed card-specific behavior is
+        // deliberately omitted from this slice.
         CardDefinition {
             id: "RAV-CARVEN-CARYATID",
             name: "Carven Caryatid",
@@ -1136,10 +1143,10 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Creature]),
             is_basic_land: false,
-            supported_rules: &["colored-cost-casting", "base-characteristics", "defender"],
+            supported_rules: &["colored-cost-casting", "base-characteristics"],
             power: Some(2),
             toughness: Some(5),
-            keywords: vec![Keyword::Defender],
+            keywords: vec![],
             effects: vec![],
         },
         // Public RAV #261 verification establishes that this is a vanilla
@@ -1225,17 +1232,28 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             1,
             1,
         ),
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed combat-triggered behavior is
-        // deliberately omitted from this compatibility slice.
-        bounded_creature_chassis(
-            "RAV-FRENZIED-GOBLIN",
-            "Frenzied Goblin",
-            ManaCost::with_colors(0, [Color::Red]),
-            colors([Color::Red]),
-            1,
-            1,
-        ),
+        // Full fidelity: the attack trigger's optional red payment and
+        // target choice are represented by the attack-trigger binding.
+        CardDefinition {
+            id: "RAV-FRENZIED-GOBLIN",
+            name: "Frenzied Goblin",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(0, [Color::Red]),
+            colors: colors([Color::Red]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "attack-trigger-optional-red-cannot-block",
+            ],
+            power: Some(1),
+            toughness: Some(1),
+            keywords: vec![],
+            effects: vec![],
+        },
         // Compatibility scope: normal colored-cost creature casting and base
         // characteristics only. Its printed evasion keyword is deliberately
         // omitted from this compatibility slice.
@@ -1336,25 +1354,17 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             1,
             2,
         ),
-        // Compatibility scope: normal colored-cost creature casting, base
-        // characteristics, and Reach. Its printed tap-to-damage activation
-        // remains deliberately unsupported, so this is not a full-fidelity
-        // card.
-        CardDefinition {
-            id: "RAV-SELESNYA-SAGITTARS",
-            name: "Selesnya Sagittars",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(3, [Color::Green, Color::White]),
-            colors: colors([Color::Green, Color::White]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &["colored-cost-casting", "base-characteristics", "reach"],
-            power: Some(2),
-            toughness: Some(5),
-            keywords: vec![Keyword::Reach],
-            effects: vec![],
-        },
+        // Compatibility scope: normal colored-cost creature casting and base
+        // characteristics only. Its printed combat capabilities are deliberately
+        // omitted from this compatibility slice.
+        bounded_creature_chassis(
+            "RAV-SELESNYA-SAGITTARS",
+            "Selesnya Sagittars",
+            ManaCost::with_colors(3, [Color::Green, Color::White]),
+            colors([Color::Green, Color::White]),
+            2,
+            5,
+        ),
         // Compatibility scope: normal colored-cost creature casting, base
         // characteristics, and Flying. Its activated combat behavior remains
         // deliberately unsupported, so this is not a full-fidelity card.
@@ -1373,24 +1383,17 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Flying],
             effects: vec![],
         },
-        // Compatibility scope: normal colored-cost creature casting, base
-        // characteristics, and Flying. Its damage-triggered behavior remains
-        // deliberately unsupported, so this is not a full-fidelity card.
-        CardDefinition {
-            id: "RAV-BELLTOWER-SPHINX",
-            name: "Belltower Sphinx",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(4, [Color::Blue]),
-            colors: colors([Color::Blue]),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Creature]),
-            is_basic_land: false,
-            supported_rules: &["colored-cost-casting", "base-characteristics", "flying"],
-            power: Some(2),
-            toughness: Some(5),
-            keywords: vec![Keyword::Flying],
-            effects: vec![],
-        },
+        // Compatibility scope: normal colored-cost creature casting and base
+        // characteristics only. Its printed flying and damage-triggered
+        // behavior are deliberately omitted from this compatibility slice.
+        bounded_creature_chassis(
+            "RAV-BELLTOWER-SPHINX",
+            "Belltower Sphinx",
+            ManaCost::with_colors(4, [Color::Blue]),
+            colors([Color::Blue]),
+            2,
+            5,
+        ),
         // Compatibility scope: normal colored-cost creature casting and base
         // characteristics only. Its printed flying and activated library
         // behavior are deliberately omitted from this compatibility slice.
@@ -1509,7 +1512,7 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Defender],
             effects: vec![],
         },
-        // Full-fidelity scope: colored-cost creature casting, base
+        // Full fidelity: normal colored-cost creature casting, base
         // characteristics, and the typed tap-to-deal-one activated ability.
         CardDefinition {
             id: "RAV-VIASHINO-FANGTAIL",
@@ -1788,17 +1791,28 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Haste, Keyword::MustBeBlockedIfAble],
             effects: vec![],
         },
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed death damage trigger is
-        // deliberately omitted from this compatibility slice.
-        bounded_creature_chassis(
-            "RAV-SELL-SWORD-BRUTE",
-            "Sell-Sword Brute",
-            ManaCost::with_colors(1, [Color::Red]),
-            colors([Color::Red]),
-            2,
-            2,
-        ),
+        // Full fidelity: changing from the battlefield to the graveyard
+        // queues a controller-directed two-damage trigger.
+        CardDefinition {
+            id: "RAV-SELL-SWORD-BRUTE",
+            name: "Sell-Sword Brute",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(1, [Color::Red]),
+            colors: colors([Color::Red]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "dies-deal-two-to-controller",
+            ],
+            power: Some(2),
+            toughness: Some(2),
+            keywords: vec![],
+            effects: vec![],
+        },
         // Full fidelity: `{R}, sacrifice this creature` is a typed stack
         // ability that deals two damage to a blocking creature.
         CardDefinition {
@@ -1921,17 +1935,29 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             5,
             4,
         ),
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed activated combat behavior is
-        // deliberately omitted from this compatibility slice.
-        bounded_creature_chassis(
-            "RAV-SUNHOME-ENFORCER",
-            "Sunhome Enforcer",
-            ManaCost::with_colors(2, [Color::Red, Color::White]),
-            colors([Color::Red, Color::White]),
-            2,
-            4,
-        ),
+        // Full fidelity: combat and noncombat damage from this permanent
+        // creates a source-specific stack trigger whose life gain is
+        // materialized from the positive damage event amount.
+        CardDefinition {
+            id: "RAV-SUNHOME-ENFORCER",
+            name: "Sunhome Enforcer",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(2, [Color::Red, Color::White]),
+            colors: colors([Color::Red, Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "damage-trigger-life-gain",
+            ],
+            power: Some(2),
+            toughness: Some(4),
+            keywords: vec![],
+            effects: vec![],
+        },
         // Full fidelity: the tapped target ability installs a temporary
         // combat-participation restriction through the shared ability layer.
         CardDefinition {
@@ -2486,10 +2512,73 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
 /// Target-free stack triggers bound to RAV permanents.
 #[must_use]
 pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
-    vec![TriggeredAbilityBinding {
-        card_definition: "RAV-FLAME-KIN-ZEALOT",
-        ability: TriggeredAbility::EnterBattlefieldTeamPumpHaste,
-    }]
+    vec![
+        TriggeredAbilityBinding {
+            card_definition: "RAV-FLAME-KIN-ZEALOT",
+            ability: TriggeredAbility {
+                id: "etb-team-pump-haste",
+                condition: TriggerCondition::EntersBattlefield,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![
+                    Effect::ModifyControllerCreaturesPtUntilEndOfTurn {
+                        power: 1,
+                        toughness: 1,
+                    },
+                    Effect::AddKeywordToControllerCreaturesUntilEndOfTurn {
+                        keyword: Keyword::Haste,
+                    },
+                ],
+            },
+        },
+        TriggeredAbilityBinding {
+            card_definition: "RAV-FRENZIED-GOBLIN",
+            ability: TriggeredAbility {
+                id: "attack-cannot-block",
+                condition: TriggerCondition::Attacks,
+                mana_cost: ManaCost::with_colors(0, [Color::Red]),
+                optional: true,
+                targets: vec![cardbench_magic_engine::TargetRequirement::Creature],
+                effects: vec![Effect::ModifyTargetKeywordUntilEndOfTurn {
+                    keyword: Keyword::CannotAttackOrBlock,
+                }],
+            },
+        },
+        TriggeredAbilityBinding {
+            card_definition: "RAV-SUNHOME-ENFORCER",
+            ability: TriggeredAbility {
+                id: "damage-life-gain",
+                condition: TriggerCondition::DealsDamage,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![Effect::GainLifeControllerFromSourceDamage],
+            },
+        },
+        TriggeredAbilityBinding {
+            card_definition: "RAV-COALHAULER-SWINE",
+            ability: TriggeredAbility {
+                id: "damage-each-player",
+                condition: TriggerCondition::ReceivesDamage,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![Effect::DealDamageToEachPlayerFromReceivedDamage],
+            },
+        },
+        TriggeredAbilityBinding {
+            card_definition: "RAV-SELL-SWORD-BRUTE",
+            ability: TriggeredAbility {
+                id: "dies-deal-two-to-controller",
+                condition: TriggerCondition::Dies,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![Effect::DealDamageController { amount: 2 }],
+            },
+        },
+    ]
 }
 
 /// Typed basic-land type lines for the five RAV basic-land definitions.
@@ -2529,17 +2618,6 @@ pub fn rav_additional_spell_cost_bindings() -> Vec<AdditionalSpellCostBinding> {
     vec![AdditionalSpellCostBinding {
         card_definition: "RAV-FIERY-CONCLUSION",
         cost: AdditionalSpellCost::SacrificeControlledCreature,
-    }]
-}
-
-/// Typed triggered-ability bindings for the bounded RAV slice.  The common
-/// engine keeps these separate from the card catalog so a caller can opt into
-/// stack-backed trigger behavior without silently changing setup-only fixtures.
-#[must_use]
-pub fn rav_trigger_bindings() -> Vec<TriggeredAbilityBinding> {
-    vec![TriggeredAbilityBinding {
-        card_definition: "RAV-CARVEN-CARYATID",
-        ability: TriggeredAbility::EnterBattlefieldDrawController,
     }]
 }
 
@@ -3245,7 +3323,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 111);
+        assert_eq!(first.len(), 109);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }
