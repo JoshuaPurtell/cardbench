@@ -35,7 +35,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 62] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 63] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SCATTER-THE-SEEDS",
@@ -98,6 +98,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 62] = [
     "RAV-HUNTED-DRAGON",
     "RAV-RAZIA-BOROS-ARCHANGEL",
     "RAV-HAMMERFIST-GIANT",
+    "RAV-SCREECHING-GRIFFIN",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -1487,7 +1488,13 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Creature]),
             is_basic_land: false,
-            supported_rules: &["colored-cost-casting", "base-characteristics", "flying"],
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "flying",
+                "activated-prevent-target-blocking-source",
+            ],
             power: Some(2),
             toughness: Some(2),
             keywords: vec![Keyword::Flying],
@@ -1505,7 +1512,13 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Creature]),
             is_basic_land: false,
-            supported_rules: &["colored-cost-casting", "base-characteristics", "flying"],
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "flying",
+                "activated-prevent-target-blocking-source",
+            ],
             power: Some(2),
             toughness: Some(5),
             keywords: vec![Keyword::Flying],
@@ -2578,6 +2591,19 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 effects: vec![Effect::ModifyTargetKeywordUntilEndOfTurn {
                     keyword: Keyword::CannotAttackOrBlock,
                 }],
+            },
+        },
+        ActivatedAbilityBinding {
+            card_definition: "RAV-SCREECHING-GRIFFIN",
+            ability: ActivatedAbility {
+                id: "prevent-target-blocking-griffin",
+                mana_cost: ManaCost::with_colors(0, [Color::Red]),
+                tap_cost: false,
+                sacrifice_source: false,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![cardbench_magic_engine::TargetRequirement::Creature],
+                effects: vec![Effect::PreventTargetBlockingSourceUntilEndOfTurn],
             },
         },
         ActivatedAbilityBinding {

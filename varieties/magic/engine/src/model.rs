@@ -824,6 +824,9 @@ pub enum Effect {
     ModifyTargetKeywordUntilEndOfTurn {
         keyword: Keyword,
     },
+    /// Prevent one selected creature from blocking the source permanent for
+    /// this turn. This is source-relative rather than a global combat lock.
+    PreventTargetBlockingSourceUntilEndOfTurn,
     /// Apply a temporary layer-7 modifier to the permanent that activated the
     /// resolving ability. This is intentionally source-relative rather than a
     /// target slot, matching self-pump abilities such as Goblin Fire Fiend.
@@ -886,7 +889,8 @@ impl Effect {
             | Self::RadianceDealDamageToCreatures { .. }
             | Self::RadianceUntapAndModifyUntilEndOfTurn { .. }
             | Self::RadianceModifyPtUntilEndOfTurn { .. }
-            | Self::BeginDamageRedirection { .. } => Some(TargetRequirement::Creature),
+            | Self::BeginDamageRedirection { .. }
+            | Self::PreventTargetBlockingSourceUntilEndOfTurn => Some(TargetRequirement::Creature),
             Self::CompleteDamageRedirection => Some(TargetRequirement::PlayerOrCreature),
             Self::CreateTokenForTargetPlayer { .. } => Some(TargetRequirement::Player),
             Self::DestroyTargetLand => Some(TargetRequirement::Land),
@@ -1153,6 +1157,7 @@ pub enum ContinuousChange {
     AddColor(Color),
     AddKeyword(Keyword),
     RemoveKeyword(Keyword),
+    CannotBlockSource(ObjectId),
     AddDamageShield(i16),
     ModifyPowerToughness { power: i16, toughness: i16 },
 }
@@ -1163,9 +1168,10 @@ impl ContinuousChange {
         match self {
             Self::AddCardType(_) => Layer::Type,
             Self::AddColor(_) => Layer::Color,
-            Self::AddKeyword(_) | Self::RemoveKeyword(_) | Self::AddDamageShield(_) => {
-                Layer::Ability
-            }
+            Self::AddKeyword(_)
+            | Self::RemoveKeyword(_)
+            | Self::CannotBlockSource(_)
+            | Self::AddDamageShield(_) => Layer::Ability,
             Self::ModifyPowerToughness { .. } => Layer::PowerToughness,
         }
     }

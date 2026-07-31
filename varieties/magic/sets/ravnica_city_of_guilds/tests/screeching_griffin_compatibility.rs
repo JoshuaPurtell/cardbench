@@ -1,4 +1,4 @@
-//! Bounded public contract for Screeching Griffin's shared Flying behavior.
+//! Public contract for Screeching Griffin's complete executable slice.
 
 use std::collections::BTreeSet;
 
@@ -6,7 +6,7 @@ use cardbench_magic_engine::{CardType, Color, Keyword, ManaCost};
 use cardbench_magic_rav::{RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, run_all_scenarios};
 
 #[test]
-fn screeching_griffin_definition_is_explicit_about_the_omitted_activation() {
+fn screeching_griffin_definition_includes_its_source_relative_activation() {
     let griffin = card_definitions()
         .into_iter()
         .find(|definition| definition.id == "RAV-SCREECHING-GRIFFIN")
@@ -21,12 +21,15 @@ fn screeching_griffin_definition_is_explicit_about_the_omitted_activation() {
     assert!(griffin.effects.is_empty());
     assert_eq!(
         griffin.supported_rules,
-        ["colored-cost-casting", "base-characteristics", "flying"]
+        [
+            "full-rules-fidelity",
+            "colored-cost-casting",
+            "base-characteristics",
+            "flying",
+            "activated-prevent-target-blocking-source"
+        ]
     );
-    assert!(
-        !RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&griffin.id),
-        "the omitted activated ability keeps this definition bounded"
-    );
+    assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&griffin.id));
 }
 
 #[test]
