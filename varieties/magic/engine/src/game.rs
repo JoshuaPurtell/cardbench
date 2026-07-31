@@ -3869,12 +3869,18 @@ impl Game {
             }
             (
                 Target::Permanent(card),
-                TargetRequirement::Creature | TargetRequirement::PlayerOrCreature,
+                TargetRequirement::Creature
+                | TargetRequirement::PlayerOrCreature
+                | TargetRequirement::BlockingCreature,
             ) => {
                 self.zone_of(card) == Some(Zone::Battlefield)
                     && self.characteristics(card).is_ok_and(|characteristics| {
                         characteristics.card_types.contains(&CardType::Creature)
                     })
+                    && (!matches!(requirement, TargetRequirement::BlockingCreature)
+                        || self.combat.as_ref().is_some_and(|combat| {
+                            combat.blockers.values().any(|blocker| *blocker == card)
+                        }))
             }
             (Target::Spell(card), TargetRequirement::InstantOrSorcerySpell) => {
                 self.stack
@@ -3904,6 +3910,7 @@ impl Game {
                 Target::Permanent(_),
                 TargetRequirement::Any
                     | TargetRequirement::Creature
+                    | TargetRequirement::BlockingCreature
                     | TargetRequirement::PlayerOrCreature
             ) | (Target::Spell(_), TargetRequirement::InstantOrSorcerySpell)
         )
