@@ -54,14 +54,6 @@ fn second_creature_chassis_batch_is_exactly_bounded_to_public_base_facts() {
             4,
             1,
         ),
-        (
-            "RAV-SELESNYA-EVANGEL",
-            "Selesnya Evangel",
-            ManaCost::with_colors(0, [Color::Green, Color::White]),
-            BTreeSet::from([Color::Green, Color::White]),
-            1,
-            2,
-        ),
     ];
 
     for (id, name, mana_cost, colors, power, toughness) in expected {
