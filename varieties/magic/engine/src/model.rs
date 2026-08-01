@@ -15,6 +15,9 @@ pub enum Color {
     Black,
     Red,
     Green,
+    /// A mana kind, not a card color. It can pay generic and explicit
+    /// colorless costs but never satisfies a colored or hybrid symbol.
+    Colorless,
 }
 
 /// One of Magic's five typed basic-land subtypes.
@@ -285,7 +288,27 @@ pub enum CastPaymentManaAbility {
 }
 
 impl Color {
+    /// Magic's five actual card colors. This intentionally excludes the
+    /// colorless mana kind, so effects such as "choose a color" and Birds of
+    /// Paradise cannot select it.
     pub const ALL: [Self; 5] = [Self::White, Self::Blue, Self::Black, Self::Red, Self::Green];
+
+    /// Every represented mana kind. The ordering spends colorless mana first
+    /// for deterministic generic-payment compatibility while preserving all
+    /// preexisting colored-only behavior when no colorless mana exists.
+    pub const MANA_ALL: [Self; 6] = [
+        Self::Colorless,
+        Self::White,
+        Self::Blue,
+        Self::Black,
+        Self::Red,
+        Self::Green,
+    ];
+
+    #[must_use]
+    pub const fn is_colored(self) -> bool {
+        !matches!(self, Self::Colorless)
+    }
 
     #[must_use]
     pub const fn index(self) -> usize {
@@ -295,6 +318,7 @@ impl Color {
             Self::Black => 2,
             Self::Red => 3,
             Self::Green => 4,
+            Self::Colorless => 5,
         }
     }
 }
@@ -395,10 +419,11 @@ impl ManaCost {
     }
 }
 
-/// A deterministic five-color mana pool. It intentionally has no floating mana source.
+/// A deterministic six-kind mana pool: the five card colors plus colorless.
+/// It intentionally has no floating mana source.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct ManaPool {
-    amounts: [u8; 5],
+    amounts: [u8; 6],
 }
 
 impl ManaPool {
@@ -422,7 +447,7 @@ impl ManaPool {
         u8::try_from(self.total_exact()).unwrap_or(u8::MAX)
     }
 
-    /// Returns the complete pool total widened enough for all five color slots.
+    /// Returns the complete pool total widened enough for every mana slot.
     ///
     /// `total` remains a bounded `u8` compatibility view for policy heuristics;
     /// payment code must use this exact value so valid large pools cannot
@@ -434,7 +459,7 @@ impl ManaPool {
 
     /// Empties floating mana at a step or phase boundary.
     pub fn clear(&mut self) {
-        self.amounts = [0; 5];
+        self.amounts = [0; 6];
     }
 
     pub(crate) fn pay(&mut self, cost: &ManaCost) -> Result<(), String> {
@@ -503,16 +528,16 @@ impl ManaPool {
         // A cost may repeat one colored symbol more often than this bounded
         // pool can represent. Count in a widened type so the requirement never
         // saturates into a cheaper payable cost.
-        let mut required = [0_u16; 5];
+        let mut required = [0_u16; 6];
         for color in &cost.colored {
             required[color.index()] = required[color.index()].saturating_add(1);
         }
-        for color in Color::ALL {
+        for color in Color::MANA_ALL {
             if u16::from(self.amount(color)) < required[color.index()] {
                 return Err(format!("missing {color:?} mana"));
             }
         }
-        for color in Color::ALL {
+        for color in Color::MANA_ALL {
             let spent = u8::try_from(required[color.index()])
                 .expect("a payable bounded colored cost fits its source pool");
             self.amounts[color.index()] -= spent;
@@ -522,7 +547,7 @@ impl ManaPool {
             return Err("missing generic mana".to_owned());
         }
         let mut remaining = cost.generic;
-        for color in Color::ALL {
+        for color in Color::MANA_ALL {
             let spent = self.amount(color).min(remaining);
             self.amounts[color.index()] -= spent;
             remaining -= spent;
@@ -536,12 +561,12 @@ impl ManaPool {
     /// Pays every hybrid symbol through a capacity-aware matching pass. A
     /// greedy left-to-right choice would reject a payable cost such as
     /// `{W/U}{W/R}` from `{W}{U}`; augmenting prior choices keeps payment
-    /// order-independent while preserving the five-color pool boundary.
+    /// order-independent while preserving the bounded mana-pool boundary.
     fn pay_hybrid_symbols(&mut self, symbols: &[HybridManaSymbol]) -> Result<(), String> {
         let mut remaining = self.amounts.map(u16::from);
         let mut assignments = vec![None; symbols.len()];
         for index in 0..symbols.len() {
-            let mut seen_colors = [false; 5];
+            let mut seen_colors = [false; 6];
             let mut seen_symbols = vec![false; symbols.len()];
             if !Self::assign_hybrid_symbol(
                 index,
@@ -554,7 +579,7 @@ impl ManaPool {
                 return Err("missing hybrid mana".to_owned());
             }
         }
-        for color in Color::ALL {
+        for color in Color::MANA_ALL {
             self.amounts[color.index()] = u8::try_from(remaining[color.index()])
                 .expect("hybrid payment cannot increase a bounded mana pool");
         }
@@ -566,8 +591,8 @@ impl ManaPool {
         index: usize,
         symbols: &[HybridManaSymbol],
         assignments: &mut [Option<Color>],
-        remaining: &mut [u16; 5],
-        seen_colors: &mut [bool; 5],
+        remaining: &mut [u16; 6],
+        seen_colors: &mut [bool; 6],
         seen_symbols: &mut [bool],
     ) -> bool {
         seen_symbols[index] = true;

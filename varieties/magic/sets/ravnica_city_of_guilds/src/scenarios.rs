@@ -915,6 +915,7 @@ fn parse_color(value: &str) -> Result<Color, String> {
         "black" => Ok(Color::Black),
         "red" => Ok(Color::Red),
         "green" => Ok(Color::Green),
+        "colorless" => Ok(Color::Colorless),
         _ => Err(format!("unknown color `{value}`")),
     }
 }

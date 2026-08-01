@@ -455,6 +455,7 @@ impl Game {
         let mut catalog = BTreeMap::new();
         for definition in definitions {
             Self::validate_mana_cost(&definition.mana_cost)?;
+            Self::validate_card_colors(&definition.colors)?;
             for keyword in &definition.keywords {
                 if let Keyword::Transmute(cost) = keyword {
                     Self::validate_mana_cost(cost)?;
@@ -1818,6 +1819,11 @@ impl Game {
     ) -> Result<(), RulesError> {
         self.object(source)?;
         self.object(target)?;
+        if matches!(change, ContinuousChange::AddColor(Color::Colorless)) {
+            return Err(RulesError::IllegalAction(
+                "continuous effects may not add the colorless mana kind as a card color",
+            ));
+        }
         match duration {
             Duration::Permanent
                 if self.zone_of(source) != Some(Zone::Battlefield)
@@ -3075,6 +3081,7 @@ impl Game {
                             }
                         }
                         (None, Some(token)) if zone == Zone::Battlefield => {
+                            Self::validate_card_colors(&token.colors)?;
                             if !token.creature_subtypes.is_empty()
                                 && !token.card_types.contains(&CardType::Creature)
                             {
@@ -3347,6 +3354,11 @@ impl Game {
         for effect in &self.continuous_effects {
             self.object(effect.source)?;
             self.object(effect.target)?;
+            if matches!(effect.change, ContinuousChange::AddColor(Color::Colorless)) {
+                return Err(RulesError::IllegalAction(
+                    "continuous effects may not add the colorless mana kind as a card color",
+                ));
+            }
             if effect.timestamp == 0
                 || !effect_timestamps.insert(effect.timestamp)
                 || effect.timestamp >= self.next_timestamp
@@ -3852,6 +3864,13 @@ impl Game {
     /// are positive quantities.
     fn validate_cast_effects(definition: &CardDefinition) -> Result<(), RulesError> {
         for effect in &definition.effects {
+            match effect {
+                Effect::CreateToken { token, .. }
+                | Effect::CreateTokenForTargetPlayer { token, .. } => {
+                    Self::validate_token_spec(token)?;
+                }
+                _ => {}
+            }
             let amount = match effect {
                 Effect::DealDamage { amount, .. }
                 | Effect::LoseLifeTarget { amount }
@@ -6005,6 +6024,7 @@ impl Game {
         token: TokenSpec,
     ) -> Result<ObjectId, RulesError> {
         self.player(controller)?;
+        Self::validate_token_spec(&token)?;
         let id = ObjectId(self.next_object_id);
         self.next_object_id += 1;
         self.objects.insert(
@@ -6199,6 +6219,12 @@ impl Game {
                 "mana ability color choice must not be empty",
             ));
         }
+        if matches!(&ability.output, ManaAbilityOutput::Choice(colors) if colors.contains(&Color::Colorless))
+        {
+            return Err(RulesError::IllegalAction(
+                "a mana ability color choice may not offer colorless",
+            ));
+        }
         Ok(())
     }
 
@@ -6224,6 +6250,13 @@ impl Game {
 
     fn validate_cast_effects_for_ability(effects: &[Effect]) -> Result<(), RulesError> {
         for effect in effects {
+            match effect {
+                Effect::CreateToken { token, .. }
+                | Effect::CreateTokenForTargetPlayer { token, .. } => {
+                    Self::validate_token_spec(token)?;
+                }
+                _ => {}
+            }
             let amount = match effect {
                 Effect::DealDamage { amount, .. }
                 | Effect::LoseLifeTarget { amount }
@@ -7062,13 +7095,32 @@ impl Game {
     }
 
     fn validate_mana_cost(cost: &crate::ManaCost) -> Result<(), RulesError> {
-        if cost
-            .hybrid
-            .iter()
-            .any(|symbol| symbol.first == symbol.second)
-        {
+        if cost.hybrid.iter().any(|symbol| {
+            symbol.first == symbol.second
+                || !symbol.first.is_colored()
+                || !symbol.second.is_colored()
+        }) {
             return Err(RulesError::IllegalAction(
-                "a hybrid mana symbol requires two distinct colors",
+                "a hybrid mana symbol requires two distinct card colors",
+            ));
+        }
+        Ok(())
+    }
+
+    fn validate_card_colors(colors: &BTreeSet<Color>) -> Result<(), RulesError> {
+        if colors.iter().any(|color| !color.is_colored()) {
+            return Err(RulesError::IllegalAction(
+                "card colors may not include the colorless mana kind",
+            ));
+        }
+        Ok(())
+    }
+
+    fn validate_token_spec(token: &TokenSpec) -> Result<(), RulesError> {
+        Self::validate_card_colors(&token.colors)?;
+        if !token.creature_subtypes.is_empty() && !token.card_types.contains(&CardType::Creature) {
+            return Err(RulesError::IllegalAction(
+                "a creature subtype requires the creature card type",
             ));
         }
         Ok(())

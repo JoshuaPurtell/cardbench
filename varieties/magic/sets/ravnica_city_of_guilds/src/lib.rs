@@ -35,7 +35,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 87] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 88] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -123,6 +123,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 87] = [
     "RAV-UNDERCITY-SHADE",
     "RAV-SADISTIC-AUGERMAGE",
     "RAV-VINDICTIVE-MOB",
+    "RAV-SUNHOME-FORTRESS",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -2936,6 +2937,28 @@ pub fn card_definitions() -> Vec<CardDefinition> {
         signet_definition("RAV-DIMIR-SIGNET", "Dimir Signet"),
         signet_definition("RAV-GOLGARI-SIGNET", "Golgari Signet"),
         signet_definition("RAV-SELESNYA-SIGNET", "Selesnya Signet"),
+        // Full fidelity: the land has its colorless mana ability and its
+        // stack-backed, targeted Double Strike grant. Both use the shared
+        // mana and continuous-effect substrates.
+        CardDefinition {
+            id: "RAV-SUNHOME-FORTRESS",
+            name: "Sunhome, Fortress of the Legion",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::new(0),
+            colors: BTreeSet::new(),
+            mana_colors: BTreeSet::from([Color::Colorless]),
+            card_types: types([CardType::Land]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colorless-mana-ability",
+                "activated-double-strike-grant",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![],
+        },
         basic_land("RAV-PLAINS", "Plains", BasicLandType::Plains),
         basic_land("RAV-ISLAND", "Island", BasicLandType::Island),
         basic_land("RAV-SWAMP", "Swamp", BasicLandType::Swamp),
@@ -2973,6 +2996,17 @@ pub fn rav_mana_ability_bindings() -> Vec<ManaAbilityBinding> {
                 amount: 1,
                 life_payment: None,
                 controller_damage: Some(1),
+            },
+        },
+        ManaAbilityBinding {
+            card_definition: "RAV-SUNHOME-FORTRESS",
+            ability: ActivatedManaAbility {
+                id: "produce-colorless",
+                tap_cost: true,
+                output: ManaAbilityOutput::Fixed(Color::Colorless),
+                amount: 1,
+                life_payment: None,
+                controller_damage: None,
             },
         },
         signet_binding(
@@ -3226,6 +3260,22 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 targets: vec![cardbench_magic_engine::TargetRequirement::Creature],
                 effects: vec![Effect::ModifyTargetKeywordUntilEndOfTurn {
                     keyword: Keyword::Haste,
+                }],
+            },
+        },
+        ActivatedAbilityBinding {
+            card_definition: "RAV-SUNHOME-FORTRESS",
+            ability: ActivatedAbility {
+                id: "grant-target-double-strike",
+                mana_cost: ManaCost::with_colors(3, [Color::Red, Color::White]),
+                tap_cost: true,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![cardbench_magic_engine::TargetRequirement::Creature],
+                effects: vec![Effect::ModifyTargetKeywordUntilEndOfTurn {
+                    keyword: Keyword::DoubleStrike,
                 }],
             },
         },

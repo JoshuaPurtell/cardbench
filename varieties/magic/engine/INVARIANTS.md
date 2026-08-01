@@ -212,10 +212,16 @@ Oracle Magic rules coverage.
   nontrample attacker remains blocked, but the blocker is marked
   removed-from-combat and neither assigns nor receives combat damage. That
   provenance is an invariant-checked subset of the declared blockers.
-- Per-color floating mana amounts are bounded `u8` values, but generic-cost
-  payment sums all five colors in a widened `u16` total. The compatibility
+- Per-mana-kind floating amounts are bounded `u8` values, but generic-cost
+  payment sums all five colors plus colorless in a widened `u16` total. The compatibility
   `ManaPool::total` policy view is saturated at `u8::MAX`; it is never used to
   decide whether a generic payment is affordable.
+- Colorless is a mana kind rather than a card color: it can pay generic and
+  explicit colorless costs but cannot appear in a card's color set, be chosen
+  by a "choose a color" mana ability, satisfy a colored or hybrid symbol, or
+  satisfy a Convoke color contribution. Token specifications and layer-five
+  color changes are checked at the same boundary. A typed nonbasic land may
+  produce it through the same bound mana-ability receipts as colored mana.
 - Colored symbol repetitions are also counted in a widened `u16` requirement
   before any pool slot is debited. A cost above a bounded color slot's
   representable capacity rejects atomically; it cannot saturate into a cheaper
