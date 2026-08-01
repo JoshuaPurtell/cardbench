@@ -1,14 +1,17 @@
-//! Bounded public contract for Undercity Shade's black-only evasion.
+//! Full public contract for Undercity Shade's evasion and pump activation.
 
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardType, Color, CombatBlock, Game, GameEvent, Keyword, ManaCost, PlayerId, Step, Zone,
+    CardType, Color, CombatBlock, Effect, Game, GameEvent, Keyword, ManaCost, PlayerId, Step, Zone,
 };
-use cardbench_magic_rav::{RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, run_all_scenarios};
+use cardbench_magic_rav::{
+    RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, rav_activated_ability_bindings,
+    run_all_scenarios,
+};
 
 #[test]
-fn undercity_shade_definition_is_explicit_about_evasion_and_omitted_activation() {
+fn undercity_shade_definition_is_explicit_about_evasion_and_activation() {
     let shade = card_definitions()
         .into_iter()
         .find(|definition| definition.id == "RAV-UNDERCITY-SHADE")
@@ -23,12 +26,29 @@ fn undercity_shade_definition_is_explicit_about_evasion_and_omitted_activation()
     assert_eq!(
         shade.supported_rules,
         [
+            "full-rules-fidelity",
             "colored-cost-casting",
             "base-characteristics",
-            "black-only-evasion"
+            "black-only-evasion",
+            "black-mana-self-pump",
         ]
     );
-    assert!(!RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&shade.id));
+    assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&shade.id));
+    let binding = rav_activated_ability_bindings()
+        .into_iter()
+        .find(|binding| binding.card_definition == shade.id)
+        .expect("Undercity Shade activation binding exists");
+    assert_eq!(
+        binding.ability.mana_cost,
+        ManaCost::with_colors(0, [Color::Black])
+    );
+    assert_eq!(
+        binding.ability.effects,
+        [Effect::ModifySourcePtUntilEndOfTurn {
+            power: 1,
+            toughness: 1,
+        }]
+    );
 }
 
 #[test]

@@ -95,6 +95,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-SEWERDREG",
             "RAV-VOTARY-OF-THE-CONCLAVE",
             "RAV-GRAVE-SHELL-SCARAB",
+            "RAV-UNDERCITY-SHADE",
         ]
     );
     let definitions = card_definitions();

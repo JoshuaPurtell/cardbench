@@ -35,7 +35,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 84] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 85] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -120,6 +120,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 84] = [
     "RAV-SEWERDREG",
     "RAV-VOTARY-OF-THE-CONCLAVE",
     "RAV-GRAVE-SHELL-SCARAB",
+    "RAV-UNDERCITY-SHADE",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -2218,9 +2219,9 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             1,
             1,
         ),
-        // Compatibility scope: normal colored-cost creature casting, base
-        // characteristics, and its static black-only evasion. The temporary
-        // power/toughness activation remains deliberately unsupported.
+        // Full fidelity: normal colored-cost creature casting, base
+        // characteristics, static black-only evasion, and its stack-backed
+        // black-mana self-pump activation.
         CardDefinition {
             id: "RAV-UNDERCITY-SHADE",
             name: "Undercity Shade",
@@ -2231,9 +2232,11 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             card_types: types([CardType::Creature]),
             is_basic_land: false,
             supported_rules: &[
+                "full-rules-fidelity",
                 "colored-cost-casting",
                 "base-characteristics",
                 "black-only-evasion",
+                "black-mana-self-pump",
             ],
             power: Some(1),
             toughness: Some(1),
@@ -2953,6 +2956,23 @@ pub fn rav_mana_ability_bindings() -> Vec<ManaAbilityBinding> {
 #[allow(clippy::too_many_lines)]
 pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
     vec![
+        ActivatedAbilityBinding {
+            card_definition: "RAV-UNDERCITY-SHADE",
+            ability: ActivatedAbility {
+                id: "pump-plus-one-plus-one",
+                mana_cost: ManaCost::with_colors(0, [Color::Black]),
+                tap_cost: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![],
+                effects: vec![Effect::ModifySourcePtUntilEndOfTurn {
+                    power: 1,
+                    toughness: 1,
+                }],
+            },
+        },
         ActivatedAbilityBinding {
             card_definition: "RAV-GRAVE-SHELL-SCARAB",
             ability: ActivatedAbility {
