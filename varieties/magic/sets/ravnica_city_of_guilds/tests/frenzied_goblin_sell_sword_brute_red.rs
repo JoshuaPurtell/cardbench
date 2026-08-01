@@ -3,7 +3,7 @@
 //! These assertions deliberately fail until the target-bearing triggered-ability
 //! substrate can represent both printed rules texts without approximation.
 
-use cardbench_magic_engine::{CastRequest, Game, GameEvent, PlayerId, Target, Zone};
+use cardbench_magic_engine::{CastRequest, Game, GameEvent, PlayerId, PolicyAction, Target, Zone};
 use cardbench_magic_rav::{
     RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, rav_activated_ability_bindings,
     rav_additional_spell_cost_bindings, rav_basic_land_type_bindings, rav_mana_ability_bindings,
@@ -59,6 +59,16 @@ fn frenzied_goblin_attack_trigger_pays_red_and_restricts_a_blocker() {
     }
     game.declare_attackers(PlayerId(0), &[goblin])
         .expect("goblin attacks");
+    game.submit_policy_move(
+        PlayerId(0),
+        "test.frenzied-target.v1",
+        PolicyAction::ChooseTriggeredAbilityTargets {
+            source: goblin,
+            ability: "attack-cannot-block",
+            targets: vec![Target::Permanent(blocker)],
+        },
+    )
+    .expect("choose attack-trigger target");
     assert!(game.event_log.iter().any(|event| matches!(
         event,
         GameEvent::TriggeredAbilityStacked { source, ability, .. }
@@ -110,6 +120,16 @@ fn frenzied_goblin_target_remains_able_to_attack() {
     }
     game.declare_attackers(PlayerId(0), &[goblin])
         .expect("goblin attacks");
+    game.submit_policy_move(
+        PlayerId(0),
+        "test.frenzied-target.v1",
+        PolicyAction::ChooseTriggeredAbilityTargets {
+            source: goblin,
+            ability: "attack-cannot-block",
+            targets: vec![Target::Permanent(blocker)],
+        },
+    )
+    .expect("choose attack-trigger target");
     game.activate_mana_ability(PlayerId(0), mountain, cardbench_magic_engine::Color::Red)
         .expect("red trigger mana after the trigger is stacked");
     game.pass_priority(PlayerId(0))

@@ -1,7 +1,7 @@
 //! Red regression: a target-bearing trigger must wait for its controller's
 //! explicit policy choice instead of silently selecting the first legal target.
 
-use cardbench_magic_engine::{Game, GameEvent, PlayerId, Step};
+use cardbench_magic_engine::{Game, GameEvent, PlayerId, PolicyAction, Step, Target};
 use cardbench_magic_rav::{
     card_definitions, rav_activated_ability_bindings, rav_additional_spell_cost_bindings,
     rav_basic_land_type_bindings, rav_mana_ability_bindings, rav_triggered_ability_bindings,
@@ -53,5 +53,47 @@ fn frenzied_goblin_does_not_auto_select_a_trigger_target() {
         )),
         "the engine auto-selected one of two legal trigger targets"
     );
-    assert_eq!(game.stack.len(), 0, "no trigger may stack before the choice");
+    assert_eq!(
+        game.stack.len(),
+        0,
+        "no trigger may stack before the choice"
+    );
+    let choice = game
+        .view_for_player(PlayerId(0))
+        .expect("controller view")
+        .triggered_ability_target_choice
+        .expect("target choice is visible");
+    assert_eq!(choice.source, goblin);
+    assert_eq!(choice.ability, "attack-cannot-block");
+    assert!(choice.target_options[0].contains(&Target::Permanent(first)));
+    assert!(choice.target_options[0].contains(&Target::Permanent(second)));
+    assert!(
+        game.view_for_player(PlayerId(1))
+            .expect("opponent view")
+            .triggered_ability_target_choice
+            .is_none(),
+        "only the decision-maker receives the actionable choice"
+    );
+
+    game.submit_policy_move(
+        PlayerId(0),
+        "test.choose-trigger-target.v1",
+        PolicyAction::ChooseTriggeredAbilityTargets {
+            source: goblin,
+            ability: "attack-cannot-block",
+            targets: vec![Target::Permanent(second)],
+        },
+    )
+    .expect("controller selects the second target");
+    assert_eq!(game.stack.len(), 1);
+    assert!(matches!(
+        game.event_log.iter().rev().nth(1),
+        Some(GameEvent::TriggeredAbilityStacked {
+            source,
+            ability: "attack-cannot-block",
+            ..
+        }) if *source == goblin
+    ));
+    game.validate_invariants()
+        .expect("choice transition is valid");
 }

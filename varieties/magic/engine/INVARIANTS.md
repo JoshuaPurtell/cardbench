@@ -138,6 +138,12 @@ Oracle Magic rules coverage.
   placement follows the source permanent's `CardMoved { to: Battlefield }`
   receipt; resolution emits the draw/effect receipts before its terminal
   `TriggeredAbilityResolved` receipt.
+- A target-bearing attack trigger cannot select a stable-order fixture target.
+  It remains outside the stack at a no-priority policy boundary, exposes one
+  ordered legal option set per target occurrence only to its controller, and
+  emits `TriggeredAbilityStacked` only after that controller submits the exact
+  pending source, ability, and a legal target for every slot. Rejected choices
+  leave the pending decision, stack, zones, mana, and event log unchanged.
 - A registered generic-cost reducer has a catalogued permanent source, a
   strictly positive amount, and is registered before the game starts. It
   contributes only while a source with that definition is live on the casting

@@ -1873,6 +1873,7 @@ pub enum PolicyMoveKind {
     Draw,
     ChoosePrivateLibraryCards,
     ChoosePrivateOpponentLibraryCardToExile,
+    ChooseTriggeredAbilityTargets,
     Transmute,
     PassPriority,
     PlayLand,

@@ -116,6 +116,13 @@ pub enum PolicyAction {
         ability: &'static str,
         selected: Option<ObjectId>,
     },
+    /// Supplies the ordered targets for the next triggered ability waiting to
+    /// be put onto the stack. This is a no-priority rules decision.
+    ChooseTriggeredAbilityTargets {
+        source: ObjectId,
+        ability: &'static str,
+        targets: Vec<Target>,
+    },
     /// Activates transmute, optionally selecting a matching mana-value card
     /// from the controller's library. A hidden-zone quality search may find
     /// nothing; the engine enforces timing and payment in either case.
@@ -163,6 +170,9 @@ impl PolicyAction {
             Self::ChoosePrivateLibraryCards { .. } => PolicyMoveKind::ChoosePrivateLibraryCards,
             Self::ChoosePrivateOpponentLibraryCardToExile { .. } => {
                 PolicyMoveKind::ChoosePrivateOpponentLibraryCardToExile
+            }
+            Self::ChooseTriggeredAbilityTargets { .. } => {
+                PolicyMoveKind::ChooseTriggeredAbilityTargets
             }
             Self::Transmute { .. } => PolicyMoveKind::Transmute,
             Self::PassPriority => PolicyMoveKind::PassPriority,
@@ -222,6 +232,15 @@ pub struct PrivateOpponentLibraryChoiceView {
     pub cards: Vec<CardView>,
 }
 
+/// Public legal target options for one trigger waiting to enter the stack.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TriggeredAbilityTargetChoiceView {
+    pub source: ObjectId,
+    pub ability: &'static str,
+    /// One ordered option set for each target occurrence.
+    pub target_options: Vec<Vec<Target>>,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct GameView {
     pub player: PlayerId,
@@ -248,6 +267,8 @@ pub struct GameView {
     /// that will exile one card from an opponent's library. This is likewise
     /// never a priority window.
     pub private_opponent_library_choice: Option<PrivateOpponentLibraryChoiceView>,
+    /// Present only to the trigger's controller while target selection is due.
+    pub triggered_ability_target_choice: Option<TriggeredAbilityTargetChoiceView>,
     /// Legal controller-owned library choices for each transmute card in hand.
     pub transmute_searches: Vec<TransmuteSearchView>,
     pub own_battlefield: Vec<CardView>,
@@ -344,6 +365,13 @@ struct PendingPrivateOpponentLibraryExileChoice {
     controller: PlayerId,
     opponent: PlayerId,
     cards: Vec<ObjectId>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct PendingTriggeredAbilityTargetChoice {
+    source: ObjectId,
+    controller: PlayerId,
+    ability: crate::TriggeredAbility,
 }
 
 #[derive(Clone, Debug)]
@@ -446,6 +474,7 @@ pub struct Game {
     pending_draw_replacement: Option<PlayerId>,
     pending_private_library_choice: Option<PendingPrivateLibraryChoice>,
     pending_private_opponent_library_exile_choice: Option<PendingPrivateOpponentLibraryExileChoice>,
+    pending_trigger_target_choices: Vec<PendingTriggeredAbilityTargetChoice>,
     /// A resolving rule may prevent every represented library search until the
     /// current turn ends. It is deliberately a turn number, rather than a
     /// boolean, so invariant checks detect an expired marker crossing a turn
@@ -667,6 +696,7 @@ impl Game {
             pending_draw_replacement: None,
             pending_private_library_choice: None,
             pending_private_opponent_library_exile_choice: None,
+            pending_trigger_target_choices: Vec::new(),
             library_search_prevented_until: None,
             pending_damage_triggers: Vec::new(),
             pending_life_gain_triggers: Vec::new(),
@@ -2043,6 +2073,22 @@ impl Game {
                     })
             })
             .transpose()?;
+        let triggered_ability_target_choice = self
+            .pending_trigger_target_choices
+            .first()
+            .filter(|choice| choice.controller == player)
+            .map(|choice| TriggeredAbilityTargetChoiceView {
+                source: choice.source,
+                ability: choice.ability.id,
+                target_options: choice
+                    .ability
+                    .targets
+                    .iter()
+                    .map(|requirement| {
+                        self.legal_trigger_targets(choice.source, choice.controller, *requirement)
+                    })
+                    .collect(),
+            });
         let mut opponent_life = Vec::new();
         let mut opponent_battlefield = Vec::new();
         for opponent in self
@@ -2102,6 +2148,7 @@ impl Game {
             dredge_candidates,
             private_library_choice,
             private_opponent_library_choice,
+            triggered_ability_target_choice,
             transmute_searches,
             own_battlefield,
             opponent_battlefield,
@@ -2136,6 +2183,13 @@ impl Game {
                 self.choose_private_opponent_library_card_to_exile(
                     player, source, ability, selected,
                 )?;
+            }
+            PolicyAction::ChooseTriggeredAbilityTargets {
+                source,
+                ability,
+                targets,
+            } => {
+                self.choose_triggered_ability_targets(player, source, ability, targets)?;
             }
             PolicyAction::Transmute { card, found } => self.transmute(player, card, found)?,
             PolicyAction::PassPriority => self.pass_priority(player)?,
@@ -3267,6 +3321,11 @@ impl Game {
                 "the private opponent-library choice must resolve before priority can pass",
             ));
         }
+        if !self.pending_trigger_target_choices.is_empty() {
+            return Err(RulesError::IllegalAction(
+                "trigger targets must be chosen before priority can pass",
+            ));
+        }
         if self.step == Step::DeclareAttackers
             && self
                 .combat
@@ -4140,6 +4199,30 @@ impl Game {
             return Err(RulesError::IllegalAction(
                 "private opponent-library event receipts disagree with the live resolution boundary",
             ));
+        }
+        for (index, choice) in self.pending_trigger_target_choices.iter().enumerate() {
+            let registered = self
+                .card_definition(choice.source)
+                .ok()
+                .and_then(|definition| self.triggered_abilities.get(definition.id))
+                .and_then(|abilities| abilities.get(choice.ability.id));
+            if choice.ability.targets.is_empty()
+                || registered != Some(&choice.ability)
+                || self.players.get(choice.controller.0).is_none()
+                || self.players[choice.controller.0].lost
+                || choice.ability.targets.iter().any(|requirement| {
+                    self.legal_trigger_targets(choice.source, choice.controller, *requirement)
+                        .is_empty()
+                })
+                || (index == 0 && self.consecutive_passes != 0)
+                || self.pending_draw_replacement.is_some()
+                || self.pending_private_library_choice.is_some()
+                || self.pending_private_opponent_library_exile_choice.is_some()
+            {
+                return Err(RulesError::IllegalAction(
+                    "trigger-target choice escaped its no-priority decision boundary",
+                ));
+            }
         }
         if self
             .library_search_prevented_until
@@ -6229,6 +6312,83 @@ impl Game {
         Some(targets)
     }
 
+    fn legal_trigger_targets(
+        &self,
+        source: ObjectId,
+        controller: PlayerId,
+        requirement: TargetRequirement,
+    ) -> Vec<Target> {
+        (0..self.players.len())
+            .map(PlayerId)
+            .map(Target::Player)
+            .chain(self.objects.keys().copied().map(Target::Permanent))
+            .chain(self.stack.iter().map(|item| Target::Spell(item.card)))
+            .filter(|target| {
+                self.target_matches_for_source(controller, source, *target, requirement)
+            })
+            .collect()
+    }
+
+    fn choose_triggered_ability_targets(
+        &mut self,
+        player: PlayerId,
+        source: ObjectId,
+        ability_id: &'static str,
+        targets: Vec<Target>,
+    ) -> Result<(), RulesError> {
+        self.atomic_transition(|game| {
+            let choice = game.pending_trigger_target_choices.first().cloned().ok_or(
+                RulesError::IllegalAction("no triggered ability is awaiting targets"),
+            )?;
+            if player != choice.controller {
+                return Err(RulesError::IllegalAction(
+                    "only the trigger controller may choose its targets",
+                ));
+            }
+            if source != choice.source || ability_id != choice.ability.id {
+                return Err(RulesError::IllegalAction(
+                    "submitted trigger identity does not match the pending choice",
+                ));
+            }
+            if targets.len() != choice.ability.targets.len()
+                || targets
+                    .iter()
+                    .zip(&choice.ability.targets)
+                    .any(|(target, requirement)| {
+                        !game.target_matches_for_source(
+                            choice.controller,
+                            choice.source,
+                            *target,
+                            *requirement,
+                        )
+                    })
+            {
+                return Err(RulesError::IllegalAction(
+                    "submitted trigger targets are not legal for every target slot",
+                ));
+            }
+            game.pending_trigger_target_choices.remove(0);
+            let target_incarnations = game.target_incarnations(&targets);
+            game.stack.push(StackObject {
+                card: choice.source,
+                controller: choice.controller,
+                ability_id: Some(choice.ability.id),
+                targets,
+                target_incarnations,
+                effects: choice.ability.effects,
+                chosen_x: None,
+                mana_spent: None,
+            });
+            game.record_event(GameEvent::TriggeredAbilityStacked {
+                controller: choice.controller,
+                source: choice.source,
+                ability: choice.ability.id,
+            });
+            game.consecutive_passes = 0;
+            Ok(())
+        })
+    }
+
     fn controller_creature_cards_in_graveyard(&self, controller: PlayerId) -> usize {
         self.players[controller.0]
             .graveyard
@@ -6240,10 +6400,9 @@ impl Game {
             .count()
     }
 
-    /// Stacks attack triggers after attacker declaration. Optional mana is
-    /// paid from the controller's pool before the trigger receipt; target
-    /// slots are selected from currently legal permanents in a deterministic
-    /// opponent-first order so the submitted declaration remains atomic.
+    /// Captures attack triggers after attacker declaration. A target-free
+    /// trigger stacks immediately; a target-bearing trigger opens an explicit
+    /// no-priority controller choice before it can mutate the stack.
     fn enqueue_attack_triggers(&mut self, source: ObjectId) -> Result<(), RulesError> {
         // Tokens have no catalog definition and therefore cannot have a
         // definition-bound attack trigger in this substrate. Their attack is
@@ -6263,41 +6422,29 @@ impl Game {
             .cloned()
             .collect::<Vec<_>>();
         for ability in triggers {
-            let mut targets = Vec::with_capacity(ability.targets.len());
-            for requirement in &ability.targets {
-                let target = self
-                    .objects
-                    .keys()
-                    .copied()
-                    .filter(|candidate| self.zone_of(*candidate) == Some(Zone::Battlefield))
-                    .filter(|candidate| {
-                        self.object(*candidate)
-                            .is_ok_and(|object| object.controller != controller)
-                    })
-                    .map(Target::Permanent)
-                    .find(|target| self.target_matches(*target, *requirement))
-                    .or_else(|| {
-                        self.objects
-                            .keys()
-                            .copied()
-                            .filter(|candidate| self.zone_of(*candidate) == Some(Zone::Battlefield))
-                            .map(Target::Permanent)
-                            .find(|target| self.target_matches(*target, *requirement))
-                    });
-                let Some(target) = target else {
+            if !ability.targets.is_empty() {
+                let has_all_targets = ability.targets.iter().all(|requirement| {
+                    !self
+                        .legal_trigger_targets(source, controller, *requirement)
+                        .is_empty()
+                });
+                if !has_all_targets {
                     if ability.optional {
-                        targets.clear();
-                        break;
+                        continue;
                     }
                     return Err(RulesError::IllegalAction(
                         "mandatory attack trigger has no legal target",
                     ));
-                };
-                targets.push(target);
-            }
-            if targets.len() != ability.targets.len() {
+                }
+                self.pending_trigger_target_choices
+                    .push(PendingTriggeredAbilityTargetChoice {
+                        source,
+                        controller,
+                        ability,
+                    });
                 continue;
             }
+            let targets = Vec::new();
             let target_incarnations = self.target_incarnations(&targets);
             self.stack.push(StackObject {
                 card: source,
@@ -10514,6 +10661,11 @@ impl Game {
                 "the private opponent-library choice must resolve before priority actions",
             ));
         }
+        if !self.pending_trigger_target_choices.is_empty() {
+            return Err(RulesError::IllegalAction(
+                "trigger targets must be chosen before priority actions",
+            ));
+        }
         if self.players[player.0].lost {
             return Err(RulesError::IllegalAction("an eliminated player cannot act"));
         }
@@ -10618,6 +10770,9 @@ impl Game {
             return choice.controller;
         }
         if let Some(choice) = &self.pending_private_opponent_library_exile_choice {
+            return choice.controller;
+        }
+        if let Some(choice) = self.pending_trigger_target_choices.first() {
             return choice.controller;
         }
         match (&self.combat, self.step) {
