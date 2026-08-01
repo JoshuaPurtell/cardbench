@@ -91,7 +91,7 @@
 83	Dimir House Guard	executable:RAV-DIMIR-HOUSE-GUARD
 84	Dimir Machinations	executable:RAV-DIMIR-MACHINATIONS
 85	Disembowel
-86	Empty the Catacombs
+86	Empty the Catacombs	executable:RAV-EMPTY-THE-CATACOMBS
 87	Golgari Thug	executable:RAV-GOLGARI-THUG
 88	Helldozer	executable:RAV-HELLDOZER
 89	Hex	executable:RAV-HEX

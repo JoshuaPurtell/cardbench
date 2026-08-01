@@ -1146,6 +1146,11 @@ pub enum Effect {
     /// Return the targeted card from the resolving spell controller's
     /// graveyard to that player's hand.
     ReturnTargetCardToHand,
+    /// Select at most one creature card from each living player's graveyard
+    /// before any zone movement, then return every selected card to its
+    /// owner's hand. The selection is a target-free public-zone operation;
+    /// a policy layer may replace the deterministic choice later.
+    ReturnOneCreatureCardFromEachGraveyardToHand,
     /// Move every player's graveyard into that player's library, then shuffle
     /// each library. This is an untargeted, owner-preserving zone operation.
     ShuffleGraveyardsIntoLibraries,
@@ -1255,6 +1260,7 @@ impl Effect {
             | Self::DrawControllerIfManaColorSpent { .. }
             | Self::ModifyAllCreaturesPtUntilEndOfTurnIfManaColorSpent { .. }
             | Self::CreateToken { .. }
+            | Self::ReturnOneCreatureCardFromEachGraveyardToHand
             | Self::ShuffleGraveyardsIntoLibraries
             | Self::ModifySourcePtUntilEndOfTurn { .. }
             | Self::RemoveSourceKeywordUntilEndOfTurn { .. }

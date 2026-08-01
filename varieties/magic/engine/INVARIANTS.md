@@ -125,6 +125,11 @@ Oracle Magic rules coverage.
   rechecks the same count while resolving. If only its target remains, the
   ability resolves without a zone move rather than returning an ineligible
   card or fabricating a new target.
+- A target-free all-player graveyard-return instruction snapshots at most one
+  creature catalog card from each living player's own graveyard before it
+  moves any card. Each selected card remains owner-preserving and may move
+  only from that graveyard to that owner's hand; a player with no eligible
+  card contributes no fabricated selection or zone receipt.
 - A `DistinctCreature` target slot must name a creature permanent and may not
   reuse any other distinct-creature occurrence in the same spell. The cast
   validator and the stack-provenance audit both reject a duplicate before any

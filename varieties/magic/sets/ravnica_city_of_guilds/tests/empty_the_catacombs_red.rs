@@ -43,6 +43,18 @@ fn empty_the_catacombs_returns_one_creature_card_per_graveyard_to_hand() {
 
     assert_eq!(game.zone_of(first), Some(Zone::Hand));
     assert_eq!(game.zone_of(second), Some(Zone::Hand));
+    assert_eq!(
+        game.canonical_event_log(),
+        vec![
+            "SpellCast { player: PlayerId(0), card: ObjectId(1) }",
+            "PriorityPassed { player: PlayerId(0) }",
+            "PriorityPassed { player: PlayerId(1) }",
+            "CardMoved { card: ObjectId(2), to: Hand }",
+            "CardMoved { card: ObjectId(3), to: Hand }",
+            "SpellResolved { card: ObjectId(1) }",
+            "CardMoved { card: ObjectId(1), to: Graveyard }",
+        ]
+    );
     game.validate_invariants()
         .expect("all-player graveyard return stays valid");
 }

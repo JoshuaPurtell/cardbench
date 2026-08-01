@@ -1172,6 +1172,29 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
+        // Bounded compatibility scope: this target-free sorcery snapshots one
+        // public creature card from each player's graveyard before returning
+        // those cards to hand. The printed per-player selection remains
+        // deterministic until policies can submit public-zone choices.
+        CardDefinition {
+            id: "RAV-EMPTY-THE-CATACOMBS",
+            name: "Empty the Catacombs",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(3, [Color::Black]),
+            colors: colors([Color::Black]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Sorcery]),
+            is_basic_land: false,
+            supported_rules: &[
+                "colored-cost-casting",
+                "each-player-returns-creature-card-from-graveyard-to-hand",
+                "deterministic-public-graveyard-selection",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![Effect::ReturnOneCreatureCardFromEachGraveyardToHand],
+        },
         // Bounded compatibility scope: the controller-graveyard creature
         // target and the intervening “another creature card” condition use a
         // normal ETB stack trigger. The printed optional decision remains
@@ -5263,7 +5286,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 146);
+        assert_eq!(first.len(), 147);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

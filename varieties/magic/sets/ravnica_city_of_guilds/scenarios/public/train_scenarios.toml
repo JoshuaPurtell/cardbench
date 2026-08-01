@@ -10036,3 +10036,52 @@ priority = 0
 mana = ["0:black:0"]
 event_markers = ["SpellResolved", "TriggeredAbilityStacked", "CardMoved", "AbilityResolved"]
 digest = "fnv1a64:d5d31dfe6196de47"
+
+[[scenario]]
+id = "rav_empty_the_catacombs_all_player_graveyard_return"
+seed = 147
+description = "Resolve Empty the Catacombs and snapshot one creature card from each player's public graveyard before returning both to hand."
+
+[[scenario.card]]
+label = "catacombs"
+owner = 0
+definition = "RAV-EMPTY-THE-CATACOMBS"
+zone = "hand"
+
+[[scenario.card]]
+label = "first"
+owner = 0
+definition = "RAV-WATCHWOLF"
+zone = "graveyard"
+
+[[scenario.card]]
+label = "second"
+owner = 1
+definition = "RAV-BOROS-RECRUIT"
+zone = "graveyard"
+
+[[scenario.mana]]
+player = 0
+color = "black"
+amount = 4
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "catacombs"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["catacombs:graveyard", "first:hand", "second:hand"]
+stack_size = 0
+priority = 0
+mana = ["0:black:0"]
+event_markers = ["SpellCast", "CardMoved", "SpellResolved"]
+digest = "fnv1a64:d9c1ba8398531f6b"

@@ -4298,6 +4298,7 @@ impl Game {
                 | Effect::DestroyTargetArtifactOrEnchantment
                 | Effect::ReturnTargetCardToHand
                 | Effect::ReturnTargetCreatureCardToHandIfAnotherInControllerGraveyard
+                | Effect::ReturnOneCreatureCardFromEachGraveyardToHand
                 | Effect::ShuffleGraveyardsIntoLibraries
                 | Effect::ReturnControlledCreatureToHand
                 | Effect::ReturnControlledLandToHand
@@ -6030,6 +6031,34 @@ impl Game {
                 }
                 if self.controller_creature_cards_in_graveyard(controller) >= 2 {
                     self.move_to_zone(target, Zone::Hand)?;
+                }
+            }
+            Effect::ReturnOneCreatureCardFromEachGraveyardToHand => {
+                // The required choices happen before any card moves. This
+                // matters when a future policy interface replaces the
+                // deterministic first-card selection with explicit choices:
+                // no earlier player's move can change what another player was
+                // allowed to choose.
+                let returns = (0..self.players.len())
+                    .filter_map(|index| {
+                        let player = PlayerId(index);
+                        (!self.players[index].lost)
+                            .then(|| {
+                                self.players[index].graveyard.iter().copied().find(|card| {
+                                    self.card_definition(*card).is_ok_and(|definition| {
+                                        definition.card_types.contains(&CardType::Creature)
+                                    })
+                                })
+                            })
+                            .flatten()
+                            .map(|card| (player, card))
+                    })
+                    .collect::<Vec<_>>();
+                for (player, card) in returns {
+                    debug_assert_eq!(self.object(card)?.owner, player);
+                    if self.zone_of(card) == Some(Zone::Graveyard) {
+                        self.move_to_zone(card, Zone::Hand)?;
+                    }
                 }
             }
             Effect::ShuffleGraveyardsIntoLibraries => {
