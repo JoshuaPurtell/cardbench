@@ -31,9 +31,11 @@ remains available for a later, audited red-to-green port.
   trigger, with controller-relative provenance. The source lane's generic
   land-entry trigger is not imported because it would also fire for an
   opponent's land.
-- The source Ivy Dancer activation applies a controller-wide effect rather
-  than preserving an explicit target. It is not a safe promotion of dev's
-  bounded chassis.
+- Ivy Dancer is ported on `dev` as red `fe25539b` and green `e1af2bb2`.
+  The source controller-wide, green-mana approximation was not merged. The
+  current implementation instead uses a zero-mana tap activation that targets
+  exactly one creature, grants typed Forest landwalk until end of turn, and
+  records declaration-time landwalk provenance for blocker legality.
 - Chord of Calling and Doubling Season remain catalog-only on `dev`. Their
   source implementations rely on an older variable-search/replacement model
   that has not passed the current state-machine and information-boundary

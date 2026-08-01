@@ -642,6 +642,13 @@ Oracle Magic rules coverage.
 - `unblockable_attackers` is declaration provenance only: it is a subset of
   the uniquely declared attackers and no blocker map entry may name one of
   those attackers. A rejected block writes no `BlockersDeclared` receipt.
+- Landwalk is likewise declaration provenance: every recorded attacker is in
+  the unique declared-attacker set and retains a nonempty set of typed basic
+  land types. A submitted blocker is rejected exactly when the fixed defender
+  controls at least one recorded land type for that attacker. The provenance is
+  cleared when that creature leaves combat or the combat declaration resets,
+  so a later keyword or land change cannot rewrite the legality already
+  recorded for that combat.
 - A target constrained to an attacking-or-blocking creature has the normal
   permanent target shape, but must additionally identify a battlefield
   creature present in the active combat's attacker or blocker provenance at

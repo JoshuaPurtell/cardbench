@@ -209,8 +209,8 @@ public scenarios exercise exact colored-cost payment, stack resolution, zone
 movement, and base P/T values; they do not imply full-card fidelity.
 
 The second creature-chassis batch adds Elvish Skysweeper, Frenzied Goblin,
-Grayscaled Gharial, Greater Forgeling, Ivy Dancer, Lore Broker, Mortipede,
-Selesnya Evangel, and Selesnya Sagittars. These definitions likewise
+Grayscaled Gharial, Greater Forgeling, Lore Broker, Mortipede, Selesnya
+Evangel, and Selesnya Sagittars. These definitions likewise
 record only public identity, mana cost, color, creature type, and base
 power/toughness. Their card-specific activated, triggered, evasion, token, and
 combat behavior is intentionally unsupported. Four public cast-and-resolve
@@ -250,6 +250,13 @@ pays `{2}{G}` and taps before entering the ordinary stack lifecycle, then
 returns that card to hand only if it remains a legal target at resolution. The
 focused public Rust contract records the payment, activation, priority passes,
 zone move, terminal receipt, and the atomic rejected non-enchantment control.
+
+Ivy Dancer has also graduated. Its zero-mana tap activation grants the typed
+Forest landwalk keyword to exactly one creature through the ordinary stack,
+then the declaration-time combat provenance rejects a block only while the
+defender controls a Forest. The focused contract proves the targeted temporary
+effect, the rejected noncreature target before tapping, the absence of a
+`BlockersDeclared` receipt for the illegal block, and the final invariant audit.
 
 The first-range easy-creature wave adds Votary of the Conclave, Drake Familiar,
 Ethereal Usher, and Grozoth. Each supports normal colored-cost creature casting

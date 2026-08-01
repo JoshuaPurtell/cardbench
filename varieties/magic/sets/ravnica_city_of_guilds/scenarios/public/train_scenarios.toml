@@ -3672,7 +3672,7 @@ digest = "fnv1a64:e78637d84b25b302"
 [[scenario]]
 id = "rav_forgeling_dancer_creature_chassis"
 seed = 0
-description = "Cast Greater Forgeling and Ivy Dancer with exact colored costs, then verify only their base P/T. Their printed activations are deliberately omitted."
+description = "Cast Greater Forgeling and Ivy Dancer with exact colored costs, then verify their base P/T. Ivy Dancer's targeted temporary landwalk activation has a separate stack and combat contract."
 
 [[scenario.card]]
 label = "forgeling"
