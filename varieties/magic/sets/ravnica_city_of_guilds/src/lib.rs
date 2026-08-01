@@ -26,8 +26,8 @@ use cardbench_magic_engine::{
     AdditionalSpellCostBinding, BasicLandType, BasicLandTypeBinding, CardDefinition, CardType,
     CastRequest, Color, ConvokeContribution, ConvokePayment, DeckEntry, DeckList, DeckRules,
     Effect, Game, HybridManaSymbol, Keyword, ManaAbilityBinding, ManaAbilityOutput, ManaBundle,
-    ManaCost, PlayerId, RulesError, Target, TokenSpec, TriggerCondition, TriggeredAbility,
-    TriggeredAbilityBinding, Zone,
+    ManaCost, PlayerId, RulesError, StaticContinuousEffectBinding, Target, TokenSpec,
+    TriggerCondition, TriggeredAbility, TriggeredAbilityBinding, Zone,
 };
 
 pub const SET_CODE: &str = "RAV";
@@ -35,7 +35,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 96] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 97] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -43,6 +43,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 96] = [
     "RAV-DROOLING-GROODION",
     "RAV-GOLGARI-ROTWURM",
     "RAV-SCATTER-THE-SEEDS",
+    "RAV-SCION-OF-THE-WILD",
     "RAV-GUARDIAN-OF-VITU-GHAZI",
     "RAV-LAST-GASP",
     "RAV-ELVES-OF-DEEP-SHADOW",
@@ -267,6 +268,28 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 token: TokenSpec::saproling(),
                 count: 3,
             }],
+        },
+        // Full fidelity: this static characteristic-defining effect is
+        // evaluated from the current controller's battlefield rather than
+        // from a stale enter-the-battlefield snapshot.
+        CardDefinition {
+            id: "RAV-SCION-OF-THE-WILD",
+            name: "Scion of the Wild",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(2, [Color::Green]),
+            colors: colors([Color::Green]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "dynamic-controlled-creature-count",
+            ],
+            power: Some(0),
+            toughness: Some(0),
+            keywords: vec![],
+            effects: vec![],
         },
         CardDefinition {
             id: "RAV-GATHER-COURAGE",
@@ -3814,6 +3837,17 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
     ]
 }
 
+/// Battlefield-only static characteristic bindings supplied by the RAV set.
+/// These do not create events or stack objects; the engine evaluates them
+/// whenever a caller reads a permanent's characteristics.
+#[must_use]
+pub fn rav_static_continuous_effect_bindings() -> Vec<StaticContinuousEffectBinding> {
+    vec![StaticContinuousEffectBinding {
+        card_definition: "RAV-SCION-OF-THE-WILD",
+        change: cardbench_magic_engine::ContinuousChange::ControlledCreatureCountPowerToughness,
+    }]
+}
+
 /// Target-free stack triggers bound to RAV permanents.
 #[must_use]
 #[allow(clippy::too_many_lines)] // Keep the declarative trigger registry centralized for audit review.
@@ -4664,13 +4698,14 @@ fn last_gasp_state_based_action() -> Result<(Game, String), RulesError> {
 }
 
 fn fresh_game() -> Result<Game, RulesError> {
-    Game::new_with_all_bindings(
+    Game::new_with_all_bindings_and_static_continuous_effects(
         card_definitions(),
         2,
         rav_mana_ability_bindings(),
         rav_basic_land_type_bindings(),
         rav_additional_spell_cost_bindings(),
         rav_activated_ability_bindings(),
+        rav_static_continuous_effect_bindings(),
     )
 }
 
@@ -4793,7 +4828,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 136);
+        assert_eq!(first.len(), 137);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

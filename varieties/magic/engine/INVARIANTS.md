@@ -509,6 +509,13 @@ Oracle Magic rules coverage.
   positive monotonic timestamp, and has a valid duration. A permanent-duration effect
   cannot outlive its battlefield source; an end-of-turn effect belongs to the
   current turn only.
+- Static continuous bindings are immutable expansion data, never timestamped
+  runtime effects. Each registered binding names one creature definition and
+  one supported static change. It applies only while an object with that
+  definition is on the battlefield, creates no synthetic event receipt, and
+  is reevaluated from the live controller-owned creature count whenever that
+  object's characteristics are read. A static characteristic-defining change
+  cannot be inserted into the timestamped continuous-effect list.
 - State-based actions run to a fixed point after relevant changes. The current
   slice moves creatures with zero-or-less toughness or lethal marked damage,
   and marks players with zero-or-less life as lost. Each action emits an

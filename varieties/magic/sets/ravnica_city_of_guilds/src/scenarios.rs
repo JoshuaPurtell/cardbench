@@ -16,7 +16,7 @@ use cardbench_magic_engine::{
 use crate::{
     ScenarioResult, card_definitions, event_digest, rav_activated_ability_bindings,
     rav_additional_spell_cost_bindings, rav_basic_land_type_bindings, rav_mana_ability_bindings,
-    rav_triggered_ability_bindings, set_root,
+    rav_static_continuous_effect_bindings, rav_triggered_ability_bindings, set_root,
 };
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -329,7 +329,7 @@ fn set_expected_field(
 
 fn execute_scenario(specification: &ScenarioSpec) -> Result<ScenarioResult, String> {
     let mut game = if specification.triggers {
-        Game::new_with_all_bindings_and_triggers(
+        Game::new_with_all_bindings_triggers_and_static_continuous_effects(
             card_definitions(),
             2,
             rav_mana_ability_bindings(),
@@ -337,15 +337,17 @@ fn execute_scenario(specification: &ScenarioSpec) -> Result<ScenarioResult, Stri
             rav_additional_spell_cost_bindings(),
             rav_activated_ability_bindings(),
             rav_triggered_ability_bindings(),
+            rav_static_continuous_effect_bindings(),
         )
     } else {
-        Game::new_with_all_bindings(
+        Game::new_with_all_bindings_and_static_continuous_effects(
             card_definitions(),
             2,
             rav_mana_ability_bindings(),
             rav_basic_land_type_bindings(),
             rav_additional_spell_cost_bindings(),
             rav_activated_ability_bindings(),
+            rav_static_continuous_effect_bindings(),
         )
     }
     .map_err(rules_error)?;

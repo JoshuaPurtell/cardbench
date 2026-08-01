@@ -9472,3 +9472,50 @@ priority = 0
 mana = ["0:black:0"]
 event_markers = ["ManaAbilityActivated", "ManaAdded", "AbilityManaPaid", "AbilityActivated", "CardDestroyed", "PermanentUntapped", "AbilityResolved"]
 digest = "fnv1a64:00cd840078911ac9"
+
+[[scenario]]
+id = "rav_scion_of_the_wild_live_characteristics"
+seed = 137
+description = "Cast a second controlled creature and verify Scion of the Wild's static power and toughness immediately reflect the live battlefield count."
+
+[[scenario.card]]
+label = "scion"
+owner = 0
+definition = "RAV-SCION-OF-THE-WILD"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "watchwolf"
+owner = 0
+definition = "RAV-WATCHWOLF"
+zone = "hand"
+
+[[scenario.mana]]
+player = 0
+color = "green"
+amount = 1
+
+[[scenario.mana]]
+player = 0
+color = "white"
+amount = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "watchwolf"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["scion:battlefield", "watchwolf:battlefield"]
+powers = ["scion:2", "watchwolf:3"]
+toughnesses = ["scion:2", "watchwolf:3"]
+event_markers = ["SpellCast", "SpellResolved"]
+digest = "fnv1a64:56667ddbd04addac"

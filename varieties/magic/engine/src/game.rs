@@ -9,8 +9,8 @@ use crate::{
     CombatBlock, ContinuousChange, ContinuousEffect, CreatureSubtype, DeckList, Duration, Effect,
     GameEvent, Keyword, ManaAbilityActivation, ManaAbilityBinding, ManaAbilityOutput,
     ManaPaymentSelection, ObjectId, PlayerId, PlayerState, PolicyMoveKind, StackEffectResolution,
-    StackObject, StackResolutionPlan, Step, Target, TargetRequirement, TokenSpec, TriggerCondition,
-    TriggeredAbilityBinding, Zone,
+    StackObject, StackResolutionPlan, StaticContinuousEffectBinding, Step, Target,
+    TargetRequirement, TokenSpec, TriggerCondition, TriggeredAbilityBinding, Zone,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -323,6 +323,7 @@ pub struct Game {
     mana_abilities: BTreeMap<&'static str, BTreeMap<&'static str, ActivatedManaAbility>>,
     activated_abilities: BTreeMap<&'static str, BTreeMap<&'static str, ActivatedAbility>>,
     triggered_abilities: BTreeMap<&'static str, BTreeMap<&'static str, crate::TriggeredAbility>>,
+    static_continuous_effects: BTreeMap<&'static str, Vec<ContinuousChange>>,
     basic_land_types: BTreeMap<&'static str, BasicLandType>,
     additional_spell_costs: BTreeMap<&'static str, Vec<AdditionalSpellCost>>,
     graveyard_cast_permissions: BTreeMap<ObjectId, GraveyardCastPermission>,
@@ -540,6 +541,7 @@ impl Game {
             mana_abilities,
             activated_abilities: BTreeMap::new(),
             triggered_abilities: BTreeMap::new(),
+            static_continuous_effects: BTreeMap::new(),
             basic_land_types,
             additional_spell_costs,
             graveyard_cast_permissions: BTreeMap::new(),
@@ -689,6 +691,90 @@ impl Game {
         }
         game.validate_invariants()?;
         Ok(game)
+    }
+
+    /// Creates a game with immutable, battlefield-only static continuous
+    /// bindings in addition to the ordinary expansion bindings.
+    pub fn new_with_all_bindings_and_static_continuous_effects(
+        definitions: impl IntoIterator<Item = CardDefinition>,
+        player_count: usize,
+        mana_bindings: impl IntoIterator<Item = ManaAbilityBinding>,
+        basic_land_types: impl IntoIterator<Item = BasicLandTypeBinding>,
+        additional_spell_costs: impl IntoIterator<Item = AdditionalSpellCostBinding>,
+        ability_bindings: impl IntoIterator<Item = ActivatedAbilityBinding>,
+        static_bindings: impl IntoIterator<Item = StaticContinuousEffectBinding>,
+    ) -> Result<Self, RulesError> {
+        let mut game = Self::new_with_all_bindings(
+            definitions,
+            player_count,
+            mana_bindings,
+            basic_land_types,
+            additional_spell_costs,
+            ability_bindings,
+        )?;
+        game.register_static_continuous_effects(static_bindings)?;
+        game.validate_invariants()?;
+        Ok(game)
+    }
+
+    /// Creates a game with triggers and immutable battlefield-only static
+    /// continuous bindings. Keeping this explicit avoids a hidden global set
+    /// registry and lets a scenario declare every active rule substrate.
+    pub fn new_with_all_bindings_triggers_and_static_continuous_effects(
+        definitions: impl IntoIterator<Item = CardDefinition>,
+        player_count: usize,
+        mana_bindings: impl IntoIterator<Item = ManaAbilityBinding>,
+        basic_land_types: impl IntoIterator<Item = BasicLandTypeBinding>,
+        additional_spell_costs: impl IntoIterator<Item = AdditionalSpellCostBinding>,
+        ability_bindings: impl IntoIterator<Item = ActivatedAbilityBinding>,
+        trigger_bindings: impl IntoIterator<Item = TriggeredAbilityBinding>,
+        static_bindings: impl IntoIterator<Item = StaticContinuousEffectBinding>,
+    ) -> Result<Self, RulesError> {
+        let mut game = Self::new_with_all_bindings_and_triggers(
+            definitions,
+            player_count,
+            mana_bindings,
+            basic_land_types,
+            additional_spell_costs,
+            ability_bindings,
+            trigger_bindings,
+        )?;
+        game.register_static_continuous_effects(static_bindings)?;
+        game.validate_invariants()?;
+        Ok(game)
+    }
+
+    fn register_static_continuous_effects(
+        &mut self,
+        bindings: impl IntoIterator<Item = StaticContinuousEffectBinding>,
+    ) -> Result<(), RulesError> {
+        for binding in bindings {
+            let definition = self
+                .catalog
+                .get(binding.card_definition)
+                .ok_or(RulesError::UnknownDefinition(binding.card_definition))?;
+            if !definition.is_creature()
+                || !matches!(
+                    binding.change,
+                    ContinuousChange::ControlledCreatureCountPowerToughness
+                )
+            {
+                return Err(RulesError::IllegalAction(
+                    "static continuous binding has unsupported source or change",
+                ));
+            }
+            let changes = self
+                .static_continuous_effects
+                .entry(binding.card_definition)
+                .or_default();
+            if changes.contains(&binding.change) {
+                return Err(RulesError::IllegalAction(
+                    "duplicate static continuous-effect binding",
+                ));
+            }
+            changes.push(binding.change);
+        }
+        Ok(())
     }
 
     /// Starts a prepared game at the real first-turn boundary. Deck loading,
@@ -1768,6 +1854,15 @@ impl Game {
                 keywords: definition.keywords.clone(),
             }
         };
+        if self.zone_of(card) == Some(Zone::Battlefield) {
+            if let Some(definition) = object.definition {
+                if let Some(changes) = self.static_continuous_effects.get(definition) {
+                    for change in changes {
+                        self.apply_static_continuous_change(card, &mut characteristics, change)?;
+                    }
+                }
+            }
+        }
         let mut effects: Vec<_> = self
             .continuous_effects
             .iter()
@@ -1799,9 +1894,61 @@ impl Game {
                         .toughness
                         .map(|current| current + i32::from(*toughness));
                 }
+                ContinuousChange::ControlledCreatureCountPowerToughness => {
+                    return Err(RulesError::IllegalAction(
+                        "a static continuous change cannot be a timestamped effect",
+                    ));
+                }
             }
         }
         Ok(characteristics)
+    }
+
+    fn apply_static_continuous_change(
+        &self,
+        card: ObjectId,
+        characteristics: &mut Characteristics,
+        change: &ContinuousChange,
+    ) -> Result<(), RulesError> {
+        match change {
+            ContinuousChange::ControlledCreatureCountPowerToughness => {
+                let controller = self.object(card)?.controller;
+                let count =
+                    i32::try_from(self.controlled_creature_count(controller)).map_err(|_| {
+                        RulesError::IllegalAction(
+                            "controlled creature count exceeds supported range",
+                        )
+                    })?;
+                characteristics.power = Some(count);
+                characteristics.toughness = Some(count);
+                Ok(())
+            }
+            _ => Err(RulesError::IllegalAction(
+                "unsupported static continuous change",
+            )),
+        }
+    }
+
+    fn controlled_creature_count(&self, controller: PlayerId) -> usize {
+        self.players.get(controller.0).map_or(0, |player| {
+            player
+                .battlefield
+                .iter()
+                .filter(|card| {
+                    self.objects.get(card).is_some_and(|object| {
+                        object.token.as_ref().map_or_else(
+                            || {
+                                object
+                                    .definition
+                                    .and_then(|definition| self.catalog.get(definition))
+                                    .is_some_and(CardDefinition::is_creature)
+                            },
+                            |token| token.card_types.contains(&CardType::Creature),
+                        )
+                    })
+                })
+                .count()
+        })
     }
 
     pub fn add_continuous_effect(
@@ -1835,6 +1982,14 @@ impl Game {
         if matches!(change, ContinuousChange::AddColor(Color::Colorless)) {
             return Err(RulesError::IllegalAction(
                 "continuous effects may not add the colorless mana kind as a card color",
+            ));
+        }
+        if matches!(
+            change,
+            ContinuousChange::ControlledCreatureCountPowerToughness
+        ) {
+            return Err(RulesError::IllegalAction(
+                "a static continuous change cannot be installed dynamically",
             ));
         }
         match duration {
@@ -3364,6 +3519,34 @@ impl Game {
                 "next object identifier would reuse an existing object",
             ));
         }
+        for (definition_id, changes) in &self.static_continuous_effects {
+            let definition = self
+                .catalog
+                .get(definition_id)
+                .ok_or(RulesError::UnknownDefinition(definition_id))?;
+            if !definition.is_creature()
+                || changes.is_empty()
+                || changes.iter().any(|change| {
+                    !matches!(
+                        change,
+                        ContinuousChange::ControlledCreatureCountPowerToughness
+                    )
+                })
+            {
+                return Err(RulesError::IllegalAction(
+                    "static continuous-effect binding has invalid definition or change",
+                ));
+            }
+            if changes
+                .iter()
+                .enumerate()
+                .any(|(index, change)| changes[..index].contains(change))
+            {
+                return Err(RulesError::IllegalAction(
+                    "static continuous-effect binding has duplicate changes",
+                ));
+            }
+        }
         let mut effect_timestamps = BTreeSet::new();
         for effect in &self.continuous_effects {
             self.object(effect.source)?;
@@ -3371,6 +3554,14 @@ impl Game {
             if matches!(effect.change, ContinuousChange::AddColor(Color::Colorless)) {
                 return Err(RulesError::IllegalAction(
                     "continuous effects may not add the colorless mana kind as a card color",
+                ));
+            }
+            if matches!(
+                effect.change,
+                ContinuousChange::ControlledCreatureCountPowerToughness
+            ) {
+                return Err(RulesError::IllegalAction(
+                    "a static continuous change appeared in the timestamped effect list",
                 ));
             }
             if effect.timestamp == 0

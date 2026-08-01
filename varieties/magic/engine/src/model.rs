@@ -1417,7 +1417,15 @@ pub enum ContinuousChange {
     RemoveKeyword(Keyword),
     CannotBlockSource(ObjectId),
     AddDamageShield(i16),
-    ModifyPowerToughness { power: i16, toughness: i16 },
+    ModifyPowerToughness {
+        power: i16,
+        toughness: i16,
+    },
+    /// A static characteristic-defining effect that sets the source's power
+    /// and toughness to the live number of creatures controlled by that
+    /// permanent's controller. It is registered as immutable expansion data,
+    /// never installed as a timestamped temporary effect.
+    ControlledCreatureCountPowerToughness,
 }
 
 impl ContinuousChange {
@@ -1430,7 +1438,9 @@ impl ContinuousChange {
             | Self::RemoveKeyword(_)
             | Self::CannotBlockSource(_)
             | Self::AddDamageShield(_) => Layer::Ability,
-            Self::ModifyPowerToughness { .. } => Layer::PowerToughness,
+            Self::ModifyPowerToughness { .. } | Self::ControlledCreatureCountPowerToughness => {
+                Layer::PowerToughness
+            }
         }
     }
 }
@@ -1448,6 +1458,15 @@ pub struct ContinuousEffect {
     pub change: ContinuousChange,
     pub duration: Duration,
     pub timestamp: u64,
+}
+
+/// Immutable expansion data for a static continuous effect. The effect is
+/// active only while a permanent with the bound definition is on the
+/// battlefield; it creates neither a stack object nor an event-log receipt.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct StaticContinuousEffectBinding {
+    pub card_definition: &'static str,
+    pub change: ContinuousChange,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

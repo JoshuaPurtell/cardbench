@@ -22,6 +22,6 @@ pub use model::{
     HybridManaSymbol, Keyword, Layer, ManaAbilityActivation, ManaAbilityBinding, ManaAbilityOutput,
     ManaBundle, ManaCost, ManaPaymentSelection, ManaPool, ObjectId, PlayerId, PlayerState,
     PolicyMoveKind, StackEffectResolution, StackObject, StackResolutionPlan, StackTargetArityError,
-    Step, Target, TargetRequirement, TokenSpec, TriggerCondition, TriggeredAbility,
-    TriggeredAbilityBinding, Zone,
+    StaticContinuousEffectBinding, Step, Target, TargetRequirement, TokenSpec, TriggerCondition,
+    TriggeredAbility, TriggeredAbilityBinding, Zone,
 };
