@@ -3439,6 +3439,30 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             ],
             effects: vec![],
         },
+        // Compatibility scope: exact colored casting, base characteristics,
+        // Flying, and First Strike. Firemane Angel's source-zone-aware upkeep
+        // trigger and graveyard return activation remain unrepresented until
+        // the public engine exposes those zone-aware choices.
+        CardDefinition {
+            id: "RAV-FIREMANE-ANGEL",
+            name: "Firemane Angel",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(3, [Color::Red, Color::White, Color::White]),
+            colors: colors([Color::Red, Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "colored-cost-casting",
+                "base-characteristics",
+                "flying",
+                "first-strike",
+            ],
+            power: Some(4),
+            toughness: Some(3),
+            keywords: vec![Keyword::Flying, Keyword::FirstStrike],
+            effects: vec![],
+        },
         // Compatibility scope: normal creature casting, base characteristics,
         // static unblockability, and the existing immediate hand-zone
         // Transmute operation. The shared Transmute substrate deliberately
