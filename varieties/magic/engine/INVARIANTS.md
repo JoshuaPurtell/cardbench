@@ -256,8 +256,10 @@ Oracle Magic rules coverage.
   current deterministic compatibility policy pays it when affordable, and an
   unpaid optional trigger records no effect receipts. An attack trigger retains
   its selected target through resolution; received-damage triggers capture
-  positive damage before SBAs;
-  dies triggers retain the historical source object after a graveyard move and
+  positive damage before SBAs; `AnotherCreatureDies` observers are captured
+  while both objects still have battlefield provenance, so a simultaneous
+  creature death and a token death cannot erase a surviving observer's
+  trigger. Dies triggers retain the historical source object after a graveyard move and
   materialize every declared target slot before stacking; a legal selected
   target cannot be dropped or replaced by an empty target vector.
   A `LifeGained` trigger is captured from a positive `LifeGained` receipt while
@@ -276,6 +278,11 @@ Oracle Magic rules coverage.
   Every materialized dynamic effect is checked against its binding before it
   can resolve, and no pending attack, damage, life-gain, or dies trigger may survive its
   enclosing transition.
+- A resolving all-player discard effect selects at most one controller-owned
+  hand card per living player in deterministic hand order. Every
+  `CardDiscarded` receipt is immediately followed by that exact card's
+  `CardMoved { to: Graveyard }` receipt; activation discard costs remain
+  separately represented by `DiscardedAsAbilityCost`.
 - Every public, intrinsic, or definition-bound mana producer preflights this
   bounded pool before it changes a source, pass state, pool, or event log. A
   capacity rejection is atomic and cannot emit a `ManaAdded` receipt for mana

@@ -287,6 +287,7 @@ struct PendingDamageTrigger {
 struct PendingDiesTrigger {
     source: ObjectId,
     definition: &'static str,
+    condition: TriggerCondition,
 }
 
 #[derive(Clone, Debug)]
@@ -657,6 +658,7 @@ impl Game {
                         | TriggerCondition::DealsDamage
                         | TriggerCondition::ReceivesDamage
                         | TriggerCondition::Dies
+                        | TriggerCondition::AnotherCreatureDies
                         | TriggerCondition::Attacks
                 )
                 || binding.ability.targets
@@ -2790,6 +2792,7 @@ impl Game {
         self.validate_stack_terminal_event_order()?;
         self.validate_ability_event_order()?;
         self.validate_ability_discard_cost_event_order()?;
+        Self::validate_effect_discard_event_order(&self.event_log)?;
         self.validate_ability_additional_tap_cost_event_order()?;
         if self.started && !self.is_game_over() && !self.step.grants_priority() {
             return Err(RulesError::IllegalAction(
@@ -2964,6 +2967,7 @@ impl Game {
                             | TriggerCondition::DealsDamage
                             | TriggerCondition::ReceivesDamage
                             | TriggerCondition::Dies
+                            | TriggerCondition::AnotherCreatureDies
                             | TriggerCondition::Attacks
                     )
                     || ability.targets
@@ -3844,6 +3848,7 @@ impl Game {
                 Effect::AddManaController { amount, .. } => i16::from(*amount),
                 Effect::CreateToken { .. }
                 | Effect::CreateTokenForTargetPlayer { .. }
+                | Effect::DiscardOneCardEachPlayer
                 | Effect::CompleteDamageRedirection
                 | Effect::DrawControllerIfManaColorSpent { .. }
                 | Effect::DrawController
@@ -4379,8 +4384,56 @@ impl Game {
     /// state-based-action boundary, while retaining the dead card object as
     /// the historical source for resolution and event auditing.
     fn enqueue_dies_triggers(&mut self, source: ObjectId, definition: &'static str) {
-        self.pending_dies_triggers
-            .push(PendingDiesTrigger { source, definition });
+        self.pending_dies_triggers.push(PendingDiesTrigger {
+            source,
+            definition,
+            condition: TriggerCondition::Dies,
+        });
+    }
+
+    /// Captures every battlefield permanent with an "another creature dies"
+    /// trigger before the dying object leaves. This preserves last-known
+    /// battlefield state for simultaneous creature deaths and token deaths.
+    fn enqueue_another_creature_dies_triggers(
+        &mut self,
+        dying_creature: ObjectId,
+    ) -> Result<(), RulesError> {
+        if !self
+            .characteristics(dying_creature)?
+            .card_types
+            .contains(&CardType::Creature)
+        {
+            return Ok(());
+        }
+        let observers = self
+            .all_battlefield_cards()
+            .into_iter()
+            .filter(|source| *source != dying_creature)
+            .filter_map(|source| {
+                let object = self.object(source).ok()?;
+                if object.token.is_some() {
+                    return None;
+                }
+                self.card_definition(source)
+                    .ok()
+                    .map(|definition| (source, definition.id))
+            })
+            .filter(|(_, definition)| {
+                self.triggered_abilities
+                    .get(definition)
+                    .into_iter()
+                    .flat_map(|abilities| abilities.values())
+                    .any(|ability| ability.condition == TriggerCondition::AnotherCreatureDies)
+            })
+            .collect::<Vec<_>>();
+        for (source, definition) in observers {
+            self.pending_dies_triggers.push(PendingDiesTrigger {
+                source,
+                definition,
+                condition: TriggerCondition::AnotherCreatureDies,
+            });
+        }
+        Ok(())
     }
 
     /// Captures triggered abilities controlled by permanents on the
@@ -4433,7 +4486,7 @@ impl Game {
                 .get(definition)
                 .into_iter()
                 .flat_map(|abilities| abilities.values())
-                .filter(|ability| ability.condition == TriggerCondition::Dies)
+                .filter(|ability| ability.condition == pending.condition)
                 .cloned()
                 .collect::<Vec<_>>();
             for ability in triggers {
@@ -4707,6 +4760,28 @@ impl Game {
                     player: controller,
                     amount: *amount,
                 });
+            }
+            Effect::DiscardOneCardEachPlayer => {
+                // Each player makes this selection independently. Until
+                // discard-choice submission is policy-visible, the engine
+                // deterministically uses the oldest hand object and keeps the
+                // choice auditable through the ordinary discard and zone logs.
+                let discards = self
+                    .players
+                    .iter()
+                    .filter(|player| !player.lost)
+                    .filter_map(|player| player.hand.first().copied().map(|card| (player.id, card)))
+                    .collect::<Vec<_>>();
+                for (player, card) in discards {
+                    if self.zone_of(card) == Some(Zone::Hand)
+                        && self
+                            .object(card)
+                            .is_ok_and(|object| object.controller == player)
+                    {
+                        self.record_event(GameEvent::CardDiscarded { player, card });
+                        self.move_to_zone(card, Zone::Graveyard)?;
+                    }
+                }
             }
             Effect::DealDamageEqualToAttackingCreatures { .. } => {
                 let amount = self.attacking_creature_count(controller)?;
@@ -5900,6 +5975,10 @@ impl Game {
 
     fn move_to_graveyard_or_remove_token(&mut self, card: ObjectId) -> Result<(), RulesError> {
         if self.object(card)?.token.is_some() {
+            let was_battlefield = self.zone_of(card) == Some(Zone::Battlefield);
+            if was_battlefield {
+                self.enqueue_another_creature_dies_triggers(card)?;
+            }
             self.remove_from_all_zones(card);
             self.objects.remove(&card);
             self.regeneration_shields.remove(&card);
@@ -5909,6 +5988,9 @@ impl Game {
         }
         let was_battlefield = self.zone_of(card) == Some(Zone::Battlefield);
         let definition = self.card_definition(card)?.id;
+        if was_battlefield {
+            self.enqueue_another_creature_dies_triggers(card)?;
+        }
         self.move_to_zone(card, Zone::Graveyard)?;
         if was_battlefield {
             self.enqueue_dies_triggers(card, definition);
@@ -6682,6 +6764,29 @@ impl Game {
             return Err(RulesError::IllegalAction(
                 "ability activation and terminal receipts disagree with the live stack",
             ));
+        }
+        Ok(())
+    }
+
+    /// A discard performed by a resolving effect must immediately enter its
+    /// owner's graveyard. This is distinct from an activation's explicit
+    /// `DiscardedAsAbilityCost` receipt, which is audited separately.
+    fn validate_effect_discard_event_order(events: &[GameEvent]) -> Result<(), RulesError> {
+        for (index, event) in events.iter().enumerate() {
+            let GameEvent::CardDiscarded { card, .. } = event else {
+                continue;
+            };
+            if !matches!(
+                events.get(index + 1),
+                Some(GameEvent::CardMoved {
+                    card: moved_card,
+                    to: Zone::Graveyard,
+                }) if moved_card == card
+            ) {
+                return Err(RulesError::IllegalAction(
+                    "effect discard receipt lacks an immediate graveyard move",
+                ));
+            }
         }
         Ok(())
     }

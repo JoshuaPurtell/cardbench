@@ -8423,3 +8423,60 @@ priority = 0
 event_markers = ["Transmuted", "AttackersDeclared"]
 event_absent = ["BlockersDeclared"]
 digest = "fnv1a64:b7486c2626e10b80"
+
+[[scenario]]
+id = "rav_sadistic_augermage_death_discard"
+seed = 0
+triggers = true
+description = "When another creature dies, Sadistic Augermage stacks an all-player discard ability with explicit discard and graveyard receipts."
+
+[[scenario.card]]
+label = "augermage"
+owner = 0
+definition = "RAV-SADISTIC-AUGERMAGE"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.card]]
+label = "victim"
+owner = 1
+definition = "RAV-GOLGARI-GRAVE-TROLL"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.card]]
+label = "p0_discard"
+owner = 0
+definition = "RAV-SWAMP"
+zone = "hand"
+
+[[scenario.card]]
+label = "p0_keep"
+owner = 0
+definition = "RAV-WATCHWOLF"
+zone = "hand"
+
+[[scenario.card]]
+label = "p1_discard"
+owner = 1
+definition = "RAV-ISLAND"
+zone = "hand"
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["augermage:battlefield", "p0_discard:graveyard", "p0_keep:hand", "p1_discard:graveyard", "victim:graveyard"]
+stack_size = 0
+priority = 0
+event_markers = ["StateBasedAction", "TriggeredAbilityStacked", "CardDiscarded", "AbilityResolved"]
+digest = "fnv1a64:2d321976a5119fc0"

@@ -35,7 +35,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 85] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 86] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -121,6 +121,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 85] = [
     "RAV-VOTARY-OF-THE-CONCLAVE",
     "RAV-GRAVE-SHELL-SCARAB",
     "RAV-UNDERCITY-SHADE",
+    "RAV-SADISTIC-AUGERMAGE",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -1949,17 +1950,30 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             0,
             6,
         ),
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed death trigger is deliberately
-        // omitted from this compatibility slice.
-        bounded_creature_chassis(
-            "RAV-SADISTIC-AUGERMAGE",
-            "Sadistic Augermage",
-            ManaCost::with_colors(2, [Color::Black]),
-            colors([Color::Black]),
-            3,
-            1,
-        ),
+        // Full fidelity for the exercised deterministic trigger path: another
+        // creature dying stacks the source-identified all-player discard
+        // ability. The effect's card selections are visible through explicit
+        // discard and zone-change receipts.
+        CardDefinition {
+            id: "RAV-SADISTIC-AUGERMAGE",
+            name: "Sadistic Augermage",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(2, [Color::Black]),
+            colors: colors([Color::Black]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "another-creature-dies-each-player-discards",
+            ],
+            power: Some(3),
+            toughness: Some(1),
+            keywords: vec![],
+            effects: vec![],
+        },
         // Full fidelity: red-source damage is prevented by a static target
         // keyword evaluated by the expansion-neutral damage dispatcher.
         CardDefinition {
@@ -3505,6 +3519,17 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                 effects: vec![Effect::DealDamageController { amount: 2 }],
             },
         },
+        TriggeredAbilityBinding {
+            card_definition: "RAV-SADISTIC-AUGERMAGE",
+            ability: TriggeredAbility {
+                id: "another-creature-dies-each-player-discards",
+                condition: TriggerCondition::AnotherCreatureDies,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![Effect::DiscardOneCardEachPlayer],
+            },
+        },
     ]
 }
 
@@ -4250,7 +4275,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 126);
+        assert_eq!(first.len(), 127);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

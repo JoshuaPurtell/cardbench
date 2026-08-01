@@ -208,6 +208,11 @@ pub enum TriggerCondition {
     ReceivesDamage,
     /// The source changed from the battlefield to its graveyard.
     Dies,
+    /// A different creature was put into a graveyard from the battlefield.
+    /// The source is captured before the state-based-action batch removes
+    /// either object, so simultaneous deaths retain their normal historical
+    /// trigger provenance.
+    AnotherCreatureDies,
     /// The source was declared as an attacker. A triggered optional mana cost
     /// is paid only on resolution, after the post-declaration priority window.
     Attacks,
@@ -828,6 +833,10 @@ pub enum Effect {
     LoseLifeController {
         amount: i16,
     },
+    /// Each living player discards one deterministic hand card. The current
+    /// policy boundary takes the oldest hand entry for each player; all zone
+    /// moves are explicit event-log receipts.
+    DiscardOneCardEachPlayer,
     /// Deal damage to one target equal to the number of creatures controlled
     /// by this spell's controller that are still attacking as it resolves.
     ///
@@ -1066,6 +1075,7 @@ impl Effect {
             }
             Self::DealDamageController { .. }
             | Self::LoseLifeController { .. }
+            | Self::DiscardOneCardEachPlayer
             | Self::DealDamageAfterOptionalManaPayment { .. }
             | Self::DealDamageToEachCreatureAndPlayer { .. }
             | Self::DealDamageToEachPlayer { .. }
@@ -1592,6 +1602,12 @@ pub enum GameEvent {
     CardMoved {
         card: ObjectId,
         to: Zone,
+    },
+    /// A resolving effect made a player discard the named hand card before it
+    /// moved to that player's graveyard.
+    CardDiscarded {
+        player: PlayerId,
+        card: ObjectId,
     },
     CardDestroyed {
         source: ObjectId,
