@@ -72,12 +72,17 @@ decision; its clean worktree can be removed without losing commits.
   expansion-neutral, declarative static-binding path for controller-scoped
   other-creature modifiers; it excludes the source, respects controller
   boundaries, and derives removal on source exit from battlefield state.
+- Gate Hound is ported on `dev` as red `1345fd4f` and green `0243cbfa`.
+  Its immutable current-engine static binding becomes active only while a
+  live Aura-like permanent is attached to the Hound, grants Vigilance to the
+  Hound and all of its controller's creatures, preserves opponent isolation,
+  and is reevaluated on ordinary Aura departure.
 - Remaining White source-only definitions are not silently considered merged:
   Auratouched Mage, Bathe in Light, Blazing Archon, Boros Fury-Shield,
   Caregiver, Chant of Vitu-Ghazi, Concerted Effort, Conclave's Blessing,
-  Faith's Fetters, Festival of the Guildpact, Flickerform, Gate Hound, Ghosts
-  of the Innocent, Light of Sanction, Loxodon Gatekeeper, Suppression Field,
-  Three Dreams, Twilight Drover, and Wojek Apothecary. Each requires its
+  Faith's Fetters, Festival of the Guildpact, Flickerform, Ghosts of the
+  Innocent, Light of Sanction, Loxodon Gatekeeper, Suppression Field, Three
+  Dreams, Twilight Drover, and Wojek Apothecary. Each requires its
   own current-engine red-to-green port; the legacy branch's positive markers
   are not evidence that its behavior is live on `dev`.
 

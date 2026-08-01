@@ -732,8 +732,12 @@ Oracle Magic rules coverage.
   the same controller that is distinct from its source; it therefore neither
   buffs the source nor leaks to an opponent's battlefield. Multiple legal
   sources combine in layer order and a source departure removes its static
-  contribution without a synthetic expiry receipt. A static change cannot be
-  inserted into the timestamped continuous-effect list.
+  contribution without a synthetic expiry receipt. An Aura-conditioned
+  controller-creature binding instead requires at least one live Aura-like
+  permanent whose attachment points at its source; it includes that source and
+  its other controlled creatures, never an opponent's creatures. Normal Aura
+  departure immediately revokes that derived contribution. A static change
+  cannot be inserted into the timestamped continuous-effect list.
 - State-based actions run to a fixed point after relevant changes. The current
   slice moves creatures with zero-or-less toughness or lethal marked damage,
   and marks players with zero-or-less life as lost. Each action emits an

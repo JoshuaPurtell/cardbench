@@ -289,6 +289,13 @@ on a shared friendly creature, never affect an opponent's creature, and vanish
 immediately when the relevant source leaves the battlefield. Static bindings
 are expansion metadata, so these effects emit no artificial lifecycle event.
 
+Gate Hound is a complete Aura-conditioned static-creature-effect slice. While
+any live Aura is attached to the Hound, the Hound and every other creature its
+controller controls derive Vigilance; no opposing creature does. The contract
+attaches Moldervine Cloak, then destroys that Aura with Seed Spark and proves
+the ordinary destruction and zone transition revoke all derived keywords
+without a synthetic static-effect receipt.
+
 The first-range easy-creature wave adds Votary of the Conclave, Drake Familiar,
 Ethereal Usher, and Grozoth. Each supports normal colored-cost creature casting
 and base power/toughness. Every other printed keyword, activated ability,
