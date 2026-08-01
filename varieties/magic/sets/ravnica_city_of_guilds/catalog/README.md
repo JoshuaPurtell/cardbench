@@ -187,6 +187,11 @@ expressly transmute-only compatibility definitions: their hand-zone transmute
 activations are exercised in public scenarios, while each printed spell effect
 remains non-covered.
 
+Brainspoil is a separate bounded slice: its typed front face destroys only a
+nonblack creature through the ordinary regenerable destruction lifecycle, and
+its immediate hand-zone Transmute operation remains explicitly outside the
+stack-backed fidelity boundary.
+
 The creature-chassis batch for Carrion Howler, Coalhauler Swine, Bramble
 Elemental, Boros Swiftblade, and Loxodon
 Hierarch is also deliberately

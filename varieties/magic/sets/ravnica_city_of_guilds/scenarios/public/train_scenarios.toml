@@ -1579,7 +1579,7 @@ digest = "fnv1a64:48e44379388f1e83"
 [[scenario]]
 id = "rav_brainspoil_transmute"
 seed = 41
-description = "Use Brainspoil's scoped transmute activation; its printed spell effect is non-covered."
+description = "Use Brainspoil's scoped transmute activation; its nonblack creature-destruction front face has a separate focused stack regression."
 
 [[scenario.card]]
 label = "brainspoil"
