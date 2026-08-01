@@ -61,6 +61,13 @@ this repository retains only CardBench-authored semantic operations, never card
 rules text. Every other executable definition remains a bounded compatibility
 slice unless it is explicitly added to that manifest after the same audit.
 
+Faith's Fetters is also a positive-manifest entry. Its typed enchant-permanent
+attachment carries reusable combat and nonmana-activation restrictions while
+leaving mana abilities legal, and its separate ETB trigger gains four life only
+after the Aura has legally resolved and attached. The focused contract covers
+both a creature and a land target, atomic rejected activation, receipts, and
+attachment invariants.
+
 The focused Darkblast/Scatter the Seeds/Siege Wurm/Guardian of Vitu-Ghazi audit
 uses the same fail-closed rule. Darkblast is in the positive manifest because its
 entire functional behavior is covered by the creature-targeted temporary modifier

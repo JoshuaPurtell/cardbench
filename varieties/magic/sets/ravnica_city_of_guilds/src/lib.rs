@@ -24,10 +24,10 @@ use std::path::{Path, PathBuf};
 use cardbench_magic_engine::{
     ActivatedAbility, ActivatedAbilityBinding, ActivatedManaAbility, AdditionalSpellCost,
     AdditionalSpellCostBinding, BasicLandType, BasicLandTypeBinding, CardDefinition, CardType,
-    CastRequest, Color, ConvokeContribution, ConvokePayment, CostReductionBinding, DeckEntry,
-    DeckList, DeckRules, Effect, Game, HybridManaSymbol, Keyword, LandEntryBinding,
-    LibrarySearchDestination, LibrarySearchRequirement, ManaAbilityBinding, ManaAbilityOutput,
-    ManaBundle, ManaCost, PlayerId, RulesError, StaticAttackRestriction,
+    CastRequest, Color, ContinuousChange, ConvokeContribution, ConvokePayment,
+    CostReductionBinding, DeckEntry, DeckList, DeckRules, Effect, Game, HybridManaSymbol, Keyword,
+    LandEntryBinding, LibrarySearchDestination, LibrarySearchRequirement, ManaAbilityBinding,
+    ManaAbilityOutput, ManaBundle, ManaCost, PlayerId, RulesError, StaticAttackRestriction,
     StaticAttackRestrictionBinding, StaticContinuousEffectBinding, Target, TargetRequirement,
     TokenSpec, TriggerCondition, TriggeredAbility, TriggeredAbilityBinding, Zone,
 };
@@ -37,7 +37,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 126] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 127] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -163,6 +163,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 126] = [
     "RAV-GATE-HOUND",
     "RAV-BLAZING-ARCHON",
     "RAV-CAREGIVER",
+    "RAV-FAITHS-FETTERS",
     "RAV-CHANT-OF-VITU-GHAZI",
 ];
 
@@ -1978,6 +1979,32 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             toughness: Some(1),
             keywords: vec![],
             effects: vec![],
+        },
+        CardDefinition {
+            id: "RAV-FAITHS-FETTERS",
+            name: "Faith's Fetters",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(3, [Color::White]),
+            colors: colors([Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Enchantment]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "aura-enchant-permanent",
+                "etb-gain-four-life",
+                "attached-permanent-combat-and-activation-restriction",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![Effect::AttachSourceToTarget {
+                target: TargetRequirement::Permanent,
+                changes: vec![
+                    ContinuousChange::AddKeyword(Keyword::CannotAttackOrBlock),
+                    ContinuousChange::SuppressNonManaActivatedAbilities,
+                ],
+            }],
         },
         // Full fidelity: Convoke reduces the printed cost and the resolving
         // instruction counts every current battlefield creature, including
@@ -5109,6 +5136,17 @@ pub fn rav_static_attack_restriction_bindings() -> Vec<StaticAttackRestrictionBi
 #[allow(clippy::too_many_lines)] // Keep the declarative trigger registry centralized for audit review.
 pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
     vec![
+        TriggeredAbilityBinding {
+            card_definition: "RAV-FAITHS-FETTERS",
+            ability: TriggeredAbility {
+                id: "etb-gain-four-life",
+                condition: TriggerCondition::EntersBattlefield,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![Effect::GainLifeController { amount: 4 }],
+            },
+        },
         TriggeredAbilityBinding {
             card_definition: "RAV-BLOOD-FUNNEL",
             ability: TriggeredAbility {

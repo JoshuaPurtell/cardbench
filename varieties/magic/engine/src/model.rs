@@ -1139,6 +1139,13 @@ pub enum Effect {
         power: i16,
         toughness: i16,
     },
+    /// Attach this resolving Aura permanent to a target matching the typed
+    /// enchant restriction and install every attachment-linked continuous
+    /// change while both endpoints remain live.
+    AttachSourceToTarget {
+        target: TargetRequirement,
+        changes: Vec<ContinuousChange>,
+    },
     /// Reveal the resolving controller's top library card, move it to hand,
     /// then make that controller lose life equal to its catalog mana value.
     /// An empty library has no card to reveal and is not a draw-loss path.
@@ -1413,7 +1420,8 @@ impl Effect {
     pub const fn target_requirement(&self) -> Option<TargetRequirement> {
         match self {
             Self::DealDamage { target, .. }
-            | Self::DealDamageEqualToAttackingCreatures { target } => Some(*target),
+            | Self::DealDamageEqualToAttackingCreatures { target }
+            | Self::AttachSourceToTarget { target, .. } => Some(*target),
             Self::ModifyTargetPtUntilEndOfTurn { .. }
             | Self::ModifyTargetPtAndKeywordUntilEndOfTurn { .. }
             | Self::ModifyTargetKeywordUntilEndOfTurn { .. }
@@ -1794,6 +1802,9 @@ pub enum ContinuousChange {
     /// every creature controlled by the source's controller, but only while
     /// at least one live Aura is attached to the source.
     ControlledCreaturesAddKeywordIfSourceEnchanted(Keyword),
+    /// The affected permanent's activated nonmana abilities cannot be
+    /// activated. Mana abilities remain legal and continue to bypass the stack.
+    SuppressNonManaActivatedAbilities,
 }
 
 impl ContinuousChange {
@@ -1807,7 +1818,8 @@ impl ContinuousChange {
             | Self::CannotBlockSource(_)
             | Self::AddDamageShield(_)
             | Self::OtherControlledCreaturesAddKeyword(_)
-            | Self::ControlledCreaturesAddKeywordIfSourceEnchanted(_) => Layer::Ability,
+            | Self::ControlledCreaturesAddKeywordIfSourceEnchanted(_)
+            | Self::SuppressNonManaActivatedAbilities => Layer::Ability,
             Self::ModifyPowerToughness { .. }
             | Self::ControlledCreatureCountPowerToughness
             | Self::OtherControlledCreaturesModifyPowerToughness { .. } => Layer::PowerToughness,

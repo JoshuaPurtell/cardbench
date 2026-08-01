@@ -36,6 +36,14 @@ Oracle Magic rules coverage.
   zone-departure cleanup for the object and any continuous effects involving
   it. It is not lethal damage and cannot be silently substituted with a
   graveyard move.
+- An Aura definition owns exactly one typed attachment instruction. Its live
+  target must remain a battlefield permanent satisfying that enchant
+  restriction, and each declared attachment-linked continuous change has
+  exactly one permanent effect with the Aura as source and attached object as
+  target. If either endpoint or legality disappears, the ordinary SBA removes
+  the Aura and all linked effects expire. A suppression change rejects only
+  nonmana activated abilities before any cost or receipt; mana abilities remain
+  legal. `AuraAttached` follows the final linked-effect receipt.
 - A non-token object has exactly one catalog definition; a token has exactly
   one token specification and exists only on the battlefield. An object cannot
   be both, and no nonpermanent card can occupy the battlefield.
