@@ -5288,6 +5288,7 @@ impl Game {
                 | Effect::RadianceModifyPtUntilEndOfTurn { .. }
                 | Effect::RadianceAddKeywordUntilEndOfTurn { .. }
                 | Effect::RadianceDestroyEnchantments
+                | Effect::DestroyAllNonTokenCreatures
                 | Effect::CounterTargetInstantOrSorcerySpell
                 | Effect::SacrificeCreatureOrCounterTargetSpell
                 | Effect::GrantGraveyardCastPermissionUntilEndOfTurn
@@ -7350,6 +7351,27 @@ impl Game {
                     self.radiance_permanents_sharing_color_of_type(target, &CardType::Enchantment)?
                 {
                     self.destroy_permanent(source, candidate)?;
+                }
+            }
+            Effect::DestroyAllNonTokenCreatures => {
+                // Snapshot every live non-token creature before destruction.
+                // In particular, a zone change caused by an earlier destroy
+                // instruction must not change this spell's recipient set.
+                let creatures = self
+                    .all_battlefield_cards()
+                    .into_iter()
+                    .filter(|candidate| {
+                        self.object(*candidate)
+                            .is_ok_and(|object| object.token.is_none())
+                            && self
+                                .characteristics(*candidate)
+                                .is_ok_and(|characteristics| {
+                                    characteristics.card_types.contains(&CardType::Creature)
+                                })
+                    })
+                    .collect::<Vec<_>>();
+                for creature in creatures {
+                    self.destroy_permanent(source, creature)?;
                 }
             }
             Effect::CounterTargetInstantOrSorcerySpell => {

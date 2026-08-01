@@ -37,7 +37,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 119] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 120] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -157,6 +157,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 119] = [
     "RAV-SEED-SPARK",
     "RAV-LEAVE-NO-TRACE",
     "RAV-HUNTED-LAMMASU",
+    "RAV-HOUR-OF-RECKONING",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -1836,6 +1837,28 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             toughness: None,
             keywords: vec![],
             effects: vec![Effect::RadianceDestroyEnchantments],
+        },
+        // Full fidelity: Convoke is paid as part of the ordinary cast, then
+        // one target-free resolution instruction snapshots and destroys every
+        // live nontoken creature through the normal destruction lifecycle.
+        CardDefinition {
+            id: "RAV-HOUR-OF-RECKONING",
+            name: "Hour of Reckoning",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(4, [Color::White, Color::White, Color::White]),
+            colors: colors([Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Sorcery]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "convoke",
+                "destroy-all-nontoken-creatures",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![Keyword::Convoke],
+            effects: vec![Effect::DestroyAllNonTokenCreatures],
         },
         // Full fidelity: this target is controller-scoped at both cast and
         // resolution, then moves through the normal hand-zone lifecycle.

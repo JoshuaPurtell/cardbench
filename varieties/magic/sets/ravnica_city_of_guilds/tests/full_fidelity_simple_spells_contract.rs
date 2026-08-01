@@ -132,6 +132,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-SEED-SPARK",
             "RAV-LEAVE-NO-TRACE",
             "RAV-HUNTED-LAMMASU",
+            "RAV-HOUR-OF-RECKONING",
         ]
     );
     let definitions = card_definitions();
@@ -253,6 +254,10 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
         (
             "RAV-LEAVE-NO-TRACE",
             vec![Effect::RadianceDestroyEnchantments],
+        ),
+        (
+            "RAV-HOUR-OF-RECKONING",
+            vec![Effect::DestroyAllNonTokenCreatures],
         ),
         ("RAV-RECOLLECT", vec![Effect::ReturnTargetCardToHand]),
     ];

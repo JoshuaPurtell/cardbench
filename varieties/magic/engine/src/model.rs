@@ -1280,6 +1280,10 @@ pub enum Effect {
     /// sharing at least one of its colors. The Radiance recipient set is
     /// selected once during resolution before any destruction mutates zones.
     RadianceDestroyEnchantments,
+    /// Destroy every nontoken creature that is on the battlefield when this
+    /// instruction resolves. The candidate set is snapshotted before the
+    /// first destroy instruction so zone changes cannot shrink the sweep.
+    DestroyAllNonTokenCreatures,
     /// Counter one targeted instant or sorcery spell. This is intentionally a
     /// semantic effect rather than a copied card-text string.
     CounterTargetInstantOrSorcerySpell,
@@ -1391,6 +1395,7 @@ impl Effect {
     }
 
     #[must_use]
+    #[allow(clippy::too_many_lines)] // One exhaustive semantic-to-target map keeps stack planning reviewable.
     pub const fn target_requirement(&self) -> Option<TargetRequirement> {
         match self {
             Self::DealDamage { target, .. }
@@ -1490,7 +1495,8 @@ impl Effect {
             | Self::RegenerateSource
             | Self::UntapSource
             | Self::ModifyControllerCreaturesPtUntilEndOfTurn { .. }
-            | Self::AddKeywordToControllerCreaturesUntilEndOfTurn { .. } => None,
+            | Self::AddKeywordToControllerCreaturesUntilEndOfTurn { .. }
+            | Self::DestroyAllNonTokenCreatures => None,
         }
     }
 }
