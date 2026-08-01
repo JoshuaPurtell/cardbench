@@ -281,6 +281,14 @@ untouched. The focused trace creates three Saprolings first, then records four
 `CardDestroyed` transitions before Hour's `SpellResolved` receipt; the
 Saprolings remain on the battlefield and the final state-machine audit passes.
 
+Oathsworn Giant and Veteran Armorer are complete static-creature-effect slices.
+Their controller-scoped modifiers apply only to other friendly creatures:
+Veteran adds toughness, while Oathsworn adds toughness and Vigilance. The
+derived-characteristics contract proves both sources exclude themselves, stack
+on a shared friendly creature, never affect an opponent's creature, and vanish
+immediately when the relevant source leaves the battlefield. Static bindings
+are expansion metadata, so these effects emit no artificial lifecycle event.
+
 The first-range easy-creature wave adds Votary of the Conclave, Drake Familiar,
 Ethereal Usher, and Grozoth. Each supports normal colored-cost creature casting
 and base power/toughness. Every other printed keyword, activated ability,

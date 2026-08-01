@@ -727,9 +727,13 @@ Oracle Magic rules coverage.
   runtime effects. Each registered binding names one creature definition and
   one supported static change. It applies only while an object with that
   definition is on the battlefield, creates no synthetic event receipt, and
-  is reevaluated from the live controller-owned creature count whenever that
-  object's characteristics are read. A static characteristic-defining change
-  cannot be inserted into the timestamped continuous-effect list.
+  is reevaluated from live battlefield state whenever characteristics are read.
+  A controller-scoped `other creature` binding applies only to a creature with
+  the same controller that is distinct from its source; it therefore neither
+  buffs the source nor leaks to an opponent's battlefield. Multiple legal
+  sources combine in layer order and a source departure removes its static
+  contribution without a synthetic expiry receipt. A static change cannot be
+  inserted into the timestamped continuous-effect list.
 - State-based actions run to a fixed point after relevant changes. The current
   slice moves creatures with zero-or-less toughness or lethal marked damage,
   and marks players with zero-or-less life as lost. Each action emits an

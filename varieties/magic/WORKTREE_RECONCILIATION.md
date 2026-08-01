@@ -67,13 +67,17 @@ decision; its clean worktree can be removed without losing commits.
   Its target-free global destruction batch snapshots only live nontoken
   creatures, then uses the current ordinary regenerable destruction lifecycle
   rather than the source lane's obsolete direct zone-change helper.
+- Oathsworn Giant and Veteran Armorer are ported on `dev` as red `5404e736`
+  and green `44df5293`. Their current-engine implementation adds an
+  expansion-neutral, declarative static-binding path for controller-scoped
+  other-creature modifiers; it excludes the source, respects controller
+  boundaries, and derives removal on source exit from battlefield state.
 - Remaining White source-only definitions are not silently considered merged:
   Auratouched Mage, Bathe in Light, Blazing Archon, Boros Fury-Shield,
   Caregiver, Chant of Vitu-Ghazi, Concerted Effort, Conclave's Blessing,
   Faith's Fetters, Festival of the Guildpact, Flickerform, Gate Hound, Ghosts
-  of the Innocent, Light of Sanction, Loxodon Gatekeeper, Oathsworn Giant,
-  Suppression Field, Three Dreams,
-  Twilight Drover, Veteran Armorer, and Wojek Apothecary. Each requires its
+  of the Innocent, Light of Sanction, Loxodon Gatekeeper, Suppression Field,
+  Three Dreams, Twilight Drover, and Wojek Apothecary. Each requires its
   own current-engine red-to-green port; the legacy branch's positive markers
   are not evidence that its behavior is live on `dev`.
 
