@@ -11,7 +11,7 @@ mod model;
 
 pub use game::{
     CardView, CastRequest, ConvokeContribution, ConvokePayment, Game, GameView, PolicyAction,
-    RulesError, TransmuteSearchView,
+    PrivateLibraryChoiceView, RulesError, TransmuteSearchView,
 };
 pub use model::{
     AbilityActivation, ActivatedAbility, ActivatedAbilityBinding, ActivatedManaAbility,

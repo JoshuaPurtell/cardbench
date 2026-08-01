@@ -265,6 +265,8 @@ pub fn run_rav_deck_matchup(
         let policy_id = policy.id().to_owned();
         let action = if view.draw_replacement_pending {
             policy.propose_draw_replacement(&view)
+        } else if view.private_library_choice.is_some() {
+            policy.propose_private_library_choice(&view)
         } else {
             policy.propose_move(&view)
         };

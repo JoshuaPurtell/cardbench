@@ -36,7 +36,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 112] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 113] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -63,6 +63,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 112] = [
     "RAV-SEEDS-OF-STRENGTH",
     "RAV-DARKBLAST",
     "RAV-NIGHTMARE-VOID",
+    "RAV-MOONLIGHT-BARGAIN",
     "RAV-ROLLING-SPOIL",
     "RAV-NETHERBORN-PHALANX",
     "RAV-HEX",
@@ -1306,6 +1307,32 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             toughness: None,
             keywords: vec![Keyword::Dredge(2)],
             effects: vec![Effect::DiscardTargetPlayer { count: 1 }],
+        },
+        // Full fidelity: resolving this instant pauses at an engine-owned,
+        // controller-private selection boundary. The spell remains on the
+        // stack and neither player receives priority until the selected cards
+        // and their life payments are submitted atomically.
+        CardDefinition {
+            id: "RAV-MOONLIGHT-BARGAIN",
+            name: "Moonlight Bargain",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(3, [Color::Black, Color::Black]),
+            colors: colors([Color::Black]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Instant]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "private-library-resolution-choice",
+                "per-card-life-payment",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![Effect::LookAtTopCardsChooseForLifeOrGraveyard {
+                count: 5,
+                life_per_card: 2,
+            }],
         },
         // Full fidelity: the land is destroyed before the independent
         // all-creature batch is snapshotted, and the latter reads only the

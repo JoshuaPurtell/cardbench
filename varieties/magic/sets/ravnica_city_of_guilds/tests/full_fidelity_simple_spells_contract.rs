@@ -37,6 +37,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-SEEDS-OF-STRENGTH",
             "RAV-DARKBLAST",
             "RAV-NIGHTMARE-VOID",
+            "RAV-MOONLIGHT-BARGAIN",
             "RAV-ROLLING-SPOIL",
             "RAV-NETHERBORN-PHALANX",
             "RAV-HEX",
@@ -203,6 +204,13 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             vec![Effect::ModifyTargetPtUntilEndOfTurn {
                 power: -1,
                 toughness: -1,
+            }],
+        ),
+        (
+            "RAV-MOONLIGHT-BARGAIN",
+            vec![Effect::LookAtTopCardsChooseForLifeOrGraveyard {
+                count: 5,
+                life_per_card: 2,
             }],
         ),
         (

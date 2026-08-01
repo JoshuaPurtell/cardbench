@@ -148,6 +148,8 @@ fn submit_policy_move<P: CodePolicy>(
     let view = game.view_for_player(player).map_err(rules_error)?;
     let action = if view.draw_replacement_pending {
         policy.propose_draw_replacement(&view)
+    } else if view.private_library_choice.is_some() {
+        policy.propose_private_library_choice(&view)
     } else {
         policy.propose_move(&view)
     };

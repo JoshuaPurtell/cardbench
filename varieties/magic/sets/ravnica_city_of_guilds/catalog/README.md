@@ -297,6 +297,14 @@ represented, and immediate Transmute still has no activated-ability stack
 object or response window. Accordingly Grozoth remains outside the positive
 fidelity manifest; its ignored full-fidelity probe documents both boundaries.
 
+Moonlight Bargain is a full-fidelity private-library choice slice. Its
+selection opens only after both players have passed and the spell begins
+resolving; the engine keeps that spell on top of the stack, shows candidate
+identities only to its controller, forbids any intervening priority action,
+and records the selected-card life payment and every zone move before the
+spell's terminal receipt. This is a state-machine boundary rather than a
+pre-cast or pre-resolution fixture choice.
+
 The focused Flying/Reach/Haste audit promotes Conclave Equenaut, Snapping Drake,
 Goliath Spider, Courier Hawk, and Skyknight Legionnaire into the positive fidelity manifest. Their
 complete printed functional behavior falls within Convoke, normal casting/base

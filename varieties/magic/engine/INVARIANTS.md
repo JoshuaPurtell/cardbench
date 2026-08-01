@@ -194,6 +194,18 @@ Oracle Magic rules coverage.
   resolution, records `CardRevealed` before moving that exact object to hand,
   and only then records its source-aware `LifeLost` using the catalog mana
   value. An empty library creates neither a reveal nor a draw-loss event.
+- A private-library resolution choice is a one-effect, spell-only suspension
+  boundary with a positive inspected-card count and positive per-card life
+  payment. Its stack spell remains live and is the current top item while the
+  controller alone sees the exact current top-card snapshot through
+  `GameView`; opponents see no candidate identities. The snapshot must still
+  be exactly the controller-owned current library top sequence, priority must
+  stay with that controller with zero passes, and no draw replacement may
+  coexist. A submitted selection is unique and a subset of that snapshot,
+  checks the controller's life before mutation, then atomically records
+  `LifePaid`, moves each selected card to hand and each other inspected card
+  to graveyard, and only then records the spell's terminal resolution and
+  source-zone receipts. No priority action or pass can interleave.
 - A stack spell target that remains on the stack must be below its source,
   because only already-existing stack objects can be chosen while casting. A
   formerly legal target may have left the stack by resolution, which remains a

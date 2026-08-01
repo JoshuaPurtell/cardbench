@@ -101,6 +101,12 @@ pub enum PolicyAction {
     Draw {
         dredge: Option<ObjectId>,
     },
+    /// Resolves one controller-private library choice that was opened while a
+    /// spell was resolving. This is a decision boundary, not priority.
+    ChoosePrivateLibraryCards {
+        spell: ObjectId,
+        selected: Vec<ObjectId>,
+    },
     /// Activates transmute, optionally selecting a matching mana-value card
     /// from the controller's library. A hidden-zone quality search may find
     /// nothing; the engine enforces timing and payment in either case.
@@ -145,6 +151,7 @@ impl PolicyAction {
         match self {
             Self::Cast(_) => PolicyMoveKind::Cast,
             Self::Draw { .. } => PolicyMoveKind::Draw,
+            Self::ChoosePrivateLibraryCards { .. } => PolicyMoveKind::ChoosePrivateLibraryCards,
             Self::Transmute { .. } => PolicyMoveKind::Transmute,
             Self::PassPriority => PolicyMoveKind::PassPriority,
             Self::PlayLand { .. } => PolicyMoveKind::PlayLand,
@@ -183,6 +190,15 @@ pub struct TransmuteSearchView {
     pub candidates: Vec<CardView>,
 }
 
+/// Controller-only private-library selection exposed while a resolving spell
+/// waits for a mandatory choice. Other players see no candidate identities.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PrivateLibraryChoiceView {
+    pub spell: ObjectId,
+    pub cards: Vec<CardView>,
+    pub life_per_card: i16,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct GameView {
     pub player: PlayerId,
@@ -202,6 +218,9 @@ pub struct GameView {
     pub draw_replacement_pending: bool,
     /// Controller-visible, currently legal dredge choices for that pending draw.
     pub dredge_candidates: Vec<CardView>,
+    /// Controller-only private cards currently awaiting a choice within a
+    /// suspended spell resolution. This is never a priority window.
+    pub private_library_choice: Option<PrivateLibraryChoiceView>,
     /// Legal controller-owned library choices for each transmute card in hand.
     pub transmute_searches: Vec<TransmuteSearchView>,
     pub own_battlefield: Vec<CardView>,
@@ -274,6 +293,17 @@ struct CombatState {
     /// Sources that assigned damage in the first-strike damage step. They
     /// cannot assign again in this combat's later normal damage step.
     first_strike_damage_sources: BTreeSet<ObjectId>,
+}
+
+/// A resolution-time private library decision. The stack object remains live
+/// while this marker is present, but no player has priority until its
+/// controller submits a legal selection.
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct PendingPrivateLibraryChoice {
+    spell: ObjectId,
+    controller: PlayerId,
+    cards: Vec<ObjectId>,
+    life_per_card: i16,
 }
 
 #[derive(Clone, Debug)]
@@ -365,6 +395,7 @@ pub struct Game {
     /// dredge from becoming a free graveyard action and makes that compulsory
     /// decision visible to submitted policies.
     pending_draw_replacement: Option<PlayerId>,
+    pending_private_library_choice: Option<PendingPrivateLibraryChoice>,
     /// A resolving rule may prevent every represented library search until the
     /// current turn ends. It is deliberately a turn number, rather than a
     /// boolean, so invariant checks detect an expired marker crossing a turn
@@ -582,6 +613,7 @@ impl Game {
             terminal_event_emitted: false,
             combat: None,
             pending_draw_replacement: None,
+            pending_private_library_choice: None,
             library_search_prevented_until: None,
             pending_damage_triggers: Vec::new(),
             pending_life_gain_triggers: Vec::new(),
@@ -1864,6 +1896,23 @@ impl Game {
         } else {
             Vec::new()
         };
+        let private_library_choice = self
+            .pending_private_library_choice
+            .as_ref()
+            .filter(|choice| choice.controller == player)
+            .map(|choice| {
+                choice
+                    .cards
+                    .iter()
+                    .map(|card| self.card_view(*card))
+                    .collect::<Result<Vec<_>, _>>()
+                    .map(|cards| PrivateLibraryChoiceView {
+                        spell: choice.spell,
+                        cards,
+                        life_per_card: choice.life_per_card,
+                    })
+            })
+            .transpose()?;
         let mut opponent_life = Vec::new();
         let mut opponent_battlefield = Vec::new();
         for opponent in self
@@ -1921,6 +1970,7 @@ impl Game {
             hand,
             draw_replacement_pending,
             dredge_candidates,
+            private_library_choice,
             transmute_searches,
             own_battlefield,
             opponent_battlefield,
@@ -1944,6 +1994,9 @@ impl Game {
         match action {
             PolicyAction::Cast(request) => self.cast_spell(player, request)?,
             PolicyAction::Draw { dredge } => self.resolve_pending_draw(player, dredge)?,
+            PolicyAction::ChoosePrivateLibraryCards { spell, selected } => {
+                self.choose_private_library_cards(player, spell, selected)?;
+            }
             PolicyAction::Transmute { card, found } => self.transmute(player, card, found)?,
             PolicyAction::PassPriority => self.pass_priority(player)?,
             PolicyAction::PlayLand { card } => self.play_land(player, card)?,
@@ -2926,6 +2979,11 @@ impl Game {
                 "the draw replacement decision must resolve before priority can pass",
             ));
         }
+        if self.pending_private_library_choice.is_some() {
+            return Err(RulesError::IllegalAction(
+                "the private library choice must resolve before priority can pass",
+            ));
+        }
         if self.step == Step::DeclareAttackers
             && self
                 .combat
@@ -3061,6 +3119,125 @@ impl Game {
         }
         self.consecutive_passes = 0;
         self.validate_invariants()
+    }
+
+    /// Completes a private library choice that was opened while an untargeted
+    /// spell began resolving. Unlike a priority action, no other move may
+    /// interleave with this selection.
+    #[allow(clippy::needless_pass_by_value)] // Mirrors the owned policy-action payload at the public boundary.
+    pub fn choose_private_library_cards(
+        &mut self,
+        player: PlayerId,
+        spell: ObjectId,
+        selected: Vec<ObjectId>,
+    ) -> Result<(), RulesError> {
+        self.atomic_transition(|game| {
+            game.resolve_pending_private_library_choice(player, spell, &selected)
+        })
+    }
+
+    #[allow(clippy::too_many_lines)] // The full suspension/resumption transaction is one audit unit.
+    fn resolve_pending_private_library_choice(
+        &mut self,
+        player: PlayerId,
+        spell: ObjectId,
+        selected: &[ObjectId],
+    ) -> Result<(), RulesError> {
+        self.require_game_in_progress()?;
+        let choice =
+            self.pending_private_library_choice
+                .clone()
+                .ok_or(RulesError::IllegalAction(
+                    "there is no pending private library choice",
+                ))?;
+        if choice.controller != player || choice.spell != spell {
+            return Err(RulesError::IllegalAction(
+                "only the resolving controller may submit this private library choice",
+            ));
+        }
+        let stack_object = self.stack.last().ok_or(RulesError::IllegalAction(
+            "private library choice has no live stack spell",
+        ))?;
+        if stack_object.card != spell
+            || stack_object.controller != player
+            || stack_object.ability_id.is_some()
+            || !matches!(
+                stack_object.effects.as_slice(),
+                [Effect::LookAtTopCardsChooseForLifeOrGraveyard { life_per_card, .. }]
+                    if *life_per_card == choice.life_per_card
+            )
+        {
+            return Err(RulesError::IllegalAction(
+                "private library choice no longer matches the live stack spell",
+            ));
+        }
+        if selected
+            .iter()
+            .enumerate()
+            .any(|(index, card)| selected[..index].contains(card))
+            || selected.iter().any(|card| !choice.cards.contains(card))
+        {
+            return Err(RulesError::IllegalAction(
+                "private library choice contains an illegal or duplicate card",
+            ));
+        }
+        let selected_count = i16::try_from(selected.len()).map_err(|_| {
+            RulesError::IllegalAction("private library choice count exceeds life-payment range")
+        })?;
+        let life_payment =
+            selected_count
+                .checked_mul(choice.life_per_card)
+                .ok_or(RulesError::IllegalAction(
+                    "private library choice life payment overflows",
+                ))?;
+        if life_payment < 0 || self.players[player.0].life < i64::from(life_payment) {
+            return Err(RulesError::IllegalAction(
+                "private library choice exceeds available life payment",
+            ));
+        }
+        if choice.cards.iter().any(|card| {
+            self.zone_of(*card) != Some(Zone::Library)
+                || self
+                    .object(*card)
+                    .map_or(true, |object| object.owner != player)
+        }) {
+            return Err(RulesError::IllegalAction(
+                "private library choice cards are no longer in the controller library",
+            ));
+        }
+
+        self.stack.pop().ok_or(RulesError::IllegalAction(
+            "private library choice stack spell disappeared before resolution",
+        ))?;
+        self.pending_private_library_choice = None;
+        if life_payment > 0 {
+            self.players[player.0].life -= i64::from(life_payment);
+            self.record_event(GameEvent::LifePaid {
+                source: spell,
+                player,
+                amount: life_payment,
+            });
+        }
+        for card in choice.cards {
+            self.move_to_zone(
+                card,
+                if selected.contains(&card) {
+                    Zone::Hand
+                } else {
+                    Zone::Graveyard
+                },
+            )?;
+        }
+        self.record_event(GameEvent::SpellResolved { card: spell });
+        self.move_to_spell_terminal_zone(spell)?;
+        self.check_state_based_actions()?;
+        self.flush_pending_dies_triggers();
+        self.flush_pending_land_entry_triggers()?;
+        self.flush_pending_damage_triggers();
+        self.flush_pending_life_gain_triggers();
+        self.flush_pending_dies_triggers();
+        self.priority = self.priority_after_resolution();
+        Ok(())
     }
 
     pub fn dredge(&mut self, player: PlayerId, card: ObjectId) -> Result<(), RulesError> {
@@ -3466,6 +3643,49 @@ impl Game {
             return Err(RulesError::IllegalAction(
                 "draw-replacement marker escaped its draw-step decision boundary",
             ));
+        }
+        if let Some(choice) = &self.pending_private_library_choice {
+            let top = self.stack.last().ok_or(RulesError::IllegalAction(
+                "private-library choice escaped its stack spell",
+            ))?;
+            let count = match top.effects.as_slice() {
+                [Effect::LookAtTopCardsChooseForLifeOrGraveyard { count, .. }] => *count,
+                _ => 0,
+            };
+            let effect_matches = matches!(
+                top.effects.as_slice(),
+                [Effect::LookAtTopCardsChooseForLifeOrGraveyard {
+                    life_per_card,
+                    ..
+                }] if *life_per_card == choice.life_per_card
+            );
+            let expected_cards = self.players[choice.controller.0]
+                .library
+                .iter()
+                .rev()
+                .take(usize::from(count))
+                .copied()
+                .collect::<Vec<_>>();
+            if self.pending_draw_replacement.is_some()
+                || top.card != choice.spell
+                || top.controller != choice.controller
+                || top.ability_id.is_some()
+                || !effect_matches
+                || self.priority != choice.controller
+                || self.consecutive_passes != 0
+                || self.players[choice.controller.0].lost
+                || choice.cards != expected_cards
+                || choice.cards.iter().any(|card| {
+                    self.zone_of(*card) != Some(Zone::Library)
+                        || self
+                            .object(*card)
+                            .map_or(true, |object| object.owner != choice.controller)
+                })
+            {
+                return Err(RulesError::IllegalAction(
+                    "private-library choice escaped its resolution boundary",
+                ));
+            }
         }
         if self
             .library_search_prevented_until
@@ -4675,7 +4895,34 @@ impl Game {
     /// are positive quantities.
     #[allow(clippy::too_many_lines)] // One exhaustive, auditable effect preflight table.
     fn validate_cast_effects(definition: &CardDefinition) -> Result<(), RulesError> {
+        let private_library_choice_effects = definition
+            .effects
+            .iter()
+            .filter(|effect| {
+                matches!(
+                    effect,
+                    Effect::LookAtTopCardsChooseForLifeOrGraveyard { .. }
+                )
+            })
+            .count();
+        if private_library_choice_effects > 0 && definition.effects.len() != 1 {
+            return Err(RulesError::IllegalAction(
+                "a private-library choice spell must contain exactly one effect",
+            ));
+        }
         for effect in &definition.effects {
+            if matches!(
+                effect,
+                Effect::LookAtTopCardsChooseForLifeOrGraveyard { count: 0, .. }
+                    | Effect::LookAtTopCardsChooseForLifeOrGraveyard {
+                        life_per_card: ..=0,
+                        ..
+                    }
+            ) {
+                return Err(RulesError::IllegalAction(
+                    "private-library choice must inspect cards for a positive life payment",
+                ));
+            }
             if matches!(effect, Effect::DiscardTargetPlayer { count: 0 }) {
                 return Err(RulesError::IllegalAction(
                     "targeted discard must request at least one card",
@@ -4755,6 +5002,7 @@ impl Game {
                 }
                 | Effect::ReturnOneCreatureCardFromEachGraveyardToHand
                 | Effect::ReturnUpToThreeControllerGraveyardLandCardsToHand
+                | Effect::LookAtTopCardsChooseForLifeOrGraveyard { .. }
                 | Effect::ShuffleGraveyardsIntoLibraries
                 | Effect::ReturnControlledCreatureToHand
                 | Effect::ReturnControlledLandToHand
@@ -4799,6 +5047,9 @@ impl Game {
 
     #[allow(clippy::too_many_lines)] // Spell and activated-ability resolution share one audited path.
     fn resolve_top_of_stack(&mut self) -> Result<(), RulesError> {
+        if self.suspend_top_spell_for_private_library_choice()? {
+            return Ok(());
+        }
         let stack_object = self.stack.pop().ok_or(RulesError::IllegalAction(
             "attempted to resolve an empty stack",
         ))?;
@@ -5008,6 +5259,64 @@ impl Game {
         self.flush_pending_dies_triggers();
         self.priority = self.priority_after_resolution();
         Ok(())
+    }
+
+    /// Opens the no-priority boundary for the one-effect private library
+    /// selection substrate. The spell stays on the stack until its controller
+    /// submits the selection, so no player can respond using information that
+    /// belongs to its unresolved hidden-zone instruction.
+    fn suspend_top_spell_for_private_library_choice(&mut self) -> Result<bool, RulesError> {
+        if self.pending_private_library_choice.is_some() {
+            return Err(RulesError::IllegalAction(
+                "a second private-library choice attempted to open during resolution",
+            ));
+        }
+        let Some(top) = self.stack.last() else {
+            return Ok(false);
+        };
+        let (spell, controller, count, life_per_card) =
+            match (top.ability_id, top.effects.as_slice()) {
+                (
+                    None,
+                    [
+                        Effect::LookAtTopCardsChooseForLifeOrGraveyard {
+                            count,
+                            life_per_card,
+                        },
+                    ],
+                ) => (top.card, top.controller, *count, *life_per_card),
+                (_, [Effect::LookAtTopCardsChooseForLifeOrGraveyard { .. }]) => {
+                    return Err(RulesError::IllegalAction(
+                        "private-library choice effect is unsupported on an ability",
+                    ));
+                }
+                _ => return Ok(false),
+            };
+        if count == 0 || life_per_card <= 0 {
+            return Err(RulesError::IllegalAction(
+                "private-library choice spell has invalid selection parameters",
+            ));
+        }
+        let cards = self.players[controller.0]
+            .library
+            .iter()
+            .rev()
+            .take(usize::from(count))
+            .copied()
+            .collect::<Vec<_>>();
+        self.record_event(GameEvent::CardsLookedAt {
+            viewer: controller,
+            cards: cards.clone(),
+        });
+        self.pending_private_library_choice = Some(PendingPrivateLibraryChoice {
+            spell,
+            controller,
+            cards,
+            life_per_card,
+        });
+        self.priority = controller;
+        self.consecutive_passes = 0;
+        Ok(true)
     }
 
     fn enqueue_enter_triggers(
@@ -6857,6 +7166,11 @@ impl Game {
                         self.move_to_zone(card, Zone::Hand)?;
                     }
                 }
+            }
+            Effect::LookAtTopCardsChooseForLifeOrGraveyard { .. } => {
+                return Err(RulesError::IllegalAction(
+                    "private-library choice effect bypassed its resolution boundary",
+                ));
             }
             Effect::ShuffleGraveyardsIntoLibraries => {
                 for player_index in 0..self.players.len() {
@@ -9151,6 +9465,11 @@ impl Game {
                 "the draw replacement decision must resolve before priority actions",
             ));
         }
+        if self.pending_private_library_choice.is_some() {
+            return Err(RulesError::IllegalAction(
+                "the private library choice must resolve before priority actions",
+            ));
+        }
         if self.players[player.0].lost {
             return Err(RulesError::IllegalAction("an eliminated player cannot act"));
         }
@@ -9250,6 +9569,9 @@ impl Game {
     fn policy_decision_player(&self) -> PlayerId {
         if let Some(player) = self.pending_draw_replacement {
             return player;
+        }
+        if let Some(choice) = &self.pending_private_library_choice {
+            return choice.controller;
         }
         match (&self.combat, self.step) {
             (Some(combat), Step::DeclareAttackers)

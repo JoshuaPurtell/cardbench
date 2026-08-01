@@ -56,4 +56,19 @@ pub trait CodePolicy {
     fn propose_draw_replacement(&mut self, _view: &GameView) -> PolicyAction {
         PolicyAction::Draw { dredge: None }
     }
+
+    /// Completes a mandatory, controller-private library choice that was
+    /// opened in the middle of spell resolution. The conservative default
+    /// selects no cards, so a policy cannot accidentally pay life for hidden
+    /// cards it has not been implemented to evaluate.
+    fn propose_private_library_choice(&mut self, view: &GameView) -> PolicyAction {
+        let choice = view
+            .private_library_choice
+            .as_ref()
+            .expect("private-library choice proposal requires a visible choice");
+        PolicyAction::ChoosePrivateLibraryCards {
+            spell: choice.spell,
+            selected: Vec::new(),
+        }
+    }
 }

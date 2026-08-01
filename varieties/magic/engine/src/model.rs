@@ -1277,6 +1277,14 @@ pub enum Effect {
     /// The initial public slice uses deterministic public-zone selection until
     /// a policy can submit the up-to-three choice.
     ReturnUpToThreeControllerGraveyardLandCardsToHand,
+    /// Suspend this spell's resolution while its controller privately chooses
+    /// zero or more of the top cards of their library. Each selected card
+    /// requires the stated life payment and moves to hand; the rest move to
+    /// the graveyard. The engine owns the no-priority decision boundary.
+    LookAtTopCardsChooseForLifeOrGraveyard {
+        count: u8,
+        life_per_card: i16,
+    },
     /// Move every player's graveyard into that player's library, then shuffle
     /// each library. This is an untargeted, owner-preserving zone operation.
     ShuffleGraveyardsIntoLibraries,
@@ -1421,6 +1429,7 @@ impl Effect {
             | Self::CreateToken { .. }
             | Self::ReturnOneCreatureCardFromEachGraveyardToHand
             | Self::ReturnUpToThreeControllerGraveyardLandCardsToHand
+            | Self::LookAtTopCardsChooseForLifeOrGraveyard { .. }
             | Self::ShuffleGraveyardsIntoLibraries
             | Self::ModifySourcePtUntilEndOfTurn { .. }
             | Self::RemoveSourceKeywordUntilEndOfTurn { .. }
@@ -1746,6 +1755,7 @@ pub enum Zone {
 pub enum PolicyMoveKind {
     Cast,
     Draw,
+    ChoosePrivateLibraryCards,
     Transmute,
     PassPriority,
     PlayLand,
@@ -1964,6 +1974,20 @@ pub enum GameEvent {
     CardMoved {
         card: ObjectId,
         to: Zone,
+    },
+    /// The named controller inspected these currently top library cards while
+    /// a resolving instruction was suspended for a private choice. The cards'
+    /// identities are not exposed through an opponent `GameView`.
+    CardsLookedAt {
+        viewer: PlayerId,
+        cards: Vec<ObjectId>,
+    },
+    /// A resolving private-library choice paid life for the selected cards.
+    /// This is distinct from damage and from a mana-ability life-payment cost.
+    LifePaid {
+        source: ObjectId,
+        player: PlayerId,
+        amount: i16,
     },
     /// A resolving effect made a player discard the named hand card before it
     /// moved to that player's graveyard.

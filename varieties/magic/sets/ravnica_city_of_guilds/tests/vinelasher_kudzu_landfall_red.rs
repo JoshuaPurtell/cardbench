@@ -158,11 +158,11 @@ fn vinelasher_kudzu_does_not_trigger_from_an_opponents_land_play() {
             if *source == kudzu && *ability == "controller-landfall-plus-one-counter"
     )));
     assert!(
-        game.object(kudzu)
+        !game
+            .object(kudzu)
             .expect("Kudzu remains on battlefield")
             .counters
-            .get("+1/+1")
-            .is_none(),
+            .contains_key("+1/+1"),
         "an opponent land cannot create a Kudzu counter"
     );
     game.validate_invariants()
