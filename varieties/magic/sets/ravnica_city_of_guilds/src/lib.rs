@@ -2946,17 +2946,30 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed land-search triggered behavior is
-        // deliberately omitted from this compatibility slice.
-        bounded_creature_chassis(
-            "RAV-CIVIC-WAYFINDER",
-            "Civic Wayfinder",
-            ManaCost::with_colors(2, [Color::Green]),
-            colors([Color::Green]),
-            2,
-            2,
-        ),
+        // The ETB trigger uses the shared typed basic-land search and moves
+        // its deterministic controller-owned selection to hand. A policy
+        // still cannot choose among hidden library candidates, so this remains
+        // a bounded compatibility slice rather than a fidelity promotion.
+        CardDefinition {
+            id: "RAV-CIVIC-WAYFINDER",
+            name: "Civic Wayfinder",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(2, [Color::Green]),
+            colors: colors([Color::Green]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "colored-cost-casting",
+                "base-characteristics",
+                "enter-the-battlefield-basic-land-search",
+                "deterministic-controller-library-search",
+            ],
+            power: Some(2),
+            toughness: Some(2),
+            keywords: vec![],
+            effects: vec![],
+        },
         // Compatibility scope: normal colored-cost creature casting and base
         // characteristics only. Its printed graveyard-recursion activation is
         // deliberately omitted from this compatibility slice.
@@ -4690,6 +4703,26 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
             },
         },
         TriggeredAbilityBinding {
+            card_definition: "RAV-CIVIC-WAYFINDER",
+            ability: TriggeredAbility {
+                id: "etb-search-basic-land-to-hand",
+                condition: TriggerCondition::EntersBattlefield,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![Effect::SearchControllerLibrary {
+                    requirement: LibrarySearchRequirement::BasicLandTypes(BTreeSet::from([
+                        BasicLandType::Plains,
+                        BasicLandType::Island,
+                        BasicLandType::Swamp,
+                        BasicLandType::Mountain,
+                        BasicLandType::Forest,
+                    ])),
+                    destination: LibrarySearchDestination::Hand,
+                }],
+            },
+        },
+        TriggeredAbilityBinding {
             card_definition: "RAV-BOROS-GARRISON",
             ability: guild_bounce_land_trigger(),
         },
@@ -5775,7 +5808,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 155);
+        assert_eq!(first.len(), 156);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

@@ -75,6 +75,7 @@ pub enum LibrarySearchRequirement {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum LibrarySearchDestination {
     BattlefieldTapped,
+    Hand,
 }
 
 /// Immutable behavior applied as a land enters the battlefield.

@@ -497,11 +497,13 @@ Oracle Magic rules coverage.
   is an invariant failure.
 - A stack-based typed library search examines only the resolving controller's
   library and picks no more than one matching card. It records a normal
-  `CardMoved` battlefield entry before `LibrarySearchResolved`, immediately
-  follows the latter with that controller's `LibraryShuffled` receipt, and
-  records no selected-card movement when `found` is absent. The current
-  deterministic first-match rule is an explicit policy-fidelity boundary, not
-  a hidden-zone choice approximation.
+  `CardMoved` entry to its exact declared destination (`BattlefieldTapped` or
+  `Hand`) before `LibrarySearchResolved`, immediately follows the latter with
+  that controller's `LibraryShuffled` receipt, and records no selected-card
+  movement when `found` is absent. Only a battlefield-tapped destination may
+  queue a land-entry trigger batch. The current deterministic first-match rule
+  is an explicit policy-fidelity boundary, not a hidden-zone choice
+  approximation.
 - Turn numbers are never zero, and the consecutive-pass counter is always
   below the number of surviving players outside its atomic resolution/step
   transition. A draw-replacement marker can exist only for the active player

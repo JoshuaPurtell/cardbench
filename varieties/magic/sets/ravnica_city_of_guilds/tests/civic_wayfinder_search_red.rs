@@ -1,6 +1,8 @@
 //! Red regression for Civic Wayfinder's omitted ETB land search.
 
-use cardbench_magic_engine::{CastRequest, Color, Game, PlayerId, Step, Zone};
+use cardbench_magic_engine::{
+    CastRequest, Color, Game, GameEvent, LibrarySearchDestination, PlayerId, Step, Zone,
+};
 use cardbench_magic_rav::{
     card_definitions, rav_activated_ability_bindings, rav_additional_spell_cost_bindings,
     rav_basic_land_type_bindings, rav_mana_ability_bindings, rav_triggered_ability_bindings,
@@ -60,6 +62,15 @@ fn civic_wayfinder_has_a_typed_etb_basic_land_search() {
 
     assert_eq!(game.zone_of(forest), Some(Zone::Hand));
     assert_eq!(game.zone_of(opponent_land), Some(Zone::Library));
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::LibrarySearchResolved {
+            player: PlayerId(0),
+            source,
+            found: Some(card),
+            destination: LibrarySearchDestination::Hand,
+        } if *source == wayfinder && *card == forest
+    )));
     println!("Civic Wayfinder search trace: {:?}", game.event_log);
     game.validate_invariants()
         .expect("Civic Wayfinder search preserves invariants");

@@ -3178,6 +3178,7 @@ impl Game {
                         .tapped = true;
                     self.queue_land_entry_trigger_batch(player)?;
                 }
+                LibrarySearchDestination::Hand => self.move_to_zone(card, Zone::Hand)?,
             }
         }
         self.record_event(GameEvent::LibrarySearchResolved {
@@ -7877,22 +7878,21 @@ impl Game {
             else {
                 continue;
             };
-            if let Some(card) = found
-                && !matches!(
+            if let Some(card) = found {
+                let expected_zone = match destination {
+                    LibrarySearchDestination::BattlefieldTapped => Zone::Battlefield,
+                    LibrarySearchDestination::Hand => Zone::Hand,
+                };
+                if !matches!(
                     events.get(index.checked_sub(1).ok_or(RulesError::IllegalAction(
                         "library-search receipt lacks selected-card movement",
                     ))?),
-                    Some(GameEvent::CardMoved { card: moved, to: Zone::Battlefield }) if moved == card
-                )
-            {
-                return Err(RulesError::IllegalAction(
-                    "library-search receipt lacks its selected battlefield movement",
-                ));
-            }
-            if !matches!(destination, LibrarySearchDestination::BattlefieldTapped) {
-                return Err(RulesError::IllegalAction(
-                    "library-search receipt has an unsupported destination",
-                ));
+                    Some(GameEvent::CardMoved { card: moved, to }) if moved == card && *to == expected_zone
+                ) {
+                    return Err(RulesError::IllegalAction(
+                        "library-search receipt lacks movement to its declared destination",
+                    ));
+                }
             }
             if !matches!(
                 events.get(index + 1),

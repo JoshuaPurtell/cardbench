@@ -3487,6 +3487,63 @@ event_markers = ["SpellCast", "PriorityPassed", "SpellResolved"]
 digest = "fnv1a64:e78637d84b25b302"
 
 [[scenario]]
+id = "rav_civic_wayfinder_etb_basic_land_search"
+seed = 155
+triggers = true
+description = "Cast Civic Wayfinder, resolve its stack-backed ETB trigger, and move the deterministic controller-owned basic-land selection to hand before the trigger's terminal receipt."
+
+[[scenario.card]]
+label = "wayfinder"
+owner = 0
+definition = "RAV-CIVIC-WAYFINDER"
+zone = "hand"
+
+[[scenario.card]]
+label = "forest"
+owner = 0
+definition = "RAV-FOREST"
+zone = "library"
+
+[[scenario.card]]
+label = "opponent_island"
+owner = 1
+definition = "RAV-ISLAND"
+zone = "library"
+
+[[scenario.mana]]
+player = 0
+color = "green"
+amount = 3
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "wayfinder"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["wayfinder:battlefield", "forest:hand", "opponent_island:library"]
+stack_size = 0
+priority = 0
+event_markers = ["TriggeredAbilityStacked", "LibrarySearchResolved", "LibraryShuffled", "AbilityResolved"]
+digest = "fnv1a64:74bfe3d04a3ea0b9"
+
+[[scenario]]
 id = "rav_one_mana_creature_chassis"
 seed = 0
 description = "Cast Grayscaled Gharial and Elvish Skysweeper with their exact one-color costs, then verify only their base P/T. Their printed evasion and activated behavior are deliberately omitted."
