@@ -944,6 +944,8 @@ impl Game {
                 || !matches!(
                     binding.change,
                     ContinuousChange::ControlledCreatureCountPowerToughness
+                        | ContinuousChange::OtherControlledCreaturesModifyPowerToughness { .. }
+                        | ContinuousChange::OtherControlledCreaturesAddKeyword(_)
                 )
             {
                 return Err(RulesError::IllegalAction(
@@ -2145,11 +2147,24 @@ impl Game {
             }
         };
         if self.zone_of(card) == Some(Zone::Battlefield) {
-            if let Some(definition) = object.definition {
-                if let Some(changes) = self.static_continuous_effects.get(definition) {
-                    for change in changes {
-                        self.apply_static_continuous_change(card, &mut characteristics, change)?;
-                    }
+            // Static bindings are keyed by source definition, but their
+            // recipient can be another permanent. Iterate all live sources
+            // rather than only the queried card so controller-scoped anthems
+            // do not disappear from their intended recipients.
+            for source in self.all_battlefield_cards() {
+                let Some(definition) = self.object(source)?.definition else {
+                    continue;
+                };
+                let Some(changes) = self.static_continuous_effects.get(definition) else {
+                    continue;
+                };
+                for change in changes {
+                    self.apply_static_continuous_change(
+                        source,
+                        card,
+                        &mut characteristics,
+                        change,
+                    )?;
                 }
             }
         }
@@ -2184,7 +2199,9 @@ impl Game {
                         .toughness
                         .map(|current| current + i32::from(*toughness));
                 }
-                ContinuousChange::ControlledCreatureCountPowerToughness => {
+                ContinuousChange::ControlledCreatureCountPowerToughness
+                | ContinuousChange::OtherControlledCreaturesModifyPowerToughness { .. }
+                | ContinuousChange::OtherControlledCreaturesAddKeyword(_) => {
                     return Err(RulesError::IllegalAction(
                         "a static continuous change cannot be a timestamped effect",
                     ));
@@ -2207,12 +2224,16 @@ impl Game {
 
     fn apply_static_continuous_change(
         &self,
+        source: ObjectId,
         card: ObjectId,
         characteristics: &mut Characteristics,
         change: &ContinuousChange,
     ) -> Result<(), RulesError> {
         match change {
             ContinuousChange::ControlledCreatureCountPowerToughness => {
+                if source != card {
+                    return Ok(());
+                }
                 let controller = self.object(card)?.controller;
                 let count =
                     i32::try_from(self.controlled_creature_count(controller)).map_err(|_| {
@@ -2222,6 +2243,33 @@ impl Game {
                     })?;
                 characteristics.power = Some(count);
                 characteristics.toughness = Some(count);
+                Ok(())
+            }
+            ContinuousChange::OtherControlledCreaturesModifyPowerToughness { power, toughness } => {
+                if source == card
+                    || self.object(source)?.controller != self.object(card)?.controller
+                    || !characteristics.card_types.contains(&CardType::Creature)
+                {
+                    return Ok(());
+                }
+                characteristics.power = characteristics
+                    .power
+                    .map(|current| current + i32::from(*power));
+                characteristics.toughness = characteristics
+                    .toughness
+                    .map(|current| current + i32::from(*toughness));
+                Ok(())
+            }
+            ContinuousChange::OtherControlledCreaturesAddKeyword(keyword) => {
+                if source == card
+                    || self.object(source)?.controller != self.object(card)?.controller
+                    || !characteristics.card_types.contains(&CardType::Creature)
+                {
+                    return Ok(());
+                }
+                if !characteristics.keywords.contains(keyword) {
+                    characteristics.keywords.push(keyword.clone());
+                }
                 Ok(())
             }
             _ => Err(RulesError::IllegalAction(
@@ -2288,6 +2336,8 @@ impl Game {
         if matches!(
             change,
             ContinuousChange::ControlledCreatureCountPowerToughness
+                | ContinuousChange::OtherControlledCreaturesModifyPowerToughness { .. }
+                | ContinuousChange::OtherControlledCreaturesAddKeyword(_)
         ) {
             return Err(RulesError::IllegalAction(
                 "a static continuous change cannot be installed dynamically",
@@ -4515,6 +4565,8 @@ impl Game {
                     !matches!(
                         change,
                         ContinuousChange::ControlledCreatureCountPowerToughness
+                            | ContinuousChange::OtherControlledCreaturesModifyPowerToughness { .. }
+                            | ContinuousChange::OtherControlledCreaturesAddKeyword(_)
                     )
                 })
             {
@@ -4558,6 +4610,8 @@ impl Game {
             if matches!(
                 effect.change,
                 ContinuousChange::ControlledCreatureCountPowerToughness
+                    | ContinuousChange::OtherControlledCreaturesModifyPowerToughness { .. }
+                    | ContinuousChange::OtherControlledCreaturesAddKeyword(_)
             ) {
                 return Err(RulesError::IllegalAction(
                     "a static continuous change appeared in the timestamped effect list",

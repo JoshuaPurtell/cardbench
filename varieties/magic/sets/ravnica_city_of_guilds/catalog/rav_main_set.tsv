@@ -26,20 +26,20 @@
 18	Flickerform
 19	Gate Hound
 20	Ghosts of the Innocent
-21	Hour of Reckoning
-22	Hunted Lammasu
-23	Leave No Trace
+21	Hour of Reckoning	executable:RAV-HOUR-OF-RECKONING
+22	Hunted Lammasu	executable:RAV-HUNTED-LAMMASU
+23	Leave No Trace	executable:RAV-LEAVE-NO-TRACE
 24	Light of Sanction
 25	Loxodon Gatekeeper
 26	Nightguard Patrol	executable:RAV-NIGHTGUARD-PATROL
-27	Oathsworn Giant
+27	Oathsworn Giant	executable:RAV-OATHSWORN-GIANT
 28	Sandsower	executable:RAV-SANDSOWER
 29	Screeching Griffin	executable:RAV-SCREECHING-GRIFFIN
-30	Seed Spark
+30	Seed Spark	executable:RAV-SEED-SPARK
 31	Suppression Field
 32	Three Dreams
 33	Twilight Drover
-34	Veteran Armorer
+34	Veteran Armorer	executable:RAV-VETERAN-ARMORER
 35	Votary of the Conclave	executable:RAV-VOTARY-OF-THE-CONCLAVE
 36	Wojek Apothecary
 37	Wojek Siren	executable:RAV-WOJEK-SIREN

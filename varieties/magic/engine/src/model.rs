@@ -1757,6 +1757,17 @@ pub enum ContinuousChange {
     /// permanent's controller. It is registered as immutable expansion data,
     /// never installed as a timestamped temporary effect.
     ControlledCreatureCountPowerToughness,
+    /// A battlefield-only static layer-seven effect that modifies every
+    /// other creature controlled by the source's controller. It is immutable
+    /// expansion data, not a timestamped effect that can be installed during
+    /// play.
+    OtherControlledCreaturesModifyPowerToughness {
+        power: i16,
+        toughness: i16,
+    },
+    /// A battlefield-only static layer-six effect that grants one keyword to
+    /// every other creature controlled by the source's controller.
+    OtherControlledCreaturesAddKeyword(Keyword),
 }
 
 impl ContinuousChange {
@@ -1768,10 +1779,11 @@ impl ContinuousChange {
             Self::AddKeyword(_)
             | Self::RemoveKeyword(_)
             | Self::CannotBlockSource(_)
-            | Self::AddDamageShield(_) => Layer::Ability,
-            Self::ModifyPowerToughness { .. } | Self::ControlledCreatureCountPowerToughness => {
-                Layer::PowerToughness
-            }
+            | Self::AddDamageShield(_)
+            | Self::OtherControlledCreaturesAddKeyword(_) => Layer::Ability,
+            Self::ModifyPowerToughness { .. }
+            | Self::ControlledCreatureCountPowerToughness
+            | Self::OtherControlledCreaturesModifyPowerToughness { .. } => Layer::PowerToughness,
         }
     }
 }

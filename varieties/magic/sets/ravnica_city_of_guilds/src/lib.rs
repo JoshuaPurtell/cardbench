@@ -37,7 +37,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 120] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 122] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -158,6 +158,8 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 120] = [
     "RAV-LEAVE-NO-TRACE",
     "RAV-HUNTED-LAMMASU",
     "RAV-HOUR-OF-RECKONING",
+    "RAV-OATHSWORN-GIANT",
+    "RAV-VETERAN-ARMORER",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -1859,6 +1861,51 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             toughness: None,
             keywords: vec![Keyword::Convoke],
             effects: vec![Effect::DestroyAllNonTokenCreatures],
+        },
+        // Full fidelity: its base vigilance and static layer-six/layer-seven
+        // grants apply only to other creatures under the same controller.
+        CardDefinition {
+            id: "RAV-OATHSWORN-GIANT",
+            name: "Oathsworn Giant",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(4, [Color::White, Color::White]),
+            colors: colors([Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "vigilance",
+                "static-other-creatures-vigilance-plus-zero-two",
+            ],
+            power: Some(3),
+            toughness: Some(4),
+            keywords: vec![Keyword::Vigilance],
+            effects: vec![],
+        },
+        // Full fidelity: this controller-scoped static layer-seven modifier
+        // applies to every other creature, including other anthem sources.
+        CardDefinition {
+            id: "RAV-VETERAN-ARMORER",
+            name: "Veteran Armorer",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(1, [Color::White]),
+            colors: colors([Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "static-other-creatures-plus-zero-one",
+            ],
+            power: Some(2),
+            toughness: Some(2),
+            keywords: vec![],
+            effects: vec![],
         },
         // Full fidelity: this target is controller-scoped at both cast and
         // resolution, then moves through the normal hand-zone lifecycle.
@@ -4903,10 +4950,32 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
 /// whenever a caller reads a permanent's characteristics.
 #[must_use]
 pub fn rav_static_continuous_effect_bindings() -> Vec<StaticContinuousEffectBinding> {
-    vec![StaticContinuousEffectBinding {
-        card_definition: "RAV-SCION-OF-THE-WILD",
-        change: cardbench_magic_engine::ContinuousChange::ControlledCreatureCountPowerToughness,
-    }]
+    vec![
+        StaticContinuousEffectBinding {
+            card_definition: "RAV-SCION-OF-THE-WILD",
+            change: cardbench_magic_engine::ContinuousChange::ControlledCreatureCountPowerToughness,
+        },
+        StaticContinuousEffectBinding {
+            card_definition: "RAV-OATHSWORN-GIANT",
+            change: cardbench_magic_engine::ContinuousChange::OtherControlledCreaturesModifyPowerToughness {
+                power: 0,
+                toughness: 2,
+            },
+        },
+        StaticContinuousEffectBinding {
+            card_definition: "RAV-OATHSWORN-GIANT",
+            change: cardbench_magic_engine::ContinuousChange::OtherControlledCreaturesAddKeyword(
+                Keyword::Vigilance,
+            ),
+        },
+        StaticContinuousEffectBinding {
+            card_definition: "RAV-VETERAN-ARMORER",
+            change: cardbench_magic_engine::ContinuousChange::OtherControlledCreaturesModifyPowerToughness {
+                power: 0,
+                toughness: 1,
+            },
+        },
+    ]
 }
 
 /// Target-free stack triggers bound to RAV permanents.
