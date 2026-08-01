@@ -36,7 +36,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 107] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 108] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -144,6 +144,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 107] = [
     "RAV-VIGOR-MORTIS",
     "RAV-STONE-SEEDER-HIEROPHANT",
     "RAV-MOLDERVINE-CLOAK",
+    "RAV-CLINGING-DARKNESS",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -797,6 +798,27 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             effects: vec![Effect::AttachSourceAndModifyTargetPt {
                 power: 3,
                 toughness: 3,
+            }],
+        },
+        // Full fidelity: the generic Aura substrate keeps the exact -3/-1
+        // modifier linked to the enchantment and its attached creature until
+        // either battlefield endpoint leaves.
+        CardDefinition {
+            id: "RAV-CLINGING-DARKNESS",
+            name: "Clinging Darkness",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(1, [Color::Black]),
+            colors: colors([Color::Black]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Enchantment]),
+            is_basic_land: false,
+            supported_rules: &["full-rules-fidelity", "aura-attach-and-static-pt"],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![Effect::AttachSourceAndModifyTargetPt {
+                power: -3,
+                toughness: -1,
             }],
         },
         // Compatibility scope: normal creature casting, base characteristics,
