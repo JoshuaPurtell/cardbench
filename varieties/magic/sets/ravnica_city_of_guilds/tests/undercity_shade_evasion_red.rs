@@ -1,7 +1,7 @@
 //! Red coverage probe for Undercity Shade's black-only blocking restriction.
 //!
-//! Its activated power/toughness ability remains intentionally outside this
-//! static evasion probe and must not be approximated.
+//! Its black-mana self-pump is represented by the separate full-fidelity
+//! activation contract; this probe retains the static evasion assertion.
 
 use cardbench_magic_rav::card_definitions;
 
@@ -22,9 +22,11 @@ fn undercity_shade_exposes_its_supported_black_only_evasion_slice() {
     assert_eq!(
         shade.supported_rules,
         [
+            "full-rules-fidelity",
             "colored-cost-casting",
             "base-characteristics",
-            "black-only-evasion"
+            "black-only-evasion",
+            "black-mana-self-pump"
         ]
     );
 }
