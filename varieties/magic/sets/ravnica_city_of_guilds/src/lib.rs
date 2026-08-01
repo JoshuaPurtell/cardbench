@@ -35,7 +35,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 81] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 82] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -117,6 +117,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 81] = [
     "RAV-MNEMONIC-NEXUS",
     "RAV-PEEL-FROM-REALITY",
     "RAV-SINS-OF-THE-PAST",
+    "RAV-SEWERDREG",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -2071,9 +2072,9 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             2,
             1,
         ),
-        // Compatibility scope: normal colored-cost creature casting, base
-        // characteristics, and static Fear. Its regeneration activation is
-        // deliberately unsupported.
+        // Full fidelity: normal colored-cost creature casting, base
+        // characteristics, static Fear, and the stack-backed self-regeneration
+        // activation are represented by the shared engine.
         CardDefinition {
             id: "RAV-SEWERDREG",
             name: "Sewerdreg",
@@ -2083,7 +2084,13 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Creature]),
             is_basic_land: false,
-            supported_rules: &["colored-cost-casting", "base-characteristics", "fear"],
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "fear",
+                "regeneration",
+            ],
             power: Some(3),
             toughness: Some(3),
             keywords: vec![Keyword::Fear],
@@ -2929,6 +2936,20 @@ pub fn rav_mana_ability_bindings() -> Vec<ManaAbilityBinding> {
 #[allow(clippy::too_many_lines)]
 pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
     vec![
+        ActivatedAbilityBinding {
+            card_definition: "RAV-SEWERDREG",
+            ability: ActivatedAbility {
+                id: "self-regeneration",
+                mana_cost: ManaCost::with_colors(0, [Color::Black]),
+                tap_cost: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![],
+                effects: vec![Effect::RegenerateSource],
+            },
+        },
         ActivatedAbilityBinding {
             card_definition: "RAV-SANDSOWER",
             ability: ActivatedAbility {

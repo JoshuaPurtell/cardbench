@@ -51,6 +51,14 @@ Oracle Magic rules coverage.
   future turn, marked damage cannot be negative, and a card outside the
   battlefield retains its owner's controller in the current no-control-change
   rules slice.
+- A regeneration shield is private, source-identified replacement state for a
+  current battlefield creature. Shield creation records
+  `RegenerationShieldCreated { source, target }`; the next modeled destroy or
+  lethal-damage event may consume exactly one shield, record
+  `RegenerationShieldUsed`, tap that target, clear its marked damage, and
+  remove it from combat instead of moving it. Shields never prevent a
+  zero-toughness action or a sacrifice and clear when their target leaves the
+  battlefield.
 - Every catalog definition has identity and a type. A basic land is a land;
   only lands have intrinsic mana colors; creatures have both power and
   toughness; and dredge values are positive.
@@ -200,6 +208,10 @@ Oracle Magic rules coverage.
   not hide a legal Haste attack. Non-Haste attack and tap-cost rejection are
   atomic: they do not tap the source, create combat state, add mana, or write
   accepted-action receipts.
+- A regenerated blocker remains associated with the attacker it blocked, so a
+  nontrample attacker remains blocked, but the blocker is marked
+  removed-from-combat and neither assigns nor receives combat damage. That
+  provenance is an invariant-checked subset of the declared blockers.
 - Per-color floating mana amounts are bounded `u8` values, but generic-cost
   payment sums all five colors in a widened `u16` total. The compatibility
   `ManaPool::total` policy view is saturated at `u8::MAX`; it is never used to

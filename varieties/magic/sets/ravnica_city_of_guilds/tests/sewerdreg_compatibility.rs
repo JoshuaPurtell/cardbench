@@ -1,12 +1,15 @@
-//! Bounded public contract for Sewerdreg's static Fear behavior.
+//! Full public contract for Sewerdreg's static and activated rules.
 
 use std::collections::BTreeSet;
 
-use cardbench_magic_engine::{CardType, Color, Keyword, ManaCost};
-use cardbench_magic_rav::{RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, run_all_scenarios};
+use cardbench_magic_engine::{CardType, Color, Effect, Keyword, ManaCost};
+use cardbench_magic_rav::{
+    RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, rav_activated_ability_bindings,
+    run_all_scenarios,
+};
 
 #[test]
-fn sewerdreg_definition_is_explicit_about_fear_and_omitted_regeneration() {
+fn sewerdreg_definition_and_binding_are_explicit_about_regeneration() {
     let sewerdreg = card_definitions()
         .into_iter()
         .find(|definition| definition.id == "RAV-SEWERDREG")
@@ -23,9 +26,25 @@ fn sewerdreg_definition_is_explicit_about_fear_and_omitted_regeneration() {
     assert!(sewerdreg.effects.is_empty());
     assert_eq!(
         sewerdreg.supported_rules,
-        ["colored-cost-casting", "base-characteristics", "fear"]
+        [
+            "full-rules-fidelity",
+            "colored-cost-casting",
+            "base-characteristics",
+            "fear",
+            "regeneration",
+        ]
     );
-    assert!(!RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&sewerdreg.id));
+    assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&sewerdreg.id));
+    let binding = rav_activated_ability_bindings()
+        .into_iter()
+        .find(|binding| binding.ability.id == "self-regeneration")
+        .expect("Sewerdreg regeneration binding exists");
+    assert_eq!(binding.card_definition, sewerdreg.id);
+    assert_eq!(
+        binding.ability.mana_cost,
+        ManaCost::with_colors(0, [Color::Black])
+    );
+    assert_eq!(binding.ability.effects, [Effect::RegenerateSource]);
 }
 
 #[test]

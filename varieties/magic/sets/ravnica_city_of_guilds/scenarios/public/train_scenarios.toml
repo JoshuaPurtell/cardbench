@@ -3247,7 +3247,7 @@ digest = "fnv1a64:e78637d84b25b302"
 [[scenario]]
 id = "rav_easy_blue_black_creatures_wave_two"
 seed = 0
-description = "Cast Terraformer and Sewerdreg with exact blue and black costs, then verify only their base P/T. Terraformer's land-type behavior and Sewerdreg's regeneration remain omitted; Fear is exercised separately."
+description = "Cast Terraformer and Sewerdreg with exact blue and black costs, then verify their base P/T. Terraformer's land-type behavior remains omitted; Sewerdreg's Fear and regeneration are exercised separately."
 
 [[scenario.card]]
 label = "terraformer"
@@ -8138,7 +8138,7 @@ digest = "fnv1a64:1dcdb2289fdaa917"
 [[scenario]]
 id = "rav_sewerdreg_fear_compatibility"
 seed = 48
-description = "Declare Sewerdreg as a Fear attacker, then reject a nonblack, nonartifact creature's block declaration; its regeneration activation remains unsupported."
+description = "Declare Sewerdreg as a Fear attacker, then reject a nonblack, nonartifact creature's block declaration; its regeneration activation is covered by the full-fidelity contract."
 
 [[scenario.card]]
 label = "sewerdreg"

@@ -92,6 +92,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-MNEMONIC-NEXUS",
             "RAV-PEEL-FROM-REALITY",
             "RAV-SINS-OF-THE-PAST",
+            "RAV-SEWERDREG",
         ]
     );
     let definitions = card_definitions();

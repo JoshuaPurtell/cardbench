@@ -127,9 +127,9 @@ current corpus contains 121 scenarios and covers:
   resolution-time target selection (`Searing Meditation`);
 - bounded static Flying compatibility for `Belltower Sphinx`, `Screeching
   Griffin`, `Tattered Drake`, and `Moroii`, plus black-only evasion for
-  `Undercity Shade` and Fear for `Sewerdreg`, with their remaining
-  card-specific triggers or activations intentionally left outside the
-  fidelity manifest; and
+  `Undercity Shade`, plus full static Fear and stack-backed regeneration for
+  `Sewerdreg`; remaining card-specific triggers or activations on other
+  bounded definitions stay explicitly outside the fidelity manifest; and
 - an opt-in, stack-backed enter-the-battlefield draw trigger binding for
   `Carven Caryatid`, with source/trigger identities and draw receipts audited
   separately from the default fixture constructor; and

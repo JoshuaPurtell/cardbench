@@ -940,6 +940,14 @@ pub enum Effect {
     AddSourceDamageShieldUntilEndOfTurn {
         amount: i16,
     },
+    /// Put one regeneration replacement shield on a targeted creature. The
+    /// shield is consumed only by the next destruction event; it does not
+    /// prevent damage, sacrifice, or a zero-toughness state-based action.
+    RegenerateTargetCreature,
+    /// Put one regeneration replacement shield on the resolving ability's
+    /// creature source. This has no target slot and models self-regeneration
+    /// activations such as Sewerdreg's.
+    RegenerateSource,
     /// Destroy the targeted land during resolution, sending it through the
     /// normal zone-change and continuous-effect lifecycle.
     DestroyTargetLand,
@@ -1035,7 +1043,8 @@ impl Effect {
             | Self::BeginDamageRedirection { .. }
             | Self::PreventTargetBlockingSourceUntilEndOfTurn
             | Self::ExileTargetCreature
-            | Self::TapTargetCreature => Some(TargetRequirement::Creature),
+            | Self::TapTargetCreature
+            | Self::RegenerateTargetCreature => Some(TargetRequirement::Creature),
             Self::ExileTargetPermanent => Some(TargetRequirement::AttackingOrBlockingCreature),
             Self::CompleteDamageRedirection => Some(TargetRequirement::PlayerOrCreature),
             Self::LoseLifeTarget { .. } | Self::CreateTokenForTargetPlayer { .. } => {
@@ -1072,6 +1081,7 @@ impl Effect {
             | Self::ModifySourcePtUntilEndOfTurn { .. }
             | Self::RemoveSourceKeywordUntilEndOfTurn { .. }
             | Self::AddSourceDamageShieldUntilEndOfTurn { .. }
+            | Self::RegenerateSource
             | Self::ModifyControllerCreaturesPtUntilEndOfTurn { .. }
             | Self::AddKeywordToControllerCreaturesUntilEndOfTurn { .. } => None,
         }
@@ -1586,6 +1596,18 @@ pub enum GameEvent {
     CardDestroyed {
         source: ObjectId,
         card: ObjectId,
+    },
+    /// A resolving spell or ability created a source-identified regeneration
+    /// replacement shield on a live creature.
+    RegenerationShieldCreated {
+        source: ObjectId,
+        target: ObjectId,
+    },
+    /// A pending regeneration replacement prevented destruction, tapped the
+    /// target, removed marked damage, and removed it from combat.
+    RegenerationShieldUsed {
+        source: ObjectId,
+        target: ObjectId,
     },
     ManaAdded {
         player: PlayerId,

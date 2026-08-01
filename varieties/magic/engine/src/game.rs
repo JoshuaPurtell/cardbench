@@ -248,6 +248,11 @@ struct CombatState {
     must_be_blocked_attackers: BTreeSet<ObjectId>,
     mountainwalk_attackers: BTreeSet<ObjectId>,
     blockers: BTreeMap<ObjectId, ObjectId>,
+    /// A blocker that regenerated remains associated with its attacker (so
+    /// that attacker stays blocked) but no longer assigns or receives combat
+    /// damage. This preserves the difference between leaving combat and
+    /// ceasing to block altogether.
+    removed_from_combat: BTreeSet<ObjectId>,
     /// Blockers admitted against a declared flying attacker because they had
     /// either Flying or Reach at blocker declaration. This is provenance, not
     /// an assertion that the blocker retains either keyword afterward.
@@ -321,6 +326,9 @@ pub struct Game {
     additional_spell_costs: BTreeMap<&'static str, Vec<AdditionalSpellCost>>,
     graveyard_cast_permissions: BTreeMap<ObjectId, GraveyardCastPermission>,
     exile_on_resolution: BTreeSet<ObjectId>,
+    /// Source-identified replacement shields created by regeneration. A
+    /// target may have multiple pending shields, consumed LIFO one at a time.
+    regeneration_shields: BTreeMap<ObjectId, Vec<ObjectId>>,
     pub players: Vec<PlayerState>,
     objects: BTreeMap<ObjectId, CardObject>,
     pub stack: Vec<StackObject>,
@@ -534,6 +542,7 @@ impl Game {
             additional_spell_costs,
             graveyard_cast_permissions: BTreeMap::new(),
             exile_on_resolution: BTreeSet::new(),
+            regeneration_shields: BTreeMap::new(),
             players,
             objects: BTreeMap::new(),
             stack: Vec::new(),
@@ -2672,6 +2681,10 @@ impl Game {
                 let reason = if toughness <= 0 {
                     Some("creature has toughness zero or less")
                 } else if damage > 0 && damage >= toughness {
+                    if self.use_regeneration_shield(card)? {
+                        changed = true;
+                        continue;
+                    }
                     Some("creature has lethal damage")
                 } else {
                     None
@@ -3069,6 +3082,18 @@ impl Game {
                         ));
                     }
                 }
+            }
+        }
+        for (target, sources) in &self.regeneration_shields {
+            if sources.is_empty()
+                || self.zone_of(*target) != Some(Zone::Battlefield)
+                || !self.characteristics(*target).is_ok_and(|characteristics| {
+                    characteristics.card_types.contains(&CardType::Creature)
+                })
+            {
+                return Err(RulesError::IllegalAction(
+                    "regeneration shield lacks a live battlefield creature target",
+                ));
             }
         }
         let mut stack_cards = BTreeSet::new();
@@ -3490,6 +3515,11 @@ impl Game {
                     self.object(*blocker)?;
                 }
             }
+            if !combat.removed_from_combat.is_subset(&blockers) {
+                return Err(RulesError::IllegalAction(
+                    "removed combat provenance names a non-blocker",
+                ));
+            }
             let expected_evasion_blockers = combat
                 .blockers
                 .iter()
@@ -3826,6 +3856,8 @@ impl Game {
                 | Effect::ModifySourcePtUntilEndOfTurn { .. }
                 | Effect::RemoveSourceKeywordUntilEndOfTurn { .. }
                 | Effect::AddSourceDamageShieldUntilEndOfTurn { .. }
+                | Effect::RegenerateTargetCreature
+                | Effect::RegenerateSource
                 | Effect::AddKeywordToControllerCreaturesUntilEndOfTurn { .. }
                 | Effect::DestroyTargetLand
                 | Effect::DestroyTargetArtifact
@@ -4970,6 +5002,33 @@ impl Game {
                     Duration::EndOfTurn(self.turn),
                 )?;
             }
+            Effect::RegenerateTargetCreature => {
+                let target = Self::target_permanent(target)?;
+                if !self.target_matches(Target::Permanent(target), TargetRequirement::Creature) {
+                    return Err(RulesError::IllegalTarget(Target::Permanent(target)));
+                }
+                self.regeneration_shields
+                    .entry(target)
+                    .or_default()
+                    .push(source);
+                self.record_event(GameEvent::RegenerationShieldCreated { source, target });
+            }
+            Effect::RegenerateSource => {
+                if self.zone_of(source) == Some(Zone::Battlefield)
+                    && self.characteristics(source).is_ok_and(|characteristics| {
+                        characteristics.card_types.contains(&CardType::Creature)
+                    })
+                {
+                    self.regeneration_shields
+                        .entry(source)
+                        .or_default()
+                        .push(source);
+                    self.record_event(GameEvent::RegenerationShieldCreated {
+                        source,
+                        target: source,
+                    });
+                }
+            }
             Effect::DestroyTargetLand => {
                 let target = target.ok_or(RulesError::IllegalAction("missing land target"))?;
                 let Target::Permanent(land) = target else {
@@ -4980,8 +5039,7 @@ impl Game {
                 {
                     return Err(RulesError::IllegalTarget(target));
                 }
-                self.record_event(GameEvent::CardDestroyed { source, card: land });
-                self.move_to_graveyard_or_remove_token(land)?;
+                self.destroy_permanent(source, land)?;
             }
             Effect::DestroyTargetArtifact => {
                 let target = target.ok_or(RulesError::IllegalAction("missing artifact target"))?;
@@ -4996,11 +5054,7 @@ impl Game {
                 {
                     return Err(RulesError::IllegalTarget(target));
                 }
-                self.record_event(GameEvent::CardDestroyed {
-                    source,
-                    card: artifact,
-                });
-                self.move_to_graveyard_or_remove_token(artifact)?;
+                self.destroy_permanent(source, artifact)?;
             }
             Effect::TapTargetCreature => {
                 let target = Self::target_permanent(target)?;
@@ -5177,11 +5231,7 @@ impl Game {
                 ) {
                     return Err(RulesError::IllegalTarget(Target::Permanent(target)));
                 }
-                self.record_event(GameEvent::CardDestroyed {
-                    source,
-                    card: target,
-                });
-                self.move_to_spell_terminal_zone(target)?;
+                self.destroy_permanent(source, target)?;
             }
             Effect::ReturnTargetCardToHand => {
                 let target = Self::target_permanent(target)?;
@@ -5581,7 +5631,8 @@ impl Game {
             .copied()
             .chain(combat.blockers.values().copied())
         {
-            if self.zone_of(creature) == Some(Zone::Battlefield)
+            if !combat.removed_from_combat.contains(&creature)
+                && self.zone_of(creature) == Some(Zone::Battlefield)
                 && self
                     .characteristics(creature)?
                     .keywords
@@ -5617,7 +5668,8 @@ impl Game {
                 .copied()
                 .chain(combat.blockers.values().copied())
                 .filter(|creature| {
-                    self.zone_of(*creature) == Some(Zone::Battlefield)
+                    !combat.removed_from_combat.contains(creature)
+                        && self.zone_of(*creature) == Some(Zone::Battlefield)
                         && self
                             .characteristics(*creature)
                             .is_ok_and(|characteristics| {
@@ -5644,7 +5696,9 @@ impl Game {
             combat.first_strike_damage_sources.clone()
         };
         let eligible = |creature| {
-            if self.zone_of(creature) != Some(Zone::Battlefield) {
+            if combat.removed_from_combat.contains(&creature)
+                || self.zone_of(creature) != Some(Zone::Battlefield)
+            {
                 return false;
             }
             if first_strike {
@@ -5672,7 +5726,9 @@ impl Game {
                 .keywords
                 .contains(&Keyword::Trample);
             if let Some(blocker) = combat.blockers.get(&attacker).copied() {
-                if self.zone_of(blocker) != Some(Zone::Battlefield) {
+                if self.zone_of(blocker) != Some(Zone::Battlefield)
+                    || combat.removed_from_combat.contains(&blocker)
+                {
                     // A creature that was blocked remains blocked even if its
                     // blocker leaves combat before damage. A live trample
                     // attacker can assign all of its positive damage to the
@@ -5711,7 +5767,10 @@ impl Game {
                         permanent_damage.push((attacker, blocker, attacker_power));
                     }
                 }
-                if eligible(blocker) && blocker_power > 0 {
+                if eligible(blocker)
+                    && !combat.removed_from_combat.contains(&blocker)
+                    && blocker_power > 0
+                {
                     permanent_damage.push((blocker, attacker, blocker_power));
                 }
             } else if attacker_eligible && attacker_power > 0 {
@@ -5737,6 +5796,79 @@ impl Game {
             .library
             .sort_by_key(|card| deterministic_mix(seed ^ card.0));
         self.shuffle_seed = self.shuffle_seed.wrapping_add(1);
+    }
+
+    /// Removes a regenerated permanent from combat while retaining the fact
+    /// that its attacker was blocked. A nontrample attacker must not become
+    /// unblocked merely because its blocker regenerated.
+    fn remove_from_combat(&mut self, card: ObjectId) {
+        let Some(combat) = self.combat.as_mut() else {
+            return;
+        };
+        if combat.attackers.contains(&card) {
+            combat.attackers.retain(|attacker| *attacker != card);
+            combat.hasty_attackers.remove(&card);
+            combat.flying_attackers.remove(&card);
+            combat.fear_attackers.remove(&card);
+            combat.black_evasion_attackers.remove(&card);
+            combat.unblockable_attackers.remove(&card);
+            combat.vigilant_attackers.remove(&card);
+            combat.trampling_attackers.remove(&card);
+            combat.must_be_blocked_attackers.remove(&card);
+            combat.mountainwalk_attackers.remove(&card);
+            combat.blockers.remove(&card);
+        }
+        if combat.blockers.values().any(|blocker| *blocker == card) {
+            combat.removed_from_combat.insert(card);
+        }
+    }
+
+    /// Consumes one source-identified regeneration shield, if present, and
+    /// performs its replacement work. This intentionally does not cover
+    /// sacrifice or a zero-toughness state-based action.
+    fn use_regeneration_shield(&mut self, target: ObjectId) -> Result<bool, RulesError> {
+        let source = self
+            .regeneration_shields
+            .get_mut(&target)
+            .and_then(Vec::pop);
+        let Some(source) = source else {
+            return Ok(false);
+        };
+        if self
+            .regeneration_shields
+            .get(&target)
+            .is_some_and(Vec::is_empty)
+        {
+            self.regeneration_shields.remove(&target);
+        }
+        {
+            let object = self
+                .objects
+                .get_mut(&target)
+                .ok_or(RulesError::UnknownCard(target))?;
+            object.tapped = true;
+            object.damage = 0;
+        }
+        self.remove_from_combat(target);
+        self.record_event(GameEvent::RegenerationShieldUsed { source, target });
+        Ok(true)
+    }
+
+    /// Applies a destroy instruction, allowing one live regeneration shield
+    /// to replace it before a `CardDestroyed` or zone-move receipt is emitted.
+    fn destroy_permanent(&mut self, source: ObjectId, card: ObjectId) -> Result<(), RulesError> {
+        if self.zone_of(card) != Some(Zone::Battlefield) {
+            return Ok(());
+        }
+        if self
+            .characteristics(card)
+            .is_ok_and(|characteristics| characteristics.card_types.contains(&CardType::Creature))
+            && self.use_regeneration_shield(card)?
+        {
+            return Ok(());
+        }
+        self.record_event(GameEvent::CardDestroyed { source, card });
+        self.move_to_graveyard_or_remove_token(card)
     }
 
     fn create_token(
@@ -5770,6 +5902,7 @@ impl Game {
         if self.object(card)?.token.is_some() {
             self.remove_from_all_zones(card);
             self.objects.remove(&card);
+            self.regeneration_shields.remove(&card);
             self.record_event(GameEvent::TokenCeasedToExist { token: card });
             self.expire_continuous_effects_involving(card);
             return Ok(());
@@ -5796,6 +5929,9 @@ impl Game {
         let left_battlefield =
             self.zone_of(card) == Some(Zone::Battlefield) && zone != Zone::Battlefield;
         self.remove_from_all_zones(card);
+        if left_battlefield {
+            self.regeneration_shields.remove(&card);
+        }
         let destination_owner = if zone == Zone::Battlefield {
             object.controller
         } else {
@@ -7030,6 +7166,7 @@ impl Game {
                 combat.must_be_blocked_attackers.clear();
                 combat.mountainwalk_attackers.clear();
                 combat.blockers.clear();
+                combat.removed_from_combat.clear();
                 combat.evasion_qualified_blockers.clear();
                 combat.fear_qualified_blockers.clear();
                 combat.black_evasion_qualified_blockers.clear();
@@ -7059,6 +7196,7 @@ impl Game {
             self.stack
                 .retain(|stack_object| stack_object.card != object);
             self.objects.remove(&object);
+            self.regeneration_shields.remove(&object);
             self.record_event(GameEvent::ObjectLeftGame {
                 object,
                 owner: object_owner,
@@ -7078,6 +7216,7 @@ impl Game {
                 .retain(|stack_object| stack_object.card != object);
             let owner = self.objects[&object].owner;
             self.remove_from_all_zones(object);
+            self.regeneration_shields.remove(&object);
             let object_state = self
                 .objects
                 .get_mut(&object)
