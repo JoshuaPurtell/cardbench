@@ -10594,6 +10594,65 @@ event_markers = ["SpellCast", "CardMoved", "LifeLost", "SpellResolved"]
 digest = "fnv1a64:9ee33828f5d89817"
 
 [[scenario]]
+id = "rav_blood_funnel_cast_trigger"
+seed = 157
+description = "Blood Funnel reduces a noncreature spell's generic cost, then its stacked trigger sacrifices a controlled creature before that spell resolves. The deterministic fixture selection is documented as a policy boundary."
+triggers = true
+
+[[scenario.card]]
+label = "funnel"
+owner = 0
+definition = "RAV-BLOOD-FUNNEL"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "fodder"
+owner = 0
+definition = "RAV-WATCHWOLF"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "fists"
+owner = 0
+definition = "RAV-FISTS-OF-IRONWOOD"
+zone = "hand"
+
+[[scenario.mana]]
+player = 0
+color = "green"
+amount = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "fists"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["funnel:battlefield", "fodder:graveyard", "fists:battlefield"]
+stack_size = 0
+priority = 0
+mana = ["0:green:0"]
+token_count = 2
+event_markers = ["SpellCast", "TriggeredAbilityStacked", "SacrificedByEffect", "AbilityResolved", "TokenCreated", "SpellResolved"]
+digest = "fnv1a64:bf6d3eafd132ae03"
+
+[[scenario]]
 id = "rav_clinging_darkness_persistent_attachment"
 seed = 155
 description = "Resolve Clinging Darkness onto a creature and retain its source-linked -3/-1 Aura modifier on the battlefield."

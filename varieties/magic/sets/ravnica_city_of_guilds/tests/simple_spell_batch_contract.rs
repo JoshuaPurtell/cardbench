@@ -75,6 +75,7 @@ fn public_scenarios_exercise_every_new_compatibility_definition() {
         "rav_shred_memory_transmute",
         "rav_clutch_of_the_undercity_transmute",
         "rav_clutch_of_the_undercity_permanent_bounce",
+        "rav_blood_funnel_cast_trigger",
         "rav_perplex_transmute",
     ] {
         assert!(scenario_ids.contains(id), "missing public scenario {id}");

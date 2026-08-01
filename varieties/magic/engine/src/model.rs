@@ -271,6 +271,18 @@ pub enum TriggerCondition {
     /// The source was declared as an attacker. A triggered optional mana cost
     /// is paid only on resolution, after the post-declaration priority window.
     Attacks,
+    /// A noncreature spell was cast by this permanent's controller. The
+    /// triggering stack item retains that exact spell as its target.
+    CastsNoncreatureSpell,
+}
+
+/// A source-bound generic reduction applied while its permanent source is on
+/// the battlefield. The reducer never changes colored symbols.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct CostReductionBinding {
+    pub source_definition: &'static str,
+    pub generic_amount: u8,
+    pub noncreature_only: bool,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -791,6 +803,9 @@ pub enum TargetRequirement {
     /// names the narrow RAV counterspell slice instead of claiming support for
     /// arbitrary abilities or every kind of spell target.
     InstantOrSorcerySpell,
+    /// Any noncreature spell currently on the stack, including represented
+    /// permanent artifact and enchantment spells.
+    NoncreatureSpell,
     /// A card in the resolving spell controller's graveyard. The controller
     /// qualification stays in `Game` so this target remains reusable by other
     /// expansions.
@@ -1233,6 +1248,9 @@ pub enum Effect {
     /// Counter one targeted instant or sorcery spell. This is intentionally a
     /// semantic effect rather than a copied card-text string.
     CounterTargetInstantOrSorcerySpell,
+    /// Sacrifice one creature controlled by the resolving source's controller
+    /// if possible; otherwise counter one targeted noncreature spell.
+    SacrificeCreatureOrCounterTargetSpell,
     /// Grant a current-turn mana-free cast permission for the targeted instant
     /// or sorcery in the resolving controller's graveyard.
     GrantGraveyardCastPermissionUntilEndOfTurn,
@@ -1373,6 +1391,9 @@ impl Effect {
             Self::ReturnOpponentCreatureToHand => Some(TargetRequirement::OpponentCreature),
             Self::CounterTargetInstantOrSorcerySpell => {
                 Some(TargetRequirement::InstantOrSorcerySpell)
+            }
+            Self::SacrificeCreatureOrCounterTargetSpell => {
+                Some(TargetRequirement::NoncreatureSpell)
             }
             Self::GrantGraveyardCastPermissionUntilEndOfTurn => {
                 Some(TargetRequirement::InstantOrSorceryCardInControllerGraveyard)

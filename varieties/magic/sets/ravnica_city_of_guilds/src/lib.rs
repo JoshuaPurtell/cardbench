@@ -24,11 +24,11 @@ use std::path::{Path, PathBuf};
 use cardbench_magic_engine::{
     ActivatedAbility, ActivatedAbilityBinding, ActivatedManaAbility, AdditionalSpellCost,
     AdditionalSpellCostBinding, BasicLandType, BasicLandTypeBinding, CardDefinition, CardType,
-    CastRequest, Color, ConvokeContribution, ConvokePayment, DeckEntry, DeckList, DeckRules,
-    Effect, Game, HybridManaSymbol, Keyword, LandEntryBinding, LibrarySearchDestination,
-    LibrarySearchRequirement, ManaAbilityBinding, ManaAbilityOutput, ManaBundle, ManaCost,
-    PlayerId, RulesError, StaticContinuousEffectBinding, Target, TokenSpec, TriggerCondition,
-    TriggeredAbility, TriggeredAbilityBinding, Zone,
+    CastRequest, Color, ConvokeContribution, ConvokePayment, CostReductionBinding, DeckEntry,
+    DeckList, DeckRules, Effect, Game, HybridManaSymbol, Keyword, LandEntryBinding,
+    LibrarySearchDestination, LibrarySearchRequirement, ManaAbilityBinding, ManaAbilityOutput,
+    ManaBundle, ManaCost, PlayerId, RulesError, StaticContinuousEffectBinding, Target, TokenSpec,
+    TriggerCondition, TriggeredAbility, TriggeredAbilityBinding, Zone,
 };
 
 pub const SET_CODE: &str = "RAV";
@@ -202,6 +202,30 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 },
                 Effect::DealDamageController { amount: 2 },
             ],
+        },
+        // Bounded fidelity: the live source reduces only generic cost on
+        // noncreature spells, then its retained spell target is
+        // sacrificed-for or countered on the stack. The controller's creature
+        // selection remains a policy choice gap, so fixture execution uses
+        // stable battlefield order and this definition stays outside the
+        // positive full-fidelity manifest.
+        CardDefinition {
+            id: "RAV-BLOOD-FUNNEL",
+            name: "Blood Funnel",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(1, [Color::Black]),
+            colors: colors([Color::Black]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Enchantment]),
+            is_basic_land: false,
+            supported_rules: &[
+                "noncreature-generic-cost-reduction",
+                "cast-sacrifice-or-counter-trigger",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![],
         },
         // Full fidelity: the complete target-free global-damage resolution.
         // Every creature and every player receives the fixed damage in one
@@ -4674,6 +4698,17 @@ pub fn rav_static_continuous_effect_bindings() -> Vec<StaticContinuousEffectBind
 pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
     vec![
         TriggeredAbilityBinding {
+            card_definition: "RAV-BLOOD-FUNNEL",
+            ability: TriggeredAbility {
+                id: "cast-sacrifice-or-counter",
+                condition: TriggerCondition::CastsNoncreatureSpell,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![cardbench_magic_engine::TargetRequirement::NoncreatureSpell],
+                effects: vec![Effect::SacrificeCreatureOrCounterTargetSpell],
+            },
+        },
+        TriggeredAbilityBinding {
             card_definition: "RAV-MAUSOLEUM-TURNKEY",
             ability: TriggeredAbility {
                 id: "conditional-graveyard-return",
@@ -5049,6 +5084,16 @@ pub fn rav_additional_spell_cost_bindings() -> Vec<AdditionalSpellCostBinding> {
     vec![AdditionalSpellCostBinding {
         card_definition: "RAV-FIERY-CONCLUSION",
         cost: AdditionalSpellCost::SacrificeControlledCreature,
+    }]
+}
+
+/// Source-bound generic reductions supplied by RAV permanents.
+#[must_use]
+pub fn rav_cost_reduction_bindings() -> Vec<CostReductionBinding> {
+    vec![CostReductionBinding {
+        source_definition: "RAV-BLOOD-FUNNEL",
+        generic_amount: 2,
+        noncreature_only: true,
     }]
 }
 
@@ -5656,7 +5701,7 @@ fn last_gasp_state_based_action() -> Result<(Game, String), RulesError> {
 }
 
 fn fresh_game() -> Result<Game, RulesError> {
-    Game::new_with_all_bindings_and_static_continuous_effects(
+    let mut game = Game::new_with_all_bindings_and_static_continuous_effects(
         card_definitions(),
         2,
         rav_mana_ability_bindings(),
@@ -5664,7 +5709,9 @@ fn fresh_game() -> Result<Game, RulesError> {
         rav_additional_spell_cost_bindings(),
         rav_activated_ability_bindings(),
         rav_static_continuous_effect_bindings(),
-    )
+    )?;
+    game.register_cost_reduction_bindings(rav_cost_reduction_bindings())?;
+    Ok(game)
 }
 
 fn basic_land(id: &'static str, name: &'static str, land_type: BasicLandType) -> CardDefinition {
@@ -5814,7 +5861,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 157);
+        assert_eq!(first.len(), 158);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

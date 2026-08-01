@@ -393,61 +393,65 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
 #[test]
 fn full_fidelity_card_scenarios_emit_their_complete_effect_receipts() {
     let results = run_all_scenarios().expect("public RAV scenarios run");
-    for (id, markers) in [
+    let scenarios: &[(&str, &[&str])] = &[
         (
             "rav_stack_lightning_helix",
-            ["DamageDealtToPlayer", "LifeGained"],
+            &["DamageDealtToPlayer", "LifeGained"],
         ),
         (
             "rav_last_gasp_state_based_action",
-            ["ContinuousEffectCreated", "StateBasedAction"],
+            &["ContinuousEffectCreated", "StateBasedAction"],
         ),
         (
             "rav_elves_of_deep_shadow_complete_mana_ability",
-            ["ManaAdded", "DamageDealtToPlayer"],
+            &["ManaAdded", "DamageDealtToPlayer"],
         ),
         (
             "rav_boros_recruit_hybrid_first_strike",
-            ["SpellCast", "FirstStrikeCombatDamage"],
+            &["SpellCast", "FirstStrikeCombatDamage"],
         ),
-        ("rav_watchwolf_colored_cost", ["SpellCast", "SpellResolved"]),
+        (
+            "rav_watchwolf_colored_cost",
+            &["SpellCast", "SpellResolved"],
+        ),
         (
             "rav_glass_golem_colorless_cost",
-            ["SpellCast", "SpellResolved"],
+            &["SpellCast", "SpellResolved"],
         ),
         (
             "rav_cleansing_beam_radiance_damage",
-            ["DamageDealtToPermanent", "StateBasedAction"],
+            &["DamageDealtToPermanent", "StateBasedAction"],
         ),
         (
             "rav_wojek_siren_radiance",
-            ["ContinuousEffectCreated", "SpellResolved"],
+            &["ContinuousEffectCreated", "SpellResolved"],
         ),
         (
             "rav_radiance_cleanup_expiration",
-            ["PermanentsUntapped", "ContinuousEffectExpired"],
+            &["PermanentsUntapped", "ContinuousEffectExpired"],
         ),
         (
             "rav_rain_of_embers_global_damage",
-            ["DamageDealtToPermanent", "StateBasedAction"],
+            &["DamageDealtToPermanent", "StateBasedAction"],
         ),
         (
             "rav_dogpile_combat_count_damage",
-            ["DamageDealtToPermanent", "StateBasedAction"],
+            &["DamageDealtToPermanent", "StateBasedAction"],
         ),
         (
             "rav_overwhelm_convoke_wide_modifier",
-            ["ConvokeUsed", "ContinuousEffectCreated"],
+            &["ConvokeUsed", "ContinuousEffectCreated"],
         ),
         (
             "rav_moldervine_cloak_persistent_attachment",
-            ["AuraAttached", "SpellResolved"],
+            &["AuraAttached", "SpellResolved"],
         ),
         (
             "rav_clinging_darkness_persistent_attachment",
-            ["AuraAttached", "SpellResolved"],
+            &["AuraAttached", "SpellResolved"],
         ),
-    ] {
+    ];
+    for &(id, markers) in scenarios {
         let result = results
             .iter()
             .find(|result| result.id == id)

@@ -101,6 +101,17 @@ Oracle Magic rules coverage.
   placement follows the source permanent's `CardMoved { to: Battlefield }`
   receipt; resolution emits the draw/effect receipts before its terminal
   `TriggeredAbilityResolved` receipt.
+- A registered generic-cost reducer has a catalogued permanent source, a
+  strictly positive amount, and is registered before the game starts. It
+  contributes only while a source with that definition is live on the casting
+  player's battlefield, changes generic symbols only, and is applied after an
+  explicit chosen-X value but before mana or Convoke payment. A
+  `CastsNoncreatureSpell` trigger retains the exact triggering spell in its
+  one `NoncreatureSpell` target slot, stacks above that spell after `SpellCast`,
+  and either sacrifices one creature controlled by its resolving controller
+  or emits `SpellCountered` followed by the target's ordinary terminal move.
+  Until a policy submits that sacrifice choice, stable battlefield order is an
+  explicitly bounded fixture-selection rule rather than full choice fidelity.
 - A stack instruction that depends on colors spent to cast its spell requires
   a nonempty `mana_spent` receipt on that exact stack object. When the visible
   event log contains its `SpellCast`, the immediately preceding

@@ -6,12 +6,12 @@ use crate::{
     AbilityActivation, ActivatedAbility, ActivatedAbilityBinding, ActivatedManaAbility,
     AdditionalSpellCost, AdditionalSpellCostBinding, BasicLandType, BasicLandTypeBinding,
     CardDefinition, CardObject, CardType, CastPaymentManaAbility, Characteristics, Color,
-    CombatBlock, ContinuousChange, ContinuousEffect, CreatureSubtype, DeckList, Duration, Effect,
-    GameEvent, Keyword, LandEntryBinding, Layer, LibrarySearchDestination,
-    LibrarySearchRequirement, ManaAbilityActivation, ManaAbilityBinding, ManaAbilityOutput,
-    ManaPaymentSelection, ObjectId, PlayerId, PlayerState, PolicyMoveKind, StackEffectResolution,
-    StackObject, StackResolutionPlan, StaticContinuousEffectBinding, Step, Target,
-    TargetRequirement, TokenSpec, TriggerCondition, TriggeredAbilityBinding, Zone,
+    CombatBlock, ContinuousChange, ContinuousEffect, CostReductionBinding, CreatureSubtype,
+    DeckList, Duration, Effect, GameEvent, Keyword, LandEntryBinding, Layer,
+    LibrarySearchDestination, LibrarySearchRequirement, ManaAbilityActivation, ManaAbilityBinding,
+    ManaAbilityOutput, ManaPaymentSelection, ObjectId, PlayerId, PlayerState, PolicyMoveKind,
+    StackEffectResolution, StackObject, StackResolutionPlan, StaticContinuousEffectBinding, Step,
+    Target, TargetRequirement, TokenSpec, TriggerCondition, TriggeredAbilityBinding, Zone,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -325,6 +325,7 @@ pub struct Game {
     activated_abilities: BTreeMap<&'static str, BTreeMap<&'static str, ActivatedAbility>>,
     triggered_abilities: BTreeMap<&'static str, BTreeMap<&'static str, crate::TriggeredAbility>>,
     static_continuous_effects: BTreeMap<&'static str, Vec<ContinuousChange>>,
+    cost_reductions: BTreeMap<&'static str, CostReductionBinding>,
     basic_land_types: BTreeMap<&'static str, BasicLandType>,
     land_entry_behaviors: BTreeMap<&'static str, LandEntryBinding>,
     additional_spell_costs: BTreeMap<&'static str, Vec<AdditionalSpellCost>>,
@@ -554,6 +555,7 @@ impl Game {
             activated_abilities: BTreeMap::new(),
             triggered_abilities: BTreeMap::new(),
             static_continuous_effects: BTreeMap::new(),
+            cost_reductions: BTreeMap::new(),
             basic_land_types,
             land_entry_behaviors: BTreeMap::new(),
             additional_spell_costs,
@@ -640,6 +642,41 @@ impl Game {
         Ok(game)
     }
 
+    /// Registers source-bound generic-cost reductions before the game begins.
+    /// Their sources are rechecked on the battlefield for each cast, so normal
+    /// zone changes automatically stop the reduction.
+    pub fn register_cost_reduction_bindings(
+        &mut self,
+        bindings: impl IntoIterator<Item = CostReductionBinding>,
+    ) -> Result<(), RulesError> {
+        if self.started {
+            return Err(RulesError::IllegalAction(
+                "cost-reduction bindings cannot be changed after the game starts",
+            ));
+        }
+        for binding in bindings {
+            let definition = self
+                .catalog
+                .get(binding.source_definition)
+                .ok_or(RulesError::UnknownDefinition(binding.source_definition))?;
+            if !definition.is_permanent() || binding.generic_amount == 0 {
+                return Err(RulesError::IllegalAction(
+                    "a cost reduction requires a permanent source and positive amount",
+                ));
+            }
+            if self
+                .cost_reductions
+                .insert(binding.source_definition, binding)
+                .is_some()
+            {
+                return Err(RulesError::IllegalAction(
+                    "duplicate cost-reduction binding for card definition",
+                ));
+            }
+        }
+        self.validate_invariants()
+    }
+
     /// Creates a game with stack-using activated abilities and target-free
     /// enter-the-battlefield, life-gain, or source-damage triggers. Enter
     /// triggers queue after a permanent spell resolves; damage and life-gain
@@ -680,6 +717,7 @@ impl Game {
                         | TriggerCondition::Dies
                         | TriggerCondition::AnotherCreatureDies
                         | TriggerCondition::Attacks
+                        | TriggerCondition::CastsNoncreatureSpell
                 )
                 || binding.ability.targets
                     != binding
@@ -2762,6 +2800,10 @@ impl Game {
                     "chosen X overflows generic mana cost",
                 ))?;
         }
+        payment_definition.mana_cost.generic = payment_definition
+            .mana_cost
+            .generic
+            .saturating_sub(self.generic_cost_reduction(player, &payment_definition));
         let (paid_cost, mana_spent) = if from_graveyard {
             (self.players[player.0].mana_pool.clone(), None)
         } else {
@@ -2817,6 +2859,9 @@ impl Game {
             player,
             card: request.card,
         });
+        if !definition.card_types.contains(&CardType::Creature) {
+            self.enqueue_cast_noncreature_triggers(player, request.card)?;
+        }
         self.consecutive_passes = 0;
         // CR 601.2i / 117.3c: after completing a cast, the acting player
         // receives priority again. Opponents get their response window only
@@ -3574,6 +3619,7 @@ impl Game {
                             | TriggerCondition::Dies
                             | TriggerCondition::AnotherCreatureDies
                             | TriggerCondition::Attacks
+                            | TriggerCondition::CastsNoncreatureSpell
                     )
                     || ability.targets
                         != ability
@@ -3997,6 +4043,20 @@ impl Game {
                 ));
             }
         }
+        for (definition_id, binding) in &self.cost_reductions {
+            let definition = self
+                .catalog
+                .get(definition_id)
+                .ok_or(RulesError::UnknownDefinition(definition_id))?;
+            if binding.source_definition != *definition_id
+                || !definition.is_permanent()
+                || binding.generic_amount == 0
+            {
+                return Err(RulesError::IllegalAction(
+                    "cost-reduction binding has invalid source or amount",
+                ));
+            }
+        }
         let mut effect_timestamps = BTreeSet::new();
         for effect in &self.continuous_effects {
             self.object(effect.source)?;
@@ -4352,6 +4412,23 @@ impl Game {
         Ok(())
     }
 
+    fn generic_cost_reduction(&self, player: PlayerId, definition: &CardDefinition) -> u8 {
+        self.all_battlefield_cards()
+            .into_iter()
+            .filter_map(|source| {
+                let object = self.object(source).ok()?;
+                if object.controller != player {
+                    return None;
+                }
+                let binding = self.cost_reductions.get(object.definition?)?;
+                if binding.noncreature_only && definition.card_types.contains(&CardType::Creature) {
+                    return None;
+                }
+                Some(binding.generic_amount)
+            })
+            .fold(0_u8, u8::saturating_add)
+    }
+
     fn pay_cost_with_convoke(
         &self,
         player: PlayerId,
@@ -4596,6 +4673,7 @@ impl Game {
     /// stack, or event transition can be committed.  Printed modifiers may be
     /// negative, but the currently modelled damage and life-gain operations
     /// are positive quantities.
+    #[allow(clippy::too_many_lines)] // One exhaustive, auditable effect preflight table.
     fn validate_cast_effects(definition: &CardDefinition) -> Result<(), RulesError> {
         for effect in &definition.effects {
             if matches!(effect, Effect::DiscardTargetPlayer { count: 0 }) {
@@ -4686,6 +4764,7 @@ impl Game {
                 | Effect::RadianceModifyPtUntilEndOfTurn { .. }
                 | Effect::RadianceAddKeywordUntilEndOfTurn { .. }
                 | Effect::CounterTargetInstantOrSorcerySpell
+                | Effect::SacrificeCreatureOrCounterTargetSpell
                 | Effect::GrantGraveyardCastPermissionUntilEndOfTurn
                 | Effect::ExileTargetCreature
                 | Effect::ExileTargetPermanent => continue,
@@ -4943,6 +5022,53 @@ impl Game {
             controller,
             TriggerCondition::EntersBattlefield,
         );
+    }
+
+    /// A cast trigger retains the exact spell that caused it, rather than
+    /// choosing an arbitrary visible spell. The trigger is placed above that
+    /// spell after the `SpellCast` receipt and before its caster receives the
+    /// normal post-cast priority window.
+    fn enqueue_cast_noncreature_triggers(
+        &mut self,
+        controller: PlayerId,
+        spell: ObjectId,
+    ) -> Result<(), RulesError> {
+        for source in self.players[controller.0].battlefield.clone() {
+            let Some(definition) = self.object(source)?.definition else {
+                continue;
+            };
+            let triggers = self
+                .triggered_abilities
+                .get(definition)
+                .into_iter()
+                .flat_map(|abilities| abilities.values())
+                .filter(|ability| ability.condition == TriggerCondition::CastsNoncreatureSpell)
+                .cloned()
+                .collect::<Vec<_>>();
+            for ability in triggers {
+                if ability.targets != [TargetRequirement::NoncreatureSpell] {
+                    return Err(RulesError::IllegalAction(
+                        "a cast-noncreature trigger must retain one spell target",
+                    ));
+                }
+                self.stack.push(StackObject {
+                    card: source,
+                    controller,
+                    ability_id: Some(ability.id),
+                    targets: vec![Target::Spell(spell)],
+                    effects: ability.effects,
+                    chosen_x: None,
+                    mana_spent: None,
+                });
+                self.record_event(GameEvent::TriggeredAbilityStacked {
+                    controller,
+                    source,
+                    ability: ability.id,
+                });
+            }
+        }
+        self.consecutive_passes = 0;
+        Ok(())
     }
 
     /// Stacks every represented land-entry trigger on a live permanent. A
@@ -6560,6 +6686,38 @@ impl Game {
                 });
                 self.move_to_spell_terminal_zone(target)?;
             }
+            Effect::SacrificeCreatureOrCounterTargetSpell => {
+                let target = Self::target_spell(target)?;
+                let candidate = self.all_battlefield_cards().into_iter().find(|candidate| {
+                    self.object(*candidate)
+                        .is_ok_and(|object| object.controller == controller)
+                        && self
+                            .characteristics(*candidate)
+                            .is_ok_and(|characteristics| {
+                                characteristics.card_types.contains(&CardType::Creature)
+                            })
+                });
+                if let Some(permanent) = candidate {
+                    self.record_event(GameEvent::SacrificedByEffect {
+                        source,
+                        player: controller,
+                        permanent,
+                    });
+                    self.move_to_graveyard_or_remove_token(permanent)?;
+                } else {
+                    let position = self
+                        .stack
+                        .iter()
+                        .position(|stack_object| stack_object.card == target)
+                        .ok_or(RulesError::IllegalTarget(Target::Spell(target)))?;
+                    self.stack.remove(position);
+                    self.record_event(GameEvent::SpellCountered {
+                        card: target,
+                        source,
+                    });
+                    self.move_to_spell_terminal_zone(target)?;
+                }
+            }
             Effect::GrantGraveyardCastPermissionUntilEndOfTurn => {
                 let target = Self::target_permanent(target)?;
                 if !self.target_matches_for_controller(
@@ -6891,6 +7049,14 @@ impl Game {
                             || definition.card_types.contains(&CardType::Sorcery)
                     })
             }
+            (Target::Spell(card), TargetRequirement::NoncreatureSpell) => {
+                self.stack
+                    .iter()
+                    .any(|stack_object| stack_object.card == card)
+                    && self.card_definition(card).is_ok_and(|definition| {
+                        !definition.card_types.contains(&CardType::Creature)
+                    })
+            }
             _ => false,
         }
     }
@@ -6992,7 +7158,10 @@ impl Game {
                     | TargetRequirement::ControlledCreature
                     | TargetRequirement::OpponentCreature
                     | TargetRequirement::PlayerOrCreature
-            ) | (Target::Spell(_), TargetRequirement::InstantOrSorcerySpell)
+            ) | (
+                Target::Spell(_),
+                TargetRequirement::InstantOrSorcerySpell | TargetRequirement::NoncreatureSpell
+            )
         )
     }
 
