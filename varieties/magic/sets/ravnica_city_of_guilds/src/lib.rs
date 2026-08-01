@@ -4581,6 +4581,17 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
             },
         },
         TriggeredAbilityBinding {
+            card_definition: "RAV-VINELASHER-KUDZU",
+            ability: TriggeredAbility {
+                id: "controller-landfall-plus-one-counter",
+                condition: TriggerCondition::ControlledLandEntersBattlefield,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![Effect::AddPlusOneCounterToSource],
+            },
+        },
+        TriggeredAbilityBinding {
             card_definition: "RAV-BOROS-GARRISON",
             ability: guild_bounce_land_trigger(),
         },

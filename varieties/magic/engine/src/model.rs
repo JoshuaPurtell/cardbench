@@ -239,6 +239,11 @@ pub enum TriggerCondition {
     /// transition. Unlike `EntersBattlefield`, this condition observes every
     /// qualifying land entry rather than only the permanent that entered.
     LandEntersBattlefield,
+    /// A land entered the battlefield under the source controller's control.
+    /// This is intentionally distinct from the all-player land-entry
+    /// condition so a controller-scoped landfall card cannot trigger from an
+    /// opponent's land play.
+    ControlledLandEntersBattlefield,
     /// The active player's upkeep began.  Only permanents they control are
     /// eligible; the resulting abilities are put on the stack before either
     /// player receives that upkeep's first priority.
@@ -983,6 +988,10 @@ pub enum Effect {
         color: Color,
         amount: u8,
     },
+    /// Place one persistent +1/+1 counter on the ability or spell source if
+    /// that source is still a creature permanent as this instruction resolves.
+    /// A departed source is an ordinary no-op, not a failed trigger resolution.
+    AddPlusOneCounterToSource,
     /// Deal one fixed amount of damage to every creature currently on the
     /// battlefield and every player still in the game. This selection is made
     /// once while the spell resolves; state-based actions run only after the
@@ -1335,6 +1344,7 @@ impl Effect {
             | Self::RevealTopCardPutIntoHandLoseLifeEqualToManaValue
             | Self::DealDamageToEachPlayerFromReceivedDamage
             | Self::AddManaController { .. }
+            | Self::AddPlusOneCounterToSource
             | Self::DrawControllerIfManaColorSpent { .. }
             | Self::ModifyAllCreaturesPtUntilEndOfTurnIfManaColorSpent { .. }
             | Self::CreateToken { .. }

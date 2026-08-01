@@ -380,7 +380,7 @@ pub struct Game {
     /// batches wait until that enclosing stack object has completed its own
     /// terminal lifecycle, matching the ordinary post-resolution trigger
     /// window rather than creating a nested stack object mid-resolution.
-    pending_land_entry_trigger_batches: u8,
+    pending_land_entry_trigger_batches: Vec<PlayerId>,
     pending_damage_redirection: Option<PendingDamageRedirection>,
     damage_redirections: Vec<DamageRedirection>,
 }
@@ -584,7 +584,7 @@ impl Game {
             pending_damage_triggers: Vec::new(),
             pending_life_gain_triggers: Vec::new(),
             pending_dies_triggers: Vec::new(),
-            pending_land_entry_trigger_batches: 0,
+            pending_land_entry_trigger_batches: Vec::new(),
             pending_damage_redirection: None,
             damage_redirections: Vec::new(),
         };
@@ -672,6 +672,7 @@ impl Game {
                     binding.ability.condition,
                     TriggerCondition::EntersBattlefield
                         | TriggerCondition::LandEntersBattlefield
+                        | TriggerCondition::ControlledLandEntersBattlefield
                         | TriggerCondition::BeginningOfUpkeep
                         | TriggerCondition::LifeGained
                         | TriggerCondition::DealsDamage
@@ -2267,7 +2268,7 @@ impl Game {
         self.check_state_based_actions()?;
         self.flush_pending_dies_triggers();
         self.enqueue_enter_triggers(card, definition_id, player);
-        self.enqueue_land_entry_triggers()?;
+        self.enqueue_land_entry_triggers(player)?;
         Ok(())
     }
 
@@ -3175,7 +3176,7 @@ impl Game {
                         .get_mut(&card)
                         .ok_or(RulesError::UnknownCard(card))?
                         .tapped = true;
-                    self.queue_land_entry_trigger_batch()?;
+                    self.queue_land_entry_trigger_batch(player)?;
                 }
             }
         }
@@ -3355,7 +3356,7 @@ impl Game {
                 "pending dies trigger escaped its state-based-action batch",
             ));
         }
-        if self.pending_land_entry_trigger_batches != 0 {
+        if !self.pending_land_entry_trigger_batches.is_empty() {
             return Err(RulesError::IllegalAction(
                 "pending land-entry trigger escaped its resolving stack object",
             ));
@@ -3564,6 +3565,7 @@ impl Game {
                         ability.condition,
                         TriggerCondition::EntersBattlefield
                             | TriggerCondition::LandEntersBattlefield
+                            | TriggerCondition::ControlledLandEntersBattlefield
                             | TriggerCondition::BeginningOfUpkeep
                             | TriggerCondition::LifeGained
                             | TriggerCondition::DealsDamage
@@ -4626,6 +4628,7 @@ impl Game {
                 Effect::AddManaController { amount, .. } => i16::from(*amount),
                 Effect::CreateToken { .. }
                 | Effect::CreateTokenForTargetPlayer { .. }
+                | Effect::AddPlusOneCounterToSource
                 | Effect::LoseLifeEachOpponentEqualToControlledCreatures
                 | Effect::DiscardOneCardEachPlayer
                 | Effect::DiscardTargetPlayer { .. }
@@ -4912,7 +4915,7 @@ impl Game {
         if permanent_resolution {
             self.enqueue_enter_triggers(stack_object.card, definition_id, entering_controller);
             if entering_is_land {
-                self.enqueue_land_entry_triggers()?;
+                self.enqueue_land_entry_triggers(entering_controller)?;
             }
         }
         self.flush_pending_land_entry_triggers()?;
@@ -4942,7 +4945,10 @@ impl Game {
     /// source: the observer is the source permanent, not the land-play
     /// action. Each represented entry path calls this after the land is live,
     /// state-based actions are stable, and its own ETB triggers are queued.
-    fn enqueue_land_entry_triggers(&mut self) -> Result<(), RulesError> {
+    fn enqueue_land_entry_triggers(
+        &mut self,
+        entering_controller: PlayerId,
+    ) -> Result<(), RulesError> {
         let sources = self.all_battlefield_cards();
         for source in sources {
             let (definition, controller) = {
@@ -4958,24 +4964,32 @@ impl Game {
                 controller,
                 TriggerCondition::LandEntersBattlefield,
             );
+            if controller == entering_controller {
+                self.enqueue_triggers_for_source(
+                    source,
+                    definition,
+                    controller,
+                    TriggerCondition::ControlledLandEntersBattlefield,
+                );
+            }
         }
         Ok(())
     }
 
-    fn queue_land_entry_trigger_batch(&mut self) -> Result<(), RulesError> {
-        self.pending_land_entry_trigger_batches = self
-            .pending_land_entry_trigger_batches
-            .checked_add(1)
-            .ok_or(RulesError::IllegalAction(
-                "land-entry trigger batch count overflowed",
-            ))?;
+    fn queue_land_entry_trigger_batch(
+        &mut self,
+        entering_controller: PlayerId,
+    ) -> Result<(), RulesError> {
+        self.player(entering_controller)?;
+        self.pending_land_entry_trigger_batches
+            .push(entering_controller);
         Ok(())
     }
 
     fn flush_pending_land_entry_triggers(&mut self) -> Result<(), RulesError> {
-        let batches = std::mem::take(&mut self.pending_land_entry_trigger_batches);
-        for _ in 0..batches {
-            self.enqueue_land_entry_triggers()?;
+        let controllers = std::mem::take(&mut self.pending_land_entry_trigger_batches);
+        for controller in controllers {
+            self.enqueue_land_entry_triggers(controller)?;
         }
         Ok(())
     }
@@ -5875,6 +5889,16 @@ impl Game {
                     color: *color,
                     amount: *amount,
                 });
+            }
+            Effect::AddPlusOneCounterToSource => {
+                if self.zone_of(source) == Some(Zone::Battlefield)
+                    && self
+                        .characteristics(source)?
+                        .card_types
+                        .contains(&CardType::Creature)
+                {
+                    self.place_counter(source, source, "+1/+1", 1)?;
+                }
             }
             Effect::DealDamageToEachCreatureAndPlayer { amount } => {
                 // Snapshot the complete affected set before mutating the

@@ -76,14 +76,17 @@ Oracle Magic rules coverage.
   resolution receipts remain required. Controller-relative trigger selection
   must use controller-relative legality, so a `ControlledLand` target can
   select the newly entered land itself but can never select an opponent's land.
-- A `LandEntersBattlefield` trigger binding is permitted only on a permanent
-  source and uses the same checked effect/target shape as every other trigger.
-  Every represented land entry first makes the land live, reaches its ordinary
-  state-based-action boundary, queues that land's own ETB triggers, then scans
-  every live non-token permanent for land-entry observers without a controller
-  restriction. An entry that occurs while another spell or ability resolves is
-  deferred until that enclosing stack object has emitted its terminal receipt
-  and changed zones; it never creates a nested stack object mid-resolution.
+- A `LandEntersBattlefield` or `ControlledLandEntersBattlefield` trigger binding
+  is permitted only on a permanent source and uses the same checked
+  effect/target shape as every other trigger. Every represented land entry
+  first makes the land live, reaches its ordinary state-based-action boundary,
+  queues that land's own ETB triggers, then scans every live non-token
+  permanent. The first condition observes every entry; the second only stacks
+  for a source controlled by that entering land's controller. An entry that
+  occurs while another spell or ability resolves retains its entering
+  controller in a deferred batch until that enclosing stack object has emitted
+  its terminal receipt and changed zones; it never creates a nested stack
+  object mid-resolution.
   Each observer receives its own ordinary synthetic stack object and
   `TriggeredAbilityStacked` receipt; the active player keeps the normal
   post-resolution priority window and a trigger never performs its effect
