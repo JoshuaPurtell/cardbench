@@ -84,6 +84,13 @@ Oracle Magic rules coverage.
   receipt path unless the source has `DamageCannotBePrevented`; non-targeted
   damage batches therefore still honor protection even when no target slot
   exists.
+- Damage replacement ordering is source-authoritative: when a source has
+  `Keyword::DamageCannotBePrevented`, no damage-redirection destination or
+  prevention shield may consume that damage, and no `DamageRedirected` or
+  `DamagePrevented` receipt may be emitted for it. Otherwise a live
+  redirection is considered before targeted prevention, and the redirected
+  portion is recursively processed at its legal destination with the same
+  source identity.
 - A dynamic creature-count life-gain effect snapshots all current battlefield
   creatures at resolution, including tokens and opposing creatures, converts
   the count into a bounded receipt, and queues life-gain triggers only for the
