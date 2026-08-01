@@ -35,7 +35,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 88] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 89] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -104,6 +104,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 88] = [
     "RAV-FRENZIED-GOBLIN",
     "RAV-SPARKMAGE-APPRENTICE",
     "RAV-HUNTED-DRAGON",
+    "RAV-HUNTED-TROLL",
     "RAV-KEENING-BANSHEE",
     "RAV-RAZIA-BOROS-ARCHANGEL",
     "RAV-HAMMERFIST-GIANT",
@@ -405,6 +406,30 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             power: Some(7),
             toughness: Some(7),
             keywords: vec![Keyword::Trample],
+            effects: vec![],
+        },
+        // Full fidelity: the opponent-first ETB trigger creates four typed
+        // blue 1/1 Flying Faeries, and the shared source-regeneration ability
+        // represents the printed green activation through a one-shot shield.
+        CardDefinition {
+            id: "RAV-HUNTED-TROLL",
+            name: "Hunted Troll",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(2, [Color::Green, Color::Green]),
+            colors: colors([Color::Green]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "etb-targeted-opponent-flying-faerie-tokens",
+                "regeneration",
+            ],
+            power: Some(8),
+            toughness: Some(4),
+            keywords: vec![],
             effects: vec![],
         },
         // Full fidelity: target a controller-owned instant or sorcery in the
@@ -3127,6 +3152,20 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
             },
         },
         ActivatedAbilityBinding {
+            card_definition: "RAV-HUNTED-TROLL",
+            ability: ActivatedAbility {
+                id: "self-regeneration",
+                mana_cost: ManaCost::with_colors(0, [Color::Green]),
+                tap_cost: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![],
+                effects: vec![Effect::RegenerateSource],
+            },
+        },
+        ActivatedAbilityBinding {
             card_definition: "RAV-SANDSOWER",
             ability: ActivatedAbility {
                 id: "tap-target-creature",
@@ -3514,6 +3553,20 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                 effects: vec![Effect::CreateTokenForTargetPlayer {
                     token: TokenSpec::green_centaur(),
                     count: 2,
+                }],
+            },
+        },
+        TriggeredAbilityBinding {
+            card_definition: "RAV-HUNTED-TROLL",
+            ability: TriggeredAbility {
+                id: "etb-opponent-faeries",
+                condition: TriggerCondition::EntersBattlefield,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![cardbench_magic_engine::TargetRequirement::Player],
+                effects: vec![Effect::CreateTokenForTargetPlayer {
+                    token: TokenSpec::blue_faerie(),
+                    count: 4,
                 }],
             },
         },
@@ -4399,7 +4452,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 128);
+        assert_eq!(first.len(), 129);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

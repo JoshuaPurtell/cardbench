@@ -8589,3 +8589,142 @@ priority = 0
 event_markers = ["Transmuted", "AttackersDeclared"]
 event_absent = ["BlockersDeclared"]
 digest = "fnv1a64:594a2e5e1cc03219"
+
+[[scenario]]
+id = "rav_hunted_troll_faeries_and_regeneration"
+seed = 129
+triggers = true
+description = "Cast Hunted Troll, resolve its opponent-targeted four-Faerie ETB trigger, then resolve its green self-regeneration activation through the stack."
+
+[[scenario.card]]
+label = "troll"
+owner = 0
+definition = "RAV-HUNTED-TROLL"
+zone = "hand"
+
+[[scenario.card]]
+label = "forest1"
+owner = 0
+definition = "RAV-FOREST"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "forest2"
+owner = 0
+definition = "RAV-FOREST"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "forest3"
+owner = 0
+definition = "RAV-FOREST"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "forest4"
+owner = 0
+definition = "RAV-FOREST"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "forest5"
+owner = 0
+definition = "RAV-FOREST"
+zone = "battlefield"
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "forest1"
+color = "green"
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "forest2"
+color = "green"
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "forest3"
+color = "green"
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "forest4"
+color = "green"
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "troll"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "forest5"
+color = "green"
+
+[[scenario.action]]
+kind = "activate_ability"
+player = 0
+card = "troll"
+ability = "self-regeneration"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["troll:battlefield", "forest1:battlefield", "forest2:battlefield", "forest3:battlefield", "forest4:battlefield", "forest5:battlefield"]
+powers = ["troll:8"]
+toughnesses = ["troll:4"]
+tapped = ["troll:false", "forest1:true", "forest2:true", "forest3:true", "forest4:true", "forest5:true"]
+token_count = 4
+stack_size = 0
+priority = 0
+mana = ["0:green:0"]
+event_markers = ["SpellCast", "SpellResolved", "TriggeredAbilityStacked", "TokenCreated", "RegenerationShieldCreated", "AbilityResolved"]
+digest = "fnv1a64:6356df19129c5049"

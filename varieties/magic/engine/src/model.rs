@@ -772,6 +772,7 @@ pub struct AdditionalSpellCostBinding {
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum CreatureSubtype {
     Centaur,
+    Faerie,
     Goblin,
     Knight,
     Saproling,
@@ -828,6 +829,19 @@ impl TokenSpec {
             keywords: vec![],
             power: 3,
             toughness: 3,
+        }
+    }
+
+    #[must_use]
+    pub fn blue_faerie() -> Self {
+        Self {
+            name: "Faerie",
+            colors: BTreeSet::from([Color::Blue]),
+            card_types: BTreeSet::from([CardType::Creature]),
+            creature_subtypes: BTreeSet::from([CreatureSubtype::Faerie]),
+            keywords: vec![Keyword::Flying],
+            power: 1,
+            toughness: 1,
         }
     }
 
