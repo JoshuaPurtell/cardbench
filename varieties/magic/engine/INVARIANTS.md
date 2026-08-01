@@ -219,9 +219,10 @@ Oracle Magic rules coverage.
 - Colorless is a mana kind rather than a card color: it can pay generic and
   explicit colorless costs but cannot appear in a card's color set, be chosen
   by a "choose a color" mana ability, satisfy a colored or hybrid symbol, or
-  satisfy a Convoke color contribution. Token specifications and layer-five
-  color changes are checked at the same boundary. A typed nonbasic land may
-  produce it through the same bound mana-ability receipts as colored mana.
+  satisfy a Convoke color contribution. Token specifications are checked when
+  a token is created (and by the invariant audit), while layer-five color
+  changes are rejected before installation. A typed nonbasic land may produce
+  it through the same bound mana-ability receipts as colored mana.
 - Colored symbol repetitions are also counted in a widened `u16` requirement
   before any pool slot is debited. A cost above a bounded color slot's
   representable capacity rejects atomically; it cannot saturate into a cheaper

@@ -3864,13 +3864,6 @@ impl Game {
     /// are positive quantities.
     fn validate_cast_effects(definition: &CardDefinition) -> Result<(), RulesError> {
         for effect in &definition.effects {
-            match effect {
-                Effect::CreateToken { token, .. }
-                | Effect::CreateTokenForTargetPlayer { token, .. } => {
-                    Self::validate_token_spec(token)?;
-                }
-                _ => {}
-            }
             let amount = match effect {
                 Effect::DealDamage { amount, .. }
                 | Effect::LoseLifeTarget { amount }
@@ -6250,13 +6243,6 @@ impl Game {
 
     fn validate_cast_effects_for_ability(effects: &[Effect]) -> Result<(), RulesError> {
         for effect in effects {
-            match effect {
-                Effect::CreateToken { token, .. }
-                | Effect::CreateTokenForTargetPlayer { token, .. } => {
-                    Self::validate_token_spec(token)?;
-                }
-                _ => {}
-            }
             let amount = match effect {
                 Effect::DealDamage { amount, .. }
                 | Effect::LoseLifeTarget { amount }
