@@ -3124,7 +3124,7 @@ digest = "fnv1a64:3efe00bd81d03cdb"
 [[scenario]]
 id = "rav_white_blue_creature_chassis"
 seed = 0
-description = "Cast bounded Dromad Purebred and full Flying Snapping Drake with their exact colored costs, then verify base P/T; Drake's Flying declaration is exercised separately."
+description = "Cast full Dromad Purebred and full Flying Snapping Drake with their exact colored costs, then verify base P/T; their received-damage trigger and Flying declaration are exercised separately."
 
 [[scenario.card]]
 label = "dromad"

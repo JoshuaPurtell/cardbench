@@ -35,7 +35,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 78] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 79] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -76,6 +76,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 78] = [
     "RAV-SELESNYA-EVANGEL",
     "RAV-SANDSOWER",
     "RAV-DIVEBOMBER-GRIFFIN",
+    "RAV-DROMAD-PUREBRED",
     "RAV-BIRDS-OF-PARADISE",
     "RAV-FIERY-CONCLUSION",
     "RAV-RIBBONS-OF-NIGHT",
@@ -1127,9 +1128,8 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed damage-triggered behavior is
-        // deliberately omitted from this compatibility slice.
+        // Full printed behavior: every positive damage receipt to this
+        // permanent queues one fixed life-gain trigger for its controller.
         CardDefinition {
             id: "RAV-DROMAD-PUREBRED",
             name: "Dromad Purebred",
@@ -1139,7 +1139,12 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Creature]),
             is_basic_land: false,
-            supported_rules: &["colored-cost-casting", "base-characteristics"],
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "damage-received-life-gain",
+            ],
             power: Some(1),
             toughness: Some(5),
             keywords: vec![],
@@ -3308,6 +3313,17 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                 effects: vec![Effect::ModifyTargetKeywordUntilEndOfTurn {
                     keyword: Keyword::CannotBlock,
                 }],
+            },
+        },
+        TriggeredAbilityBinding {
+            card_definition: "RAV-DROMAD-PUREBRED",
+            ability: TriggeredAbility {
+                id: "damage-gain-one-life",
+                condition: TriggerCondition::ReceivesDamage,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![Effect::GainLifeController { amount: 1 }],
             },
         },
         TriggeredAbilityBinding {
