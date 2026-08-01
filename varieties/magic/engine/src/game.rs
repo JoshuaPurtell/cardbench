@@ -1456,7 +1456,7 @@ impl Game {
         }
         for (target, requirement) in activation.targets.iter().zip(&ability.targets) {
             if !Self::target_shape_matches(*target, *requirement)
-                || !self.target_matches_for_controller(player, *target, *requirement)
+                || !self.target_matches_for_source(player, activation.source, *target, *requirement)
             {
                 return Err(RulesError::IllegalTarget(*target));
             }
@@ -1922,6 +1922,22 @@ impl Game {
                     ContinuousChange::CannotBlockSource(source) if *source == attacker
                 )
         })
+    }
+
+    /// Returns whether either combat permanent has protection from the other
+    /// permanent's current colors. Protection prevents blocking in both
+    /// directions: a protected attacker cannot be blocked by a matching-color
+    /// creature, and a protected blocker cannot block a matching-color
+    /// attacker.
+    fn protection_prevents_block(&self, blocker: ObjectId, attacker: ObjectId) -> bool {
+        let Ok(blocker_characteristics) = self.characteristics(blocker) else {
+            return false;
+        };
+        let Ok(attacker_characteristics) = self.characteristics(attacker) else {
+            return false;
+        };
+        self.permanent_has_protection_from_colors(blocker, &attacker_characteristics.colors)
+            || self.permanent_has_protection_from_colors(attacker, &blocker_characteristics.colors)
     }
 
     /// Drops setup or prior-run events. This is useful at the start of a scenario's
@@ -2775,6 +2791,7 @@ impl Game {
                 || object.tapped
                 || !characteristics.card_types.contains(&CardType::Creature)
                 || self.target_cannot_block_attacker(assignment.blocker, assignment.attacker)
+                || self.protection_prevents_block(assignment.blocker, assignment.attacker)
                 || characteristics
                     .keywords
                     .contains(&Keyword::CannotAttackOrBlock)
@@ -2892,6 +2909,9 @@ impl Game {
                     return false;
                 }
                 if self.target_cannot_block_attacker(*candidate, *attacker) {
+                    return false;
+                }
+                if self.protection_prevents_block(*candidate, *attacker) {
                     return false;
                 }
                 true
@@ -5249,7 +5269,8 @@ impl Game {
         }
         let mut distinct_targets = HashSet::new();
         for (target, requirement) in targets.iter().zip(requirements) {
-            if !self.target_matches_for_controller(controller, *target, requirement) {
+            if !self.target_matches_for_colors(controller, *target, requirement, &definition.colors)
+            {
                 return Err(RulesError::IllegalTarget(*target));
             }
             if requirement == TargetRequirement::DistinctCreature
@@ -5566,8 +5587,9 @@ impl Game {
                 let occurrence = target_index;
                 target_index += 1;
                 self.stack_target_incarnation_matches(&stack_object, occurrence, target)
-                    && self.target_matches_for_controller(
+                    && self.target_matches_for_source(
                         stack_object.controller,
+                        stack_object.card,
                         target,
                         requirement,
                     )
@@ -5662,7 +5684,12 @@ impl Game {
                                 "target-resolution plan named an untargeted effect",
                             ))?;
                     if self.stack_target_incarnation_matches(&stack_object, occurrence, target)
-                        && self.target_matches(target, requirement)
+                        && self.target_matches_for_source(
+                            stack_object.controller,
+                            stack_object.card,
+                            target,
+                            requirement,
+                        )
                     {
                         if let Effect::AttachSourceAndModifyTargetPt { power, toughness } = effect {
                             if pending_aura_attachment
@@ -6056,7 +6083,8 @@ impl Game {
                 // card alongside it in its controller's graveyard.
                 continue;
             }
-            let Some(targets) = self.select_trigger_targets(controller, &ability.targets) else {
+            let Some(targets) = self.select_trigger_targets(source, controller, &ability.targets)
+            else {
                 // A mandatory trigger with no legal target is not stackable;
                 // an optional one simply does not trigger.  Current RAV ETB
                 // bindings use an opponent-first deterministic selector until
@@ -6107,7 +6135,8 @@ impl Game {
                 .cloned()
                 .collect::<Vec<_>>();
             for ability in triggers {
-                let Some(targets) = self.select_trigger_targets(controller, &ability.targets)
+                let Some(targets) =
+                    self.select_trigger_targets(source, controller, &ability.targets)
                 else {
                     // A mandatory trigger with no legal target is not put on
                     // the stack. This matches the existing ETB trigger
@@ -6140,6 +6169,7 @@ impl Game {
 
     fn select_trigger_targets(
         &self,
+        source: ObjectId,
         controller: PlayerId,
         requirements: &[TargetRequirement],
     ) -> Option<Vec<Target>> {
@@ -6150,7 +6180,7 @@ impl Game {
                 .find(|player| *player != controller && !self.players[player.0].lost)
                 .map(Target::Player)
                 .filter(|target| {
-                    self.target_matches_for_controller(controller, *target, *requirement)
+                    self.target_matches_for_source(controller, source, *target, *requirement)
                 });
             let opponent_permanent = self
                 .objects
@@ -6163,7 +6193,7 @@ impl Game {
                 })
                 .map(Target::Permanent)
                 .find(|target| {
-                    self.target_matches_for_controller(controller, *target, *requirement)
+                    self.target_matches_for_source(controller, source, *target, *requirement)
                 });
             let any_permanent = self
                 .objects
@@ -6172,14 +6202,14 @@ impl Game {
                 .filter(|candidate| self.zone_of(*candidate) == Some(Zone::Battlefield))
                 .map(Target::Permanent)
                 .find(|target| {
-                    self.target_matches_for_controller(controller, *target, *requirement)
+                    self.target_matches_for_source(controller, source, *target, *requirement)
                 });
             let any_player = (0..self.players.len())
                 .map(PlayerId)
                 .filter(|player| !self.players[player.0].lost)
                 .map(Target::Player)
                 .find(|target| {
-                    self.target_matches_for_controller(controller, *target, *requirement)
+                    self.target_matches_for_source(controller, source, *target, *requirement)
                 });
             let controller_graveyard_card = self.players[controller.0]
                 .graveyard
@@ -6187,7 +6217,7 @@ impl Game {
                 .copied()
                 .map(Target::Permanent)
                 .find(|target| {
-                    self.target_matches_for_controller(controller, *target, *requirement)
+                    self.target_matches_for_source(controller, source, *target, *requirement)
                 });
             let target = opponent_player
                 .or(opponent_permanent)
@@ -6482,7 +6512,8 @@ impl Game {
                 .cloned()
                 .collect::<Vec<_>>();
             for ability in triggers {
-                let Some(targets) = self.select_trigger_targets(controller, &ability.targets)
+                let Some(targets) =
+                    self.select_trigger_targets(pending.source, controller, &ability.targets)
                 else {
                     // A dies trigger with no legal mandatory target cannot be
                     // put onto the stack. Optional choice handling remains
@@ -6608,6 +6639,7 @@ impl Game {
                 matches!(
                     keyword,
                     Keyword::PreventDamageFromColor(color)
+                        | Keyword::Protection(color)
                         if source_characteristics.colors.contains(color)
                 )
             })
@@ -6957,7 +6989,8 @@ impl Game {
                 self.deal_damage_to_player(source, controller, i32::from(*amount))?;
             }
             Effect::DealDamageAfterOptionalManaPayment { amount, target } => {
-                let Some(selected) = self.select_trigger_targets(controller, &[*target]) else {
+                let Some(selected) = self.select_trigger_targets(source, controller, &[*target])
+                else {
                     return Ok(());
                 };
                 let Some(selected) = selected.first().copied() else {
@@ -8249,6 +8282,67 @@ impl Game {
                 (Target::Player(player), TargetRequirement::Opponent) => player != controller,
                 _ => true,
             }
+    }
+
+    /// Extends controller-scoped target legality with protection from the
+    /// source's current colors. A player target is unaffected; protection is
+    /// a permanent-facing restriction in this engine slice.
+    fn target_matches_for_source(
+        &self,
+        controller: PlayerId,
+        source: ObjectId,
+        target: Target,
+        requirement: TargetRequirement,
+    ) -> bool {
+        let Ok(source_characteristics) = self.characteristics(source) else {
+            return false;
+        };
+        self.target_matches_for_colors(
+            controller,
+            target,
+            requirement,
+            &source_characteristics.colors,
+        )
+    }
+
+    fn target_matches_for_colors(
+        &self,
+        controller: PlayerId,
+        target: Target,
+        requirement: TargetRequirement,
+        source_colors: &BTreeSet<Color>,
+    ) -> bool {
+        self.target_matches_for_controller(controller, target, requirement)
+            && !self.permanent_has_protection_from_colors_for_target(target, source_colors)
+    }
+
+    fn permanent_has_protection_from_colors_for_target(
+        &self,
+        target: Target,
+        source_colors: &BTreeSet<Color>,
+    ) -> bool {
+        match target {
+            Target::Permanent(card) => {
+                self.permanent_has_protection_from_colors(card, source_colors)
+            }
+            Target::Player(_) | Target::Spell(_) | Target::SacrificePermanent(_) => false,
+        }
+    }
+
+    fn permanent_has_protection_from_colors(
+        &self,
+        permanent: ObjectId,
+        source_colors: &BTreeSet<Color>,
+    ) -> bool {
+        self.characteristics(permanent)
+            .is_ok_and(|characteristics| {
+                characteristics.keywords.iter().any(|keyword| {
+                    matches!(
+                        keyword,
+                        Keyword::Protection(color) if source_colors.contains(color)
+                    )
+                })
+            })
     }
 
     /// Checks the target variant that could have been selected at cast time,
