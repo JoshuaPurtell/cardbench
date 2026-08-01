@@ -121,6 +121,7 @@ fn vigor_mortis_without_spent_green_returns_without_a_counter() {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // The two independent return lifecycles share one auditable state trace.
 fn vigor_mortis_counter_clears_on_death_before_a_later_reentry() {
     let mut game = Game::new(card_definitions(), 2).expect("RAV fixture constructs");
     let first_vigor = game

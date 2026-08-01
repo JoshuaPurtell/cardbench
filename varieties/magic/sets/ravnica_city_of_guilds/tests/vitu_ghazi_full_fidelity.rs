@@ -78,6 +78,7 @@ fn vitu_ghazi_has_exact_definition_and_typed_bindings() {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // The complete activation trace is intentionally inspected in one regression.
 fn vitu_ghazi_mana_pays_its_stack_backed_saproling_activation() {
     let mut game = game_with_rav_bindings();
     let mana_land = game
