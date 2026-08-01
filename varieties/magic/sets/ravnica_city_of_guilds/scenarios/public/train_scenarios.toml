@@ -9767,3 +9767,42 @@ priority = 0
 mana = ["0:black:0"]
 event_markers = ["SpellCast", "CardDestroyed", "SpellResolved"]
 digest = "fnv1a64:b64fcece6cc543a6"
+
+[[scenario]]
+id = "rav_dark_confidant_upkeep_reveal_life_loss"
+seed = 142
+description = "Start a game with Dark Confidant and a known top library card, then resolve its upkeep trigger through public reveal, hand movement, and mana-value life loss."
+triggers = true
+
+[[scenario.card]]
+label = "confidant"
+owner = 0
+definition = "RAV-DARK-CONFIDANT"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.card]]
+label = "revealed"
+owner = 0
+definition = "RAV-WATCHWOLF"
+zone = "library"
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+life = [18, 20]
+zones = ["confidant:battlefield", "revealed:hand"]
+stack_size = 0
+priority = 0
+event_markers = ["StepBegan", "TriggeredAbilityStacked", "CardRevealed", "CardMoved", "LifeLost", "AbilityResolved"]
+digest = "fnv1a64:444c0a67889afef9"

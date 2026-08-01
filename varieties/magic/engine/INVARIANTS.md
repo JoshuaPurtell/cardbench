@@ -128,6 +128,10 @@ Oracle Magic rules coverage.
   battlefield creatures, emits no zero-amount receipt, and records each
   positive change as the ordinary source-aware `LifeLost` event before the
   ability's terminal resolution receipt.
+- A top-library reveal instruction reads the current top object only at
+  resolution, records `CardRevealed` before moving that exact object to hand,
+  and only then records its source-aware `LifeLost` using the catalog mana
+  value. An empty library creates neither a reveal nor a draw-loss event.
 - A stack spell target that remains on the stack must be below its source,
   because only already-existing stack objects can be chosen while casting. A
   formerly legal target may have left the stack by resolution, which remains a

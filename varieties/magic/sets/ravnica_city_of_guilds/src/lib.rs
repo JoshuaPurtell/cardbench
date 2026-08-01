@@ -35,7 +35,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 101] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 102] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -65,6 +65,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 101] = [
     "RAV-ROLLING-SPOIL",
     "RAV-NETHERBORN-PHALANX",
     "RAV-HEX",
+    "RAV-DARK-CONFIDANT",
     "RAV-HELLDOZER",
     "RAV-GREATER-MOSSDOG",
     "RAV-BOROS-SIGNET",
@@ -1125,6 +1126,29 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 Effect::DestroyDistinctTargetCreature,
                 Effect::DestroyDistinctTargetCreature,
             ],
+        },
+        // Full fidelity: the controller's upkeep trigger exposes the top card
+        // publicly, moves that same object to hand, then applies its catalog
+        // mana value as life loss through the ordinary stack path.
+        CardDefinition {
+            id: "RAV-DARK-CONFIDANT",
+            name: "Dark Confidant",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(1, [Color::Black]),
+            colors: colors([Color::Black]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "beginning-of-upkeep-top-library-reveal-life-loss",
+            ],
+            power: Some(2),
+            toughness: Some(1),
+            keywords: vec![],
+            effects: vec![],
         },
         CardDefinition {
             id: "RAV-RALLY-THE-RIGHTEOUS",
@@ -3964,6 +3988,17 @@ pub fn rav_static_continuous_effect_bindings() -> Vec<StaticContinuousEffectBind
 pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
     vec![
         TriggeredAbilityBinding {
+            card_definition: "RAV-DARK-CONFIDANT",
+            ability: TriggeredAbility {
+                id: "upkeep-reveal-mana-value-life-loss",
+                condition: TriggerCondition::BeginningOfUpkeep,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![Effect::RevealTopCardPutIntoHandLoseLifeEqualToManaValue],
+            },
+        },
+        TriggeredAbilityBinding {
             card_definition: "RAV-NETHERBORN-PHALANX",
             ability: TriggeredAbility {
                 id: "etb-opponent-creature-count-life-loss",
@@ -4949,7 +4984,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 141);
+        assert_eq!(first.len(), 142);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

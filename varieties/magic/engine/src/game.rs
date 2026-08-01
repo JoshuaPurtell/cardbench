@@ -4109,6 +4109,7 @@ impl Game {
                 | Effect::DrawControllerIfManaColorSpent { .. }
                 | Effect::ModifyAllCreaturesPtUntilEndOfTurnIfManaColorSpent { .. }
                 | Effect::DrawController
+                | Effect::RevealTopCardPutIntoHandLoseLifeEqualToManaValue
                 | Effect::GainLifeControllerFromSourceDamage
                 | Effect::DealDamageToEachPlayerFromReceivedDamage
                 | Effect::DealDamageEqualToAttackingCreatures { .. }
@@ -5272,6 +5273,28 @@ impl Game {
             }
             Effect::DrawController => {
                 self.draw_card_from_spell_effect(controller)?;
+            }
+            Effect::RevealTopCardPutIntoHandLoseLifeEqualToManaValue => {
+                let Some(card) = self.players[controller.0].library.last().copied() else {
+                    return Ok(());
+                };
+                let definition = self.card_definition(card)?.id;
+                let mana_value = self.card_definition(card)?.mana_cost.mana_value();
+                self.record_event(GameEvent::CardRevealed {
+                    player: controller,
+                    card,
+                    definition,
+                });
+                self.move_to_zone(card, Zone::Hand)?;
+                if mana_value > 0 {
+                    let amount = i16::from(mana_value);
+                    self.players[controller.0].life -= i64::from(amount);
+                    self.record_event(GameEvent::LifeLost {
+                        source,
+                        player: controller,
+                        amount,
+                    });
+                }
             }
             Effect::DealDamageToEachPlayerFromReceivedDamage => {
                 return Err(RulesError::IllegalAction(

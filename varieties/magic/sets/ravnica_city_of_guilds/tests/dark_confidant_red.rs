@@ -14,8 +14,10 @@ fn dark_confidant_requires_its_upkeep_reveal_and_mana_value_life_loss() {
     assert_eq!(definition.colors, [Color::Black].into());
     assert_eq!(definition.card_types, [CardType::Creature].into());
     assert_eq!((definition.power, definition.toughness), (Some(2), Some(1)));
-    assert!(definition
-        .supported_rules
-        .contains(&"beginning-of-upkeep-top-library-reveal-life-loss"));
+    assert!(
+        definition
+            .supported_rules
+            .contains(&"beginning-of-upkeep-top-library-reveal-life-loss")
+    );
     assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&definition.id));
 }
