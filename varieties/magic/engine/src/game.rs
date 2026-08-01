@@ -4658,6 +4658,7 @@ impl Game {
                 | Effect::DestroyTargetLand
                 | Effect::DestroyTargetLandAndUntapSourceIfNonbasic
                 | Effect::DestroyTargetArtifact
+                | Effect::DestroyTargetFlyingCreature
                 | Effect::DestroyTargetArtifactOrCreatureNoRegeneration
                 | Effect::DestroyDistinctTargetCreature
                 | Effect::DestroyTargetCreatureWithManaValueAtMostChosenX
@@ -6323,6 +6324,15 @@ impl Game {
                 }
                 self.destroy_permanent(source, artifact)?;
             }
+            Effect::DestroyTargetFlyingCreature => {
+                let target = Self::target_permanent(target)?;
+                if !self
+                    .target_matches(Target::Permanent(target), TargetRequirement::FlyingCreature)
+                {
+                    return Err(RulesError::IllegalTarget(Target::Permanent(target)));
+                }
+                self.destroy_permanent(source, target)?;
+            }
             Effect::DestroyTargetArtifactOrCreatureNoRegeneration => {
                 let target = Self::target_permanent(target)?;
                 if !self.target_matches(
@@ -6780,6 +6790,7 @@ impl Game {
             (
                 Target::Permanent(card),
                 TargetRequirement::Creature
+                | TargetRequirement::FlyingCreature
                 | TargetRequirement::DistinctCreature
                 | TargetRequirement::PlayerOrCreature
                 | TargetRequirement::BlockingCreature
@@ -6799,6 +6810,10 @@ impl Game {
                         || self.combat.as_ref().is_some_and(|combat| {
                             combat.attackers.contains(&card)
                                 || combat.blockers.values().any(|blocker| *blocker == card)
+                        }))
+                    && (!matches!(requirement, TargetRequirement::FlyingCreature)
+                        || self.characteristics(card).is_ok_and(|characteristics| {
+                            characteristics.keywords.contains(&Keyword::Flying)
                         }))
             }
             (
@@ -6914,6 +6929,7 @@ impl Game {
                 Target::Permanent(_),
                 TargetRequirement::Any
                     | TargetRequirement::Creature
+                    | TargetRequirement::FlyingCreature
                     | TargetRequirement::DistinctCreature
                     | TargetRequirement::BlockingCreature
                     | TargetRequirement::AttackingOrBlockingCreature

@@ -744,6 +744,10 @@ pub enum Keyword {
 pub enum TargetRequirement {
     Any,
     Creature,
+    /// A battlefield creature whose current characteristics include Flying.
+    /// This stays distinct from a generic creature target so an activation
+    /// such as Elvish Skysweeper's is rejected before costs are paid.
+    FlyingCreature,
     /// A battlefield creature that must be distinct from every other
     /// `DistinctCreature` target occurrence in one spell.
     DistinctCreature,
@@ -1155,6 +1159,9 @@ pub enum Effect {
     /// Destroy the targeted artifact during resolution, sending it through
     /// the normal zone-change and continuous-effect lifecycle.
     DestroyTargetArtifact,
+    /// Destroy one targeted creature with Flying through the normal,
+    /// regenerable destruction lifecycle.
+    DestroyTargetFlyingCreature,
     /// Destroy the targeted artifact or creature during resolution without
     /// allowing a regeneration shield to replace the destruction event.
     DestroyTargetArtifactOrCreatureNoRegeneration,
@@ -1321,6 +1328,7 @@ impl Effect {
             }
             Self::UntapTargetLand => Some(TargetRequirement::Land),
             Self::DestroyTargetArtifact => Some(TargetRequirement::Artifact),
+            Self::DestroyTargetFlyingCreature => Some(TargetRequirement::FlyingCreature),
             Self::DestroyTargetArtifactOrCreatureNoRegeneration => {
                 Some(TargetRequirement::ArtifactOrCreature)
             }

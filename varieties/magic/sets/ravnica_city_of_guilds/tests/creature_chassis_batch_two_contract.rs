@@ -15,14 +15,6 @@ fn second_creature_chassis_batch_is_exactly_bounded_to_public_base_facts() {
     let definitions = card_definitions();
     let expected = [
         (
-            "RAV-ELVISH-SKYSWEEPER",
-            "Elvish Skysweeper",
-            ManaCost::with_colors(0, [Color::Green]),
-            BTreeSet::from([Color::Green]),
-            1,
-            1,
-        ),
-        (
             "RAV-GRAYSCALED-GHARIAL",
             "Grayscaled Gharial",
             ManaCost::with_colors(0, [Color::Blue]),

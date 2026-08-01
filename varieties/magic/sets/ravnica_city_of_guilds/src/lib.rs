@@ -36,7 +36,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 110] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 111] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -147,6 +147,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 110] = [
     "RAV-CLINGING-DARKNESS",
     "RAV-URSAPINE",
     "RAV-TRANSLUMINANT",
+    "RAV-ELVISH-SKYSWEEPER",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -2250,17 +2251,28 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed activated behavior is deliberately
-        // omitted from this compatibility slice.
-        bounded_creature_chassis(
-            "RAV-ELVISH-SKYSWEEPER",
-            "Elvish Skysweeper",
-            ManaCost::with_colors(0, [Color::Green]),
-            colors([Color::Green]),
-            1,
-            1,
-        ),
+        // Full fidelity: a selected controlled creature is sacrificed as a
+        // five-mana activation cost, then a Flying creature is destroyed.
+        CardDefinition {
+            id: "RAV-ELVISH-SKYSWEEPER",
+            name: "Elvish Skysweeper",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(0, [Color::Green]),
+            colors: colors([Color::Green]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "sacrifice-creature-destroy-flying",
+            ],
+            power: Some(1),
+            toughness: Some(1),
+            keywords: vec![],
+            effects: vec![],
+        },
         // Full fidelity: the attack trigger's optional red payment and
         // target choice are represented by the attack-trigger binding.
         CardDefinition {
@@ -4010,6 +4022,22 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                     power: 1,
                     toughness: 1,
                 }],
+            },
+        },
+        ActivatedAbilityBinding {
+            card_definition: "RAV-ELVISH-SKYSWEEPER",
+            ability: ActivatedAbility {
+                id: "sacrifice-creature-destroy-flying",
+                mana_cost: ManaCost::with_colors(4, [Color::Green]),
+                tap_cost: false,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 1,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![cardbench_magic_engine::TargetRequirement::FlyingCreature],
+                effects: vec![Effect::DestroyTargetFlyingCreature],
             },
         },
         ActivatedAbilityBinding {

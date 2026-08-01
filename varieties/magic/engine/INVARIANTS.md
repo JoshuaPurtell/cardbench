@@ -199,6 +199,12 @@ Oracle Magic rules coverage.
   as a draw) runs; if the sole artifact target is illegal at resolution, the
   targeted spell is countered by rules and none of its untargeted instructions
   execute.
+- A `FlyingCreature` target requirement names only a current battlefield
+  creature whose resolved characteristics include `Flying`. Target validation
+  happens before any spell or activated-ability cost mutates mana, zones, or
+  receipts, and the same requirement is rechecked at resolution. Its ordinary
+  destruction path therefore preserves regeneration replacement and the
+  standard `CardDestroyed` followed by zone-departure lifecycle.
 - A global non-Flying damage effect snapshots only current battlefield
   creatures whose resolved characteristics lack `Flying`; Flying creatures
   are not accidental recipients, and all selected damage is applied before

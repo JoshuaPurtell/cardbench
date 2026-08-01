@@ -1,7 +1,8 @@
 //! Red discovery regression for Elvish Skysweeper's flying-only destruction.
 
 use cardbench_magic_engine::{
-    AbilityActivation, Color, Game, GameEvent, ManaCost, ObjectId, PlayerId, Target, Zone,
+    AbilityActivation, Color, Effect, Game, GameEvent, ManaCost, ObjectId, PlayerId, Target,
+    TargetRequirement, Zone,
 };
 use cardbench_magic_rav::{
     card_definitions, rav_activated_ability_bindings, rav_additional_spell_cost_bindings,
@@ -53,6 +54,11 @@ fn skysweeper_requires_flying_target_sacrifice_activation() {
         ManaCost::with_colors(4, [Color::Green])
     );
     assert_eq!(binding.ability.sacrifice_creatures, 1);
+    assert_eq!(binding.ability.targets, [TargetRequirement::FlyingCreature]);
+    assert_eq!(
+        binding.ability.effects,
+        [Effect::DestroyTargetFlyingCreature]
+    );
 
     let mut game = game_with_rav_bindings();
     let source = game
