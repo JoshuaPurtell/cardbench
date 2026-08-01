@@ -63,3 +63,68 @@ fn sins_grants_a_mana_free_graveyard_cast_that_exiles_on_resolution() {
     game.validate_invariants()
         .expect("permission lifecycle is valid");
 }
+
+#[test]
+fn permission_cast_is_exiled_when_countered_by_a_spell() {
+    let mut game = Game::new(card_definitions(), 2).expect("RAV catalog builds");
+    let sins = game
+        .add_card(PlayerId(0), "RAV-SINS-OF-THE-PAST", Zone::Hand)
+        .expect("Sins is executable");
+    let char = game
+        .add_card(PlayerId(0), "RAV-CHAR", Zone::Graveyard)
+        .expect("Char is an eligible target");
+    let muddle = game
+        .add_card(PlayerId(1), "RAV-MUDDLE-THE-MIXTURE", Zone::Hand)
+        .expect("Muddle is executable");
+    game.grant_mana(PlayerId(0), Color::Black, 6)
+        .expect("Sins mana is available");
+    game.grant_mana(PlayerId(1), Color::Blue, 2)
+        .expect("Muddle mana is available");
+
+    game.cast_spell(
+        PlayerId(0),
+        CastRequest {
+            card: sins,
+            targets: vec![Target::Permanent(char)],
+            convoke: vec![],
+            payment_mana_abilities: vec![],
+        },
+    )
+    .expect("Sins casts");
+    game.pass_priority(PlayerId(0)).expect("offer Sins");
+    game.pass_priority(PlayerId(1)).expect("resolve Sins");
+    game.cast_spell(
+        PlayerId(0),
+        CastRequest {
+            card: char,
+            targets: vec![Target::Player(PlayerId(1))],
+            convoke: vec![],
+            payment_mana_abilities: vec![],
+        },
+    )
+    .expect("permission cast succeeds");
+    game.pass_priority(PlayerId(0)).expect("offer Char");
+    game.cast_spell(
+        PlayerId(1),
+        CastRequest {
+            card: muddle,
+            targets: vec![Target::Spell(char)],
+            convoke: vec![],
+            payment_mana_abilities: vec![],
+        },
+    )
+    .expect("Muddle counters the permission cast");
+    game.pass_priority(PlayerId(1)).expect("offer Muddle");
+    let result = game.pass_priority(PlayerId(0));
+    println!(
+        "Sins countered-cast result: {result:?}; events={:?}",
+        game.canonical_event_log()
+    );
+    assert!(result.is_ok(), "Muddle resolution must preserve invariants");
+    assert_eq!(game.zone_of(char), Some(Zone::Exile));
+    assert!(game.event_log.iter().any(|event| {
+        matches!(event, GameEvent::SpellCountered { card, source } if *card == char && *source == muddle)
+    }));
+    game.validate_invariants()
+        .expect("countered permission cast preserves invariants");
+}
