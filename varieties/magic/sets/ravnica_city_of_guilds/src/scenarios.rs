@@ -16,8 +16,9 @@ use cardbench_magic_engine::{
 use crate::{
     ScenarioResult, card_definitions, event_digest, rav_activated_ability_bindings,
     rav_additional_spell_cost_bindings, rav_basic_land_type_bindings, rav_cost_reduction_bindings,
-    rav_mana_ability_bindings, rav_static_attack_restriction_bindings,
-    rav_static_continuous_effect_bindings, rav_triggered_ability_bindings, set_root,
+    rav_mana_ability_bindings, rav_replacement_effect_bindings,
+    rav_static_attack_restriction_bindings, rav_static_continuous_effect_bindings,
+    rav_triggered_ability_bindings, set_root,
 };
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -363,6 +364,8 @@ fn execute_scenario(specification: &ScenarioSpec) -> Result<ScenarioResult, Stri
     game.register_static_attack_restrictions(rav_static_attack_restriction_bindings())
         .map_err(rules_error)?;
     game.register_cost_reduction_bindings(rav_cost_reduction_bindings())
+        .map_err(rules_error)?;
+    game.register_replacement_effect_bindings(rav_replacement_effect_bindings())
         .map_err(rules_error)?;
     game.set_shuffle_seed(specification.seed);
     let mut labels = BTreeMap::new();

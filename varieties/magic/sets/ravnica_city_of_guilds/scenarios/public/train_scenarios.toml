@@ -10544,6 +10544,69 @@ event_markers = ["SpellCast", "CardMoved", "ContinuousEffectCreated", "AuraAttac
 digest = "fnv1a64:5722a4a187704a98"
 
 [[scenario]]
+id = "rav_doubling_season_token_replacement"
+seed = 159
+description = "Resolve a token-creation spell while a controller-owned quantity replacement source is live, then verify the replacement receipt and doubled token count."
+
+[[scenario.card]]
+label = "season"
+owner = 0
+definition = "RAV-DOUBLING-SEASON"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "scatter"
+owner = 0
+definition = "RAV-SCATTER-THE-SEEDS"
+zone = "hand"
+
+[[scenario.card]]
+label = "first"
+owner = 0
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "second"
+owner = 0
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "third"
+owner = 0
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+
+[[scenario.mana]]
+player = 0
+color = "red"
+amount = 2
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "scatter"
+convoke = ["first:green", "second:green", "third:generic"]
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["season:battlefield", "scatter:graveyard"]
+tapped = ["first:true", "second:true", "third:true"]
+stack_size = 0
+priority = 0
+token_count = 6
+event_markers = ["SpellCast", "ReplacementEffectApplied", "TokenCreated", "SpellResolved"]
+digest = "fnv1a64:6c7981d2efc1f034"
+
+[[scenario]]
 id = "rav_clutch_of_the_undercity_permanent_bounce"
 seed = 156
 description = "Cast Clutch of the Undercity at a permanent, move it to its owner's hand, then make the controller it had immediately before that move lose three life. Its immediate Transmute operation remains separately bounded."

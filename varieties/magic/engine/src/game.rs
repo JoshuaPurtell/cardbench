@@ -7,9 +7,10 @@ use crate::{
     AdditionalSpellCost, AdditionalSpellCostBinding, BasicLandType, BasicLandTypeBinding,
     CardDefinition, CardObject, CardType, CastPaymentManaAbility, Characteristics, Color,
     CombatBlock, ContinuousChange, ContinuousEffect, CostReductionBinding, CreatureSubtype,
-    DeckList, Duration, Effect, GameEvent, Keyword, LandEntryBinding, LibrarySearchDestination,
-    LibrarySearchRequirement, ManaAbilityActivation, ManaAbilityBinding, ManaAbilityOutput,
-    ManaCost, ManaPaymentSelection, ObjectId, PlayerId, PlayerState, PolicyMoveKind,
+    DeckList, Duration, Effect, GameEvent, Keyword, LandEntryBinding, Layer,
+    LibrarySearchDestination, LibrarySearchRequirement, ManaAbilityActivation, ManaAbilityBinding,
+    ManaAbilityOutput, ManaCost, ManaPaymentSelection, ObjectId, PlayerId, PlayerState,
+    PolicyMoveKind, ReplacementEffect, ReplacementEffectBinding, ReplacementEventKind,
     StackEffectResolution, StackObject, StackResolutionPlan, StaticAttackRestriction,
     StaticAttackRestrictionBinding, StaticContinuousEffectBinding, Step, Target, TargetRequirement,
     TokenSpec, TriggerCondition, TriggeredAbilityBinding, Zone,
@@ -462,6 +463,7 @@ pub struct Game {
     static_attack_restrictions: BTreeMap<&'static str, Vec<StaticAttackRestriction>>,
     static_continuous_effects: BTreeMap<&'static str, Vec<ContinuousChange>>,
     cost_reductions: BTreeMap<&'static str, CostReductionBinding>,
+    replacement_effects: BTreeMap<&'static str, Vec<ReplacementEffect>>,
     basic_land_types: BTreeMap<&'static str, BasicLandType>,
     land_entry_behaviors: BTreeMap<&'static str, LandEntryBinding>,
     additional_spell_costs: BTreeMap<&'static str, Vec<AdditionalSpellCost>>,
@@ -698,6 +700,7 @@ impl Game {
             static_attack_restrictions: BTreeMap::new(),
             static_continuous_effects: BTreeMap::new(),
             cost_reductions: BTreeMap::new(),
+            replacement_effects: BTreeMap::new(),
             basic_land_types,
             land_entry_behaviors: BTreeMap::new(),
             additional_spell_costs,
@@ -820,6 +823,42 @@ impl Game {
                     "duplicate cost-reduction binding for card definition",
                 ));
             }
+        }
+        self.validate_invariants()
+    }
+
+    /// Registers immutable, source-bound quantity replacements before the
+    /// game begins. Applicability is evaluated for each event from the live
+    /// battlefield and the affected player's current controller state.
+    pub fn register_replacement_effect_bindings(
+        &mut self,
+        bindings: impl IntoIterator<Item = ReplacementEffectBinding>,
+    ) -> Result<(), RulesError> {
+        if self.started {
+            return Err(RulesError::IllegalAction(
+                "replacement-effect bindings cannot be changed after the game starts",
+            ));
+        }
+        for binding in bindings {
+            let definition = self
+                .catalog
+                .get(binding.source_definition)
+                .ok_or(RulesError::UnknownDefinition(binding.source_definition))?;
+            if !definition.is_permanent() || binding.effect.multiplier() < 2 {
+                return Err(RulesError::IllegalAction(
+                    "replacement effect requires a permanent source and multiplier of at least two",
+                ));
+            }
+            let effects = self
+                .replacement_effects
+                .entry(binding.source_definition)
+                .or_default();
+            if effects.contains(&binding.effect) {
+                return Err(RulesError::IllegalAction(
+                    "duplicate replacement-effect binding for card definition",
+                ));
+            }
+            effects.push(binding.effect);
         }
         self.validate_invariants()
     }
@@ -4162,6 +4201,7 @@ impl Game {
         Self::validate_effect_sacrifice_event_order(&self.event_log)?;
         self.validate_ability_additional_tap_cost_event_order()?;
         Self::validate_counter_placement_events(&self.event_log)?;
+        self.validate_replacement_effect_events()?;
         if self.started && !self.is_game_over() && !self.step.grants_priority() {
             return Err(RulesError::IllegalAction(
                 "an automatic turn step remained stable with player priority",
@@ -4990,6 +5030,24 @@ impl Game {
                 ));
             }
         }
+        for (definition_id, effects) in &self.replacement_effects {
+            let definition = self
+                .catalog
+                .get(definition_id)
+                .ok_or(RulesError::UnknownDefinition(definition_id))?;
+            if !definition.is_permanent()
+                || effects.is_empty()
+                || effects.iter().any(|effect| effect.multiplier() < 2)
+                || effects
+                    .iter()
+                    .enumerate()
+                    .any(|(index, effect)| effects[..index].contains(effect))
+            {
+                return Err(RulesError::IllegalAction(
+                    "replacement-effect binding has invalid source, multiplier, or duplicate",
+                ));
+            }
+        }
         let mut effect_timestamps = BTreeSet::new();
         for effect in &self.continuous_effects {
             self.object(effect.source)?;
@@ -5369,6 +5427,61 @@ impl Game {
             ));
         }
         Ok(())
+    }
+
+    /// Applies every currently applicable quantity replacement exactly once.
+    /// The collected sources are a pre-replacement snapshot, so recording a
+    /// replacement receipt cannot cause the same source to see its own result.
+    fn replace_event_quantity(
+        &mut self,
+        affected_player: PlayerId,
+        event: ReplacementEventKind,
+        amount: i16,
+    ) -> Result<i16, RulesError> {
+        self.player(affected_player)?;
+        if amount <= 0 {
+            return Err(RulesError::IllegalAction(
+                "replacement quantities must be positive",
+            ));
+        }
+        let applicable = self.players[affected_player.0]
+            .battlefield
+            .iter()
+            .copied()
+            .flat_map(|source| {
+                let Some(definition) = self
+                    .objects
+                    .get(&source)
+                    .filter(|object| object.controller == affected_player)
+                    .and_then(|object| object.definition)
+                else {
+                    return Vec::new();
+                };
+                self.replacement_effects
+                    .get(definition)
+                    .into_iter()
+                    .flatten()
+                    .copied()
+                    .filter(move |effect| effect.applies_to(event))
+                    .map(move |effect| (source, effect))
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+        let mut replaced = amount;
+        for (source, effect) in applicable {
+            let next = replaced.checked_mul(i16::from(effect.multiplier())).ok_or(
+                RulesError::IllegalAction("replacement quantity exceeds supported range"),
+            )?;
+            self.record_event(GameEvent::ReplacementEffectApplied {
+                source,
+                affected_player,
+                event,
+                original_amount: replaced,
+                replacement_amount: next,
+            });
+            replaced = next;
+        }
+        Ok(replaced)
     }
 
     fn generic_cost_reduction(&self, player: PlayerId, definition: &CardDefinition) -> u8 {
@@ -7686,13 +7799,7 @@ impl Game {
                 }
             }
             Effect::CreateToken { token, count } => {
-                for _ in 0..*count {
-                    let token_id = self.create_token(controller, token.clone())?;
-                    self.record_event(GameEvent::TokenCreated {
-                        player: controller,
-                        token: token_id,
-                    });
-                }
+                self.create_tokens(controller, token, *count)?;
             }
             Effect::CreateTokenForTargetPlayer { token, count } => {
                 let target_player = match target {
@@ -7700,13 +7807,7 @@ impl Game {
                     Some(other) => return Err(RulesError::IllegalTarget(other)),
                     None => return Err(RulesError::IllegalAction("missing token-player target")),
                 };
-                for _ in 0..*count {
-                    let token_id = self.create_token(target_player, token.clone())?;
-                    self.record_event(GameEvent::TokenCreated {
-                        player: target_player,
-                        token: token_id,
-                    });
-                }
+                self.create_tokens(target_player, token, *count)?;
             }
             Effect::BeginDamageRedirection { amount } => {
                 let protected = Self::target_permanent(target)?;
@@ -9255,6 +9356,40 @@ impl Game {
         self.move_to_graveyard_or_remove_token(card)
     }
 
+    /// Creates a token batch after its applicable quantity replacements have
+    /// been resolved. The individual token constructor intentionally performs
+    /// no replacement lookup, which makes the batch one non-recursive event.
+    fn create_tokens(
+        &mut self,
+        controller: PlayerId,
+        token: &TokenSpec,
+        count: u8,
+    ) -> Result<Vec<ObjectId>, RulesError> {
+        self.player(controller)?;
+        Self::validate_token_spec(token)?;
+        if count == 0 {
+            return Ok(Vec::new());
+        }
+        let replaced_count = self.replace_event_quantity(
+            controller,
+            ReplacementEventKind::TokenCreation,
+            i16::from(count),
+        )?;
+        let count = u8::try_from(replaced_count).map_err(|_| {
+            RulesError::IllegalAction("token creation quantity exceeds supported range")
+        })?;
+        let mut created = Vec::with_capacity(usize::from(count));
+        for _ in 0..count {
+            let token_id = self.create_token(controller, token.clone())?;
+            self.record_event(GameEvent::TokenCreated {
+                player: controller,
+                token: token_id,
+            });
+            created.push(token_id);
+        }
+        Ok(created)
+    }
+
     fn create_token(
         &mut self,
         controller: PlayerId,
@@ -9400,6 +9535,11 @@ impl Game {
         {
             return Err(RulesError::IllegalTarget(Target::Permanent(card)));
         }
+        let amount = self.replace_event_quantity(
+            self.object(card)?.controller,
+            ReplacementEventKind::CounterPlacement { counter },
+            amount,
+        )?;
         let counters = &mut self
             .objects
             .get_mut(&card)
@@ -10501,6 +10641,92 @@ impl Game {
             if *counter != "+1/+1" || *amount <= 0 {
                 return Err(RulesError::IllegalAction(
                     "counter receipt has an unsupported kind or nonpositive amount",
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// Replacement receipts form a finite quantity chain. A source can apply
+    /// once to the event snapshot, producing either the next replacement's
+    /// input or the first ordinary receipt for the replaced event.
+    fn validate_replacement_effect_events(&self) -> Result<(), RulesError> {
+        for (index, event) in self.event_log.iter().enumerate() {
+            let GameEvent::ReplacementEffectApplied {
+                source,
+                affected_player,
+                event: event_kind,
+                original_amount,
+                replacement_amount,
+            } = event
+            else {
+                continue;
+            };
+            if affected_player.0 >= self.players.len() || *original_amount <= 0 {
+                return Err(RulesError::IllegalAction(
+                    "replacement receipt has an invalid affected player or amount",
+                ));
+            }
+            let definition = self
+                .objects
+                .get(source)
+                .and_then(|object| object.definition)
+                .or_else(|| self.departed_card_definitions.get(source).copied())
+                .ok_or(RulesError::IllegalAction(
+                    "replacement receipt source has no catalog definition",
+                ))?;
+            let effect_is_bound = self
+                .replacement_effects
+                .get(definition)
+                .is_some_and(|effects| {
+                    effects.iter().any(|effect| {
+                        effect.applies_to(*event_kind)
+                            && original_amount.checked_mul(i16::from(effect.multiplier()))
+                                == Some(*replacement_amount)
+                    })
+                });
+            if !effect_is_bound {
+                return Err(RulesError::IllegalAction(
+                    "replacement receipt does not match a registered source effect",
+                ));
+            }
+            let next_is_chain_or_effect = match self.event_log.get(index + 1) {
+                Some(GameEvent::ReplacementEffectApplied {
+                    affected_player: next_player,
+                    event: next_kind,
+                    original_amount: next_original,
+                    ..
+                }) => {
+                    next_player == affected_player
+                        && next_kind == event_kind
+                        && next_original == replacement_amount
+                }
+                Some(GameEvent::TokenCreated { .. }) => {
+                    *event_kind == ReplacementEventKind::TokenCreation
+                        && usize::try_from(*replacement_amount).is_ok_and(|expected| {
+                            self.event_log[index + 1..]
+                                .iter()
+                                .take(expected)
+                                .all(|candidate| {
+                                    matches!(
+                                        candidate,
+                                        GameEvent::TokenCreated { player, .. }
+                                            if player == affected_player
+                                    )
+                                })
+                                && self.event_log[index + 1..].iter().take(expected).count()
+                                    == expected
+                        })
+                }
+                Some(GameEvent::CounterPlaced { amount, .. }) => {
+                    matches!(event_kind, ReplacementEventKind::CounterPlacement { .. })
+                        && amount == replacement_amount
+                }
+                _ => false,
+            };
+            if !next_is_chain_or_effect {
+                return Err(RulesError::IllegalAction(
+                    "replacement receipt does not lead to its replaced event",
                 ));
             }
         }

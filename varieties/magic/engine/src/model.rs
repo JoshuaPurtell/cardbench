@@ -285,6 +285,63 @@ pub struct CostReductionBinding {
     pub noncreature_only: bool,
 }
 
+/// A replacement event quantity that can be modified by a live permanent.
+///
+/// The event kind is deliberately semantic instead of card-named. Future sets
+/// can add more replacement event kinds without coupling their definitions to
+/// a particular existing replacement card.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ReplacementEventKind {
+    TokenCreation,
+    CounterPlacement { counter: &'static str },
+}
+
+/// A source-bound replacement effect whose applicability is checked from the
+/// live battlefield when an event would occur.
+///
+/// Each active source applies at most once to one pending event. The engine
+/// snapshots applicable sources before it changes the quantity, preventing a
+/// replacement result from recursively becoming another application of that
+/// same source.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ReplacementEffect {
+    MultiplyTokenCreation { multiplier: u8 },
+    MultiplyCounterPlacement { multiplier: u8 },
+}
+
+impl ReplacementEffect {
+    #[must_use]
+    pub const fn multiplier(self) -> u8 {
+        match self {
+            Self::MultiplyTokenCreation { multiplier }
+            | Self::MultiplyCounterPlacement { multiplier } => multiplier,
+        }
+    }
+
+    #[must_use]
+    pub const fn applies_to(self, event: ReplacementEventKind) -> bool {
+        matches!(
+            (self, event),
+            (
+                Self::MultiplyTokenCreation { .. },
+                ReplacementEventKind::TokenCreation
+            ) | (
+                Self::MultiplyCounterPlacement { .. },
+                ReplacementEventKind::CounterPlacement { .. }
+            )
+        )
+    }
+}
+
+/// Registers one expansion-owned replacement effect for every live permanent
+/// with the named definition. Registration is immutable after the game starts;
+/// controller and battlefield membership remain live applicability facts.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ReplacementEffectBinding {
+    pub source_definition: &'static str,
+    pub effect: ReplacementEffect,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TriggeredAbility {
     pub id: &'static str,
@@ -2159,6 +2216,16 @@ pub enum GameEvent {
         card: ObjectId,
         counter: &'static str,
         amount: i16,
+    },
+    /// One live permanent replaced an event quantity before the corresponding
+    /// token-creation or counter-placement receipts were emitted. `source` is
+    /// the replacement source, not the source that caused the original event.
+    ReplacementEffectApplied {
+        source: ObjectId,
+        affected_player: PlayerId,
+        event: ReplacementEventKind,
+        original_amount: i16,
+        replacement_amount: i16,
     },
     /// A resolving spell or ability created a source-identified regeneration
     /// replacement shield on a live creature.

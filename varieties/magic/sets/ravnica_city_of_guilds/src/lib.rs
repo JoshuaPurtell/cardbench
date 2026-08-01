@@ -27,9 +27,10 @@ use cardbench_magic_engine::{
     CastRequest, Color, ContinuousChange, ConvokeContribution, ConvokePayment,
     CostReductionBinding, DeckEntry, DeckList, DeckRules, Effect, Game, HybridManaSymbol, Keyword,
     LandEntryBinding, LibrarySearchDestination, LibrarySearchRequirement, ManaAbilityBinding,
-    ManaAbilityOutput, ManaBundle, ManaCost, PlayerId, RulesError, StaticAttackRestriction,
-    StaticAttackRestrictionBinding, StaticContinuousEffectBinding, Target, TargetRequirement,
-    TokenSpec, TriggerCondition, TriggeredAbility, TriggeredAbilityBinding, Zone,
+    ManaBundle, ManaCost, PlayerId, ReplacementEffect, ReplacementEffectBinding, RulesError,
+    StaticAttackRestriction, StaticAttackRestrictionBinding, StaticContinuousEffectBinding, Target,
+    TargetRequirement, TokenSpec, TriggerCondition, TriggeredAbility, TriggeredAbilityBinding,
+    Zone,
 };
 
 pub const SET_CODE: &str = "RAV";
@@ -45,6 +46,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 127] = [
     "RAV-DROOLING-GROODION",
     "RAV-GOLGARI-ROTWURM",
     "RAV-SCATTER-THE-SEEDS",
+    "RAV-DOUBLING-SEASON",
     "RAV-SCION-OF-THE-WILD",
     "RAV-GUARDIAN-OF-VITU-GHAZI",
     "RAV-LAST-GASP",
@@ -324,6 +326,29 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 token: TokenSpec::saproling(),
                 count: 3,
             }],
+        },
+        // Full fidelity: this permanent delegates its live, controller-scoped
+        // quantity replacement behavior to the expansion-neutral replacement
+        // registry. The same binding covers every currently represented token
+        // creation and persistent counter-placement event.
+        CardDefinition {
+            id: "RAV-DOUBLING-SEASON",
+            name: "Doubling Season",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(4, [Color::Green]),
+            colors: colors([Color::Green]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Enchantment]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "controlled-token-creation-replacement",
+                "controlled-plus-one-counter-replacement",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![],
         },
         // Full fidelity: this static characteristic-defining effect is
         // evaluated from the current controller's battlefield rather than
@@ -5559,6 +5584,23 @@ pub fn rav_cost_reduction_bindings() -> Vec<CostReductionBinding> {
         generic_amount: 2,
         noncreature_only: true,
     }]
+}
+
+/// Source-bound quantity replacements supplied by RAV permanents. The engine
+/// checks source control and battlefield membership for each event, so this
+/// registry contains only immutable definition facts.
+#[must_use]
+pub fn rav_replacement_effect_bindings() -> Vec<ReplacementEffectBinding> {
+    vec![
+        ReplacementEffectBinding {
+            source_definition: "RAV-DOUBLING-SEASON",
+            effect: ReplacementEffect::MultiplyTokenCreation { multiplier: 2 },
+        },
+        ReplacementEffectBinding {
+            source_definition: "RAV-DOUBLING-SEASON",
+            effect: ReplacementEffect::MultiplyCounterPlacement { multiplier: 2 },
+        },
+    ]
 }
 
 fn signet_binding(
