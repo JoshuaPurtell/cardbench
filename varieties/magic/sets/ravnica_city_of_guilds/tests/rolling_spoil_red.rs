@@ -14,8 +14,10 @@ fn rolling_spoil_requires_a_spent_black_global_modifier_branch() {
     );
     assert_eq!(definition.colors, [Color::Green].into());
     assert_eq!(definition.card_types, [CardType::Sorcery].into());
-    assert!(definition
-        .supported_rules
-        .contains(&"spent-black-global-minus-one"));
+    assert!(
+        definition
+            .supported_rules
+            .contains(&"spent-black-global-minus-one")
+    );
     assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&definition.id));
 }

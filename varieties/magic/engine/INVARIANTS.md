@@ -84,6 +84,12 @@ Oracle Magic rules coverage.
   `SpellManaPaid` receipt must name the same controller, card, and ordered
   colors. Floating mana added or spent after casting cannot alter this
   resolution-time provenance.
+- A spent-mana global modifier uses that same stack-owned receipt. When its
+  named color is present, it snapshots every current battlefield creature only
+  after preceding instructions in that spell have resolved, installs one
+  temporary layer-seven effect per snapshot member, then reaches the normal
+  post-resolution SBA boundary. When the color is absent, it creates no
+  continuous-effect receipt or hidden modifier.
 - Stack controller, effects, and target-slot count must match the represented
   card definition. Every executable occurrence of a target requirement owns
   one ordered stack slot; the same object may occupy multiple slots when the

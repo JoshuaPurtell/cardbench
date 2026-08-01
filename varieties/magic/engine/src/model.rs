@@ -971,6 +971,15 @@ pub enum Effect {
     DrawControllerIfManaColorSpent {
         color: Color,
     },
+    /// Apply one temporary layer-seven modifier to every creature currently
+    /// on the battlefield only when this spell's explicit cast-payment
+    /// receipt contains the named mana color. The affected set is snapshotted
+    /// as the instruction resolves, independent of the spell controller.
+    ModifyAllCreaturesPtUntilEndOfTurnIfManaColorSpent {
+        color: Color,
+        power: i16,
+        toughness: i16,
+    },
     CreateToken {
         token: TokenSpec,
         count: u8,
@@ -1111,7 +1120,11 @@ impl Effect {
     /// explicit mana-payment receipt rather than a deterministic pool drain.
     #[must_use]
     pub const fn requires_explicit_mana_spend(&self) -> bool {
-        matches!(self, Self::DrawControllerIfManaColorSpent { .. })
+        matches!(
+            self,
+            Self::DrawControllerIfManaColorSpent { .. }
+                | Self::ModifyAllCreaturesPtUntilEndOfTurnIfManaColorSpent { .. }
+        )
     }
 
     #[must_use]
@@ -1169,6 +1182,7 @@ impl Effect {
             | Self::DealDamageToEachPlayerFromReceivedDamage
             | Self::AddManaController { .. }
             | Self::DrawControllerIfManaColorSpent { .. }
+            | Self::ModifyAllCreaturesPtUntilEndOfTurnIfManaColorSpent { .. }
             | Self::CreateToken { .. }
             | Self::ShuffleGraveyardsIntoLibraries
             | Self::ModifySourcePtUntilEndOfTurn { .. }

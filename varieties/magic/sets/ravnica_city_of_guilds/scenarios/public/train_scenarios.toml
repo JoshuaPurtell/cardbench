@@ -9563,3 +9563,72 @@ priority = 0
 mana = ["0:black:0"]
 event_markers = ["SpellCast", "CardDiscarded", "CardMoved", "SpellResolved"]
 digest = "fnv1a64:84b4d07daaec8d97"
+
+[[scenario]]
+id = "rav_rolling_spoil_spent_black_global_modifier"
+seed = 139
+description = "Spend Black on Rolling Spoil's generic component, destroy a target land, then apply its one-turn global creature reduction from the recorded payment receipt."
+
+[[scenario.card]]
+label = "spoil"
+owner = 0
+definition = "RAV-ROLLING-SPOIL"
+zone = "hand"
+
+[[scenario.card]]
+label = "target_land"
+owner = 1
+definition = "RAV-SUNHOME-FORTRESS"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "friendly"
+owner = 0
+definition = "RAV-WATCHWOLF"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "opposing"
+owner = 1
+definition = "RAV-GLASS-GOLEM"
+zone = "battlefield"
+
+[[scenario.mana]]
+player = 0
+color = "green"
+amount = 2
+
+[[scenario.mana]]
+player = 0
+color = "black"
+amount = 1
+
+[[scenario.mana]]
+player = 0
+color = "red"
+amount = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "spoil"
+target = "permanent:target_land"
+mana_spend = ["generic:black", "generic:red"]
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["spoil:graveyard", "target_land:graveyard", "friendly:battlefield", "opposing:battlefield"]
+powers = ["friendly:2", "opposing:5"]
+toughnesses = ["friendly:2", "opposing:1"]
+stack_size = 0
+priority = 0
+mana = ["0:green:0", "0:black:0", "0:red:0"]
+event_markers = ["SpellManaPaid", "SpellCast", "CardDestroyed", "ContinuousEffectCreated", "SpellResolved"]
+digest = "fnv1a64:2ace9190b49c7d27"

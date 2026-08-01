@@ -4094,6 +4094,7 @@ impl Game {
                 | Effect::SacrificeControllerCreature
                 | Effect::CompleteDamageRedirection
                 | Effect::DrawControllerIfManaColorSpent { .. }
+                | Effect::ModifyAllCreaturesPtUntilEndOfTurnIfManaColorSpent { .. }
                 | Effect::DrawController
                 | Effect::GainLifeControllerFromSourceDamage
                 | Effect::DealDamageToEachPlayerFromReceivedDamage
@@ -5242,6 +5243,38 @@ impl Game {
             Effect::DrawControllerIfManaColorSpent { color } => {
                 if mana_spent.is_some_and(|spent| spent.contains(color)) {
                     self.draw_card_from_spell_effect(controller)?;
+                }
+            }
+            Effect::ModifyAllCreaturesPtUntilEndOfTurnIfManaColorSpent {
+                color,
+                power,
+                toughness,
+            } => {
+                if mana_spent.is_some_and(|spent| spent.contains(color)) {
+                    // Snapshot every current creature after earlier effects
+                    // (including land destruction) have resolved, then
+                    // install the complete batch before post-resolution SBAs.
+                    let creatures = self
+                        .all_battlefield_cards()
+                        .into_iter()
+                        .filter(|candidate| {
+                            self.characteristics(*candidate)
+                                .is_ok_and(|characteristics| {
+                                    characteristics.card_types.contains(&CardType::Creature)
+                                })
+                        })
+                        .collect::<Vec<_>>();
+                    for creature in creatures {
+                        self.install_continuous_effect(
+                            source,
+                            creature,
+                            ContinuousChange::ModifyPowerToughness {
+                                power: *power,
+                                toughness: *toughness,
+                            },
+                            Duration::EndOfTurn(self.turn),
+                        )?;
+                    }
                 }
             }
             Effect::CreateToken { token, count } => {
