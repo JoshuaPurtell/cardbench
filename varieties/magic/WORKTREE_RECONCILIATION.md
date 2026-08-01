@@ -85,8 +85,13 @@ decision; its clean worktree can be removed without losing commits.
   typed `{W}` sacrifice activation uses the expansion-neutral one-shot damage
   shield substrate, preserving source provenance after the source enters the
   graveyard and consuming the next damage to a player or creature target.
+- Chant of Vitu-Ghazi is ported on `dev` as red `a27da6c0` and green `7f65046a`.
+  The current generic Convoke path resolves a dynamic battlefield creature
+  count, including opposing creatures, into one source-controller life-gain
+  receipt. The full workspace gate is included in the core substrate audit
+  requested by the user before the next completion claim.
 - Remaining White source-only definitions are not silently considered merged:
-  Auratouched Mage, Bathe in Light, Boros Fury-Shield, Chant of Vitu-Ghazi, Concerted Effort, Conclave's Blessing, Faith's Fetters, Festival
+  Auratouched Mage, Bathe in Light, Boros Fury-Shield, Concerted Effort, Conclave's Blessing, Faith's Fetters, Festival
   of the Guildpact, Flickerform, Ghosts of the Innocent, Light of Sanction,
   Loxodon Gatekeeper, Suppression Field, Three Dreams, Twilight Drover, and
   Wojek Apothecary. Each requires its

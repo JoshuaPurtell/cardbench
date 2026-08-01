@@ -310,6 +310,12 @@ prevention receipts, consumes only the next damage, and is removed at target or
 turn departure. The focused Char trace checks the two damage events, the
 prevented portion, and the final invariant audit.
 
+Chant of Vitu-Ghazi is a complete dynamic-Convoke life-gain slice. Its
+resolution counts every current battlefield creature, including opposing
+creatures and tokens, then emits one source-controller `LifeGained` receipt.
+The focused trace pays with two Convoke creatures and verifies the count at
+resolution rather than at cast time.
+
 The first-range easy-creature wave adds Votary of the Conclave, Drake Familiar,
 Ethereal Usher, and Grozoth. Each supports normal colored-cost creature casting
 and base power/toughness. Every other printed keyword, activated ability,

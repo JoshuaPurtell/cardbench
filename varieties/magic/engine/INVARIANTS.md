@@ -73,6 +73,11 @@ Oracle Magic rules coverage.
   trigger is queued for the prevented portion. A target departure or cleanup
   transition removes the shield and emits `DamageShieldExpired`, and an
   exhausted shield cannot remain in game state.
+- A dynamic creature-count life-gain effect snapshots all current battlefield
+  creatures at resolution, including tokens and opposing creatures, converts
+  the count into a bounded receipt, and queues life-gain triggers only for the
+  committed `LifeGained` amount. It does not use a stale cast-time count or
+  inspect creatures that have already left the battlefield.
 - Every catalog definition has identity and a type. A basic land is a land;
   only lands have intrinsic mana colors; creatures have both power and
   toughness; and dredge values are positive.
