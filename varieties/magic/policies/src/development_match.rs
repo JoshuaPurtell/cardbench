@@ -150,6 +150,8 @@ fn submit_policy_move<P: CodePolicy>(
         policy.propose_draw_replacement(&view)
     } else if view.private_library_choice.is_some() {
         policy.propose_private_library_choice(&view)
+    } else if view.private_opponent_library_choice.is_some() {
+        policy.propose_private_opponent_library_choice(&view)
     } else {
         policy.propose_move(&view)
     };

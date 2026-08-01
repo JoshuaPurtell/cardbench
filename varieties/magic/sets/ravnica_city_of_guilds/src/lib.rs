@@ -36,7 +36,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 113] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 114] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -137,6 +137,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 113] = [
     "RAV-VOTARY-OF-THE-CONCLAVE",
     "RAV-GRAVE-SHELL-SCARAB",
     "RAV-UNDERCITY-SHADE",
+    "RAV-THOUGHTPICKER-WITCH",
     "RAV-SADISTIC-AUGERMAGE",
     "RAV-VINDICTIVE-MOB",
     "RAV-SUNHOME-FORTRESS",
@@ -3056,17 +3057,32 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Flying],
             effects: vec![],
         },
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed sacrifice-and-library activation
-        // is deliberately omitted from this compatibility slice.
-        bounded_creature_chassis(
-            "RAV-THOUGHTPICKER-WITCH",
-            "Thoughtpicker Witch",
-            ManaCost::with_colors(0, [Color::Black]),
-            colors([Color::Black]),
-            1,
-            1,
-        ),
+        // Full fidelity: normal colored-cost casting, base characteristics,
+        // and the `{1}, sacrifice a creature` activation. Its target
+        // opponent's top two cards are only exposed to the controller while
+        // the stack ability is suspended; the chosen exile is public.
+        CardDefinition {
+            id: "RAV-THOUGHTPICKER-WITCH",
+            name: "Thoughtpicker Witch",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(0, [Color::Black]),
+            colors: colors([Color::Black]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "activated-sacrifice-creature",
+                "target-opponent",
+                "private-opponent-library-exile-choice",
+            ],
+            power: Some(1),
+            toughness: Some(1),
+            keywords: vec![],
+            effects: vec![],
+        },
         // Full fidelity: normal colored-cost creature casting, base
         // characteristics, static black-only evasion, and its stack-backed
         // black-mana self-pump activation.
@@ -3995,6 +4011,22 @@ pub fn rav_land_entry_bindings() -> Vec<LandEntryBinding> {
 #[allow(clippy::too_many_lines)]
 pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
     vec![
+        ActivatedAbilityBinding {
+            card_definition: "RAV-THOUGHTPICKER-WITCH",
+            ability: ActivatedAbility {
+                id: "sacrifice-creature-private-opponent-top-two-exile",
+                mana_cost: ManaCost::new(1),
+                tap_cost: false,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 1,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![cardbench_magic_engine::TargetRequirement::Opponent],
+                effects: vec![Effect::LookAtTopCardsOfTargetOpponentExileOne { count: 2 }],
+            },
+        },
         ActivatedAbilityBinding {
             card_definition: "RAV-GOLGARI-GUILDMAGE",
             ability: ActivatedAbility {

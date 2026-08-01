@@ -206,6 +206,17 @@ Oracle Magic rules coverage.
   `LifePaid`, moves each selected card to hand and each other inspected card
   to graveyard, and only then records the spell's terminal resolution and
   source-zone receipts. No priority action or pass can interleave.
+- A private opponent-library exile choice is a one-effect, targeted
+  activated-ability suspension with a positive inspection count. Its live top
+  stack object must retain the activating source, ability identity, controller,
+  and one living opponent target; it never exposes candidate identities through
+  the public event log or the target opponent's `GameView`. The controller-only
+  candidate list must equal the current top-first sequence in that opponent's
+  library, must remain stable while priority is blocked, and requires exactly
+  one selected candidate when nonempty (or no selection when the library has
+  no candidates). Resolution atomically moves only that selected card to exile
+  before `AbilityResolved`; the unchosen cards preserve their original library
+  order.
 - A stack spell target that remains on the stack must be below its source,
   because only already-existing stack objects can be chosen while casting. A
   formerly legal target may have left the stack by resolution, which remains a

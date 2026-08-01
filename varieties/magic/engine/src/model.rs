@@ -796,6 +796,10 @@ pub enum TargetRequirement {
     /// than treating every noncreature permanent as a legal target.
     ArtifactOrEnchantment,
     Player,
+    /// A living player different from the resolving source's controller.
+    /// Keeping this distinct from `Player` makes the target boundary visible
+    /// before an activated ability accepts costs or reaches the stack.
+    Opponent,
     /// A player or battlefield creature, matching the executable pre-
     /// planeswalker direct-damage card slice.
     PlayerOrCreature,
@@ -1285,6 +1289,14 @@ pub enum Effect {
         count: u8,
         life_per_card: i16,
     },
+    /// Suspend a targeted activated ability while its controller privately
+    /// inspects the top cards of the target opponent's library, then chooses
+    /// exactly one available card to exile. The public event log never carries
+    /// the candidate identities; only the resulting exile zone change is
+    /// public.
+    LookAtTopCardsOfTargetOpponentExileOne {
+        count: u8,
+    },
     /// Move every player's graveyard into that player's library, then shuffle
     /// each library. This is an untargeted, owner-preserving zone operation.
     ShuffleGraveyardsIntoLibraries,
@@ -1374,6 +1386,9 @@ impl Effect {
             | Self::CreateTokenForTargetPlayer { .. }
             | Self::DrawTargetPlayer
             | Self::DiscardTargetPlayer { .. } => Some(TargetRequirement::Player),
+            Self::LookAtTopCardsOfTargetOpponentExileOne { .. } => {
+                Some(TargetRequirement::Opponent)
+            }
             Self::DestroyTargetLand | Self::DestroyTargetLandAndUntapSourceIfNonbasic => {
                 Some(TargetRequirement::Land)
             }
@@ -1756,6 +1771,7 @@ pub enum PolicyMoveKind {
     Cast,
     Draw,
     ChoosePrivateLibraryCards,
+    ChoosePrivateOpponentLibraryCardToExile,
     Transmute,
     PassPriority,
     PlayLand,
@@ -1981,6 +1997,16 @@ pub enum GameEvent {
     CardsLookedAt {
         viewer: PlayerId,
         cards: Vec<ObjectId>,
+    },
+    /// A resolving ability opened a private inspection of a target opponent's
+    /// library. Candidate identities deliberately stay out of the canonical
+    /// public event log; the resulting exile zone movement remains public.
+    PrivateOpponentLibraryChoiceOpened {
+        controller: PlayerId,
+        source: ObjectId,
+        ability: &'static str,
+        opponent: PlayerId,
+        count: u8,
     },
     /// A resolving private-library choice paid life for the selected cards.
     /// This is distinct from damage and from a mana-ability life-payment cost.

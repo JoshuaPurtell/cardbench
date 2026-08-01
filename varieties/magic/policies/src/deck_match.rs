@@ -267,6 +267,8 @@ pub fn run_rav_deck_matchup(
             policy.propose_draw_replacement(&view)
         } else if view.private_library_choice.is_some() {
             policy.propose_private_library_choice(&view)
+        } else if view.private_opponent_library_choice.is_some() {
+            policy.propose_private_opponent_library_choice(&view)
         } else {
             policy.propose_move(&view)
         };

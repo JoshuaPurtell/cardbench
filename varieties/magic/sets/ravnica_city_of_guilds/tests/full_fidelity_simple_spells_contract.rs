@@ -111,6 +111,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-VOTARY-OF-THE-CONCLAVE",
             "RAV-GRAVE-SHELL-SCARAB",
             "RAV-UNDERCITY-SHADE",
+            "RAV-THOUGHTPICKER-WITCH",
             "RAV-SADISTIC-AUGERMAGE",
             "RAV-VINDICTIVE-MOB",
             "RAV-SUNHOME-FORTRESS",

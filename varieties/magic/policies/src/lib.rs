@@ -71,4 +71,20 @@ pub trait CodePolicy {
             selected: Vec::new(),
         }
     }
+
+    /// Completes a mandatory private choice opened by a targeted activated
+    /// ability that inspects an opponent's library. With no card-evaluation
+    /// policy yet, the deterministic development default exiles the current
+    /// top candidate (or submits `None` when the target library is empty).
+    fn propose_private_opponent_library_choice(&mut self, view: &GameView) -> PolicyAction {
+        let choice = view
+            .private_opponent_library_choice
+            .as_ref()
+            .expect("private opponent-library choice proposal requires a visible choice");
+        PolicyAction::ChoosePrivateOpponentLibraryCardToExile {
+            source: choice.source,
+            ability: choice.ability,
+            selected: choice.cards.first().map(|card| card.id),
+        }
+    }
 }

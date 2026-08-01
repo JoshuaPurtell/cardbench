@@ -107,6 +107,14 @@ pub enum PolicyAction {
         spell: ObjectId,
         selected: Vec<ObjectId>,
     },
+    /// Completes one controller-private selection opened during a targeted
+    /// activated ability's resolution. This is not a priority action and the
+    /// target opponent never receives the candidate identities in a view.
+    ChoosePrivateOpponentLibraryCardToExile {
+        source: ObjectId,
+        ability: &'static str,
+        selected: Option<ObjectId>,
+    },
     /// Activates transmute, optionally selecting a matching mana-value card
     /// from the controller's library. A hidden-zone quality search may find
     /// nothing; the engine enforces timing and payment in either case.
@@ -152,6 +160,9 @@ impl PolicyAction {
             Self::Cast(_) => PolicyMoveKind::Cast,
             Self::Draw { .. } => PolicyMoveKind::Draw,
             Self::ChoosePrivateLibraryCards { .. } => PolicyMoveKind::ChoosePrivateLibraryCards,
+            Self::ChoosePrivateOpponentLibraryCardToExile { .. } => {
+                PolicyMoveKind::ChoosePrivateOpponentLibraryCardToExile
+            }
             Self::Transmute { .. } => PolicyMoveKind::Transmute,
             Self::PassPriority => PolicyMoveKind::PassPriority,
             Self::PlayLand { .. } => PolicyMoveKind::PlayLand,
@@ -199,6 +210,17 @@ pub struct PrivateLibraryChoiceView {
     pub life_per_card: i16,
 }
 
+/// Controller-only candidates exposed while an activated ability resolves a
+/// private inspection of a targeted opponent's library. Candidate identities
+/// are intentionally absent from every other player's `GameView` and from the
+/// public event log.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PrivateOpponentLibraryChoiceView {
+    pub source: ObjectId,
+    pub ability: &'static str,
+    pub cards: Vec<CardView>,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct GameView {
     pub player: PlayerId,
@@ -221,6 +243,10 @@ pub struct GameView {
     /// Controller-only private cards currently awaiting a choice within a
     /// suspended spell resolution. This is never a priority window.
     pub private_library_choice: Option<PrivateLibraryChoiceView>,
+    /// Controller-only candidates for a suspended targeted activated ability
+    /// that will exile one card from an opponent's library. This is likewise
+    /// never a priority window.
+    pub private_opponent_library_choice: Option<PrivateOpponentLibraryChoiceView>,
     /// Legal controller-owned library choices for each transmute card in hand.
     pub transmute_searches: Vec<TransmuteSearchView>,
     pub own_battlefield: Vec<CardView>,
@@ -304,6 +330,17 @@ struct PendingPrivateLibraryChoice {
     controller: PlayerId,
     cards: Vec<ObjectId>,
     life_per_card: i16,
+}
+
+/// A suspended targeted ability awaiting its controller's private choice of a
+/// card from the target opponent's current top-of-library snapshot.
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct PendingPrivateOpponentLibraryExileChoice {
+    source: ObjectId,
+    ability: &'static str,
+    controller: PlayerId,
+    opponent: PlayerId,
+    cards: Vec<ObjectId>,
 }
 
 #[derive(Clone, Debug)]
@@ -396,6 +433,7 @@ pub struct Game {
     /// decision visible to submitted policies.
     pending_draw_replacement: Option<PlayerId>,
     pending_private_library_choice: Option<PendingPrivateLibraryChoice>,
+    pending_private_opponent_library_exile_choice: Option<PendingPrivateOpponentLibraryExileChoice>,
     /// A resolving rule may prevent every represented library search until the
     /// current turn ends. It is deliberately a turn number, rather than a
     /// boolean, so invariant checks detect an expired marker crossing a turn
@@ -614,6 +652,7 @@ impl Game {
             combat: None,
             pending_draw_replacement: None,
             pending_private_library_choice: None,
+            pending_private_opponent_library_exile_choice: None,
             library_search_prevented_until: None,
             pending_damage_triggers: Vec::new(),
             pending_life_gain_triggers: Vec::new(),
@@ -1361,7 +1400,7 @@ impl Game {
         }
         for (target, requirement) in activation.targets.iter().zip(&ability.targets) {
             if !Self::target_shape_matches(*target, *requirement)
-                || !self.target_matches(*target, *requirement)
+                || !self.target_matches_for_controller(player, *target, *requirement)
             {
                 return Err(RulesError::IllegalTarget(*target));
             }
@@ -1913,6 +1952,23 @@ impl Game {
                     })
             })
             .transpose()?;
+        let private_opponent_library_choice = self
+            .pending_private_opponent_library_exile_choice
+            .as_ref()
+            .filter(|choice| choice.controller == player)
+            .map(|choice| {
+                choice
+                    .cards
+                    .iter()
+                    .map(|card| self.card_view(*card))
+                    .collect::<Result<Vec<_>, _>>()
+                    .map(|cards| PrivateOpponentLibraryChoiceView {
+                        source: choice.source,
+                        ability: choice.ability,
+                        cards,
+                    })
+            })
+            .transpose()?;
         let mut opponent_life = Vec::new();
         let mut opponent_battlefield = Vec::new();
         for opponent in self
@@ -1971,6 +2027,7 @@ impl Game {
             draw_replacement_pending,
             dredge_candidates,
             private_library_choice,
+            private_opponent_library_choice,
             transmute_searches,
             own_battlefield,
             opponent_battlefield,
@@ -1996,6 +2053,15 @@ impl Game {
             PolicyAction::Draw { dredge } => self.resolve_pending_draw(player, dredge)?,
             PolicyAction::ChoosePrivateLibraryCards { spell, selected } => {
                 self.choose_private_library_cards(player, spell, selected)?;
+            }
+            PolicyAction::ChoosePrivateOpponentLibraryCardToExile {
+                source,
+                ability,
+                selected,
+            } => {
+                self.choose_private_opponent_library_card_to_exile(
+                    player, source, ability, selected,
+                )?;
             }
             PolicyAction::Transmute { card, found } => self.transmute(player, card, found)?,
             PolicyAction::PassPriority => self.pass_priority(player)?,
@@ -2936,6 +3002,14 @@ impl Game {
     ) -> Result<(), RulesError> {
         let mut targets = targets.iter().copied();
         for effect in &definition.effects {
+            if matches!(
+                effect,
+                Effect::LookAtTopCardsOfTargetOpponentExileOne { .. }
+            ) {
+                return Err(RulesError::IllegalAction(
+                    "private opponent-library choice is valid only on an activated ability",
+                ));
+            }
             let Some(requirement) = effect.target_requirement() else {
                 continue;
             };
@@ -2982,6 +3056,11 @@ impl Game {
         if self.pending_private_library_choice.is_some() {
             return Err(RulesError::IllegalAction(
                 "the private library choice must resolve before priority can pass",
+            ));
+        }
+        if self.pending_private_opponent_library_exile_choice.is_some() {
+            return Err(RulesError::IllegalAction(
+                "the private opponent-library choice must resolve before priority can pass",
             ));
         }
         if self.step == Step::DeclareAttackers
@@ -3232,6 +3311,117 @@ impl Game {
         self.move_to_spell_terminal_zone(spell)?;
         self.check_state_based_actions()?;
         self.flush_pending_dies_triggers();
+        self.flush_pending_land_entry_triggers()?;
+        self.flush_pending_damage_triggers();
+        self.flush_pending_life_gain_triggers();
+        self.flush_pending_dies_triggers();
+        self.priority = self.priority_after_resolution();
+        Ok(())
+    }
+
+    /// Completes the private opponent-library selection opened by a resolving
+    /// activated ability. The choice is atomic: no priority action can happen
+    /// after the candidates are seen and before the selected card moves to
+    /// exile.
+    pub fn choose_private_opponent_library_card_to_exile(
+        &mut self,
+        player: PlayerId,
+        source: ObjectId,
+        ability: &'static str,
+        selected: Option<ObjectId>,
+    ) -> Result<(), RulesError> {
+        self.atomic_transition(|game| {
+            game.resolve_pending_private_opponent_library_exile_choice(
+                player, source, ability, selected,
+            )
+        })
+    }
+
+    #[allow(clippy::too_many_lines)] // The suspension/resumption transaction is one auditable boundary.
+    fn resolve_pending_private_opponent_library_exile_choice(
+        &mut self,
+        player: PlayerId,
+        source: ObjectId,
+        ability: &'static str,
+        selected: Option<ObjectId>,
+    ) -> Result<(), RulesError> {
+        self.require_game_in_progress()?;
+        let choice = self
+            .pending_private_opponent_library_exile_choice
+            .clone()
+            .ok_or(RulesError::IllegalAction(
+                "there is no pending private opponent-library choice",
+            ))?;
+        if choice.controller != player || choice.source != source || choice.ability != ability {
+            return Err(RulesError::IllegalAction(
+                "only the resolving controller may submit this private opponent-library choice",
+            ));
+        }
+        let stack_object = self.stack.last().ok_or(RulesError::IllegalAction(
+            "private opponent-library choice has no live stack ability",
+        ))?;
+        let count = match stack_object.effects.as_slice() {
+            [Effect::LookAtTopCardsOfTargetOpponentExileOne { count }] => *count,
+            _ => {
+                return Err(RulesError::IllegalAction(
+                    "private opponent-library choice no longer matches its ability effect",
+                ));
+            }
+        };
+        if stack_object.card != source
+            || stack_object.controller != player
+            || stack_object.ability_id != Some(ability)
+            || stack_object.targets.as_slice() != [Target::Player(choice.opponent)]
+        {
+            return Err(RulesError::IllegalAction(
+                "private opponent-library choice no longer matches the live stack ability",
+            ));
+        }
+        let expected_cards = self.players[choice.opponent.0]
+            .library
+            .iter()
+            .rev()
+            .take(usize::from(count))
+            .copied()
+            .collect::<Vec<_>>();
+        if choice.cards != expected_cards
+            || choice.cards.iter().any(|card| {
+                self.zone_of(*card) != Some(Zone::Library)
+                    || self
+                        .object(*card)
+                        .map_or(true, |object| object.owner != choice.opponent)
+            })
+        {
+            return Err(RulesError::IllegalAction(
+                "private opponent-library candidates changed before selection",
+            ));
+        }
+        if choice.cards.is_empty() {
+            if selected.is_some() {
+                return Err(RulesError::IllegalAction(
+                    "an empty private opponent-library choice cannot exile a card",
+                ));
+            }
+        } else {
+            let selected_card = selected.ok_or(RulesError::IllegalAction(
+                "a nonempty private opponent-library choice must exile one card",
+            ))?;
+            if !choice.cards.contains(&selected_card) {
+                return Err(RulesError::IllegalAction(
+                    "private opponent-library choice selected a card outside its snapshot",
+                ));
+            }
+        }
+
+        self.stack.pop().ok_or(RulesError::IllegalAction(
+            "private opponent-library choice stack ability disappeared before resolution",
+        ))?;
+        self.pending_private_opponent_library_exile_choice = None;
+        if let Some(card) = selected {
+            self.move_to_zone(card, Zone::Exile)?;
+        }
+        self.record_event(GameEvent::AbilityResolved { source, ability });
+        self.check_state_based_actions()?;
         self.flush_pending_land_entry_triggers()?;
         self.flush_pending_damage_triggers();
         self.flush_pending_life_gain_triggers();
@@ -3591,6 +3781,8 @@ impl Game {
         self.validate_additional_spell_cost_event_order()?;
         self.validate_stack_terminal_event_order()?;
         self.validate_ability_event_order()?;
+        let outstanding_private_opponent_library_choices =
+            Self::validate_private_opponent_library_choice_event_order(&self.event_log)?;
         self.validate_ability_sacrifice_cost_event_order()?;
         self.validate_ability_discard_cost_event_order()?;
         Self::validate_effect_discard_event_order(&self.event_log)?;
@@ -3667,6 +3859,7 @@ impl Game {
                 .copied()
                 .collect::<Vec<_>>();
             if self.pending_draw_replacement.is_some()
+                || self.pending_private_opponent_library_exile_choice.is_some()
                 || top.card != choice.spell
                 || top.controller != choice.controller
                 || top.ability_id.is_some()
@@ -3686,6 +3879,63 @@ impl Game {
                     "private-library choice escaped its resolution boundary",
                 ));
             }
+        }
+        if let Some(choice) = &self.pending_private_opponent_library_exile_choice {
+            let top = self.stack.last().ok_or(RulesError::IllegalAction(
+                "private opponent-library choice escaped its stack ability",
+            ))?;
+            let count = match top.effects.as_slice() {
+                [Effect::LookAtTopCardsOfTargetOpponentExileOne { count }] => *count,
+                _ => 0,
+            };
+            let effect_matches = matches!(
+                top.effects.as_slice(),
+                [Effect::LookAtTopCardsOfTargetOpponentExileOne { count: effect_count }]
+                    if *effect_count > 0
+            );
+            let expected_cards = self.players[choice.opponent.0]
+                .library
+                .iter()
+                .rev()
+                .take(usize::from(count))
+                .copied()
+                .collect::<Vec<_>>();
+            if self.pending_draw_replacement.is_some()
+                || self.pending_private_library_choice.is_some()
+                || top.card != choice.source
+                || top.controller != choice.controller
+                || top.ability_id != Some(choice.ability)
+                || top.targets.as_slice() != [Target::Player(choice.opponent)]
+                || !effect_matches
+                || !self.target_matches_for_controller(
+                    choice.controller,
+                    Target::Player(choice.opponent),
+                    TargetRequirement::Opponent,
+                )
+                || self.priority != choice.controller
+                || self.consecutive_passes != 0
+                || self.players[choice.controller.0].lost
+                || choice.cards != expected_cards
+                || choice.cards.iter().any(|card| {
+                    self.zone_of(*card) != Some(Zone::Library)
+                        || self
+                            .object(*card)
+                            .map_or(true, |object| object.owner != choice.opponent)
+                })
+            {
+                return Err(RulesError::IllegalAction(
+                    "private opponent-library choice escaped its resolution boundary",
+                ));
+            }
+        }
+        if (self.pending_private_opponent_library_exile_choice.is_some()
+            && outstanding_private_opponent_library_choices != 1)
+            || (self.pending_private_opponent_library_exile_choice.is_none()
+                && outstanding_private_opponent_library_choices != 0)
+        {
+            return Err(RulesError::IllegalAction(
+                "private opponent-library event receipts disagree with the live resolution boundary",
+            ));
         }
         if self
             .library_search_prevented_until
@@ -5003,6 +5253,7 @@ impl Game {
                 | Effect::ReturnOneCreatureCardFromEachGraveyardToHand
                 | Effect::ReturnUpToThreeControllerGraveyardLandCardsToHand
                 | Effect::LookAtTopCardsChooseForLifeOrGraveyard { .. }
+                | Effect::LookAtTopCardsOfTargetOpponentExileOne { .. }
                 | Effect::ShuffleGraveyardsIntoLibraries
                 | Effect::ReturnControlledCreatureToHand
                 | Effect::ReturnControlledLandToHand
@@ -5048,6 +5299,9 @@ impl Game {
     #[allow(clippy::too_many_lines)] // Spell and activated-ability resolution share one audited path.
     fn resolve_top_of_stack(&mut self) -> Result<(), RulesError> {
         if self.suspend_top_spell_for_private_library_choice()? {
+            return Ok(());
+        }
+        if self.suspend_top_ability_for_private_opponent_library_exile_choice()? {
             return Ok(());
         }
         let stack_object = self.stack.pop().ok_or(RulesError::IllegalAction(
@@ -5266,7 +5520,9 @@ impl Game {
     /// submits the selection, so no player can respond using information that
     /// belongs to its unresolved hidden-zone instruction.
     fn suspend_top_spell_for_private_library_choice(&mut self) -> Result<bool, RulesError> {
-        if self.pending_private_library_choice.is_some() {
+        if self.pending_private_library_choice.is_some()
+            || self.pending_private_opponent_library_exile_choice.is_some()
+        {
             return Err(RulesError::IllegalAction(
                 "a second private-library choice attempted to open during resolution",
             ));
@@ -5314,6 +5570,80 @@ impl Game {
             cards,
             life_per_card,
         });
+        self.priority = controller;
+        self.consecutive_passes = 0;
+        Ok(true)
+    }
+
+    /// Opens the no-priority boundary for an activated ability that privately
+    /// inspects a target opponent's library and must choose one available card
+    /// for exile. The stack ability remains live while its controller decides;
+    /// only the controller's `GameView` receives candidate identities.
+    fn suspend_top_ability_for_private_opponent_library_exile_choice(
+        &mut self,
+    ) -> Result<bool, RulesError> {
+        if self.pending_private_library_choice.is_some()
+            || self.pending_private_opponent_library_exile_choice.is_some()
+        {
+            return Err(RulesError::IllegalAction(
+                "a second private-library choice attempted to open during resolution",
+            ));
+        }
+        let Some(top) = self.stack.last() else {
+            return Ok(false);
+        };
+        let (source, ability, controller, opponent, count) = match (
+            top.ability_id,
+            top.targets.as_slice(),
+            top.effects.as_slice(),
+        ) {
+            (
+                Some(ability),
+                [Target::Player(opponent)],
+                [Effect::LookAtTopCardsOfTargetOpponentExileOne { count }],
+            ) => (top.card, ability, top.controller, *opponent, *count),
+            _ => return Ok(false),
+        };
+        if count == 0 {
+            return Err(RulesError::IllegalAction(
+                "private opponent-library choice must inspect at least one card",
+            ));
+        }
+        // An illegal target is handled by the ordinary all-targets-illegal
+        // rules-counter path below. It must not reveal or snapshot cards.
+        if !self.target_matches_for_controller(
+            controller,
+            Target::Player(opponent),
+            TargetRequirement::Opponent,
+        ) {
+            return Ok(false);
+        }
+        let cards = self.players[opponent.0]
+            .library
+            .iter()
+            .rev()
+            .take(usize::from(count))
+            .copied()
+            .collect::<Vec<_>>();
+        self.record_event(GameEvent::PrivateOpponentLibraryChoiceOpened {
+            controller,
+            source,
+            ability,
+            opponent,
+            count: u8::try_from(cards.len()).map_err(|_| {
+                RulesError::IllegalAction(
+                    "private opponent-library choice count exceeds event range",
+                )
+            })?,
+        });
+        self.pending_private_opponent_library_exile_choice =
+            Some(PendingPrivateOpponentLibraryExileChoice {
+                source,
+                ability,
+                controller,
+                opponent,
+                cards,
+            });
         self.priority = controller;
         self.consecutive_passes = 0;
         Ok(true)
@@ -7172,6 +7502,11 @@ impl Game {
                     "private-library choice effect bypassed its resolution boundary",
                 ));
             }
+            Effect::LookAtTopCardsOfTargetOpponentExileOne { .. } => {
+                return Err(RulesError::IllegalAction(
+                    "private opponent-library choice effect bypassed its resolution boundary",
+                ));
+            }
             Effect::ShuffleGraveyardsIntoLibraries => {
                 for player_index in 0..self.players.len() {
                     let player = PlayerId(player_index);
@@ -7289,6 +7624,7 @@ impl Game {
                 Target::Player(player),
                 TargetRequirement::Any
                 | TargetRequirement::Player
+                | TargetRequirement::Opponent
                 | TargetRequirement::PlayerOrCreature,
             ) => self.players.get(player.0).is_some_and(|state| !state.lost),
             (Target::Permanent(card), TargetRequirement::Any | TargetRequirement::Permanent) => {
@@ -7436,6 +7772,7 @@ impl Game {
                 (Target::Permanent(card), TargetRequirement::OpponentCreature) => self
                     .object(card)
                     .is_ok_and(|object| object.controller != controller),
+                (Target::Player(player), TargetRequirement::Opponent) => player != controller,
                 _ => true,
             }
     }
@@ -7450,6 +7787,7 @@ impl Game {
                 Target::Player(_),
                 TargetRequirement::Any
                     | TargetRequirement::Player
+                    | TargetRequirement::Opponent
                     | TargetRequirement::PlayerOrCreature
             ) | (
                 Target::Permanent(_),
@@ -8192,6 +8530,20 @@ impl Game {
     }
 
     fn validate_cast_effects_for_ability(effects: &[Effect]) -> Result<(), RulesError> {
+        let private_opponent_library_choice_effects = effects
+            .iter()
+            .filter(|effect| {
+                matches!(
+                    effect,
+                    Effect::LookAtTopCardsOfTargetOpponentExileOne { .. }
+                )
+            })
+            .count();
+        if private_opponent_library_choice_effects > 0 && effects.len() != 1 {
+            return Err(RulesError::IllegalAction(
+                "a private opponent-library choice ability must contain exactly one effect",
+            ));
+        }
         for effect in effects {
             if effect.requires_chosen_x() {
                 return Err(RulesError::IllegalAction(
@@ -8201,6 +8553,14 @@ impl Game {
             if matches!(effect, Effect::AttachSourceAndModifyTargetPt { .. }) {
                 return Err(RulesError::IllegalAction(
                     "aura attachment effects are valid only on permanent spells",
+                ));
+            }
+            if matches!(
+                effect,
+                Effect::LookAtTopCardsOfTargetOpponentExileOne { count: 0 }
+            ) {
+                return Err(RulesError::IllegalAction(
+                    "private opponent-library choice must inspect at least one card",
                 ));
             }
             let amount = match effect {
@@ -8957,6 +9317,60 @@ impl Game {
         Ok(())
     }
 
+    /// A public private-opponent-library opening receipt must correspond to a
+    /// still-open activated ability and must be consumed by that ability's one
+    /// terminal resolution receipt. The event type deliberately has no card
+    /// list; candidate identity is private state projected only to its
+    /// controller while the choice is pending.
+    fn validate_private_opponent_library_choice_event_order(
+        events: &[GameEvent],
+    ) -> Result<usize, RulesError> {
+        let mut open_abilities = BTreeMap::<(ObjectId, &'static str), usize>::new();
+        let mut opened_choices = BTreeMap::<(ObjectId, &'static str), usize>::new();
+        for event in events {
+            match event {
+                GameEvent::AbilityActivated {
+                    source, ability, ..
+                } => {
+                    *open_abilities.entry((*source, *ability)).or_default() += 1;
+                }
+                GameEvent::PrivateOpponentLibraryChoiceOpened {
+                    source, ability, ..
+                } => {
+                    let key = (*source, *ability);
+                    let open = open_abilities.get(&key).copied().unwrap_or_default();
+                    let choices = opened_choices.entry(key).or_default();
+                    *choices += 1;
+                    if *choices > open {
+                        return Err(RulesError::IllegalAction(
+                            "private opponent-library opening lacks a live activated ability",
+                        ));
+                    }
+                }
+                GameEvent::AbilityResolved { source, ability }
+                | GameEvent::AbilityCounteredByRules { source, ability } => {
+                    let key = (*source, *ability);
+                    let open = open_abilities.get_mut(&key).ok_or(RulesError::IllegalAction(
+                        "private opponent-library receipt saw an ability terminal without activation",
+                    ))?;
+                    if *open == 0 {
+                        return Err(RulesError::IllegalAction(
+                            "private opponent-library receipt saw excess ability terminals",
+                        ));
+                    }
+                    *open -= 1;
+                    if let Some(choices) = opened_choices.get_mut(&key) {
+                        if *choices > 0 {
+                            *choices -= 1;
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        Ok(opened_choices.values().sum())
+    }
+
     /// A discard performed by a resolving effect must immediately enter its
     /// owner's graveyard. This is distinct from an activation's explicit
     /// `DiscardedAsAbilityCost` receipt, which is audited separately.
@@ -9470,6 +9884,11 @@ impl Game {
                 "the private library choice must resolve before priority actions",
             ));
         }
+        if self.pending_private_opponent_library_exile_choice.is_some() {
+            return Err(RulesError::IllegalAction(
+                "the private opponent-library choice must resolve before priority actions",
+            ));
+        }
         if self.players[player.0].lost {
             return Err(RulesError::IllegalAction("an eliminated player cannot act"));
         }
@@ -9571,6 +9990,9 @@ impl Game {
             return player;
         }
         if let Some(choice) = &self.pending_private_library_choice {
+            return choice.controller;
+        }
+        if let Some(choice) = &self.pending_private_opponent_library_exile_choice {
             return choice.controller;
         }
         match (&self.combat, self.step) {
