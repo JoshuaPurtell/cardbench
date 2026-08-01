@@ -23,14 +23,6 @@ fn second_creature_chassis_batch_is_exactly_bounded_to_public_base_facts() {
             1,
         ),
         (
-            "RAV-IVY-DANCER",
-            "Ivy Dancer",
-            ManaCost::with_colors(2, [Color::Green]),
-            BTreeSet::from([Color::Green]),
-            1,
-            2,
-        ),
-        (
             "RAV-LORE-BROKER",
             "Lore Broker",
             ManaCost::with_colors(1, [Color::Blue]),

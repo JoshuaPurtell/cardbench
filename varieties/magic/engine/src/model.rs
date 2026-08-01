@@ -734,6 +734,11 @@ pub enum Keyword {
     /// This creature can't be blocked while the defending player controls the
     /// named basic land type.
     Mountainwalk,
+    /// This creature can't be blocked while the defending player controls a
+    /// land with the named basic land type. This generalizes the historical
+    /// `Mountainwalk` compatibility variant without forcing a card to use a
+    /// one-off keyword for every land type.
+    Landwalk(BasicLandType),
     /// This creature assigns combat damage in both first-strike and normal
     /// combat-damage steps.
     DoubleStrike,

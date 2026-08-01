@@ -37,7 +37,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 115] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 116] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -153,6 +153,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 115] = [
     "RAV-ELVISH-SKYSWEEPER",
     "RAV-SHAMBLING-SHELL",
     "RAV-DOWSING-SHAMAN",
+    "RAV-IVY-DANCER",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -2421,17 +2422,26 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Reach],
             effects: vec![],
         },
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed activated behavior is deliberately
-        // omitted from this compatibility slice.
-        bounded_creature_chassis(
-            "RAV-IVY-DANCER",
-            "Ivy Dancer",
-            ManaCost::with_colors(2, [Color::Green]),
-            colors([Color::Green]),
-            1,
-            2,
-        ),
+        CardDefinition {
+            id: "RAV-IVY-DANCER",
+            name: "Ivy Dancer",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(2, [Color::Green]),
+            colors: colors([Color::Green]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "tap-target-creature-grant-forestwalk",
+            ],
+            power: Some(1),
+            toughness: Some(2),
+            keywords: vec![],
+            effects: vec![],
+        },
         // Compatibility scope: normal colored-cost creature casting and base
         // characteristics only. Its printed activated behavior is deliberately
         // omitted from this compatibility slice.
@@ -4022,6 +4032,24 @@ pub fn rav_land_entry_bindings() -> Vec<LandEntryBinding> {
 #[allow(clippy::too_many_lines)]
 pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
     vec![
+        ActivatedAbilityBinding {
+            card_definition: "RAV-IVY-DANCER",
+            ability: ActivatedAbility {
+                id: "tap-target-creature-grant-forestwalk",
+                mana_cost: ManaCost::new(0),
+                tap_cost: true,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![TargetRequirement::Creature],
+                effects: vec![Effect::ModifyTargetKeywordUntilEndOfTurn {
+                    keyword: Keyword::Landwalk(BasicLandType::Forest),
+                }],
+            },
+        },
         ActivatedAbilityBinding {
             card_definition: "RAV-DOWSING-SHAMAN",
             ability: ActivatedAbility {

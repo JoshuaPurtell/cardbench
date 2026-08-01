@@ -292,7 +292,9 @@ struct CombatState {
     /// the public combat audit.
     trampling_attackers: BTreeSet<ObjectId>,
     must_be_blocked_attackers: BTreeSet<ObjectId>,
-    mountainwalk_attackers: BTreeSet<ObjectId>,
+    /// Declaration-time landwalk provenance. An attacker may carry more than
+    /// one named basic land type through independent continuous effects.
+    landwalk_attackers: BTreeMap<ObjectId, BTreeSet<BasicLandType>>,
     blockers: BTreeMap<ObjectId, ObjectId>,
     /// A blocker that regenerated remains associated with its attacker (so
     /// that attacker stays blocked) but no longer assigns or receives combat
@@ -2458,7 +2460,7 @@ impl Game {
         let mut vigilant_attackers = BTreeSet::new();
         let mut trampling_attackers = BTreeSet::new();
         let mut must_be_blocked_attackers = BTreeSet::new();
-        let mut mountainwalk_attackers = BTreeSet::new();
+        let mut landwalk_attackers = BTreeMap::<ObjectId, BTreeSet<BasicLandType>>::new();
         for attacker in attackers {
             if !seen.insert(*attacker) {
                 return Err(RulesError::IllegalAction("an attacker was declared twice"));
@@ -2506,7 +2508,18 @@ impl Game {
                 must_be_blocked_attackers.insert(*attacker);
             }
             if characteristics.keywords.contains(&Keyword::Mountainwalk) {
-                mountainwalk_attackers.insert(*attacker);
+                landwalk_attackers
+                    .entry(*attacker)
+                    .or_default()
+                    .insert(BasicLandType::Mountain);
+            }
+            for keyword in &characteristics.keywords {
+                if let Keyword::Landwalk(land_type) = keyword {
+                    landwalk_attackers
+                        .entry(*attacker)
+                        .or_default()
+                        .insert(*land_type);
+                }
             }
         }
         for attacker in attackers {
@@ -2531,7 +2544,7 @@ impl Game {
         combat.vigilant_attackers = vigilant_attackers;
         combat.trampling_attackers = trampling_attackers;
         combat.must_be_blocked_attackers = must_be_blocked_attackers;
-        combat.mountainwalk_attackers = mountainwalk_attackers;
+        combat.landwalk_attackers = landwalk_attackers;
         combat.defending_player = Some(defending_player);
         combat.attackers_declared = true;
         self.record_event(GameEvent::AttackersDeclared {
@@ -2650,11 +2663,17 @@ impl Game {
             {
                 black_evasion_qualified_blockers.insert(assignment.blocker);
             }
-            if combat.mountainwalk_attackers.contains(&assignment.attacker)
-                && self.player_controls_basic_land_type(player, BasicLandType::Mountain)
+            if combat
+                .landwalk_attackers
+                .get(&assignment.attacker)
+                .is_some_and(|land_types| {
+                    land_types
+                        .iter()
+                        .any(|land_type| self.player_controls_basic_land_type(player, *land_type))
+                })
             {
                 return Err(RulesError::IllegalAction(
-                    "mountainwalk attacker cannot be blocked while defender controls a Mountain",
+                    "landwalk attacker cannot be blocked while defender controls its land type",
                 ));
             }
         }
@@ -4696,7 +4715,7 @@ impl Game {
                     || !combat.vigilant_attackers.is_empty()
                     || !combat.trampling_attackers.is_empty()
                     || !combat.must_be_blocked_attackers.is_empty()
-                    || !combat.mountainwalk_attackers.is_empty())
+                    || !combat.landwalk_attackers.is_empty())
             {
                 return Err(RulesError::IllegalAction(
                     "undeclared combat retained attacker keyword provenance",
@@ -4790,9 +4809,14 @@ impl Game {
                     "must-block declaration provenance contains a nonattacker",
                 ));
             }
-            if !combat.mountainwalk_attackers.is_subset(&attackers) {
+            if !combat
+                .landwalk_attackers
+                .keys()
+                .all(|attacker| attackers.contains(attacker))
+                || combat.landwalk_attackers.values().any(BTreeSet::is_empty)
+            {
                 return Err(RulesError::IllegalAction(
-                    "mountainwalk declaration provenance contains a nonattacker",
+                    "landwalk declaration provenance is invalid",
                 ));
             }
             for (attacker, blocker) in &combat.blockers {
@@ -8176,7 +8200,7 @@ impl Game {
             combat.vigilant_attackers.remove(&card);
             combat.trampling_attackers.remove(&card);
             combat.must_be_blocked_attackers.remove(&card);
-            combat.mountainwalk_attackers.remove(&card);
+            combat.landwalk_attackers.remove(&card);
             combat.blockers.remove(&card);
         }
         if combat.blockers.values().any(|blocker| *blocker == card) {
@@ -10131,7 +10155,7 @@ impl Game {
                 combat.vigilant_attackers.clear();
                 combat.trampling_attackers.clear();
                 combat.must_be_blocked_attackers.clear();
-                combat.mountainwalk_attackers.clear();
+                combat.landwalk_attackers.clear();
                 combat.blockers.clear();
                 combat.removed_from_combat.clear();
                 combat.evasion_qualified_blockers.clear();
