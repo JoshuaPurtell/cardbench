@@ -5246,6 +5246,7 @@ impl Game {
                 | Effect::UntapTargetLand
                 | Effect::DestroyTargetArtifactOrEnchantment
                 | Effect::ReturnTargetCardToHand
+                | Effect::ReturnTargetEnchantmentCardToHand
                 | Effect::ReturnTargetCreatureCardToHandIfAnotherInControllerGraveyard
                 | Effect::ReturnTargetCreatureCardToBattlefieldWithCounterIfManaColorSpent {
                     ..
@@ -7419,6 +7420,17 @@ impl Game {
                 }
                 self.move_to_zone(target, Zone::Hand)?;
             }
+            Effect::ReturnTargetEnchantmentCardToHand => {
+                let target = Self::target_permanent(target)?;
+                if !self.target_matches_for_controller(
+                    controller,
+                    Target::Permanent(target),
+                    TargetRequirement::EnchantmentCardInControllerGraveyard,
+                ) {
+                    return Err(RulesError::IllegalTarget(Target::Permanent(target)));
+                }
+                self.move_to_zone(target, Zone::Hand)?;
+            }
             Effect::ReturnTargetCreatureCardToHandIfAnotherInControllerGraveyard => {
                 let target = Self::target_permanent(target)?;
                 if !self.target_matches_for_controller(
@@ -7680,6 +7692,12 @@ impl Game {
                         .card_definition(card)
                         .is_ok_and(|definition| definition.card_types.contains(&CardType::Creature))
             }
+            (Target::Permanent(card), TargetRequirement::EnchantmentCardInControllerGraveyard) => {
+                self.zone_of(card) == Some(Zone::Graveyard)
+                    && self.card_definition(card).is_ok_and(|definition| {
+                        definition.card_types.contains(&CardType::Enchantment)
+                    })
+            }
             (
                 Target::Permanent(card),
                 TargetRequirement::InstantOrSorceryCardInControllerGraveyard,
@@ -7759,6 +7777,12 @@ impl Game {
                 }
                 (
                     Target::Permanent(card),
+                    TargetRequirement::EnchantmentCardInControllerGraveyard,
+                ) => self
+                    .object(card)
+                    .is_ok_and(|object| object.owner == controller),
+                (
+                    Target::Permanent(card),
                     TargetRequirement::InstantOrSorceryCardInControllerGraveyard,
                 ) => self
                     .object(card)
@@ -7806,6 +7830,7 @@ impl Game {
                     | TargetRequirement::ArtifactOrEnchantment
                     | TargetRequirement::OwnGraveyardCard
                     | TargetRequirement::CreatureCardInControllerGraveyard
+                    | TargetRequirement::EnchantmentCardInControllerGraveyard
                     | TargetRequirement::InstantOrSorceryCardInControllerGraveyard
                     | TargetRequirement::ControlledCreature
                     | TargetRequirement::OpponentCreature

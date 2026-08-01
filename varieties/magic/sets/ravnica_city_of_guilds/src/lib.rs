@@ -27,8 +27,9 @@ use cardbench_magic_engine::{
     CastRequest, Color, ConvokeContribution, ConvokePayment, CostReductionBinding, DeckEntry,
     DeckList, DeckRules, Effect, Game, HybridManaSymbol, Keyword, LandEntryBinding,
     LibrarySearchDestination, LibrarySearchRequirement, ManaAbilityBinding, ManaAbilityOutput,
-    ManaBundle, ManaCost, PlayerId, RulesError, StaticContinuousEffectBinding, Target, TokenSpec,
-    TriggerCondition, TriggeredAbility, TriggeredAbilityBinding, Zone,
+    ManaBundle, ManaCost, PlayerId, RulesError, StaticContinuousEffectBinding, Target,
+    TargetRequirement, TokenSpec, TriggerCondition, TriggeredAbility, TriggeredAbilityBinding,
+    Zone,
 };
 
 pub const SET_CODE: &str = "RAV";
@@ -36,7 +37,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 114] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 115] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -151,6 +152,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 114] = [
     "RAV-TRANSLUMINANT",
     "RAV-ELVISH-SKYSWEEPER",
     "RAV-SHAMBLING-SHELL",
+    "RAV-DOWSING-SHAMAN",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -3028,17 +3030,26 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed graveyard-recursion activation is
-        // deliberately omitted from this compatibility slice.
-        bounded_creature_chassis(
-            "RAV-DOWSING-SHAMAN",
-            "Dowsing Shaman",
-            ManaCost::with_colors(2, [Color::Green, Color::Green]),
-            colors([Color::Green]),
-            3,
-            4,
-        ),
+        CardDefinition {
+            id: "RAV-DOWSING-SHAMAN",
+            name: "Dowsing Shaman",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(2, [Color::Green, Color::Green]),
+            colors: colors([Color::Green]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "return-target-enchantment-from-graveyard",
+            ],
+            power: Some(3),
+            toughness: Some(4),
+            keywords: vec![],
+            effects: vec![],
+        },
         // Compatibility scope: normal colored-cost creature casting, base
         // characteristics, and static Flying. Its upkeep sacrifice behavior
         // is deliberately unsupported.
@@ -4011,6 +4022,22 @@ pub fn rav_land_entry_bindings() -> Vec<LandEntryBinding> {
 #[allow(clippy::too_many_lines)]
 pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
     vec![
+        ActivatedAbilityBinding {
+            card_definition: "RAV-DOWSING-SHAMAN",
+            ability: ActivatedAbility {
+                id: "return-target-enchantment-from-graveyard",
+                mana_cost: ManaCost::with_colors(2, [Color::Green]),
+                tap_cost: true,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![TargetRequirement::EnchantmentCardInControllerGraveyard],
+                effects: vec![Effect::ReturnTargetEnchantmentCardToHand],
+            },
+        },
         ActivatedAbilityBinding {
             card_definition: "RAV-THOUGHTPICKER-WITCH",
             ability: ActivatedAbility {

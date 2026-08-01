@@ -38,14 +38,6 @@ fn easy_creature_wave_two_is_exactly_bounded_to_public_base_facts() {
             2,
             1,
         ),
-        (
-            "RAV-DOWSING-SHAMAN",
-            "Dowsing Shaman",
-            ManaCost::with_colors(2, [Color::Green, Color::Green]),
-            BTreeSet::from([Color::Green]),
-            3,
-            4,
-        ),
     ];
 
     for (id, name, mana_cost, colors, power, toughness) in expected {

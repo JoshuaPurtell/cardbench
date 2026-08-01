@@ -818,6 +818,10 @@ pub enum TargetRequirement {
     /// keeps graveyard-recursion effects from accepting an arbitrary spell or
     /// land card merely because it shares the controller's graveyard.
     CreatureCardInControllerGraveyard,
+    /// An enchantment card in the resolving source controller's graveyard.
+    /// This keeps enchantment-only recursion from accepting another permanent
+    /// card type merely because it is owned by that controller.
+    EnchantmentCardInControllerGraveyard,
     /// An instant or sorcery card in the casting player's graveyard.
     InstantOrSorceryCardInControllerGraveyard,
     /// A battlefield creature controlled by the resolving spell's controller.
@@ -1271,6 +1275,9 @@ pub enum Effect {
     /// Return the targeted card from the resolving spell controller's
     /// graveyard to that player's hand.
     ReturnTargetCardToHand,
+    /// Return a targeted enchantment card from the resolving source
+    /// controller's graveyard to that player's hand.
+    ReturnTargetEnchantmentCardToHand,
     /// Select at most one creature card from each living player's graveyard
     /// before any zone movement, then return every selected card to its
     /// owner's hand. The selection is a target-free public-zone operation;
@@ -1405,6 +1412,9 @@ impl Effect {
                 Some(TargetRequirement::Permanent)
             }
             Self::ReturnTargetCardToHand => Some(TargetRequirement::OwnGraveyardCard),
+            Self::ReturnTargetEnchantmentCardToHand => {
+                Some(TargetRequirement::EnchantmentCardInControllerGraveyard)
+            }
             Self::ReturnTargetCreatureCardToHandIfAnotherInControllerGraveyard
             | Self::ReturnTargetCreatureCardToBattlefieldWithCounterIfManaColorSpent { .. } => {
                 Some(TargetRequirement::CreatureCardInControllerGraveyard)
