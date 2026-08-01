@@ -9374,3 +9374,101 @@ priority = 0
 mana = ["0:black:0", "0:green:0"]
 event_markers = ["ManaAbilityActivated", "ManaAdded", "AbilityManaPaid", "AbilityActivated", "ContinuousEffectCreated", "AbilityResolved"]
 digest = "fnv1a64:acb95d36a159263f"
+
+[[scenario]]
+id = "rav_helldozer_nonbasic_land_untap"
+seed = 136
+description = "Pay Helldozer's exact triple-black activation, destroy a nonbasic land, and verify the source untaps only after its target's basicness is snapshot."
+
+[[scenario.card]]
+label = "helldozer"
+owner = 0
+definition = "RAV-HELLDOZER"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.card]]
+label = "target"
+owner = 1
+definition = "RAV-SUNHOME-FORTRESS"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "swamp_one"
+owner = 0
+definition = "RAV-SWAMP"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "swamp_two"
+owner = 0
+definition = "RAV-SWAMP"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "swamp_three"
+owner = 0
+definition = "RAV-SWAMP"
+zone = "battlefield"
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "swamp_one"
+color = "black"
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "swamp_two"
+color = "black"
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "swamp_three"
+color = "black"
+
+[[scenario.action]]
+kind = "activate_ability"
+player = 0
+card = "helldozer"
+ability = "destroy-target-land"
+target = "permanent:target"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["helldozer:battlefield", "target:graveyard", "swamp_one:battlefield", "swamp_two:battlefield", "swamp_three:battlefield"]
+tapped = ["helldozer:false", "swamp_one:true", "swamp_two:true", "swamp_three:true"]
+stack_size = 0
+priority = 0
+mana = ["0:black:0"]
+event_markers = ["ManaAbilityActivated", "ManaAdded", "AbilityManaPaid", "AbilityActivated", "CardDestroyed", "PermanentUntapped", "AbilityResolved"]
+digest = "fnv1a64:00cd840078911ac9"

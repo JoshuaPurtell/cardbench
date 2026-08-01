@@ -35,7 +35,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 95] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 96] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -60,6 +60,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 95] = [
     "RAV-GATHER-COURAGE",
     "RAV-SEEDS-OF-STRENGTH",
     "RAV-DARKBLAST",
+    "RAV-HELLDOZER",
     "RAV-GREATER-MOSSDOG",
     "RAV-BOROS-SIGNET",
     "RAV-DIMIR-SIGNET",
@@ -412,6 +413,30 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             power: Some(7),
             toughness: Some(7),
             keywords: vec![Keyword::Trample],
+            effects: vec![],
+        },
+        // Full fidelity: the black tap activation destroys one target land
+        // and then conditionally untaps Helldozer based on the target's
+        // nonbasic identity observed at resolution.
+        CardDefinition {
+            id: "RAV-HELLDOZER",
+            name: "Helldozer",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(3, [Color::Black, Color::Black, Color::Black]),
+            colors: colors([Color::Black]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "tap-triple-black-destroy-land",
+                "nonbasic-land-conditional-untap",
+            ],
+            power: Some(6),
+            toughness: Some(5),
+            keywords: vec![],
             effects: vec![],
         },
         // Full fidelity: the opponent-first ETB trigger creates four typed
@@ -3757,6 +3782,21 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
             },
         },
         ActivatedAbilityBinding {
+            card_definition: "RAV-HELLDOZER",
+            ability: ActivatedAbility {
+                id: "destroy-target-land",
+                mana_cost: ManaCost::with_colors(0, [Color::Black, Color::Black, Color::Black]),
+                tap_cost: true,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![cardbench_magic_engine::TargetRequirement::Land],
+                effects: vec![Effect::DestroyTargetLandAndUntapSourceIfNonbasic],
+            },
+        },
+        ActivatedAbilityBinding {
             card_definition: "RAV-BARBARIAN-RIFTCUTTER",
             ability: ActivatedAbility {
                 id: "sacrifice-destroy-target-land",
@@ -4753,7 +4793,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 135);
+        assert_eq!(first.len(), 136);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

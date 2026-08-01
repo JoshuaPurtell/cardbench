@@ -35,6 +35,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-GATHER-COURAGE",
             "RAV-SEEDS-OF-STRENGTH",
             "RAV-DARKBLAST",
+            "RAV-HELLDOZER",
             "RAV-GREATER-MOSSDOG",
             "RAV-BOROS-SIGNET",
             "RAV-DIMIR-SIGNET",

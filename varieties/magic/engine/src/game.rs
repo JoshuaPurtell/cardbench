@@ -3912,6 +3912,7 @@ impl Game {
                 | Effect::RegenerateSource
                 | Effect::AddKeywordToControllerCreaturesUntilEndOfTurn { .. }
                 | Effect::DestroyTargetLand
+                | Effect::DestroyTargetLandAndUntapSourceIfNonbasic
                 | Effect::DestroyTargetArtifact
                 | Effect::DestroyTargetArtifactOrCreatureNoRegeneration
                 | Effect::TapTargetCreature
@@ -5225,6 +5226,32 @@ impl Game {
                     return Err(RulesError::IllegalTarget(target));
                 }
                 self.destroy_permanent(source, land)?;
+            }
+            Effect::DestroyTargetLandAndUntapSourceIfNonbasic => {
+                let target = target.ok_or(RulesError::IllegalAction("missing land target"))?;
+                let Target::Permanent(land) = target else {
+                    return Err(RulesError::IllegalTarget(target));
+                };
+                if self.zone_of(land) != Some(Zone::Battlefield)
+                    || !self.card_definition(land)?.is_land()
+                {
+                    return Err(RulesError::IllegalTarget(target));
+                }
+                let target_was_nonbasic = !self.card_definition(land)?.is_basic_land;
+                self.destroy_permanent(source, land)?;
+                if target_was_nonbasic
+                    && self.zone_of(source) == Some(Zone::Battlefield)
+                    && self.object(source)?.tapped
+                {
+                    self.objects
+                        .get_mut(&source)
+                        .ok_or(RulesError::UnknownCard(source))?
+                        .tapped = false;
+                    self.record_event(GameEvent::PermanentUntapped {
+                        source,
+                        card: source,
+                    });
+                }
             }
             Effect::DestroyTargetArtifact => {
                 let target = target.ok_or(RulesError::IllegalAction("missing artifact target"))?;

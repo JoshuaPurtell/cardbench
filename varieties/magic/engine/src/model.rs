@@ -1023,6 +1023,9 @@ pub enum Effect {
     /// Destroy the targeted land during resolution, sending it through the
     /// normal zone-change and continuous-effect lifecycle.
     DestroyTargetLand,
+    /// Destroy one targeted land, then untap the resolving source only when
+    /// that target was nonbasic at resolution.
+    DestroyTargetLandAndUntapSourceIfNonbasic,
     /// Destroy the targeted artifact during resolution, sending it through
     /// the normal zone-change and continuous-effect lifecycle.
     DestroyTargetArtifact,
@@ -1126,7 +1129,9 @@ impl Effect {
             Self::LoseLifeTarget { .. } | Self::CreateTokenForTargetPlayer { .. } => {
                 Some(TargetRequirement::Player)
             }
-            Self::DestroyTargetLand => Some(TargetRequirement::Land),
+            Self::DestroyTargetLand | Self::DestroyTargetLandAndUntapSourceIfNonbasic => {
+                Some(TargetRequirement::Land)
+            }
             Self::DestroyTargetArtifact => Some(TargetRequirement::Artifact),
             Self::DestroyTargetArtifactOrCreatureNoRegeneration => {
                 Some(TargetRequirement::ArtifactOrCreature)
@@ -1824,6 +1829,12 @@ pub enum GameEvent {
     /// A resolving spell or ability changed a target creature from untapped
     /// to tapped. Unlike an ability-cost receipt, this is a stack effect.
     PermanentTapped {
+        source: ObjectId,
+        card: ObjectId,
+    },
+    /// A resolving spell or ability untapped a battlefield permanent. This is
+    /// distinct from the automatic untap step, which has its own turn receipt.
+    PermanentUntapped {
         source: ObjectId,
         card: ObjectId,
     },

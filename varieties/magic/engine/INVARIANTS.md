@@ -263,6 +263,11 @@ Oracle Magic rules coverage.
   change and a layer-six keyword grant. Both effects use that same legal
   target, expire together at end of turn, and emit their ordinary continuous-
   effect receipts before the enclosing ability resolves.
+- A conditional land-destruction instruction snapshots the target's basicness
+  while the target is legal, before its destroy transition. It may untap only
+  its still-battlefield source after a nonbasic target; that state change emits
+  exactly one `PermanentUntapped` receipt before the enclosing stack item
+  resolves. Automatic untap-step transitions never impersonate this receipt.
 - A target-tap effect rechecks its creature target at stack resolution. It may
   leave an already tapped legal target unchanged, but an untapped-to-tapped
   transition emits exactly one `PermanentTapped` receipt before the stack item
