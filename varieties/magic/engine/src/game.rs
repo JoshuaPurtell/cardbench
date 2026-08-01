@@ -5287,6 +5287,7 @@ impl Game {
                 | Effect::RadianceUntapAndModifyUntilEndOfTurn { .. }
                 | Effect::RadianceModifyPtUntilEndOfTurn { .. }
                 | Effect::RadianceAddKeywordUntilEndOfTurn { .. }
+                | Effect::RadianceDestroyEnchantments
                 | Effect::CounterTargetInstantOrSorcerySpell
                 | Effect::SacrificeCreatureOrCounterTargetSpell
                 | Effect::GrantGraveyardCastPermissionUntilEndOfTurn
@@ -7336,6 +7337,21 @@ impl Game {
                     )?;
                 }
             }
+            Effect::RadianceDestroyEnchantments => {
+                let target = Self::target_permanent(target)?;
+                if !self.target_matches(Target::Permanent(target), TargetRequirement::Enchantment) {
+                    return Err(RulesError::IllegalTarget(Target::Permanent(target)));
+                }
+                // Select the full radiance set before moving any permanent,
+                // so every qualifying enchantment receives the same resolving
+                // instruction even when an earlier destruction changes a
+                // source's zone.
+                for candidate in
+                    self.radiance_permanents_sharing_color_of_type(target, &CardType::Enchantment)?
+                {
+                    self.destroy_permanent(source, candidate)?;
+                }
+            }
             Effect::CounterTargetInstantOrSorcerySpell => {
                 let target = Self::target_spell(target)?;
                 let position = self
@@ -7654,6 +7670,7 @@ impl Game {
         }
     }
 
+    #[allow(clippy::too_many_lines)] // The typed target-kind matrix is intentionally exhaustive.
     fn target_matches(&self, target: Target, requirement: TargetRequirement) -> bool {
         match (target, requirement) {
             (
@@ -7705,6 +7722,12 @@ impl Game {
                     && self.characteristics(card).is_ok_and(|characteristics| {
                         characteristics.card_types.contains(&CardType::Artifact)
                             || characteristics.card_types.contains(&CardType::Enchantment)
+                    })
+            }
+            (Target::Permanent(card), TargetRequirement::Enchantment) => {
+                self.zone_of(card) == Some(Zone::Battlefield)
+                    && self.characteristics(card).is_ok_and(|characteristics| {
+                        characteristics.card_types.contains(&CardType::Enchantment)
                     })
             }
             (Target::Permanent(card), TargetRequirement::OwnGraveyardCard) => {
@@ -7850,6 +7873,7 @@ impl Game {
                     | TargetRequirement::Land
                     | TargetRequirement::ControlledLand
                     | TargetRequirement::Artifact
+                    | TargetRequirement::Enchantment
                     | TargetRequirement::ArtifactOrCreature
                     | TargetRequirement::ArtifactOrEnchantment
                     | TargetRequirement::OwnGraveyardCard
@@ -10076,18 +10100,28 @@ impl Game {
         &self,
         target: ObjectId,
     ) -> Result<Vec<ObjectId>, RulesError> {
+        self.radiance_permanents_sharing_color_of_type(target, &CardType::Creature)
+    }
+
+    /// Returns the Radiance recipient set of one permanent card type. The
+    /// legal target is included even when colorless; every other recipient
+    /// must share at least one live color with that target at resolution.
+    fn radiance_permanents_sharing_color_of_type(
+        &self,
+        target: ObjectId,
+        card_type: &CardType,
+    ) -> Result<Vec<ObjectId>, RulesError> {
         let target_colors = self.characteristics(target)?.colors;
         Ok(self
             .all_battlefield_cards()
             .into_iter()
             .filter(|candidate| {
-                *candidate == target
-                    || self
-                        .characteristics(*candidate)
-                        .is_ok_and(|characteristics| {
-                            characteristics.card_types.contains(&CardType::Creature)
-                                && !characteristics.colors.is_disjoint(&target_colors)
-                        })
+                self.characteristics(*candidate)
+                    .is_ok_and(|characteristics| {
+                        characteristics.card_types.contains(card_type)
+                            && (*candidate == target
+                                || !characteristics.colors.is_disjoint(&target_colors))
+                    })
             })
             .collect())
     }

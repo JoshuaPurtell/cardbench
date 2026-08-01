@@ -37,7 +37,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 116] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 118] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -154,6 +154,8 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 116] = [
     "RAV-SHAMBLING-SHELL",
     "RAV-DOWSING-SHAMAN",
     "RAV-IVY-DANCER",
+    "RAV-SEED-SPARK",
+    "RAV-LEAVE-NO-TRACE",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -1756,6 +1758,59 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             toughness: None,
             keywords: vec![Keyword::Convoke],
             effects: vec![Effect::DestroyTargetArtifactOrEnchantment],
+        },
+        // Full fidelity: the ordinary artifact-or-enchantment target is
+        // destroyed through the normal stack lifecycle, then two typed green
+        // Saproling tokens enter under the resolving controller's control.
+        CardDefinition {
+            id: "RAV-SEED-SPARK",
+            name: "Seed Spark",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(3, [Color::White]),
+            colors: colors([Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Instant]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "typed-artifact-or-enchantment-target",
+                "destroy",
+                "saproling-token-creation",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![
+                Effect::DestroyTargetArtifactOrEnchantment,
+                Effect::CreateToken {
+                    token: TokenSpec::saproling(),
+                    count: 2,
+                },
+            ],
+        },
+        // Full fidelity: the narrow enchantment target is rechecked through
+        // the normal all-illegal-target boundary, then Radiance snapshots the
+        // target and every other color-sharing enchantment before destroying
+        // that complete batch.
+        CardDefinition {
+            id: "RAV-LEAVE-NO-TRACE",
+            name: "Leave No Trace",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(1, [Color::White]),
+            colors: colors([Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Instant]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "radiance-enchantment-destruction",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![Effect::RadianceDestroyEnchantments],
         },
         // Full fidelity: this target is controller-scoped at both cast and
         // resolution, then moves through the normal hand-zone lifecycle.

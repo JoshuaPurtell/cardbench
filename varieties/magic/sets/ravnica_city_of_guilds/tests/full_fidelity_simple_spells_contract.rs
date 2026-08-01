@@ -2,7 +2,9 @@
 
 use std::collections::BTreeSet;
 
-use cardbench_magic_engine::{CardType, Color, Effect, Keyword, ManaCost, TargetRequirement};
+use cardbench_magic_engine::{
+    CardType, Color, Effect, Keyword, ManaCost, TargetRequirement, TokenSpec,
+};
 use cardbench_magic_rav::{RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, run_all_scenarios};
 
 #[test]
@@ -127,6 +129,8 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-SHAMBLING-SHELL",
             "RAV-DOWSING-SHAMAN",
             "RAV-IVY-DANCER",
+            "RAV-SEED-SPARK",
+            "RAV-LEAVE-NO-TRACE",
         ]
     );
     let definitions = card_definitions();
@@ -234,6 +238,20 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
         (
             "RAV-SUNDERING-VITAE",
             vec![Effect::DestroyTargetArtifactOrEnchantment],
+        ),
+        (
+            "RAV-SEED-SPARK",
+            vec![
+                Effect::DestroyTargetArtifactOrEnchantment,
+                Effect::CreateToken {
+                    token: TokenSpec::saproling(),
+                    count: 2,
+                },
+            ],
+        ),
+        (
+            "RAV-LEAVE-NO-TRACE",
+            vec![Effect::RadianceDestroyEnchantments],
         ),
         ("RAV-RECOLLECT", vec![Effect::ReturnTargetCardToHand]),
     ];

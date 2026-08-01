@@ -792,6 +792,10 @@ pub enum TargetRequirement {
     ControlledLand,
     /// A battlefield permanent with the Artifact card type.
     Artifact,
+    /// A battlefield permanent with the Enchantment card type. This stays
+    /// separate from Artifact-or-Enchantment so a Radiance spell can preserve
+    /// its narrower printed target boundary at cast and resolution.
+    Enchantment,
     /// A battlefield permanent with either the Artifact or Creature card
     /// type. This keeps targeted destruction from accepting an arbitrary
     /// nonland permanent.
@@ -1258,6 +1262,10 @@ pub enum Effect {
     RadianceAddKeywordUntilEndOfTurn {
         keyword: Keyword,
     },
+    /// Destroy the targeted enchantment and every other current enchantment
+    /// sharing at least one of its colors. The Radiance recipient set is
+    /// selected once during resolution before any destruction mutates zones.
+    RadianceDestroyEnchantments,
     /// Counter one targeted instant or sorcery spell. This is intentionally a
     /// semantic effect rather than a copied card-text string.
     CounterTargetInstantOrSorcerySpell,
@@ -1406,6 +1414,7 @@ impl Effect {
             }
             Self::UntapTargetLand => Some(TargetRequirement::Land),
             Self::DestroyTargetArtifact => Some(TargetRequirement::Artifact),
+            Self::RadianceDestroyEnchantments => Some(TargetRequirement::Enchantment),
             Self::DestroyTargetFlyingCreature => Some(TargetRequirement::FlyingCreature),
             Self::DestroyTargetArtifactOrCreatureNoRegeneration => {
                 Some(TargetRequirement::ArtifactOrCreature)
