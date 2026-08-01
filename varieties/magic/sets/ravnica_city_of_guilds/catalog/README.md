@@ -258,6 +258,15 @@ defender controls a Forest. The focused contract proves the targeted temporary
 effect, the rejected noncreature target before tapping, the absence of a
 `BlockersDeclared` receipt for the illegal block, and the final invariant audit.
 
+Seed Spark and Leave No Trace are also fully represented White instant slices.
+Seed Spark retains the typed artifact-or-enchantment target boundary, destroys
+the target, then creates exactly two typed Saprolings only after the normal
+all-illegal-target check. Leave No Trace uses a narrower typed enchantment
+target and snapshots its Radiance destruction batch before moving the target
+and every other color-sharing enchantment to graveyards. Direct Rust traces
+prove the event ordering, nonmatching-enchantment preservation, atomic
+nonenchantment rejection, and final invariant audit.
+
 The first-range easy-creature wave adds Votary of the Conclave, Drake Familiar,
 Ethereal Usher, and Grozoth. Each supports normal colored-cost creature casting
 and base power/toughness. Every other printed keyword, activated ability,

@@ -53,6 +53,23 @@ front-face, stack, and land work has already been reconciled into dev. The
 branch remains as a source-history reference until the final branch-retention
 decision; its clean worktree can be removed without losing commits.
 
+## White lane (`magic/okr-white`)
+
+- Seed Spark and Leave No Trace are ported on `dev` as red `b3e3f07e` and
+  green `0a98be19`. The current implementation uses existing stack target
+  legality for Seed Spark and adds the expansion-neutral typed-enchantment
+  Radiance destruction substrate needed by Leave No Trace; it does not import
+  the obsolete source engine wholesale.
+- Remaining White source-only definitions are not silently considered merged:
+  Auratouched Mage, Bathe in Light, Blazing Archon, Boros Fury-Shield,
+  Caregiver, Chant of Vitu-Ghazi, Concerted Effort, Conclave's Blessing,
+  Faith's Fetters, Festival of the Guildpact, Flickerform, Gate Hound, Ghosts
+  of the Innocent, Hour of Reckoning, Hunted Lammasu, Light of Sanction,
+  Loxodon Gatekeeper, Oathsworn Giant, Suppression Field, Three Dreams,
+  Twilight Drover, Veteran Armorer, and Wojek Apothecary. Each requires its
+  own current-engine red-to-green port; the legacy branch's positive markers
+  are not evidence that its behavior is live on `dev`.
+
 ## Deletion rule
 
 Before removing a temporary worktree, verify its `git status --short` is

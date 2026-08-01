@@ -642,6 +642,12 @@ Oracle Magic rules coverage.
 - `unblockable_attackers` is declaration provenance only: it is a subset of
   the uniquely declared attackers and no blocker map entry may name one of
   those attackers. A rejected block writes no `BlockersDeclared` receipt.
+- A Radiance enchantment-destruction spell has one live enchantment target at
+  cast and resolution. At resolution it snapshots that target plus every other
+  live enchantment sharing at least one target color before any zone change.
+  An all-illegal target set is countered by rules with no destruction or token
+  instruction; a legal target never broadens the batch to artifacts,
+  creatures, colorless non-target enchantments, or nonsharing enchantments.
 - Landwalk is likewise declaration provenance: every recorded attacker is in
   the unique declared-attacker set and retains a nonempty set of typed basic
   land types. A submitted blocker is rejected exactly when the fixed defender
