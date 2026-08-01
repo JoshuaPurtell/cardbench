@@ -1,7 +1,4 @@
-//! Red coverage probe for Divebomber Griffin's shared Flying rule.
-//!
-//! Its printed activated sacrifice/damage ability remains intentionally
-//! outside this bounded slice.
+//! Public static-keyword contract for fully represented Divebomber Griffin.
 
 use std::collections::BTreeSet;
 
@@ -9,7 +6,7 @@ use cardbench_magic_engine::{CardType, Color, Keyword, ManaCost};
 use cardbench_magic_rav::card_definitions;
 
 #[test]
-fn divebomber_griffin_exposes_its_supported_flying_compatibility_slice() {
+fn divebomber_griffin_exposes_its_supported_flying_slice() {
     let griffin = card_definitions()
         .into_iter()
         .find(|definition| definition.id == "RAV-DIVEBOMBER-GRIFFIN")
@@ -25,9 +22,6 @@ fn divebomber_griffin_exposes_its_supported_flying_compatibility_slice() {
     assert_eq!((griffin.power, griffin.toughness), (Some(3), Some(2)));
     assert_eq!(griffin.keywords, [Keyword::Flying]);
     assert!(griffin.effects.is_empty());
-    assert_eq!(
-        griffin.supported_rules,
-        ["colored-cost-casting", "base-characteristics", "flying"],
-        "the activated sacrifice/damage ability remains intentionally bounded"
-    );
+    assert!(griffin.supported_rules.contains(&"full-rules-fidelity"));
+    assert!(griffin.supported_rules.contains(&"sacrifice-source"));
 }

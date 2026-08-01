@@ -35,7 +35,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 77] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 78] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -75,6 +75,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 77] = [
     "RAV-MOROII",
     "RAV-SELESNYA-EVANGEL",
     "RAV-SANDSOWER",
+    "RAV-DIVEBOMBER-GRIFFIN",
     "RAV-BIRDS-OF-PARADISE",
     "RAV-FIERY-CONCLUSION",
     "RAV-RIBBONS-OF-NIGHT",
@@ -2544,10 +2545,8 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Convoke],
             effects: vec![Effect::ExileTargetPermanent],
         },
-        // Compatibility scope: normal colored-cost creature casting, base
-        // characteristics, and Flying. Its activated sacrifice/damage ability
-        // remains deliberately unsupported, so this is not a full-fidelity
-        // card.
+        // Full printed behavior: Flying plus the sacrifice activation that
+        // damages an attacking or blocking creature on stack resolution.
         CardDefinition {
             id: "RAV-DIVEBOMBER-GRIFFIN",
             name: "Divebomber Griffin",
@@ -2557,7 +2556,15 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Creature]),
             is_basic_land: false,
-            supported_rules: &["colored-cost-casting", "base-characteristics", "flying"],
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "flying",
+                "sacrifice-source",
+                "attacking-or-blocking-creature-target",
+                "damage",
+            ],
             power: Some(3),
             toughness: Some(2),
             keywords: vec![Keyword::Flying],
@@ -2950,6 +2957,25 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 effects: vec![Effect::ModifySourcePtUntilEndOfTurn {
                     power: 1,
                     toughness: -1,
+                }],
+            },
+        },
+        ActivatedAbilityBinding {
+            card_definition: "RAV-DIVEBOMBER-GRIFFIN",
+            ability: ActivatedAbility {
+                id: "sacrifice-deal-three-to-attacker-or-blocker",
+                mana_cost: ManaCost::new(0),
+                tap_cost: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: true,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![
+                    cardbench_magic_engine::TargetRequirement::AttackingOrBlockingCreature,
+                ],
+                effects: vec![Effect::DealDamage {
+                    amount: 3,
+                    target: cardbench_magic_engine::TargetRequirement::AttackingOrBlockingCreature,
                 }],
             },
         },

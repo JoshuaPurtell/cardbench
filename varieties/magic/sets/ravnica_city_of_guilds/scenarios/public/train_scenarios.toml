@@ -5070,7 +5070,7 @@ digest = "fnv1a64:e78637d84b25b302"
 [[scenario]]
 id = "rav_easy_white_creature_chassis_wave_five"
 seed = 0
-description = "Cast full Flying/Vigilance Courier Hawk, full Sandsower, plus bounded Divebomber Griffin and Votary of the Conclave with exact white costs, then verify base P/T; Hawk's combat declarations and Sandsower's triple-tap activation are exercised separately."
+description = "Cast full Flying/Vigilance Courier Hawk, full Sandsower and Divebomber Griffin, plus bounded Votary of the Conclave with exact white costs, then verify base P/T; Hawk's combat declarations and Sandsower's and Griffin's activations are exercised separately."
 
 [[scenario.card]]
 label = "hawk"
@@ -6394,7 +6394,7 @@ digest = "fnv1a64:582e991a894fa999"
 [[scenario]]
 id = "rav_divebomber_griffin_flying_compatibility"
 seed = 47
-description = "Declare Divebomber Griffin as a Flying attacker, then reject a ground creature's block declaration; its activated sacrifice/damage ability remains unsupported."
+description = "Declare fully represented Divebomber Griffin as a Flying attacker, then reject a ground creature's block declaration; its sacrifice/damage activation has a dedicated combat regression."
 
 [[scenario.card]]
 label = "griffin"

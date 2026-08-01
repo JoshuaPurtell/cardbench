@@ -63,7 +63,12 @@ fn divebomber_griffin_sacrifices_to_damage_a_declared_attacker() {
         .expect("controller passes ability");
     game.pass_priority(PlayerId(0)).expect("ability resolves");
     println!("Divebomber Griffin trace: {:?}", game.canonical_event_log());
-    assert_eq!(game.object(attacker).expect("attacker survives").damage, 3);
+    assert_eq!(
+        game.object(attacker)
+            .expect("attacker record survives zone movement")
+            .damage,
+        3
+    );
     assert!(game.event_log.iter().any(|event| matches!(
         event,
         GameEvent::AbilityResolved { source, ability }

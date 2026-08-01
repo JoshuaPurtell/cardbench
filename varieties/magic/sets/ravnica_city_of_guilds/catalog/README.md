@@ -232,12 +232,10 @@ resolution, zone movement, priority, and their retained base P/T values only;
 the separate Benevolent Ancestor compatibility scenario exercises its rejected
 Defender attack declaration.
 
-The first-range easy-creature wave adds Divebomber Griffin, Votary of the
-Conclave, Drake Familiar, Ethereal Usher, and Grozoth. Each supports
-normal colored-cost creature casting, base power/toughness, and (for Divebomber
-Griffin) static Flying. Every
-other printed keyword, activated ability, triggered ability, and hand-zone
-behavior is deliberately unsupported. Three deterministic public scenarios cover their
+The first-range easy-creature wave adds Votary of the Conclave, Drake Familiar,
+Ethereal Usher, and Grozoth. Each supports normal colored-cost creature casting
+and base power/toughness. Every other printed keyword, activated ability,
+triggered ability, and hand-zone behavior is deliberately unsupported. Three deterministic public scenarios cover their
 exact colored-cost payments, stack resolution, zone movement, priority, and
 retained base P/T values only.
 
@@ -246,6 +244,12 @@ three policy-selected, distinct, untapped creatures its controller controls as
 a cost and taps the target creature only when the ability resolves. Its focused
 regression covers the cost receipts, target timing, stack lifecycle, and
 invariant audit.
+
+Divebomber Griffin has likewise graduated: its full slice retains Flying and
+uses the existing sacrifice-as-an-ability-cost boundary to deal damage only to
+an attacking or blocking creature. The focused combat trace checks the source
+graveyard move, target legality, stack passes, damage, terminal receipt, and
+subsequent state-based action.
 
 The following bounded keyword wave adds the static Defender slice for Torpid
 Moloch and the static Flying slices for Belltower Sphinx, Screeching Griffin,

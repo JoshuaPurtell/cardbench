@@ -1,4 +1,4 @@
-//! Bounded public contract for Divebomber Griffin's shared Flying behavior.
+//! Public contract for Divebomber Griffin's Flying and sacrifice-damage slices.
 
 use std::collections::BTreeSet;
 
@@ -8,7 +8,7 @@ use cardbench_magic_engine::{
 use cardbench_magic_rav::{RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, run_all_scenarios};
 
 #[test]
-fn divebomber_griffin_definition_is_explicit_about_the_omitted_activation() {
+fn divebomber_griffin_definition_declares_its_complete_activation_slice() {
     let griffin = card_definitions()
         .into_iter()
         .find(|definition| definition.id == "RAV-DIVEBOMBER-GRIFFIN")
@@ -26,9 +26,17 @@ fn divebomber_griffin_definition_is_explicit_about_the_omitted_activation() {
     assert!(griffin.effects.is_empty());
     assert_eq!(
         griffin.supported_rules,
-        ["colored-cost-casting", "base-characteristics", "flying"]
+        [
+            "full-rules-fidelity",
+            "colored-cost-casting",
+            "base-characteristics",
+            "flying",
+            "sacrifice-source",
+            "attacking-or-blocking-creature-target",
+            "damage",
+        ]
     );
-    assert!(!RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&griffin.id));
+    assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&griffin.id));
 }
 
 #[test]
