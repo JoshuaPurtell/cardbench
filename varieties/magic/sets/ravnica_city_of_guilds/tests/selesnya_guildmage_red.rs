@@ -31,7 +31,10 @@ fn selesnya_guildmage_has_hybrid_cost_centaur_and_anthem_rules() {
             ],
         )
     );
-    assert_eq!(guildmage.colors, BTreeSet::from([Color::Green, Color::White]));
+    assert_eq!(
+        guildmage.colors,
+        BTreeSet::from([Color::Green, Color::White])
+    );
     assert_eq!(guildmage.card_types, BTreeSet::from([CardType::Creature]));
     assert_eq!((guildmage.power, guildmage.toughness), (Some(2), Some(2)));
     assert!(
