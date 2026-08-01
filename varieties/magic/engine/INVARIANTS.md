@@ -110,6 +110,12 @@ Oracle Magic rules coverage.
   cannot make the complete resolution fail. Each skipped instruction emits its own
   `TargetInstructionSkipped { effect_index, target }` diagnostic receipt. A
   resolving counter effect emits the distinct `SpellCountered` receipt.
+- A `DistinctCreature` target slot must name a creature permanent and may not
+  reuse any other distinct-creature occurrence in the same spell. The cast
+  validator and the stack-provenance audit both reject a duplicate before any
+  cost, zone, or event mutation. Once the spell is on the stack each distinct
+  occurrence remains its own resolution slot, so a later illegal target is
+  skipped without collapsing the remaining legal instructions.
 - A targeted-discard instruction owns one player target slot and requests a
   strictly positive count. At resolution it may move only cards still in that
   target's hand, emits `CardDiscarded` before the corresponding graveyard move

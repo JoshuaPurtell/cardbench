@@ -35,7 +35,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 100] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 101] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -64,6 +64,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 100] = [
     "RAV-NIGHTMARE-VOID",
     "RAV-ROLLING-SPOIL",
     "RAV-NETHERBORN-PHALANX",
+    "RAV-HEX",
     "RAV-HELLDOZER",
     "RAV-GREATER-MOSSDOG",
     "RAV-BOROS-SIGNET",
@@ -1099,6 +1100,31 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 [Color::Black, Color::Black],
             ))],
             effects: vec![],
+        },
+        // Full fidelity: Hex's six typed effect occurrences carry six target
+        // slots, which must be distinct when cast but are independently
+        // rechecked as the spell resolves.
+        CardDefinition {
+            id: "RAV-HEX",
+            name: "Hex",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(4, [Color::Black, Color::Black]),
+            colors: colors([Color::Black]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Sorcery]),
+            is_basic_land: false,
+            supported_rules: &["full-rules-fidelity", "six-distinct-creature-destruction"],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![
+                Effect::DestroyDistinctTargetCreature,
+                Effect::DestroyDistinctTargetCreature,
+                Effect::DestroyDistinctTargetCreature,
+                Effect::DestroyDistinctTargetCreature,
+                Effect::DestroyDistinctTargetCreature,
+                Effect::DestroyDistinctTargetCreature,
+            ],
         },
         CardDefinition {
             id: "RAV-RALLY-THE-RIGHTEOUS",
@@ -4923,7 +4949,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 140);
+        assert_eq!(first.len(), 141);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

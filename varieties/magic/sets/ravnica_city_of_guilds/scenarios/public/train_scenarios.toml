@@ -9693,3 +9693,77 @@ priority = 0
 mana = ["0:black:0"]
 event_markers = ["SpellCast", "SpellResolved", "TriggeredAbilityStacked", "LifeLost", "AbilityResolved"]
 digest = "fnv1a64:92a5e742175e8d89"
+
+[[scenario]]
+id = "rav_hex_six_distinct_creatures"
+seed = 141
+description = "Cast Hex with exactly six distinct creature targets and destroy every still-legal target through six independent stack target slots."
+
+[[scenario.card]]
+label = "hex"
+owner = 0
+definition = "RAV-HEX"
+zone = "hand"
+
+[[scenario.card]]
+label = "one"
+owner = 1
+definition = "RAV-WATCHWOLF"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "two"
+owner = 1
+definition = "RAV-WATCHWOLF"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "three"
+owner = 1
+definition = "RAV-WATCHWOLF"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "four"
+owner = 1
+definition = "RAV-WATCHWOLF"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "five"
+owner = 1
+definition = "RAV-WATCHWOLF"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "six"
+owner = 1
+definition = "RAV-WATCHWOLF"
+zone = "battlefield"
+
+[[scenario.mana]]
+player = 0
+color = "black"
+amount = 6
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "hex"
+targets = ["permanent:one", "permanent:two", "permanent:three", "permanent:four", "permanent:five", "permanent:six"]
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["hex:graveyard", "one:graveyard", "two:graveyard", "three:graveyard", "four:graveyard", "five:graveyard", "six:graveyard"]
+stack_size = 0
+priority = 0
+mana = ["0:black:0"]
+event_markers = ["SpellCast", "CardDestroyed", "SpellResolved"]
+digest = "fnv1a64:b64fcece6cc543a6"

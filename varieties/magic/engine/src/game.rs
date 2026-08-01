@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 use std::error::Error;
 use std::fmt::{Display, Formatter};
 
@@ -3455,6 +3455,7 @@ impl Game {
             // player can lose or a permanent can leave the battlefield), but
             // it cannot change its enum kind. Validate only immutable target
             // shape here; dynamic legality remains the resolution rule.
+            let mut distinct_targets = HashSet::new();
             for (target, requirement) in stack_object.targets.iter().zip(
                 definition
                     .effects
@@ -3462,6 +3463,11 @@ impl Game {
                     .filter_map(Effect::target_requirement),
             ) {
                 if !Self::target_shape_matches(*target, requirement) {
+                    return Err(RulesError::IllegalTarget(*target));
+                }
+                if requirement == TargetRequirement::DistinctCreature
+                    && !distinct_targets.insert(*target)
+                {
                     return Err(RulesError::IllegalTarget(*target));
                 }
                 if let Target::Player(player) = target {
@@ -3934,8 +3940,14 @@ impl Game {
                 "the supplied targets do not match the spell's target occurrences",
             ));
         }
+        let mut distinct_targets = HashSet::new();
         for (target, requirement) in targets.iter().zip(requirements) {
             if !self.target_matches_for_controller(controller, *target, requirement) {
+                return Err(RulesError::IllegalTarget(*target));
+            }
+            if requirement == TargetRequirement::DistinctCreature
+                && !distinct_targets.insert(*target)
+            {
                 return Err(RulesError::IllegalTarget(*target));
             }
         }
@@ -4114,6 +4126,7 @@ impl Game {
                 | Effect::DestroyTargetLandAndUntapSourceIfNonbasic
                 | Effect::DestroyTargetArtifact
                 | Effect::DestroyTargetArtifactOrCreatureNoRegeneration
+                | Effect::DestroyDistinctTargetCreature
                 | Effect::TapTargetCreature
                 | Effect::DestroyTargetArtifactOrEnchantment
                 | Effect::ReturnTargetCardToHand
@@ -5561,6 +5574,16 @@ impl Game {
                 }
                 self.destroy_permanent_without_regeneration(source, target)?;
             }
+            Effect::DestroyDistinctTargetCreature => {
+                let target = Self::target_permanent(target)?;
+                if !self.target_matches(
+                    Target::Permanent(target),
+                    TargetRequirement::DistinctCreature,
+                ) {
+                    return Err(RulesError::IllegalTarget(Target::Permanent(target)));
+                }
+                self.destroy_permanent(source, target)?;
+            }
             Effect::TapTargetCreature => {
                 let target = Self::target_permanent(target)?;
                 if !self.target_matches(Target::Permanent(target), TargetRequirement::Creature) {
@@ -5863,6 +5886,7 @@ impl Game {
             (
                 Target::Permanent(card),
                 TargetRequirement::Creature
+                | TargetRequirement::DistinctCreature
                 | TargetRequirement::PlayerOrCreature
                 | TargetRequirement::BlockingCreature
                 | TargetRequirement::AttackingOrBlockingCreature
@@ -5980,6 +6004,7 @@ impl Game {
                 Target::Permanent(_),
                 TargetRequirement::Any
                     | TargetRequirement::Creature
+                    | TargetRequirement::DistinctCreature
                     | TargetRequirement::BlockingCreature
                     | TargetRequirement::AttackingOrBlockingCreature
                     | TargetRequirement::Land

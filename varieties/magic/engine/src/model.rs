@@ -697,6 +697,9 @@ pub enum Keyword {
 pub enum TargetRequirement {
     Any,
     Creature,
+    /// A battlefield creature that must be distinct from every other
+    /// `DistinctCreature` target occurrence in one spell.
+    DistinctCreature,
     /// A battlefield creature currently assigned as a blocker in the active
     /// combat. This preserves the narrower target restriction of sacrifice
     /// damage abilities such as War-Torch Goblin.
@@ -1052,6 +1055,9 @@ pub enum Effect {
     /// Destroy the targeted artifact or creature during resolution without
     /// allowing a regeneration shield to replace the destruction event.
     DestroyTargetArtifactOrCreatureNoRegeneration,
+    /// Destroy one target creature while preserving the distinct-target
+    /// provenance required by a multi-target spell such as Hex.
+    DestroyDistinctTargetCreature,
     /// Tap one targeted creature as this spell or ability resolves. A creature
     /// that is already tapped remains a legal target but creates no duplicate
     /// tap receipt.
@@ -1148,6 +1154,7 @@ impl Effect {
             | Self::ExileTargetCreature
             | Self::TapTargetCreature
             | Self::RegenerateTargetCreature => Some(TargetRequirement::Creature),
+            Self::DestroyDistinctTargetCreature => Some(TargetRequirement::DistinctCreature),
             Self::ExileTargetPermanent => Some(TargetRequirement::AttackingOrBlockingCreature),
             Self::CompleteDamageRedirection => Some(TargetRequirement::PlayerOrCreature),
             Self::LoseLifeTarget { .. }
