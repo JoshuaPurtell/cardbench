@@ -231,6 +231,11 @@ Oracle Magic rules coverage.
   `AdditionalCreatureTappedAsAbilityCost` immediately before its matching
   `AbilityActivated`; the invariant audit rejects orphaned, duplicate,
   wrong-source, or wrong-cardinality receipts.
+- A target-tap effect rechecks its creature target at stack resolution. It may
+  leave an already tapped legal target unchanged, but an untapped-to-tapped
+  transition emits exactly one `PermanentTapped` receipt before the stack item
+  receives its terminal resolution receipt; ability-cost taps never use that
+  effect receipt.
 - Trigger bindings declare their condition, optional mana cost, target
   requirements, and effects as one checked shape. Every attack trigger stacks
   before any optional mana cost is evaluated, so its controller receives the

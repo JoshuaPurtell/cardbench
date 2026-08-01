@@ -1,7 +1,8 @@
 //! Public contract for the first collector-range creature batch.
 //!
 //! The generic chassis entries expose only normal casting and base
-//! characteristics. Drift of Phantasms separately records its bounded
+//! characteristics. Sandsower now has a separate full-fidelity activation
+//! contract, while Drift of Phantasms records its bounded
 //! Defender/immediate-Transmute compatibility slice.
 
 use std::collections::BTreeSet;
@@ -14,14 +15,6 @@ use cardbench_magic_rav::{card_definitions, run_all_scenarios};
 fn first_range_creature_chassis_is_exactly_bounded_to_public_base_facts() {
     let definitions = card_definitions();
     let expected = [
-        (
-            "RAV-SANDSOWER",
-            "Sandsower",
-            ManaCost::with_colors(3, [Color::White]),
-            BTreeSet::from([Color::White]),
-            1,
-            3,
-        ),
         (
             "RAV-VOTARY-OF-THE-CONCLAVE",
             "Votary of the Conclave",

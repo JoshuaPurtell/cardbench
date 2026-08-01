@@ -232,14 +232,20 @@ resolution, zone movement, priority, and their retained base P/T values only;
 the separate Benevolent Ancestor compatibility scenario exercises its rejected
 Defender attack declaration.
 
-The first-range easy-creature wave adds Divebomber Griffin, Sandsower, Votary
-of the Conclave, Drake Familiar, Ethereal Usher, and Grozoth. Each supports
+The first-range easy-creature wave adds Divebomber Griffin, Votary of the
+Conclave, Drake Familiar, Ethereal Usher, and Grozoth. Each supports
 normal colored-cost creature casting, base power/toughness, and (for Divebomber
 Griffin) static Flying. Every
 other printed keyword, activated ability, triggered ability, and hand-zone
 behavior is deliberately unsupported. Three deterministic public scenarios cover their
 exact colored-cost payments, stack resolution, zone movement, priority, and
 retained base P/T values only.
+
+Sandsower has since graduated from that bounded wave: its full activation uses
+three policy-selected, distinct, untapped creatures its controller controls as
+a cost and taps the target creature only when the ability resolves. Its focused
+regression covers the cost receipts, target timing, stack lifecycle, and
+invariant audit.
 
 The following bounded keyword wave adds the static Defender slice for Torpid
 Moloch and the static Flying slices for Belltower Sphinx, Screeching Griffin,

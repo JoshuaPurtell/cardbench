@@ -930,6 +930,10 @@ pub enum Effect {
     /// Destroy the targeted artifact during resolution, sending it through
     /// the normal zone-change and continuous-effect lifecycle.
     DestroyTargetArtifact,
+    /// Tap one targeted creature as this spell or ability resolves. A creature
+    /// that is already tapped remains a legal target but creates no duplicate
+    /// tap receipt.
+    TapTargetCreature,
     /// Apply one temporary layer-7 power/toughness modifier to every creature
     /// the resolving spell's controller currently controls. The recipient set
     /// is snapshotted while the spell resolves before any state-based action
@@ -1019,6 +1023,7 @@ impl Effect {
             }
             Self::DestroyTargetLand => Some(TargetRequirement::Land),
             Self::DestroyTargetArtifact => Some(TargetRequirement::Artifact),
+            Self::TapTargetCreature => Some(TargetRequirement::Creature),
             Self::DestroyTargetArtifactOrEnchantment => {
                 Some(TargetRequirement::ArtifactOrEnchantment)
             }
@@ -1677,6 +1682,12 @@ pub enum GameEvent {
         player: PlayerId,
         source: ObjectId,
         permanent: ObjectId,
+    },
+    /// A resolving spell or ability changed a target creature from untapped
+    /// to tapped. Unlike an ability-cost receipt, this is a stack effect.
+    PermanentTapped {
+        source: ObjectId,
+        card: ObjectId,
     },
     SacrificedAsAbilityCost {
         player: PlayerId,

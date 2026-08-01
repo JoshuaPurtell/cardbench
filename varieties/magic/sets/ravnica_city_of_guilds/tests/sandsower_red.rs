@@ -97,6 +97,11 @@ fn sandsower_taps_three_distinct_creatures_then_taps_its_target_on_resolution() 
         .expect("opponent passes Sandsower ability");
     println!("Sandsower trace: {:?}", game.canonical_event_log());
     assert!(game.object(target).expect("target remains").tapped);
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::PermanentTapped { source, card }
+            if *source == sandsower && *card == target
+    )));
     assert_eq!(
         game.event_log
             .iter()

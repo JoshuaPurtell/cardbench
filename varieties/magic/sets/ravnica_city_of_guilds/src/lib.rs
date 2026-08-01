@@ -35,7 +35,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 76] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 77] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -74,6 +74,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 76] = [
     "RAV-SKYKNIGHT-LEGIONNAIRE",
     "RAV-MOROII",
     "RAV-SELESNYA-EVANGEL",
+    "RAV-SANDSOWER",
     "RAV-BIRDS-OF-PARADISE",
     "RAV-FIERY-CONCLUSION",
     "RAV-RIBBONS-OF-NIGHT",
@@ -2562,17 +2563,29 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Flying],
             effects: vec![],
         },
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed activated behavior is deliberately
-        // omitted from this compatibility slice.
-        bounded_creature_chassis(
-            "RAV-SANDSOWER",
-            "Sandsower",
-            ManaCost::with_colors(3, [Color::White]),
-            colors([Color::White]),
-            1,
-            3,
-        ),
+        // Full printed behavior: three selected controlled creature taps pay
+        // its activation cost and the targeted creature taps on resolution.
+        CardDefinition {
+            id: "RAV-SANDSOWER",
+            name: "Sandsower",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(3, [Color::White]),
+            colors: colors([Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "tap-three-untapped-controlled-creatures",
+                "tap-target-creature",
+            ],
+            power: Some(1),
+            toughness: Some(3),
+            keywords: vec![],
+            effects: vec![],
+        },
         // Compatibility scope: normal colored-cost creature casting and base
         // characteristics only. Its printed combat keyword is deliberately
         // omitted from this compatibility slice.
@@ -2858,6 +2871,20 @@ pub fn rav_mana_ability_bindings() -> Vec<ManaAbilityBinding> {
 #[allow(clippy::too_many_lines)]
 pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
     vec![
+        ActivatedAbilityBinding {
+            card_definition: "RAV-SANDSOWER",
+            ability: ActivatedAbility {
+                id: "tap-target-creature",
+                mana_cost: ManaCost::new(0),
+                tap_cost: false,
+                additional_tap_creatures: 3,
+                sacrifice_source: false,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![cardbench_magic_engine::TargetRequirement::Creature],
+                effects: vec![Effect::TapTargetCreature],
+            },
+        },
         ActivatedAbilityBinding {
             card_definition: "RAV-SELESNYA-EVANGEL",
             ability: ActivatedAbility {

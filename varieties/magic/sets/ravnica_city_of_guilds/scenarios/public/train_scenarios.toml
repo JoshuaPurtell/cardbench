@@ -5070,7 +5070,7 @@ digest = "fnv1a64:e78637d84b25b302"
 [[scenario]]
 id = "rav_easy_white_creature_chassis_wave_five"
 seed = 0
-description = "Cast full Flying/Vigilance Courier Hawk plus bounded Divebomber Griffin, Sandsower, and Votary of the Conclave with exact white costs, then verify base P/T; Hawk's combat declarations are exercised separately."
+description = "Cast full Flying/Vigilance Courier Hawk, full Sandsower, plus bounded Divebomber Griffin and Votary of the Conclave with exact white costs, then verify base P/T; Hawk's combat declarations and Sandsower's triple-tap activation are exercised separately."
 
 [[scenario.card]]
 label = "hawk"

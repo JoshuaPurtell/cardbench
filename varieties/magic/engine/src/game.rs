@@ -3790,6 +3790,7 @@ impl Game {
                 | Effect::AddKeywordToControllerCreaturesUntilEndOfTurn { .. }
                 | Effect::DestroyTargetLand
                 | Effect::DestroyTargetArtifact
+                | Effect::TapTargetCreature
                 | Effect::DestroyTargetArtifactOrEnchantment
                 | Effect::ReturnTargetCardToHand
                 | Effect::ShuffleGraveyardsIntoLibraries
@@ -4960,6 +4961,23 @@ impl Game {
                     card: artifact,
                 });
                 self.move_to_graveyard_or_remove_token(artifact)?;
+            }
+            Effect::TapTargetCreature => {
+                let target = Self::target_permanent(target)?;
+                if !self.target_matches(Target::Permanent(target), TargetRequirement::Creature) {
+                    return Err(RulesError::IllegalTarget(Target::Permanent(target)));
+                }
+                let object = self
+                    .objects
+                    .get_mut(&target)
+                    .ok_or(RulesError::UnknownCard(target))?;
+                if !object.tapped {
+                    object.tapped = true;
+                    self.record_event(GameEvent::PermanentTapped {
+                        source,
+                        card: target,
+                    });
+                }
             }
             Effect::ModifyControllerCreaturesPtUntilEndOfTurn { power, toughness } => {
                 // Snapshot the affected battlefield objects before installing
