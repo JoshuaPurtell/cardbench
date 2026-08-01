@@ -71,7 +71,7 @@ explicitly scoped compatibility slices.
 RAV shown scenarios are fixture-driven from
 `sets/ravnica_city_of_guilds/scenarios/public/train_scenarios.toml`; each declares
 setup, actions, state assertions, event markers, and a fixed digest. The
-current corpus contains 153 scenarios and covers:
+current corpus contains 154 scenarios and covers:
 
 - casting to the stack and both-player priority passes (`Lightning Helix`);
 - colored-cost creature casting and permanent characteristics (`Watchwolf`);
@@ -94,6 +94,8 @@ current corpus contains 153 scenarios and covers:
   boundaries;
 - a stack-backed selected-creature sacrifice cost followed by typed basic-land
   search (`Perilous Forays`), including the same deferred land-entry boundary;
+- a full-fidelity persistent Aura attachment and linked layer-seven modifier
+  (`Moldervine Cloak`), including state-based cleanup when its creature leaves;
 - a one-mana, fully convoked targeted temporary boost (`Gather Courage`),
   including its complete printed behavior;
 - a full-fidelity combat-scoped creature exile with Convoke (`Devouring

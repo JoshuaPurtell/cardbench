@@ -36,7 +36,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 106] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 107] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -143,6 +143,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 106] = [
     "RAV-NULLMAGE-SHEPHERD",
     "RAV-VIGOR-MORTIS",
     "RAV-STONE-SEEDER-HIEROPHANT",
+    "RAV-MOLDERVINE-CLOAK",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -776,6 +777,27 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             toughness: None,
             keywords: vec![],
             effects: vec![],
+        },
+        // Full fidelity: Dredge 2 uses the shared replacement selection, and
+        // the target creature remains attached to this permanent +3/+3 layer
+        // effect until either attachment endpoint leaves the battlefield.
+        CardDefinition {
+            id: "RAV-MOLDERVINE-CLOAK",
+            name: "Moldervine Cloak",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(2, [Color::Green]),
+            colors: colors([Color::Green]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Enchantment]),
+            is_basic_land: false,
+            supported_rules: &["full-rules-fidelity", "aura-attach-and-static-pt", "dredge"],
+            power: None,
+            toughness: None,
+            keywords: vec![Keyword::Dredge(2)],
+            effects: vec![Effect::AttachSourceAndModifyTargetPt {
+                power: 3,
+                toughness: 3,
+            }],
         },
         // Compatibility scope: normal creature casting, base characteristics,
         // and the shared Dredge replacement. Its printed upkeep and end-step
@@ -5512,7 +5534,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 153);
+        assert_eq!(first.len(), 154);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

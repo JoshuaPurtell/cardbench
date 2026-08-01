@@ -10439,3 +10439,49 @@ priority = 0
 mana = ["0:green:0"]
 event_markers = ["SacrificedAsAbilityCost", "AbilityActivated", "LibrarySearchResolved", "LibraryShuffled", "AbilityResolved"]
 digest = "fnv1a64:f40b05e9ec142abf"
+
+[[scenario]]
+id = "rav_moldervine_cloak_persistent_attachment"
+seed = 154
+description = "Resolve Moldervine Cloak onto a creature and retain its source-linked +3/+3 Aura modifier on the battlefield."
+
+[[scenario.card]]
+label = "cloak"
+owner = 0
+definition = "RAV-MOLDERVINE-CLOAK"
+zone = "hand"
+
+[[scenario.card]]
+label = "target"
+owner = 0
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "battlefield"
+
+[[scenario.mana]]
+player = 0
+color = "green"
+amount = 3
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "cloak"
+targets = ["permanent:target"]
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["cloak:battlefield", "target:battlefield"]
+powers = ["target:5"]
+toughnesses = ["target:6"]
+stack_size = 0
+priority = 0
+mana = ["0:green:0"]
+event_markers = ["SpellCast", "CardMoved", "ContinuousEffectCreated", "AuraAttached", "SpellResolved"]
+digest = "fnv1a64:5722a4a187704a98"

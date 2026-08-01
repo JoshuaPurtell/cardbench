@@ -608,8 +608,17 @@ Oracle Magic rules coverage.
   leaves the battlefield emits an explicit expiration lifecycle receipt.
 - Every continuous effect names extant source and target objects, has a unique
   positive monotonic timestamp, and has a valid duration. A permanent-duration effect
-  cannot outlive its battlefield source; an end-of-turn effect belongs to the
-  current turn only.
+  cannot outlive either battlefield endpoint; an end-of-turn effect belongs to
+  the current turn only.
+- An Aura-like modifier is established only while its resolving permanent is
+  entering the battlefield against one legal creature target. The resulting
+  `AuraAttached` receipt immediately follows its matching permanent
+  layer-seven `ContinuousEffectCreated` receipt. A live Aura-like permanent
+  has exactly one live creature attachment and exactly one matching permanent
+  modifier; a non-Aura or token has no attachment target. When the attached
+  creature leaves or becomes illegal, state-based actions move the Aura to its
+  graveyard and normal zone cleanup expires its modifier before another player
+  can act.
 - Static continuous bindings are immutable expansion data, never timestamped
   runtime effects. Each registered binding names one creature definition and
   one supported static change. It applies only while an object with that

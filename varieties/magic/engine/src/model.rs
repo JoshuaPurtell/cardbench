@@ -1037,6 +1037,14 @@ pub enum Effect {
         requirement: LibrarySearchRequirement,
         destination: LibrarySearchDestination,
     },
+    /// Attach this resolving permanent spell to the target creature and apply
+    /// the stated persistent layer-seven modifier while both objects remain
+    /// on the battlefield. This is an attachment operation, not a temporary
+    /// target modifier.
+    AttachSourceAndModifyTargetPt {
+        power: i16,
+        toughness: i16,
+    },
     /// Reveal the resolving controller's top library card, move it to hand,
     /// then make that controller lose life equal to its catalog mana value.
     /// An empty library has no card to reveal and is not a draw-loss path.
@@ -1252,6 +1260,7 @@ impl Effect {
             Self::ModifyTargetPtUntilEndOfTurn { .. }
             | Self::ModifyTargetPtAndKeywordUntilEndOfTurn { .. }
             | Self::ModifyTargetKeywordUntilEndOfTurn { .. }
+            | Self::AttachSourceAndModifyTargetPt { .. }
             | Self::RadianceDealDamageToCreatures { .. }
             | Self::RadianceUntapAndModifyUntilEndOfTurn { .. }
             | Self::RadianceModifyPtUntilEndOfTurn { .. }
@@ -1534,6 +1543,10 @@ pub struct CardObject {
     /// Temporary prevention shield units waiting to absorb damage.
     pub damage_shield: i32,
     pub counters: BTreeMap<&'static str, i16>,
+    /// The permanent this Aura-like object is attached to. This identity is
+    /// explicit so attachment cleanup and its persistent layer effect are
+    /// auditable rather than inferred from a card name or target history.
+    pub attached_to: Option<ObjectId>,
     pub entered_turn: u32,
     pub token: Option<TokenSpec>,
 }
@@ -1985,6 +1998,13 @@ pub enum GameEvent {
         source: ObjectId,
         found: Option<ObjectId>,
         destination: LibrarySearchDestination,
+    },
+    /// A resolving Aura-like permanent established its explicit attachment
+    /// after entering the battlefield and after its persistent layer effect
+    /// was installed.
+    AuraAttached {
+        aura: ObjectId,
+        target: ObjectId,
     },
     OpeningHandDrawn {
         player: PlayerId,

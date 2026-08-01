@@ -7,11 +7,11 @@ use crate::{
     AdditionalSpellCost, AdditionalSpellCostBinding, BasicLandType, BasicLandTypeBinding,
     CardDefinition, CardObject, CardType, CastPaymentManaAbility, Characteristics, Color,
     CombatBlock, ContinuousChange, ContinuousEffect, CreatureSubtype, DeckList, Duration, Effect,
-    GameEvent, Keyword, LandEntryBinding, LibrarySearchDestination, LibrarySearchRequirement,
-    ManaAbilityActivation, ManaAbilityBinding, ManaAbilityOutput, ManaPaymentSelection, ObjectId,
-    PlayerId, PlayerState, PolicyMoveKind, StackEffectResolution, StackObject, StackResolutionPlan,
-    StaticContinuousEffectBinding, Step, Target, TargetRequirement, TokenSpec, TriggerCondition,
-    TriggeredAbilityBinding, Zone,
+    GameEvent, Keyword, LandEntryBinding, Layer, LibrarySearchDestination,
+    LibrarySearchRequirement, ManaAbilityActivation, ManaAbilityBinding, ManaAbilityOutput,
+    ManaPaymentSelection, ObjectId, PlayerId, PlayerState, PolicyMoveKind, StackEffectResolution,
+    StackObject, StackResolutionPlan, StaticContinuousEffectBinding, Step, Target,
+    TargetRequirement, TokenSpec, TriggerCondition, TriggeredAbilityBinding, Zone,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -923,6 +923,7 @@ impl Game {
                 damage: 0,
                 damage_shield: 0,
                 counters: BTreeMap::new(),
+                attached_to: None,
                 entered_turn: self.turn,
                 token: None,
             },
@@ -2175,6 +2176,53 @@ impl Game {
         Ok(())
     }
 
+    /// Completes an Aura-like permanent spell's successful resolution. This
+    /// runs only after the source has entered the battlefield, so the
+    /// permanent continuous-effect invariants apply from its first public
+    /// attachment receipt onward.
+    fn attach_aura_with_modifier(
+        &mut self,
+        aura: ObjectId,
+        target: ObjectId,
+        power: i16,
+        toughness: i16,
+    ) -> Result<(), RulesError> {
+        self.require_zone(aura, Zone::Battlefield)?;
+        if !self.is_aura_like(aura)?
+            || !self.target_matches(Target::Permanent(target), TargetRequirement::Creature)
+        {
+            return Err(RulesError::IllegalTarget(Target::Permanent(target)));
+        }
+        let object = self
+            .objects
+            .get_mut(&aura)
+            .ok_or(RulesError::UnknownCard(aura))?;
+        if object.attached_to.replace(target).is_some() {
+            return Err(RulesError::IllegalAction(
+                "an aura-like permanent was already attached",
+            ));
+        }
+        self.install_continuous_effect(
+            aura,
+            target,
+            ContinuousChange::ModifyPowerToughness { power, toughness },
+            Duration::Permanent,
+        )?;
+        self.record_event(GameEvent::AuraAttached { aura, target });
+        Ok(())
+    }
+
+    fn is_aura_like(&self, card: ObjectId) -> Result<bool, RulesError> {
+        if self.object(card)?.token.is_some() {
+            return Ok(false);
+        }
+        Ok(self
+            .card_definition(card)?
+            .effects
+            .iter()
+            .any(|effect| matches!(effect, Effect::AttachSourceAndModifyTargetPt { .. })))
+    }
+
     pub fn play_land(&mut self, player: PlayerId, card: ObjectId) -> Result<(), RulesError> {
         self.atomic_transition(|game| game.play_land_impl(player, card))
     }
@@ -3092,6 +3140,26 @@ impl Game {
                     changed = true;
                 }
             }
+            for aura in self.all_battlefield_cards() {
+                if !self.is_aura_like(aura)? {
+                    continue;
+                }
+                let attached_to = self.object(aura)?.attached_to;
+                let attached_to_live_creature = attached_to.is_some_and(|target| {
+                    self.zone_of(target) == Some(Zone::Battlefield)
+                        && self.characteristics(target).is_ok_and(|characteristics| {
+                            characteristics.card_types.contains(&CardType::Creature)
+                        })
+                });
+                if !attached_to_live_creature {
+                    self.record_event(GameEvent::StateBasedAction {
+                        card: aura,
+                        reason: "Aura is not attached to a battlefield creature",
+                    });
+                    self.move_to_graveyard_or_remove_token(aura)?;
+                    changed = true;
+                }
+            }
             for card in self.all_battlefield_cards() {
                 let characteristics = self.characteristics(card)?;
                 if !characteristics.card_types.contains(&CardType::Creature) {
@@ -3212,6 +3280,7 @@ impl Game {
         }
         Self::validate_mana_ability_event_order(&self.event_log)?;
         Self::validate_library_search_event_order(&self.event_log)?;
+        Self::validate_aura_attachment_event_order(&self.event_log)?;
         Self::validate_spell_mana_payment_event_order(&self.event_log)?;
         self.validate_additional_spell_cost_event_order()?;
         self.validate_stack_terminal_event_order()?;
@@ -3849,12 +3918,85 @@ impl Game {
                         "end-of-turn effect has invalid duration or target zone",
                     ));
                 }
-                Duration::Permanent if self.zone_of(effect.source) != Some(Zone::Battlefield) => {
+                Duration::Permanent
+                    if self.zone_of(effect.source) != Some(Zone::Battlefield)
+                        || self.zone_of(effect.target) != Some(Zone::Battlefield) =>
+                {
                     return Err(RulesError::IllegalAction(
-                        "permanent continuous effect outlived its battlefield source",
+                        "permanent continuous effect outlived a battlefield endpoint",
                     ));
                 }
                 Duration::Permanent => {}
+            }
+        }
+        for aura in self.all_battlefield_cards() {
+            let object = self.object(aura)?;
+            if object.token.is_some() {
+                if object.attached_to.is_some() {
+                    return Err(RulesError::IllegalAction(
+                        "a token permanent retains an attachment target",
+                    ));
+                }
+                continue;
+            }
+            let aura_modifiers = self
+                .card_definition(aura)?
+                .effects
+                .iter()
+                .filter_map(|effect| match effect {
+                    Effect::AttachSourceAndModifyTargetPt { power, toughness } => {
+                        Some((*power, *toughness))
+                    }
+                    _ => None,
+                })
+                .collect::<Vec<_>>();
+            if aura_modifiers.is_empty() {
+                if object.attached_to.is_some() {
+                    return Err(RulesError::IllegalAction(
+                        "a non-aura permanent retains an attachment target",
+                    ));
+                }
+                continue;
+            }
+            if aura_modifiers.len() != 1 {
+                return Err(RulesError::IllegalAction(
+                    "an aura-like definition has multiple attachment modifiers",
+                ));
+            }
+            let target = object.attached_to.ok_or(RulesError::IllegalAction(
+                "a battlefield aura-like permanent has no attachment target",
+            ))?;
+            if self.zone_of(target) != Some(Zone::Battlefield)
+                || !self
+                    .characteristics(target)?
+                    .card_types
+                    .contains(&CardType::Creature)
+            {
+                return Err(RulesError::IllegalAction(
+                    "a battlefield aura-like permanent has an illegal attachment target",
+                ));
+            }
+            let (power, toughness) = aura_modifiers[0];
+            let matching_effects = self
+                .continuous_effects
+                .iter()
+                .filter(|effect| {
+                    effect.source == aura
+                        && effect.target == target
+                        && effect.duration == Duration::Permanent
+                        && matches!(
+                            effect.change,
+                            ContinuousChange::ModifyPowerToughness {
+                                power: effect_power,
+                                toughness: effect_toughness,
+                            } if effect_power == power && effect_toughness == toughness
+                        )
+                })
+                .count();
+            if matching_effects != 1 {
+                return Err(RulesError::IllegalAction(
+                    "aura attachment does not have exactly one matching permanent layer effect",
+                ));
             }
         }
         for redirect in &self.damage_redirections {
@@ -4385,6 +4527,7 @@ impl Game {
                 | Effect::DrawTargetPlayer
                 | Effect::PreventLibrarySearchUntilEndOfTurn
                 | Effect::SearchControllerLibrary { .. }
+                | Effect::AttachSourceAndModifyTargetPt { .. }
                 | Effect::RevealTopCardPutIntoHandLoseLifeEqualToManaValue
                 | Effect::GainLifeControllerFromSourceDamage
                 | Effect::DealDamageToEachPlayerFromReceivedDamage
@@ -4525,6 +4668,7 @@ impl Game {
                 Err(error) => return Err(RulesError::Mana(error)),
             }
         }
+        let mut pending_aura_attachment = None;
         for (effect_index, (effect, target_resolution)) in stack_object
             .effects
             .iter()
@@ -4555,13 +4699,28 @@ impl Game {
                                 "target-resolution plan named an untargeted effect",
                             ))?;
                     if self.target_matches(target, requirement) {
-                        self.resolve_effect(
-                            stack_object.card,
-                            stack_object.controller,
-                            stack_object.mana_spent.as_deref(),
-                            effect,
-                            Some(target),
-                        )?;
+                        if let Effect::AttachSourceAndModifyTargetPt { power, toughness } = effect {
+                            if pending_aura_attachment
+                                .replace((
+                                    Self::target_permanent(Some(target))?,
+                                    *power,
+                                    *toughness,
+                                ))
+                                .is_some()
+                            {
+                                return Err(RulesError::IllegalAction(
+                                    "a permanent spell has multiple attachment effects",
+                                ));
+                            }
+                        } else {
+                            self.resolve_effect(
+                                stack_object.card,
+                                stack_object.controller,
+                                stack_object.mana_spent.as_deref(),
+                                effect,
+                                Some(target),
+                            )?;
+                        }
                     } else {
                         self.record_event(GameEvent::TargetInstructionSkipped {
                             card: stack_object.card,
@@ -4589,6 +4748,11 @@ impl Game {
         // leave a half-built replacement effect behind for a later action.
         self.pending_damage_redirection = None;
         if let Some(ability) = stack_object.ability_id {
+            if pending_aura_attachment.is_some() {
+                return Err(RulesError::IllegalAction(
+                    "an activated ability cannot establish an aura attachment",
+                ));
+            }
             self.record_event(GameEvent::AbilityResolved {
                 source: stack_object.card,
                 ability,
@@ -4620,6 +4784,13 @@ impl Game {
         let entering_controller = self.object(stack_object.card)?.controller;
         if permanent_resolution {
             self.move_to_zone(stack_object.card, Zone::Battlefield)?;
+            if let Some((target, power, toughness)) = pending_aura_attachment {
+                self.attach_aura_with_modifier(stack_object.card, target, power, toughness)?;
+            }
+        } else if pending_aura_attachment.is_some() {
+            return Err(RulesError::IllegalAction(
+                "an aura attachment effect requires a permanent spell",
+            ));
         } else {
             self.move_to_spell_terminal_zone(stack_object.card)?;
         }
@@ -5689,6 +5860,11 @@ impl Game {
                     requirement,
                     *destination,
                 )?;
+            }
+            Effect::AttachSourceAndModifyTargetPt { .. } => {
+                return Err(RulesError::IllegalAction(
+                    "aura attachment bypassed permanent-spell resolution",
+                ));
             }
             Effect::RevealTopCardPutIntoHandLoseLifeEqualToManaValue => {
                 let Some(card) = self.players[controller.0].library.last().copied() else {
@@ -7026,6 +7202,7 @@ impl Game {
                 damage: 0,
                 damage_shield: 0,
                 counters: BTreeMap::new(),
+                attached_to: None,
                 entered_turn: self.turn,
                 token: Some(token),
             },
@@ -7079,6 +7256,10 @@ impl Game {
                 .ok_or(RulesError::UnknownCard(card))?
                 .counters
                 .clear();
+            self.objects
+                .get_mut(&card)
+                .ok_or(RulesError::UnknownCard(card))?
+                .attached_to = None;
         }
         let destination_owner = if zone == Zone::Battlefield {
             object.controller
@@ -7093,6 +7274,7 @@ impl Game {
             battlefield_object.tapped = false;
             battlefield_object.damage = 0;
             battlefield_object.damage_shield = 0;
+            battlefield_object.attached_to = None;
             battlefield_object.entered_turn = self.turn;
         }
         self.place_in_zone(destination_owner, card, zone)?;
@@ -7303,6 +7485,11 @@ impl Game {
 
     fn validate_cast_effects_for_ability(effects: &[Effect]) -> Result<(), RulesError> {
         for effect in effects {
+            if matches!(effect, Effect::AttachSourceAndModifyTargetPt { .. }) {
+                return Err(RulesError::IllegalAction(
+                    "aura attachment effects are valid only on permanent spells",
+                ));
+            }
             let amount = match effect {
                 Effect::DealDamage { amount, .. }
                 | Effect::LoseLifeTarget { amount }
@@ -7500,6 +7687,33 @@ impl Game {
             ) {
                 return Err(RulesError::IllegalAction(
                     "library-search receipt lacks its immediate controller shuffle",
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// An Aura attachment receipt is the public boundary between establishing
+    /// its permanent layer effect and exposing that attachment to later state
+    /// based actions. It must immediately follow the matching layer-seven
+    /// receipt so event replay cannot describe an unattached modifier.
+    fn validate_aura_attachment_event_order(events: &[GameEvent]) -> Result<(), RulesError> {
+        for (index, event) in events.iter().enumerate() {
+            let GameEvent::AuraAttached { aura, target } = event else {
+                continue;
+            };
+            if !matches!(
+                events.get(index.checked_sub(1).ok_or(RulesError::IllegalAction(
+                    "aura attachment receipt lacks its continuous-effect receipt",
+                ))?),
+                Some(GameEvent::ContinuousEffectCreated {
+                    source,
+                    target: effect_target,
+                    layer: Layer::PowerToughness,
+                }) if source == aura && effect_target == target
+            ) {
+                return Err(RulesError::IllegalAction(
+                    "aura attachment receipt is not paired with its layer-seven effect",
                 ));
             }
         }
