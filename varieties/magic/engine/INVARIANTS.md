@@ -52,10 +52,12 @@ Oracle Magic rules coverage.
   definition. Definition-bound attack and damage triggers therefore dispatch
   only for non-token sources; a token's legal declaration and damage batch must
   not fail while attempting a definition lookup.
-- Object IDs never alias or regress. Object turn metadata cannot be from a
-  future turn, marked damage cannot be negative, and a card outside the
-  battlefield retains its owner's controller in the current no-control-change
-  rules slice.
+- Object IDs never alias or regress. Every card object has a positive,
+  monotonic incarnation that advances on each zone transition; a physical
+  card retaining its public `ObjectId` after leaving and re-entering is a new
+  rules object. Object turn metadata cannot be from a future turn, marked
+  damage cannot be negative, and a card outside the battlefield retains its
+  owner's controller in the current no-control-change rules slice.
 - A regeneration shield is private, source-identified replacement state for a
   current battlefield creature. Shield creation records
   `RegenerationShieldCreated { source, target }`; the next modeled destroy or
@@ -145,10 +147,13 @@ Oracle Magic rules coverage.
   continuous-effect receipt or hidden modifier.
 - Stack controller, effects, and target-slot count must match the represented
   card definition. Every executable occurrence of a target requirement owns
-  one ordered stack slot; the same object may occupy multiple slots when the
-  source has multiple independent target occurrences. Tokens and lands cannot
-  occupy the stack. A target may later become illegal, but it cannot be
-  absent, fabricated, or change enum kind after cast time. `Target::Spell`
+  one ordered stack slot; each slot also retains the target's captured object
+  incarnation (`None` only for player targets), so a target that leaves and
+  re-enters is illegal for the original stack object. The same object may
+  occupy multiple slots when the source has multiple independent target
+  occurrences. Tokens and lands cannot occupy the stack. A target may later
+  become illegal, but it cannot be absent, fabricated, or change enum kind
+  after cast time. `Target::Spell`
   additionally retains and validates the immutable instant-or-sorcery card
   definition even after CR 800.4a removes that object from the live game.
   The invariant validates that immutable target shape separately from dynamic
