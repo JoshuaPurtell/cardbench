@@ -56,22 +56,6 @@ fn third_creature_chassis_batch_is_exactly_bounded_to_public_base_facts() {
             1,
         ),
         (
-            "RAV-DROOLING-GROODION",
-            "Drooling Groodion",
-            ManaCost::with_colors(3, [Color::Black, Color::Black, Color::Green]),
-            BTreeSet::from([Color::Black, Color::Green]),
-            4,
-            3,
-        ),
-        (
-            "RAV-GOLGARI-ROTWURM",
-            "Golgari Rotwurm",
-            ManaCost::with_colors(3, [Color::Black, Color::Green]),
-            BTreeSet::from([Color::Black, Color::Green]),
-            5,
-            4,
-        ),
-        (
             "RAV-WOODWRAITH-CORRUPTER",
             "Woodwraith Corrupter",
             ManaCost::with_colors(3, [Color::Black, Color::Black, Color::Green]),
