@@ -1768,6 +1768,10 @@ pub enum ContinuousChange {
     /// A battlefield-only static layer-six effect that grants one keyword to
     /// every other creature controlled by the source's controller.
     OtherControlledCreaturesAddKeyword(Keyword),
+    /// A battlefield-only static layer-six effect that grants one keyword to
+    /// every creature controlled by the source's controller, but only while
+    /// at least one live Aura is attached to the source.
+    ControlledCreaturesAddKeywordIfSourceEnchanted(Keyword),
 }
 
 impl ContinuousChange {
@@ -1780,7 +1784,8 @@ impl ContinuousChange {
             | Self::RemoveKeyword(_)
             | Self::CannotBlockSource(_)
             | Self::AddDamageShield(_)
-            | Self::OtherControlledCreaturesAddKeyword(_) => Layer::Ability,
+            | Self::OtherControlledCreaturesAddKeyword(_)
+            | Self::ControlledCreaturesAddKeywordIfSourceEnchanted(_) => Layer::Ability,
             Self::ModifyPowerToughness { .. }
             | Self::ControlledCreatureCountPowerToughness
             | Self::OtherControlledCreaturesModifyPowerToughness { .. } => Layer::PowerToughness,

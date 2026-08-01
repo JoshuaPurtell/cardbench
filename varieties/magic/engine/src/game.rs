@@ -946,6 +946,7 @@ impl Game {
                     ContinuousChange::ControlledCreatureCountPowerToughness
                         | ContinuousChange::OtherControlledCreaturesModifyPowerToughness { .. }
                         | ContinuousChange::OtherControlledCreaturesAddKeyword(_)
+                        | ContinuousChange::ControlledCreaturesAddKeywordIfSourceEnchanted(_)
                 )
             {
                 return Err(RulesError::IllegalAction(
@@ -2201,7 +2202,8 @@ impl Game {
                 }
                 ContinuousChange::ControlledCreatureCountPowerToughness
                 | ContinuousChange::OtherControlledCreaturesModifyPowerToughness { .. }
-                | ContinuousChange::OtherControlledCreaturesAddKeyword(_) => {
+                | ContinuousChange::OtherControlledCreaturesAddKeyword(_)
+                | ContinuousChange::ControlledCreaturesAddKeywordIfSourceEnchanted(_) => {
                     return Err(RulesError::IllegalAction(
                         "a static continuous change cannot be a timestamped effect",
                     ));
@@ -2272,10 +2274,31 @@ impl Game {
                 }
                 Ok(())
             }
+            ContinuousChange::ControlledCreaturesAddKeywordIfSourceEnchanted(keyword) => {
+                if self.object(source)?.controller != self.object(card)?.controller
+                    || !characteristics.card_types.contains(&CardType::Creature)
+                    || !self.source_has_live_aura_attachment(source)?
+                {
+                    return Ok(());
+                }
+                if !characteristics.keywords.contains(keyword) {
+                    characteristics.keywords.push(keyword.clone());
+                }
+                Ok(())
+            }
             _ => Err(RulesError::IllegalAction(
                 "unsupported static continuous change",
             )),
         }
+    }
+
+    fn source_has_live_aura_attachment(&self, source: ObjectId) -> Result<bool, RulesError> {
+        for aura in self.all_battlefield_cards() {
+            if self.is_aura_like(aura)? && self.object(aura)?.attached_to == Some(source) {
+                return Ok(true);
+            }
+        }
+        Ok(false)
     }
 
     fn controlled_creature_count(&self, controller: PlayerId) -> usize {
@@ -2338,6 +2361,7 @@ impl Game {
             ContinuousChange::ControlledCreatureCountPowerToughness
                 | ContinuousChange::OtherControlledCreaturesModifyPowerToughness { .. }
                 | ContinuousChange::OtherControlledCreaturesAddKeyword(_)
+                | ContinuousChange::ControlledCreaturesAddKeywordIfSourceEnchanted(_)
         ) {
             return Err(RulesError::IllegalAction(
                 "a static continuous change cannot be installed dynamically",
@@ -4567,6 +4591,7 @@ impl Game {
                         ContinuousChange::ControlledCreatureCountPowerToughness
                             | ContinuousChange::OtherControlledCreaturesModifyPowerToughness { .. }
                             | ContinuousChange::OtherControlledCreaturesAddKeyword(_)
+                            | ContinuousChange::ControlledCreaturesAddKeywordIfSourceEnchanted(_)
                     )
                 })
             {
@@ -4612,6 +4637,7 @@ impl Game {
                 ContinuousChange::ControlledCreatureCountPowerToughness
                     | ContinuousChange::OtherControlledCreaturesModifyPowerToughness { .. }
                     | ContinuousChange::OtherControlledCreaturesAddKeyword(_)
+                    | ContinuousChange::ControlledCreaturesAddKeywordIfSourceEnchanted(_)
             ) {
                 return Err(RulesError::IllegalAction(
                     "a static continuous change appeared in the timestamped effect list",

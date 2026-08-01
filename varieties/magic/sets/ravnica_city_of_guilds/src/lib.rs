@@ -37,7 +37,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 122] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 123] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -160,6 +160,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 122] = [
     "RAV-HOUR-OF-RECKONING",
     "RAV-OATHSWORN-GIANT",
     "RAV-VETERAN-ARMORER",
+    "RAV-GATE-HOUND",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -1904,6 +1905,28 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             ],
             power: Some(2),
             toughness: Some(2),
+            keywords: vec![],
+            effects: vec![],
+        },
+        // Full fidelity: while any live Aura is attached to this source, the
+        // source and every other creature under its controller gain Vigilance.
+        CardDefinition {
+            id: "RAV-GATE-HOUND",
+            name: "Gate Hound",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(2, [Color::White]),
+            colors: colors([Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "static-controller-vigilance-while-enchanted",
+            ],
+            power: Some(1),
+            toughness: Some(1),
             keywords: vec![],
             effects: vec![],
         },
@@ -4974,6 +4997,12 @@ pub fn rav_static_continuous_effect_bindings() -> Vec<StaticContinuousEffectBind
                 power: 0,
                 toughness: 1,
             },
+        },
+        StaticContinuousEffectBinding {
+            card_definition: "RAV-GATE-HOUND",
+            change: cardbench_magic_engine::ContinuousChange::ControlledCreaturesAddKeywordIfSourceEnchanted(
+                Keyword::Vigilance,
+            ),
         },
     ]
 }

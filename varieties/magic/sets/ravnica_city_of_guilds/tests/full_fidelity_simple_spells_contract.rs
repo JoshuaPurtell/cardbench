@@ -135,6 +135,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-HOUR-OF-RECKONING",
             "RAV-OATHSWORN-GIANT",
             "RAV-VETERAN-ARMORER",
+            "RAV-GATE-HOUND",
         ]
     );
     let definitions = card_definitions();
