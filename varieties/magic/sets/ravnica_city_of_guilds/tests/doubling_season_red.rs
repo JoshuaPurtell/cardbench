@@ -101,6 +101,7 @@ fn token_count(game: &Game, player: PlayerId) -> usize {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // The token and counter replacement traces share one source-lifecycle contract.
 fn doubling_season_doubles_controlled_token_and_counter_events_once_per_source() {
     let mut game = game_with_replacements();
     let first_season = game
