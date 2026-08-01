@@ -885,6 +885,7 @@ pub enum CreatureSubtype {
     Centaur,
     Faerie,
     Goblin,
+    Horror,
     Knight,
     Saproling,
     Spirit,
@@ -915,6 +916,19 @@ impl TokenSpec {
             keywords: vec![],
             power: 1,
             toughness: 1,
+        }
+    }
+
+    #[must_use]
+    pub fn horror() -> Self {
+        Self {
+            name: "Horror",
+            colors: BTreeSet::from([Color::Black]),
+            card_types: BTreeSet::from([CardType::Creature]),
+            creature_subtypes: BTreeSet::from([CreatureSubtype::Horror]),
+            keywords: vec![],
+            power: 4,
+            toughness: 4,
         }
     }
 

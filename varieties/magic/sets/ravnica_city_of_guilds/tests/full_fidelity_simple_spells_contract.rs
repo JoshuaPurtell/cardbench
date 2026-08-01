@@ -131,6 +131,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-IVY-DANCER",
             "RAV-SEED-SPARK",
             "RAV-LEAVE-NO-TRACE",
+            "RAV-HUNTED-LAMMASU",
         ]
     );
     let definitions = card_definitions();

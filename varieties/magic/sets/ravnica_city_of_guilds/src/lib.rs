@@ -37,7 +37,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 118] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 119] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -156,6 +156,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 118] = [
     "RAV-IVY-DANCER",
     "RAV-SEED-SPARK",
     "RAV-LEAVE-NO-TRACE",
+    "RAV-HUNTED-LAMMASU",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -531,6 +532,30 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             power: Some(8),
             toughness: Some(4),
             keywords: vec![],
+            effects: vec![],
+        },
+        // Full fidelity: Flying is a static characteristic, then the normal
+        // targeted-opponent ETB trigger creates exactly one typed black 4/4
+        // Horror through its own stack and priority window.
+        CardDefinition {
+            id: "RAV-HUNTED-LAMMASU",
+            name: "Hunted Lammasu",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(2, [Color::White, Color::White]),
+            colors: colors([Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "flying",
+                "etb-targeted-opponent-horror-token",
+            ],
+            power: Some(5),
+            toughness: Some(5),
+            keywords: vec![Keyword::Flying],
             effects: vec![],
         },
         // Full fidelity: target a controller-owned instant or sorcery in the
@@ -5031,6 +5056,20 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                 effects: vec![Effect::CreateTokenForTargetPlayer {
                     token: TokenSpec::knight(),
                     count: 3,
+                }],
+            },
+        },
+        TriggeredAbilityBinding {
+            card_definition: "RAV-HUNTED-LAMMASU",
+            ability: TriggeredAbility {
+                id: "etb-opponent-horror",
+                condition: TriggerCondition::EntersBattlefield,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![cardbench_magic_engine::TargetRequirement::Player],
+                effects: vec![Effect::CreateTokenForTargetPlayer {
+                    token: TokenSpec::horror(),
+                    count: 1,
                 }],
             },
         },
