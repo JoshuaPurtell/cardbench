@@ -9000,3 +9000,121 @@ mana = ["0:colorless:0", "0:green:0", "0:white:0"]
 mana_receipts = ["0:colorless:1"]
 event_markers = ["BoundManaAbilityActivated", "ManaAdded", "AbilityManaPaid", "AbilityActivated", "TokenCreated", "AbilityResolved"]
 digest = "fnv1a64:93ebe393f54e966f"
+
+[[scenario]]
+id = "rav_putrefy_bypasses_regeneration"
+seed = 132
+description = "Create a regeneration shield on an artifact creature, then resolve Putrefy's destruction that explicitly bypasses the shield."
+
+[[scenario.card]]
+label = "votary"
+owner = 0
+definition = "RAV-VOTARY-OF-THE-CONCLAVE"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "target"
+owner = 1
+definition = "RAV-GLASS-GOLEM"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "forest1"
+owner = 0
+definition = "RAV-FOREST"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "forest2"
+owner = 0
+definition = "RAV-FOREST"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "swamp"
+owner = 0
+definition = "RAV-SWAMP"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "putrefy"
+owner = 0
+definition = "RAV-PUTREFY"
+zone = "hand"
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "forest1"
+color = "green"
+
+[[scenario.action]]
+kind = "activate_ability"
+player = 0
+card = "votary"
+ability = "regenerate-target-creature"
+target = "permanent:target"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "forest2"
+color = "green"
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "swamp"
+color = "black"
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "putrefy"
+target = "permanent:target"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["votary:battlefield", "target:graveyard", "forest1:battlefield", "forest2:battlefield", "swamp:battlefield", "putrefy:graveyard"]
+tapped = ["votary:false", "forest1:true", "forest2:true", "swamp:true"]
+stack_size = 0
+priority = 0
+mana = ["0:green:0", "0:black:0"]
+event_markers = ["RegenerationShieldCreated", "SpellCast", "CardDestroyed", "AbilityResolved", "SpellResolved"]
+event_absent = ["RegenerationShieldUsed"]
+digest = "fnv1a64:0c8cde22044bac97"

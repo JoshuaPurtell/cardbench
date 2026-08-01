@@ -14,6 +14,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-CHAR",
             "RAV-LIGHTNING-HELIX",
             "RAV-SEARING-MEDITATION",
+            "RAV-PUTREFY",
             "RAV-SCATTER-THE-SEEDS",
             "RAV-GUARDIAN-OF-VITU-GHAZI",
             "RAV-LAST-GASP",
@@ -194,6 +195,10 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
         (
             "RAV-SMASH",
             vec![Effect::DestroyTargetArtifact, Effect::DrawController],
+        ),
+        (
+            "RAV-PUTREFY",
+            vec![Effect::DestroyTargetArtifactOrCreatureNoRegeneration],
         ),
         (
             "RAV-SUNDERING-VITAE",

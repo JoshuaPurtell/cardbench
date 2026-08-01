@@ -35,10 +35,11 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 91] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 92] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
+    "RAV-PUTREFY",
     "RAV-SCATTER-THE-SEEDS",
     "RAV-GUARDIAN-OF-VITU-GHAZI",
     "RAV-LAST-GASP",
@@ -523,6 +524,27 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             toughness: None,
             keywords: vec![],
             effects: vec![Effect::DestroyTargetArtifact, Effect::DrawController],
+        },
+        // Full fidelity: target legality is artifact-or-creature at cast and
+        // resolution, while this destruction instruction deliberately
+        // bypasses any live regeneration replacement shield.
+        CardDefinition {
+            id: "RAV-PUTREFY",
+            name: "Putrefy",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(0, [Color::Black, Color::Green]),
+            colors: colors([Color::Black, Color::Green]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Instant]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "artifact-or-creature-destruction-no-regeneration",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![Effect::DestroyTargetArtifactOrCreatureNoRegeneration],
         },
         CardDefinition {
             id: "RAV-GOLGARI-BROWNSCALE",
@@ -4574,7 +4596,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 131);
+        assert_eq!(first.len(), 132);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

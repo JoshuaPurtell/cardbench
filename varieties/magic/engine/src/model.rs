@@ -704,6 +704,10 @@ pub enum TargetRequirement {
     Land,
     /// A battlefield permanent with the Artifact card type.
     Artifact,
+    /// A battlefield permanent with either the Artifact or Creature card
+    /// type. This keeps targeted destruction from accepting an arbitrary
+    /// nonland permanent.
+    ArtifactOrCreature,
     /// A battlefield permanent with either the Artifact or Enchantment card
     /// type. This keeps the Sundering Vitae target boundary explicit rather
     /// than treating every noncreature permanent as a legal target.
@@ -1010,6 +1014,9 @@ pub enum Effect {
     /// Destroy the targeted artifact during resolution, sending it through
     /// the normal zone-change and continuous-effect lifecycle.
     DestroyTargetArtifact,
+    /// Destroy the targeted artifact or creature during resolution without
+    /// allowing a regeneration shield to replace the destruction event.
+    DestroyTargetArtifactOrCreatureNoRegeneration,
     /// Tap one targeted creature as this spell or ability resolves. A creature
     /// that is already tapped remains a legal target but creates no duplicate
     /// tap receipt.
@@ -1108,6 +1115,9 @@ impl Effect {
             }
             Self::DestroyTargetLand => Some(TargetRequirement::Land),
             Self::DestroyTargetArtifact => Some(TargetRequirement::Artifact),
+            Self::DestroyTargetArtifactOrCreatureNoRegeneration => {
+                Some(TargetRequirement::ArtifactOrCreature)
+            }
             Self::DestroyTargetArtifactOrEnchantment => {
                 Some(TargetRequirement::ArtifactOrEnchantment)
             }

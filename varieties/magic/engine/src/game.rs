@@ -3898,6 +3898,7 @@ impl Game {
                 | Effect::AddKeywordToControllerCreaturesUntilEndOfTurn { .. }
                 | Effect::DestroyTargetLand
                 | Effect::DestroyTargetArtifact
+                | Effect::DestroyTargetArtifactOrCreatureNoRegeneration
                 | Effect::TapTargetCreature
                 | Effect::DestroyTargetArtifactOrEnchantment
                 | Effect::ReturnTargetCardToHand
@@ -5196,6 +5197,16 @@ impl Game {
                 }
                 self.destroy_permanent(source, artifact)?;
             }
+            Effect::DestroyTargetArtifactOrCreatureNoRegeneration => {
+                let target = Self::target_permanent(target)?;
+                if !self.target_matches(
+                    Target::Permanent(target),
+                    TargetRequirement::ArtifactOrCreature,
+                ) {
+                    return Err(RulesError::IllegalTarget(Target::Permanent(target)));
+                }
+                self.destroy_permanent_without_regeneration(source, target)?;
+            }
             Effect::TapTargetCreature => {
                 let target = Self::target_permanent(target)?;
                 if !self.target_matches(Target::Permanent(target), TargetRequirement::Creature) {
@@ -5530,6 +5541,13 @@ impl Game {
                         .card_definition(card)
                         .is_ok_and(|definition| definition.card_types.contains(&CardType::Artifact))
             }
+            (Target::Permanent(card), TargetRequirement::ArtifactOrCreature) => {
+                self.zone_of(card) == Some(Zone::Battlefield)
+                    && self.characteristics(card).is_ok_and(|characteristics| {
+                        characteristics.card_types.contains(&CardType::Artifact)
+                            || characteristics.card_types.contains(&CardType::Creature)
+                    })
+            }
             (Target::Permanent(card), TargetRequirement::ArtifactOrEnchantment) => {
                 self.zone_of(card) == Some(Zone::Battlefield)
                     && self.characteristics(card).is_ok_and(|characteristics| {
@@ -5612,6 +5630,7 @@ impl Game {
                     | TargetRequirement::AttackingOrBlockingCreature
                     | TargetRequirement::Land
                     | TargetRequirement::Artifact
+                    | TargetRequirement::ArtifactOrCreature
                     | TargetRequirement::ArtifactOrEnchantment
                     | TargetRequirement::OwnGraveyardCard
                     | TargetRequirement::InstantOrSorceryCardInControllerGraveyard
@@ -5997,12 +6016,33 @@ impl Game {
     /// Applies a destroy instruction, allowing one live regeneration shield
     /// to replace it before a `CardDestroyed` or zone-move receipt is emitted.
     fn destroy_permanent(&mut self, source: ObjectId, card: ObjectId) -> Result<(), RulesError> {
+        self.destroy_permanent_with_regeneration(source, card, true)
+    }
+
+    /// Applies a destroy instruction whose source explicitly forbids a
+    /// regeneration replacement, while preserving ordinary destruction and
+    /// zone-departure receipts.
+    fn destroy_permanent_without_regeneration(
+        &mut self,
+        source: ObjectId,
+        card: ObjectId,
+    ) -> Result<(), RulesError> {
+        self.destroy_permanent_with_regeneration(source, card, false)
+    }
+
+    fn destroy_permanent_with_regeneration(
+        &mut self,
+        source: ObjectId,
+        card: ObjectId,
+        allow_regeneration: bool,
+    ) -> Result<(), RulesError> {
         if self.zone_of(card) != Some(Zone::Battlefield) {
             return Ok(());
         }
-        if self
-            .characteristics(card)
-            .is_ok_and(|characteristics| characteristics.card_types.contains(&CardType::Creature))
+        if allow_regeneration
+            && self.characteristics(card).is_ok_and(|characteristics| {
+                characteristics.card_types.contains(&CardType::Creature)
+            })
             && self.use_regeneration_shield(card)?
         {
             return Ok(());
