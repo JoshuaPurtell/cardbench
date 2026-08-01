@@ -20,6 +20,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-DROOLING-GROODION",
             "RAV-GOLGARI-ROTWURM",
             "RAV-SCATTER-THE-SEEDS",
+            "RAV-DOUBLING-SEASON",
             "RAV-SCION-OF-THE-WILD",
             "RAV-GUARDIAN-OF-VITU-GHAZI",
             "RAV-LAST-GASP",
