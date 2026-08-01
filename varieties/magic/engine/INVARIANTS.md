@@ -284,6 +284,12 @@ Oracle Magic rules coverage.
   `CardDiscarded` receipt is immediately followed by that exact card's
   `CardMoved { to: Graveyard }` receipt; activation discard costs remain
   separately represented by `DiscardedAsAbilityCost`.
+- A resolving controller-creature sacrifice effect chooses a live controlled
+  creature deterministically, preferring a creature other than its source and
+  falling back to the source only when it remains a creature permanent. Its
+  `SacrificedByEffect` receipt is immediately followed by either that card's
+  graveyard move or a token's `TokenCeasedToExist` receipt; no legal absence of
+  a creature may roll back an otherwise valid trigger resolution.
 - Every public, intrinsic, or definition-bound mana producer preflights this
   bounded pool before it changes a source, pass state, pool, or event log. A
   capacity rejection is atomic and cannot emit a `ManaAdded` receipt for mana
@@ -406,6 +412,11 @@ Oracle Magic rules coverage.
   blocker declaration and never prevents that creature from attacking. A
   temporary effect must not substitute the broader keyword for a block-only
   restriction.
+- A controller-wide Saproling blocker restriction is checked both against a
+  submitted blocker and while determining whether a must-block attacker has a
+  legal unassigned blocker. It is active only while that controller retains a
+  battlefield source with the restriction keyword; a non-Saproling creature
+  is never rejected by this rule.
 - The next seated defending player is fixed when attackers are declared; only
   that player declares blockers. Each blocker is a unique untapped creature
   they control; every assigned attacker was declared; and each attacker may

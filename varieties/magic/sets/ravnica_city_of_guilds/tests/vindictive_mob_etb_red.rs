@@ -23,8 +23,7 @@ fn game_with_rav_bindings() -> Game {
 fn advance_to_main(game: &mut Game) {
     for _ in 0..2 {
         game.pass_priority(PlayerId(0)).expect("active passes");
-        game.pass_priority(PlayerId(1))
-            .expect("opponent passes");
+        game.pass_priority(PlayerId(1)).expect("opponent passes");
     }
 }
 
@@ -64,7 +63,10 @@ fn vindictive_mob_etb_stacks_a_controlled_creature_sacrifice() {
     game.pass_priority(PlayerId(1))
         .expect("opponent passes spell");
 
-    println!("Vindictive Mob red trace: {:#?}", game.canonical_event_log());
+    println!(
+        "Vindictive Mob red trace: {:#?}",
+        game.canonical_event_log()
+    );
     assert_eq!(game.stack.len(), 1, "ETB sacrifice trigger is stacked");
     assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&"RAV-VINDICTIVE-MOB"));
     assert_eq!(game.zone_of(sacrifice), Some(Zone::Battlefield));

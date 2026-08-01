@@ -6,10 +6,10 @@ use crate::{
     AbilityActivation, ActivatedAbility, ActivatedAbilityBinding, ActivatedManaAbility,
     AdditionalSpellCost, AdditionalSpellCostBinding, BasicLandType, BasicLandTypeBinding,
     CardDefinition, CardObject, CardType, CastPaymentManaAbility, Characteristics, Color,
-    CombatBlock, ContinuousChange, ContinuousEffect, DeckList, Duration, Effect, GameEvent,
-    Keyword, ManaAbilityActivation, ManaAbilityBinding, ManaAbilityOutput, ManaPaymentSelection,
-    ObjectId, PlayerId, PlayerState, PolicyMoveKind, StackEffectResolution, StackObject,
-    StackResolutionPlan, Step, Target, TargetRequirement, TokenSpec, TriggerCondition,
+    CombatBlock, ContinuousChange, ContinuousEffect, CreatureSubtype, DeckList, Duration, Effect,
+    GameEvent, Keyword, ManaAbilityActivation, ManaAbilityBinding, ManaAbilityOutput,
+    ManaPaymentSelection, ObjectId, PlayerId, PlayerState, PolicyMoveKind, StackEffectResolution,
+    StackObject, StackResolutionPlan, Step, Target, TargetRequirement, TokenSpec, TriggerCondition,
     TriggeredAbilityBinding, Zone,
 };
 
@@ -1505,6 +1505,16 @@ impl Game {
         })
     }
 
+    fn controller_saprolings_cannot_block(&self, player: PlayerId) -> bool {
+        self.players[player.0].battlefield.iter().any(|source| {
+            self.characteristics(*source).is_ok_and(|characteristics| {
+                characteristics
+                    .keywords
+                    .contains(&Keyword::SaprolingsCannotBlock)
+            })
+        })
+    }
+
     fn target_cannot_block_attacker(&self, blocker: ObjectId, attacker: ObjectId) -> bool {
         self.continuous_effects.iter().any(|effect| {
             effect.target == blocker
@@ -2059,6 +2069,10 @@ impl Game {
                     .keywords
                     .contains(&Keyword::CannotBlockUnlessControlsMountain)
                     && !self.player_controls_basic_land_type(player, BasicLandType::Mountain))
+                || (self.controller_saprolings_cannot_block(player)
+                    && characteristics
+                        .creature_subtypes
+                        .contains(&CreatureSubtype::Saproling))
             {
                 return Err(RulesError::IllegalAction("illegal blocker"));
             }
@@ -2133,6 +2147,10 @@ impl Game {
                         .keywords
                         .contains(&Keyword::CannotBlockUnlessControlsMountain)
                         && !self.player_controls_basic_land_type(player, BasicLandType::Mountain))
+                    || (self.controller_saprolings_cannot_block(player)
+                        && characteristics
+                            .creature_subtypes
+                            .contains(&CreatureSubtype::Saproling))
                 {
                     return false;
                 }
@@ -2793,6 +2811,7 @@ impl Game {
         self.validate_ability_event_order()?;
         self.validate_ability_discard_cost_event_order()?;
         Self::validate_effect_discard_event_order(&self.event_log)?;
+        Self::validate_effect_sacrifice_event_order(&self.event_log)?;
         self.validate_ability_additional_tap_cost_event_order()?;
         if self.started && !self.is_game_over() && !self.step.grants_priority() {
             return Err(RulesError::IllegalAction(
@@ -3849,6 +3868,7 @@ impl Game {
                 Effect::CreateToken { .. }
                 | Effect::CreateTokenForTargetPlayer { .. }
                 | Effect::DiscardOneCardEachPlayer
+                | Effect::SacrificeControllerCreature
                 | Effect::CompleteDamageRedirection
                 | Effect::DrawControllerIfManaColorSpent { .. }
                 | Effect::DrawController
@@ -4781,6 +4801,39 @@ impl Game {
                         self.record_event(GameEvent::CardDiscarded { player, card });
                         self.move_to_zone(card, Zone::Graveyard)?;
                     }
+                }
+            }
+            Effect::SacrificeControllerCreature => {
+                let candidate = self
+                    .all_battlefield_cards()
+                    .into_iter()
+                    .filter(|candidate| *candidate != source)
+                    .find(|candidate| {
+                        self.object(*candidate)
+                            .is_ok_and(|object| object.controller == controller)
+                            && self
+                                .characteristics(*candidate)
+                                .is_ok_and(|characteristics| {
+                                    characteristics.card_types.contains(&CardType::Creature)
+                                })
+                    })
+                    .or_else(|| {
+                        (self.zone_of(source) == Some(Zone::Battlefield)
+                            && self
+                                .object(source)
+                                .is_ok_and(|object| object.controller == controller)
+                            && self.characteristics(source).is_ok_and(|characteristics| {
+                                characteristics.card_types.contains(&CardType::Creature)
+                            }))
+                        .then_some(source)
+                    });
+                if let Some(permanent) = candidate {
+                    self.record_event(GameEvent::SacrificedByEffect {
+                        source,
+                        player: controller,
+                        permanent,
+                    });
+                    self.move_to_graveyard_or_remove_token(permanent)?;
                 }
             }
             Effect::DealDamageEqualToAttackingCreatures { .. } => {
@@ -6785,6 +6838,34 @@ impl Game {
             ) {
                 return Err(RulesError::IllegalAction(
                     "effect discard receipt lacks an immediate graveyard move",
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// A sacrifice performed by a resolving effect must transition its chosen
+    /// permanent immediately, either to a graveyard or out of existence for a
+    /// token. It may not leave an orphaned sacrifice receipt in a replay.
+    fn validate_effect_sacrifice_event_order(events: &[GameEvent]) -> Result<(), RulesError> {
+        for (index, event) in events.iter().enumerate() {
+            let GameEvent::SacrificedByEffect { permanent, .. } = event else {
+                continue;
+            };
+            let transitions_to_graveyard = matches!(
+                events.get(index + 1),
+                Some(GameEvent::CardMoved {
+                    card: moved_card,
+                    to: Zone::Graveyard,
+                }) if moved_card == permanent
+            );
+            let token_ceases = matches!(
+                events.get(index + 1),
+                Some(GameEvent::TokenCeasedToExist { token }) if token == permanent
+            );
+            if !transitions_to_graveyard && !token_ceases {
+                return Err(RulesError::IllegalAction(
+                    "effect sacrifice receipt lacks its immediate zone transition",
                 ));
             }
         }

@@ -97,6 +97,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-GRAVE-SHELL-SCARAB",
             "RAV-UNDERCITY-SHADE",
             "RAV-SADISTIC-AUGERMAGE",
+            "RAV-VINDICTIVE-MOB",
         ]
     );
     let definitions = card_definitions();

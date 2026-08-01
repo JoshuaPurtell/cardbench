@@ -35,7 +35,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 86] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 87] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -122,6 +122,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 86] = [
     "RAV-GRAVE-SHELL-SCARAB",
     "RAV-UNDERCITY-SHADE",
     "RAV-SADISTIC-AUGERMAGE",
+    "RAV-VINDICTIVE-MOB",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -2257,17 +2258,30 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::BlackEvasion],
             effects: vec![],
         },
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed entry sacrifice and Saproling
-        // blocking restriction are deliberately omitted from this slice.
-        bounded_creature_chassis(
-            "RAV-VINDICTIVE-MOB",
-            "Vindictive Mob",
-            ManaCost::with_colors(4, [Color::Black, Color::Black]),
-            colors([Color::Black]),
-            5,
-            5,
-        ),
+        // Full fidelity for the deterministic exercised path: its mandatory
+        // entry trigger sacrifices one controller-owned creature through the
+        // shared stack and zone-transition substrate.
+        CardDefinition {
+            id: "RAV-VINDICTIVE-MOB",
+            name: "Vindictive Mob",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(4, [Color::Black, Color::Black]),
+            colors: colors([Color::Black]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "enter-battlefield-sacrifice-creature",
+                "saproling-block-restriction",
+            ],
+            power: Some(5),
+            toughness: Some(5),
+            keywords: vec![Keyword::SaprolingsCannotBlock],
+            effects: vec![],
+        },
         // Full fidelity: the `{R}, sacrifice` land-destruction activation is
         // represented by the shared typed target and zone-change substrate.
         CardDefinition {
@@ -3528,6 +3542,17 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                 optional: false,
                 targets: vec![],
                 effects: vec![Effect::DiscardOneCardEachPlayer],
+            },
+        },
+        TriggeredAbilityBinding {
+            card_definition: "RAV-VINDICTIVE-MOB",
+            ability: TriggeredAbility {
+                id: "etb-sacrifice-controller-creature",
+                condition: TriggerCondition::EntersBattlefield,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![Effect::SacrificeControllerCreature],
             },
         },
     ]

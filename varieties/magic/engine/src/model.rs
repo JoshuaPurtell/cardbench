@@ -638,6 +638,10 @@ pub enum Keyword {
     CannotBlock,
     /// This creature can block only while its controller controls a Mountain.
     CannotBlockUnlessControlsMountain,
+    /// A controller-wide static restriction: Saproling creatures that player
+    /// controls cannot be declared as blockers while this source remains on
+    /// the battlefield.
+    SaprolingsCannotBlock,
     /// This creature can't be blocked while the defending player controls the
     /// named basic land type.
     Mountainwalk,
@@ -837,6 +841,10 @@ pub enum Effect {
     /// policy boundary takes the oldest hand entry for each player; all zone
     /// moves are explicit event-log receipts.
     DiscardOneCardEachPlayer,
+    /// Sacrifice one creature controlled by the resolving source's controller.
+    /// The deterministic selection prefers another controlled creature, then
+    /// the source itself when it remains a legal creature permanent.
+    SacrificeControllerCreature,
     /// Deal damage to one target equal to the number of creatures controlled
     /// by this spell's controller that are still attacking as it resolves.
     ///
@@ -1076,6 +1084,7 @@ impl Effect {
             Self::DealDamageController { .. }
             | Self::LoseLifeController { .. }
             | Self::DiscardOneCardEachPlayer
+            | Self::SacrificeControllerCreature
             | Self::DealDamageAfterOptionalManaPayment { .. }
             | Self::DealDamageToEachCreatureAndPlayer { .. }
             | Self::DealDamageToEachPlayer { .. }
@@ -1608,6 +1617,13 @@ pub enum GameEvent {
     CardDiscarded {
         player: PlayerId,
         card: ObjectId,
+    },
+    /// A resolving effect sacrificed a controller-owned creature before its
+    /// ordinary zone-change lifecycle completed.
+    SacrificedByEffect {
+        source: ObjectId,
+        player: PlayerId,
+        permanent: ObjectId,
     },
     CardDestroyed {
         source: ObjectId,
