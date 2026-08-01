@@ -1,7 +1,7 @@
 //! Red discovery regression for Shambling Shell's source-sacrifice counter.
 
 use cardbench_magic_engine::{
-    AbilityActivation, Game, GameEvent, PlayerId, Target, TargetRequirement, Zone,
+    AbilityActivation, Effect, Game, GameEvent, PlayerId, Target, TargetRequirement, Zone,
 };
 use cardbench_magic_rav::{
     card_definitions, rav_activated_ability_bindings, rav_additional_spell_cost_bindings,
@@ -32,7 +32,7 @@ fn shambling_shell_requires_source_sacrifice_target_counter_activation() {
         .expect("Shambling Shell counter binding exists");
     assert!(binding.ability.sacrifice_source);
     assert_eq!(binding.ability.targets, [TargetRequirement::Creature]);
-    assert_eq!(binding.ability.effects.len(), 1);
+    assert_eq!(binding.ability.effects, [Effect::AddPlusOneCounterToTarget]);
 
     let mut game = game_with_rav_bindings();
     let shell = game
@@ -47,7 +47,7 @@ fn shambling_shell_requires_source_sacrifice_target_counter_activation() {
         AbilityActivation {
             source: shell,
             ability_id: "shambling-shell-sacrifice-counter",
-            sacrifice_sources: vec![],
+            sacrifice_sources: vec![shell],
             additional_tap_creatures: vec![],
             discard_cards: vec![],
             targets: vec![Target::Permanent(target)],
@@ -94,7 +94,7 @@ fn shambling_shell_rejects_noncreature_target_before_sacrificing_source() {
         AbilityActivation {
             source: shell,
             ability_id: "shambling-shell-sacrifice-counter",
-            sacrifice_sources: vec![],
+            sacrifice_sources: vec![shell],
             additional_tap_creatures: vec![],
             discard_cards: vec![],
             targets: vec![Target::Permanent(land)],

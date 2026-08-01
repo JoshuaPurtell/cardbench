@@ -4659,6 +4659,7 @@ impl Game {
                 | Effect::DestroyTargetLandAndUntapSourceIfNonbasic
                 | Effect::DestroyTargetArtifact
                 | Effect::DestroyTargetFlyingCreature
+                | Effect::AddPlusOneCounterToTarget
                 | Effect::DestroyTargetArtifactOrCreatureNoRegeneration
                 | Effect::DestroyDistinctTargetCreature
                 | Effect::DestroyTargetCreatureWithManaValueAtMostChosenX
@@ -5900,6 +5901,13 @@ impl Game {
                 {
                     self.place_counter(source, source, "+1/+1", 1)?;
                 }
+            }
+            Effect::AddPlusOneCounterToTarget => {
+                let target = Self::target_permanent(target)?;
+                if !self.target_matches(Target::Permanent(target), TargetRequirement::Creature) {
+                    return Err(RulesError::IllegalTarget(Target::Permanent(target)));
+                }
+                self.place_counter(source, target, "+1/+1", 1)?;
             }
             Effect::DealDamageToEachCreatureAndPlayer { amount } => {
                 // Snapshot the complete affected set before mutating the

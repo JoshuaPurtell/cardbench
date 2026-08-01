@@ -1010,6 +1010,10 @@ pub enum Effect {
     /// that source is still a creature permanent as this instruction resolves.
     /// A departed source is an ordinary no-op, not a failed trigger resolution.
     AddPlusOneCounterToSource,
+    /// Place one persistent +1/+1 counter on a targeted creature. The source
+    /// remains provenance only and may have left the battlefield as an
+    /// activation cost before this instruction resolves.
+    AddPlusOneCounterToTarget,
     /// Deal one fixed amount of damage to every creature currently on the
     /// battlefield and every player still in the game. This selection is made
     /// once while the spell resolves; state-based actions run only after the
@@ -1312,7 +1316,8 @@ impl Effect {
             | Self::PreventTargetBlockingSourceUntilEndOfTurn
             | Self::ExileTargetCreature
             | Self::TapTargetCreature
-            | Self::RegenerateTargetCreature => Some(TargetRequirement::Creature),
+            | Self::RegenerateTargetCreature
+            | Self::AddPlusOneCounterToTarget => Some(TargetRequirement::Creature),
             Self::DestroyTargetCreatureWithManaValueAtMostChosenX => {
                 Some(TargetRequirement::Creature)
             }

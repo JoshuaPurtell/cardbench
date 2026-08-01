@@ -122,6 +122,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-URSAPINE",
             "RAV-TRANSLUMINANT",
             "RAV-ELVISH-SKYSWEEPER",
+            "RAV-SHAMBLING-SHELL",
         ]
     );
     let definitions = card_definitions();

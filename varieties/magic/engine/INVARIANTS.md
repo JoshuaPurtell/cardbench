@@ -156,7 +156,11 @@ Oracle Magic rules coverage.
   toughness after the supported timestamped layer-seven effects. Every
   `CounterPlaced` receipt names that supported counter and a positive amount;
   normal departure from the battlefield clears the counter map, so a later
-  re-entry cannot retain a modifier from the previous object instance.
+  re-entry cannot retain a modifier from the previous object instance. A
+  targeted-counter instruction validates its creature target before any
+  activated-ability cost is paid and rechecks that target at resolution; its
+  source identity remains receipt provenance even when that source was
+  sacrificed into its graveyard as the activation cost.
 - A `DistinctCreature` target slot must name a creature permanent and may not
   reuse any other distinct-creature occurrence in the same spell. The cast
   validator and the stack-provenance audit both reject a duplicate before any

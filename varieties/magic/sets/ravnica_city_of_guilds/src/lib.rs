@@ -36,7 +36,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 111] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 112] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -148,6 +148,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 111] = [
     "RAV-URSAPINE",
     "RAV-TRANSLUMINANT",
     "RAV-ELVISH-SKYSWEEPER",
+    "RAV-SHAMBLING-SHELL",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -943,9 +944,9 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Dredge(1)],
             effects: vec![],
         },
-        // Compatibility scope: normal creature casting, base characteristics,
-        // and the shared Dredge replacement. Its printed sacrifice activation
-        // is intentionally unsupported.
+        // Full fidelity: the shared Dredge replacement and source-sacrifice
+        // activation place the represented permanent +1/+1 counter on one
+        // creature target through the ordinary stack lifecycle.
         CardDefinition {
             id: "RAV-SHAMBLING-SHELL",
             name: "Shambling Shell",
@@ -955,7 +956,12 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Creature]),
             is_basic_land: false,
-            supported_rules: &["dredge", "base-characteristics"],
+            supported_rules: &[
+                "full-rules-fidelity",
+                "dredge",
+                "base-characteristics",
+                "sacrifice-source-target-counter",
+            ],
             power: Some(3),
             toughness: Some(1),
             keywords: vec![Keyword::Dredge(3)],
@@ -4038,6 +4044,22 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 discard_cards: 0,
                 targets: vec![cardbench_magic_engine::TargetRequirement::FlyingCreature],
                 effects: vec![Effect::DestroyTargetFlyingCreature],
+            },
+        },
+        ActivatedAbilityBinding {
+            card_definition: "RAV-SHAMBLING-SHELL",
+            ability: ActivatedAbility {
+                id: "shambling-shell-sacrifice-counter",
+                mana_cost: ManaCost::new(0),
+                tap_cost: false,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: true,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![cardbench_magic_engine::TargetRequirement::Creature],
+                effects: vec![Effect::AddPlusOneCounterToTarget],
             },
         },
         ActivatedAbilityBinding {
