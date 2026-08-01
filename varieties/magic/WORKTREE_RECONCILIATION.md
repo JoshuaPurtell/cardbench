@@ -77,12 +77,16 @@ decision; its clean worktree can be removed without losing commits.
   live Aura-like permanent is attached to the Hound, grants Vigilance to the
   Hound and all of its controller's creatures, preserves opponent isolation,
   and is reevaluated on ordinary Aura departure.
+- Blazing Archon is ported on `dev` as red `5f8130ee` and green `ef4de55a`.
+  Its current-engine static attack-restriction binding is checked before
+  attacker-declaration mutation, applies only while the Archon remains under
+  the defending player's control, and is revoked directly by source departure.
 - Remaining White source-only definitions are not silently considered merged:
-  Auratouched Mage, Bathe in Light, Blazing Archon, Boros Fury-Shield,
-  Caregiver, Chant of Vitu-Ghazi, Concerted Effort, Conclave's Blessing,
-  Faith's Fetters, Festival of the Guildpact, Flickerform, Ghosts of the
-  Innocent, Light of Sanction, Loxodon Gatekeeper, Suppression Field, Three
-  Dreams, Twilight Drover, and Wojek Apothecary. Each requires its
+  Auratouched Mage, Bathe in Light, Boros Fury-Shield, Caregiver, Chant of
+  Vitu-Ghazi, Concerted Effort, Conclave's Blessing, Faith's Fetters, Festival
+  of the Guildpact, Flickerform, Ghosts of the Innocent, Light of Sanction,
+  Loxodon Gatekeeper, Suppression Field, Three Dreams, Twilight Drover, and
+  Wojek Apothecary. Each requires its
   own current-engine red-to-green port; the legacy branch's positive markers
   are not evidence that its behavior is live on `dev`.
 

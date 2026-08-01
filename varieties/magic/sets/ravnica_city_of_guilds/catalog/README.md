@@ -296,6 +296,12 @@ attaches Moldervine Cloak, then destroys that Aura with Seed Spark and proves
 the ordinary destruction and zone transition revoke all derived keywords
 without a synthetic static-effect receipt.
 
+Blazing Archon is a complete static-combat-restriction slice. Its immutable
+battlefield binding rejects any nonempty attacker declaration against its
+controller before attacker state or an `AttackersDeclared` receipt can exist.
+The focused contract separately removes the Archon through ordinary state-based
+actions, then proves the same attacker declaration becomes legal immediately.
+
 The first-range easy-creature wave adds Votary of the Conclave, Drake Familiar,
 Ethereal Usher, and Grozoth. Each supports normal colored-cost creature casting
 and base power/toughness. Every other printed keyword, activated ability,

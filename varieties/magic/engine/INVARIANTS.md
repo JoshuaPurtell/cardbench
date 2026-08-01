@@ -738,6 +738,13 @@ Oracle Magic rules coverage.
   its other controlled creatures, never an opponent's creatures. Normal Aura
   departure immediately revokes that derived contribution. A static change
   cannot be inserted into the timestamped continuous-effect list.
+- Static attack-restriction bindings are likewise immutable expansion data and
+  can be registered only before game start. Each names a permanent definition,
+  remains active only while a matching source is on the battlefield under the
+  defending player's control, and is checked before a nonempty attacker
+  declaration mutates any tapped state, combat provenance, or event log. A
+  rejected declaration is therefore atomic; normal source departure revokes
+  the restriction without a synthetic event or stale combat marker.
 - State-based actions run to a fixed point after relevant changes. The current
   slice moves creatures with zero-or-less toughness or lethal marked damage,
   and marks players with zero-or-less life as lost. Each action emits an
