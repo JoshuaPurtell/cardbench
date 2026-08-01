@@ -4069,6 +4069,11 @@ impl Game {
     /// are positive quantities.
     fn validate_cast_effects(definition: &CardDefinition) -> Result<(), RulesError> {
         for effect in &definition.effects {
+            if matches!(effect, Effect::DiscardTargetPlayer { count: 0 }) {
+                return Err(RulesError::IllegalAction(
+                    "targeted discard must request at least one card",
+                ));
+            }
             let amount = match effect {
                 Effect::DealDamage { amount, .. }
                 | Effect::LoseLifeTarget { amount }
@@ -4085,6 +4090,7 @@ impl Game {
                 Effect::CreateToken { .. }
                 | Effect::CreateTokenForTargetPlayer { .. }
                 | Effect::DiscardOneCardEachPlayer
+                | Effect::DiscardTargetPlayer { .. }
                 | Effect::SacrificeControllerCreature
                 | Effect::CompleteDamageRedirection
                 | Effect::DrawControllerIfManaColorSpent { .. }
@@ -5013,6 +5019,34 @@ impl Game {
                     .filter_map(|player| player.hand.first().copied().map(|card| (player.id, card)))
                     .collect::<Vec<_>>();
                 for (player, card) in discards {
+                    if self.zone_of(card) == Some(Zone::Hand)
+                        && self
+                            .object(card)
+                            .is_ok_and(|object| object.controller == player)
+                    {
+                        self.record_event(GameEvent::CardDiscarded { player, card });
+                        self.move_to_zone(card, Zone::Graveyard)?;
+                    }
+                }
+            }
+            Effect::DiscardTargetPlayer { count } => {
+                let player = match target
+                    .ok_or(RulesError::IllegalAction("missing targeted-discard player"))?
+                {
+                    Target::Player(player) if !self.players[player.0].lost => player,
+                    other => return Err(RulesError::IllegalTarget(other)),
+                };
+                // The choice is visible through the receipt sequence. A
+                // policy-declared card-selection action is still absent, so
+                // the deterministic boundary is the target's oldest hand
+                // entries at resolution, never a stale cast-time snapshot.
+                let cards = self.players[player.0]
+                    .hand
+                    .iter()
+                    .copied()
+                    .take(usize::from(*count))
+                    .collect::<Vec<_>>();
+                for card in cards {
                     if self.zone_of(card) == Some(Zone::Hand)
                         && self
                             .object(card)

@@ -35,7 +35,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 97] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 98] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -61,6 +61,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 97] = [
     "RAV-GATHER-COURAGE",
     "RAV-SEEDS-OF-STRENGTH",
     "RAV-DARKBLAST",
+    "RAV-NIGHTMARE-VOID",
     "RAV-HELLDOZER",
     "RAV-GREATER-MOSSDOG",
     "RAV-BOROS-SIGNET",
@@ -1015,6 +1016,29 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 power: -1,
                 toughness: -1,
             }],
+        },
+        // Full fidelity within the current deterministic discard-choice
+        // boundary: player targeting is a stack slot and the selected card is
+        // the target player's oldest hand entry when this spell resolves.
+        CardDefinition {
+            id: "RAV-NIGHTMARE-VOID",
+            name: "Nightmare Void",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(3, [Color::Black]),
+            colors: colors([Color::Black]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Sorcery]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "targeted-discard",
+                "dredge",
+                "deterministic-discard-choice",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![Keyword::Dredge(2)],
+            effects: vec![Effect::DiscardTargetPlayer { count: 1 }],
         },
         CardDefinition {
             id: "RAV-RALLY-THE-RIGHTEOUS",
@@ -4828,7 +4852,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 137);
+        assert_eq!(first.len(), 138);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

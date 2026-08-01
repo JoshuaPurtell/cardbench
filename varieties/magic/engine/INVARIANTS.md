@@ -104,6 +104,12 @@ Oracle Magic rules coverage.
   cannot make the complete resolution fail. Each skipped instruction emits its own
   `TargetInstructionSkipped { effect_index, target }` diagnostic receipt. A
   resolving counter effect emits the distinct `SpellCountered` receipt.
+- A targeted-discard instruction owns one player target slot and requests a
+  strictly positive count. At resolution it may move only cards still in that
+  target's hand, emits `CardDiscarded` before the corresponding graveyard move
+  for each card, and cannot discard from an unrelated player. Until a policy
+  submits hidden-hand choices, the implemented selection is the target
+  player's oldest current hand entry rather than a cast-time snapshot.
 - A stack spell target that remains on the stack must be below its source,
   because only already-existing stack objects can be chosen while casting. A
   formerly legal target may have left the stack by resolution, which remains a

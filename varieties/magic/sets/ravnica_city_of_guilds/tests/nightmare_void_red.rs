@@ -8,7 +8,10 @@ fn nightmare_void_requires_targeted_discard_and_dredge() {
         .find(|definition| definition.id == "RAV-NIGHTMARE-VOID")
         .expect("Nightmare Void definition exists");
 
-    assert_eq!(definition.mana_cost, ManaCost::with_colors(3, [Color::Black]));
+    assert_eq!(
+        definition.mana_cost,
+        ManaCost::with_colors(3, [Color::Black])
+    );
     assert_eq!(definition.colors, [Color::Black].into());
     assert_eq!(definition.card_types, [CardType::Sorcery].into());
     assert!(definition.keywords.contains(&Keyword::Dredge(2)));

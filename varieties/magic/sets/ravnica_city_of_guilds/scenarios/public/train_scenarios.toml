@@ -9519,3 +9519,47 @@ powers = ["scion:2", "watchwolf:3"]
 toughnesses = ["scion:2", "watchwolf:3"]
 event_markers = ["SpellCast", "SpellResolved"]
 digest = "fnv1a64:56667ddbd04addac"
+
+[[scenario]]
+id = "rav_nightmare_void_targeted_discard"
+seed = 138
+description = "Cast Nightmare Void at a player with a visible hand card, then record the target-specific discard and zone transitions through normal stack resolution."
+
+[[scenario.card]]
+label = "void"
+owner = 0
+definition = "RAV-NIGHTMARE-VOID"
+zone = "hand"
+
+[[scenario.card]]
+label = "discarded"
+owner = 1
+definition = "RAV-WATCHWOLF"
+zone = "hand"
+
+[[scenario.mana]]
+player = 0
+color = "black"
+amount = 4
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "void"
+target = "player:1"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["void:graveyard", "discarded:graveyard"]
+stack_size = 0
+priority = 0
+mana = ["0:black:0"]
+event_markers = ["SpellCast", "CardDiscarded", "CardMoved", "SpellResolved"]
+digest = "fnv1a64:84b4d07daaec8d97"

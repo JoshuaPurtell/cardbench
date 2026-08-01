@@ -888,6 +888,13 @@ pub enum Effect {
     /// policy boundary takes the oldest hand entry for each player; all zone
     /// moves are explicit event-log receipts.
     DiscardOneCardEachPlayer,
+    /// Discard up to the requested number of cards from a target player's
+    /// hand. Until a discard-choice policy action exists, the resolver selects
+    /// that player's oldest hand entries deterministically and records every
+    /// discard plus zone movement.
+    DiscardTargetPlayer {
+        count: u8,
+    },
     /// Sacrifice one creature controlled by the resolving source's controller.
     /// The deterministic selection prefers another controlled creature, then
     /// the source itself when it remains a legal creature permanent.
@@ -1126,9 +1133,9 @@ impl Effect {
             | Self::RegenerateTargetCreature => Some(TargetRequirement::Creature),
             Self::ExileTargetPermanent => Some(TargetRequirement::AttackingOrBlockingCreature),
             Self::CompleteDamageRedirection => Some(TargetRequirement::PlayerOrCreature),
-            Self::LoseLifeTarget { .. } | Self::CreateTokenForTargetPlayer { .. } => {
-                Some(TargetRequirement::Player)
-            }
+            Self::LoseLifeTarget { .. }
+            | Self::CreateTokenForTargetPlayer { .. }
+            | Self::DiscardTargetPlayer { .. } => Some(TargetRequirement::Player),
             Self::DestroyTargetLand | Self::DestroyTargetLandAndUntapSourceIfNonbasic => {
                 Some(TargetRequirement::Land)
             }
