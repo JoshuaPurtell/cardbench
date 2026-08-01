@@ -4297,6 +4297,7 @@ impl Game {
                 | Effect::TapTargetCreature
                 | Effect::DestroyTargetArtifactOrEnchantment
                 | Effect::ReturnTargetCardToHand
+                | Effect::ReturnTargetCreatureCardToHandIfAnotherInControllerGraveyard
                 | Effect::ShuffleGraveyardsIntoLibraries
                 | Effect::ReturnControlledCreatureToHand
                 | Effect::ReturnControlledLandToHand
@@ -4530,6 +4531,18 @@ impl Game {
             .cloned()
             .collect::<Vec<_>>();
         for ability in triggers {
+            if ability.effects.iter().any(|effect| {
+                matches!(
+                    effect,
+                    Effect::ReturnTargetCreatureCardToHandIfAnotherInControllerGraveyard
+                )
+            }) && self.controller_creature_cards_in_graveyard(controller) < 2
+            {
+                // This is an intervening condition: no ability is put on the
+                // stack unless the target creature card has another creature
+                // card alongside it in its controller's graveyard.
+                continue;
+            }
             let Some(targets) = self.select_trigger_targets(controller, &ability.targets) else {
                 // A mandatory trigger with no legal target is not stackable;
                 // an optional one simply does not trigger.  Current RAV ETB
@@ -4649,13 +4662,33 @@ impl Game {
                 .find(|target| {
                     self.target_matches_for_controller(controller, *target, *requirement)
                 });
+            let controller_graveyard_card = self.players[controller.0]
+                .graveyard
+                .iter()
+                .copied()
+                .map(Target::Permanent)
+                .find(|target| {
+                    self.target_matches_for_controller(controller, *target, *requirement)
+                });
             let target = opponent_player
                 .or(opponent_permanent)
                 .or(any_permanent)
-                .or(any_player)?;
+                .or(any_player)
+                .or(controller_graveyard_card)?;
             targets.push(target);
         }
         Some(targets)
+    }
+
+    fn controller_creature_cards_in_graveyard(&self, controller: PlayerId) -> usize {
+        self.players[controller.0]
+            .graveyard
+            .iter()
+            .filter(|card| {
+                self.card_definition(**card)
+                    .is_ok_and(|definition| definition.card_types.contains(&CardType::Creature))
+            })
+            .count()
     }
 
     /// Stacks attack triggers after attacker declaration. Optional mana is
@@ -5986,6 +6019,19 @@ impl Game {
                 }
                 self.move_to_zone(target, Zone::Hand)?;
             }
+            Effect::ReturnTargetCreatureCardToHandIfAnotherInControllerGraveyard => {
+                let target = Self::target_permanent(target)?;
+                if !self.target_matches_for_controller(
+                    controller,
+                    Target::Permanent(target),
+                    TargetRequirement::CreatureCardInControllerGraveyard,
+                ) {
+                    return Err(RulesError::IllegalTarget(Target::Permanent(target)));
+                }
+                if self.controller_creature_cards_in_graveyard(controller) >= 2 {
+                    self.move_to_zone(target, Zone::Hand)?;
+                }
+            }
             Effect::ShuffleGraveyardsIntoLibraries => {
                 for player_index in 0..self.players.len() {
                     let player = PlayerId(player_index);
@@ -6164,6 +6210,12 @@ impl Game {
             (Target::Permanent(card), TargetRequirement::OwnGraveyardCard) => {
                 self.zone_of(card) == Some(Zone::Graveyard)
             }
+            (Target::Permanent(card), TargetRequirement::CreatureCardInControllerGraveyard) => {
+                self.zone_of(card) == Some(Zone::Graveyard)
+                    && self
+                        .card_definition(card)
+                        .is_ok_and(|definition| definition.card_types.contains(&CardType::Creature))
+            }
             (
                 Target::Permanent(card),
                 TargetRequirement::InstantOrSorceryCardInControllerGraveyard,
@@ -6201,6 +6253,10 @@ impl Game {
                 (Target::Permanent(card), TargetRequirement::OwnGraveyardCard) => self
                     .object(card)
                     .is_ok_and(|object| object.owner == controller),
+                (Target::Permanent(card), TargetRequirement::CreatureCardInControllerGraveyard) => {
+                    self.object(card)
+                        .is_ok_and(|object| object.owner == controller)
+                }
                 (
                     Target::Permanent(card),
                     TargetRequirement::InstantOrSorceryCardInControllerGraveyard,
@@ -6244,6 +6300,7 @@ impl Game {
                     | TargetRequirement::ArtifactOrCreature
                     | TargetRequirement::ArtifactOrEnchantment
                     | TargetRequirement::OwnGraveyardCard
+                    | TargetRequirement::CreatureCardInControllerGraveyard
                     | TargetRequirement::InstantOrSorceryCardInControllerGraveyard
                     | TargetRequirement::ControlledCreature
                     | TargetRequirement::OpponentCreature

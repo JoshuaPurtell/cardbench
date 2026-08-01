@@ -756,6 +756,10 @@ pub enum TargetRequirement {
     /// qualification stays in `Game` so this target remains reusable by other
     /// expansions.
     OwnGraveyardCard,
+    /// A creature card in the resolving source controller's graveyard. This
+    /// keeps graveyard-recursion effects from accepting an arbitrary spell or
+    /// land card merely because it shares the controller's graveyard.
+    CreatureCardInControllerGraveyard,
     /// An instant or sorcery card in the casting player's graveyard.
     InstantOrSorceryCardInControllerGraveyard,
     /// A battlefield creature controlled by the resolving spell's controller.
@@ -1152,6 +1156,12 @@ pub enum Effect {
     /// to its owner's hand. This is a normal targeted stack effect, not a
     /// land-play replacement, so the newly entered land is itself legal.
     ReturnControlledLandToHand,
+    /// Return a targeted creature card from the resolving source controller's
+    /// graveyard to hand only while at least one other creature card remains
+    /// there. This models an intervening-condition trigger at both trigger
+    /// placement and resolution without treating the target as a hidden-zone
+    /// free choice.
+    ReturnTargetCreatureCardToHandIfAnotherInControllerGraveyard,
     /// Return a target creature controlled by another player to its owner's
     /// hand. This remains distinct so paired targets cannot silently select
     /// two creatures on one side.
@@ -1214,6 +1224,9 @@ impl Effect {
                 Some(TargetRequirement::ArtifactOrEnchantment)
             }
             Self::ReturnTargetCardToHand => Some(TargetRequirement::OwnGraveyardCard),
+            Self::ReturnTargetCreatureCardToHandIfAnotherInControllerGraveyard => {
+                Some(TargetRequirement::CreatureCardInControllerGraveyard)
+            }
             Self::ReturnControlledCreatureToHand => Some(TargetRequirement::ControlledCreature),
             Self::ReturnControlledLandToHand => Some(TargetRequirement::ControlledLand),
             Self::ReturnOpponentCreatureToHand => Some(TargetRequirement::OpponentCreature),

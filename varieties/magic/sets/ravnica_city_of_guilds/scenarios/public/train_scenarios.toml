@@ -9978,3 +9978,61 @@ stack_size = 0
 priority = 0
 event_markers = ["CardMoved", "TriggeredAbilityStacked", "AbilityResolved"]
 digest = "fnv1a64:807296db04919c75"
+
+[[scenario]]
+id = "rav_mausoleum_turnkey_conditional_graveyard_return"
+seed = 146
+description = "Cast Mausoleum Turnkey with two controller-owned creature cards in the graveyard, stack its conditional ETB ability, and return exactly one after priority passes."
+triggers = true
+
+[[scenario.card]]
+label = "turnkey"
+owner = 0
+definition = "RAV-MAUSOLEUM-TURNKEY"
+zone = "hand"
+
+[[scenario.card]]
+label = "target"
+owner = 0
+definition = "RAV-WATCHWOLF"
+zone = "graveyard"
+
+[[scenario.card]]
+label = "other"
+owner = 0
+definition = "RAV-BOROS-RECRUIT"
+zone = "graveyard"
+
+[[scenario.mana]]
+player = 0
+color = "black"
+amount = 4
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "turnkey"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["turnkey:battlefield", "target:hand", "other:graveyard"]
+stack_size = 0
+priority = 0
+mana = ["0:black:0"]
+event_markers = ["SpellResolved", "TriggeredAbilityStacked", "CardMoved", "AbilityResolved"]
+digest = "fnv1a64:d5d31dfe6196de47"

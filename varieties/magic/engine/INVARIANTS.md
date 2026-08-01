@@ -118,6 +118,13 @@ Oracle Magic rules coverage.
   cannot make the complete resolution fail. Each skipped instruction emits its own
   `TargetInstructionSkipped { effect_index, target }` diagnostic receipt. A
   resolving counter effect emits the distinct `SpellCountered` receipt.
+- A `CreatureCardInControllerGraveyard` target names a creature catalog card
+  currently in the resolving controller's graveyard. An ETB ability with an
+  intervening "another creature card" condition is stacked only if that
+  graveyard contains the target plus at least one other creature card, and
+  rechecks the same count while resolving. If only its target remains, the
+  ability resolves without a zone move rather than returning an ineligible
+  card or fabricating a new target.
 - A `DistinctCreature` target slot must name a creature permanent and may not
   reuse any other distinct-creature occurrence in the same spell. The cast
   validator and the stack-provenance audit both reject a duplicate before any

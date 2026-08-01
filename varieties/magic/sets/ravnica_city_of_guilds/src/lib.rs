@@ -1172,6 +1172,30 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
+        // Bounded compatibility scope: the controller-graveyard creature
+        // target and the intervening “another creature card” condition use a
+        // normal ETB stack trigger. The printed optional decision remains
+        // outside the current policy interface.
+        CardDefinition {
+            id: "RAV-MAUSOLEUM-TURNKEY",
+            name: "Mausoleum Turnkey",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(3, [Color::Black]),
+            colors: colors([Color::Black]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "colored-cost-casting",
+                "base-characteristics",
+                "enter-battlefield-conditional-graveyard-return-to-hand",
+                "deterministic-etb-target-selection",
+            ],
+            power: Some(3),
+            toughness: Some(2),
+            keywords: vec![],
+            effects: vec![],
+        },
         CardDefinition {
             id: "RAV-RALLY-THE-RIGHTEOUS",
             name: "Rally the Righteous",
@@ -4155,6 +4179,19 @@ pub fn rav_static_continuous_effect_bindings() -> Vec<StaticContinuousEffectBind
 pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
     vec![
         TriggeredAbilityBinding {
+            card_definition: "RAV-MAUSOLEUM-TURNKEY",
+            ability: TriggeredAbility {
+                id: "conditional-graveyard-return",
+                condition: TriggerCondition::EntersBattlefield,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![
+                    cardbench_magic_engine::TargetRequirement::CreatureCardInControllerGraveyard,
+                ],
+                effects: vec![Effect::ReturnTargetCreatureCardToHandIfAnotherInControllerGraveyard],
+            },
+        },
+        TriggeredAbilityBinding {
             card_definition: "RAV-BOROS-GARRISON",
             ability: guild_bounce_land_trigger(),
         },
@@ -5226,7 +5263,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 145);
+        assert_eq!(first.len(), 146);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }
