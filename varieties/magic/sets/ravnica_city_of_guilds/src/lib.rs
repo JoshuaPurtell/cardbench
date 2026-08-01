@@ -35,7 +35,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 82] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 83] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -118,6 +118,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 82] = [
     "RAV-PEEL-FROM-REALITY",
     "RAV-SINS-OF-THE-PAST",
     "RAV-SEWERDREG",
+    "RAV-VOTARY-OF-THE-CONCLAVE",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -2651,17 +2652,28 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed combat keyword is deliberately
-        // omitted from this compatibility slice.
-        bounded_creature_chassis(
-            "RAV-VOTARY-OF-THE-CONCLAVE",
-            "Votary of the Conclave",
-            ManaCost::with_colors(0, [Color::White]),
-            colors([Color::White]),
-            1,
-            1,
-        ),
+        // Full fidelity: the green activated regeneration shield uses the
+        // expansion-neutral targeted replacement substrate below.
+        CardDefinition {
+            id: "RAV-VOTARY-OF-THE-CONCLAVE",
+            name: "Votary of the Conclave",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(0, [Color::White]),
+            colors: colors([Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "regeneration",
+            ],
+            power: Some(1),
+            toughness: Some(1),
+            keywords: vec![],
+            effects: vec![],
+        },
         // Compatibility scope: normal colored-cost creature casting and base
         // characteristics only. Its printed entry-triggered behavior is
         // deliberately omitted from this compatibility slice.
@@ -2936,6 +2948,20 @@ pub fn rav_mana_ability_bindings() -> Vec<ManaAbilityBinding> {
 #[allow(clippy::too_many_lines)]
 pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
     vec![
+        ActivatedAbilityBinding {
+            card_definition: "RAV-VOTARY-OF-THE-CONCLAVE",
+            ability: ActivatedAbility {
+                id: "regenerate-target-creature",
+                mana_cost: ManaCost::with_colors(0, [Color::Green]),
+                tap_cost: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![cardbench_magic_engine::TargetRequirement::Creature],
+                effects: vec![Effect::RegenerateTargetCreature],
+            },
+        },
         ActivatedAbilityBinding {
             card_definition: "RAV-SEWERDREG",
             ability: ActivatedAbility {
