@@ -262,8 +262,9 @@ Oracle Magic rules coverage.
   trigger. Dies triggers retain the historical source object after a graveyard move and
   materialize every declared target slot before stacking; a legal selected
   target cannot be dropped or replaced by an empty target vector.
-  A `LifeGained` trigger is captured from a positive `LifeGained` receipt while
-  its source is on the battlefield, then stacked only after the enclosing
+  A `LifeGained` trigger is captured only from a source controlled by the
+  player named by the positive `LifeGained` receipt while that source is on
+  the battlefield, then stacked only after the enclosing
   spell or ability reaches its terminal receipt. Its optional mana cost is
   paid at trigger resolution, not while the trigger is stacked; an unpaid
   optional cost resolves with no damage, while a paid trigger selects a legal

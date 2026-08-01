@@ -4436,18 +4436,18 @@ impl Game {
         Ok(())
     }
 
-    /// Captures triggered abilities controlled by permanents on the
-    /// battlefield when a player gains positive life. Their optional mana
-    /// costs are paid at trigger resolution; the pending queue only retains
-    /// the source and bound ability until the enclosing resolution completes.
-    fn enqueue_life_gain_triggers(&mut self) {
+    /// Captures life-gain triggers only from permanents controlled by the
+    /// player who gained positive life. Their optional mana costs are paid at
+    /// trigger resolution; the pending queue retains the source and bound
+    /// ability until the enclosing resolution completes.
+    fn enqueue_life_gain_triggers(&mut self, life_gain_player: PlayerId) {
         let sources = self
             .all_battlefield_cards()
             .into_iter()
             .filter_map(|source| {
                 let definition = self.card_definition(source).ok()?.id;
                 let controller = self.object(source).ok()?.controller;
-                Some((source, definition, controller))
+                (controller == life_gain_player).then_some((source, definition, controller))
             })
             .collect::<Vec<_>>();
         for (source, definition, controller) in sources {
@@ -4917,7 +4917,7 @@ impl Game {
                     player: controller,
                     amount: *amount,
                 });
-                self.enqueue_life_gain_triggers();
+                self.enqueue_life_gain_triggers(controller);
             }
             Effect::GainLifeControllerFromSourceDamage => {
                 return Err(RulesError::IllegalAction(
