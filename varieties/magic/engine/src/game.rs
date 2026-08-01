@@ -728,6 +728,7 @@ impl Game {
     /// Creates a game with triggers and immutable battlefield-only static
     /// continuous bindings. Keeping this explicit avoids a hidden global set
     /// registry and lets a scenario declare every active rule substrate.
+    #[allow(clippy::too_many_arguments)] // Expansion bindings stay explicit at construction.
     pub fn new_with_all_bindings_triggers_and_static_continuous_effects(
         definitions: impl IntoIterator<Item = CardDefinition>,
         player_count: usize,
@@ -756,6 +757,7 @@ impl Game {
     /// bindings. Land-entry bindings model only replacement-style entry
     /// behavior; any ETB ability stays in `trigger_bindings` and therefore
     /// follows the normal stack and priority lifecycle.
+    #[allow(clippy::too_many_arguments)] // Expansion bindings stay explicit at construction.
     pub fn new_with_all_bindings_triggers_static_continuous_effects_and_land_entries(
         definitions: impl IntoIterator<Item = CardDefinition>,
         player_count: usize,
@@ -6130,13 +6132,10 @@ impl Game {
                                 || combat.blockers.values().any(|blocker| *blocker == card)
                         }))
             }
-            (Target::Permanent(card), TargetRequirement::Land) => {
-                self.zone_of(card) == Some(Zone::Battlefield)
-                    && self
-                        .card_definition(card)
-                        .is_ok_and(CardDefinition::is_land)
-            }
-            (Target::Permanent(card), TargetRequirement::ControlledLand) => {
+            (
+                Target::Permanent(card),
+                TargetRequirement::Land | TargetRequirement::ControlledLand,
+            ) => {
                 self.zone_of(card) == Some(Zone::Battlefield)
                     && self
                         .card_definition(card)
@@ -7648,6 +7647,7 @@ impl Game {
     /// receipts must be exactly the binding's source/creature/land cardinality
     /// in that order; orphaned or duplicate receipts cannot describe a legal
     /// state-machine transition.
+    #[allow(clippy::too_many_lines)] // One ordered receipt audit preserves cost causality.
     fn validate_ability_sacrifice_cost_event_order(&self) -> Result<(), RulesError> {
         let mut consumed = BTreeSet::new();
         for (activation_index, event) in self.event_log.iter().enumerate() {
