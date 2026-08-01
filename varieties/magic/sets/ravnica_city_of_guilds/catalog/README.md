@@ -49,7 +49,7 @@ Overwhelm, Gather Courage, Seeds of Strength, Darkblast, Greater Mossdog,
 Seismic Spike, Incite Hysteria, Searing Meditation, the
 four RAV Signets, the five RAV basic lands, Conclave Equenaut, Snapping Drake,
 Goliath Spider, Courier Hawk, Skyknight Legionnaire, Birds of Paradise, and
-Fiery Conclusion, Ribbons of Night, and Smash are listed only after an
+Fiery Conclusion, Ribbons of Night, Smash, and Caregiver are listed only after an
 ability-by-ability contract proves their complete represented behavior and
 public receipt traces. Sundering Vitae and Recollect are now included after
 their typed target and zone-transition contracts: Sundering Vitae's
@@ -301,6 +301,14 @@ battlefield binding rejects any nonempty attacker declaration against its
 controller before attacker state or an `AttackersDeclared` receipt can exist.
 The focused contract separately removes the Archon through ordinary state-based
 actions, then proves the same attacker declaration becomes legal immediately.
+
+Caregiver is a complete targeted-prevention activation slice. Its typed `{W}`
+activation sacrifices the source before placing the ability on the stack, then
+creates a one-shot shield for a player or creature target. The shield remains
+valid across the source's graveyard move, emits explicit creation and
+prevention receipts, consumes only the next damage, and is removed at target or
+turn departure. The focused Char trace checks the two damage events, the
+prevented portion, and the final invariant audit.
 
 The first-range easy-creature wave adds Votary of the Conclave, Drake Familiar,
 Ethereal Usher, and Grozoth. Each supports normal colored-cost creature casting

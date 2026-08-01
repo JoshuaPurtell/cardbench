@@ -64,6 +64,15 @@ Oracle Magic rules coverage.
   remove it from combat instead of moving it. Shields never prevent a
   zero-toughness action or a sacrifice and clear when their target leaves the
   battlefield.
+- A targeted damage-prevention shield is private replacement state with a
+  positive remaining amount, a seated player or live creature target, a
+  current-turn expiry, and a retained source identity. Creation is a stack
+  effect and emits `DamageShieldCreated`; the source may have left the
+  battlefield as an activation cost without invalidating the shield. Damage
+  consumes only the represented amount and emits `DamagePrevented`; no damage
+  trigger is queued for the prevented portion. A target departure or cleanup
+  transition removes the shield and emits `DamageShieldExpired`, and an
+  exhausted shield cannot remain in game state.
 - Every catalog definition has identity and a type. A basic land is a land;
   only lands have intrinsic mana colors; creatures have both power and
   toughness; and dredge values are positive.

@@ -81,9 +81,12 @@ decision; its clean worktree can be removed without losing commits.
   Its current-engine static attack-restriction binding is checked before
   attacker-declaration mutation, applies only while the Archon remains under
   the defending player's control, and is revoked directly by source departure.
+- Caregiver is ported on `dev` as red `e675a7e5` and green `80a44942`. Its
+  typed `{W}` sacrifice activation uses the expansion-neutral one-shot damage
+  shield substrate, preserving source provenance after the source enters the
+  graveyard and consuming the next damage to a player or creature target.
 - Remaining White source-only definitions are not silently considered merged:
-  Auratouched Mage, Bathe in Light, Boros Fury-Shield, Caregiver, Chant of
-  Vitu-Ghazi, Concerted Effort, Conclave's Blessing, Faith's Fetters, Festival
+  Auratouched Mage, Bathe in Light, Boros Fury-Shield, Chant of Vitu-Ghazi, Concerted Effort, Conclave's Blessing, Faith's Fetters, Festival
   of the Guildpact, Flickerform, Ghosts of the Innocent, Light of Sanction,
   Loxodon Gatekeeper, Suppression Field, Three Dreams, Twilight Drover, and
   Wojek Apothecary. Each requires its
