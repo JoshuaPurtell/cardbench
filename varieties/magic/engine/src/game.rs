@@ -7,8 +7,8 @@ use crate::{
     AdditionalSpellCost, AdditionalSpellCostBinding, BasicLandType, BasicLandTypeBinding,
     CardDefinition, CardObject, CardType, CastPaymentManaAbility, Characteristics, Color,
     CombatBlock, ContinuousChange, ContinuousEffect, CostReductionBinding, CreatureSubtype,
-    DeckList, Duration, Effect, GameEvent, Keyword, LandEntryBinding, Layer,
-    LibrarySearchDestination, LibrarySearchRequirement, ManaAbilityActivation, ManaAbilityBinding,
+    DeckList, Duration, Effect, GameEvent, Keyword, LandEntryBinding, LibrarySearchDestination,
+    LibrarySearchRequirement, LibrarySearchSelection, ManaAbilityActivation, ManaAbilityBinding,
     ManaAbilityOutput, ManaCost, ManaPaymentSelection, ObjectId, PlayerId, PlayerState,
     PolicyMoveKind, ReplacementEffect, ReplacementEffectBinding, ReplacementEventKind,
     StackEffectResolution, StackObject, StackResolutionPlan, StaticAttackRestriction,
@@ -117,6 +117,13 @@ pub enum PolicyAction {
         ability: &'static str,
         selected: Option<ObjectId>,
     },
+    /// Selects one currently matching controller-owned library card, or
+    /// deliberately fails to find when that suspended search permits it.
+    /// This is a resolution decision, never a priority action.
+    ChooseLibrarySearchCard {
+        source: ObjectId,
+        selected: Option<ObjectId>,
+    },
     /// Supplies the ordered targets for the next triggered ability waiting to
     /// be put onto the stack. This is a no-priority rules decision.
     ChooseTriggeredAbilityTargets {
@@ -188,6 +195,7 @@ impl PolicyAction {
             Self::ChoosePrivateOpponentLibraryCardToExile { .. } => {
                 PolicyMoveKind::ChoosePrivateOpponentLibraryCardToExile
             }
+            Self::ChooseLibrarySearchCard { .. } => PolicyMoveKind::ChooseLibrarySearchCard,
             Self::ChooseTriggeredAbilityTargets { .. } => {
                 PolicyMoveKind::ChooseTriggeredAbilityTargets
             }
@@ -255,6 +263,17 @@ pub struct PrivateOpponentLibraryChoiceView {
     pub cards: Vec<CardView>,
 }
 
+/// Controller-only matching cards for a suspended typed library search.
+/// Candidate identities never appear in another player's view or the public
+/// event log before the selected card changes zones.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LibrarySearchChoiceView {
+    pub source: ObjectId,
+    pub cards: Vec<CardView>,
+    pub destination: LibrarySearchDestination,
+    pub may_fail_to_find: bool,
+}
+
 /// Public legal target options for one trigger waiting to enter the stack.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TriggeredAbilityTargetChoiceView {
@@ -309,6 +328,9 @@ pub struct GameView {
     /// that will exile one card from an opponent's library. This is likewise
     /// never a priority window.
     pub private_opponent_library_choice: Option<PrivateOpponentLibraryChoiceView>,
+    /// Controller-only candidates for a typed library search awaiting a
+    /// no-priority selection during stack resolution.
+    pub library_search_choice: Option<LibrarySearchChoiceView>,
     /// Present only to the trigger's controller while target selection is due.
     pub triggered_ability_target_choice: Option<TriggeredAbilityTargetChoiceView>,
     pub optional_triggered_ability_choice: Option<OptionalTriggeredAbilityChoiceView>,
@@ -408,6 +430,18 @@ struct PendingPrivateOpponentLibraryExileChoice {
     ability: &'static str,
     controller: PlayerId,
     opponent: PlayerId,
+    cards: Vec<ObjectId>,
+}
+
+/// A resolving typed library search awaiting an explicit controller choice.
+/// The source remains live on top of the stack until this boundary finishes.
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct PendingLibrarySearchChoice {
+    source: ObjectId,
+    controller: PlayerId,
+    requirement: LibrarySearchRequirement,
+    destination: LibrarySearchDestination,
+    may_fail_to_find: bool,
     cards: Vec<ObjectId>,
 }
 
@@ -555,6 +589,7 @@ pub struct Game {
     pending_draw_replacement: Option<PlayerId>,
     pending_private_library_choice: Option<PendingPrivateLibraryChoice>,
     pending_private_opponent_library_exile_choice: Option<PendingPrivateOpponentLibraryExileChoice>,
+    pending_library_search_choice: Option<PendingLibrarySearchChoice>,
     pending_trigger_target_choices: Vec<PendingTriggeredAbilityTargetChoice>,
     pending_optional_trigger_choice: Option<PendingOptionalTriggeredAbilityChoice>,
     pending_trigger_effect_object_choice: Option<PendingTriggeredEffectObjectChoice>,
@@ -779,6 +814,7 @@ impl Game {
             pending_draw_replacement: None,
             pending_private_library_choice: None,
             pending_private_opponent_library_exile_choice: None,
+            pending_library_search_choice: None,
             pending_trigger_target_choices: Vec::new(),
             pending_optional_trigger_choice: None,
             pending_trigger_effect_object_choice: None,
@@ -1806,6 +1842,8 @@ impl Game {
             effects: ability.effects,
             chosen_x: None,
             mana_spent: None,
+            convoke_symbols: 0,
+            generic_cost_reduction: 0,
         });
         self.record_event(GameEvent::AbilityActivated {
             player,
@@ -2198,6 +2236,24 @@ impl Game {
                     })
             })
             .transpose()?;
+        let library_search_choice = self
+            .pending_library_search_choice
+            .as_ref()
+            .filter(|choice| choice.controller == player)
+            .map(|choice| {
+                choice
+                    .cards
+                    .iter()
+                    .map(|card| self.card_view(*card))
+                    .collect::<Result<Vec<_>, _>>()
+                    .map(|cards| LibrarySearchChoiceView {
+                        source: choice.source,
+                        cards,
+                        destination: choice.destination,
+                        may_fail_to_find: choice.may_fail_to_find,
+                    })
+            })
+            .transpose()?;
         let triggered_ability_target_choice = self
             .pending_trigger_target_choices
             .first()
@@ -2310,6 +2366,7 @@ impl Game {
             dredge_candidates,
             private_library_choice,
             private_opponent_library_choice,
+            library_search_choice,
             triggered_ability_target_choice,
             optional_triggered_ability_choice,
             triggered_ability_effect_object_choice,
@@ -2347,6 +2404,9 @@ impl Game {
                 self.choose_private_opponent_library_card_to_exile(
                     player, source, ability, selected,
                 )?;
+            }
+            PolicyAction::ChooseLibrarySearchCard { source, selected } => {
+                self.choose_library_search_card(player, source, selected)?;
             }
             PolicyAction::ChooseTriggeredAbilityTargets {
                 source,
@@ -3383,10 +3443,10 @@ impl Game {
                     "chosen X overflows generic mana cost",
                 ))?;
         }
-        payment_definition.mana_cost.generic = payment_definition
-            .mana_cost
-            .generic
-            .saturating_sub(self.generic_cost_reduction(player, &payment_definition));
+        let applied_generic_cost_reduction = self
+            .generic_cost_reduction(player, &payment_definition)
+            .min(payment_definition.mana_cost.generic);
+        payment_definition.mana_cost.generic -= applied_generic_cost_reduction;
         let (paid_cost, mana_spent) = if from_graveyard {
             (self.players[player.0].mana_pool.clone(), None)
         } else {
@@ -3424,6 +3484,8 @@ impl Game {
             effects: definition.effects,
             chosen_x,
             mana_spent: mana_spent.clone(),
+            convoke_symbols: request.convoke.len(),
+            generic_cost_reduction: applied_generic_cost_reduction,
         });
         if let Some(colors) = mana_spent {
             self.record_event(GameEvent::SpellManaPaid {
@@ -3527,6 +3589,11 @@ impl Game {
         if self.pending_private_opponent_library_exile_choice.is_some() {
             return Err(RulesError::IllegalAction(
                 "the private opponent-library choice must resolve before priority can pass",
+            ));
+        }
+        if self.pending_library_search_choice.is_some() {
+            return Err(RulesError::IllegalAction(
+                "the library search choice must resolve before priority can pass",
             ));
         }
         if !self.pending_trigger_target_choices.is_empty() {
@@ -3911,6 +3978,143 @@ impl Game {
         Ok(())
     }
 
+    /// Completes an explicit controller-private library search selection. The
+    /// suspended spell or ability remains the stack top until this atomic
+    /// resolution finishes, so no player can act using unrevealed candidates.
+    pub fn choose_library_search_card(
+        &mut self,
+        player: PlayerId,
+        source: ObjectId,
+        selected: Option<ObjectId>,
+    ) -> Result<(), RulesError> {
+        self.atomic_transition(|game| {
+            game.resolve_pending_library_search_choice(player, source, selected)
+        })
+    }
+
+    #[allow(clippy::too_many_lines)] // The suspended selection and terminal stack lifecycle are one transaction.
+    fn resolve_pending_library_search_choice(
+        &mut self,
+        player: PlayerId,
+        source: ObjectId,
+        selected: Option<ObjectId>,
+    ) -> Result<(), RulesError> {
+        self.require_game_in_progress()?;
+        let choice =
+            self.pending_library_search_choice
+                .clone()
+                .ok_or(RulesError::IllegalAction(
+                    "there is no pending policy-submitted library search",
+                ))?;
+        if choice.controller != player || choice.source != source {
+            return Err(RulesError::IllegalAction(
+                "only the resolving controller may submit this library search choice",
+            ));
+        }
+        let (ability, chosen_x) = {
+            let top = self.stack.last().ok_or(RulesError::IllegalAction(
+                "library search choice has no live stack item",
+            ))?;
+            let matches_pending_search = matches!(
+                top.effects.as_slice(),
+                [Effect::SearchControllerLibrary {
+                    requirement,
+                    destination,
+                    selection:
+                        LibrarySearchSelection::PolicySubmitted { may_fail_to_find },
+                }] if requirement == &choice.requirement
+                    && *destination == choice.destination
+                    && *may_fail_to_find == choice.may_fail_to_find
+            );
+            if top.card != source || top.controller != player || !matches_pending_search {
+                return Err(RulesError::IllegalAction(
+                    "library search choice no longer matches the live stack item",
+                ));
+            }
+            (top.ability_id, top.chosen_x)
+        };
+        let expected_cards =
+            self.library_search_candidates(player, &choice.requirement, chosen_x)?;
+        if choice.cards != expected_cards {
+            return Err(RulesError::IllegalAction(
+                "library search candidates changed before selection",
+            ));
+        }
+        match selected {
+            Some(card) if choice.cards.contains(&card) => {}
+            Some(_) => {
+                return Err(RulesError::IllegalAction(
+                    "library search selected a card outside its legal candidates",
+                ));
+            }
+            None if choice.may_fail_to_find || choice.cards.is_empty() => {}
+            None => {
+                return Err(RulesError::IllegalAction(
+                    "this library search must select a matching card when one exists",
+                ));
+            }
+        }
+
+        self.stack.pop().ok_or(RulesError::IllegalAction(
+            "library search stack item disappeared before resolution",
+        ))?;
+        self.pending_library_search_choice = None;
+
+        let mut entered_permanent = None;
+        if let Some(card) = selected {
+            match choice.destination {
+                LibrarySearchDestination::Battlefield
+                | LibrarySearchDestination::BattlefieldTapped => {
+                    self.move_to_zone(card, Zone::Battlefield)?;
+                    if choice.destination == LibrarySearchDestination::BattlefieldTapped {
+                        self.objects
+                            .get_mut(&card)
+                            .ok_or(RulesError::UnknownCard(card))?
+                            .tapped = true;
+                    }
+                    let object = self.object(card)?;
+                    let definition = object.definition.ok_or(RulesError::IllegalAction(
+                        "a token cannot be selected from a library",
+                    ))?;
+                    entered_permanent = Some((card, definition, object.controller));
+                }
+                LibrarySearchDestination::Hand => self.move_to_zone(card, Zone::Hand)?,
+            }
+        }
+        self.record_event(GameEvent::LibrarySearchResolved {
+            player,
+            source,
+            found: selected,
+            destination: choice.destination,
+        });
+        self.shuffle_library(player);
+        let cards = u16::try_from(self.players[player.0].library.len()).unwrap_or(u16::MAX);
+        self.record_event(GameEvent::LibraryShuffled { player, cards });
+
+        if let Some(ability) = ability {
+            self.record_event(GameEvent::AbilityResolved { source, ability });
+        } else {
+            self.record_event(GameEvent::SpellResolved { card: source });
+            self.move_to_spell_terminal_zone(source)?;
+        }
+        self.check_state_based_actions()?;
+        self.flush_pending_dies_triggers();
+        if let Some((card, definition, controller)) = entered_permanent
+            && self.zone_of(card) == Some(Zone::Battlefield)
+        {
+            self.enqueue_enter_triggers(card, definition, controller);
+            if self.card_definition(card)?.is_land() {
+                self.queue_land_entry_trigger_batch(controller)?;
+            }
+        }
+        self.flush_pending_land_entry_triggers()?;
+        self.flush_pending_damage_triggers();
+        self.flush_pending_life_gain_triggers();
+        self.flush_pending_dies_triggers();
+        self.priority = self.priority_after_resolution();
+        Ok(())
+    }
+
     pub fn dredge(&mut self, player: PlayerId, card: ObjectId) -> Result<(), RulesError> {
         self.require_game_in_progress()?;
         if self.pending_draw_replacement != Some(player) {
@@ -4036,40 +4240,49 @@ impl Game {
         Ok(())
     }
 
-    /// Resolves one stack-based, controller-owned typed library search. The
-    /// current public policy surface cannot submit hidden-library choices, so
-    /// this deliberately selects the first legal card in the deterministic
-    /// library order. It nevertheless preserves the normal search, entry,
-    /// shuffle, and post-resolution trigger boundaries for later policy work.
+    /// Resolves the compatibility-selector branch of one typed library search.
+    /// A policy-submitted search is suspended before this method runs unless a
+    /// current-turn prevention effect has made that search fail automatically.
     fn resolve_controller_library_search(
         &mut self,
         source: ObjectId,
         player: PlayerId,
         requirement: &LibrarySearchRequirement,
         destination: LibrarySearchDestination,
+        selection: LibrarySearchSelection,
+        chosen_x: Option<u8>,
     ) -> Result<(), RulesError> {
-        let found = (self.library_search_prevented_until != Some(self.turn))
-            .then(|| {
-                self.players[player.0].library.iter().copied().find(|card| {
-                    self.zone_of(*card) == Some(Zone::Library)
-                        && self
-                            .object(*card)
-                            .is_ok_and(|object| object.owner == player)
-                        && self
-                            .library_search_matches(*card, requirement)
-                            .unwrap_or(false)
-                })
-            })
-            .flatten();
+        let prevented = self.library_search_prevented_until == Some(self.turn);
+        let candidates = (!prevented)
+            .then(|| self.library_search_candidates(player, requirement, chosen_x))
+            .transpose()?
+            .unwrap_or_default();
+        let found = match selection {
+            LibrarySearchSelection::DeterministicFirstMatch => candidates.first().copied(),
+            LibrarySearchSelection::PolicySubmitted { .. } if prevented => None,
+            LibrarySearchSelection::PolicySubmitted { .. } => {
+                return Err(RulesError::IllegalAction(
+                    "policy-submitted library search reached resolution without a selection",
+                ));
+            }
+        };
         if let Some(card) = found {
             match destination {
+                LibrarySearchDestination::Battlefield => {
+                    self.move_to_zone(card, Zone::Battlefield)?;
+                    if self.card_definition(card)?.is_land() {
+                        self.queue_land_entry_trigger_batch(player)?;
+                    }
+                }
                 LibrarySearchDestination::BattlefieldTapped => {
                     self.move_to_zone(card, Zone::Battlefield)?;
                     self.objects
                         .get_mut(&card)
                         .ok_or(RulesError::UnknownCard(card))?
                         .tapped = true;
-                    self.queue_land_entry_trigger_batch(player)?;
+                    if self.card_definition(card)?.is_land() {
+                        self.queue_land_entry_trigger_batch(player)?;
+                    }
                 }
                 LibrarySearchDestination::Hand => self.move_to_zone(card, Zone::Hand)?,
             }
@@ -4086,19 +4299,43 @@ impl Game {
         Ok(())
     }
 
+    fn library_search_candidates(
+        &self,
+        player: PlayerId,
+        requirement: &LibrarySearchRequirement,
+        chosen_x: Option<u8>,
+    ) -> Result<Vec<ObjectId>, RulesError> {
+        let mut candidates = Vec::new();
+        for card in &self.players[player.0].library {
+            if self.zone_of(*card) == Some(Zone::Library)
+                && self.object(*card)?.owner == player
+                && self.library_search_matches(*card, requirement, chosen_x)?
+            {
+                candidates.push(*card);
+            }
+        }
+        Ok(candidates)
+    }
+
     fn library_search_matches(
         &self,
         card: ObjectId,
         requirement: &LibrarySearchRequirement,
+        chosen_x: Option<u8>,
     ) -> Result<bool, RulesError> {
         let definition = self.card_definition(card)?;
-        if !definition.is_land() {
-            return Ok(false);
-        }
         match requirement {
-            LibrarySearchRequirement::BasicLandTypes(types) => Ok(self
-                .basic_land_type(card)?
-                .is_some_and(|land_type| types.contains(&land_type))),
+            LibrarySearchRequirement::BasicLandTypes(types) => Ok(definition.is_land()
+                && self
+                    .basic_land_type(card)?
+                    .is_some_and(|land_type| types.contains(&land_type))),
+            LibrarySearchRequirement::CreatureWithManaValueAtMostChosenX => {
+                let x_value = chosen_x.ok_or(RulesError::IllegalAction(
+                    "chosen-X library search lacks its selected X value",
+                ))?;
+                Ok(definition.card_types.contains(&CardType::Creature)
+                    && definition.mana_cost.mana_value() <= x_value)
+            }
         }
     }
 
@@ -4350,6 +4587,7 @@ impl Game {
                 .copied()
                 .collect::<Vec<_>>();
             if self.pending_draw_replacement.is_some()
+                || self.pending_library_search_choice.is_some()
                 || self.pending_private_opponent_library_exile_choice.is_some()
                 || top.card != choice.spell
                 || top.controller != choice.controller
@@ -4392,6 +4630,7 @@ impl Game {
                 .copied()
                 .collect::<Vec<_>>();
             if self.pending_draw_replacement.is_some()
+                || self.pending_library_search_choice.is_some()
                 || self.pending_private_library_choice.is_some()
                 || top.card != choice.source
                 || top.controller != choice.controller
@@ -4428,6 +4667,45 @@ impl Game {
                 "private opponent-library event receipts disagree with the live resolution boundary",
             ));
         }
+        if let Some(choice) = &self.pending_library_search_choice {
+            let top = self.stack.last().ok_or(RulesError::IllegalAction(
+                "library search choice escaped its stack item",
+            ))?;
+            let (requirement, destination, may_fail_to_find) = match top.effects.as_slice() {
+                [
+                    Effect::SearchControllerLibrary {
+                        requirement,
+                        destination,
+                        selection: LibrarySearchSelection::PolicySubmitted { may_fail_to_find },
+                    },
+                ] => (requirement, *destination, *may_fail_to_find),
+                _ => {
+                    return Err(RulesError::IllegalAction(
+                        "library search choice has an invalid stack effect shape",
+                    ));
+                }
+            };
+            let expected_cards =
+                self.library_search_candidates(choice.controller, requirement, top.chosen_x)?;
+            if self.pending_draw_replacement.is_some()
+                || self.pending_private_library_choice.is_some()
+                || self.pending_private_opponent_library_exile_choice.is_some()
+                || !self.pending_trigger_target_choices.is_empty()
+                || self.pending_optional_trigger_choice.is_some()
+                || top.card != choice.source
+                || top.controller != choice.controller
+                || destination != choice.destination
+                || may_fail_to_find != choice.may_fail_to_find
+                || self.priority != choice.controller
+                || self.consecutive_passes != 0
+                || self.players[choice.controller.0].lost
+                || choice.cards != expected_cards
+            {
+                return Err(RulesError::IllegalAction(
+                    "library search choice escaped its no-priority resolution boundary",
+                ));
+            }
+        }
         for (index, choice) in self.pending_trigger_target_choices.iter().enumerate() {
             let registered = self
                 .card_definition(choice.source)
@@ -4446,6 +4724,7 @@ impl Game {
                 || self.pending_draw_replacement.is_some()
                 || self.pending_private_library_choice.is_some()
                 || self.pending_private_opponent_library_exile_choice.is_some()
+                || self.pending_library_search_choice.is_some()
                 || self.pending_optional_trigger_choice.is_some()
                 || self.pending_trigger_effect_object_choice.is_some()
             {
@@ -4473,6 +4752,7 @@ impl Game {
                 || self.pending_draw_replacement.is_some()
                 || self.pending_private_library_choice.is_some()
                 || self.pending_private_opponent_library_exile_choice.is_some()
+                || self.pending_library_search_choice.is_some()
                 || !self.pending_trigger_target_choices.is_empty()
                 || self.pending_trigger_effect_object_choice.is_some()
             {
@@ -4973,20 +5253,58 @@ impl Game {
                     "a chosen-X stack spell lacks or fabricates its selected value",
                 ));
             }
-            if requires_chosen_x && stack_object.mana_spent.as_ref().is_none_or(Vec::is_empty) {
+            if requires_chosen_x && stack_object.mana_spent.is_none() {
                 return Err(RulesError::IllegalAction(
                     "a chosen-X stack spell lacks an explicit payment receipt",
                 ));
             }
             if let Some(chosen_x) = stack_object.chosen_x {
-                let expected_symbols = usize::from(definition.mana_cost.mana_value())
+                let total_symbols = usize::from(definition.mana_cost.mana_value())
                     .checked_add(usize::from(chosen_x))
                     .ok_or(RulesError::IllegalAction(
                         "chosen-X stack spell has an impossible paid-cost size",
                     ))?;
-                if stack_object.mana_spent.as_ref().map_or(0, Vec::len) != expected_symbols {
+                let observed_convoke_symbols = self
+                    .event_log
+                    .iter()
+                    .rposition(|event| {
+                        matches!(event, GameEvent::SpellCast { card, .. } if *card == stack_object.card)
+                    })
+                    .and_then(|cast_index| cast_index.checked_sub(1))
+                    .filter(|payment_index| {
+                        matches!(
+                            self.event_log.get(*payment_index),
+                            Some(GameEvent::SpellManaPaid { player, card, .. })
+                                if *player == stack_object.controller && *card == stack_object.card
+                        )
+                    })
+                    .map_or(0, |payment_index| {
+                        self.event_log[..payment_index]
+                            .iter()
+                            .rev()
+                            .take_while(|event| {
+                                matches!(
+                                    event,
+                                    GameEvent::ConvokeUsed { player, .. }
+                                        if *player == stack_object.controller
+                                )
+                            })
+                            .count()
+                    });
+                if stack_object.convoke_symbols != observed_convoke_symbols {
                     return Err(RulesError::IllegalAction(
-                        "chosen-X stack spell receipt does not match printed cost plus X",
+                        "chosen-X stack spell Convoke provenance disagrees with its cast receipt",
+                    ));
+                }
+                let expected_mana_symbols = total_symbols
+                    .checked_sub(usize::from(stack_object.generic_cost_reduction))
+                    .and_then(|symbols| symbols.checked_sub(stack_object.convoke_symbols))
+                    .ok_or(RulesError::IllegalAction(
+                        "chosen-X stack spell cost provenance exceeds its total cost",
+                    ))?;
+                if stack_object.mana_spent.as_ref().map_or(0, Vec::len) != expected_mana_symbols {
+                    return Err(RulesError::IllegalAction(
+                        "chosen-X stack spell receipt does not match its post-Convoke cost",
                     ));
                 }
             }
@@ -5902,6 +6220,24 @@ impl Game {
                 "a private-library choice spell must contain exactly one effect",
             ));
         }
+        let policy_submitted_library_searches = definition
+            .effects
+            .iter()
+            .filter(|effect| {
+                matches!(
+                    effect,
+                    Effect::SearchControllerLibrary {
+                        selection: LibrarySearchSelection::PolicySubmitted { .. },
+                        ..
+                    }
+                )
+            })
+            .count();
+        if policy_submitted_library_searches > 0 && definition.effects.len() != 1 {
+            return Err(RulesError::IllegalAction(
+                "a policy-submitted library search spell must contain exactly one effect",
+            ));
+        }
         for effect in &definition.effects {
             if matches!(
                 effect,
@@ -6072,6 +6408,9 @@ impl Game {
             });
             self.priority = top.controller;
             self.consecutive_passes = 0;
+            return Ok(());
+        }
+        if self.suspend_top_stack_item_for_library_search_choice()? {
             return Ok(());
         }
         if self.suspend_top_spell_for_private_library_choice()? {
@@ -6373,12 +6712,64 @@ impl Game {
         Ok(())
     }
 
+    /// Opens a no-priority boundary for a stack item whose typed library
+    /// search requires an explicit controller selection. Search prevention
+    /// bypasses the boundary: the ordinary resolver records a failed search
+    /// and its required shuffle without exposing nonexistent candidates.
+    fn suspend_top_stack_item_for_library_search_choice(&mut self) -> Result<bool, RulesError> {
+        if self.pending_library_search_choice.is_some()
+            || self.pending_private_library_choice.is_some()
+            || self.pending_private_opponent_library_exile_choice.is_some()
+        {
+            return Err(RulesError::IllegalAction(
+                "a second hidden-library choice attempted to open during resolution",
+            ));
+        }
+        if self.library_search_prevented_until == Some(self.turn) {
+            return Ok(false);
+        }
+        let Some(top) = self.stack.last() else {
+            return Ok(false);
+        };
+        let (source, controller, requirement, destination, may_fail_to_find, chosen_x) =
+            match top.effects.as_slice() {
+                [
+                    Effect::SearchControllerLibrary {
+                        requirement,
+                        destination,
+                        selection: LibrarySearchSelection::PolicySubmitted { may_fail_to_find },
+                    },
+                ] => (
+                    top.card,
+                    top.controller,
+                    requirement.clone(),
+                    *destination,
+                    *may_fail_to_find,
+                    top.chosen_x,
+                ),
+                _ => return Ok(false),
+            };
+        let cards = self.library_search_candidates(controller, &requirement, chosen_x)?;
+        self.pending_library_search_choice = Some(PendingLibrarySearchChoice {
+            source,
+            controller,
+            requirement,
+            destination,
+            may_fail_to_find,
+            cards,
+        });
+        self.priority = controller;
+        self.consecutive_passes = 0;
+        Ok(true)
+    }
+
     /// Opens the no-priority boundary for the one-effect private library
     /// selection substrate. The spell stays on the stack until its controller
     /// submits the selection, so no player can respond using information that
     /// belongs to its unresolved hidden-zone instruction.
     fn suspend_top_spell_for_private_library_choice(&mut self) -> Result<bool, RulesError> {
-        if self.pending_private_library_choice.is_some()
+        if self.pending_library_search_choice.is_some()
+            || self.pending_private_library_choice.is_some()
             || self.pending_private_opponent_library_exile_choice.is_some()
         {
             return Err(RulesError::IllegalAction(
@@ -6440,7 +6831,8 @@ impl Game {
     fn suspend_top_ability_for_private_opponent_library_exile_choice(
         &mut self,
     ) -> Result<bool, RulesError> {
-        if self.pending_private_library_choice.is_some()
+        if self.pending_library_search_choice.is_some()
+            || self.pending_private_library_choice.is_some()
             || self.pending_private_opponent_library_exile_choice.is_some()
         {
             return Err(RulesError::IllegalAction(
@@ -6781,6 +7173,8 @@ impl Game {
             effects,
             chosen_x: None,
             mana_spent: None,
+            convoke_symbols: 0,
+            generic_cost_reduction: 0,
         });
         self.record_event(GameEvent::TriggeredAbilityStacked {
             controller: event.controller,
@@ -6953,6 +7347,8 @@ impl Game {
                 effects: choice.effects,
                 chosen_x: None,
                 mana_spent: None,
+                convoke_symbols: 0,
+                generic_cost_reduction: 0,
             });
             game.record_event(GameEvent::TriggeredAbilityStacked {
                 controller: choice.controller,
@@ -8034,12 +8430,15 @@ impl Game {
             Effect::SearchControllerLibrary {
                 requirement,
                 destination,
+                selection,
             } => {
                 self.resolve_controller_library_search(
                     source,
                     controller,
                     requirement,
                     *destination,
+                    *selection,
+                    chosen_x,
                 )?;
             }
             Effect::AttachSourceAndModifyTargetPt { .. } | Effect::AttachSourceToTarget { .. } => {
@@ -10252,7 +10651,8 @@ impl Game {
             };
             if let Some(card) = found {
                 let expected_zone = match destination {
-                    LibrarySearchDestination::BattlefieldTapped => Zone::Battlefield,
+                    LibrarySearchDestination::Battlefield
+                    | LibrarySearchDestination::BattlefieldTapped => Zone::Battlefield,
                     LibrarySearchDestination::Hand => Zone::Hand,
                 };
                 if !matches!(
@@ -11492,6 +11892,11 @@ impl Game {
                 "the private opponent-library choice must resolve before priority actions",
             ));
         }
+        if self.pending_library_search_choice.is_some() {
+            return Err(RulesError::IllegalAction(
+                "the library search choice must resolve before priority actions",
+            ));
+        }
         if !self.pending_trigger_target_choices.is_empty() {
             return Err(RulesError::IllegalAction(
                 "trigger targets must be chosen before priority actions",
@@ -11611,6 +12016,9 @@ impl Game {
             return choice.controller;
         }
         if let Some(choice) = &self.pending_private_opponent_library_exile_choice {
+            return choice.controller;
+        }
+        if let Some(choice) = &self.pending_library_search_choice {
             return choice.controller;
         }
         if let Some(choice) = self.pending_trigger_target_choices.first() {

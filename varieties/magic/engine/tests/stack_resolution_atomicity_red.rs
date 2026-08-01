@@ -68,6 +68,8 @@ fn failed_resolution_restores_the_final_pass_and_authoritative_stack() {
             effects: vec![Effect::GainLifeController { amount: 1 }],
             chosen_x: None,
             mana_spent: None,
+            convoke_symbols: 0,
+            generic_cost_reduction: 0,
         },
         StackObject {
             card: malformed,
@@ -81,6 +83,8 @@ fn failed_resolution_restores_the_final_pass_and_authoritative_stack() {
             }],
             chosen_x: None,
             mana_spent: None,
+            convoke_symbols: 0,
+            generic_cost_reduction: 0,
         },
     ];
     game.clear_event_log();

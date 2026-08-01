@@ -87,4 +87,19 @@ pub trait CodePolicy {
             selected: choice.cards.first().map(|card| card.id),
         }
     }
+
+    /// Completes a controller-private typed library search suspended during a
+    /// spell or ability resolution. The conservative default selects the
+    /// first legal candidate, or explicitly finds nothing when no candidate
+    /// exists. Policies that value particular cards can override this view.
+    fn propose_library_search_choice(&mut self, view: &GameView) -> PolicyAction {
+        let choice = view
+            .library_search_choice
+            .as_ref()
+            .expect("library-search choice proposal requires a visible choice");
+        PolicyAction::ChooseLibrarySearchCard {
+            source: choice.source,
+            selected: choice.cards.first().map(|card| card.id),
+        }
+    }
 }

@@ -362,7 +362,10 @@ Oracle Magic rules coverage.
   departed player as an opponent life-total or battlefield target. It projects
   only the controller-owned, mana-value-matching library cards for each
   transmute card in that controller's hand, allowing an honest search decision
-  without granting general hidden-library access.
+  without granting general hidden-library access. A suspended typed library
+  search similarly projects only its resolving controller's matching candidate
+  identities; opponents receive no candidate list or selected-card identity
+  before the ordinary zone-move receipt.
 - While a draw replacement is pending, `GameView` projects only the deciding
   player's legal owned-graveyard dredge candidates. A policy can take the
   normal draw or choose one of those candidates; it cannot name a hidden or
@@ -571,13 +574,14 @@ Oracle Magic rules coverage.
   controller's choice.
 - A spell instruction that depends on a chosen `X` cannot use ordinary
   `cast_spell`: the caller must submit one explicit nonnegative value and an
-  explicit payment allocation for the printed cost plus `X`. The value is
-  retained on that spell's stack object—not inferred from its colored-mana
-  receipt—and its receipt must contain exactly the printed mana-symbol count
-  plus `X`. Stack abilities never carry a chosen-X value. Both cast-time and
-  resolution-time target checks read this same value, so a fabricated or
-  undersized receipt fails the invariant audit before it is treated as a legal
-  state transition.
+  explicit payment allocation for every remaining symbol after reductions and
+  Convoke. The value, actual Convoke-symbol count, and applied generic
+  reduction are retained as cast-time stack provenance—not inferred from a
+  later battlefield query—and the mana receipt must contain exactly the
+  remaining payment-symbol count. Stack abilities never carry a chosen-X
+  value. Both cast-time and resolution-time checks read this same value, so a
+  fabricated or undersized receipt fails the invariant audit before it is
+  treated as a legal state transition.
 - An expansion may bind an explicit additional spell cost to a nonland
   definition. Its `CastRequest` selection follows ordinary effect targets but
   never enters the resulting stack object's target slots. A bound controlled-
@@ -619,14 +623,22 @@ Oracle Magic rules coverage.
   only the current turn and is cleared as the next turn begins; a stale marker
   is an invariant failure.
 - A stack-based typed library search examines only the resolving controller's
-  library and picks no more than one matching card. It records a normal
-  `CardMoved` entry to its exact declared destination (`BattlefieldTapped` or
-  `Hand`) before `LibrarySearchResolved`, immediately follows the latter with
-  that controller's `LibraryShuffled` receipt, and records no selected-card
-  movement when `found` is absent. Only a battlefield-tapped destination may
-  queue a land-entry trigger batch. The current deterministic first-match rule
-  is an explicit policy-fidelity boundary, not a hidden-zone choice
-  approximation.
+  library and selects no more than one card satisfying its expansion-neutral
+  predicate. A deterministic selector remains an explicitly bounded
+  compatibility mode. A policy-submitted selector instead suspends its
+  one-effect resolving stack item with zero passes and its controller as the
+  decision player; only that controller sees the ordered matching candidates.
+  Their submitted object must still be in that snapshot and match the typed
+  predicate (including a spell's retained chosen X). `None` is legal only
+  when the search permits failure to find or has no candidates. Priority and
+  every unrelated choice reject atomically while the boundary is open.
+  Completion records a normal `CardMoved` entry to its exact declared
+  destination (`Battlefield`, `BattlefieldTapped`, or `Hand`) before
+  `LibrarySearchResolved`, immediately follows the latter with that
+  controller's `LibraryShuffled` receipt, and records no selected-card
+  movement when `found` is absent. Either battlefield destination may queue
+  ordinary entry-trigger work only after the search source reaches its own
+  terminal stack lifecycle.
 - A `Permanent` target is a current battlefield object, never a player or a
   card in another zone. A permanent-bounce instruction snapshots the target's
   controller before its owner-hand zone move; its `CardMoved { to: Hand }`

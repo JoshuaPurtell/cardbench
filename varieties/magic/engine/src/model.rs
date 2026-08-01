@@ -67,6 +67,10 @@ pub enum LibrarySearchRequirement {
     /// A land card whose registered basic-land type is one of the allowed
     /// types. The binding is a type-line fact, not a display-name match.
     BasicLandTypes(BTreeSet<BasicLandType>),
+    /// A creature card whose mana value does not exceed the X value retained
+    /// on the resolving spell. This is typed card information rather than a
+    /// card-name or display-text predicate.
+    CreatureWithManaValueAtMostChosenX,
 }
 
 /// Destination for a selected library card. A tapped battlefield entry is a
@@ -74,8 +78,27 @@ pub enum LibrarySearchRequirement {
 /// untapped entry followed by an unrelated tap action.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum LibrarySearchDestination {
+    /// Put the selected card onto the battlefield without an entry-tapped
+    /// replacement.
+    Battlefield,
     BattlefieldTapped,
     Hand,
+}
+
+/// How a typed library-search instruction selects among its matching cards.
+///
+/// The deterministic variant preserves explicitly bounded compatibility
+/// cards. Policy submission suspends the resolving stack item and exposes
+/// only the controller's legal matching cards through [`GameView`].
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum LibrarySearchSelection {
+    DeterministicFirstMatch,
+    PolicySubmitted {
+        /// A controller may choose no card even while one or more matching
+        /// cards exist. This represents searches of a hidden zone that may
+        /// legally fail to find a card with the requested characteristic.
+        may_fail_to_find: bool,
+    },
 }
 
 /// Immutable behavior applied as a land enters the battlefield.
@@ -1197,6 +1220,7 @@ pub enum Effect {
     SearchControllerLibrary {
         requirement: LibrarySearchRequirement,
         destination: LibrarySearchDestination,
+        selection: LibrarySearchSelection,
     },
     /// Attach this resolving permanent spell to the target creature and apply
     /// the stated persistent layer-seven modifier while both objects remain
@@ -1479,7 +1503,14 @@ impl Effect {
     /// retained in the ordered mana receipt through resolution.
     #[must_use]
     pub const fn requires_chosen_x(&self) -> bool {
-        matches!(self, Self::DestroyTargetCreatureWithManaValueAtMostChosenX)
+        matches!(
+            self,
+            Self::DestroyTargetCreatureWithManaValueAtMostChosenX
+                | Self::SearchControllerLibrary {
+                    requirement: LibrarySearchRequirement::CreatureWithManaValueAtMostChosenX,
+                    ..
+                }
+        )
     }
 
     #[must_use]
@@ -1954,6 +1985,7 @@ pub enum PolicyMoveKind {
     Draw,
     ChoosePrivateLibraryCards,
     ChoosePrivateOpponentLibraryCardToExile,
+    ChooseLibrarySearchCard,
     ChooseTriggeredAbilityTargets,
     ChooseTriggeredAbilityEffectObject,
     ResolveOptionalTriggeredAbility,
@@ -2081,6 +2113,14 @@ pub struct StackObject {
     /// denotes the legacy deterministic payment path, which is deliberately
     /// unavailable to effects that inspect colors spent to cast the spell.
     pub mana_spent: Option<Vec<Color>>,
+    /// Number of cost symbols paid by Convoke while this spell was cast. The
+    /// stack retains this cast-time provenance because a source of a generic
+    /// reduction may leave the battlefield before the spell resolves.
+    pub convoke_symbols: usize,
+    /// Generic cost reduction actually applied after a chosen X value and
+    /// before Convoke. This is a cost-payment fact, not a live query of a
+    /// source that might later leave the battlefield.
+    pub generic_cost_reduction: u8,
 }
 
 /// The resolution status for the target occurrence, if any, owned by one

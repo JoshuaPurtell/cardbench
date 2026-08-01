@@ -60,6 +60,8 @@ fn invariant_audit_rejects_a_stack_spell_targeting_itself() {
             effects: vec![Effect::GainLifeController { amount: 1 }],
             chosen_x: None,
             mana_spent: None,
+            convoke_symbols: 0,
+            generic_cost_reduction: 0,
         },
         StackObject {
             card: counter,
@@ -70,6 +72,8 @@ fn invariant_audit_rejects_a_stack_spell_targeting_itself() {
             effects: vec![Effect::CounterTargetInstantOrSorcerySpell],
             chosen_x: None,
             mana_spent: None,
+            convoke_symbols: 0,
+            generic_cost_reduction: 0,
         },
     ];
 

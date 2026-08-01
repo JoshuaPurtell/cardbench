@@ -47,6 +47,8 @@ fn invariant_audit_rejects_an_unsupported_instant_fabricated_onto_the_stack() {
         effects: vec![],
         chosen_x: None,
         mana_spent: None,
+        convoke_symbols: 0,
+        generic_cost_reduction: 0,
     });
 
     let audit = game.validate_invariants();

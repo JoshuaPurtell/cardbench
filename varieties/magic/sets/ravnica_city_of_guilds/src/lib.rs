@@ -26,11 +26,11 @@ use cardbench_magic_engine::{
     AdditionalSpellCostBinding, BasicLandType, BasicLandTypeBinding, CardDefinition, CardType,
     CastRequest, Color, ContinuousChange, ConvokeContribution, ConvokePayment,
     CostReductionBinding, DeckEntry, DeckList, DeckRules, Effect, Game, HybridManaSymbol, Keyword,
-    LandEntryBinding, LibrarySearchDestination, LibrarySearchRequirement, ManaAbilityBinding,
-    ManaBundle, ManaCost, PlayerId, ReplacementEffect, ReplacementEffectBinding, RulesError,
-    StaticAttackRestriction, StaticAttackRestrictionBinding, StaticContinuousEffectBinding, Target,
-    TargetRequirement, TokenSpec, TriggerCondition, TriggeredAbility, TriggeredAbilityBinding,
-    Zone,
+    LandEntryBinding, LibrarySearchDestination, LibrarySearchRequirement, LibrarySearchSelection,
+    ManaAbilityBinding, ManaAbilityOutput, ManaBundle, ManaCost, PlayerId, ReplacementEffect,
+    ReplacementEffectBinding, RulesError, StaticAttackRestriction, StaticAttackRestrictionBinding,
+    StaticContinuousEffectBinding, Target, TargetRequirement, TokenSpec, TriggerCondition,
+    TriggeredAbility, TriggeredAbilityBinding, Zone,
 };
 
 pub const SET_CODE: &str = "RAV";
@@ -38,7 +38,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 129] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 130] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -47,6 +47,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 129] = [
     "RAV-GOLGARI-ROTWURM",
     "RAV-SCATTER-THE-SEEDS",
     "RAV-DOUBLING-SEASON",
+    "RAV-CHORD-OF-CALLING",
     "RAV-SCION-OF-THE-WILD",
     "RAV-GUARDIAN-OF-VITU-GHAZI",
     "RAV-LAST-GASP",
@@ -818,6 +819,35 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Dredge(6)],
             effects: vec![],
         },
+        CardDefinition {
+            id: "RAV-CHORD-OF-CALLING",
+            name: "Chord of Calling",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(3, [Color::Green, Color::Green, Color::Green]),
+            colors: colors([Color::Green]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Instant]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "convoke",
+                "chosen-x",
+                "policy-submitted-library-search",
+                "typed-creature-mana-value-predicate",
+                "battlefield-entry",
+                "library-shuffle",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![Keyword::Convoke],
+            effects: vec![Effect::SearchControllerLibrary {
+                requirement: LibrarySearchRequirement::CreatureWithManaValueAtMostChosenX,
+                destination: LibrarySearchDestination::Battlefield,
+                selection: LibrarySearchSelection::PolicySubmitted {
+                    may_fail_to_find: true,
+                },
+            }],
+        },
         // Compatibility scope: exact casting cost and typed non-Forest land
         // search into a tapped battlefield entry. The public engine selects
         // the first qualifying card in its deterministic library order until
@@ -848,6 +878,7 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                     BasicLandType::Mountain,
                 ])),
                 destination: LibrarySearchDestination::BattlefieldTapped,
+                selection: LibrarySearchSelection::DeterministicFirstMatch,
             }],
         },
         // Compatibility scope: normal enchantment casting plus the
@@ -4658,6 +4689,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                         BasicLandType::Forest,
                     ])),
                     destination: LibrarySearchDestination::BattlefieldTapped,
+                    selection: LibrarySearchSelection::DeterministicFirstMatch,
                 }],
             },
         },
@@ -5241,6 +5273,7 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                         BasicLandType::Forest,
                     ])),
                     destination: LibrarySearchDestination::Hand,
+                    selection: LibrarySearchSelection::DeterministicFirstMatch,
                 }],
             },
         },

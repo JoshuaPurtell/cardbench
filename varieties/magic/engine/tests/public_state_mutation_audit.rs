@@ -120,6 +120,8 @@ fn mutation_audit_rejects_zone_and_stack_corruption() {
         }],
         chosen_x: None,
         mana_spent: None,
+        convoke_symbols: 0,
+        generic_cost_reduction: 0,
     });
     assert_rejected(&zone_and_stack, "a stack card remains in a player zone");
 
@@ -140,6 +142,8 @@ fn mutation_audit_rejects_zone_and_stack_corruption() {
         }],
         chosen_x: None,
         mana_spent: None,
+        convoke_symbols: 0,
+        generic_cost_reduction: 0,
     });
     assert_rejected(
         &fabricated_stack_target,
@@ -156,6 +160,8 @@ fn mutation_audit_rejects_zone_and_stack_corruption() {
         effects: vec![],
         chosen_x: None,
         mana_spent: None,
+        convoke_symbols: 0,
+        generic_cost_reduction: 0,
     });
     assert_rejected(
         &unknown_stack_card,

@@ -10,9 +10,9 @@ mod game;
 mod model;
 
 pub use game::{
-    CardView, CastRequest, ConvokeContribution, ConvokePayment, Game, GameView, PolicyAction,
-    PrivateLibraryChoiceView, RulesError, TransmuteSearchView,
-    TriggeredAbilityEffectObjectChoiceView,
+    CardView, CastRequest, ConvokeContribution, ConvokePayment, Game, GameView,
+    LibrarySearchChoiceView, PolicyAction, PrivateLibraryChoiceView, RulesError,
+    TransmuteSearchView, TriggeredAbilityEffectObjectChoiceView,
 };
 pub use model::{
     AbilityActivation, ActivatedAbility, ActivatedAbilityBinding, ActivatedManaAbility,
@@ -21,9 +21,9 @@ pub use model::{
     Characteristics, Color, CombatBlock, ContinuousChange, ContinuousEffect, CostReductionBinding,
     CreatureSubtype, DeckEntry, DeckList, DeckRules, DeckValidationError, Duration, Effect,
     GameEvent, HybridManaSymbol, Keyword, LandEntryBinding, Layer, LibrarySearchDestination,
-    LibrarySearchRequirement, ManaAbilityActivation, ManaAbilityBinding, ManaAbilityOutput,
-    ManaBundle, ManaCost, ManaPaymentSelection, ManaPool, ObjectId, PlayerId, PlayerState,
-    PolicyMoveKind, ReplacementEffect, ReplacementEffectBinding, ReplacementEventKind,
+    LibrarySearchRequirement, LibrarySearchSelection, ManaAbilityActivation, ManaAbilityBinding,
+    ManaAbilityOutput, ManaBundle, ManaCost, ManaPaymentSelection, ManaPool, ObjectId, PlayerId,
+    PlayerState, PolicyMoveKind, ReplacementEffect, ReplacementEffectBinding, ReplacementEventKind,
     StackEffectResolution, StackObject, StackResolutionPlan, StackTargetArityError,
     StaticAttackRestriction, StaticAttackRestrictionBinding, StaticContinuousEffectBinding, Step,
     Target, TargetRequirement, TokenSpec, TriggerCondition, TriggeredAbility,
