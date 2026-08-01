@@ -176,4 +176,39 @@ fn optional_trigger_payment_does_not_auto_pay_at_resolution() {
         1,
         "the trigger must stay suspended until the policy decides"
     );
+    let choice = game
+        .view_for_player(PlayerId(0))
+        .expect("controller view")
+        .optional_triggered_ability_choice
+        .expect("optional payment choice is visible");
+    assert_eq!(choice.source, meditation);
+    assert_eq!(choice.ability, "life-gain-deal-two");
+    assert!(choice.can_pay);
+    assert!(
+        choice
+            .conditional_targets
+            .contains(&Target::Player(PlayerId(1)))
+    );
+    game.submit_policy_move(
+        PlayerId(0),
+        "test.pay-optional-trigger.v1",
+        PolicyAction::ResolveOptionalTriggeredAbility {
+            source: meditation,
+            ability: "life-gain-deal-two",
+            pay: true,
+            target: Some(Target::Player(PlayerId(1))),
+        },
+    )
+    .expect("controller pays and chooses the opponent");
+    assert_eq!(game.stack.len(), 0);
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::AbilityManaPaid {
+            source,
+            ability: "life-gain-deal-two",
+            ..
+        } if *source == meditation
+    )));
+    game.validate_invariants()
+        .expect("optional payment transition is valid");
 }

@@ -79,7 +79,18 @@ fn frenzied_goblin_attack_trigger_pays_red_and_restricts_a_blocker() {
     game.pass_priority(PlayerId(0))
         .expect("trigger controller passes");
     game.pass_priority(PlayerId(1))
-        .expect("attack trigger resolves");
+        .expect("attack trigger reaches optional payment");
+    game.submit_policy_move(
+        PlayerId(0),
+        "test.frenzied-pay.v1",
+        PolicyAction::ResolveOptionalTriggeredAbility {
+            source: goblin,
+            ability: "attack-cannot-block",
+            pay: true,
+            target: None,
+        },
+    )
+    .expect("pay optional red");
     assert!(
         game.characteristics(blocker)
             .expect("blocker characteristics")
@@ -135,7 +146,18 @@ fn frenzied_goblin_target_remains_able_to_attack() {
     game.pass_priority(PlayerId(0))
         .expect("trigger controller passes");
     game.pass_priority(PlayerId(1))
-        .expect("attack trigger resolves");
+        .expect("attack trigger reaches optional payment");
+    game.submit_policy_move(
+        PlayerId(0),
+        "test.frenzied-pay.v1",
+        PolicyAction::ResolveOptionalTriggeredAbility {
+            source: goblin,
+            ability: "attack-cannot-block",
+            pay: true,
+            target: None,
+        },
+    )
+    .expect("pay optional red");
     let characteristics = game.characteristics(blocker).expect("blocker remains");
     println!(
         "Frenzied Goblin target restriction: {:?}",

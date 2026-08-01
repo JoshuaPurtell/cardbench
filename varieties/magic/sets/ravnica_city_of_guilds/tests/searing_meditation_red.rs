@@ -1,7 +1,7 @@
 //! Red discovery contract for Searing Meditation's life-gain trigger.
 
 use cardbench_magic_engine::{
-    CardType, CastRequest, Color, Game, GameEvent, ManaCost, PlayerId, Target, Zone,
+    CardType, CastRequest, Color, Game, GameEvent, ManaCost, PlayerId, PolicyAction, Target, Zone,
 };
 use cardbench_magic_rav::{
     RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, rav_activated_ability_bindings,
@@ -120,7 +120,19 @@ fn searing_meditation_pays_two_and_deals_two_after_life_gain() {
             if *source == meditation && *ability == "life-gain-deal-two"
     )));
     game.pass_priority(PlayerId(0)).expect("trigger pass");
-    game.pass_priority(PlayerId(1)).expect("trigger resolves");
+    game.pass_priority(PlayerId(1))
+        .expect("trigger reaches its optional payment");
+    game.submit_policy_move(
+        PlayerId(0),
+        "test.searing-pay.v1",
+        PolicyAction::ResolveOptionalTriggeredAbility {
+            source: meditation,
+            ability: "life-gain-deal-two",
+            pay: true,
+            target: Some(Target::Player(PlayerId(1))),
+        },
+    )
+    .expect("pay and choose opponent");
     println!(
         "Searing event log after trigger: {:#?}",
         game.canonical_event_log()
@@ -204,7 +216,18 @@ fn searing_meditation_may_decline_when_two_mana_is_unavailable() {
     game.pass_priority(PlayerId(1)).expect("Helix resolves");
     game.pass_priority(PlayerId(0)).expect("trigger pass");
     game.pass_priority(PlayerId(1))
-        .expect("trigger resolves without payment");
+        .expect("trigger reaches its optional payment");
+    game.submit_policy_move(
+        PlayerId(0),
+        "test.searing-decline.v1",
+        PolicyAction::ResolveOptionalTriggeredAbility {
+            source: meditation,
+            ability: "life-gain-deal-two",
+            pay: false,
+            target: None,
+        },
+    )
+    .expect("decline optional payment");
     assert!(!game.event_log.iter().any(|event| {
         matches!(
             event,

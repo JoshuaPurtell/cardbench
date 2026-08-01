@@ -144,6 +144,12 @@ Oracle Magic rules coverage.
   emits `TriggeredAbilityStacked` only after that controller submits the exact
   pending source, ability, and a legal target for every slot. Rejected choices
   leave the pending decision, stack, zones, mana, and event log unchanged.
+- After every surviving player passes on a trigger with an optional mana cost,
+  the trigger remains the top stack object and opens a no-priority decision for
+  its controller. The view exposes the exact cost, current affordability, and
+  legal conditional targets. Declining requires no target and spends nothing;
+  accepting requires a payable pool and the exact target shape. Only acceptance
+  emits `AbilityManaPaid`, and rejected submissions are atomic no-ops.
 - A registered generic-cost reducer has a catalogued permanent source, a
   strictly positive amount, and is registered before the game starts. It
   contributes only while a source with that definition is live on the casting

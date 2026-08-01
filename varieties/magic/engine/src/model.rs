@@ -1051,9 +1051,9 @@ pub enum Effect {
         amount: i16,
     },
     /// Pay an optional life-gain trigger cost at resolution, then deal the
-    /// fixed amount to a deterministically selected legal target. The target
-    /// is intentionally not a stack slot because the printed ability chooses
-    /// it only after its optional payment succeeds.
+    /// fixed amount to the policy-submitted conditional target. The target is
+    /// intentionally not an initial stack slot because it is selected only
+    /// after the optional payment succeeds.
     DealDamageAfterOptionalManaPayment {
         amount: i16,
         target: TargetRequirement,
@@ -1874,6 +1874,7 @@ pub enum PolicyMoveKind {
     ChoosePrivateLibraryCards,
     ChoosePrivateOpponentLibraryCardToExile,
     ChooseTriggeredAbilityTargets,
+    ResolveOptionalTriggeredAbility,
     Transmute,
     PassPriority,
     PlayLand,

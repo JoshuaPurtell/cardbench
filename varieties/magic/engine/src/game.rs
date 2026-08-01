@@ -9,10 +9,10 @@ use crate::{
     CombatBlock, ContinuousChange, ContinuousEffect, CostReductionBinding, CreatureSubtype,
     DeckList, Duration, Effect, GameEvent, Keyword, LandEntryBinding, Layer,
     LibrarySearchDestination, LibrarySearchRequirement, ManaAbilityActivation, ManaAbilityBinding,
-    ManaAbilityOutput, ManaPaymentSelection, ObjectId, PlayerId, PlayerState, PolicyMoveKind,
-    StackEffectResolution, StackObject, StackResolutionPlan, StaticAttackRestriction,
-    StaticAttackRestrictionBinding, StaticContinuousEffectBinding, Step, Target, TargetRequirement,
-    TokenSpec, TriggerCondition, TriggeredAbilityBinding, Zone,
+    ManaAbilityOutput, ManaCost, ManaPaymentSelection, ObjectId, PlayerId, PlayerState,
+    PolicyMoveKind, StackEffectResolution, StackObject, StackResolutionPlan,
+    StaticAttackRestriction, StaticAttackRestrictionBinding, StaticContinuousEffectBinding, Step,
+    Target, TargetRequirement, TokenSpec, TriggerCondition, TriggeredAbilityBinding, Zone,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -123,6 +123,14 @@ pub enum PolicyAction {
         ability: &'static str,
         targets: Vec<Target>,
     },
+    /// Accepts or declines an optional triggered mana payment after every
+    /// player has passed. A conditional target is supplied only when paying.
+    ResolveOptionalTriggeredAbility {
+        source: ObjectId,
+        ability: &'static str,
+        pay: bool,
+        target: Option<Target>,
+    },
     /// Activates transmute, optionally selecting a matching mana-value card
     /// from the controller's library. A hidden-zone quality search may find
     /// nothing; the engine enforces timing and payment in either case.
@@ -173,6 +181,9 @@ impl PolicyAction {
             }
             Self::ChooseTriggeredAbilityTargets { .. } => {
                 PolicyMoveKind::ChooseTriggeredAbilityTargets
+            }
+            Self::ResolveOptionalTriggeredAbility { .. } => {
+                PolicyMoveKind::ResolveOptionalTriggeredAbility
             }
             Self::Transmute { .. } => PolicyMoveKind::Transmute,
             Self::PassPriority => PolicyMoveKind::PassPriority,
@@ -242,6 +253,16 @@ pub struct TriggeredAbilityTargetChoiceView {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct OptionalTriggeredAbilityChoiceView {
+    pub source: ObjectId,
+    pub ability: &'static str,
+    pub mana_cost: ManaCost,
+    pub can_pay: bool,
+    /// Legal choices for a target selected only if the optional cost is paid.
+    pub conditional_targets: Vec<Target>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct GameView {
     pub player: PlayerId,
     pub active_player: PlayerId,
@@ -269,6 +290,7 @@ pub struct GameView {
     pub private_opponent_library_choice: Option<PrivateOpponentLibraryChoiceView>,
     /// Present only to the trigger's controller while target selection is due.
     pub triggered_ability_target_choice: Option<TriggeredAbilityTargetChoiceView>,
+    pub optional_triggered_ability_choice: Option<OptionalTriggeredAbilityChoiceView>,
     /// Legal controller-owned library choices for each transmute card in hand.
     pub transmute_searches: Vec<TransmuteSearchView>,
     pub own_battlefield: Vec<CardView>,
@@ -369,6 +391,13 @@ struct PendingPrivateOpponentLibraryExileChoice {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct PendingTriggeredAbilityTargetChoice {
+    source: ObjectId,
+    controller: PlayerId,
+    ability: crate::TriggeredAbility,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct PendingOptionalTriggeredAbilityChoice {
     source: ObjectId,
     controller: PlayerId,
     ability: crate::TriggeredAbility,
@@ -475,6 +504,7 @@ pub struct Game {
     pending_private_library_choice: Option<PendingPrivateLibraryChoice>,
     pending_private_opponent_library_exile_choice: Option<PendingPrivateOpponentLibraryExileChoice>,
     pending_trigger_target_choices: Vec<PendingTriggeredAbilityTargetChoice>,
+    pending_optional_trigger_choice: Option<PendingOptionalTriggeredAbilityChoice>,
     /// A resolving rule may prevent every represented library search until the
     /// current turn ends. It is deliberately a turn number, rather than a
     /// boolean, so invariant checks detect an expired marker crossing a turn
@@ -697,6 +727,7 @@ impl Game {
             pending_private_library_choice: None,
             pending_private_opponent_library_exile_choice: None,
             pending_trigger_target_choices: Vec::new(),
+            pending_optional_trigger_choice: None,
             library_search_prevented_until: None,
             pending_damage_triggers: Vec::new(),
             pending_life_gain_triggers: Vec::new(),
@@ -2089,6 +2120,26 @@ impl Game {
                     })
                     .collect(),
             });
+        let optional_triggered_ability_choice = self
+            .pending_optional_trigger_choice
+            .as_ref()
+            .filter(|choice| choice.controller == player)
+            .map(|choice| {
+                let conditional_targets = Self::optional_trigger_target_requirement(
+                    &choice.ability,
+                )
+                .map_or_else(Vec::new, |requirement| {
+                    self.legal_trigger_targets(choice.source, choice.controller, requirement)
+                });
+                let mut pool = self.players[choice.controller.0].mana_pool.clone();
+                OptionalTriggeredAbilityChoiceView {
+                    source: choice.source,
+                    ability: choice.ability.id,
+                    mana_cost: choice.ability.mana_cost.clone(),
+                    can_pay: pool.pay(&choice.ability.mana_cost).is_ok(),
+                    conditional_targets,
+                }
+            });
         let mut opponent_life = Vec::new();
         let mut opponent_battlefield = Vec::new();
         for opponent in self
@@ -2149,6 +2200,7 @@ impl Game {
             private_library_choice,
             private_opponent_library_choice,
             triggered_ability_target_choice,
+            optional_triggered_ability_choice,
             transmute_searches,
             own_battlefield,
             opponent_battlefield,
@@ -2190,6 +2242,14 @@ impl Game {
                 targets,
             } => {
                 self.choose_triggered_ability_targets(player, source, ability, targets)?;
+            }
+            PolicyAction::ResolveOptionalTriggeredAbility {
+                source,
+                ability,
+                pay,
+                target,
+            } => {
+                self.resolve_optional_triggered_ability(player, source, ability, pay, target)?;
             }
             PolicyAction::Transmute { card, found } => self.transmute(player, card, found)?,
             PolicyAction::PassPriority => self.pass_priority(player)?,
@@ -3326,6 +3386,11 @@ impl Game {
                 "trigger targets must be chosen before priority can pass",
             ));
         }
+        if self.pending_optional_trigger_choice.is_some() {
+            return Err(RulesError::IllegalAction(
+                "optional trigger payment must resolve before priority can pass",
+            ));
+        }
         if self.step == Step::DeclareAttackers
             && self
                 .combat
@@ -4218,9 +4283,37 @@ impl Game {
                 || self.pending_draw_replacement.is_some()
                 || self.pending_private_library_choice.is_some()
                 || self.pending_private_opponent_library_exile_choice.is_some()
+                || self.pending_optional_trigger_choice.is_some()
             {
                 return Err(RulesError::IllegalAction(
                     "trigger-target choice escaped its no-priority decision boundary",
+                ));
+            }
+        }
+        if let Some(choice) = &self.pending_optional_trigger_choice {
+            let top = self.stack.last().ok_or(RulesError::IllegalAction(
+                "optional trigger decision escaped its stack object",
+            ))?;
+            let registered = self
+                .card_definition(choice.source)
+                .ok()
+                .and_then(|definition| self.triggered_abilities.get(definition.id))
+                .and_then(|abilities| abilities.get(choice.ability.id));
+            if top.card != choice.source
+                || top.controller != choice.controller
+                || top.ability_id != Some(choice.ability.id)
+                || !choice.ability.optional
+                || choice.ability.mana_cost.mana_value() == 0
+                || registered != Some(&choice.ability)
+                || self.players[choice.controller.0].lost
+                || self.consecutive_passes != 0
+                || self.pending_draw_replacement.is_some()
+                || self.pending_private_library_choice.is_some()
+                || self.pending_private_opponent_library_exile_choice.is_some()
+                || !self.pending_trigger_target_choices.is_empty()
+            {
+                return Err(RulesError::IllegalAction(
+                    "optional trigger choice escaped its no-priority resolution boundary",
                 ));
             }
         }
@@ -5650,6 +5743,32 @@ impl Game {
 
     #[allow(clippy::too_many_lines)] // Spell and activated-ability resolution share one audited path.
     fn resolve_top_of_stack(&mut self) -> Result<(), RulesError> {
+        self.resolve_top_of_stack_with_optional_decision(None)
+    }
+
+    #[allow(clippy::too_many_lines)] // Spell and activated-ability resolution share one audited path.
+    fn resolve_top_of_stack_with_optional_decision(
+        &mut self,
+        optional_decision: Option<(bool, Option<Target>)>,
+    ) -> Result<(), RulesError> {
+        if optional_decision.is_none()
+            && let Some(top) = self.stack.last()
+            && let Some(ability_id) = top.ability_id
+            && let Some(ability) = self
+                .triggered_abilities
+                .get(self.card_definition(top.card)?.id)
+                .and_then(|abilities| abilities.get(ability_id))
+                .filter(|ability| ability.optional && ability.mana_cost.mana_value() > 0)
+        {
+            self.pending_optional_trigger_choice = Some(PendingOptionalTriggeredAbilityChoice {
+                source: top.card,
+                controller: top.controller,
+                ability: ability.clone(),
+            });
+            self.priority = top.controller;
+            self.consecutive_passes = 0;
+            return Ok(());
+        }
         if self.suspend_top_spell_for_private_library_choice()? {
             return Ok(());
         }
@@ -5704,9 +5823,6 @@ impl Game {
         // Triggered costs are paid on resolution.  In particular, an attack
         // trigger must be visible on the stack before its controller gets the
         // post-declaration priority window in which to activate mana abilities.
-        // The present deterministic compatibility policy pays an optional cost
-        // whenever the controller can afford it; policy-submitted decline
-        // choices remain a separately documented fidelity boundary.
         let mut trigger_payment_paid = true;
         if let Some(ability_id) = stack_object.ability_id
             && let Some(ability) = self
@@ -5715,9 +5831,22 @@ impl Game {
                 .and_then(|abilities| abilities.get(ability_id))
             && ability.mana_cost.mana_value() > 0
         {
+            let should_pay = if ability.optional {
+                optional_decision
+                    .as_ref()
+                    .map(|decision| decision.0)
+                    .ok_or(RulesError::IllegalAction(
+                        "optional triggered cost resolved without a policy decision",
+                    ))?
+            } else {
+                true
+            };
+            if !should_pay {
+                trigger_payment_paid = false;
+            }
             let mut paid_pool = self.players[stack_object.controller.0].mana_pool.clone();
-            match paid_pool.pay(&ability.mana_cost) {
-                Ok(()) => {
+            match should_pay.then(|| paid_pool.pay(&ability.mana_cost)) {
+                Some(Ok(())) => {
                     self.players[stack_object.controller.0].mana_pool = paid_pool;
                     self.record_event(GameEvent::AbilityManaPaid {
                         player: stack_object.controller,
@@ -5726,10 +5855,8 @@ impl Game {
                         mana_cost: ability.mana_cost.clone(),
                     });
                 }
-                Err(_error) if ability.optional => {
-                    trigger_payment_paid = false;
-                }
-                Err(error) => return Err(RulesError::Mana(error)),
+                None => {}
+                Some(Err(error)) => return Err(RulesError::Mana(error)),
             }
         }
         let mut pending_aura_attachment = None;
@@ -5745,6 +5872,35 @@ impl Game {
             }
             match target_resolution {
                 StackEffectResolution::Untargeted => {
+                    if let Effect::DealDamageAfterOptionalManaPayment { amount, .. } = effect {
+                        let selected = optional_decision
+                            .as_ref()
+                            .and_then(|decision| decision.1)
+                            .ok_or(RulesError::IllegalAction(
+                            "paid optional trigger is missing its conditional target",
+                        ))?;
+                        match selected {
+                            Target::Player(player) => self.deal_damage_to_player(
+                                stack_object.card,
+                                player,
+                                i32::from(*amount),
+                            )?,
+                            Target::Permanent(permanent) => self.deal_damage_to_permanent(
+                                stack_object.card,
+                                permanent,
+                                i32::from(*amount),
+                            )?,
+                            Target::Spell(card) => {
+                                return Err(RulesError::IllegalTarget(Target::Spell(card)));
+                            }
+                            Target::SacrificePermanent(card) => {
+                                return Err(RulesError::IllegalTarget(Target::SacrificePermanent(
+                                    card,
+                                )));
+                            }
+                        }
+                        continue;
+                    }
                     self.resolve_effect(
                         stack_object.card,
                         stack_object.controller,
@@ -6386,6 +6542,64 @@ impl Game {
             });
             game.consecutive_passes = 0;
             Ok(())
+        })
+    }
+
+    fn optional_trigger_target_requirement(
+        ability: &crate::TriggeredAbility,
+    ) -> Option<TargetRequirement> {
+        ability.effects.iter().find_map(|effect| match effect {
+            Effect::DealDamageAfterOptionalManaPayment { target, .. } => Some(*target),
+            _ => None,
+        })
+    }
+
+    fn resolve_optional_triggered_ability(
+        &mut self,
+        player: PlayerId,
+        source: ObjectId,
+        ability_id: &'static str,
+        pay: bool,
+        target: Option<Target>,
+    ) -> Result<(), RulesError> {
+        self.atomic_transition(|game| {
+            let choice =
+                game.pending_optional_trigger_choice
+                    .clone()
+                    .ok_or(RulesError::IllegalAction(
+                        "no optional triggered ability is awaiting a decision",
+                    ))?;
+            if player != choice.controller
+                || source != choice.source
+                || ability_id != choice.ability.id
+            {
+                return Err(RulesError::IllegalAction(
+                    "optional trigger decision does not match the pending controller or identity",
+                ));
+            }
+            let requirement = Self::optional_trigger_target_requirement(&choice.ability);
+            match (pay, requirement, target) {
+                (false, _, None) | (true, None, None) => {}
+                (true, Some(requirement), Some(target))
+                    if game.target_matches_for_source(
+                        choice.controller,
+                        choice.source,
+                        target,
+                        requirement,
+                    ) => {}
+                _ => {
+                    return Err(RulesError::IllegalAction(
+                        "optional trigger payment has an invalid conditional target",
+                    ));
+                }
+            }
+            if pay {
+                let mut pool = game.players[player.0].mana_pool.clone();
+                pool.pay(&choice.ability.mana_cost)
+                    .map_err(RulesError::Mana)?;
+            }
+            game.pending_optional_trigger_choice = None;
+            game.resolve_top_of_stack_with_optional_decision(Some((pay, target)))
         })
     }
 
@@ -10666,6 +10880,11 @@ impl Game {
                 "trigger targets must be chosen before priority actions",
             ));
         }
+        if self.pending_optional_trigger_choice.is_some() {
+            return Err(RulesError::IllegalAction(
+                "optional trigger payment must resolve before priority actions",
+            ));
+        }
         if self.players[player.0].lost {
             return Err(RulesError::IllegalAction("an eliminated player cannot act"));
         }
@@ -10773,6 +10992,9 @@ impl Game {
             return choice.controller;
         }
         if let Some(choice) = self.pending_trigger_target_choices.first() {
+            return choice.controller;
+        }
+        if let Some(choice) = &self.pending_optional_trigger_choice {
             return choice.controller;
         }
         match (&self.combat, self.step) {
