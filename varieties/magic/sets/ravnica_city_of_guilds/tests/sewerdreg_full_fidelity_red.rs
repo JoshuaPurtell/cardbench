@@ -1,9 +1,8 @@
-//! Full-fidelity probe retained red until Sewerdreg regeneration exists.
+//! Red regression for Sewerdreg's missing activated regeneration ability.
 
 use cardbench_magic_rav::{RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions};
 
 #[test]
-#[ignore = "Sewerdreg's activated regeneration shield is not implemented"]
 fn sewerdreg_requires_regeneration_for_full_fidelity() {
     let definition = card_definitions()
         .into_iter()
