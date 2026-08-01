@@ -430,31 +430,57 @@ pub fn run_rav_reference_deck_matrix(
     if deck_ids.len() < 2 {
         return Err("reference deck matrix requires at least two decks".to_owned());
     }
-    let mut matches = Vec::new();
-    let mut engine_findings = Vec::new();
+    let mut jobs = Vec::new();
     for deck_p0 in &deck_ids {
         for deck_p1 in &deck_ids {
             if deck_p0 == deck_p1 {
                 continue;
             }
             for &shuffle_seed in &seeds {
-                let result = run_rav_deck_matchup(
-                    DeckMatchConfig {
-                        shuffle_seed,
-                        ..DeckMatchConfig::default()
-                    },
-                    deck_p0,
-                    deck_p1,
-                )
-                .map_err(|error| {
-                    format!(
-                        "reference matrix {deck_p0} vs {deck_p1} at seed {shuffle_seed}: {error}"
-                    )
-                })?;
-                engine_findings.extend(result.engine_findings.iter().cloned());
-                matches.push(result);
+                jobs.push((deck_p0.clone(), deck_p1.clone(), shuffle_seed));
             }
         }
+    }
+    // Every matchup owns an independent Game, catalog, and policy pair. Run
+    // those jobs concurrently, but write them back by job index so the public
+    // result remains deterministic for replay and digest comparisons.
+    let mut ordered_results = vec![None; jobs.len()];
+    std::thread::scope(|scope| {
+        let handles = jobs
+            .into_iter()
+            .enumerate()
+            .map(|(index, (deck_p0, deck_p1, shuffle_seed))| {
+                scope.spawn(move || {
+                    let result = run_rav_deck_matchup(
+                        DeckMatchConfig {
+                            shuffle_seed,
+                            ..DeckMatchConfig::default()
+                        },
+                        &deck_p0,
+                        &deck_p1,
+                    )
+                    .map_err(|error| {
+                        format!(
+                            "reference matrix {deck_p0} vs {deck_p1} at seed {shuffle_seed}: {error}"
+                        )
+                    });
+                    (index, result)
+                })
+            })
+            .collect::<Vec<_>>();
+        for handle in handles {
+            let (index, result) = handle
+                .join()
+                .expect("reference matrix worker must not panic");
+            ordered_results[index] = Some(result);
+        }
+    });
+    let mut matches = Vec::with_capacity(ordered_results.len());
+    let mut engine_findings = Vec::new();
+    for result in ordered_results.into_iter().flatten() {
+        let result = result?;
+        engine_findings.extend(result.engine_findings.iter().cloned());
+        matches.push(result);
     }
     Ok(fail_closed_tournament(
         RAV_REFERENCE_DECK_MATRIX_ID,
