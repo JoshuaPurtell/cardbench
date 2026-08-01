@@ -664,6 +664,7 @@ impl Game {
                 || !matches!(
                     binding.ability.condition,
                     TriggerCondition::EntersBattlefield
+                        | TriggerCondition::LandEntersBattlefield
                         | TriggerCondition::BeginningOfUpkeep
                         | TriggerCondition::LifeGained
                         | TriggerCondition::DealsDamage
@@ -2210,6 +2211,7 @@ impl Game {
         self.check_state_based_actions()?;
         self.flush_pending_dies_triggers();
         self.enqueue_enter_triggers(card, definition_id, player);
+        self.enqueue_land_entry_triggers()?;
         Ok(())
     }
 
@@ -3332,6 +3334,7 @@ impl Game {
                     || !matches!(
                         ability.condition,
                         TriggerCondition::EntersBattlefield
+                            | TriggerCondition::LandEntersBattlefield
                             | TriggerCondition::BeginningOfUpkeep
                             | TriggerCondition::LifeGained
                             | TriggerCondition::DealsDamage
@@ -4312,6 +4315,8 @@ impl Game {
                 | Effect::DestroyTargetArtifactOrCreatureNoRegeneration
                 | Effect::DestroyDistinctTargetCreature
                 | Effect::TapTargetCreature
+                | Effect::UntapSource
+                | Effect::UntapTargetLand
                 | Effect::DestroyTargetArtifactOrEnchantment
                 | Effect::ReturnTargetCardToHand
                 | Effect::ReturnTargetCreatureCardToHandIfAnotherInControllerGraveyard
@@ -4519,6 +4524,7 @@ impl Game {
         });
         let definition_id = self.card_definition(stack_object.card)?.id;
         let permanent_resolution = self.card_definition(stack_object.card)?.is_permanent();
+        let entering_is_land = self.card_definition(stack_object.card)?.is_land();
         let entering_controller = self.object(stack_object.card)?.controller;
         if permanent_resolution {
             self.move_to_zone(stack_object.card, Zone::Battlefield)?;
@@ -4529,6 +4535,9 @@ impl Game {
         self.flush_pending_dies_triggers();
         if permanent_resolution {
             self.enqueue_enter_triggers(stack_object.card, definition_id, entering_controller);
+            if entering_is_land {
+                self.enqueue_land_entry_triggers()?;
+            }
         }
         self.flush_pending_damage_triggers();
         self.flush_pending_life_gain_triggers();
@@ -4543,12 +4552,52 @@ impl Game {
         definition: &'static str,
         controller: PlayerId,
     ) {
+        self.enqueue_triggers_for_source(
+            source,
+            definition,
+            controller,
+            TriggerCondition::EntersBattlefield,
+        );
+    }
+
+    /// Stacks every represented land-entry trigger on a live permanent. A
+    /// land entering does not have to share a controller with the triggered
+    /// source: the observer is the source permanent, not the land-play
+    /// action. Each represented entry path calls this after the land is live,
+    /// state-based actions are stable, and its own ETB triggers are queued.
+    fn enqueue_land_entry_triggers(&mut self) -> Result<(), RulesError> {
+        let sources = self.all_battlefield_cards();
+        for source in sources {
+            let (definition, controller) = {
+                let object = self.object(source)?;
+                (object.definition, object.controller)
+            };
+            let Some(definition) = definition else {
+                continue;
+            };
+            self.enqueue_triggers_for_source(
+                source,
+                definition,
+                controller,
+                TriggerCondition::LandEntersBattlefield,
+            );
+        }
+        Ok(())
+    }
+
+    fn enqueue_triggers_for_source(
+        &mut self,
+        source: ObjectId,
+        definition: &'static str,
+        controller: PlayerId,
+        condition: TriggerCondition,
+    ) {
         let triggers = self
             .triggered_abilities
             .get(definition)
             .into_iter()
             .flat_map(|abilities| abilities.values())
-            .filter(|ability| ability.condition == TriggerCondition::EntersBattlefield)
+            .filter(|ability| ability.condition == condition)
             .cloned()
             .collect::<Vec<_>>();
         for ability in triggers {
@@ -5864,6 +5913,35 @@ impl Game {
                 if !object.tapped {
                     object.tapped = true;
                     self.record_event(GameEvent::PermanentTapped {
+                        source,
+                        card: target,
+                    });
+                }
+            }
+            Effect::UntapSource => {
+                if self.zone_of(source) == Some(Zone::Battlefield) && self.object(source)?.tapped {
+                    self.objects
+                        .get_mut(&source)
+                        .ok_or(RulesError::UnknownCard(source))?
+                        .tapped = false;
+                    self.record_event(GameEvent::PermanentUntapped {
+                        source,
+                        card: source,
+                    });
+                }
+            }
+            Effect::UntapTargetLand => {
+                let target = Self::target_permanent(target)?;
+                if !self.target_matches(Target::Permanent(target), TargetRequirement::Land) {
+                    return Err(RulesError::IllegalTarget(Target::Permanent(target)));
+                }
+                let object = self
+                    .objects
+                    .get_mut(&target)
+                    .ok_or(RulesError::UnknownCard(target))?;
+                if object.tapped {
+                    object.tapped = false;
+                    self.record_event(GameEvent::PermanentUntapped {
                         source,
                         card: target,
                     });

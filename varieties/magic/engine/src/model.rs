@@ -218,6 +218,10 @@ pub struct ActivatedAbilityBinding {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum TriggerCondition {
     EntersBattlefield,
+    /// A land entered the battlefield through a represented normal zone
+    /// transition. Unlike `EntersBattlefield`, this condition observes every
+    /// qualifying land entry rather than only the permanent that entered.
+    LandEntersBattlefield,
     /// The active player's upkeep began.  Only permanents they control are
     /// eligible; the resulting abilities are put on the stack before either
     /// player receives that upkeep's first priority.
@@ -1104,6 +1108,13 @@ pub enum Effect {
     /// that is already tapped remains a legal target but creates no duplicate
     /// tap receipt.
     TapTargetCreature,
+    /// Untap the resolving permanent source while it remains a live tapped
+    /// battlefield object. This is target-free because the printed reference
+    /// is to the ability's own source.
+    UntapSource,
+    /// Untap one targeted land as the instruction resolves. A legal untapped
+    /// land remains unchanged and writes no duplicate receipt.
+    UntapTargetLand,
     /// Apply one temporary layer-7 power/toughness modifier to every creature
     /// the resolving spell's controller currently controls. The recipient set
     /// is snapshotted while the spell resolves before any state-based action
@@ -1229,6 +1240,7 @@ impl Effect {
             Self::DestroyTargetLand | Self::DestroyTargetLandAndUntapSourceIfNonbasic => {
                 Some(TargetRequirement::Land)
             }
+            Self::UntapTargetLand => Some(TargetRequirement::Land),
             Self::DestroyTargetArtifact => Some(TargetRequirement::Artifact),
             Self::DestroyTargetArtifactOrCreatureNoRegeneration => {
                 Some(TargetRequirement::ArtifactOrCreature)
@@ -1275,6 +1287,7 @@ impl Effect {
             | Self::RemoveSourceKeywordUntilEndOfTurn { .. }
             | Self::AddSourceDamageShieldUntilEndOfTurn { .. }
             | Self::RegenerateSource
+            | Self::UntapSource
             | Self::ModifyControllerCreaturesPtUntilEndOfTurn { .. }
             | Self::AddKeywordToControllerCreaturesUntilEndOfTurn { .. } => None,
         }

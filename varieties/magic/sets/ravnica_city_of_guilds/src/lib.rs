@@ -35,7 +35,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 105] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 106] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -141,6 +141,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 105] = [
     "RAV-VITU-GHAZI",
     "RAV-NULLMAGE-SHEPHERD",
     "RAV-VIGOR-MORTIS",
+    "RAV-STONE-SEEDER-HIEROPHANT",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -2221,6 +2222,30 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
+        // Full printed behavior: every represented land entry queues a
+        // source-untap trigger, and the source's tap activation rechecks a
+        // target land through the ordinary stack-resolution path.
+        CardDefinition {
+            id: "RAV-STONE-SEEDER-HIEROPHANT",
+            name: "Stone-Seeder Hierophant",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(2, [Color::Green, Color::Green]),
+            colors: colors([Color::Green]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "landfall-untap",
+                "tap-untap-target-land",
+            ],
+            power: Some(1),
+            toughness: Some(1),
+            keywords: vec![],
+            effects: vec![],
+        },
         // Compatibility scope: normal colored-cost creature casting, base
         // characteristics, and Reach. Its printed tap-to-damage activation
         // remains deliberately omitted from this compatibility slice.
@@ -3821,6 +3846,22 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
             },
         },
         ActivatedAbilityBinding {
+            card_definition: "RAV-STONE-SEEDER-HIEROPHANT",
+            ability: ActivatedAbility {
+                id: "untap-target-land",
+                mana_cost: ManaCost::new(0),
+                tap_cost: true,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![cardbench_magic_engine::TargetRequirement::Land],
+                effects: vec![Effect::UntapTargetLand],
+            },
+        },
+        ActivatedAbilityBinding {
             card_definition: "RAV-SELESNYA-EVANGEL",
             ability: ActivatedAbility {
                 id: "create-saproling",
@@ -4282,6 +4323,17 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                     cardbench_magic_engine::TargetRequirement::CreatureCardInControllerGraveyard,
                 ],
                 effects: vec![Effect::ReturnTargetCreatureCardToHandIfAnotherInControllerGraveyard],
+            },
+        },
+        TriggeredAbilityBinding {
+            card_definition: "RAV-STONE-SEEDER-HIEROPHANT",
+            ability: TriggeredAbility {
+                id: "landfall-untap-source",
+                condition: TriggerCondition::LandEntersBattlefield,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![Effect::UntapSource],
             },
         },
         TriggeredAbilityBinding {
@@ -5356,7 +5408,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 149);
+        assert_eq!(first.len(), 150);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

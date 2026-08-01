@@ -10202,3 +10202,83 @@ priority = 0
 mana = ["0:black:0", "0:green:0"]
 event_markers = ["SpellManaPaid", "SpellCast", "CardMoved", "CounterPlaced", "SpellResolved"]
 digest = "fnv1a64:caae9c04ca10026d"
+
+[[scenario]]
+id = "rav_stone_seeder_hierophant_landfall_untap"
+seed = 150
+triggers = true
+description = "Tap Stone-Seeder Hierophant through its target-land activation, then play a land and resolve its all-land-entry untap trigger through the stack."
+
+[[scenario.card]]
+label = "hierophant"
+owner = 0
+definition = "RAV-STONE-SEEDER-HIEROPHANT"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.card]]
+label = "initial_forest"
+owner = 0
+definition = "RAV-FOREST"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "entering_forest"
+owner = 0
+definition = "RAV-FOREST"
+zone = "hand"
+
+[[scenario.action]]
+kind = "begin_game"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "activate_ability"
+player = 0
+card = "hierophant"
+ability = "untap-target-land"
+target = "permanent:initial_forest"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "play_land"
+player = 0
+card = "entering_forest"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["hierophant:battlefield", "initial_forest:battlefield", "entering_forest:battlefield"]
+tapped = ["hierophant:false"]
+stack_size = 0
+priority = 0
+event_markers = ["AbilityActivated", "AbilityResolved", "TriggeredAbilityStacked", "PermanentUntapped"]
+digest = "fnv1a64:1c386d3cde96e6d9"

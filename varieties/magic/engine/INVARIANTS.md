@@ -76,6 +76,15 @@ Oracle Magic rules coverage.
   resolution receipts remain required. Controller-relative trigger selection
   must use controller-relative legality, so a `ControlledLand` target can
   select the newly entered land itself but can never select an opponent's land.
+- A `LandEntersBattlefield` trigger binding is permitted only on a permanent
+  source and uses the same checked effect/target shape as every other trigger.
+  Every represented normal land entry first makes the land live, reaches its
+  ordinary state-based-action boundary, queues that land's own ETB triggers,
+  then scans every live non-token permanent for land-entry observers without a
+  controller restriction. Each observer receives its own ordinary synthetic
+  stack object and `TriggeredAbilityStacked` receipt; the active player keeps
+  the normal post-land-play priority window and a trigger never performs its
+  effect inline.
 - A stack object has a unique card and a valid controller. Resolving or
   countering it removes it from the stack before it receives its resulting zone
   move.
@@ -330,6 +339,12 @@ Oracle Magic rules coverage.
   transition emits exactly one `PermanentTapped` receipt before the stack item
   receives its terminal resolution receipt; ability-cost taps never use that
   effect receipt.
+- Source- and land-untap effects are stack instructions, not hidden step
+  transitions. The source variant is a no-op unless its original source is
+  still a tapped battlefield permanent; the land variant rechecks that its
+  selected target remains a battlefield land. Either variant records exactly
+  one `PermanentUntapped` receipt only for an actual tapped-to-untapped change;
+  automatic Untap steps continue to use only their grouped turn receipt.
 - Trigger bindings declare their condition, optional mana cost, target
   requirements, and effects as one checked shape. Every attack trigger stacks
   before any optional mana cost is evaluated, so its controller receives the
