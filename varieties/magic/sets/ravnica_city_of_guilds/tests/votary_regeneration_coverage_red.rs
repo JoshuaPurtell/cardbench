@@ -1,14 +1,9 @@
-//! Ignored RAV coverage boundary probe for Votary of the Conclave.
-//!
-//! The executable slice currently models only the ordinary creature chassis.
-//! Keep this intentionally red and ignored until activated regeneration has a
-//! typed ability/stack substrate and a shield effect in the engine.
+//! Red regression for Votary of the Conclave's targeted regeneration.
 
 use cardbench_magic_engine::{CardType, Color, Keyword, ManaCost};
 use cardbench_magic_rav::card_definitions;
 
 #[test]
-#[ignore = "Votary regeneration activated ability and shield effect are not represented"]
 fn votary_requires_regeneration_instead_of_a_false_vigilance_promotion() {
     let votary = card_definitions()
         .into_iter()
