@@ -6691,47 +6691,53 @@ impl Game {
         permanent: ObjectId,
         amount: i32,
     ) -> Result<(), RulesError> {
-        let redirect_index = self
-            .damage_redirections
-            .iter()
-            .position(|redirect| redirect.protected == permanent && redirect.remaining > 0);
-        if let Some(index) = redirect_index {
-            let destination = self.damage_redirections[index].destination;
-            let destination_is_legal = self
-                .target_matches(destination, TargetRequirement::PlayerOrCreature)
-                && destination != Target::Permanent(permanent);
-            if destination_is_legal {
-                let redirected = amount.min(self.damage_redirections[index].remaining);
-                self.damage_redirections[index].remaining -= redirected;
-                self.record_event(GameEvent::DamageRedirected {
-                    source,
-                    from: permanent,
-                    to: destination,
-                    amount: redirected,
-                });
-                match destination {
-                    Target::Player(player) => {
-                        self.deal_damage_to_player(source, player, redirected)?;
+        // CR 615.1: a source whose damage cannot be prevented also bypasses
+        // damage-redirection replacement effects. Check this before looking
+        // up a destination so the keyword has precedence over every
+        // represented prevention or redirection layer.
+        if !self.damage_cannot_be_prevented(source) {
+            let redirect_index = self
+                .damage_redirections
+                .iter()
+                .position(|redirect| redirect.protected == permanent && redirect.remaining > 0);
+            if let Some(index) = redirect_index {
+                let destination = self.damage_redirections[index].destination;
+                let destination_is_legal = self
+                    .target_matches(destination, TargetRequirement::PlayerOrCreature)
+                    && destination != Target::Permanent(permanent);
+                if destination_is_legal {
+                    let redirected = amount.min(self.damage_redirections[index].remaining);
+                    self.damage_redirections[index].remaining -= redirected;
+                    self.record_event(GameEvent::DamageRedirected {
+                        source,
+                        from: permanent,
+                        to: destination,
+                        amount: redirected,
+                    });
+                    match destination {
+                        Target::Player(player) => {
+                            self.deal_damage_to_player(source, player, redirected)?;
+                        }
+                        Target::Permanent(target) => {
+                            self.deal_damage_to_permanent(source, target, redirected)?;
+                        }
+                        Target::Spell(_) | Target::SacrificePermanent(_) => {
+                            return Err(RulesError::IllegalTarget(destination));
+                        }
                     }
-                    Target::Permanent(target) => {
-                        self.deal_damage_to_permanent(source, target, redirected)?;
+                    if amount == redirected {
+                        if self.damage_redirections[index].remaining == 0 {
+                            self.damage_redirections.remove(index);
+                        }
+                        return Ok(());
                     }
-                    Target::Spell(_) | Target::SacrificePermanent(_) => {
-                        return Err(RulesError::IllegalTarget(destination));
-                    }
-                }
-                if amount == redirected {
                     if self.damage_redirections[index].remaining == 0 {
                         self.damage_redirections.remove(index);
                     }
-                    return Ok(());
+                    return self.deal_damage_to_permanent(source, permanent, amount - redirected);
                 }
-                if self.damage_redirections[index].remaining == 0 {
-                    self.damage_redirections.remove(index);
-                }
-                return self.deal_damage_to_permanent(source, permanent, amount - redirected);
+                self.damage_redirections.remove(index);
             }
-            self.damage_redirections.remove(index);
         }
         let (prevented, consumes_shield) = if self.damage_cannot_be_prevented(source) {
             (0, false)
