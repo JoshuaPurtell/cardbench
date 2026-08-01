@@ -10085,3 +10085,68 @@ priority = 0
 mana = ["0:black:0"]
 event_markers = ["SpellCast", "CardMoved", "SpellResolved"]
 digest = "fnv1a64:d9c1ba8398531f6b"
+
+[[scenario]]
+id = "rav_nullmage_shepherd_four_creature_removal"
+seed = 148
+description = "Pay Nullmage Shepherd's four distinct creature tap cost, then resolve its artifact target through the normal stack window."
+
+[[scenario.card]]
+label = "shepherd"
+owner = 0
+definition = "RAV-NULLMAGE-SHEPHERD"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "cost_one"
+owner = 0
+definition = "RAV-WATCHWOLF"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "cost_two"
+owner = 0
+definition = "RAV-WATCHWOLF"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "cost_three"
+owner = 0
+definition = "RAV-WATCHWOLF"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "cost_four"
+owner = 0
+definition = "RAV-WATCHWOLF"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "target"
+owner = 1
+definition = "RAV-GLASS-GOLEM"
+zone = "battlefield"
+
+[[scenario.action]]
+kind = "activate_ability"
+player = 0
+card = "shepherd"
+ability = "destroy-artifact-or-enchantment"
+additional_taps = ["cost_one", "cost_two", "cost_three", "cost_four"]
+target = "permanent:target"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["shepherd:battlefield", "target:graveyard"]
+tapped = ["cost_one:true", "cost_two:true", "cost_three:true", "cost_four:true"]
+stack_size = 0
+priority = 0
+event_markers = ["AdditionalCreatureTappedAsAbilityCost", "AbilityActivated", "CardDestroyed", "AbilityResolved"]
+digest = "fnv1a64:42a67fe5ac6f80c8"

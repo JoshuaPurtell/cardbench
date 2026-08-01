@@ -97,6 +97,25 @@ fn nullmage_shepherd_taps_four_distinct_creatures_before_destroying_target() {
     game.pass_priority(PlayerId(0)).expect("controller passes");
     game.pass_priority(PlayerId(1)).expect("opponent passes");
     assert_eq!(game.zone_of(target), Some(Zone::Graveyard));
+    println!("Nullmage Shepherd trace: {:?}", game.canonical_event_log());
+    assert_eq!(
+        game.canonical_event_log(),
+        vec![
+            "StepBegan { turn: 1, active_player: PlayerId(0), step: Untap }",
+            "StepBegan { turn: 1, active_player: PlayerId(0), step: Upkeep }",
+            "AdditionalCreatureTappedAsAbilityCost { player: PlayerId(0), source: ObjectId(1), permanent: ObjectId(2) }",
+            "AdditionalCreatureTappedAsAbilityCost { player: PlayerId(0), source: ObjectId(1), permanent: ObjectId(3) }",
+            "AdditionalCreatureTappedAsAbilityCost { player: PlayerId(0), source: ObjectId(1), permanent: ObjectId(4) }",
+            "AdditionalCreatureTappedAsAbilityCost { player: PlayerId(0), source: ObjectId(1), permanent: ObjectId(5) }",
+            "AbilityActivated { player: PlayerId(0), source: ObjectId(1), ability: \"destroy-artifact-or-enchantment\" }",
+            "PolicyMoveSubmitted { player: PlayerId(0), policy: \"nullmage-shepherd-regression\", kind: ActivateAbility }",
+            "PriorityPassed { player: PlayerId(0) }",
+            "PriorityPassed { player: PlayerId(1) }",
+            "CardDestroyed { source: ObjectId(1), card: ObjectId(6) }",
+            "CardMoved { card: ObjectId(6), to: Graveyard }",
+            "AbilityResolved { source: ObjectId(1), ability: \"destroy-artifact-or-enchantment\" }",
+        ]
+    );
     game.validate_invariants()
         .expect("four-creature activation trace stays valid");
 }

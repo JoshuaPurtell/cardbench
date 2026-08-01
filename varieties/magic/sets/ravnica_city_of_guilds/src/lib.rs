@@ -35,7 +35,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 103] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 104] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -139,6 +139,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 103] = [
     "RAV-VINDICTIVE-MOB",
     "RAV-SUNHOME-FORTRESS",
     "RAV-VITU-GHAZI",
+    "RAV-NULLMAGE-SHEPHERD",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -2167,6 +2168,30 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
+        // Full printed behavior: four selected untapped creatures are an
+        // explicit ability cost, and the artifact-or-enchantment target is
+        // rechecked through the ordinary stack resolution path.
+        CardDefinition {
+            id: "RAV-NULLMAGE-SHEPHERD",
+            name: "Nullmage Shepherd",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(3, [Color::Green]),
+            colors: colors([Color::Green]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "tap-four-untapped-controlled-creatures",
+                "destroy-target-artifact-or-enchantment",
+            ],
+            power: Some(2),
+            toughness: Some(4),
+            keywords: vec![],
+            effects: vec![],
+        },
         // Compatibility scope: normal colored-cost creature casting, base
         // characteristics, and Reach. Its printed tap-to-damage activation
         // remains deliberately omitted from this compatibility slice.
@@ -3751,6 +3776,22 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
             },
         },
         ActivatedAbilityBinding {
+            card_definition: "RAV-NULLMAGE-SHEPHERD",
+            ability: ActivatedAbility {
+                id: "destroy-artifact-or-enchantment",
+                mana_cost: ManaCost::new(0),
+                tap_cost: false,
+                sorcery_speed: false,
+                additional_tap_creatures: 4,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![cardbench_magic_engine::TargetRequirement::ArtifactOrEnchantment],
+                effects: vec![Effect::DestroyTargetArtifactOrEnchantment],
+            },
+        },
+        ActivatedAbilityBinding {
             card_definition: "RAV-SELESNYA-EVANGEL",
             ability: ActivatedAbility {
                 id: "create-saproling",
@@ -5286,7 +5327,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 147);
+        assert_eq!(first.len(), 148);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }
