@@ -5440,6 +5440,7 @@ impl Game {
                 | Effect::AttachSourceAndModifyTargetPt { .. }
                 | Effect::RevealTopCardPutIntoHandLoseLifeEqualToManaValue
                 | Effect::GainLifeControllerFromSourceDamage
+                | Effect::GainLifeForEachCreature
                 | Effect::DealDamageToEachPlayerFromReceivedDamage
                 | Effect::DealDamageEqualToAttackingCreatures { .. }
                 | Effect::ModifyTargetPtUntilEndOfTurn { .. }
@@ -7031,6 +7032,30 @@ impl Game {
                     amount: *amount,
                 });
                 self.enqueue_life_gain_triggers(controller);
+            }
+            Effect::GainLifeForEachCreature => {
+                let count = self
+                    .all_battlefield_cards()
+                    .into_iter()
+                    .filter(|card| {
+                        self.characteristics(*card).is_ok_and(|characteristics| {
+                            characteristics.card_types.contains(&CardType::Creature)
+                        })
+                    })
+                    .count();
+                let amount = i16::try_from(count).map_err(|_| {
+                    RulesError::IllegalAction(
+                        "battlefield creature count exceeds life-gain event capacity",
+                    )
+                })?;
+                if amount > 0 {
+                    self.players[controller.0].life += i64::from(amount);
+                    self.record_event(GameEvent::LifeGained {
+                        player: controller,
+                        amount,
+                    });
+                    self.enqueue_life_gain_triggers(controller);
+                }
             }
             Effect::GainLifeControllerFromSourceDamage => {
                 return Err(RulesError::IllegalAction(

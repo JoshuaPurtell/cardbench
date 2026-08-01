@@ -37,7 +37,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 125] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 126] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -163,6 +163,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 125] = [
     "RAV-GATE-HOUND",
     "RAV-BLAZING-ARCHON",
     "RAV-CAREGIVER",
+    "RAV-CHANT-OF-VITU-GHAZI",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -1977,6 +1978,27 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             toughness: Some(1),
             keywords: vec![],
             effects: vec![],
+        },
+        // Full fidelity: Convoke reduces the printed cost and the resolving
+        // instruction counts every current battlefield creature, including
+        // opposing creatures and tokens, before gaining that much life.
+        CardDefinition {
+            id: "RAV-CHANT-OF-VITU-GHAZI",
+            name: "Chant of Vitu-Ghazi",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(6, [Color::White, Color::White]),
+            colors: colors([Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Instant]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "convoke-dynamic-battlefield-life-gain",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![Keyword::Convoke],
+            effects: vec![Effect::GainLifeForEachCreature],
         },
         // Full fidelity: this target is controller-scoped at both cast and
         // resolution, then moves through the normal hand-zone lifecycle.

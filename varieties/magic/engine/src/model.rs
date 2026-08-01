@@ -1096,6 +1096,10 @@ pub enum Effect {
     GainLifeController {
         amount: i16,
     },
+    /// Gain life equal to the number of creatures currently on the
+    /// battlefield when the instruction resolves. The count includes tokens
+    /// and creatures controlled by every living player.
+    GainLifeForEachCreature,
     /// Gain life equal to the positive damage amount that caused this
     /// source-specific triggered ability to fire. This is intentionally a
     /// semantic operation rather than copied card text; the trigger queue
@@ -1483,6 +1487,7 @@ impl Effect {
             | Self::DealDamageToEachPlayer { .. }
             | Self::DealDamageToEachNonFlyingCreature { .. }
             | Self::GainLifeController { .. }
+            | Self::GainLifeForEachCreature
             | Self::GainLifeControllerFromSourceDamage
             | Self::DrawController
             | Self::PreventLibrarySearchUntilEndOfTurn
