@@ -1533,6 +1533,27 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Flying],
             effects: vec![],
         },
+        // Compatibility scope: normal colored-cost creature casting, base
+        // characteristics, and static Flying. Szadek's combat-damage mill and
+        // counter trigger remains separate engine work and is not approximated.
+        CardDefinition {
+            id: "RAV-SZADEK",
+            name: "Szadek, Lord of Secrets",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(
+                3,
+                [Color::Blue, Color::Blue, Color::Black, Color::Black],
+            ),
+            colors: colors([Color::Blue, Color::Black]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &["colored-cost-casting", "base-characteristics", "flying"],
+            power: Some(5),
+            toughness: Some(5),
+            keywords: vec![Keyword::Flying],
+            effects: vec![],
+        },
         // Compatibility scope: normal colored-cost creature casting and base
         // characteristics only. Every printed card-specific behavior is
         // deliberately omitted from this slice.
