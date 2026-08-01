@@ -35,11 +35,13 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 92] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 94] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
     "RAV-PUTREFY",
+    "RAV-DROOLING-GROODION",
+    "RAV-GOLGARI-ROTWURM",
     "RAV-SCATTER-THE-SEEDS",
     "RAV-GUARDIAN-OF-VITU-GHAZI",
     "RAV-LAST-GASP",
@@ -2589,17 +2591,29 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             1,
             1,
         ),
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed activated stat modification is
-        // deliberately omitted from this compatibility slice.
-        bounded_creature_chassis(
-            "RAV-DROOLING-GROODION",
-            "Drooling Groodion",
-            ManaCost::with_colors(3, [Color::Black, Color::Black, Color::Green]),
-            colors([Color::Black, Color::Green]),
-            4,
-            3,
-        ),
+        // Full fidelity: the selected controlled-creature sacrifice is paid
+        // atomically before a target creature receives its layer-seven
+        // reduction through the ordinary stack resolution path.
+        CardDefinition {
+            id: "RAV-DROOLING-GROODION",
+            name: "Drooling Groodion",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(3, [Color::Black, Color::Black, Color::Green]),
+            colors: colors([Color::Black, Color::Green]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "activated-sacrifice-creature-target-minus-two-minus-two",
+            ],
+            power: Some(4),
+            toughness: Some(3),
+            keywords: vec![],
+            effects: vec![],
+        },
         // Full fidelity: the enter-the-battlefield trigger places a target-free
         // team modifier on the stack and grants both +1/+1 and Haste.
         CardDefinition {
@@ -2622,17 +2636,28 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed sacrifice activation is deliberately
-        // omitted from this compatibility slice.
-        bounded_creature_chassis(
-            "RAV-GOLGARI-ROTWURM",
-            "Golgari Rotwurm",
-            ManaCost::with_colors(3, [Color::Black, Color::Green]),
-            colors([Color::Black, Color::Green]),
-            5,
-            4,
-        ),
+        // Full fidelity: the selected controlled-creature sacrifice is paid
+        // atomically before the target player loses life through the stack.
+        CardDefinition {
+            id: "RAV-GOLGARI-ROTWURM",
+            name: "Golgari Rotwurm",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(3, [Color::Black, Color::Green]),
+            colors: colors([Color::Black, Color::Green]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "activated-sacrifice-creature-target-player-life-loss",
+            ],
+            power: Some(5),
+            toughness: Some(4),
+            keywords: vec![],
+            effects: vec![],
+        },
         // Full fidelity: combat and noncombat damage from this permanent
         // creates a source-specific stack trigger whose life gain is
         // materialized from the positive damage event amount.
@@ -3186,6 +3211,39 @@ pub fn rav_mana_ability_bindings() -> Vec<ManaAbilityBinding> {
 pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
     vec![
         ActivatedAbilityBinding {
+            card_definition: "RAV-GOLGARI-ROTWURM",
+            ability: ActivatedAbility {
+                id: "sacrifice-creature-target-player-life-loss",
+                mana_cost: ManaCost::with_colors(0, [Color::Black]),
+                tap_cost: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 1,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![cardbench_magic_engine::TargetRequirement::Player],
+                effects: vec![Effect::LoseLifeTarget { amount: 1 }],
+            },
+        },
+        ActivatedAbilityBinding {
+            card_definition: "RAV-DROOLING-GROODION",
+            ability: ActivatedAbility {
+                id: "sacrifice-creature-target-minus-two-minus-two",
+                mana_cost: ManaCost::with_colors(0, [Color::Black, Color::Green]),
+                tap_cost: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 1,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![cardbench_magic_engine::TargetRequirement::Creature],
+                effects: vec![Effect::ModifyTargetPtUntilEndOfTurn {
+                    power: -2,
+                    toughness: -2,
+                }],
+            },
+        },
+        ActivatedAbilityBinding {
             card_definition: "RAV-UNDERCITY-SHADE",
             ability: ActivatedAbility {
                 id: "pump-plus-one-plus-one",
@@ -3193,6 +3251,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 tap_cost: false,
                 additional_tap_creatures: 0,
                 sacrifice_source: false,
+                sacrifice_creatures: 0,
                 sacrifice_lands: 0,
                 discard_cards: 0,
                 targets: vec![],
@@ -3210,6 +3269,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 tap_cost: false,
                 additional_tap_creatures: 0,
                 sacrifice_source: true,
+                sacrifice_creatures: 0,
                 sacrifice_lands: 0,
                 discard_cards: 0,
                 targets: vec![],
@@ -3224,6 +3284,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 tap_cost: false,
                 additional_tap_creatures: 0,
                 sacrifice_source: false,
+                sacrifice_creatures: 0,
                 sacrifice_lands: 0,
                 discard_cards: 0,
                 targets: vec![cardbench_magic_engine::TargetRequirement::Creature],
@@ -3238,6 +3299,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 tap_cost: false,
                 additional_tap_creatures: 0,
                 sacrifice_source: false,
+                sacrifice_creatures: 0,
                 sacrifice_lands: 0,
                 discard_cards: 0,
                 targets: vec![],
@@ -3252,6 +3314,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 tap_cost: false,
                 additional_tap_creatures: 0,
                 sacrifice_source: false,
+                sacrifice_creatures: 0,
                 sacrifice_lands: 0,
                 discard_cards: 0,
                 targets: vec![],
@@ -3266,6 +3329,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 tap_cost: false,
                 additional_tap_creatures: 3,
                 sacrifice_source: false,
+                sacrifice_creatures: 0,
                 sacrifice_lands: 0,
                 discard_cards: 0,
                 targets: vec![cardbench_magic_engine::TargetRequirement::Creature],
@@ -3280,6 +3344,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 tap_cost: true,
                 additional_tap_creatures: 1,
                 sacrifice_source: false,
+                sacrifice_creatures: 0,
                 sacrifice_lands: 0,
                 discard_cards: 0,
                 targets: vec![],
@@ -3297,6 +3362,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 tap_cost: false,
                 additional_tap_creatures: 0,
                 sacrifice_source: false,
+                sacrifice_creatures: 0,
                 sacrifice_lands: 0,
                 discard_cards: 0,
                 targets: vec![],
@@ -3314,6 +3380,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 tap_cost: false,
                 additional_tap_creatures: 0,
                 sacrifice_source: false,
+                sacrifice_creatures: 0,
                 sacrifice_lands: 0,
                 discard_cards: 0,
                 targets: vec![],
@@ -3331,6 +3398,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 tap_cost: false,
                 additional_tap_creatures: 0,
                 sacrifice_source: false,
+                sacrifice_creatures: 0,
                 sacrifice_lands: 0,
                 discard_cards: 1,
                 targets: vec![],
@@ -3348,6 +3416,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 tap_cost: false,
                 additional_tap_creatures: 0,
                 sacrifice_source: true,
+                sacrifice_creatures: 0,
                 sacrifice_lands: 0,
                 discard_cards: 0,
                 targets: vec![
@@ -3367,6 +3436,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 tap_cost: false,
                 additional_tap_creatures: 0,
                 sacrifice_source: true,
+                sacrifice_creatures: 0,
                 sacrifice_lands: 0,
                 discard_cards: 0,
                 targets: vec![cardbench_magic_engine::TargetRequirement::BlockingCreature],
@@ -3384,6 +3454,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 tap_cost: false,
                 additional_tap_creatures: 0,
                 sacrifice_source: false,
+                sacrifice_creatures: 0,
                 sacrifice_lands: 0,
                 discard_cards: 0,
                 targets: vec![],
@@ -3401,6 +3472,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 tap_cost: false,
                 additional_tap_creatures: 0,
                 sacrifice_source: false,
+                sacrifice_creatures: 0,
                 sacrifice_lands: 0,
                 discard_cards: 0,
                 targets: vec![],
@@ -3418,6 +3490,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 tap_cost: true,
                 additional_tap_creatures: 0,
                 sacrifice_source: false,
+                sacrifice_creatures: 0,
                 sacrifice_lands: 0,
                 discard_cards: 0,
                 targets: vec![cardbench_magic_engine::TargetRequirement::PlayerOrCreature],
@@ -3435,6 +3508,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 tap_cost: false,
                 additional_tap_creatures: 0,
                 sacrifice_source: false,
+                sacrifice_creatures: 0,
                 sacrifice_lands: 0,
                 discard_cards: 0,
                 targets: vec![],
@@ -3449,6 +3523,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 tap_cost: false,
                 additional_tap_creatures: 0,
                 sacrifice_source: false,
+                sacrifice_creatures: 0,
                 sacrifice_lands: 0,
                 discard_cards: 0,
                 targets: vec![cardbench_magic_engine::TargetRequirement::Creature],
@@ -3465,6 +3540,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 tap_cost: true,
                 additional_tap_creatures: 0,
                 sacrifice_source: false,
+                sacrifice_creatures: 0,
                 sacrifice_lands: 0,
                 discard_cards: 0,
                 targets: vec![cardbench_magic_engine::TargetRequirement::Creature],
@@ -3481,6 +3557,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 tap_cost: true,
                 additional_tap_creatures: 0,
                 sacrifice_source: false,
+                sacrifice_creatures: 0,
                 sacrifice_lands: 0,
                 discard_cards: 0,
                 targets: vec![],
@@ -3498,6 +3575,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 tap_cost: true,
                 additional_tap_creatures: 0,
                 sacrifice_source: false,
+                sacrifice_creatures: 0,
                 sacrifice_lands: 0,
                 discard_cards: 0,
                 targets: vec![cardbench_magic_engine::TargetRequirement::Creature],
@@ -3512,6 +3590,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 tap_cost: true,
                 additional_tap_creatures: 0,
                 sacrifice_source: false,
+                sacrifice_creatures: 0,
                 sacrifice_lands: 0,
                 discard_cards: 0,
                 targets: vec![cardbench_magic_engine::TargetRequirement::Creature],
@@ -3528,6 +3607,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 tap_cost: false,
                 additional_tap_creatures: 0,
                 sacrifice_source: false,
+                sacrifice_creatures: 0,
                 sacrifice_lands: 0,
                 discard_cards: 0,
                 targets: vec![cardbench_magic_engine::TargetRequirement::Creature],
@@ -3542,6 +3622,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 tap_cost: true,
                 additional_tap_creatures: 0,
                 sacrifice_source: false,
+                sacrifice_creatures: 0,
                 sacrifice_lands: 0,
                 discard_cards: 0,
                 targets: vec![
@@ -3562,6 +3643,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 tap_cost: true,
                 additional_tap_creatures: 0,
                 sacrifice_source: false,
+                sacrifice_creatures: 0,
                 sacrifice_lands: 0,
                 discard_cards: 0,
                 targets: vec![],
@@ -3576,6 +3658,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 tap_cost: false,
                 additional_tap_creatures: 0,
                 sacrifice_source: false,
+                sacrifice_creatures: 0,
                 sacrifice_lands: 0,
                 discard_cards: 0,
                 targets: vec![cardbench_magic_engine::TargetRequirement::Creature],
@@ -3592,6 +3675,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 tap_cost: false,
                 additional_tap_creatures: 0,
                 sacrifice_source: false,
+                sacrifice_creatures: 0,
                 sacrifice_lands: 3,
                 discard_cards: 0,
                 targets: vec![],
@@ -3608,6 +3692,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 tap_cost: false,
                 additional_tap_creatures: 0,
                 sacrifice_source: true,
+                sacrifice_creatures: 0,
                 sacrifice_lands: 0,
                 discard_cards: 0,
                 targets: vec![cardbench_magic_engine::TargetRequirement::Land],
@@ -4596,7 +4681,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 132);
+        assert_eq!(first.len(), 134);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

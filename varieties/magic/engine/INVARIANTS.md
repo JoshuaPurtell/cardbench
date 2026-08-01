@@ -241,6 +241,14 @@ Oracle Magic rules coverage.
   that card's graveyard move and before `AbilityActivated`. The invariant audit
   rejects orphaned discard receipts, receipts for abilities without a discard
   binding, and any non-graveyard destination.
+- Every activated-ability sacrifice cost is represented by explicit, distinct
+  policy-selected controlled battlefield permanents in binding order: source
+  sacrifices first, then the configured number of creatures, then lands. The
+  engine validates cardinality, control, current zone, and each required type
+  before mana, zone, tap, stack, or receipt changes. Each successful selection
+  records `SacrificedAsAbilityCost` immediately followed by its graveyard move
+  (or token-ceases receipt), before `AbilityActivated`; a rejected selection is
+  an atomic no-op with no mana debit or cost receipt.
 - An activated ability that requires additional creature taps receives exactly
   that many explicit, distinct, controlled, untapped non-source creature
   selections from the policy. These are cost taps rather than tap-symbol

@@ -58,6 +58,10 @@ struct ActionSpec {
     /// target word in its executable effect model.
     target: String,
     targets: Vec<String>,
+    /// Explicit permanent selections paid as an activated ability's sacrifice
+    /// cost. This preserves the policy-visible selection boundary instead of
+    /// letting a scenario executor choose a permanent implicitly.
+    sacrifice_sources: Vec<String>,
     convoke: Vec<String>,
     /// `source_label:ability_id` definition-bound entries or
     /// `source_label:basic-land` typed intrinsic entries activated only while
@@ -277,6 +281,7 @@ fn set_action_field(
         "card" => action.card = parse_string(value, line_number)?,
         "target" => action.target = parse_string(value, line_number)?,
         "targets" => action.targets = parse_string_array(value, line_number)?,
+        "sacrifices" => action.sacrifice_sources = parse_string_array(value, line_number)?,
         "convoke" => action.convoke = parse_string_array(value, line_number)?,
         "payment_mana" => action.payment_mana = parse_string_array(value, line_number)?,
         "mana_spend" => action.mana_spend = parse_string_array(value, line_number)?,
@@ -554,7 +559,11 @@ fn execute_action(
                 AbilityActivation {
                     source,
                     ability_id,
-                    sacrifice_sources: vec![],
+                    sacrifice_sources: action
+                        .sacrifice_sources
+                        .iter()
+                        .map(|permanent| lookup(labels, permanent))
+                        .collect::<Result<Vec<_>, _>>()?,
                     additional_tap_creatures: vec![],
                     discard_cards: vec![],
                     targets,

@@ -172,6 +172,10 @@ pub struct ActivatedAbility {
     /// them.
     pub additional_tap_creatures: u8,
     pub sacrifice_source: bool,
+    /// Number of controlled battlefield creatures required as an explicit
+    /// sacrifice cost, selected in `AbilityActivation.sacrifice_sources`
+    /// immediately after any required source sacrifice and before land costs.
+    pub sacrifice_creatures: u8,
     /// Number of controlled battlefield lands required as an explicit cost.
     pub sacrifice_lands: u8,
     /// Number of cards the activating player must discard as an explicit cost.

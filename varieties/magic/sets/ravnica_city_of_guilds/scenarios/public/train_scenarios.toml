@@ -9118,3 +9118,172 @@ mana = ["0:green:0", "0:black:0"]
 event_markers = ["RegenerationShieldCreated", "SpellCast", "CardDestroyed", "AbilityResolved", "SpellResolved"]
 event_absent = ["RegenerationShieldUsed"]
 digest = "fnv1a64:0c8cde22044bac97"
+
+[[scenario]]
+id = "rav_golgari_rotwurm_creature_sacrifice_life_loss"
+seed = 133
+description = "Select and sacrifice a controlled creature to pay Golgari Rotwurm's ability, then resolve targeted life loss."
+
+[[scenario.card]]
+label = "rotwurm"
+owner = 0
+definition = "RAV-GOLGARI-ROTWURM"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "sacrifice"
+owner = 0
+definition = "RAV-WATCHWOLF"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "swamp"
+owner = 0
+definition = "RAV-SWAMP"
+zone = "battlefield"
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "swamp"
+color = "black"
+
+[[scenario.action]]
+kind = "activate_ability"
+player = 0
+card = "rotwurm"
+ability = "sacrifice-creature-target-player-life-loss"
+sacrifices = ["sacrifice"]
+target = "player:1"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+life = [20, 19]
+zones = ["rotwurm:battlefield", "sacrifice:graveyard", "swamp:battlefield"]
+tapped = ["rotwurm:false", "sacrifice:false", "swamp:true"]
+stack_size = 0
+priority = 0
+mana = ["0:black:0"]
+event_markers = ["ManaAbilityActivated", "ManaAdded", "AbilityManaPaid", "SacrificedAsAbilityCost", "AbilityActivated", "LifeLost", "AbilityResolved"]
+digest = "fnv1a64:1726d61475db97e6"
+
+[[scenario]]
+id = "rav_drooling_groodion_creature_sacrifice_modifier"
+seed = 134
+description = "Select and sacrifice a controlled creature to pay Drooling Groodion's ability, then resolve its temporary target reduction."
+
+[[scenario.card]]
+label = "groodion"
+owner = 0
+definition = "RAV-DROOLING-GROODION"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "sacrifice"
+owner = 0
+definition = "RAV-BOROS-RECRUIT"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "target"
+owner = 1
+definition = "RAV-WATCHWOLF"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "swamp"
+owner = 0
+definition = "RAV-SWAMP"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "forest"
+owner = 0
+definition = "RAV-FOREST"
+zone = "battlefield"
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "swamp"
+color = "black"
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "forest"
+color = "green"
+
+[[scenario.action]]
+kind = "activate_ability"
+player = 0
+card = "groodion"
+ability = "sacrifice-creature-target-minus-two-minus-two"
+sacrifices = ["sacrifice"]
+target = "permanent:target"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["groodion:battlefield", "sacrifice:graveyard", "target:battlefield", "swamp:battlefield", "forest:battlefield"]
+powers = ["target:1"]
+toughnesses = ["target:1"]
+tapped = ["groodion:false", "sacrifice:false", "target:false", "swamp:true", "forest:true"]
+stack_size = 0
+priority = 0
+mana = ["0:black:0", "0:green:0"]
+event_markers = ["ManaAbilityActivated", "ManaAdded", "AbilityManaPaid", "SacrificedAsAbilityCost", "AbilityActivated", "ContinuousEffectCreated", "AbilityResolved"]
+digest = "fnv1a64:b07a5576eae9aae3"

@@ -1167,8 +1167,9 @@ impl Game {
                 ));
             }
         }
-        let expected_sacrifices =
-            usize::from(ability.sacrifice_lands) + usize::from(ability.sacrifice_source);
+        let expected_sacrifices = usize::from(ability.sacrifice_source)
+            + usize::from(ability.sacrifice_creatures)
+            + usize::from(ability.sacrifice_lands);
         if activation.sacrifice_sources.len() != expected_sacrifices {
             return Err(RulesError::IllegalAction(
                 "activated ability sacrifice selection count does not match its definition",
@@ -1192,6 +1193,18 @@ impl Game {
                 if *permanent != activation.source {
                     return Err(RulesError::IllegalAction(
                         "the source sacrifice selection must name the ability source",
+                    ));
+                }
+            } else if index
+                < usize::from(ability.sacrifice_source) + usize::from(ability.sacrifice_creatures)
+            {
+                if !self
+                    .characteristics(*permanent)?
+                    .card_types
+                    .contains(&CardType::Creature)
+                {
+                    return Err(RulesError::IllegalAction(
+                        "this activated ability requires a sacrificed creature",
                     ));
                 }
             } else if !self.card_definition(*permanent)?.is_land() {
@@ -2815,6 +2828,7 @@ impl Game {
         self.validate_additional_spell_cost_event_order()?;
         self.validate_stack_terminal_event_order()?;
         self.validate_ability_event_order()?;
+        self.validate_ability_sacrifice_cost_event_order()?;
         self.validate_ability_discard_cost_event_order()?;
         Self::validate_effect_discard_event_order(&self.event_log)?;
         Self::validate_effect_sacrifice_event_order(&self.event_log)?;
@@ -6925,6 +6939,148 @@ impl Game {
             if !transitions_to_graveyard && !token_ceases {
                 return Err(RulesError::IllegalAction(
                     "effect sacrifice receipt lacks its immediate zone transition",
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// Audits selected activated-ability sacrifice costs. A replay records a
+    /// cost as one or more `SacrificedAsAbilityCost` plus immediate zone
+    /// transitions before the eventual activation receipt. The set of
+    /// receipts must be exactly the binding's source/creature/land cardinality
+    /// in that order; orphaned or duplicate receipts cannot describe a legal
+    /// state-machine transition.
+    fn validate_ability_sacrifice_cost_event_order(&self) -> Result<(), RulesError> {
+        let mut consumed = BTreeSet::new();
+        for (activation_index, event) in self.event_log.iter().enumerate() {
+            let GameEvent::AbilityActivated {
+                player,
+                source,
+                ability,
+            } = event
+            else {
+                continue;
+            };
+            let source_definition =
+                self.object(*source)?
+                    .definition
+                    .ok_or(RulesError::IllegalAction(
+                        "sacrifice-cost receipt names a token source",
+                    ))?;
+            let binding = self
+                .activated_abilities
+                .get(source_definition)
+                .and_then(|abilities| abilities.get(ability))
+                .ok_or(RulesError::IllegalAction(
+                    "sacrifice-cost receipt names an unbound ability",
+                ))?;
+            let expected = usize::from(binding.sacrifice_source)
+                + usize::from(binding.sacrifice_creatures)
+                + usize::from(binding.sacrifice_lands);
+            let mut selected = Vec::new();
+            let mut index = activation_index;
+            while let Some(previous) = index.checked_sub(1) {
+                match self.event_log.get(previous) {
+                    Some(GameEvent::AdditionalCreatureTappedAsAbilityCost {
+                        player: receipt_player,
+                        source: receipt_source,
+                        ..
+                    }) if receipt_player == player && receipt_source == source => {
+                        index = previous;
+                    }
+                    Some(GameEvent::CardMoved {
+                        card,
+                        to: Zone::Graveyard,
+                    }) => {
+                        let Some(receipt_index) = previous.checked_sub(1) else {
+                            break;
+                        };
+                        match self.event_log.get(receipt_index) {
+                            Some(GameEvent::SacrificedAsAbilityCost {
+                                player: receipt_player,
+                                source: receipt_source,
+                                permanent,
+                            }) if receipt_player == player
+                                && receipt_source == source
+                                && permanent == card =>
+                            {
+                                consumed.insert(receipt_index);
+                                selected.push(*permanent);
+                                index = receipt_index;
+                            }
+                            Some(GameEvent::DiscardedAsAbilityCost {
+                                player: receipt_player,
+                                source: receipt_source,
+                                card: discarded,
+                            }) if receipt_player == player
+                                && receipt_source == source
+                                && discarded == card =>
+                            {
+                                index = receipt_index;
+                            }
+                            _ => break,
+                        }
+                    }
+                    Some(GameEvent::TokenCeasedToExist { token }) => {
+                        let Some(receipt_index) = previous.checked_sub(1) else {
+                            break;
+                        };
+                        let Some(GameEvent::SacrificedAsAbilityCost {
+                            player: receipt_player,
+                            source: receipt_source,
+                            permanent,
+                        }) = self.event_log.get(receipt_index)
+                        else {
+                            break;
+                        };
+                        if receipt_player != player
+                            || receipt_source != source
+                            || permanent != token
+                        {
+                            break;
+                        }
+                        consumed.insert(receipt_index);
+                        selected.push(*permanent);
+                        index = receipt_index;
+                    }
+                    Some(GameEvent::AbilityManaPaid {
+                        player: receipt_player,
+                        source: receipt_source,
+                        ability: receipt_ability,
+                        ..
+                    }) if receipt_player == player
+                        && receipt_source == source
+                        && receipt_ability == ability =>
+                    {
+                        break;
+                    }
+                    _ => break,
+                }
+            }
+            selected.reverse();
+            if selected.len() != expected {
+                return Err(RulesError::IllegalAction(
+                    "sacrifice-cost receipts do not match the activated ability binding",
+                ));
+            }
+            if binding.sacrifice_source && selected.first() != Some(source) {
+                return Err(RulesError::IllegalAction(
+                    "sacrifice-cost receipts omit the required ability source",
+                ));
+            }
+            if selected.iter().copied().collect::<BTreeSet<_>>().len() != selected.len() {
+                return Err(RulesError::IllegalAction(
+                    "sacrifice-cost receipts are not distinct",
+                ));
+            }
+        }
+        for (index, event) in self.event_log.iter().enumerate() {
+            if matches!(event, GameEvent::SacrificedAsAbilityCost { .. })
+                && !consumed.contains(&index)
+            {
+                return Err(RulesError::IllegalAction(
+                    "sacrifice-cost receipt has no matching ability activation",
                 ));
             }
         }
