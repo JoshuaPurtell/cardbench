@@ -867,6 +867,34 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             ))],
             effects: vec![],
         },
+        // Compatibility scope: normal colored-cost creature casting, static
+        // Fear, and the shared immediate hand-zone Transmute operation. Its
+        // sacrifice-to-regenerate activation remains explicitly outside this
+        // bounded slice because the engine does not yet model a selected
+        // controlled-creature sacrifice cost for non-mana abilities.
+        CardDefinition {
+            id: "RAV-DIMIR-HOUSE-GUARD",
+            name: "Dimir House Guard",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(3, [Color::Black]),
+            colors: colors([Color::Black]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "colored-cost-casting",
+                "base-characteristics",
+                "fear",
+                "immediate-hand-zone-transmute-compatibility",
+            ],
+            power: Some(2),
+            toughness: Some(3),
+            keywords: vec![
+                Keyword::Fear,
+                Keyword::Transmute(ManaCost::with_colors(1, [Color::Black, Color::Black])),
+            ],
+            effects: vec![],
+        },
         // Full fidelity: this card's complete functional behavior is the
         // creature-targeted temporary layer-7 modifier plus its fixed Dredge
         // replacement. Both are represented by the shared engine substrates.
@@ -4371,7 +4399,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 127);
+        assert_eq!(first.len(), 128);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

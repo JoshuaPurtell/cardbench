@@ -8480,3 +8480,112 @@ stack_size = 0
 priority = 0
 event_markers = ["StateBasedAction", "TriggeredAbilityStacked", "CardDiscarded", "AbilityResolved"]
 digest = "fnv1a64:2d321976a5119fc0"
+
+[[scenario]]
+id = "rav_dimir_house_guard_fear_and_transmute_compatibility"
+seed = 128
+description = "Use Dimir House Guard's supported immediate hand-zone Transmute path, then reject a nonblack, nonartifact creature's block against its static Fear. Its sacrifice-to-regenerate activation remains outside this bounded slice."
+
+[[scenario.card]]
+label = "guard_in_hand"
+owner = 0
+definition = "RAV-DIMIR-HOUSE-GUARD"
+zone = "hand"
+
+[[scenario.card]]
+label = "matching_value"
+owner = 0
+definition = "RAV-MNEMONIC-NEXUS"
+zone = "library"
+
+[[scenario.card]]
+label = "guard"
+owner = 0
+definition = "RAV-DIMIR-HOUSE-GUARD"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.card]]
+label = "ground_blocker"
+owner = 1
+definition = "RAV-WATCHWOLF"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.mana]]
+player = 0
+color = "black"
+amount = 3
+
+[[scenario.action]]
+kind = "transmute"
+player = 0
+card = "guard_in_hand"
+found = "matching_value"
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "declare_attackers"
+player = 0
+attackers = ["guard"]
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "declare_blockers"
+player = 1
+attackers = ["guard:ground_blocker"]
+expected_error = "fear attacker can be blocked only by black or artifact creatures"
+
+[scenario.expected]
+zones = ["guard_in_hand:graveyard", "matching_value:hand", "guard:battlefield", "ground_blocker:battlefield"]
+powers = ["guard:2", "ground_blocker:3"]
+toughnesses = ["guard:3", "ground_blocker:3"]
+tapped = ["guard:true", "ground_blocker:false"]
+mana = ["0:black:0"]
+stack_size = 0
+priority = 0
+event_markers = ["Transmuted", "AttackersDeclared"]
+event_absent = ["BlockersDeclared"]
+digest = "fnv1a64:594a2e5e1cc03219"
