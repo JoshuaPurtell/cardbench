@@ -46,10 +46,6 @@ fn new_transmute_spells_are_explicitly_non_cast_effect_compatibility_slices() {
             ManaCost::with_colors(1, [Color::Black, Color::Black]),
         ),
         (
-            "RAV-CLUTCH-OF-THE-UNDERCITY",
-            ManaCost::with_colors(1, [Color::Blue, Color::Blue]),
-        ),
-        (
             "RAV-PERPLEX",
             ManaCost::with_colors(1, [Color::Blue, Color::Black]),
         ),
@@ -78,6 +74,7 @@ fn public_scenarios_exercise_every_new_compatibility_definition() {
         "rav_dimir_machinations_transmute",
         "rav_shred_memory_transmute",
         "rav_clutch_of_the_undercity_transmute",
+        "rav_clutch_of_the_undercity_permanent_bounce",
         "rav_perplex_transmute",
     ] {
         assert!(scenario_ids.contains(id), "missing public scenario {id}");

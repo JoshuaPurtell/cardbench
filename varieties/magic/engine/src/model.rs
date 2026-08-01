@@ -744,6 +744,9 @@ pub enum Keyword {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum TargetRequirement {
     Any,
+    /// Any current battlefield permanent. This is distinct from `Any`, whose
+    /// compatibility use can include other target kinds in future slices.
+    Permanent,
     Creature,
     /// A battlefield creature whose current characteristics do not include
     /// Black. This is a target restriction rather than a resolution-only
@@ -1237,6 +1240,12 @@ pub enum Effect {
     /// rechecked as this instruction resolves, then changes zones using the
     /// ordinary destruction lifecycle.
     DestroyTargetArtifactOrEnchantment,
+    /// Return a targeted permanent to its owner's hand, then make the
+    /// controller it had immediately before the zone change lose life. The
+    /// controller snapshot matters when controller and owner differ.
+    ReturnTargetPermanentToHandAndLoseControllerLife {
+        amount: i16,
+    },
     /// Return the targeted card from the resolving spell controller's
     /// graveyard to that player's hand.
     ReturnTargetCardToHand,
@@ -1350,6 +1359,9 @@ impl Effect {
             }
             Self::DestroyTargetArtifactOrEnchantment => {
                 Some(TargetRequirement::ArtifactOrEnchantment)
+            }
+            Self::ReturnTargetPermanentToHandAndLoseControllerLife { .. } => {
+                Some(TargetRequirement::Permanent)
             }
             Self::ReturnTargetCardToHand => Some(TargetRequirement::OwnGraveyardCard),
             Self::ReturnTargetCreatureCardToHandIfAnotherInControllerGraveyard

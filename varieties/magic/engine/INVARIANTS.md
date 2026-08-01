@@ -504,6 +504,12 @@ Oracle Magic rules coverage.
   queue a land-entry trigger batch. The current deterministic first-match rule
   is an explicit policy-fidelity boundary, not a hidden-zone choice
   approximation.
+- A `Permanent` target is a current battlefield object, never a player or a
+  card in another zone. A permanent-bounce instruction snapshots the target's
+  controller before its owner-hand zone move; its `CardMoved { to: Hand }`
+  receipt therefore precedes the corresponding positive source-aware
+  `LifeLost` receipt and the spell's terminal resolution lifecycle. An
+  illegal target rejects atomically before costs, stack placement, or receipts.
 - Turn numbers are never zero, and the consecutive-pass counter is always
   below the number of surviving players outside its atomic resolution/step
   transition. A draw-replacement marker can exist only for the active player

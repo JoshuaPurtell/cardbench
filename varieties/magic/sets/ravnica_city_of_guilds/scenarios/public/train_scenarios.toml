@@ -10544,6 +10544,56 @@ event_markers = ["SpellCast", "CardMoved", "ContinuousEffectCreated", "AuraAttac
 digest = "fnv1a64:5722a4a187704a98"
 
 [[scenario]]
+id = "rav_clutch_of_the_undercity_permanent_bounce"
+seed = 156
+description = "Cast Clutch of the Undercity at a permanent, move it to its owner's hand, then make the controller it had immediately before that move lose three life. Its immediate Transmute operation remains separately bounded."
+
+[[scenario.card]]
+label = "clutch"
+owner = 0
+definition = "RAV-CLUTCH-OF-THE-UNDERCITY"
+zone = "hand"
+
+[[scenario.card]]
+label = "signet"
+owner = 1
+definition = "RAV-DIMIR-SIGNET"
+zone = "battlefield"
+
+[[scenario.mana]]
+player = 0
+color = "blue"
+amount = 2
+
+[[scenario.mana]]
+player = 0
+color = "black"
+amount = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "clutch"
+target = "permanent:signet"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+life = [20, 17]
+zones = ["clutch:graveyard", "signet:hand"]
+stack_size = 0
+priority = 0
+mana = ["0:blue:0", "0:black:0"]
+event_markers = ["SpellCast", "CardMoved", "LifeLost", "SpellResolved"]
+digest = "fnv1a64:9ee33828f5d89817"
+
+[[scenario]]
 id = "rav_clinging_darkness_persistent_attachment"
 seed = 155
 description = "Resolve Clinging Darkness onto a creature and retain its source-linked -3/-1 Aura modifier on the battlefield."

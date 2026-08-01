@@ -1093,8 +1093,9 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 Effect::DrawController,
             ],
         },
-        // Only the hand-zone transmute activation is executable. Its printed
-        // spell effect is deliberately non-covered.
+        // The targeted bounce face is executable.  Transmute remains an
+        // explicit immediate hand-zone compatibility action, so this card is
+        // intentionally bounded rather than promoted to the positive manifest.
         CardDefinition {
             id: "RAV-CLUTCH-OF-THE-UNDERCITY",
             name: "Clutch of the Undercity",
@@ -1104,14 +1105,19 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Instant]),
             is_basic_land: false,
-            supported_rules: &["transmute"],
+            supported_rules: &[
+                "colored-cost-casting",
+                "targeted-permanent-bounce",
+                "controller-life-loss",
+                "immediate-hand-zone-transmute-compatibility",
+            ],
             power: None,
             toughness: None,
             keywords: vec![Keyword::Transmute(ManaCost::with_colors(
                 1,
                 [Color::Blue, Color::Blue],
             ))],
-            effects: vec![],
+            effects: vec![Effect::ReturnTargetPermanentToHandAndLoseControllerLife { amount: 3 }],
         },
         // Only the hand-zone transmute activation is executable. Its printed
         // spell effect is deliberately non-covered.
@@ -5808,7 +5814,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 156);
+        assert_eq!(first.len(), 157);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

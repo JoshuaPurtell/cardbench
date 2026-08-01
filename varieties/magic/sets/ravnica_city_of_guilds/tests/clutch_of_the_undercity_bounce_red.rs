@@ -1,6 +1,8 @@
 //! Red regression for Clutch of the Undercity's omitted front face.
 
-use cardbench_magic_engine::{CastRequest, Color, Game, PlayerId, Step, Target, Zone};
+use cardbench_magic_engine::{
+    CastRequest, Color, Effect, Game, GameEvent, PlayerId, Step, Target, Zone,
+};
 use cardbench_magic_rav::card_definitions;
 
 fn game() -> Game {
@@ -20,9 +22,10 @@ fn clutch_bounces_a_permanent_then_uses_its_last_battlefield_controller_for_life
         .into_iter()
         .find(|definition| definition.id == "RAV-CLUTCH-OF-THE-UNDERCITY")
         .expect("Clutch definition exists");
-    assert!(
-        !definition.effects.is_empty(),
-        "Clutch must expose its targeted permanent-bounce front face"
+    assert_eq!(
+        definition.effects,
+        vec![Effect::ReturnTargetPermanentToHandAndLoseControllerLife { amount: 3 }],
+        "Clutch must expose its typed targeted permanent-bounce front face"
     );
 
     let mut legal = game();
@@ -50,6 +53,11 @@ fn clutch_bounces_a_permanent_then_uses_its_last_battlefield_controller_for_life
     println!("Clutch bounce trace: {:?}", legal.event_log);
     assert_eq!(legal.zone_of(target), Some(Zone::Hand));
     assert_eq!(legal.players[1].life, 17);
+    assert!(legal.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::LifeLost { source, player, amount }
+            if *source == clutch && *player == PlayerId(1) && *amount == 3
+    )));
     legal
         .validate_invariants()
         .expect("Clutch bounce preserves invariants");

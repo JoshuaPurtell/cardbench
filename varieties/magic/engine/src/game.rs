@@ -4618,6 +4618,7 @@ impl Game {
                 Effect::DealDamage { amount, .. }
                 | Effect::LoseLifeTarget { amount }
                 | Effect::LoseLifeController { amount }
+                | Effect::ReturnTargetPermanentToHandAndLoseControllerLife { amount }
                 | Effect::DealDamageController { amount }
                 | Effect::DealDamageAfterOptionalManaPayment { amount, .. }
                 | Effect::DealDamageToEachCreatureAndPlayer { amount }
@@ -6596,6 +6597,20 @@ impl Game {
                 }
                 self.destroy_permanent(source, target)?;
             }
+            Effect::ReturnTargetPermanentToHandAndLoseControllerLife { amount } => {
+                let target = Self::target_permanent(target)?;
+                if !self.target_matches(Target::Permanent(target), TargetRequirement::Permanent) {
+                    return Err(RulesError::IllegalTarget(Target::Permanent(target)));
+                }
+                let target_controller = self.object(target)?.controller;
+                self.move_to_zone(target, Zone::Hand)?;
+                self.players[target_controller.0].life -= i64::from(*amount);
+                self.record_event(GameEvent::LifeLost {
+                    source,
+                    player: target_controller,
+                    amount: *amount,
+                });
+            }
             Effect::ReturnTargetCardToHand => {
                 let target = Self::target_permanent(target)?;
                 if !self.target_matches_for_controller(
@@ -6804,7 +6819,7 @@ impl Game {
                 | TargetRequirement::Player
                 | TargetRequirement::PlayerOrCreature,
             ) => self.players.get(player.0).is_some_and(|state| !state.lost),
-            (Target::Permanent(card), TargetRequirement::Any) => {
+            (Target::Permanent(card), TargetRequirement::Any | TargetRequirement::Permanent) => {
                 self.zone_of(card) == Some(Zone::Battlefield)
             }
             (
@@ -6959,6 +6974,7 @@ impl Game {
             ) | (
                 Target::Permanent(_),
                 TargetRequirement::Any
+                    | TargetRequirement::Permanent
                     | TargetRequirement::Creature
                     | TargetRequirement::NonblackCreature
                     | TargetRequirement::FlyingCreature
@@ -7708,6 +7724,7 @@ impl Game {
                 Effect::DealDamage { amount, .. }
                 | Effect::LoseLifeTarget { amount }
                 | Effect::LoseLifeController { amount }
+                | Effect::ReturnTargetPermanentToHandAndLoseControllerLife { amount }
                 | Effect::DealDamageController { amount }
                 | Effect::DealDamageAfterOptionalManaPayment { amount, .. }
                 | Effect::DealDamageToEachCreatureAndPlayer { amount }
