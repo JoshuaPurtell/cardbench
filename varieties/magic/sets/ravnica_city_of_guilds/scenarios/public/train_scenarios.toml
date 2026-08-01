@@ -9938,3 +9938,43 @@ stack_size = 0
 priority = 0
 event_markers = ["AbilityActivated", "CardMoved", "CardDiscarded", "AbilityResolved"]
 digest = "fnv1a64:424ee204f742aa8d"
+
+[[scenario]]
+id = "rav_boros_garrison_etb_stack_and_return"
+seed = 145
+description = "Play Boros Garrison, place its mandatory return trigger on the stack, and resolve it after both players pass priority."
+triggers = true
+
+[[scenario.card]]
+label = "plains"
+owner = 0
+definition = "RAV-PLAINS"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.card]]
+label = "garrison"
+owner = 0
+definition = "RAV-BOROS-GARRISON"
+zone = "hand"
+
+[[scenario.action]]
+kind = "play_land"
+player = 0
+card = "garrison"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["plains:hand", "garrison:battlefield"]
+tapped = ["garrison:true"]
+stack_size = 0
+priority = 0
+event_markers = ["CardMoved", "TriggeredAbilityStacked", "AbilityResolved"]
+digest = "fnv1a64:807296db04919c75"

@@ -329,7 +329,7 @@ fn set_expected_field(
 
 fn execute_scenario(specification: &ScenarioSpec) -> Result<ScenarioResult, String> {
     let mut game = if specification.triggers {
-        Game::new_with_all_bindings_triggers_and_static_continuous_effects(
+        Game::new_with_all_bindings_triggers_static_continuous_effects_and_land_entries(
             card_definitions(),
             2,
             rav_mana_ability_bindings(),
@@ -338,6 +338,7 @@ fn execute_scenario(specification: &ScenarioSpec) -> Result<ScenarioResult, Stri
             rav_activated_ability_bindings(),
             rav_triggered_ability_bindings(),
             rav_static_continuous_effect_bindings(),
+            crate::rav_land_entry_bindings(),
         )
     } else {
         Game::new_with_all_bindings_and_static_continuous_effects(

@@ -280,13 +280,13 @@
 272	Sunforger
 273	Terrarion
 274	Voyager Staff
-275	Boros Garrison
-276	Dimir Aqueduct
+275	Boros Garrison	executable:RAV-BOROS-GARRISON
+276	Dimir Aqueduct	executable:RAV-DIMIR-AQUEDUCT
 277	Duskmantle, House of Shadow
-278	Golgari Rot Farm
+278	Golgari Rot Farm	executable:RAV-GOLGARI-ROT-FARM
 279	Overgrown Tomb
 280	Sacred Foundry
-281	Selesnya Sanctuary
+281	Selesnya Sanctuary	executable:RAV-SELESNYA-SANCTUARY
 282	Sunhome, Fortress of the Legion	executable:RAV-SUNHOME-FORTRESS
 283	Svogthos, the Restless Tomb
 284	Temple Garden

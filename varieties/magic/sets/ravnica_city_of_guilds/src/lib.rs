@@ -25,9 +25,9 @@ use cardbench_magic_engine::{
     ActivatedAbility, ActivatedAbilityBinding, ActivatedManaAbility, AdditionalSpellCost,
     AdditionalSpellCostBinding, BasicLandType, BasicLandTypeBinding, CardDefinition, CardType,
     CastRequest, Color, ConvokeContribution, ConvokePayment, DeckEntry, DeckList, DeckRules,
-    Effect, Game, HybridManaSymbol, Keyword, ManaAbilityBinding, ManaAbilityOutput, ManaBundle,
-    ManaCost, PlayerId, RulesError, StaticContinuousEffectBinding, Target, TokenSpec,
-    TriggerCondition, TriggeredAbility, TriggeredAbilityBinding, Zone,
+    Effect, Game, HybridManaSymbol, Keyword, LandEntryBinding, ManaAbilityBinding,
+    ManaAbilityOutput, ManaBundle, ManaCost, PlayerId, RulesError, StaticContinuousEffectBinding,
+    Target, TokenSpec, TriggerCondition, TriggeredAbility, TriggeredAbilityBinding, Zone,
 };
 
 pub const SET_CODE: &str = "RAV";
@@ -3356,6 +3356,10 @@ pub fn card_definitions() -> Vec<CardDefinition> {
         signet_definition("RAV-DIMIR-SIGNET", "Dimir Signet"),
         signet_definition("RAV-GOLGARI-SIGNET", "Golgari Signet"),
         signet_definition("RAV-SELESNYA-SIGNET", "Selesnya Signet"),
+        guild_bounce_land("RAV-BOROS-GARRISON", "Boros Garrison"),
+        guild_bounce_land("RAV-DIMIR-AQUEDUCT", "Dimir Aqueduct"),
+        guild_bounce_land("RAV-GOLGARI-ROT-FARM", "Golgari Rot Farm"),
+        guild_bounce_land("RAV-SELESNYA-SANCTUARY", "Selesnya Sanctuary"),
         // Full fidelity: the land has its colorless mana ability and its
         // stack-backed, targeted Double Strike grant. Both use the shared
         // mana and continuous-effect substrates.
@@ -3480,7 +3484,46 @@ pub fn rav_mana_ability_bindings() -> Vec<ManaAbilityBinding> {
             "selesnya-signet-gw",
             [Color::White, Color::Green],
         ),
+        guild_bounce_land_binding(
+            "RAV-BOROS-GARRISON",
+            "boros-garrison-rw",
+            [Color::Red, Color::White],
+        ),
+        guild_bounce_land_binding(
+            "RAV-DIMIR-AQUEDUCT",
+            "dimir-aqueduct-ub",
+            [Color::Blue, Color::Black],
+        ),
+        guild_bounce_land_binding(
+            "RAV-GOLGARI-ROT-FARM",
+            "golgari-rot-farm-bg",
+            [Color::Black, Color::Green],
+        ),
+        guild_bounce_land_binding(
+            "RAV-SELESNYA-SANCTUARY",
+            "selesnya-sanctuary-gw",
+            [Color::Green, Color::White],
+        ),
     ]
+}
+
+/// RAV lands that enter tapped. Their return instruction is represented below
+/// as an ordinary ETB trigger rather than a land-play replacement, so the
+/// trigger uses the stack and can legally return the newly entered land.
+#[must_use]
+pub fn rav_land_entry_bindings() -> Vec<LandEntryBinding> {
+    [
+        "RAV-BOROS-GARRISON",
+        "RAV-DIMIR-AQUEDUCT",
+        "RAV-GOLGARI-ROT-FARM",
+        "RAV-SELESNYA-SANCTUARY",
+    ]
+    .into_iter()
+    .map(|card_definition| LandEntryBinding {
+        card_definition,
+        enters_tapped: true,
+    })
+    .collect()
 }
 
 /// Stack-using activated abilities for the executable RAV slice. Costs and
@@ -4112,6 +4155,22 @@ pub fn rav_static_continuous_effect_bindings() -> Vec<StaticContinuousEffectBind
 pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
     vec![
         TriggeredAbilityBinding {
+            card_definition: "RAV-BOROS-GARRISON",
+            ability: guild_bounce_land_trigger(),
+        },
+        TriggeredAbilityBinding {
+            card_definition: "RAV-DIMIR-AQUEDUCT",
+            ability: guild_bounce_land_trigger(),
+        },
+        TriggeredAbilityBinding {
+            card_definition: "RAV-GOLGARI-ROT-FARM",
+            ability: guild_bounce_land_trigger(),
+        },
+        TriggeredAbilityBinding {
+            card_definition: "RAV-SELESNYA-SANCTUARY",
+            ability: guild_bounce_land_trigger(),
+        },
+        TriggeredAbilityBinding {
             card_definition: "RAV-DARK-CONFIDANT",
             ability: TriggeredAbility {
                 id: "upkeep-reveal-mana-value-life-loss",
@@ -4423,6 +4482,37 @@ fn signet_binding(
             life_payment: None,
             controller_damage: None,
         },
+    }
+}
+
+fn guild_bounce_land_binding(
+    card_definition: &'static str,
+    id: &'static str,
+    colors: [Color; 2],
+) -> ManaAbilityBinding {
+    ManaAbilityBinding {
+        card_definition,
+        ability: ActivatedManaAbility {
+            id,
+            tap_cost: true,
+            output: ManaAbilityOutput::Bundle(ManaBundle::new(
+                colors.into_iter().map(|color| (color, 1)),
+            )),
+            amount: 0,
+            life_payment: None,
+            controller_damage: None,
+        },
+    }
+}
+
+fn guild_bounce_land_trigger() -> TriggeredAbility {
+    TriggeredAbility {
+        id: "return-controlled-land",
+        condition: TriggerCondition::EntersBattlefield,
+        mana_cost: ManaCost::new(0),
+        optional: false,
+        targets: vec![cardbench_magic_engine::TargetRequirement::ControlledLand],
+        effects: vec![Effect::ReturnControlledLandToHand],
     }
 }
 
@@ -5067,6 +5157,34 @@ fn signet_definition(id: &'static str, name: &'static str) -> CardDefinition {
     }
 }
 
+/// CardBench-authored compatibility definition for a RAV guild bounce land.
+/// The entry behavior and free two-color bundle are supplied by the generic
+/// bindings. The current trigger target selector is deterministic until a
+/// policy-submitted triggered-choice interface is available, so these remain
+/// explicitly bounded rather than full-fidelity definitions.
+fn guild_bounce_land(id: &'static str, name: &'static str) -> CardDefinition {
+    CardDefinition {
+        id,
+        name,
+        set_code: SET_CODE,
+        mana_cost: ManaCost::new(0),
+        colors: BTreeSet::new(),
+        mana_colors: BTreeSet::new(),
+        card_types: types([CardType::Land]),
+        is_basic_land: false,
+        supported_rules: &[
+            "enters-tapped",
+            "etb-return-controlled-land",
+            "free-two-color-mana-bundle",
+            "deterministic-etb-target-selection",
+        ],
+        power: None,
+        toughness: None,
+        keywords: vec![],
+        effects: vec![],
+    }
+}
+
 fn colors(colors: impl IntoIterator<Item = Color>) -> BTreeSet<Color> {
     colors.into_iter().collect()
 }
@@ -5108,7 +5226,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 144);
+        assert_eq!(first.len(), 145);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

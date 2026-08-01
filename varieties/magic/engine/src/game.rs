@@ -7,10 +7,10 @@ use crate::{
     AdditionalSpellCost, AdditionalSpellCostBinding, BasicLandType, BasicLandTypeBinding,
     CardDefinition, CardObject, CardType, CastPaymentManaAbility, Characteristics, Color,
     CombatBlock, ContinuousChange, ContinuousEffect, CreatureSubtype, DeckList, Duration, Effect,
-    GameEvent, Keyword, ManaAbilityActivation, ManaAbilityBinding, ManaAbilityOutput,
-    ManaPaymentSelection, ObjectId, PlayerId, PlayerState, PolicyMoveKind, StackEffectResolution,
-    StackObject, StackResolutionPlan, StaticContinuousEffectBinding, Step, Target,
-    TargetRequirement, TokenSpec, TriggerCondition, TriggeredAbilityBinding, Zone,
+    GameEvent, Keyword, LandEntryBinding, ManaAbilityActivation, ManaAbilityBinding,
+    ManaAbilityOutput, ManaPaymentSelection, ObjectId, PlayerId, PlayerState, PolicyMoveKind,
+    StackEffectResolution, StackObject, StackResolutionPlan, StaticContinuousEffectBinding, Step,
+    Target, TargetRequirement, TokenSpec, TriggerCondition, TriggeredAbilityBinding, Zone,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -325,6 +325,7 @@ pub struct Game {
     triggered_abilities: BTreeMap<&'static str, BTreeMap<&'static str, crate::TriggeredAbility>>,
     static_continuous_effects: BTreeMap<&'static str, Vec<ContinuousChange>>,
     basic_land_types: BTreeMap<&'static str, BasicLandType>,
+    land_entry_behaviors: BTreeMap<&'static str, LandEntryBinding>,
     additional_spell_costs: BTreeMap<&'static str, Vec<AdditionalSpellCost>>,
     graveyard_cast_permissions: BTreeMap<ObjectId, GraveyardCastPermission>,
     exile_on_resolution: BTreeSet<ObjectId>,
@@ -548,6 +549,7 @@ impl Game {
             triggered_abilities: BTreeMap::new(),
             static_continuous_effects: BTreeMap::new(),
             basic_land_types,
+            land_entry_behaviors: BTreeMap::new(),
             additional_spell_costs,
             graveyard_cast_permissions: BTreeMap::new(),
             exile_on_resolution: BTreeSet::new(),
@@ -748,6 +750,63 @@ impl Game {
         game.register_static_continuous_effects(static_bindings)?;
         game.validate_invariants()?;
         Ok(game)
+    }
+
+    /// Creates a game with trigger, static-continuous, and land-entry
+    /// bindings. Land-entry bindings model only replacement-style entry
+    /// behavior; any ETB ability stays in `trigger_bindings` and therefore
+    /// follows the normal stack and priority lifecycle.
+    pub fn new_with_all_bindings_triggers_static_continuous_effects_and_land_entries(
+        definitions: impl IntoIterator<Item = CardDefinition>,
+        player_count: usize,
+        mana_bindings: impl IntoIterator<Item = ManaAbilityBinding>,
+        basic_land_types: impl IntoIterator<Item = BasicLandTypeBinding>,
+        additional_spell_costs: impl IntoIterator<Item = AdditionalSpellCostBinding>,
+        ability_bindings: impl IntoIterator<Item = ActivatedAbilityBinding>,
+        trigger_bindings: impl IntoIterator<Item = TriggeredAbilityBinding>,
+        static_bindings: impl IntoIterator<Item = StaticContinuousEffectBinding>,
+        land_entry_bindings: impl IntoIterator<Item = LandEntryBinding>,
+    ) -> Result<Self, RulesError> {
+        let mut game = Self::new_with_all_bindings_triggers_and_static_continuous_effects(
+            definitions,
+            player_count,
+            mana_bindings,
+            basic_land_types,
+            additional_spell_costs,
+            ability_bindings,
+            trigger_bindings,
+            static_bindings,
+        )?;
+        game.register_land_entry_behaviors(land_entry_bindings)?;
+        game.validate_invariants()?;
+        Ok(game)
+    }
+
+    fn register_land_entry_behaviors(
+        &mut self,
+        bindings: impl IntoIterator<Item = LandEntryBinding>,
+    ) -> Result<(), RulesError> {
+        for binding in bindings {
+            let definition = self
+                .catalog
+                .get(binding.card_definition)
+                .ok_or(RulesError::UnknownDefinition(binding.card_definition))?;
+            if !definition.is_land() || !binding.enters_tapped {
+                return Err(RulesError::IllegalAction(
+                    "land-entry binding requires a land that enters tapped",
+                ));
+            }
+            if self
+                .land_entry_behaviors
+                .insert(binding.card_definition, binding)
+                .is_some()
+            {
+                return Err(RulesError::IllegalAction(
+                    "duplicate land-entry binding for card definition",
+                ));
+            }
+        }
+        Ok(())
     }
 
     fn register_static_continuous_effects(
@@ -1470,9 +1529,32 @@ impl Game {
                 }
                 Some((mana_cost.clone(), bundle.clone(), paid_pool))
             }
-            ManaAbilityOutput::Fixed(_) | ManaAbilityOutput::Choice(_) => None,
+            ManaAbilityOutput::Fixed(_)
+            | ManaAbilityOutput::Choice(_)
+            | ManaAbilityOutput::Bundle(_) => None,
         };
-        let color = if paid_bundle.is_none() {
+        let free_bundle = match &ability.output {
+            ManaAbilityOutput::Bundle(bundle) => {
+                if activation.chosen_color.is_some() {
+                    return Err(RulesError::IllegalAction(
+                        "fixed mana bundle ability does not accept a color choice",
+                    ));
+                }
+                if bundle
+                    .iter()
+                    .any(|(color, amount)| !self.players[player.0].mana_pool.can_add(color, amount))
+                {
+                    return Err(RulesError::IllegalAction(
+                        "mana pool cannot hold the produced mana",
+                    ));
+                }
+                Some(bundle.clone())
+            }
+            ManaAbilityOutput::Fixed(_)
+            | ManaAbilityOutput::Choice(_)
+            | ManaAbilityOutput::PaidBundle { .. } => None,
+        };
+        let color = if paid_bundle.is_none() && free_bundle.is_none() {
             Some(Self::resolve_mana_ability_color(
                 &ability.output,
                 activation.chosen_color,
@@ -1543,6 +1625,29 @@ impl Game {
                 life_payment: ability.life_payment,
             });
             self.record_event(GameEvent::ManaAbilityManaPaid { player, mana_cost });
+            if let Some(amount) = ability.life_payment {
+                self.record_event(GameEvent::ManaAbilityLifePaid { player, amount });
+            }
+            for (color, amount) in bundle.iter() {
+                self.players[player.0].mana_pool.add(color, amount);
+                self.record_event(GameEvent::ManaAdded {
+                    player,
+                    color,
+                    amount,
+                });
+            }
+            if let Some(amount) = ability.controller_damage {
+                self.deal_damage_to_player(activation.source, player, i32::from(amount))?;
+            }
+        } else if let Some(bundle) = free_bundle {
+            self.record_event(GameEvent::BoundManaAbilityFreeBundleActivated {
+                player,
+                source: activation.source,
+                ability: ability.id,
+                bundle: bundle.clone(),
+                tapped: ability.tap_cost,
+                life_payment: ability.life_payment,
+            });
             if let Some(amount) = ability.life_payment {
                 self.record_event(GameEvent::ManaAbilityLifePaid { player, amount });
             }
@@ -2050,6 +2155,10 @@ impl Game {
     }
 
     pub fn play_land(&mut self, player: PlayerId, card: ObjectId) -> Result<(), RulesError> {
+        self.atomic_transition(|game| game.play_land_impl(player, card))
+    }
+
+    fn play_land_impl(&mut self, player: PlayerId, card: ObjectId) -> Result<(), RulesError> {
         self.require_priority(player)?;
         if player != self.active_player || !self.step.is_main() || !self.stack.is_empty() {
             return Err(RulesError::IllegalAction(
@@ -2071,11 +2180,24 @@ impl Game {
                 "only your own hand card may be played",
             ));
         }
+        let definition_id = definition.id;
         self.players[player.0].lands_played += 1;
         self.move_to_zone(card, Zone::Battlefield)?;
+        if self
+            .land_entry_behaviors
+            .get(definition_id)
+            .is_some_and(|behavior| behavior.enters_tapped)
+        {
+            self.objects
+                .get_mut(&card)
+                .ok_or(RulesError::UnknownCard(card))?
+                .tapped = true;
+        }
         self.consecutive_passes = 0;
         self.check_state_based_actions()?;
-        self.validate_invariants()
+        self.flush_pending_dies_triggers();
+        self.enqueue_enter_triggers(card, definition_id, player);
+        Ok(())
     }
 
     /// Performs the turn-based action of declaring attackers in the current combat.
@@ -3129,6 +3251,20 @@ impl Game {
                 ));
             }
         }
+        for (definition_id, behavior) in &self.land_entry_behaviors {
+            let definition = self
+                .catalog
+                .get(definition_id)
+                .ok_or(RulesError::UnknownDefinition(definition_id))?;
+            if behavior.card_definition != *definition_id
+                || !definition.is_land()
+                || !behavior.enters_tapped
+            {
+                return Err(RulesError::IllegalAction(
+                    "land-entry binding has invalid definition or behavior",
+                ));
+            }
+        }
         for (definition_id, abilities) in &self.mana_abilities {
             let definition = self
                 .catalog
@@ -4161,6 +4297,7 @@ impl Game {
                 | Effect::ReturnTargetCardToHand
                 | Effect::ShuffleGraveyardsIntoLibraries
                 | Effect::ReturnControlledCreatureToHand
+                | Effect::ReturnControlledLandToHand
                 | Effect::ReturnOpponentCreatureToHand
                 | Effect::ModifyControllerCreaturesPtUntilEndOfTurn { .. }
                 | Effect::RadianceUntapAndModifyUntilEndOfTurn { .. }
@@ -4478,7 +4615,9 @@ impl Game {
                 .map(PlayerId)
                 .find(|player| *player != controller && !self.players[player.0].lost)
                 .map(Target::Player)
-                .filter(|target| self.target_matches(*target, *requirement));
+                .filter(|target| {
+                    self.target_matches_for_controller(controller, *target, *requirement)
+                });
             let opponent_permanent = self
                 .objects
                 .keys()
@@ -4489,19 +4628,25 @@ impl Game {
                         .is_ok_and(|object| object.controller != controller)
                 })
                 .map(Target::Permanent)
-                .find(|target| self.target_matches(*target, *requirement));
+                .find(|target| {
+                    self.target_matches_for_controller(controller, *target, *requirement)
+                });
             let any_permanent = self
                 .objects
                 .keys()
                 .copied()
                 .filter(|candidate| self.zone_of(*candidate) == Some(Zone::Battlefield))
                 .map(Target::Permanent)
-                .find(|target| self.target_matches(*target, *requirement));
+                .find(|target| {
+                    self.target_matches_for_controller(controller, *target, *requirement)
+                });
             let any_player = (0..self.players.len())
                 .map(PlayerId)
                 .filter(|player| !self.players[player.0].lost)
                 .map(Target::Player)
-                .find(|target| self.target_matches(*target, *requirement));
+                .find(|target| {
+                    self.target_matches_for_controller(controller, *target, *requirement)
+                });
             let target = opponent_player
                 .or(opponent_permanent)
                 .or(any_permanent)
@@ -5870,6 +6015,17 @@ impl Game {
                 }
                 self.move_to_zone(target, Zone::Hand)?;
             }
+            Effect::ReturnControlledLandToHand => {
+                let target = Self::target_permanent(target)?;
+                if !self.target_matches_for_controller(
+                    controller,
+                    Target::Permanent(target),
+                    TargetRequirement::ControlledLand,
+                ) {
+                    return Err(RulesError::IllegalTarget(Target::Permanent(target)));
+                }
+                self.move_to_zone(target, Zone::Hand)?;
+            }
             Effect::ReturnOpponentCreatureToHand => {
                 let target = Self::target_permanent(target)?;
                 if !self.target_matches_for_controller(
@@ -5980,6 +6136,12 @@ impl Game {
                         .card_definition(card)
                         .is_ok_and(CardDefinition::is_land)
             }
+            (Target::Permanent(card), TargetRequirement::ControlledLand) => {
+                self.zone_of(card) == Some(Zone::Battlefield)
+                    && self
+                        .card_definition(card)
+                        .is_ok_and(CardDefinition::is_land)
+            }
             (Target::Permanent(card), TargetRequirement::Artifact) => {
                 self.zone_of(card) == Some(Zone::Battlefield)
                     && self
@@ -6049,6 +6211,9 @@ impl Game {
                 (Target::Permanent(card), TargetRequirement::ControlledCreature) => self
                     .object(card)
                     .is_ok_and(|object| object.controller == controller),
+                (Target::Permanent(card), TargetRequirement::ControlledLand) => self
+                    .object(card)
+                    .is_ok_and(|object| object.controller == controller),
                 (Target::Permanent(card), TargetRequirement::OpponentCreature) => self
                     .object(card)
                     .is_ok_and(|object| object.controller != controller),
@@ -6075,6 +6240,7 @@ impl Game {
                     | TargetRequirement::BlockingCreature
                     | TargetRequirement::AttackingOrBlockingCreature
                     | TargetRequirement::Land
+                    | TargetRequirement::ControlledLand
                     | TargetRequirement::Artifact
                     | TargetRequirement::ArtifactOrCreature
                     | TargetRequirement::ArtifactOrEnchantment
@@ -6666,6 +6832,18 @@ impl Game {
                 "mana ability must produce positive mana",
             ));
         }
+        if let ManaAbilityOutput::Bundle(bundle) = &ability.output {
+            if ability.amount != 0 {
+                return Err(RulesError::IllegalAction(
+                    "mana bundle ability must use bundle quantities instead of amount",
+                ));
+            }
+            if bundle.is_empty() || bundle.iter().any(|(_, amount)| amount == 0) {
+                return Err(RulesError::IllegalAction(
+                    "mana ability bundle must contain positive mana amounts",
+                ));
+            }
+        }
         if let ManaAbilityOutput::PaidBundle { mana_cost, bundle } = &ability.output {
             Self::validate_mana_cost(mana_cost)?;
             if ability.amount != 0 {
@@ -7037,6 +7215,51 @@ impl Game {
                             }
                             output_index
                         }
+                        Some(GameEvent::BoundManaAbilityFreeBundleActivated {
+                            player: receipt_player,
+                            source: receipt_source,
+                            ability: receipt_ability,
+                            bundle,
+                            life_payment,
+                            ..
+                        }) if *receipt_player == player
+                            && receipt_source == source
+                            && receipt_ability == ability =>
+                        {
+                            let mut output_index = receipt_index + 1;
+                            if let Some(life_amount) = life_payment {
+                                if !matches!(
+                                    events.get(output_index),
+                                    Some(GameEvent::ManaAbilityLifePaid {
+                                        player: receipt_player,
+                                        amount: receipt_amount,
+                                    }) if *receipt_player == player && receipt_amount == life_amount
+                                ) {
+                                    return Err(RulesError::IllegalAction(
+                                        "cast-payment free-bundle activation lacks its life-payment receipt",
+                                    ));
+                                }
+                                output_index += 1;
+                            }
+                            for (color, amount) in bundle.iter() {
+                                if !matches!(
+                                    events.get(output_index),
+                                    Some(GameEvent::ManaAdded {
+                                        player: receipt_player,
+                                        color: receipt_color,
+                                        amount: receipt_amount,
+                                    }) if *receipt_player == player
+                                        && receipt_color == &color
+                                        && receipt_amount == &amount
+                                ) {
+                                    return Err(RulesError::IllegalAction(
+                                        "cast-payment free-bundle activation lacks an ordered mana-output receipt",
+                                    ));
+                                }
+                                output_index += 1;
+                            }
+                            output_index
+                        }
                         _ => {
                             return Err(RulesError::IllegalAction(
                                 "cast-payment mana activation lacks its matching bound receipt",
@@ -7158,6 +7381,47 @@ impl Game {
                     }
                     output_index += 1;
                 }
+            }
+        }
+        for (index, event) in events.iter().enumerate() {
+            let GameEvent::BoundManaAbilityFreeBundleActivated {
+                player,
+                bundle,
+                life_payment,
+                ..
+            } = event
+            else {
+                continue;
+            };
+            let mut output_index = index + 1;
+            if let Some(amount) = life_payment {
+                if !matches!(
+                    events.get(output_index),
+                    Some(GameEvent::ManaAbilityLifePaid {
+                        player: receipt_player,
+                        amount: receipt_amount,
+                    }) if receipt_player == player && receipt_amount == amount
+                ) {
+                    return Err(RulesError::IllegalAction(
+                        "free mana bundle activation lacks its life-payment receipt",
+                    ));
+                }
+                output_index += 1;
+            }
+            for (color, amount) in bundle.iter() {
+                if !matches!(
+                    events.get(output_index),
+                    Some(GameEvent::ManaAdded {
+                        player: receipt_player,
+                        color: receipt_color,
+                        amount: receipt_amount,
+                    }) if receipt_player == player && receipt_color == &color && receipt_amount == &amount
+                ) {
+                    return Err(RulesError::IllegalAction(
+                        "free mana bundle activation lacks an ordered mana-output receipt",
+                    ));
+                }
+                output_index += 1;
             }
         }
         Ok(())
@@ -7755,9 +8019,11 @@ impl Game {
                     RulesError::IllegalAction("mana ability requires one supported color choice"),
                 )
             }
-            ManaAbilityOutput::PaidBundle { .. } => Err(RulesError::IllegalAction(
-                "fixed mana bundle ability does not resolve to one color",
-            )),
+            ManaAbilityOutput::Bundle(_) | ManaAbilityOutput::PaidBundle { .. } => {
+                Err(RulesError::IllegalAction(
+                    "fixed mana bundle ability does not resolve to one color",
+                ))
+            }
         }
     }
 

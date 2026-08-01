@@ -68,6 +68,14 @@ Oracle Magic rules coverage.
   produce a different color. A cast-payment basic-land request must name one
   such typed land and its intrinsic color; it cannot use an untyped land or
   produce a different color while paying a spell cost.
+- A registered land-entry behavior names exactly one land definition and
+  currently represents only a mandatory tapped entry. Playing that land marks
+  it tapped before state-based actions and before any resulting ETB ability is
+  placed on the stack. It does not fold an ETB instruction into the land-play
+  transition: normal trigger placement, target legality, priority, and
+  resolution receipts remain required. Controller-relative trigger selection
+  must use controller-relative legality, so a `ControlledLand` target can
+  select the newly entered land itself but can never select an opponent's land.
 - A stack object has a unique card and a valid controller. Resolving or
   countering it removes it from the stack before it receives its resulting zone
   move.
@@ -215,13 +223,16 @@ Oracle Magic rules coverage.
   permanent definitions that exist in the game catalog. Every ability identity
   is nonempty and unique within its definition; its output amount is positive;
   a selectable output has at least one color; and an optional life payment is
-  positive. Activation requires the source on the battlefield and controlled by
-  the priority holder. A tap-cost creature ability additionally observes
-  summoning sickness unless its current characteristics include Haste. Fixed
-  outputs reject a supplied color choice and selectable outputs require one
-  listed color. A successful bound mana ability never enters the stack, emits
-  `BoundManaAbilityActivated` then any `ManaAbilityLifePaid` and `ManaAdded`
-  receipts, resets consecutive passes, and leaves priority with its activator.
+  positive. A fixed mana bundle has positive entries and `amount == 0`; a paid
+  bundle additionally has a positive explicit mana cost, while a free bundle
+  must never fabricate a zero-cost payment receipt. Activation requires the
+  source on the battlefield and controlled by the priority holder. A tap-cost
+  creature ability additionally observes summoning sickness unless its current
+  characteristics include Haste. Fixed outputs reject a supplied color choice
+  and selectable outputs require one listed color. A successful bound mana
+  ability never enters the stack, emits its exact single-color, paid-bundle, or
+  free-bundle receipt followed by every required life-payment and `ManaAdded`
+  receipt, resets consecutive passes, and leaves priority with its activator.
   A positive optional controller-damage result is distinct from a life-payment
   cost: it is legal even when it causes loss, follows the mana receipt as a
   source-aware `DamageDealtToPlayer`, and then state-based actions determine

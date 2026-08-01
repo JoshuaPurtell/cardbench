@@ -60,6 +60,18 @@ pub struct BasicLandTypeBinding {
     pub land_type: BasicLandType,
 }
 
+/// Immutable behavior applied as a land enters the battlefield.
+///
+/// This deliberately covers only replacement-style entry facts such as
+/// "enters tapped". Any enter-the-battlefield triggered ability remains a
+/// normal [`TriggeredAbilityBinding`], so it reaches the stack and exposes a
+/// priority window instead of being folded into the land-play action.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct LandEntryBinding {
+    pub card_definition: &'static str,
+    pub enters_tapped: bool,
+}
+
 /// A deterministic, fixed bundle of mana produced by one mana ability.
 ///
 /// The bundle deliberately uses one entry per color. This makes an activation
@@ -107,6 +119,10 @@ impl ManaBundle {
 pub enum ManaAbilityOutput {
     Fixed(Color),
     Choice(BTreeSet<Color>),
+    /// Produces every entry of the fixed bundle as one non-stack mana-ability
+    /// activation without paying mana as a cost. `amount` on the enclosing
+    /// ability must be zero because the bundle carries the exact quantities.
+    Bundle(ManaBundle),
     /// Pays the named mana cost, then produces every entry of the fixed bundle
     /// as one non-stack mana-ability activation. `amount` on the enclosing
     /// ability must be zero for this variant because the bundle carries the
@@ -714,6 +730,10 @@ pub enum TargetRequirement {
     /// of Devouring Light without weakening generic creature-exile effects.
     AttackingOrBlockingCreature,
     Land,
+    /// A battlefield land controlled by the resolving source's controller.
+    /// This is distinct from `Land` so source-relative return effects cannot
+    /// silently accept an opponent's land.
+    ControlledLand,
     /// A battlefield permanent with the Artifact card type.
     Artifact,
     /// A battlefield permanent with either the Artifact or Creature card
@@ -1128,6 +1148,10 @@ pub enum Effect {
     /// Return a target creature controlled by the resolving spell's controller
     /// to its owner's hand.
     ReturnControlledCreatureToHand,
+    /// Return a target land controlled by the resolving source's controller
+    /// to its owner's hand. This is a normal targeted stack effect, not a
+    /// land-play replacement, so the newly entered land is itself legal.
+    ReturnControlledLandToHand,
     /// Return a target creature controlled by another player to its owner's
     /// hand. This remains distinct so paired targets cannot silently select
     /// two creatures on one side.
@@ -1191,6 +1215,7 @@ impl Effect {
             }
             Self::ReturnTargetCardToHand => Some(TargetRequirement::OwnGraveyardCard),
             Self::ReturnControlledCreatureToHand => Some(TargetRequirement::ControlledCreature),
+            Self::ReturnControlledLandToHand => Some(TargetRequirement::ControlledLand),
             Self::ReturnOpponentCreatureToHand => Some(TargetRequirement::OpponentCreature),
             Self::CounterTargetInstantOrSorcerySpell => {
                 Some(TargetRequirement::InstantOrSorcerySpell)
@@ -1836,6 +1861,17 @@ pub enum GameEvent {
         source: ObjectId,
         ability: &'static str,
         mana_cost: ManaCost,
+        bundle: ManaBundle,
+        tapped: bool,
+        life_payment: Option<u8>,
+    },
+    /// Receipt for a fixed multi-color mana bundle that has no mana-payment
+    /// cost. This remains separate from `BoundManaAbilityBundleActivated` so
+    /// the event log cannot falsely claim that a zero-cost payment occurred.
+    BoundManaAbilityFreeBundleActivated {
+        player: PlayerId,
+        source: ObjectId,
+        ability: &'static str,
         bundle: ManaBundle,
         tapped: bool,
         life_payment: Option<u8>,
