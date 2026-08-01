@@ -41,6 +41,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-NETHERBORN-PHALANX",
             "RAV-HEX",
             "RAV-DARK-CONFIDANT",
+            "RAV-SHADOW-OF-DOUBT",
             "RAV-HELLDOZER",
             "RAV-GREATER-MOSSDOG",
             "RAV-BOROS-SIGNET",

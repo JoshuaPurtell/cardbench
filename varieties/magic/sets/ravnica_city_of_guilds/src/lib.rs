@@ -35,7 +35,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 102] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 103] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -66,6 +66,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 102] = [
     "RAV-NETHERBORN-PHALANX",
     "RAV-HEX",
     "RAV-DARK-CONFIDANT",
+    "RAV-SHADOW-OF-DOUBT",
     "RAV-HELLDOZER",
     "RAV-GREATER-MOSSDOG",
     "RAV-BOROS-SIGNET",
@@ -886,6 +887,27 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 [Color::Black, Color::Black],
             ))],
             effects: vec![],
+        },
+        // Full fidelity within the represented library-search substrate: the
+        // spell installs one public marker for the current turn, then draws
+        // exactly one controller card as it resolves.
+        CardDefinition {
+            id: "RAV-SHADOW-OF-DOUBT",
+            name: "Shadow of Doubt",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(0, [Color::Blue, Color::Black]),
+            colors: colors([Color::Blue, Color::Black]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Instant]),
+            is_basic_land: false,
+            supported_rules: &["full-rules-fidelity", "library-search-prevention", "draw"],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![
+                Effect::PreventLibrarySearchUntilEndOfTurn,
+                Effect::DrawController,
+            ],
         },
         // Only the hand-zone transmute activation is executable. Its printed
         // spell effect is deliberately non-covered.
@@ -4984,7 +5006,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 142);
+        assert_eq!(first.len(), 143);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

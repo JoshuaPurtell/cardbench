@@ -9806,3 +9806,64 @@ stack_size = 0
 priority = 0
 event_markers = ["StepBegan", "TriggeredAbilityStacked", "CardRevealed", "CardMoved", "LifeLost", "AbilityResolved"]
 digest = "fnv1a64:444c0a67889afef9"
+
+[[scenario]]
+id = "rav_shadow_of_doubt_search_prevention"
+seed = 143
+description = "Resolve Shadow of Doubt, draw a public library card, then atomically reject a same-turn represented library search."
+
+[[scenario.card]]
+label = "shadow"
+owner = 0
+definition = "RAV-SHADOW-OF-DOUBT"
+zone = "hand"
+
+[[scenario.card]]
+label = "shred"
+owner = 0
+definition = "RAV-SHRED-MEMORY"
+zone = "hand"
+
+[[scenario.card]]
+label = "drawn"
+owner = 0
+definition = "RAV-FOREST"
+zone = "library"
+
+[[scenario.mana]]
+player = 0
+color = "blue"
+amount = 1
+
+[[scenario.mana]]
+player = 0
+color = "black"
+amount = 2
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "shadow"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "transmute"
+player = 0
+card = "shred"
+expected_error = "library searches are prevented this turn"
+
+[scenario.expected]
+zones = ["shadow:graveyard", "shred:hand", "drawn:hand"]
+mana = ["0:blue:0", "0:black:1"]
+stack_size = 0
+priority = 0
+event_markers = ["SpellCast", "LibrarySearchesPrevented", "CardMoved", "SpellResolved"]
+event_absent = ["Transmuted"]
+digest = "fnv1a64:3eb73b9dfda7e6bf"

@@ -969,6 +969,11 @@ pub enum Effect {
     /// intentionally a stack-only operation so public live-game setup cannot
     /// inject cards into a hand after the game has begun.
     DrawController,
+    /// Prevent represented library-search actions through the current turn.
+    /// The marker is installed only by stack resolution and is cleared as the
+    /// next turn begins, so a rejected search cannot consume mana, cards, or
+    /// priority receipts.
+    PreventLibrarySearchUntilEndOfTurn,
     /// Reveal the resolving controller's top library card, move it to hand,
     /// then make that controller lose life equal to its catalog mana value.
     /// An empty library has no card to reveal and is not a draw-loss path.
@@ -1195,6 +1200,7 @@ impl Effect {
             | Self::GainLifeController { .. }
             | Self::GainLifeControllerFromSourceDamage
             | Self::DrawController
+            | Self::PreventLibrarySearchUntilEndOfTurn
             | Self::RevealTopCardPutIntoHandLoseLifeEqualToManaValue
             | Self::DealDamageToEachPlayerFromReceivedDamage
             | Self::AddManaController { .. }
@@ -2057,6 +2063,13 @@ pub enum GameEvent {
         discarded: ObjectId,
         /// A hidden-zone quality search may legally choose no matching card.
         found: Option<ObjectId>,
+    },
+    /// A resolving effect installed a turn-scoped marker consulted by every
+    /// represented library-search action. The receipt names the source and
+    /// exact current turn so event logs do not hide this rules-state change.
+    LibrarySearchesPrevented {
+        source: ObjectId,
+        until_turn: u32,
     },
     StepBegan {
         turn: u32,

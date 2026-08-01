@@ -401,6 +401,12 @@ Oracle Magic rules coverage.
 - The supported atomic Transmute activation likewise resets the pass sequence
   and leaves priority with its controller; this slice does not model its
   activated ability as a separately stack-resolving object.
+- A resolving turn-scoped library-search-prevention effect records one
+  `LibrarySearchesPrevented { source, until_turn }` receipt for the current
+  nonzero turn. Every represented library search (currently Transmute) checks
+  that marker before inspecting a hand card, paying mana, moving a card, or
+  writing any search receipt. The marker may equal only the current turn and
+  is cleared as the next turn begins; a stale marker is an invariant failure.
 - Turn numbers are never zero, and the consecutive-pass counter is always
   below the number of surviving players outside its atomic resolution/step
   transition. A draw-replacement marker can exist only for the active player

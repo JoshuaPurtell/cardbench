@@ -362,6 +362,11 @@ pub struct Game {
     /// dredge from becoming a free graveyard action and makes that compulsory
     /// decision visible to submitted policies.
     pending_draw_replacement: Option<PlayerId>,
+    /// A resolving rule may prevent every represented library search until the
+    /// current turn ends. It is deliberately a turn number, rather than a
+    /// boolean, so invariant checks detect an expired marker crossing a turn
+    /// transition.
+    library_search_prevented_until: Option<u32>,
     /// Positive damage triggers are collected during a damage batch and only
     /// put on the stack after the enclosing combat or stack object finishes
     /// resolving. This preserves Magic's event ordering and leaves one clean
@@ -567,6 +572,7 @@ impl Game {
             terminal_event_emitted: false,
             combat: None,
             pending_draw_replacement: None,
+            library_search_prevented_until: None,
             pending_damage_triggers: Vec::new(),
             pending_life_gain_triggers: Vec::new(),
             pending_dies_triggers: Vec::new(),
@@ -2792,6 +2798,11 @@ impl Game {
                 "transmute is allowed only during your main phase with an empty stack",
             ));
         }
+        if self.library_search_prevented_until == Some(self.turn) {
+            return Err(RulesError::IllegalAction(
+                "library searches are prevented this turn",
+            ));
+        }
         self.require_zone(card, Zone::Hand)?;
         if self.object(card)?.owner != player {
             return Err(RulesError::IllegalAction(
@@ -3033,6 +3044,14 @@ impl Game {
         {
             return Err(RulesError::IllegalAction(
                 "draw-replacement marker escaped its draw-step decision boundary",
+            ));
+        }
+        if self
+            .library_search_prevented_until
+            .is_some_and(|until_turn| until_turn != self.turn)
+        {
+            return Err(RulesError::IllegalAction(
+                "library-search prevention marker escaped its turn boundary",
             ));
         }
         if self.next_object_id == 0 || self.next_timestamp == 0 {
@@ -4109,6 +4128,7 @@ impl Game {
                 | Effect::DrawControllerIfManaColorSpent { .. }
                 | Effect::ModifyAllCreaturesPtUntilEndOfTurnIfManaColorSpent { .. }
                 | Effect::DrawController
+                | Effect::PreventLibrarySearchUntilEndOfTurn
                 | Effect::RevealTopCardPutIntoHandLoseLifeEqualToManaValue
                 | Effect::GainLifeControllerFromSourceDamage
                 | Effect::DealDamageToEachPlayerFromReceivedDamage
@@ -5274,6 +5294,13 @@ impl Game {
             Effect::DrawController => {
                 self.draw_card_from_spell_effect(controller)?;
             }
+            Effect::PreventLibrarySearchUntilEndOfTurn => {
+                self.library_search_prevented_until = Some(self.turn);
+                self.record_event(GameEvent::LibrarySearchesPrevented {
+                    source,
+                    until_turn: self.turn,
+                });
+            }
             Effect::RevealTopCardPutIntoHandLoseLifeEqualToManaValue => {
                 let Some(card) = self.players[controller.0].library.last().copied() else {
                     return Ok(());
@@ -6071,6 +6098,7 @@ impl Game {
         if self.step == Step::Untap {
             self.active_player = self.next_player(self.active_player);
             self.turn += 1;
+            self.library_search_prevented_until = None;
         }
         self.priority = self.priority_after_resolution();
         self.start_step()
