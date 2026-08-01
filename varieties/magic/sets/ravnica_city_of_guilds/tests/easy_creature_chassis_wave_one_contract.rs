@@ -1,8 +1,10 @@
 //! Public contract for the first easy RAV creature-chassis coverage wave.
 //!
 //! These definitions intentionally implement normal casting and printed base
-//! characteristics only. Printed triggers, activated abilities, evasion, and
-//! combat restrictions stay outside the executable compatibility boundary.
+//! characteristics only. Hunted Phantasm and Sadistic Augermage are separately
+//! audited by their represented card-specific contracts. Printed triggers,
+//! activated abilities, evasion, and combat restrictions for the remaining
+//! cards stay outside the executable compatibility boundary.
 
 use std::collections::BTreeSet;
 
@@ -23,14 +25,6 @@ fn easy_creature_wave_one_is_exactly_bounded_to_public_base_facts() {
             5,
         ),
         (
-            "RAV-HUNTED-PHANTASM",
-            "Hunted Phantasm",
-            ManaCost::with_colors(1, [Color::Blue, Color::Blue]),
-            BTreeSet::from([Color::Blue]),
-            4,
-            6,
-        ),
-        (
             "RAV-VEDALKEN-DISMISSER",
             "Vedalken Dismisser",
             ManaCost::with_colors(5, [Color::Blue]),
@@ -45,14 +39,6 @@ fn easy_creature_wave_one_is_exactly_bounded_to_public_base_facts() {
             BTreeSet::from([Color::Blue]),
             0,
             6,
-        ),
-        (
-            "RAV-SADISTIC-AUGERMAGE",
-            "Sadistic Augermage",
-            ManaCost::with_colors(2, [Color::Black]),
-            BTreeSet::from([Color::Black]),
-            3,
-            1,
         ),
     ];
 
