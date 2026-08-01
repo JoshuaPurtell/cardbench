@@ -842,6 +842,7 @@ pub enum CreatureSubtype {
     Goblin,
     Knight,
     Saproling,
+    Spirit,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -905,6 +906,19 @@ impl TokenSpec {
             colors: BTreeSet::from([Color::Blue]),
             card_types: BTreeSet::from([CardType::Creature]),
             creature_subtypes: BTreeSet::from([CreatureSubtype::Faerie]),
+            keywords: vec![Keyword::Flying],
+            power: 1,
+            toughness: 1,
+        }
+    }
+
+    #[must_use]
+    pub fn white_spirit() -> Self {
+        Self {
+            name: "Spirit",
+            colors: BTreeSet::from([Color::White]),
+            card_types: BTreeSet::from([CardType::Creature]),
+            creature_subtypes: BTreeSet::from([CreatureSubtype::Spirit]),
             keywords: vec![Keyword::Flying],
             power: 1,
             toughness: 1,

@@ -24,14 +24,6 @@ fn third_creature_chassis_batch_is_exactly_bounded_to_public_base_facts() {
             5,
         ),
         (
-            "RAV-TRANSLUMINANT",
-            "Transluminant",
-            ManaCost::with_colors(1, [Color::Green]),
-            BTreeSet::from([Color::Green]),
-            2,
-            2,
-        ),
-        (
             "RAV-TROPHY-HUNTER",
             "Trophy Hunter",
             ManaCost::with_colors(2, [Color::Green]),

@@ -1,7 +1,8 @@
 //! Red discovery regression for Transluminant's unported dies trigger.
 
 use cardbench_magic_engine::{
-    ContinuousChange, Duration, Effect, Game, GameEvent, ManaCost, PlayerId,
+    Color, ContinuousChange, CreatureSubtype, Duration, Effect, Game, GameEvent, Keyword, ManaCost,
+    PlayerId,
 };
 use cardbench_magic_rav::{
     card_definitions, rav_activated_ability_bindings, rav_additional_spell_cost_bindings,
@@ -29,7 +30,7 @@ fn transluminant_requires_a_dies_trigger_that_creates_one_token() {
         .expect("Transluminant definition exists");
     assert_eq!(
         definition.mana_cost,
-        ManaCost::with_colors(1, [cardbench_magic_engine::Color::Green])
+        ManaCost::with_colors(1, [Color::Green])
     );
     let binding = rav_triggered_ability_bindings()
         .into_iter()
@@ -68,6 +69,37 @@ fn transluminant_requires_a_dies_trigger_that_creates_one_token() {
     game.pass_priority(first).expect("first trigger pass");
     let second = game.priority;
     game.pass_priority(second).expect("second trigger pass");
+    let spirit = game
+        .player(PlayerId(0))
+        .expect("controller exists")
+        .battlefield
+        .iter()
+        .copied()
+        .find(|card| {
+            game.object(*card)
+                .expect("battlefield object exists")
+                .token
+                .is_some()
+        })
+        .expect("dies trigger creates a Spirit token");
+    let spirit_characteristics = game.characteristics(spirit).expect("Spirit is live");
+    assert_eq!(
+        spirit_characteristics.colors,
+        [Color::White].into_iter().collect()
+    );
+    assert_eq!(
+        spirit_characteristics.creature_subtypes,
+        [CreatureSubtype::Spirit].into_iter().collect()
+    );
+    assert_eq!(
+        (
+            spirit_characteristics.power,
+            spirit_characteristics.toughness
+        ),
+        (Some(1), Some(1))
+    );
+    assert!(spirit_characteristics.keywords.contains(&Keyword::Flying));
+    println!("transluminant_event_log={:?}", game.canonical_event_log());
     assert!(game.event_log.iter().any(|event| matches!(
         event,
         GameEvent::TokenCreated { player, .. } if *player == PlayerId(0)

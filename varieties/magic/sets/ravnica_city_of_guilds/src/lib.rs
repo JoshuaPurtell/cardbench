@@ -36,7 +36,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 109] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 110] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -146,6 +146,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 109] = [
     "RAV-MOLDERVINE-CLOAK",
     "RAV-CLINGING-DARKNESS",
     "RAV-URSAPINE",
+    "RAV-TRANSLUMINANT",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -3149,17 +3150,28 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             4,
             5,
         ),
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed activated behavior is deliberately
-        // omitted from this compatibility slice.
-        bounded_creature_chassis(
-            "RAV-TRANSLUMINANT",
-            "Transluminant",
-            ManaCost::with_colors(1, [Color::Green]),
-            colors([Color::Green]),
-            2,
-            2,
-        ),
+        // Full fidelity: the source's dies trigger creates one typed white
+        // Spirit token with Flying through the ordinary trigger stack.
+        CardDefinition {
+            id: "RAV-TRANSLUMINANT",
+            name: "Transluminant",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(1, [Color::Green]),
+            colors: colors([Color::Green]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "dies-create-flying-spirit",
+            ],
+            power: Some(2),
+            toughness: Some(2),
+            keywords: vec![],
+            effects: vec![],
+        },
         // Compatibility scope: normal colored-cost creature casting and base
         // characteristics only. Its printed flying-creature interaction is
         // deliberately omitted from this compatibility slice.
@@ -4790,6 +4802,20 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                 optional: false,
                 targets: vec![cardbench_magic_engine::TargetRequirement::Player],
                 effects: vec![Effect::LoseLifeTarget { amount: 2 }],
+            },
+        },
+        TriggeredAbilityBinding {
+            card_definition: "RAV-TRANSLUMINANT",
+            ability: TriggeredAbility {
+                id: "dies-create-flying-spirit",
+                condition: TriggerCondition::Dies,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![Effect::CreateToken {
+                    token: TokenSpec::white_spirit(),
+                    count: 1,
+                }],
             },
         },
         TriggeredAbilityBinding {

@@ -3,7 +3,7 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardDefinition, CardType, CastRequest, Color, CreatureSubtype, Effect, Game, ManaCost,
+    CardDefinition, CardType, CastRequest, Color, CreatureSubtype, Effect, Game, Keyword, ManaCost,
     PlayerId, TokenSpec, Zone,
 };
 
@@ -69,6 +69,19 @@ fn saproling_token_keeps_a_typed_creature_subtype_through_resolution() {
     );
     game.validate_invariants()
         .expect("typed token state remains internally valid");
+}
+
+#[test]
+fn white_spirit_token_has_its_typed_flying_type_line() {
+    let spirit = TokenSpec::white_spirit();
+    assert_eq!(spirit.colors, BTreeSet::from([Color::White]));
+    assert_eq!(spirit.card_types, BTreeSet::from([CardType::Creature]));
+    assert_eq!(
+        spirit.creature_subtypes,
+        BTreeSet::from([CreatureSubtype::Spirit])
+    );
+    assert_eq!(spirit.keywords, [Keyword::Flying]);
+    assert_eq!((spirit.power, spirit.toughness), (1, 1));
 }
 
 #[test]
