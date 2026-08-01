@@ -26,6 +26,7 @@ fn hour_of_reckoning_requires_convoke_and_global_nontoken_creature_destruction()
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // One linear public trace keeps the global snapshot auditable.
 fn hour_of_reckoning_snapshots_nontoken_creatures_and_preserves_tokens() {
     let mut game = Game::new(card_definitions(), 2).expect("RAV game initializes");
     let hour = game

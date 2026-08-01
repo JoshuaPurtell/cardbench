@@ -1,9 +1,10 @@
 //! Public contract for the fourth bounded RAV creature-chassis batch.
 //!
 //! These compatibility definitions deliberately expose normal casting and base
-//! characteristics only. Goblin Fire Fiend is separately audited by its full
-//! fidelity contract and is excluded from the bounded matrix below. Woebringer
-//! Demon separately exposes its static Flying compatibility slice.
+//! characteristics only. Goblin Fire Fiend, Thoughtpicker Witch, and
+//! Vindictive Mob are separately audited by their full-fidelity contracts and
+//! are excluded from the bounded matrix below. Woebringer Demon separately
+//! exposes its static Flying compatibility slice.
 
 use std::collections::BTreeSet;
 
@@ -14,44 +15,6 @@ use cardbench_magic_rav::{card_definitions, run_all_scenarios};
 #[allow(clippy::too_many_lines)] // Explicit base-fact matrix is intentionally audit-friendly.
 fn fourth_creature_chassis_batch_is_exactly_bounded_to_public_base_facts() {
     let definitions = card_definitions();
-    let expected = [
-        (
-            "RAV-THOUGHTPICKER-WITCH",
-            "Thoughtpicker Witch",
-            ManaCost::with_colors(0, [Color::Black]),
-            BTreeSet::from([Color::Black]),
-            1,
-            1,
-        ),
-        (
-            "RAV-VINDICTIVE-MOB",
-            "Vindictive Mob",
-            ManaCost::with_colors(4, [Color::Black, Color::Black]),
-            BTreeSet::from([Color::Black]),
-            5,
-            5,
-        ),
-    ];
-
-    for (id, name, mana_cost, colors, power, toughness) in expected {
-        let definition = definitions
-            .iter()
-            .find(|definition| definition.id == id)
-            .unwrap_or_else(|| panic!("missing public RAV definition {id}"));
-        assert_eq!(definition.name, name, "{id}");
-        assert_eq!(definition.mana_cost, mana_cost, "{id}");
-        assert_eq!(definition.colors, colors, "{id}");
-        assert_eq!(definition.card_types, BTreeSet::from([CardType::Creature]));
-        assert_eq!(definition.power, Some(power), "{id}");
-        assert_eq!(definition.toughness, Some(toughness), "{id}");
-        assert_eq!(
-            definition.supported_rules,
-            ["colored-cost-casting", "base-characteristics"],
-            "{id} must not present unsupported card-specific behavior"
-        );
-        assert!(definition.keywords.is_empty(), "{id}");
-        assert!(definition.effects.is_empty(), "{id}");
-    }
 
     let excruciator = definitions
         .iter()
