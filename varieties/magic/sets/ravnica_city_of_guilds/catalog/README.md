@@ -274,6 +274,13 @@ receives exactly one typed black 4/4 Horror token. The focused trace asserts
 the source spell, battlefield transition, trigger, target, token receipt, and
 final invariant audit.
 
+Hour of Reckoning is a complete Convoke sorcery slice. Its target-free
+resolution snapshots every current nontoken creature, applies the ordinary
+regenerable destruction lifecycle to that complete set, and leaves tokens
+untouched. The focused trace creates three Saprolings first, then records four
+`CardDestroyed` transitions before Hour's `SpellResolved` receipt; the
+Saprolings remain on the battlefield and the final state-machine audit passes.
+
 The first-range easy-creature wave adds Votary of the Conclave, Drake Familiar,
 Ethereal Usher, and Grozoth. Each supports normal colored-cost creature casting
 and base power/toughness. Every other printed keyword, activated ability,

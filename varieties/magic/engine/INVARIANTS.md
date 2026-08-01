@@ -653,6 +653,13 @@ Oracle Magic rules coverage.
   An all-illegal target set is countered by rules with no destruction or token
   instruction; a legal target never broadens the batch to artifacts,
   creatures, colorless non-target enchantments, or nonsharing enchantments.
+- A target-free global nontoken-creature destruction effect snapshots every
+  current battlefield creature whose object is not a token before the first
+  destroy instruction. Tokens and noncreatures receive no destruction
+  instruction; every selected creature follows the ordinary regenerable
+  destruction and zone-departure lifecycle. The complete batch of resulting
+  receipts precedes the enclosing spell terminal receipt and one subsequent
+  state-based-action fixed point.
 - Landwalk is likewise declaration provenance: every recorded attacker is in
   the unique declared-attacker set and retains a nonempty set of typed basic
   land types. A submitted blocker is rejected exactly when the fixed defender

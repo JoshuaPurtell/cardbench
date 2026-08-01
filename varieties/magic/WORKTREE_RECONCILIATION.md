@@ -63,12 +63,16 @@ decision; its clean worktree can be removed without losing commits.
 - Hunted Lammasu is ported on `dev` as red `6753493d` and green `4f7b7c58`.
   Its current trigger uses the existing target-opponent stack selection and a
   new typed black Horror token rather than the legacy source trigger API.
+- Hour of Reckoning is ported on `dev` as red `4fb400aa` and green `84cbec52`.
+  Its target-free global destruction batch snapshots only live nontoken
+  creatures, then uses the current ordinary regenerable destruction lifecycle
+  rather than the source lane's obsolete direct zone-change helper.
 - Remaining White source-only definitions are not silently considered merged:
   Auratouched Mage, Bathe in Light, Blazing Archon, Boros Fury-Shield,
   Caregiver, Chant of Vitu-Ghazi, Concerted Effort, Conclave's Blessing,
   Faith's Fetters, Festival of the Guildpact, Flickerform, Gate Hound, Ghosts
-  of the Innocent, Hour of Reckoning, Light of Sanction,
-  Loxodon Gatekeeper, Oathsworn Giant, Suppression Field, Three Dreams,
+  of the Innocent, Light of Sanction, Loxodon Gatekeeper, Oathsworn Giant,
+  Suppression Field, Three Dreams,
   Twilight Drover, Veteran Armorer, and Wojek Apothecary. Each requires its
   own current-engine red-to-green port; the legacy branch's positive markers
   are not evidence that its behavior is live on `dev`.
