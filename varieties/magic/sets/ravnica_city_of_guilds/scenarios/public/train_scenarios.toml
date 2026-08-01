@@ -4640,7 +4640,7 @@ digest = "fnv1a64:e78637d84b25b302"
 [[scenario]]
 id = "rav_easy_blue_phantasm_drake_chassis"
 seed = 0
-description = "Cast Hunted Phantasm and Tattered Drake with exact blue costs, then verify only their base P/T. Tattered Drake's Flying declaration is exercised separately; its regeneration and Hunted Phantasm's token entry remain unsupported."
+description = "Cast Hunted Phantasm and Tattered Drake with exact blue costs, then verify only their base P/T. Hunted Phantasm's Unblockable and deterministic opponent Goblin-token ETB slice and Tattered Drake's Flying declaration are exercised separately; Drake's regeneration remains unsupported."
 
 [[scenario.card]]
 label = "phantasm"

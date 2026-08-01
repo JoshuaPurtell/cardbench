@@ -1850,17 +1850,33 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             5,
             5,
         ),
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed evasion and opponent-token entry
-        // behavior are deliberately omitted from this compatibility slice.
-        bounded_creature_chassis(
-            "RAV-HUNTED-PHANTASM",
-            "Hunted Phantasm",
-            ManaCost::with_colors(1, [Color::Blue, Color::Blue]),
-            colors([Color::Blue]),
-            4,
-            6,
-        ),
+        // Compatibility scope: normal colored-cost creature casting, base
+        // characteristics, unblockability, and the stack-backed targeted ETB
+        // token trigger are represented. The shared trigger substrate selects
+        // the first legal opponent deterministically; policy-submitted target
+        // selection remains an explicit engine limitation, so this is not a
+        // full-fidelity manifest entry.
+        CardDefinition {
+            id: "RAV-HUNTED-PHANTASM",
+            name: "Hunted Phantasm",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(1, [Color::Blue, Color::Blue]),
+            colors: colors([Color::Blue]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "colored-cost-casting",
+                "base-characteristics",
+                "cannot-be-blocked",
+                "enter-battlefield-targeted-opponent-goblin-token-creation",
+                "deterministic-opponent-target-selection",
+            ],
+            power: Some(4),
+            toughness: Some(6),
+            keywords: vec![Keyword::Unblockable],
+            effects: vec![],
+        },
         // Compatibility scope: normal colored-cost creature casting, base
         // characteristics, and Flying. Its regeneration activation remains
         // deliberately unsupported, so this is not a full-fidelity card.
@@ -3261,6 +3277,20 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                 effects: vec![Effect::CreateTokenForTargetPlayer {
                     token: TokenSpec::green_centaur(),
                     count: 2,
+                }],
+            },
+        },
+        TriggeredAbilityBinding {
+            card_definition: "RAV-HUNTED-PHANTASM",
+            ability: TriggeredAbility {
+                id: "etb-opponent-goblins",
+                condition: TriggerCondition::EntersBattlefield,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![cardbench_magic_engine::TargetRequirement::Player],
+                effects: vec![Effect::CreateTokenForTargetPlayer {
+                    token: TokenSpec::red_goblin(),
+                    count: 5,
                 }],
             },
         },

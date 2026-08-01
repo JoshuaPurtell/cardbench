@@ -736,6 +736,7 @@ pub struct AdditionalSpellCostBinding {
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum CreatureSubtype {
     Centaur,
+    Goblin,
     Knight,
     Saproling,
 }
@@ -791,6 +792,19 @@ impl TokenSpec {
             keywords: vec![],
             power: 3,
             toughness: 3,
+        }
+    }
+
+    #[must_use]
+    pub fn red_goblin() -> Self {
+        Self {
+            name: "Goblin",
+            colors: BTreeSet::from([Color::Red]),
+            card_types: BTreeSet::from([CardType::Creature]),
+            creature_subtypes: BTreeSet::from([CreatureSubtype::Goblin]),
+            keywords: vec![],
+            power: 1,
+            toughness: 1,
         }
     }
 }
@@ -1015,7 +1029,8 @@ impl Effect {
             | Self::RadianceAddKeywordUntilEndOfTurn { .. }
             | Self::BeginDamageRedirection { .. }
             | Self::PreventTargetBlockingSourceUntilEndOfTurn
-            | Self::ExileTargetCreature => Some(TargetRequirement::Creature),
+            | Self::ExileTargetCreature
+            | Self::TapTargetCreature => Some(TargetRequirement::Creature),
             Self::ExileTargetPermanent => Some(TargetRequirement::AttackingOrBlockingCreature),
             Self::CompleteDamageRedirection => Some(TargetRequirement::PlayerOrCreature),
             Self::LoseLifeTarget { .. } | Self::CreateTokenForTargetPlayer { .. } => {
@@ -1023,7 +1038,6 @@ impl Effect {
             }
             Self::DestroyTargetLand => Some(TargetRequirement::Land),
             Self::DestroyTargetArtifact => Some(TargetRequirement::Artifact),
-            Self::TapTargetCreature => Some(TargetRequirement::Creature),
             Self::DestroyTargetArtifactOrEnchantment => {
                 Some(TargetRequirement::ArtifactOrEnchantment)
             }
