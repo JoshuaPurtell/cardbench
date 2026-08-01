@@ -686,6 +686,8 @@ pub enum TargetRequirement {
     /// qualification stays in `Game` so this target remains reusable by other
     /// expansions.
     OwnGraveyardCard,
+    /// An instant or sorcery card in the casting player's graveyard.
+    InstantOrSorceryCardInControllerGraveyard,
     /// A battlefield creature controlled by the resolving spell's controller.
     ControlledCreature,
     /// A battlefield creature controlled by a different player from the
@@ -980,6 +982,9 @@ pub enum Effect {
     /// Counter one targeted instant or sorcery spell. This is intentionally a
     /// semantic effect rather than a copied card-text string.
     CounterTargetInstantOrSorcerySpell,
+    /// Grant a current-turn mana-free cast permission for the targeted instant
+    /// or sorcery in the resolving controller's graveyard.
+    GrantGraveyardCastPermissionUntilEndOfTurn,
     /// Destroy the targeted artifact or enchantment permanent. The target is
     /// rechecked as this instruction resolves, then changes zones using the
     /// ordinary destruction lifecycle.
@@ -1046,6 +1051,9 @@ impl Effect {
             Self::ReturnOpponentCreatureToHand => Some(TargetRequirement::OpponentCreature),
             Self::CounterTargetInstantOrSorcerySpell => {
                 Some(TargetRequirement::InstantOrSorcerySpell)
+            }
+            Self::GrantGraveyardCastPermissionUntilEndOfTurn => {
+                Some(TargetRequirement::InstantOrSorceryCardInControllerGraveyard)
             }
             Self::DealDamageController { .. }
             | Self::LoseLifeController { .. }
@@ -1753,6 +1761,19 @@ pub enum GameEvent {
     SpellCountered {
         card: ObjectId,
         source: ObjectId,
+    },
+    SpellCastFromGraveyard {
+        player: PlayerId,
+        card: ObjectId,
+    },
+    GraveyardCastPermissionGranted {
+        source: ObjectId,
+        player: PlayerId,
+        card: ObjectId,
+        until_turn: u32,
+    },
+    GraveyardCastPermissionExpired {
+        card: ObjectId,
     },
     DamageDealtToPlayer {
         source: ObjectId,

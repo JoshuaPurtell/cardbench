@@ -91,10 +91,15 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-RECOLLECT",
             "RAV-MNEMONIC-NEXUS",
             "RAV-PEEL-FROM-REALITY",
+            "RAV-SINS-OF-THE-PAST",
         ]
     );
     let definitions = card_definitions();
     let exact = [
+        (
+            "RAV-SINS-OF-THE-PAST",
+            vec![Effect::GrantGraveyardCastPermissionUntilEndOfTurn],
+        ),
         (
             "RAV-CHAR",
             vec![

@@ -35,7 +35,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 80] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 81] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -116,6 +116,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 80] = [
     "RAV-RECOLLECT",
     "RAV-MNEMONIC-NEXUS",
     "RAV-PEEL-FROM-REALITY",
+    "RAV-SINS-OF-THE-PAST",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -398,6 +399,29 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             toughness: Some(7),
             keywords: vec![Keyword::Trample],
             effects: vec![],
+        },
+        // Full fidelity: target a controller-owned instant or sorcery in the
+        // graveyard, then cast it this turn without paying its mana cost. A
+        // permission cast is exiled whether it resolves or is countered.
+        CardDefinition {
+            id: "RAV-SINS-OF-THE-PAST",
+            name: "Sins of the Past",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(4, [Color::Black, Color::Black]),
+            colors: colors([Color::Black]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Sorcery]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "target-graveyard-instant-or-sorcery",
+                "current-turn-mana-free-cast",
+                "permission-cast-exiles",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![Effect::GrantGraveyardCastPermissionUntilEndOfTurn],
         },
         // Full fidelity: normal colored-cost casting, base characteristics,
         // Flying, and the targeted ETB -2/-2 modifier all use the normal

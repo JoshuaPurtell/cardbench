@@ -72,6 +72,12 @@ pub struct ConvokePayment {
     pub contribution: ConvokeContribution,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct GraveyardCastPermission {
+    player: PlayerId,
+    expires_turn: u32,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CastRequest {
     pub card: ObjectId,
@@ -313,6 +319,8 @@ pub struct Game {
     triggered_abilities: BTreeMap<&'static str, BTreeMap<&'static str, crate::TriggeredAbility>>,
     basic_land_types: BTreeMap<&'static str, BasicLandType>,
     additional_spell_costs: BTreeMap<&'static str, Vec<AdditionalSpellCost>>,
+    graveyard_cast_permissions: BTreeMap<ObjectId, GraveyardCastPermission>,
+    exile_on_resolution: BTreeSet<ObjectId>,
     pub players: Vec<PlayerState>,
     objects: BTreeMap<ObjectId, CardObject>,
     pub stack: Vec<StackObject>,
@@ -524,6 +532,8 @@ impl Game {
             triggered_abilities: BTreeMap::new(),
             basic_land_types,
             additional_spell_costs,
+            graveyard_cast_permissions: BTreeMap::new(),
+            exile_on_resolution: BTreeSet::new(),
             players,
             objects: BTreeMap::new(),
             stack: Vec::new(),
@@ -2218,7 +2228,17 @@ impl Game {
         mana_payment_selection: Option<&ManaPaymentSelection>,
     ) -> Result<(), RulesError> {
         self.require_priority(player)?;
-        self.require_zone(request.card, Zone::Hand)?;
+        let from_graveyard = self
+            .graveyard_cast_permissions
+            .get(&request.card)
+            .is_some_and(|permission| {
+                permission.player == player
+                    && permission.expires_turn >= self.turn
+                    && self.zone_of(request.card) == Some(Zone::Graveyard)
+            });
+        if !from_graveyard {
+            self.require_zone(request.card, Zone::Hand)?;
+        }
         let definition = self.card_definition(request.card)?.clone();
         if definition.is_land() {
             return Err(RulesError::IllegalAction("lands are played, not cast"));
@@ -2247,9 +2267,7 @@ impl Game {
             ));
         }
         if self.object(request.card)?.owner != player {
-            return Err(RulesError::IllegalAction(
-                "only your own hand card may be cast",
-            ));
+            return Err(RulesError::IllegalAction("only your own card may be cast"));
         }
         let (spell_targets, additional_cost_selections) =
             self.split_cast_targets(&definition, &request.targets)?;
@@ -2285,13 +2303,26 @@ impl Game {
                 }
             }
         }
-        let (paid_cost, mana_spent) = self.pay_cost_with_convoke(
-            player,
-            request.card,
-            &definition,
-            &request.convoke,
-            mana_payment_selection,
-        )?;
+        if from_graveyard
+            && (!request.payment_mana_abilities.is_empty()
+                || !request.convoke.is_empty()
+                || mana_payment_selection.is_some())
+        {
+            return Err(RulesError::IllegalAction(
+                "a graveyard permission cast cannot use mana or convoke",
+            ));
+        }
+        let (paid_cost, mana_spent) = if from_graveyard {
+            (self.players[player.0].mana_pool.clone(), None)
+        } else {
+            self.pay_cost_with_convoke(
+                player,
+                request.card,
+                &definition,
+                &request.convoke,
+                mana_payment_selection,
+            )?
+        };
         self.players[player.0].mana_pool = paid_cost;
         for payment in &request.convoke {
             self.objects
@@ -2321,6 +2352,14 @@ impl Game {
                 player,
                 card: request.card,
                 colors,
+            });
+        }
+        if from_graveyard {
+            self.graveyard_cast_permissions.remove(&request.card);
+            self.exile_on_resolution.insert(request.card);
+            self.record_event(GameEvent::SpellCastFromGraveyard {
+                player,
+                card: request.card,
             });
         }
         self.record_event(GameEvent::SpellCast {
@@ -3801,6 +3840,7 @@ impl Game {
                 | Effect::RadianceModifyPtUntilEndOfTurn { .. }
                 | Effect::RadianceAddKeywordUntilEndOfTurn { .. }
                 | Effect::CounterTargetInstantOrSorcerySpell
+                | Effect::GrantGraveyardCastPermissionUntilEndOfTurn
                 | Effect::ExileTargetCreature
                 | Effect::ExileTargetPermanent => continue,
             };
@@ -3857,7 +3897,7 @@ impl Game {
                 self.record_event(GameEvent::SpellCounteredByRules {
                     card: stack_object.card,
                 });
-                self.move_to_graveyard_or_remove_token(stack_object.card)?;
+                self.move_to_spell_terminal_zone(stack_object.card)?;
             }
             self.check_state_based_actions()?;
             self.flush_pending_dies_triggers();
@@ -3995,7 +4035,7 @@ impl Game {
         if permanent_resolution {
             self.move_to_zone(stack_object.card, Zone::Battlefield)?;
         } else {
-            self.move_to_graveyard_or_remove_token(stack_object.card)?;
+            self.move_to_spell_terminal_zone(stack_object.card)?;
         }
         self.check_state_based_actions()?;
         self.flush_pending_dies_triggers();
@@ -5100,7 +5140,30 @@ impl Game {
                     card: target,
                     source,
                 });
-                self.move_to_graveyard_or_remove_token(target)?;
+                self.move_to_spell_terminal_zone(target)?;
+            }
+            Effect::GrantGraveyardCastPermissionUntilEndOfTurn => {
+                let target = Self::target_permanent(target)?;
+                if !self.target_matches_for_controller(
+                    controller,
+                    Target::Permanent(target),
+                    TargetRequirement::InstantOrSorceryCardInControllerGraveyard,
+                ) {
+                    return Err(RulesError::IllegalTarget(Target::Permanent(target)));
+                }
+                self.graveyard_cast_permissions.insert(
+                    target,
+                    GraveyardCastPermission {
+                        player: controller,
+                        expires_turn: self.turn,
+                    },
+                );
+                self.record_event(GameEvent::GraveyardCastPermissionGranted {
+                    source,
+                    player: controller,
+                    card: target,
+                    until_turn: self.turn,
+                });
             }
             Effect::ExileTargetCreature | Effect::ExileTargetPermanent => {
                 let target = Self::target_permanent(target)?;
@@ -5118,7 +5181,7 @@ impl Game {
                     source,
                     card: target,
                 });
-                self.move_to_graveyard_or_remove_token(target)?;
+                self.move_to_spell_terminal_zone(target)?;
             }
             Effect::ReturnTargetCardToHand => {
                 let target = Self::target_permanent(target)?;
@@ -5287,6 +5350,16 @@ impl Game {
             (Target::Permanent(card), TargetRequirement::OwnGraveyardCard) => {
                 self.zone_of(card) == Some(Zone::Graveyard)
             }
+            (
+                Target::Permanent(card),
+                TargetRequirement::InstantOrSorceryCardInControllerGraveyard,
+            ) => {
+                self.zone_of(card) == Some(Zone::Graveyard)
+                    && self.card_definition(card).is_ok_and(|definition| {
+                        definition.card_types.contains(&CardType::Instant)
+                            || definition.card_types.contains(&CardType::Sorcery)
+                    })
+            }
             (Target::Spell(card), TargetRequirement::InstantOrSorcerySpell) => {
                 self.stack
                     .iter()
@@ -5312,6 +5385,12 @@ impl Game {
         self.target_matches(target, requirement)
             && match (target, requirement) {
                 (Target::Permanent(card), TargetRequirement::OwnGraveyardCard) => self
+                    .object(card)
+                    .is_ok_and(|object| object.owner == controller),
+                (
+                    Target::Permanent(card),
+                    TargetRequirement::InstantOrSorceryCardInControllerGraveyard,
+                ) => self
                     .object(card)
                     .is_ok_and(|object| object.owner == controller),
                 (Target::Permanent(card), TargetRequirement::ControlledCreature) => self
@@ -5345,6 +5424,7 @@ impl Game {
                     | TargetRequirement::Artifact
                     | TargetRequirement::ArtifactOrEnchantment
                     | TargetRequirement::OwnGraveyardCard
+                    | TargetRequirement::InstantOrSorceryCardInControllerGraveyard
                     | TargetRequirement::ControlledCreature
                     | TargetRequirement::OpponentCreature
                     | TargetRequirement::PlayerOrCreature
@@ -5438,6 +5518,17 @@ impl Game {
                 self.combat = None;
             }
             Step::Cleanup => {
+                let expired_permissions = self
+                    .graveyard_cast_permissions
+                    .iter()
+                    .filter_map(|(card, permission)| {
+                        (permission.expires_turn == self.turn).then_some(*card)
+                    })
+                    .collect::<Vec<_>>();
+                for card in expired_permissions {
+                    self.graveyard_cast_permissions.remove(&card);
+                    self.record_event(GameEvent::GraveyardCastPermissionExpired { card });
+                }
                 for card in self.all_battlefield_cards() {
                     self.objects
                         .get_mut(&card)
@@ -5690,6 +5781,14 @@ impl Game {
             self.enqueue_dies_triggers(card, definition);
         }
         Ok(())
+    }
+
+    fn move_to_spell_terminal_zone(&mut self, card: ObjectId) -> Result<(), RulesError> {
+        if self.exile_on_resolution.remove(&card) {
+            self.move_to_zone(card, Zone::Exile)
+        } else {
+            self.move_to_graveyard_or_remove_token(card)
+        }
     }
 
     fn move_to_zone(&mut self, card: ObjectId, zone: Zone) -> Result<(), RulesError> {
@@ -6607,6 +6706,14 @@ impl Game {
                 Some(GameEvent::CardMoved {
                     card: moved_card,
                     to: Zone::Battlefield,
+                }) if *moved_card == card
+            )) || (events[..index].iter().any(|event| {
+                matches!(event, GameEvent::SpellCastFromGraveyard { card: cast_card, .. } if *cast_card == card)
+            }) && matches!(
+                events.get(index + 1),
+                Some(GameEvent::CardMoved {
+                    card: moved_card,
+                    to: Zone::Exile,
                 }) if *moved_card == card
             ));
         if destination_is_valid {
