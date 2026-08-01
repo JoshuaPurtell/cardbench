@@ -117,6 +117,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-NULLMAGE-SHEPHERD",
             "RAV-VIGOR-MORTIS",
             "RAV-STONE-SEEDER-HIEROPHANT",
+            "RAV-MOLDERVINE-CLOAK",
         ]
     );
     let definitions = card_definitions();
@@ -300,6 +301,29 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
         Some(TargetRequirement::Creature)
     );
 
+    let cloak = definitions
+        .iter()
+        .find(|definition| definition.id == "RAV-MOLDERVINE-CLOAK")
+        .expect("Moldervine Cloak definition exists");
+    assert_eq!(
+        cloak.supported_rules,
+        ["full-rules-fidelity", "aura-attach-and-static-pt", "dredge"]
+    );
+    assert_eq!(cloak.mana_cost, ManaCost::with_colors(2, [Color::Green]));
+    assert_eq!(cloak.colors, [Color::Green].into_iter().collect());
+    assert_eq!(
+        cloak.card_types,
+        [CardType::Enchantment].into_iter().collect()
+    );
+    assert_eq!(cloak.keywords, [Keyword::Dredge(2)]);
+    assert_eq!(
+        cloak.effects,
+        [Effect::AttachSourceAndModifyTargetPt {
+            power: 3,
+            toughness: 3,
+        }]
+    );
+
     for (id, mana_cost, card_colors, card_types) in [
         (
             "RAV-CLEANSING-BEAM",
@@ -386,6 +410,10 @@ fn full_fidelity_card_scenarios_emit_their_complete_effect_receipts() {
         (
             "rav_overwhelm_convoke_wide_modifier",
             ["ConvokeUsed", "ContinuousEffectCreated"],
+        ),
+        (
+            "rav_moldervine_cloak_persistent_attachment",
+            ["AuraAttached", "SpellResolved"],
         ),
     ] {
         let result = results
