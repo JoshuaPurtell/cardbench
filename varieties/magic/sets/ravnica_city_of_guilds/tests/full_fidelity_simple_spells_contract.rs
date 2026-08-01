@@ -137,6 +137,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-VETERAN-ARMORER",
             "RAV-GATE-HOUND",
             "RAV-BLAZING-ARCHON",
+            "RAV-CAREGIVER",
         ]
     );
     let definitions = card_definitions();

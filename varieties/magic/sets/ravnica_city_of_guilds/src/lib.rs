@@ -37,7 +37,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 124] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 125] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -162,6 +162,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 124] = [
     "RAV-VETERAN-ARMORER",
     "RAV-GATE-HOUND",
     "RAV-BLAZING-ARCHON",
+    "RAV-CAREGIVER",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -1953,6 +1954,28 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             power: Some(5),
             toughness: Some(6),
             keywords: vec![Keyword::Flying],
+            effects: vec![],
+        },
+        // Full fidelity: the source is sacrificed as an activation cost, then
+        // creates a one-shot prevention shield for a player or creature.
+        CardDefinition {
+            id: "RAV-CAREGIVER",
+            name: "Caregiver",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(0, [Color::White]),
+            colors: colors([Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "sacrifice-source-targeted-one-damage-prevention",
+            ],
+            power: Some(1),
+            toughness: Some(1),
+            keywords: vec![],
             effects: vec![],
         },
         // Full fidelity: this target is controller-scoped at both cast and
@@ -4672,6 +4695,22 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                     amount: 2,
                     target: cardbench_magic_engine::TargetRequirement::BlockingCreature,
                 }],
+            },
+        },
+        ActivatedAbilityBinding {
+            card_definition: "RAV-CAREGIVER",
+            ability: ActivatedAbility {
+                id: "prevent-one-damage",
+                mana_cost: ManaCost::with_colors(0, [Color::White]),
+                tap_cost: false,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: true,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![cardbench_magic_engine::TargetRequirement::PlayerOrCreature],
+                effects: vec![Effect::AddTargetDamageShieldUntilEndOfTurn { amount: 1 }],
             },
         },
         ActivatedAbilityBinding {

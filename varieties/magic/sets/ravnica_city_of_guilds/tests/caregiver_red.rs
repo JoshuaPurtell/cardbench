@@ -13,7 +13,10 @@ fn caregiver_requires_its_sacrifice_cost_targeted_prevention_activation() {
         .expect("Caregiver definition exists");
 
     assert_eq!(caregiver.name, "Caregiver");
-    assert_eq!(caregiver.mana_cost, ManaCost::with_colors(0, [Color::White]));
+    assert_eq!(
+        caregiver.mana_cost,
+        ManaCost::with_colors(0, [Color::White])
+    );
     assert_eq!(caregiver.colors, BTreeSet::from([Color::White]));
     assert_eq!(caregiver.card_types, BTreeSet::from([CardType::Creature]));
     assert_eq!((caregiver.power, caregiver.toughness), (Some(1), Some(1)));

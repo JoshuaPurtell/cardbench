@@ -1201,6 +1201,12 @@ pub enum Effect {
     AddSourceDamageShieldUntilEndOfTurn {
         amount: i16,
     },
+    /// Prevent the next amount of damage dealt to one target player or
+    /// creature this turn. This shield is an independent replacement effect,
+    /// so it remains valid even when the ability source has left the zone.
+    AddTargetDamageShieldUntilEndOfTurn {
+        amount: i16,
+    },
     /// Put one regeneration replacement shield on a targeted creature. The
     /// shield is consumed only by the next destruction event; it does not
     /// prevent damage, sacrifice, or a zero-toughness state-based action.
@@ -1414,6 +1420,9 @@ impl Effect {
             | Self::TapTargetCreature
             | Self::RegenerateTargetCreature
             | Self::AddPlusOneCounterToTarget => Some(TargetRequirement::Creature),
+            Self::AddTargetDamageShieldUntilEndOfTurn { .. } => {
+                Some(TargetRequirement::PlayerOrCreature)
+            }
             Self::DestroyTargetCreatureWithManaValueAtMostChosenX => {
                 Some(TargetRequirement::Creature)
             }
@@ -2379,6 +2388,19 @@ pub enum GameEvent {
         source: ObjectId,
         target: Target,
         amount: i32,
+    },
+    /// A resolving spell or ability created a one-shot damage-prevention
+    /// shield for a target player or creature.
+    DamageShieldCreated {
+        source: ObjectId,
+        target: Target,
+        amount: i32,
+    },
+    /// A target-specific damage shield expired or was removed with its target
+    /// leaving the battlefield before it was consumed.
+    DamageShieldExpired {
+        source: ObjectId,
+        target: Target,
     },
     LifeGained {
         player: PlayerId,

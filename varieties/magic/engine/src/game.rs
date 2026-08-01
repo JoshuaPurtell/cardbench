@@ -383,6 +383,14 @@ struct DamageRedirection {
     expires_turn: u32,
 }
 
+#[derive(Clone, Debug)]
+struct DamagePreventionShield {
+    source: ObjectId,
+    target: Target,
+    remaining: i32,
+    expires_turn: u32,
+}
+
 /// A deterministic, two-or-more-player Magic game state.
 ///
 /// Setup helpers (`add_card`, `put_on_battlefield`, and `grant_mana`) intentionally
@@ -457,6 +465,7 @@ pub struct Game {
     pending_land_entry_trigger_batches: Vec<PlayerId>,
     pending_damage_redirection: Option<PendingDamageRedirection>,
     damage_redirections: Vec<DamageRedirection>,
+    damage_prevention_shields: Vec<DamagePreventionShield>,
 }
 
 impl Game {
@@ -665,6 +674,7 @@ impl Game {
             pending_land_entry_trigger_batches: Vec::new(),
             pending_damage_redirection: None,
             damage_redirections: Vec::new(),
+            damage_prevention_shields: Vec::new(),
         };
         // Construction is the first observable state-machine boundary. Do not
         // hand a caller a game whose immutable catalog or initial seats already
@@ -4859,6 +4869,19 @@ impl Game {
                 ));
             }
         }
+        for shield in &self.damage_prevention_shields {
+            self.object(shield.source)?;
+            if shield.remaining <= 0 || shield.expires_turn < self.turn {
+                return Err(RulesError::IllegalAction(
+                    "damage prevention shield has invalid remaining amount or lifetime",
+                ));
+            }
+            if !self.target_matches(shield.target, TargetRequirement::PlayerOrCreature) {
+                return Err(RulesError::IllegalAction(
+                    "damage prevention shield has an illegal target",
+                ));
+            }
+        }
         if let Some(combat) = &self.combat {
             if !matches!(
                 self.step,
@@ -5426,6 +5449,7 @@ impl Game {
                 | Effect::ModifySourcePtUntilEndOfTurn { .. }
                 | Effect::RemoveSourceKeywordUntilEndOfTurn { .. }
                 | Effect::AddSourceDamageShieldUntilEndOfTurn { .. }
+                | Effect::AddTargetDamageShieldUntilEndOfTurn { .. }
                 | Effect::RegenerateTargetCreature
                 | Effect::RegenerateSource
                 | Effect::AddKeywordToControllerCreaturesUntilEndOfTurn { .. }
@@ -6540,6 +6564,45 @@ impl Game {
         })
     }
 
+    fn install_damage_prevention_shield(
+        &mut self,
+        source: ObjectId,
+        target: Target,
+        amount: i16,
+    ) -> Result<(), RulesError> {
+        if amount <= 0 || !self.target_matches(target, TargetRequirement::PlayerOrCreature) {
+            return Err(RulesError::IllegalTarget(target));
+        }
+        self.object(source)?;
+        let amount = i32::from(amount);
+        self.damage_prevention_shields.push(DamagePreventionShield {
+            source,
+            target,
+            remaining: amount,
+            expires_turn: self.turn,
+        });
+        self.record_event(GameEvent::DamageShieldCreated {
+            source,
+            target,
+            amount,
+        });
+        Ok(())
+    }
+
+    fn consume_damage_prevention_shield(&mut self, target: Target, amount: i32) -> i32 {
+        let Some(index) = self.damage_prevention_shields.iter().position(|shield| {
+            shield.target == target && shield.expires_turn >= self.turn && shield.remaining > 0
+        }) else {
+            return 0;
+        };
+        let prevented = amount.min(self.damage_prevention_shields[index].remaining);
+        self.damage_prevention_shields[index].remaining -= prevented;
+        if self.damage_prevention_shields[index].remaining == 0 {
+            self.damage_prevention_shields.remove(index);
+        }
+        prevented
+    }
+
     fn deal_damage_to_permanent(
         &mut self,
         source: ObjectId,
@@ -6593,8 +6656,14 @@ impl Game {
         } else if self.target_prevents_damage_from_source(source, permanent) {
             (amount, false)
         } else {
-            let object = self.object(permanent)?;
-            (amount.min(object.damage_shield), true)
+            let targeted =
+                self.consume_damage_prevention_shield(Target::Permanent(permanent), amount);
+            if targeted > 0 {
+                (targeted, false)
+            } else {
+                let object = self.object(permanent)?;
+                (amount.min(object.damage_shield), true)
+            }
         };
         if prevented > 0 {
             if consumes_shield {
@@ -6632,13 +6701,29 @@ impl Game {
         player: PlayerId,
         amount: i32,
     ) -> Result<(), RulesError> {
-        self.players[player.0].life -= i64::from(amount);
-        self.record_event(GameEvent::DamageDealtToPlayer {
-            source,
-            player,
-            amount,
-        });
-        self.enqueue_damage_triggers(source, amount)
+        let prevented = if self.damage_cannot_be_prevented(source) {
+            0
+        } else {
+            self.consume_damage_prevention_shield(Target::Player(player), amount)
+        };
+        if prevented > 0 {
+            self.record_event(GameEvent::DamagePrevented {
+                source,
+                target: Target::Player(player),
+                amount: prevented,
+            });
+        }
+        let remaining = amount - prevented;
+        if remaining > 0 {
+            self.players[player.0].life -= i64::from(remaining);
+            self.record_event(GameEvent::DamageDealtToPlayer {
+                source,
+                player,
+                amount: remaining,
+            });
+            self.enqueue_damage_triggers(source, remaining)?;
+        }
+        Ok(())
     }
 
     #[allow(clippy::too_many_lines)] // Effect dispatch stays centralized so stack resolution has one rules path.
@@ -7219,6 +7304,11 @@ impl Game {
                     ContinuousChange::AddDamageShield(*amount),
                     Duration::EndOfTurn(self.turn),
                 )?;
+            }
+            Effect::AddTargetDamageShieldUntilEndOfTurn { amount } => {
+                let target =
+                    target.ok_or(RulesError::IllegalAction("missing damage-shield target"))?;
+                self.install_damage_prevention_shield(source, target, *amount)?;
             }
             Effect::RegenerateTargetCreature => {
                 let target = Self::target_permanent(target)?;
@@ -8119,6 +8209,7 @@ impl Game {
         self.start_step()
     }
 
+    #[allow(clippy::too_many_lines)] // Turn-boundary cleanup keeps all expiration receipts ordered.
     fn start_step(&mut self) -> Result<(), RulesError> {
         // The boundary marker must precede *all* turn-based work in the step
         // so an event log can be replayed in chronological order.
@@ -8199,12 +8290,26 @@ impl Game {
                     .retain(|effect| effect.duration != Duration::EndOfTurn(self.turn));
                 self.damage_redirections
                     .retain(|redirect| redirect.expires_turn != self.turn);
+                let expired_shields = self
+                    .damage_prevention_shields
+                    .iter()
+                    .filter(|shield| shield.expires_turn == self.turn)
+                    .cloned()
+                    .collect::<Vec<_>>();
+                self.damage_prevention_shields
+                    .retain(|shield| shield.expires_turn != self.turn);
                 for effect in expired {
                     self.remove_damage_shield_for_effect(&effect);
                     self.record_event(GameEvent::ContinuousEffectExpired {
                         source: effect.source,
                         target: effect.target,
                         layer: effect.change.layer(),
+                    });
+                }
+                for shield in expired_shields {
+                    self.record_event(GameEvent::DamageShieldExpired {
+                        source: shield.source,
+                        target: shield.target,
                     });
                 }
                 self.check_state_based_actions()?;
@@ -8653,6 +8758,20 @@ impl Game {
     fn expire_continuous_effects_involving(&mut self, card: ObjectId) {
         self.damage_redirections
             .retain(|redirect| redirect.protected != card);
+        let expired_shields = self
+            .damage_prevention_shields
+            .iter()
+            .filter(|shield| shield.target == Target::Permanent(card))
+            .cloned()
+            .collect::<Vec<_>>();
+        self.damage_prevention_shields
+            .retain(|shield| shield.target != Target::Permanent(card));
+        for shield in expired_shields {
+            self.record_event(GameEvent::DamageShieldExpired {
+                source: shield.source,
+                target: shield.target,
+            });
+        }
         let expired = self
             .continuous_effects
             .iter()
