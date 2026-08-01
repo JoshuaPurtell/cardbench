@@ -2021,6 +2021,17 @@ impl Game {
                 }
             }
         }
+        // The represented +1/+1 counters are layer-seven characteristic
+        // modifiers. They apply after base values and timestamped continuous
+        // changes, and they exist only while their object remains on the
+        // battlefield.
+        let plus_one = object.counters.get("+1/+1").copied().unwrap_or_default();
+        characteristics.power = characteristics
+            .power
+            .map(|power| power + i32::from(plus_one));
+        characteristics.toughness = characteristics
+            .toughness
+            .map(|toughness| toughness + i32::from(plus_one));
         Ok(characteristics)
     }
 
@@ -3130,6 +3141,7 @@ impl Game {
         Self::validate_effect_discard_event_order(&self.event_log)?;
         Self::validate_effect_sacrifice_event_order(&self.event_log)?;
         self.validate_ability_additional_tap_cost_event_order()?;
+        Self::validate_counter_placement_events(&self.event_log)?;
         if self.started && !self.is_game_over() && !self.step.grants_priority() {
             return Err(RulesError::IllegalAction(
                 "an automatic turn step remained stable with player priority",
@@ -3396,9 +3408,14 @@ impl Game {
                     if object.entered_turn > self.turn
                         || object.damage < 0
                         || object.damage_shield < 0
+                        || (zone != Zone::Battlefield && !object.counters.is_empty())
+                        || object
+                            .counters
+                            .iter()
+                            .any(|(counter, amount)| *counter != "+1/+1" || *amount <= 0)
                     {
                         return Err(RulesError::IllegalAction(
-                            "object has impossible turn metadata or negative damage/shield",
+                            "object has impossible turn metadata, damage/shield, or counters",
                         ));
                     }
                     match (object.definition, object.token.as_ref()) {
@@ -4298,6 +4315,9 @@ impl Game {
                 | Effect::DestroyTargetArtifactOrEnchantment
                 | Effect::ReturnTargetCardToHand
                 | Effect::ReturnTargetCreatureCardToHandIfAnotherInControllerGraveyard
+                | Effect::ReturnTargetCreatureCardToBattlefieldWithCounterIfManaColorSpent {
+                    ..
+                }
                 | Effect::ReturnOneCreatureCardFromEachGraveyardToHand
                 | Effect::ShuffleGraveyardsIntoLibraries
                 | Effect::ReturnControlledCreatureToHand
@@ -6033,6 +6053,20 @@ impl Game {
                     self.move_to_zone(target, Zone::Hand)?;
                 }
             }
+            Effect::ReturnTargetCreatureCardToBattlefieldWithCounterIfManaColorSpent { color } => {
+                let target = Self::target_permanent(target)?;
+                if !self.target_matches_for_controller(
+                    controller,
+                    Target::Permanent(target),
+                    TargetRequirement::CreatureCardInControllerGraveyard,
+                ) {
+                    return Err(RulesError::IllegalTarget(Target::Permanent(target)));
+                }
+                self.move_to_zone(target, Zone::Battlefield)?;
+                if mana_spent.is_some_and(|spent| spent.contains(color)) {
+                    self.place_counter(source, target, "+1/+1", 1)?;
+                }
+            }
             Effect::ReturnOneCreatureCardFromEachGraveyardToHand => {
                 // The required choices happen before any card moves. This
                 // matters when a future policy interface replaces the
@@ -6817,6 +6851,11 @@ impl Game {
         self.remove_from_all_zones(card);
         if left_battlefield {
             self.regeneration_shields.remove(&card);
+            self.objects
+                .get_mut(&card)
+                .ok_or(RulesError::UnknownCard(card))?
+                .counters
+                .clear();
         }
         let destination_owner = if zone == Zone::Battlefield {
             object.controller
@@ -6841,6 +6880,54 @@ impl Game {
             // their source was never a battlefield permanent.
             self.expire_continuous_effects_involving(card);
         }
+        Ok(())
+    }
+
+    /// Adds a represented persistent counter to one live creature. Counter
+    /// state belongs to the battlefield object and is cleared by the normal
+    /// zone-departure transition above; it is not a hidden continuous effect.
+    fn place_counter(
+        &mut self,
+        source: ObjectId,
+        card: ObjectId,
+        counter: &'static str,
+        amount: i16,
+    ) -> Result<(), RulesError> {
+        if counter != "+1/+1" || amount <= 0 {
+            return Err(RulesError::IllegalAction(
+                "counter placement requires a supported positive counter",
+            ));
+        }
+        self.object(source)?;
+        self.require_zone(card, Zone::Battlefield)?;
+        if !self
+            .characteristics(card)?
+            .card_types
+            .contains(&CardType::Creature)
+        {
+            return Err(RulesError::IllegalTarget(Target::Permanent(card)));
+        }
+        let counters = &mut self
+            .objects
+            .get_mut(&card)
+            .ok_or(RulesError::UnknownCard(card))?
+            .counters;
+        let next = counters
+            .get(counter)
+            .copied()
+            .unwrap_or_default()
+            .checked_add(amount)
+            .filter(|count| *count > 0)
+            .ok_or(RulesError::IllegalAction(
+                "counter total exceeds supported range",
+            ))?;
+        counters.insert(counter, next);
+        self.record_event(GameEvent::CounterPlaced {
+            source,
+            card,
+            counter,
+            amount,
+        });
         Ok(())
     }
 
@@ -7721,6 +7808,27 @@ impl Game {
             if !transitions_to_graveyard && !token_ceases {
                 return Err(RulesError::IllegalAction(
                     "effect sacrifice receipt lacks its immediate zone transition",
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// A counter receipt is a stable, positive, battlefield-only state
+    /// mutation. The live-zone audit proves the latter property; this replay
+    /// audit prevents malformed counter kinds or amounts from entering a
+    /// canonical event trace.
+    fn validate_counter_placement_events(events: &[GameEvent]) -> Result<(), RulesError> {
+        for event in events {
+            let GameEvent::CounterPlaced {
+                counter, amount, ..
+            } = event
+            else {
+                continue;
+            };
+            if *counter != "+1/+1" || *amount <= 0 {
+                return Err(RulesError::IllegalAction(
+                    "counter receipt has an unsupported kind or nonpositive amount",
                 ));
             }
         }

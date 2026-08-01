@@ -130,6 +130,12 @@ Oracle Magic rules coverage.
   moves any card. Each selected card remains owner-preserving and may move
   only from that graveyard to that owner's hand; a player with no eligible
   card contributes no fabricated selection or zone receipt.
+- A persistent `+1/+1` counter belongs only to a live battlefield creature,
+  has a positive amount, and contributes once to both derived power and
+  toughness after the supported timestamped layer-seven effects. Every
+  `CounterPlaced` receipt names that supported counter and a positive amount;
+  normal departure from the battlefield clears the counter map, so a later
+  re-entry cannot retain a modifier from the previous object instance.
 - A `DistinctCreature` target slot must name a creature permanent and may not
   reuse any other distinct-creature occurrence in the same spell. The cast
   validator and the stack-provenance audit both reject a duplicate before any

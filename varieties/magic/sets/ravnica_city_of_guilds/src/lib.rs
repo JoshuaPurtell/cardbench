@@ -35,7 +35,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 104] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 105] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -140,6 +140,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 104] = [
     "RAV-SUNHOME-FORTRESS",
     "RAV-VITU-GHAZI",
     "RAV-NULLMAGE-SHEPHERD",
+    "RAV-VIGOR-MORTIS",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -1195,6 +1196,34 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             toughness: None,
             keywords: vec![],
             effects: vec![Effect::ReturnOneCreatureCardFromEachGraveyardToHand],
+        },
+        // Full printed behavior: the target remains in the casting player's
+        // graveyard until the normal resolution-time legality check. The
+        // immutable explicit mana-spend receipt controls the one persistent
+        // +1/+1 counter placed after its battlefield move.
+        CardDefinition {
+            id: "RAV-VIGOR-MORTIS",
+            name: "Vigor Mortis",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(2, [Color::Black, Color::Black]),
+            colors: colors([Color::Black]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Sorcery]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "return-target-creature-card-from-graveyard-to-battlefield",
+                "spent-green-plus-one-plus-one-counter",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![
+                Effect::ReturnTargetCreatureCardToBattlefieldWithCounterIfManaColorSpent {
+                    color: Color::Green,
+                },
+            ],
         },
         // Bounded compatibility scope: the controller-graveyard creature
         // target and the intervening “another creature card” condition use a
@@ -5327,7 +5356,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 148);
+        assert_eq!(first.len(), 149);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

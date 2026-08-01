@@ -1167,6 +1167,13 @@ pub enum Effect {
     /// placement and resolution without treating the target as a hidden-zone
     /// free choice.
     ReturnTargetCreatureCardToHandIfAnotherInControllerGraveyard,
+    /// Return a targeted creature card from the resolving controller's
+    /// graveyard to the battlefield. When the named color appears in the
+    /// immutable spell-payment receipt, the returned permanent receives one
+    /// persistent +1/+1 counter.
+    ReturnTargetCreatureCardToBattlefieldWithCounterIfManaColorSpent {
+        color: Color,
+    },
     /// Return a target creature controlled by another player to its owner's
     /// hand. This remains distinct so paired targets cannot silently select
     /// two creatures on one side.
@@ -1191,6 +1198,7 @@ impl Effect {
             self,
             Self::DrawControllerIfManaColorSpent { .. }
                 | Self::ModifyAllCreaturesPtUntilEndOfTurnIfManaColorSpent { .. }
+                | Self::ReturnTargetCreatureCardToBattlefieldWithCounterIfManaColorSpent { .. }
         )
     }
 
@@ -1229,7 +1237,8 @@ impl Effect {
                 Some(TargetRequirement::ArtifactOrEnchantment)
             }
             Self::ReturnTargetCardToHand => Some(TargetRequirement::OwnGraveyardCard),
-            Self::ReturnTargetCreatureCardToHandIfAnotherInControllerGraveyard => {
+            Self::ReturnTargetCreatureCardToHandIfAnotherInControllerGraveyard
+            | Self::ReturnTargetCreatureCardToBattlefieldWithCounterIfManaColorSpent { .. } => {
                 Some(TargetRequirement::CreatureCardInControllerGraveyard)
             }
             Self::ReturnControlledCreatureToHand => Some(TargetRequirement::ControlledCreature),
@@ -1812,6 +1821,15 @@ pub enum GameEvent {
     CardDestroyed {
         source: ObjectId,
         card: ObjectId,
+    },
+    /// A resolving spell or ability placed a persistent, positive counter on
+    /// a battlefield permanent. Counters clear when that permanent leaves the
+    /// battlefield, so the receipt never implies a zone-independent modifier.
+    CounterPlaced {
+        source: ObjectId,
+        card: ObjectId,
+        counter: &'static str,
+        amount: i16,
     },
     /// A resolving spell or ability created a source-identified regeneration
     /// replacement shield on a live creature.

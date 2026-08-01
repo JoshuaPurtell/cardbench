@@ -10150,3 +10150,55 @@ stack_size = 0
 priority = 0
 event_markers = ["AdditionalCreatureTappedAsAbilityCost", "AbilityActivated", "CardDestroyed", "AbilityResolved"]
 digest = "fnv1a64:42a67fe5ac6f80c8"
+
+[[scenario]]
+id = "rav_vigor_mortis_spent_green_counter"
+seed = 149
+description = "Return a creature card with Vigor Mortis while Green pays both generic symbols, then verify its persistent +1/+1 counter receipt."
+
+[[scenario.card]]
+label = "vigor"
+owner = 0
+definition = "RAV-VIGOR-MORTIS"
+zone = "hand"
+
+[[scenario.card]]
+label = "target"
+owner = 0
+definition = "RAV-WATCHWOLF"
+zone = "graveyard"
+
+[[scenario.mana]]
+player = 0
+color = "black"
+amount = 2
+
+[[scenario.mana]]
+player = 0
+color = "green"
+amount = 2
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "vigor"
+target = "permanent:target"
+mana_spend = ["generic:green", "generic:green"]
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["vigor:graveyard", "target:battlefield"]
+powers = ["target:4"]
+toughnesses = ["target:4"]
+stack_size = 0
+priority = 0
+mana = ["0:black:0", "0:green:0"]
+event_markers = ["SpellManaPaid", "SpellCast", "CardMoved", "CounterPlaced", "SpellResolved"]
+digest = "fnv1a64:caae9c04ca10026d"
