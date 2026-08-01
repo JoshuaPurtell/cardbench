@@ -305,9 +305,7 @@ fn rejected_attempt_to_cast_an_opponents_hand_card_is_atomic() {
                 payment_mana_abilities: vec![],
             },
         ),
-        Err(RulesError::IllegalAction(
-            "only your own hand card may be cast"
-        ))
+        Err(RulesError::IllegalAction("only your own card may be cast"))
     ));
 
     assert_eq!(game.players, before_players);
