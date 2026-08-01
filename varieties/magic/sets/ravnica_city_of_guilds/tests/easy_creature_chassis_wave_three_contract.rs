@@ -40,14 +40,6 @@ fn third_creature_chassis_batch_is_exactly_bounded_to_public_base_facts() {
             3,
         ),
         (
-            "RAV-URSAPINE",
-            "Ursapine",
-            ManaCost::with_colors(3, [Color::Green, Color::Green]),
-            BTreeSet::from([Color::Green]),
-            3,
-            3,
-        ),
-        (
             "RAV-VINELASHER-KUDZU",
             "Vinelasher Kudzu",
             ManaCost::with_colors(1, [Color::Green]),

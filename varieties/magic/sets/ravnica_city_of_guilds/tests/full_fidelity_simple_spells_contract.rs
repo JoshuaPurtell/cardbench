@@ -119,6 +119,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-STONE-SEEDER-HIEROPHANT",
             "RAV-MOLDERVINE-CLOAK",
             "RAV-CLINGING-DARKNESS",
+            "RAV-URSAPINE",
         ]
     );
     let definitions = card_definitions();

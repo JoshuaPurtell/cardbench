@@ -78,6 +78,7 @@ fn ursapine_requires_its_targeted_green_pump_binding_and_stack_trace() {
     .expect("Ursapine ability enters the stack");
     resolve_top(&mut game);
 
+    println!("ursapine_event_log={:?}", game.canonical_event_log());
     assert_eq!(
         (
             game.characteristics(target).unwrap().power,

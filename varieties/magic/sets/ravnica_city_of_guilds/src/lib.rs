@@ -36,7 +36,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 108] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 109] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -145,6 +145,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 108] = [
     "RAV-STONE-SEEDER-HIEROPHANT",
     "RAV-MOLDERVINE-CLOAK",
     "RAV-CLINGING-DARKNESS",
+    "RAV-URSAPINE",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -3170,17 +3171,28 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             2,
             3,
         ),
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed activated stat modification is
-        // deliberately omitted from this compatibility slice.
-        bounded_creature_chassis(
-            "RAV-URSAPINE",
-            "Ursapine",
-            ManaCost::with_colors(3, [Color::Green, Color::Green]),
-            colors([Color::Green]),
-            3,
-            3,
-        ),
+        // Full fidelity: a single green mana targets a creature and gives it
+        // +1/+1 through the ordinary stack and layer-seven lifecycle.
+        CardDefinition {
+            id: "RAV-URSAPINE",
+            name: "Ursapine",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(3, [Color::Green, Color::Green]),
+            colors: colors([Color::Green]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "activated-target-pump",
+            ],
+            power: Some(3),
+            toughness: Some(3),
+            keywords: vec![],
+            effects: vec![],
+        },
         // Compatibility scope: its exact base characteristics and controller-
         // scoped land-entry counter trigger are executable below. The card
         // remains outside the positive manifest until that trigger is also
@@ -3964,6 +3976,25 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 discard_cards: 0,
                 targets: vec![],
                 effects: vec![Effect::ModifySourcePtUntilEndOfTurn {
+                    power: 1,
+                    toughness: 1,
+                }],
+            },
+        },
+        ActivatedAbilityBinding {
+            card_definition: "RAV-URSAPINE",
+            ability: ActivatedAbility {
+                id: "ursapine-target-pump",
+                mana_cost: ManaCost::with_colors(0, [Color::Green]),
+                tap_cost: false,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![cardbench_magic_engine::TargetRequirement::Creature],
+                effects: vec![Effect::ModifyTargetPtUntilEndOfTurn {
                     power: 1,
                     toughness: 1,
                 }],
