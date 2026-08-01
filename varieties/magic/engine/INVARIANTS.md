@@ -237,6 +237,15 @@ Oracle Magic rules coverage.
   activated-ability cost is paid and rechecks that target at resolution; its
   source identity remains receipt provenance even when that source was
   sacrificed into its graveyard as the activation cost.
+- A registered quantity replacement has a catalogued permanent source, a
+  multiplier of at least two, and is fixed before the game begins. When tokens
+  are created or a represented counter is placed, only live battlefield
+  sources controlled by the affected player apply. The engine snapshots that
+  source list before changing the quantity, applies each source at most once,
+  and records every exact `ReplacementEffectApplied` transition before the
+  resulting `TokenCreated` or `CounterPlaced` receipt. A replacement receipt
+  must name a registered source/effect, multiply a positive input exactly, and
+  lead through a finite same-event chain to the corresponding ordinary event.
 - A `DistinctCreature` target slot must name a creature permanent and may not
   reuse any other distinct-creature occurrence in the same spell. The cast
   validator and the stack-provenance audit both reject a duplicate before any
