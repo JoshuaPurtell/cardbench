@@ -1817,6 +1817,24 @@ pub struct StaticContinuousEffectBinding {
     pub change: ContinuousChange,
 }
 
+/// A battlefield-only rule that restricts combat declarations without changing
+/// a permanent's characteristics. These bindings are immutable expansion data,
+/// rechecked from the live battlefield before attacker state is mutated.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum StaticAttackRestriction {
+    /// Opponents cannot declare creatures as attacking the source's controller.
+    OpponentsCannotAttackController,
+}
+
+/// Immutable expansion data for a battlefield-only attack restriction.
+/// Unlike a continuous-effect binding, this rule is enforced directly at the
+/// declaration legality boundary and creates no synthetic event receipt.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct StaticAttackRestrictionBinding {
+    pub card_definition: &'static str,
+    pub restriction: StaticAttackRestriction,
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Zone {
     Library,

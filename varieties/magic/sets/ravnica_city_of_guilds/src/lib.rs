@@ -27,9 +27,9 @@ use cardbench_magic_engine::{
     CastRequest, Color, ConvokeContribution, ConvokePayment, CostReductionBinding, DeckEntry,
     DeckList, DeckRules, Effect, Game, HybridManaSymbol, Keyword, LandEntryBinding,
     LibrarySearchDestination, LibrarySearchRequirement, ManaAbilityBinding, ManaAbilityOutput,
-    ManaBundle, ManaCost, PlayerId, RulesError, StaticContinuousEffectBinding, Target,
-    TargetRequirement, TokenSpec, TriggerCondition, TriggeredAbility, TriggeredAbilityBinding,
-    Zone,
+    ManaBundle, ManaCost, PlayerId, RulesError, StaticAttackRestriction,
+    StaticAttackRestrictionBinding, StaticContinuousEffectBinding, Target, TargetRequirement,
+    TokenSpec, TriggerCondition, TriggeredAbility, TriggeredAbilityBinding, Zone,
 };
 
 pub const SET_CODE: &str = "RAV";
@@ -37,7 +37,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 123] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 124] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -161,6 +161,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 123] = [
     "RAV-OATHSWORN-GIANT",
     "RAV-VETERAN-ARMORER",
     "RAV-GATE-HOUND",
+    "RAV-BLAZING-ARCHON",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -1928,6 +1929,30 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             power: Some(1),
             toughness: Some(1),
             keywords: vec![],
+            effects: vec![],
+        },
+        // Full fidelity: the immutable static attack binding is evaluated
+        // before any attacker state or combat receipt is created, then stops
+        // applying as soon as this source leaves the battlefield.
+        CardDefinition {
+            id: "RAV-BLAZING-ARCHON",
+            name: "Blazing Archon",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(6, [Color::White, Color::White, Color::White]),
+            colors: colors([Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "flying",
+                "static-opponents-cannot-attack-controller",
+            ],
+            power: Some(5),
+            toughness: Some(6),
+            keywords: vec![Keyword::Flying],
             effects: vec![],
         },
         // Full fidelity: this target is controller-scoped at both cast and
@@ -5007,6 +5032,17 @@ pub fn rav_static_continuous_effect_bindings() -> Vec<StaticContinuousEffectBind
     ]
 }
 
+/// Battlefield-only static attack restrictions supplied by the RAV set.
+/// These bindings are checked before attacker state changes and never create a
+/// stack object or synthetic event receipt.
+#[must_use]
+pub fn rav_static_attack_restriction_bindings() -> Vec<StaticAttackRestrictionBinding> {
+    vec![StaticAttackRestrictionBinding {
+        card_definition: "RAV-BLAZING-ARCHON",
+        restriction: StaticAttackRestriction::OpponentsCannotAttackController,
+    }]
+}
+
 /// Target-free stack triggers bound to RAV permanents.
 #[must_use]
 #[allow(clippy::too_many_lines)] // Keep the declarative trigger registry centralized for audit review.
@@ -6039,6 +6075,7 @@ fn fresh_game() -> Result<Game, RulesError> {
         rav_activated_ability_bindings(),
         rav_static_continuous_effect_bindings(),
     )?;
+    game.register_static_attack_restrictions(rav_static_attack_restriction_bindings())?;
     game.register_cost_reduction_bindings(rav_cost_reduction_bindings())?;
     Ok(game)
 }

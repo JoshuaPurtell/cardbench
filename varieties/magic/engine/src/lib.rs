@@ -23,6 +23,7 @@ pub use model::{
     LibrarySearchRequirement, ManaAbilityActivation, ManaAbilityBinding, ManaAbilityOutput,
     ManaBundle, ManaCost, ManaPaymentSelection, ManaPool, ObjectId, PlayerId, PlayerState,
     PolicyMoveKind, StackEffectResolution, StackObject, StackResolutionPlan, StackTargetArityError,
-    StaticContinuousEffectBinding, Step, Target, TargetRequirement, TokenSpec, TriggerCondition,
-    TriggeredAbility, TriggeredAbilityBinding, Zone,
+    StaticAttackRestriction, StaticAttackRestrictionBinding, StaticContinuousEffectBinding, Step,
+    Target, TargetRequirement, TokenSpec, TriggerCondition, TriggeredAbility,
+    TriggeredAbilityBinding, Zone,
 };

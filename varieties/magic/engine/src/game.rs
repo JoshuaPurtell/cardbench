@@ -10,8 +10,9 @@ use crate::{
     DeckList, Duration, Effect, GameEvent, Keyword, LandEntryBinding, Layer,
     LibrarySearchDestination, LibrarySearchRequirement, ManaAbilityActivation, ManaAbilityBinding,
     ManaAbilityOutput, ManaPaymentSelection, ObjectId, PlayerId, PlayerState, PolicyMoveKind,
-    StackEffectResolution, StackObject, StackResolutionPlan, StaticContinuousEffectBinding, Step,
-    Target, TargetRequirement, TokenSpec, TriggerCondition, TriggeredAbilityBinding, Zone,
+    StackEffectResolution, StackObject, StackResolutionPlan, StaticAttackRestriction,
+    StaticAttackRestrictionBinding, StaticContinuousEffectBinding, Step, Target, TargetRequirement,
+    TokenSpec, TriggerCondition, TriggeredAbilityBinding, Zone,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -393,6 +394,7 @@ pub struct Game {
     mana_abilities: BTreeMap<&'static str, BTreeMap<&'static str, ActivatedManaAbility>>,
     activated_abilities: BTreeMap<&'static str, BTreeMap<&'static str, ActivatedAbility>>,
     triggered_abilities: BTreeMap<&'static str, BTreeMap<&'static str, crate::TriggeredAbility>>,
+    static_attack_restrictions: BTreeMap<&'static str, Vec<StaticAttackRestriction>>,
     static_continuous_effects: BTreeMap<&'static str, Vec<ContinuousChange>>,
     cost_reductions: BTreeMap<&'static str, CostReductionBinding>,
     basic_land_types: BTreeMap<&'static str, BasicLandType>,
@@ -625,6 +627,7 @@ impl Game {
             mana_abilities,
             activated_abilities: BTreeMap::new(),
             triggered_abilities: BTreeMap::new(),
+            static_attack_restrictions: BTreeMap::new(),
             static_continuous_effects: BTreeMap::new(),
             cost_reductions: BTreeMap::new(),
             basic_land_types,
@@ -929,6 +932,43 @@ impl Game {
             }
         }
         Ok(())
+    }
+
+    /// Registers immutable, battlefield-only attack restrictions before a game
+    /// starts. The source is rechecked from the live battlefield during each
+    /// attacker declaration, so normal zone changes revoke the rule without a
+    /// synthetic event or cleanup marker.
+    pub fn register_static_attack_restrictions(
+        &mut self,
+        bindings: impl IntoIterator<Item = StaticAttackRestrictionBinding>,
+    ) -> Result<(), RulesError> {
+        if self.started {
+            return Err(RulesError::IllegalAction(
+                "static attack restrictions cannot be changed after the game starts",
+            ));
+        }
+        for binding in bindings {
+            let definition = self
+                .catalog
+                .get(binding.card_definition)
+                .ok_or(RulesError::UnknownDefinition(binding.card_definition))?;
+            if !definition.is_permanent() {
+                return Err(RulesError::IllegalAction(
+                    "a static attack restriction requires a permanent source",
+                ));
+            }
+            let restrictions = self
+                .static_attack_restrictions
+                .entry(binding.card_definition)
+                .or_default();
+            if restrictions.contains(&binding.restriction) {
+                return Err(RulesError::IllegalAction(
+                    "duplicate static attack-restriction binding",
+                ));
+            }
+            restrictions.push(binding.restriction);
+        }
+        self.validate_invariants()
     }
 
     fn register_static_continuous_effects(
@@ -2505,6 +2545,35 @@ impl Game {
         Ok(())
     }
 
+    fn defending_player_is_protected_from_attacks(
+        &self,
+        attacking_player: PlayerId,
+        defending_player: PlayerId,
+    ) -> Result<bool, RulesError> {
+        if attacking_player == defending_player {
+            return Ok(false);
+        }
+        for source in self.all_battlefield_cards() {
+            let object = self.object(source)?;
+            if object.controller != defending_player {
+                continue;
+            }
+            let Some(definition_id) = object.definition else {
+                continue;
+            };
+            if self
+                .static_attack_restrictions
+                .get(definition_id)
+                .is_some_and(|restrictions| {
+                    restrictions.contains(&StaticAttackRestriction::OpponentsCannotAttackController)
+                })
+            {
+                return Ok(true);
+            }
+        }
+        Ok(false)
+    }
+
     /// Performs the turn-based action of declaring attackers in the current combat.
     #[allow(clippy::too_many_lines)] // Declaration captures every keyword's auditable provenance atomically.
     pub fn declare_attackers(
@@ -2524,6 +2593,14 @@ impl Game {
             .is_none_or(|combat| combat.attackers_declared)
         {
             return Err(RulesError::IllegalAction("attackers were already declared"));
+        }
+        let defending_player = self.next_player(player);
+        if !attackers.is_empty()
+            && self.defending_player_is_protected_from_attacks(player, defending_player)?
+        {
+            return Err(RulesError::IllegalAction(
+                "cannot attack a player protected by a static attack restriction",
+            ));
         }
         let mut seen = BTreeSet::new();
         let mut hasty_attackers = BTreeSet::new();
@@ -2604,7 +2681,6 @@ impl Game {
                     .tapped = true;
             }
         }
-        let defending_player = self.next_player(player);
         let combat = self
             .combat
             .as_mut()
@@ -4577,6 +4653,23 @@ impl Game {
             return Err(RulesError::IllegalAction(
                 "next object identifier would reuse an existing object",
             ));
+        }
+        for (definition_id, restrictions) in &self.static_attack_restrictions {
+            let definition = self
+                .catalog
+                .get(definition_id)
+                .ok_or(RulesError::UnknownDefinition(definition_id))?;
+            if !definition.is_permanent()
+                || restrictions.is_empty()
+                || restrictions
+                    .iter()
+                    .enumerate()
+                    .any(|(index, restriction)| restrictions[..index].contains(restriction))
+            {
+                return Err(RulesError::IllegalAction(
+                    "static attack-restriction binding has invalid source or duplicates",
+                ));
+            }
         }
         for (definition_id, changes) in &self.static_continuous_effects {
             let definition = self
