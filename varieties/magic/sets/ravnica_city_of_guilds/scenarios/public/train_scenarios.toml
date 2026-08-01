@@ -9632,3 +9632,64 @@ priority = 0
 mana = ["0:green:0", "0:black:0", "0:red:0"]
 event_markers = ["SpellManaPaid", "SpellCast", "CardDestroyed", "ContinuousEffectCreated", "SpellResolved"]
 digest = "fnv1a64:2ace9190b49c7d27"
+
+[[scenario]]
+id = "rav_netherborn_phalanx_etb_opponent_creature_count"
+seed = 140
+description = "Cast Netherborn Phalanx, put its ETB trigger on the stack, and make the opponent lose life equal to the two creatures they still control at resolution."
+triggers = true
+
+[[scenario.card]]
+label = "phalanx"
+owner = 0
+definition = "RAV-NETHERBORN-PHALANX"
+zone = "hand"
+
+[[scenario.card]]
+label = "first_opponent_creature"
+owner = 1
+definition = "RAV-WATCHWOLF"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "second_opponent_creature"
+owner = 1
+definition = "RAV-GLASS-GOLEM"
+zone = "battlefield"
+
+[[scenario.mana]]
+player = 0
+color = "black"
+amount = 6
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "phalanx"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+life = [20, 18]
+zones = ["phalanx:battlefield", "first_opponent_creature:battlefield", "second_opponent_creature:battlefield"]
+powers = ["phalanx:2"]
+toughnesses = ["phalanx:4"]
+stack_size = 0
+priority = 0
+mana = ["0:black:0"]
+event_markers = ["SpellCast", "SpellResolved", "TriggeredAbilityStacked", "LifeLost", "AbilityResolved"]
+digest = "fnv1a64:92a5e742175e8d89"

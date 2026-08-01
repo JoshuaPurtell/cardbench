@@ -116,6 +116,12 @@ Oracle Magic rules coverage.
   for each card, and cannot discard from an unrelated player. Until a policy
   submits hidden-hand choices, the implemented selection is the target
   player's oldest current hand entry rather than a cast-time snapshot.
+- A dynamic opponent-creature-count life-loss instruction is target-free but
+  evaluates every living opponent independently at ability resolution. It
+  excludes the resolving controller, reads only that opponent's current
+  battlefield creatures, emits no zero-amount receipt, and records each
+  positive change as the ordinary source-aware `LifeLost` event before the
+  ability's terminal resolution receipt.
 - A stack spell target that remains on the stack must be below its source,
   because only already-existing stack objects can be chosen while casting. A
   formerly legal target may have left the stack by resolution, which remains a

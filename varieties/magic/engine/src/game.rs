@@ -4089,6 +4089,7 @@ impl Game {
                 Effect::AddManaController { amount, .. } => i16::from(*amount),
                 Effect::CreateToken { .. }
                 | Effect::CreateTokenForTargetPlayer { .. }
+                | Effect::LoseLifeEachOpponentEqualToControlledCreatures
                 | Effect::DiscardOneCardEachPlayer
                 | Effect::DiscardTargetPlayer { .. }
                 | Effect::SacrificeControllerCreature
@@ -5007,6 +5008,30 @@ impl Game {
                     player: controller,
                     amount: *amount,
                 });
+            }
+            Effect::LoseLifeEachOpponentEqualToControlledCreatures => {
+                let losses = self
+                    .players
+                    .iter()
+                    .filter(|player| player.id != controller && !player.lost)
+                    .map(|player| {
+                        let amount = i16::try_from(self.controlled_creature_count(player.id))
+                            .map_err(|_| {
+                                RulesError::IllegalAction(
+                                    "opponent creature count exceeds life-loss event capacity",
+                                )
+                            })?;
+                        Ok((player.id, amount))
+                    })
+                    .collect::<Result<Vec<_>, RulesError>>()?;
+                for (player, amount) in losses.into_iter().filter(|(_, amount)| *amount > 0) {
+                    self.players[player.0].life -= i64::from(amount);
+                    self.record_event(GameEvent::LifeLost {
+                        source,
+                        player,
+                        amount,
+                    });
+                }
             }
             Effect::DiscardOneCardEachPlayer => {
                 // Each player makes this selection independently. Until

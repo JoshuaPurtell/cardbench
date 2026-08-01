@@ -884,6 +884,10 @@ pub enum Effect {
     LoseLifeController {
         amount: i16,
     },
+    /// Each living opponent loses life equal to the number of creatures that
+    /// opponent controls as the instruction resolves. Every opponent's count
+    /// is independently live, not captured when the ability was triggered.
+    LoseLifeEachOpponentEqualToControlledCreatures,
     /// Each living player discards one deterministic hand card. The current
     /// policy boundary takes the oldest hand entry for each player; all zone
     /// moves are explicit event-log receipts.
@@ -1170,6 +1174,7 @@ impl Effect {
             }
             Self::DealDamageController { .. }
             | Self::LoseLifeController { .. }
+            | Self::LoseLifeEachOpponentEqualToControlledCreatures
             | Self::DiscardOneCardEachPlayer
             | Self::SacrificeControllerCreature
             | Self::DealDamageAfterOptionalManaPayment { .. }
