@@ -3043,7 +3043,7 @@ digest = "fnv1a64:631a3f71a5fbc831"
 [[scenario]]
 id = "rav_clutch_of_the_undercity_transmute"
 seed = 41
-description = "Use Clutch of the Undercity's scoped transmute activation; its printed spell effect is non-covered."
+description = "Use Clutch of the Undercity's scoped immediate Transmute activation; its separately exercised permanent-bounce front face is bounded by this no-response-window compatibility path."
 
 [[scenario.card]]
 label = "clutch"

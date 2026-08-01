@@ -182,10 +182,13 @@ separate executable definition.
 Rain of Embers is an ability-complete positive-manifest entry: the shared,
 target-free global creature-and-player damage operation snapshots all affected
 objects, then runs state-based actions after its complete damage batch. Dimir
-Machinations, Shred Memory, Clutch of the Undercity, and Perplex remain
-expressly transmute-only compatibility definitions: their hand-zone transmute
-activations are exercised in public scenarios, while each printed spell effect
-remains non-covered.
+Machinations, Shred Memory, and Perplex remain expressly transmute-only
+compatibility definitions: their hand-zone transmute activations are exercised
+in public scenarios, while each printed spell effect remains non-covered.
+Clutch of the Undercity separately executes its targeted permanent-bounce
+front face, snapshots the bounced permanent's last battlefield controller for
+the three-life loss, and retains its immediate hand-zone Transmute operation as
+an explicit bounded compatibility action.
 
 Brainspoil is a separate bounded slice: its typed front face destroys only a
 nonblack creature through the ordinary regenerable destruction lifecycle, and
