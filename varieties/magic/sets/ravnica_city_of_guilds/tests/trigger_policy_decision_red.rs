@@ -1,7 +1,9 @@
 //! Red regression: a target-bearing trigger must wait for its controller's
 //! explicit policy choice instead of silently selecting the first legal target.
 
-use cardbench_magic_engine::{Game, GameEvent, PlayerId, PolicyAction, Step, Target};
+use cardbench_magic_engine::{
+    CastRequest, Color, Game, GameEvent, PlayerId, PolicyAction, Step, Target, Zone,
+};
 use cardbench_magic_rav::{
     card_definitions, rav_activated_ability_bindings, rav_additional_spell_cost_bindings,
     rav_basic_land_type_bindings, rav_mana_ability_bindings, rav_triggered_ability_bindings,
@@ -96,4 +98,82 @@ fn frenzied_goblin_does_not_auto_select_a_trigger_target() {
     ));
     game.validate_invariants()
         .expect("choice transition is valid");
+}
+
+#[test]
+fn optional_trigger_payment_does_not_auto_pay_at_resolution() {
+    let mut game = Game::new_with_all_bindings_and_triggers(
+        card_definitions(),
+        2,
+        rav_mana_ability_bindings(),
+        rav_basic_land_type_bindings(),
+        rav_additional_spell_cost_bindings(),
+        rav_activated_ability_bindings(),
+        rav_triggered_ability_bindings(),
+    )
+    .expect("RAV game builds");
+    let meditation = game
+        .put_on_battlefield(PlayerId(0), "RAV-SEARING-MEDITATION")
+        .expect("meditation enters");
+    let helix = game
+        .add_card(PlayerId(0), "RAV-LIGHTNING-HELIX", Zone::Hand)
+        .expect("helix enters hand");
+    let mountains = (0..4)
+        .map(|_| {
+            game.put_on_battlefield(PlayerId(0), "RAV-MOUNTAIN")
+                .expect("mountain enters")
+        })
+        .collect::<Vec<_>>();
+    let plains = (0..2)
+        .map(|_| {
+            game.put_on_battlefield(PlayerId(0), "RAV-PLAINS")
+                .expect("plains enters")
+        })
+        .collect::<Vec<_>>();
+    game.begin_game().expect("game starts");
+    for _ in 0..2 {
+        game.pass_priority(PlayerId(0)).expect("active pass");
+        game.pass_priority(PlayerId(1)).expect("opponent pass");
+    }
+    for land in mountains {
+        game.activate_mana_ability(PlayerId(0), land, Color::Red)
+            .expect("red mana");
+    }
+    for land in plains {
+        game.activate_mana_ability(PlayerId(0), land, Color::White)
+            .expect("white mana");
+    }
+    game.cast_spell(
+        PlayerId(0),
+        CastRequest {
+            card: helix,
+            targets: vec![Target::Player(PlayerId(1))],
+            convoke: vec![],
+            payment_mana_abilities: vec![],
+        },
+    )
+    .expect("helix casts");
+    game.pass_priority(PlayerId(0)).expect("spell pass");
+    game.pass_priority(PlayerId(1)).expect("helix resolves");
+    game.pass_priority(PlayerId(0)).expect("trigger pass");
+    game.pass_priority(PlayerId(1))
+        .expect("resolution reaches payment choice");
+
+    println!("event log after trigger passes: {:#?}", game.event_log);
+    assert!(
+        !game.event_log.iter().any(|event| matches!(
+            event,
+            GameEvent::AbilityManaPaid {
+                source,
+                ability: "life-gain-deal-two",
+                ..
+            } if *source == meditation
+        )),
+        "the engine auto-paid an optional triggered cost"
+    );
+    assert_eq!(
+        game.stack.len(),
+        1,
+        "the trigger must stay suspended until the policy decides"
+    );
 }
