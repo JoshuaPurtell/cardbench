@@ -846,6 +846,30 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 toughness: 0,
             }],
         },
+        // Compatibility scope: the exact Aura attachment persists on its
+        // creature target. Its ETB targeted discard and enchanted-creature
+        // regeneration activation remain deliberately unsupported.
+        CardDefinition {
+            id: "RAV-STRANDS-OF-UNDEATH",
+            name: "Strands of Undeath",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(3, [Color::Black]),
+            colors: colors([Color::Black]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Enchantment]),
+            is_basic_land: false,
+            supported_rules: &[
+                "aura-static-attachment-only",
+                "etb-discard-and-enchanted-regeneration-not-implemented",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![Effect::AttachSourceAndModifyTargetPt {
+                power: 0,
+                toughness: 0,
+            }],
+        },
         // Compatibility scope: normal creature casting, base characteristics,
         // and the shared Dredge replacement. Its printed upkeep and end-step
         // behavior is intentionally unsupported.
