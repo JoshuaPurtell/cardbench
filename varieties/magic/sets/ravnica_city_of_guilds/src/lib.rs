@@ -35,7 +35,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 83] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 84] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -119,6 +119,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 83] = [
     "RAV-SINS-OF-THE-PAST",
     "RAV-SEWERDREG",
     "RAV-VOTARY-OF-THE-CONCLAVE",
+    "RAV-GRAVE-SHELL-SCARAB",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -632,9 +633,8 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 Effect::DrawControllerIfManaColorSpent { color: Color::Blue },
             ],
         },
-        // Compatibility scope: normal creature casting, base characteristics,
-        // and the shared Dredge replacement. Its printed sacrifice activation
-        // is intentionally unsupported.
+        // Full fidelity: the shared Dredge replacement and stack-backed
+        // sacrifice-to-draw activation represent each printed rule.
         CardDefinition {
             id: "RAV-GRAVE-SHELL-SCARAB",
             name: "Grave-Shell Scarab",
@@ -644,7 +644,12 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Creature]),
             is_basic_land: false,
-            supported_rules: &["dredge", "base-characteristics"],
+            supported_rules: &[
+                "full-rules-fidelity",
+                "dredge",
+                "base-characteristics",
+                "sacrifice-source-draw",
+            ],
             power: Some(4),
             toughness: Some(4),
             keywords: vec![Keyword::Dredge(1)],
@@ -2948,6 +2953,20 @@ pub fn rav_mana_ability_bindings() -> Vec<ManaAbilityBinding> {
 #[allow(clippy::too_many_lines)]
 pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
     vec![
+        ActivatedAbilityBinding {
+            card_definition: "RAV-GRAVE-SHELL-SCARAB",
+            ability: ActivatedAbility {
+                id: "sacrifice-source-draw",
+                mana_cost: ManaCost::with_colors(1, [Color::Black]),
+                tap_cost: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: true,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![],
+                effects: vec![Effect::DrawController],
+            },
+        },
         ActivatedAbilityBinding {
             card_definition: "RAV-VOTARY-OF-THE-CONCLAVE",
             ability: ActivatedAbility {

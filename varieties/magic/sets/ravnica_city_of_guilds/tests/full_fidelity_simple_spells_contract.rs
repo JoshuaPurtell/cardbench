@@ -94,6 +94,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-SINS-OF-THE-PAST",
             "RAV-SEWERDREG",
             "RAV-VOTARY-OF-THE-CONCLAVE",
+            "RAV-GRAVE-SHELL-SCARAB",
         ]
     );
     let definitions = card_definitions();
