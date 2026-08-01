@@ -10485,3 +10485,49 @@ priority = 0
 mana = ["0:green:0"]
 event_markers = ["SpellCast", "CardMoved", "ContinuousEffectCreated", "AuraAttached", "SpellResolved"]
 digest = "fnv1a64:5722a4a187704a98"
+
+[[scenario]]
+id = "rav_clinging_darkness_persistent_attachment"
+seed = 155
+description = "Resolve Clinging Darkness onto a creature and retain its source-linked -3/-1 Aura modifier on the battlefield."
+
+[[scenario.card]]
+label = "darkness"
+owner = 0
+definition = "RAV-CLINGING-DARKNESS"
+zone = "hand"
+
+[[scenario.card]]
+label = "target"
+owner = 0
+definition = "RAV-GOLIATH-SPIDER"
+zone = "battlefield"
+
+[[scenario.mana]]
+player = 0
+color = "black"
+amount = 3
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "darkness"
+targets = ["permanent:target"]
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["darkness:battlefield", "target:battlefield"]
+powers = ["target:4"]
+toughnesses = ["target:5"]
+stack_size = 0
+priority = 0
+mana = ["0:black:1"]
+event_markers = ["SpellCast", "CardMoved", "ContinuousEffectCreated", "AuraAttached", "SpellResolved"]
+digest = "fnv1a64:5722a4a187704a98"

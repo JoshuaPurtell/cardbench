@@ -73,25 +73,21 @@ fn executable_slice_size_is_explicit_and_does_not_masquerade_as_set_coverage() {
         .collect::<std::collections::BTreeSet<_>>();
 
     // Twenty executable basic-land printings collapse to five names. The
-    // one hundred and sixty-nine executable nonbasic names include the positive
+    // one hundred and seventy executable nonbasic names include the positive
     // full-fidelity manifest entries; all others remain deliberately bounded
-    // compatibility slices. Clinging Darkness stays catalog-only because its
-    // regeneration and attachment rules are not represented by Moldervine
-    // Cloak's narrow static-modifier Aura substrate.
-    assert_eq!(executable_printings, 190);
-    assert_eq!(executable_names.len(), 175);
-    assert_eq!(catalog_only_names.len(), 116);
+    // compatibility slices. The full-fidelity Clinging Darkness and
+    // Moldervine Cloak entries use the bounded static-modifier Aura substrate;
+    // regeneration remains independently capability-gated.
+    assert_eq!(executable_printings, 191);
+    assert_eq!(executable_names.len(), 176);
+    assert_eq!(catalog_only_names.len(), 115);
     assert!(executable_names.is_disjoint(&catalog_only_names));
 }
 
 #[test]
-fn clinging_darkness_stays_fail_closed_until_aura_semantics_exist() {
+fn clinging_darkness_resolves_to_its_executable_aura_definition() {
     assert_eq!(
         executable_definition_id_for_collector(80),
-        Err(CatalogResolutionError::CapabilityGap {
-            collector_number: 80,
-            name: "Clinging Darkness",
-            capability_gap: "aura-static-modifier-and-regeneration-not-implemented",
-        })
+        Ok("RAV-CLINGING-DARKNESS")
     );
 }

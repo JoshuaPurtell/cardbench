@@ -118,6 +118,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-VIGOR-MORTIS",
             "RAV-STONE-SEEDER-HIEROPHANT",
             "RAV-MOLDERVINE-CLOAK",
+            "RAV-CLINGING-DARKNESS",
         ]
     );
     let definitions = card_definitions();
@@ -324,6 +325,29 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
         }]
     );
 
+    let darkness = definitions
+        .iter()
+        .find(|definition| definition.id == "RAV-CLINGING-DARKNESS")
+        .expect("Clinging Darkness definition exists");
+    assert_eq!(
+        darkness.supported_rules,
+        ["full-rules-fidelity", "aura-attach-and-static-pt"]
+    );
+    assert_eq!(darkness.mana_cost, ManaCost::with_colors(1, [Color::Black]));
+    assert_eq!(darkness.colors, [Color::Black].into_iter().collect());
+    assert_eq!(
+        darkness.card_types,
+        [CardType::Enchantment].into_iter().collect()
+    );
+    assert!(darkness.keywords.is_empty());
+    assert_eq!(
+        darkness.effects,
+        [Effect::AttachSourceAndModifyTargetPt {
+            power: -3,
+            toughness: -1,
+        }]
+    );
+
     for (id, mana_cost, card_colors, card_types) in [
         (
             "RAV-CLEANSING-BEAM",
@@ -413,6 +437,10 @@ fn full_fidelity_card_scenarios_emit_their_complete_effect_receipts() {
         ),
         (
             "rav_moldervine_cloak_persistent_attachment",
+            ["AuraAttached", "SpellResolved"],
+        ),
+        (
+            "rav_clinging_darkness_persistent_attachment",
             ["AuraAttached", "SpellResolved"],
         ),
     ] {
