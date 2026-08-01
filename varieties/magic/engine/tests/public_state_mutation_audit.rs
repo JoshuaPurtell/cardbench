@@ -113,6 +113,7 @@ fn mutation_audit_rejects_zone_and_stack_corruption() {
         controller: first,
         ability_id: None,
         targets: vec![Target::Player(second)],
+        target_incarnations: vec![],
         effects: vec![Effect::DealDamage {
             amount: 1,
             target: TargetRequirement::Player,
@@ -132,6 +133,7 @@ fn mutation_audit_rejects_zone_and_stack_corruption() {
         controller: first,
         ability_id: None,
         targets: vec![Target::Player(second), Target::Player(first)],
+        target_incarnations: vec![],
         effects: vec![Effect::DealDamage {
             amount: 1,
             target: TargetRequirement::Player,
@@ -150,6 +152,7 @@ fn mutation_audit_rejects_zone_and_stack_corruption() {
         controller: first,
         ability_id: None,
         targets: vec![],
+        target_incarnations: vec![],
         effects: vec![],
         chosen_x: None,
         mana_spent: None,

@@ -1712,6 +1712,10 @@ impl DeckList {
 pub struct CardObject {
     pub id: ObjectId,
     pub definition: Option<&'static str>,
+    /// Monotonic object incarnation. A card keeps its public `ObjectId` while
+    /// changing zones, but each zone change creates a new rules object for
+    /// target and continuous-effect provenance.
+    pub incarnation: u64,
     pub owner: PlayerId,
     pub controller: PlayerId,
     pub tapped: bool,
@@ -1976,6 +1980,10 @@ pub struct StackObject {
     /// whose source is `card` and whose printed identity is the bound id.
     pub ability_id: Option<&'static str>,
     pub targets: Vec<Target>,
+    /// One captured object incarnation per target occurrence. `None` is used
+    /// for player targets, preserving the public target enum while retaining
+    /// zone-change identity for permanent/spell references.
+    pub target_incarnations: Vec<Option<u64>>,
     pub effects: Vec<Effect>,
     /// The value chosen for X while casting this spell.  Abilities and spells
     /// without an X instruction retain `None`; the value is authoritative at

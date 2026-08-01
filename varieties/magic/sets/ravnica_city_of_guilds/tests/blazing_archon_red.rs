@@ -65,6 +65,7 @@ fn blazing_archon_requires_its_complete_static_attack_restriction() {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)]
 fn blazing_archon_rejects_attacks_atomically_then_stops_on_battlefield_departure() {
     let mut game = game_with_static_attack_restrictions();
     let archon = game

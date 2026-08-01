@@ -49,6 +49,7 @@ fn pass_pair(game: &mut Game) {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)]
 fn a_reentered_target_is_not_legal_for_the_original_stack_object() {
     let caster = PlayerId(0);
     let responder = PlayerId(1);

@@ -43,6 +43,7 @@ fn invariant_audit_rejects_a_lost_players_spell_left_on_the_stack() {
         controller: departed,
         ability_id: None,
         targets: Vec::<Target>::new(),
+        target_incarnations: vec![],
         effects: vec![Effect::DealDamageController { amount: 1 }],
         chosen_x: None,
         mana_spent: None,

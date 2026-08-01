@@ -11,6 +11,7 @@ fn three_target_object(targets: Vec<Target>) -> StackObject {
         controller: PlayerId(0),
         ability_id: None,
         targets,
+        target_incarnations: vec![],
         effects: vec![
             Effect::ModifyTargetPtUntilEndOfTurn {
                 power: 1,

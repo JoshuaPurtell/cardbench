@@ -64,6 +64,7 @@ fn failed_resolution_restores_the_final_pass_and_authoritative_stack() {
             controller: responder,
             ability_id: None,
             targets: vec![],
+            target_incarnations: vec![],
             effects: vec![Effect::GainLifeController { amount: 1 }],
             chosen_x: None,
             mana_spent: None,
@@ -73,6 +74,7 @@ fn failed_resolution_restores_the_final_pass_and_authoritative_stack() {
             controller: caster,
             ability_id: None,
             targets: vec![Target::Spell(target)],
+            target_incarnations: vec![],
             effects: vec![Effect::DealDamage {
                 amount: 1,
                 target: TargetRequirement::InstantOrSorcerySpell,

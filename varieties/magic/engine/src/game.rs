@@ -1082,6 +1082,7 @@ impl Game {
             CardObject {
                 id,
                 definition: Some(definition),
+                incarnation: 1,
                 owner,
                 controller: owner,
                 tapped: false,
@@ -1640,11 +1641,13 @@ impl Game {
                 permanent: *permanent,
             });
         }
+        let target_incarnations = self.target_incarnations(&activation.targets);
         self.stack.push(StackObject {
             card: activation.source,
             controller: player,
             ability_id: Some(ability.id),
             targets: activation.targets,
+            target_incarnations,
             effects: ability.effects,
             chosen_x: None,
             mana_spent: None,
@@ -3129,11 +3132,13 @@ impl Game {
             });
         }
         self.remove_from_all_zones(request.card);
+        let target_incarnations = self.target_incarnations(&spell_targets);
         self.stack.push(StackObject {
             card: request.card,
             controller: player,
             ability_id: None,
             targets: spell_targets,
+            target_incarnations,
             effects: definition.effects,
             chosen_x,
             mana_spent: mana_spent.clone(),
@@ -4335,7 +4340,8 @@ impl Game {
                             "card is in the wrong player's zone",
                         ));
                     }
-                    if object.entered_turn > self.turn
+                    if object.incarnation == 0
+                        || object.entered_turn > self.turn
                         || object.damage < 0
                         || object.damage_shield < 0
                         || (zone != Zone::Battlefield && !object.counters.is_empty())
@@ -4588,6 +4594,23 @@ impl Game {
             if stack_object.targets.len() != target_count {
                 return Err(RulesError::IllegalAction(
                     "stack object has an invalid target count",
+                ));
+            }
+            if !stack_object.target_incarnations.is_empty()
+                && stack_object.target_incarnations.len() != stack_object.targets.len()
+            {
+                return Err(RulesError::IllegalAction(
+                    "stack target incarnation receipt has invalid arity",
+                ));
+            }
+            if stack_object
+                .target_incarnations
+                .iter()
+                .flatten()
+                .any(|incarnation| *incarnation == 0)
+            {
+                return Err(RulesError::IllegalAction(
+                    "stack target incarnation receipt contains zero identity",
                 ));
             }
             // A target may become illegal after a legal cast (for example, a
@@ -5537,9 +5560,17 @@ impl Game {
         // initially legal slot is rechecked before its own instruction: an
         // earlier instruction can legally remove a later repeated target.
         // The model-owned plan preserves repeated targets as independent slots.
+        let mut target_index = 0;
         let plan = stack_object
             .resolution_plan(|target, requirement| {
-                self.target_matches_for_controller(stack_object.controller, target, requirement)
+                let occurrence = target_index;
+                target_index += 1;
+                self.stack_target_incarnation_matches(&stack_object, occurrence, target)
+                    && self.target_matches_for_controller(
+                        stack_object.controller,
+                        target,
+                        requirement,
+                    )
             })
             .map_err(|_| RulesError::IllegalAction("stack object has an invalid target count"))?;
         if matches!(plan, StackResolutionPlan::CounteredByRules) {
@@ -5597,6 +5628,7 @@ impl Game {
             }
         }
         let mut pending_aura_attachment = None;
+        let mut target_index = 0;
         for (effect_index, (effect, target_resolution)) in stack_object
             .effects
             .iter()
@@ -5621,13 +5653,17 @@ impl Game {
                     target,
                     legal: true,
                 } => {
+                    let occurrence = target_index;
+                    target_index += 1;
                     let requirement =
                         effect
                             .target_requirement()
                             .ok_or(RulesError::IllegalAction(
                                 "target-resolution plan named an untargeted effect",
                             ))?;
-                    if self.target_matches(target, requirement) {
+                    if self.stack_target_incarnation_matches(&stack_object, occurrence, target)
+                        && self.target_matches(target, requirement)
+                    {
                         if let Effect::AttachSourceAndModifyTargetPt { power, toughness } = effect {
                             if pending_aura_attachment
                                 .replace((
@@ -5663,6 +5699,7 @@ impl Game {
                     target,
                     legal: false,
                 } => {
+                    target_index += 1;
                     // A remaining legal target lets the spell resolve, but an
                     // instruction addressed to a target that has since become
                     // illegal does nothing.
@@ -5915,11 +5952,13 @@ impl Game {
                         "a cast-noncreature trigger must retain one spell target",
                     ));
                 }
+                let target_incarnations = self.target_incarnations(&[Target::Spell(spell)]);
                 self.stack.push(StackObject {
                     card: source,
                     controller,
                     ability_id: Some(ability.id),
                     targets: vec![Target::Spell(spell)],
+                    target_incarnations,
                     effects: ability.effects,
                     chosen_x: None,
                     mana_spent: None,
@@ -6024,11 +6063,13 @@ impl Game {
                 // policy-submitted triggered choices are exposed.
                 continue;
             };
+            let target_incarnations = self.target_incarnations(&targets);
             self.stack.push(StackObject {
                 card: source,
                 controller,
                 ability_id: Some(ability.id),
                 targets,
+                target_incarnations,
                 effects: ability.effects,
                 chosen_x: None,
                 mana_spent: None,
@@ -6073,11 +6114,13 @@ impl Game {
                     // boundary and avoids creating an illegal stack object.
                     continue;
                 };
+                let target_incarnations = self.target_incarnations(&targets);
                 self.stack.push(StackObject {
                     card: source,
                     controller,
                     ability_id: Some(ability.id),
                     targets,
+                    target_incarnations,
                     effects: ability.effects,
                     chosen_x: None,
                     mana_spent: None,
@@ -6225,11 +6268,13 @@ impl Game {
             if targets.len() != ability.targets.len() {
                 continue;
             }
+            let target_incarnations = self.target_incarnations(&targets);
             self.stack.push(StackObject {
                 card: source,
                 controller,
                 ability_id: Some(ability.id),
                 targets,
+                target_incarnations,
                 effects: ability.effects,
                 chosen_x: None,
                 mana_spent: None,
@@ -6444,11 +6489,13 @@ impl Game {
                     // explicit at the binding layer.
                     continue;
                 };
+                let target_incarnations = self.target_incarnations(&targets);
                 self.stack.push(StackObject {
                     card: pending.source,
                     controller,
                     ability_id: Some(ability.id),
                     targets,
+                    target_incarnations,
                     effects: ability.effects,
                     chosen_x: None,
                     mana_spent: None,
@@ -6495,6 +6542,7 @@ impl Game {
                 controller: pending.controller,
                 ability_id: Some(pending.ability.id),
                 targets: vec![],
+                target_incarnations: vec![],
                 effects,
                 chosen_x: None,
                 mana_spent: None,
@@ -6524,6 +6572,7 @@ impl Game {
                 controller: pending.controller,
                 ability_id: Some(pending.ability.id),
                 targets: vec![],
+                target_incarnations: vec![],
                 effects: pending.ability.effects,
                 chosen_x: None,
                 mana_spent: None,
@@ -7980,6 +8029,50 @@ impl Game {
         }
     }
 
+    /// Captures the object incarnation for each target occurrence at the
+    /// moment a spell or ability is placed on the stack. Player targets have
+    /// no object incarnation and retain `None` in the ordered receipt.
+    fn target_incarnations(&self, targets: &[Target]) -> Vec<Option<u64>> {
+        targets
+            .iter()
+            .map(|target| match target {
+                Target::Permanent(card)
+                | Target::Spell(card)
+                | Target::SacrificePermanent(card) => {
+                    self.object(*card).ok().map(|object| object.incarnation)
+                }
+                Target::Player(_) => None,
+            })
+            .collect()
+    }
+
+    /// Returns whether a target occurrence still names the same rules object
+    /// incarnation captured when its stack object was created. Publicly
+    /// fabricated stack objects with no receipt remain on the dynamic-legality
+    /// path, while engine-created stack objects always carry one.
+    fn stack_target_incarnation_matches(
+        &self,
+        stack_object: &StackObject,
+        target_index: usize,
+        target: Target,
+    ) -> bool {
+        let Some(expected) = stack_object
+            .target_incarnations
+            .get(target_index)
+            .copied()
+            .flatten()
+        else {
+            return true;
+        };
+        match target {
+            Target::Permanent(card) | Target::Spell(card) | Target::SacrificePermanent(card) => {
+                self.object(card)
+                    .is_ok_and(|object| object.incarnation == expected)
+            }
+            Target::Player(_) => true,
+        }
+    }
+
     #[allow(clippy::too_many_lines)] // The typed target-kind matrix is intentionally exhaustive.
     fn target_matches(&self, target: Target, requirement: TargetRequirement) -> bool {
         match (target, requirement) {
@@ -8640,6 +8733,7 @@ impl Game {
             CardObject {
                 id,
                 definition: None,
+                incarnation: 1,
                 owner: controller,
                 controller,
                 tapped: false,
@@ -8690,8 +8784,22 @@ impl Game {
 
     fn move_to_zone(&mut self, card: ObjectId, zone: Zone) -> Result<(), RulesError> {
         let object = self.object(card)?.clone();
+        let previous_zone = self.zone_of(card);
+        if previous_zone != Some(zone) {
+            let incarnation =
+                object
+                    .incarnation
+                    .checked_add(1)
+                    .ok_or(RulesError::IllegalAction(
+                        "object incarnation counter overflowed",
+                    ))?;
+            self.objects
+                .get_mut(&card)
+                .ok_or(RulesError::UnknownCard(card))?
+                .incarnation = incarnation;
+        }
         let left_battlefield =
-            self.zone_of(card) == Some(Zone::Battlefield) && zone != Zone::Battlefield;
+            previous_zone == Some(Zone::Battlefield) && zone != Zone::Battlefield;
         self.remove_from_all_zones(card);
         if left_battlefield {
             self.regeneration_shields.remove(&card);
