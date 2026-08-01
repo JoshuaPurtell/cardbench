@@ -43,6 +43,11 @@ Oracle Magic rules coverage.
   its display name. A token with any such subtype must be a creature; the
   public `Characteristics` view preserves that type-line information and the
   token's static keywords through stack resolution and zone placement.
+- A target-opponent token ETB trigger records one synthetic stack object and
+  selects exactly one legal player target before its priority window. On
+  resolution, every `TokenCreated` recipient and typed token specification
+  must match that object; it cannot fan out to every opponent or substitute a
+  source-controller token after the original target remains legal.
 - Tokens may attack and deal combat or effect damage without a catalog
   definition. Definition-bound attack and damage triggers therefore dispatch
   only for non-token sources; a token's legal declaration and damage batch must

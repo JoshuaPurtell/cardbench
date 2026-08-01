@@ -60,11 +60,14 @@ decision; its clean worktree can be removed without losing commits.
   legality for Seed Spark and adds the expansion-neutral typed-enchantment
   Radiance destruction substrate needed by Leave No Trace; it does not import
   the obsolete source engine wholesale.
+- Hunted Lammasu is ported on `dev` as red `6753493d` and green `4f7b7c58`.
+  Its current trigger uses the existing target-opponent stack selection and a
+  new typed black Horror token rather than the legacy source trigger API.
 - Remaining White source-only definitions are not silently considered merged:
   Auratouched Mage, Bathe in Light, Blazing Archon, Boros Fury-Shield,
   Caregiver, Chant of Vitu-Ghazi, Concerted Effort, Conclave's Blessing,
   Faith's Fetters, Festival of the Guildpact, Flickerform, Gate Hound, Ghosts
-  of the Innocent, Hour of Reckoning, Hunted Lammasu, Light of Sanction,
+  of the Innocent, Hour of Reckoning, Light of Sanction,
   Loxodon Gatekeeper, Oathsworn Giant, Suppression Field, Three Dreams,
   Twilight Drover, Veteran Armorer, and Wojek Apothecary. Each requires its
   own current-engine red-to-green port; the legacy branch's positive markers

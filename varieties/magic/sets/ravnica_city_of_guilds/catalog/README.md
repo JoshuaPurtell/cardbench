@@ -267,6 +267,13 @@ and every other color-sharing enchantment to graveyards. Direct Rust traces
 prove the event ordering, nonmatching-enchantment preservation, atomic
 nonenchantment rejection, and final invariant audit.
 
+Hunted Lammasu is a complete creature-and-trigger slice. It preserves its
+Flying base creature characteristics, then puts a targeted-opponent ETB
+ability on the stack; after its own priority window the selected opponent
+receives exactly one typed black 4/4 Horror token. The focused trace asserts
+the source spell, battlefield transition, trigger, target, token receipt, and
+final invariant audit.
+
 The first-range easy-creature wave adds Votary of the Conclave, Drake Familiar,
 Ethereal Usher, and Grozoth. Each supports normal colored-cost creature casting
 and base power/toughness. Every other printed keyword, activated ability,
