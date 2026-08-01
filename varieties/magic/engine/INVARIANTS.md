@@ -152,6 +152,17 @@ Oracle Magic rules coverage.
   emits `TriggeredAbilityStacked` only after that controller submits the exact
   pending source, ability, and a legal target for every slot. Rejected choices
   leave the pending decision, stack, zones, mana, and event log unchanged.
+- Every represented trigger condition captures one source/controller/payload
+  event and reaches a common active-player-first placement pipeline after its
+  enclosing action. A target-bearing event stays outside the stack until its
+  controller chooses every legal target; later events cannot overtake that
+  pending placement. Dynamic damage-trigger instructions use the captured
+  positive amount, not a later damage accumulator. A targetless optional
+  trigger opens the same accept/decline boundary even with a zero mana cost.
+  The represented one-effect all-player-discard and controller-creature-
+  sacrifice triggers keep their stack object live while the relevant chooser
+  submits a legal current hand or battlefield object; no deterministic fixture
+  selection may move a card or permanent.
 - After every surviving player passes on a trigger with an optional mana cost,
   the trigger remains the top stack object and opens a no-priority decision for
   its controller. The view exposes the exact cost, current affordability, and

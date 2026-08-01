@@ -1080,9 +1080,9 @@ pub enum Effect {
     /// opponent controls as the instruction resolves. Every opponent's count
     /// is independently live, not captured when the ability was triggered.
     LoseLifeEachOpponentEqualToControlledCreatures,
-    /// Each living player discards one deterministic hand card. The current
-    /// policy boundary takes the oldest hand entry for each player; all zone
-    /// moves are explicit event-log receipts.
+    /// Each living player discards one card selected at the trigger-resolution
+    /// decision boundary. Every resulting discard and zone move remains an
+    /// explicit event-log receipt.
     DiscardOneCardEachPlayer,
     /// Discard up to the requested number of cards from a target player's
     /// hand. Until a discard-choice policy action exists, the resolver selects
@@ -1092,9 +1092,19 @@ pub enum Effect {
         count: u8,
     },
     /// Sacrifice one creature controlled by the resolving source's controller.
-    /// The deterministic selection prefers another controlled creature, then
-    /// the source itself when it remains a legal creature permanent.
+    /// The controller selects the permanent at the trigger-resolution
+    /// decision boundary.
     SacrificeControllerCreature,
+    /// Put a positive, already materialized number of cards from one target
+    /// player's library into that player's graveyard.
+    MillTargetPlayer {
+        count: i16,
+    },
+    /// A recipient-damage trigger materializes this into
+    /// [`Self::MillTargetPlayer`] when the damage event is queued. Keeping the
+    /// event amount out of the card binding prevents a later resolution from
+    /// inspecting unrelated or stale damage.
+    MillTargetPlayerFromSourceDamage,
     /// Deal damage to one target equal to the number of creatures controlled
     /// by this spell's controller that are still attacking as it resolves.
     ///
@@ -1506,7 +1516,9 @@ impl Effect {
             Self::LoseLifeTarget { .. }
             | Self::CreateTokenForTargetPlayer { .. }
             | Self::DrawTargetPlayer
-            | Self::DiscardTargetPlayer { .. } => Some(TargetRequirement::Player),
+            | Self::DiscardTargetPlayer { .. }
+            | Self::MillTargetPlayer { .. }
+            | Self::MillTargetPlayerFromSourceDamage => Some(TargetRequirement::Player),
             Self::LookAtTopCardsOfTargetOpponentExileOne { .. } => {
                 Some(TargetRequirement::Opponent)
             }
@@ -1943,6 +1955,7 @@ pub enum PolicyMoveKind {
     ChoosePrivateLibraryCards,
     ChoosePrivateOpponentLibraryCardToExile,
     ChooseTriggeredAbilityTargets,
+    ChooseTriggeredAbilityEffectObject,
     ResolveOptionalTriggeredAbility,
     Transmute,
     PassPriority,

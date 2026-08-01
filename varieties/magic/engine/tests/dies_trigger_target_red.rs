@@ -4,7 +4,8 @@ use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
     CardDefinition, CardType, Color, ContinuousChange, Duration, Effect, Game, ManaCost, PlayerId,
-    Target, TargetRequirement, TriggerCondition, TriggeredAbility, TriggeredAbilityBinding, Zone,
+    PolicyAction, Target, TargetRequirement, TriggerCondition, TriggeredAbility,
+    TriggeredAbilityBinding, Zone,
 };
 
 fn definitions() -> Vec<CardDefinition> {
@@ -68,6 +69,31 @@ fn dies_trigger_preserves_its_declared_player_target_on_the_stack() {
         Duration::EndOfTurn(1),
     )
     .expect("SBA destroys the source");
+
+    let choice = game
+        .view_for_player(PlayerId(0))
+        .expect("source controller view")
+        .triggered_ability_target_choice
+        .expect("dies trigger waits for a controller target choice");
+    assert_eq!(choice.source, source);
+    assert_eq!(choice.ability, "dies-target-player");
+    assert_eq!(
+        choice.target_options,
+        [vec![
+            Target::Player(PlayerId(0)),
+            Target::Player(PlayerId(1))
+        ]]
+    );
+    game.submit_policy_move(
+        PlayerId(0),
+        "test.dies-target.v1",
+        PolicyAction::ChooseTriggeredAbilityTargets {
+            source,
+            ability: "dies-target-player",
+            targets: vec![Target::Player(PlayerId(1))],
+        },
+    )
+    .expect("controller chooses the dies trigger target");
 
     println!("dies-trigger red trace: {:?}", game.canonical_event_log());
     assert_eq!(

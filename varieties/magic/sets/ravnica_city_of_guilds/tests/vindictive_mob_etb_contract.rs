@@ -1,7 +1,7 @@
 //! Stack, sacrifice, and blocker-legality contracts for Vindictive Mob.
 
 use cardbench_magic_engine::{
-    CastRequest, Color, CombatBlock, CreatureSubtype, Game, GameEvent, PlayerId, Zone,
+    CastRequest, Color, CombatBlock, CreatureSubtype, Game, GameEvent, PlayerId, PolicyAction, Zone,
 };
 use cardbench_magic_rav::{
     card_definitions, rav_activated_ability_bindings, rav_additional_spell_cost_bindings,
@@ -97,6 +97,22 @@ fn mob_trigger_sacrifices_another_controlled_creature_before_itself() {
         .expect("controller passes trigger");
     game.pass_priority(PlayerId(1))
         .expect("opponent passes trigger");
+    let choice = game
+        .view_for_player(PlayerId(0))
+        .expect("Mob controller view")
+        .triggered_ability_effect_object_choice
+        .expect("Mob controller chooses a sacrifice");
+    assert!(choice.candidates.iter().any(|card| card.id == sacrifice));
+    game.submit_policy_move(
+        PlayerId(0),
+        "test.vindictive-mob-sacrifice.v1",
+        PolicyAction::ChooseTriggeredAbilityEffectObject {
+            source: mob,
+            ability: "etb-sacrifice-controller-creature",
+            selected: Some(sacrifice),
+        },
+    )
+    .expect("controller chooses the other creature to sacrifice");
 
     println!(
         "Vindictive Mob resolution trace: {:#?}",

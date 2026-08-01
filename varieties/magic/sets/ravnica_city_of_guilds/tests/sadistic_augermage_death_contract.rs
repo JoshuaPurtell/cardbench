@@ -1,6 +1,6 @@
 //! Stack and event-log contract for Sadistic Augermage's death trigger.
 
-use cardbench_magic_engine::{Game, GameEvent, PlayerId, Step, Zone};
+use cardbench_magic_engine::{Game, GameEvent, PlayerId, PolicyAction, Step, Zone};
 use cardbench_magic_rav::{
     card_definitions, rav_activated_ability_bindings, rav_additional_spell_cost_bindings,
     rav_basic_land_type_bindings, rav_mana_ability_bindings, rav_triggered_ability_bindings,
@@ -47,6 +47,38 @@ fn another_creature_dying_stacks_then_resolves_all_player_discards() {
     assert_eq!(game.stack.len(), 1, "death trigger is queued");
     game.pass_priority(PlayerId(0)).expect("active passes");
     game.pass_priority(PlayerId(1)).expect("opponent passes");
+    let controller_choice = game
+        .view_for_player(PlayerId(0))
+        .expect("Augermage controller view")
+        .triggered_ability_effect_object_choice
+        .expect("controller chooses its discard");
+    assert_eq!(controller_choice.candidates.len(), 2);
+    game.submit_policy_move(
+        PlayerId(0),
+        "test.augermage-discard-p0.v1",
+        PolicyAction::ChooseTriggeredAbilityEffectObject {
+            source: augermage,
+            ability: "another-creature-dies-each-player-discards",
+            selected: Some(p0_discard),
+        },
+    )
+    .expect("controller selects its discard");
+    let opponent_choice = game
+        .view_for_player(PlayerId(1))
+        .expect("opponent view")
+        .triggered_ability_effect_object_choice
+        .expect("opponent chooses its discard");
+    assert_eq!(opponent_choice.candidates.len(), 1);
+    game.submit_policy_move(
+        PlayerId(1),
+        "test.augermage-discard-p1.v1",
+        PolicyAction::ChooseTriggeredAbilityEffectObject {
+            source: augermage,
+            ability: "another-creature-dies-each-player-discards",
+            selected: Some(p1_discard),
+        },
+    )
+    .expect("opponent selects its discard");
 
     println!(
         "Sadistic Augermage trace: {:#?}",

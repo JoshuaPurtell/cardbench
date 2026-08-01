@@ -124,6 +124,14 @@ pub enum PolicyAction {
         ability: &'static str,
         targets: Vec<Target>,
     },
+    /// Selects the one public object required by a suspended trigger effect.
+    /// A `None` selection is legal only when the projected candidate list is
+    /// empty (for example, a player with no hand cards to discard).
+    ChooseTriggeredAbilityEffectObject {
+        source: ObjectId,
+        ability: &'static str,
+        selected: Option<ObjectId>,
+    },
     /// Accepts or declines an optional triggered mana payment after every
     /// player has passed. A conditional target is supplied only when paying.
     ResolveOptionalTriggeredAbility {
@@ -182,6 +190,9 @@ impl PolicyAction {
             }
             Self::ChooseTriggeredAbilityTargets { .. } => {
                 PolicyMoveKind::ChooseTriggeredAbilityTargets
+            }
+            Self::ChooseTriggeredAbilityEffectObject { .. } => {
+                PolicyMoveKind::ChooseTriggeredAbilityEffectObject
             }
             Self::ResolveOptionalTriggeredAbility { .. } => {
                 PolicyMoveKind::ResolveOptionalTriggeredAbility
@@ -263,6 +274,15 @@ pub struct OptionalTriggeredAbilityChoiceView {
     pub conditional_targets: Vec<Target>,
 }
 
+/// One public-zone (or chooser-private hand) object selection requested while
+/// a trigger is resolving. Only the chooser receives the candidate identities.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TriggeredAbilityEffectObjectChoiceView {
+    pub source: ObjectId,
+    pub ability: &'static str,
+    pub candidates: Vec<CardView>,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct GameView {
     pub player: PlayerId,
@@ -292,6 +312,7 @@ pub struct GameView {
     /// Present only to the trigger's controller while target selection is due.
     pub triggered_ability_target_choice: Option<TriggeredAbilityTargetChoiceView>,
     pub optional_triggered_ability_choice: Option<OptionalTriggeredAbilityChoiceView>,
+    pub triggered_ability_effect_object_choice: Option<TriggeredAbilityEffectObjectChoiceView>,
     /// Legal controller-owned library choices for each transmute card in hand.
     pub transmute_searches: Vec<TransmuteSearchView>,
     pub own_battlefield: Vec<CardView>,
@@ -395,6 +416,7 @@ struct PendingTriggeredAbilityTargetChoice {
     source: ObjectId,
     controller: PlayerId,
     ability: crate::TriggeredAbility,
+    effects: Vec<Effect>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -404,19 +426,54 @@ struct PendingOptionalTriggeredAbilityChoice {
     ability: crate::TriggeredAbility,
 }
 
-#[derive(Clone, Debug)]
-struct PendingDamageTrigger {
+#[derive(Clone, Debug, Eq, PartialEq)]
+enum PendingTriggeredEffectChoiceKind {
+    DiscardEachPlayer {
+        remaining_players: Vec<PlayerId>,
+        selected: Vec<(PlayerId, ObjectId)>,
+    },
+    SacrificeControllerCreature,
+}
+
+/// A one-effect trigger remains on the stack while its resolving player
+/// selects a discard or sacrifice object. The state is deliberately separate
+/// from targets: neither selection is a spell target and neither may be
+/// silently substituted by fixture order.
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct PendingTriggeredEffectObjectChoice {
     source: ObjectId,
     controller: PlayerId,
-    ability: crate::TriggeredAbility,
-    damage_amount: i16,
+    ability: &'static str,
+    chooser: PlayerId,
+    candidates: Vec<ObjectId>,
+    kind: PendingTriggeredEffectChoiceKind,
 }
 
 #[derive(Clone, Debug)]
-struct PendingDiesTrigger {
+enum TriggerEventPayload {
+    /// The triggering event has no dynamic payload. Its bound effects are
+    /// copied unchanged when the ability is placed on the stack.
+    None,
+    /// Damage has already happened. Dynamic damage-trigger effects must use
+    /// this captured amount instead of inspecting a later game state.
+    DamageAmount(i16),
+    /// The event itself identifies the trigger's sole target. This is used
+    /// for the represented Blood Funnel cast trigger, where the triggering
+    /// spell is not a policy-selected target.
+    ExactTargets(Vec<Target>),
+}
+
+/// One captured rules event awaiting APNAP-safe trigger placement.  Every
+/// represented trigger condition flows through this same payload so deferred
+/// damage, dies, life-gain, ETB, land-entry, upkeep, and attack paths share
+/// target selection and stack construction instead of each owning a
+/// card-shaped queue.
+#[derive(Clone, Debug)]
+struct PendingTriggeredAbilityEvent {
     source: ObjectId,
-    definition: &'static str,
-    condition: TriggerCondition,
+    controller: PlayerId,
+    ability: crate::TriggeredAbility,
+    payload: TriggerEventPayload,
 }
 
 #[derive(Clone, Debug)]
@@ -424,13 +481,6 @@ struct PendingDamageRedirection {
     source: ObjectId,
     protected: ObjectId,
     remaining: i32,
-}
-
-#[derive(Clone, Debug)]
-struct PendingLifeGainTrigger {
-    source: ObjectId,
-    controller: PlayerId,
-    ability: crate::TriggeredAbility,
 }
 
 #[derive(Clone, Debug)]
@@ -507,18 +557,18 @@ pub struct Game {
     pending_private_opponent_library_exile_choice: Option<PendingPrivateOpponentLibraryExileChoice>,
     pending_trigger_target_choices: Vec<PendingTriggeredAbilityTargetChoice>,
     pending_optional_trigger_choice: Option<PendingOptionalTriggeredAbilityChoice>,
+    pending_trigger_effect_object_choice: Option<PendingTriggeredEffectObjectChoice>,
     /// A resolving rule may prevent every represented library search until the
     /// current turn ends. It is deliberately a turn number, rather than a
     /// boolean, so invariant checks detect an expired marker crossing a turn
     /// transition.
     library_search_prevented_until: Option<u32>,
-    /// Positive damage triggers are collected during a damage batch and only
-    /// put on the stack after the enclosing combat or stack object finishes
-    /// resolving. This preserves Magic's event ordering and leaves one clean
-    /// priority boundary for the resulting abilities.
-    pending_damage_triggers: Vec<PendingDamageTrigger>,
-    pending_life_gain_triggers: Vec<PendingLifeGainTrigger>,
-    pending_dies_triggers: Vec<PendingDiesTrigger>,
+    /// Condition events are captured where they happen and placed as one
+    /// APNAP-ordered batch after the enclosing action has finished. A separate
+    /// placement queue preserves that order while target-bearing triggers wait
+    /// for their controllers' no-priority choices.
+    pending_trigger_events: Vec<PendingTriggeredAbilityEvent>,
+    pending_trigger_placements: Vec<PendingTriggeredAbilityEvent>,
     /// Land entries produced while a spell or ability resolves. Their trigger
     /// batches wait until that enclosing stack object has completed its own
     /// terminal lifecycle, matching the ordinary post-resolution trigger
@@ -731,10 +781,10 @@ impl Game {
             pending_private_opponent_library_exile_choice: None,
             pending_trigger_target_choices: Vec::new(),
             pending_optional_trigger_choice: None,
+            pending_trigger_effect_object_choice: None,
             library_search_prevented_until: None,
-            pending_damage_triggers: Vec::new(),
-            pending_life_gain_triggers: Vec::new(),
-            pending_dies_triggers: Vec::new(),
+            pending_trigger_events: Vec::new(),
+            pending_trigger_placements: Vec::new(),
             pending_land_entry_trigger_batches: Vec::new(),
             pending_damage_redirection: None,
             damage_redirections: Vec::new(),
@@ -2184,6 +2234,23 @@ impl Game {
                     conditional_targets,
                 }
             });
+        let triggered_ability_effect_object_choice = self
+            .pending_trigger_effect_object_choice
+            .as_ref()
+            .filter(|choice| choice.chooser == player)
+            .map(|choice| {
+                choice
+                    .candidates
+                    .iter()
+                    .map(|card| self.card_view(*card))
+                    .collect::<Result<Vec<_>, _>>()
+                    .map(|candidates| TriggeredAbilityEffectObjectChoiceView {
+                        source: choice.source,
+                        ability: choice.ability,
+                        candidates,
+                    })
+            })
+            .transpose()?;
         let mut opponent_life = Vec::new();
         let mut opponent_battlefield = Vec::new();
         for opponent in self
@@ -2245,6 +2312,7 @@ impl Game {
             private_opponent_library_choice,
             triggered_ability_target_choice,
             optional_triggered_ability_choice,
+            triggered_ability_effect_object_choice,
             transmute_searches,
             own_battlefield,
             opponent_battlefield,
@@ -2286,6 +2354,13 @@ impl Game {
                 targets,
             } => {
                 self.choose_triggered_ability_targets(player, source, ability, targets)?;
+            }
+            PolicyAction::ChooseTriggeredAbilityEffectObject {
+                source,
+                ability,
+                selected,
+            } => {
+                self.choose_triggered_ability_effect_object(player, source, ability, selected)?;
             }
             PolicyAction::ResolveOptionalTriggeredAbility {
                 source,
@@ -2919,6 +2994,7 @@ impl Game {
         for attacker in attackers {
             self.enqueue_attack_triggers(*attacker)?;
         }
+        self.flush_pending_trigger_events();
         self.consecutive_passes = 0;
         // CR 508.2: the active player receives priority after attackers are
         // declared. Declaration itself is a turn-based action, not a normal
@@ -3461,6 +3537,11 @@ impl Game {
         if self.pending_optional_trigger_choice.is_some() {
             return Err(RulesError::IllegalAction(
                 "optional trigger payment must resolve before priority can pass",
+            ));
+        }
+        if self.pending_trigger_effect_object_choice.is_some() {
+            return Err(RulesError::IllegalAction(
+                "trigger effect-object choice must resolve before priority can pass",
             ));
         }
         if self.step == Step::DeclareAttackers
@@ -4166,19 +4247,16 @@ impl Game {
                 "canonical event log was mutated outside an engine transition",
             ));
         }
-        if !self.pending_damage_triggers.is_empty() {
+        if !self.pending_trigger_events.is_empty() {
             return Err(RulesError::IllegalAction(
-                "pending damage trigger escaped its enclosing damage batch",
+                "pending trigger event escaped its enclosing rules action",
             ));
         }
-        if !self.pending_life_gain_triggers.is_empty() {
+        if !self.pending_trigger_placements.is_empty()
+            && self.pending_trigger_target_choices.is_empty()
+        {
             return Err(RulesError::IllegalAction(
-                "pending life-gain trigger escaped its enclosing life-gain batch",
-            ));
-        }
-        if !self.pending_dies_triggers.is_empty() {
-            return Err(RulesError::IllegalAction(
-                "pending dies trigger escaped its state-based-action batch",
+                "trigger placement batch escaped without its target decision",
             ));
         }
         if !self.pending_land_entry_trigger_batches.is_empty() {
@@ -4369,6 +4447,7 @@ impl Game {
                 || self.pending_private_library_choice.is_some()
                 || self.pending_private_opponent_library_exile_choice.is_some()
                 || self.pending_optional_trigger_choice.is_some()
+                || self.pending_trigger_effect_object_choice.is_some()
             {
                 return Err(RulesError::IllegalAction(
                     "trigger-target choice escaped its no-priority decision boundary",
@@ -4388,7 +4467,6 @@ impl Game {
                 || top.controller != choice.controller
                 || top.ability_id != Some(choice.ability.id)
                 || !choice.ability.optional
-                || choice.ability.mana_cost.mana_value() == 0
                 || registered != Some(&choice.ability)
                 || self.players[choice.controller.0].lost
                 || self.consecutive_passes != 0
@@ -4396,9 +4474,64 @@ impl Game {
                 || self.pending_private_library_choice.is_some()
                 || self.pending_private_opponent_library_exile_choice.is_some()
                 || !self.pending_trigger_target_choices.is_empty()
+                || self.pending_trigger_effect_object_choice.is_some()
             {
                 return Err(RulesError::IllegalAction(
                     "optional trigger choice escaped its no-priority resolution boundary",
+                ));
+            }
+        }
+        if let Some(choice) = &self.pending_trigger_effect_object_choice {
+            let top = self.stack.last().ok_or(RulesError::IllegalAction(
+                "trigger effect-object choice escaped its stack ability",
+            ))?;
+            let registered = self
+                .card_definition(choice.source)
+                .ok()
+                .and_then(|definition| self.triggered_abilities.get(definition.id))
+                .and_then(|abilities| abilities.get(choice.ability));
+            let effects_match = matches!(
+                (&choice.kind, top.effects.as_slice()),
+                (
+                    PendingTriggeredEffectChoiceKind::DiscardEachPlayer { .. },
+                    [Effect::DiscardOneCardEachPlayer]
+                ) | (
+                    PendingTriggeredEffectChoiceKind::SacrificeControllerCreature,
+                    [Effect::SacrificeControllerCreature]
+                )
+            );
+            let expected_candidates = match &choice.kind {
+                PendingTriggeredEffectChoiceKind::DiscardEachPlayer { .. } => {
+                    self.players[choice.chooser.0].hand.clone()
+                }
+                PendingTriggeredEffectChoiceKind::SacrificeControllerCreature => self
+                    .all_battlefield_cards()
+                    .into_iter()
+                    .filter(|card| {
+                        self.object(*card)
+                            .is_ok_and(|object| object.controller == choice.chooser)
+                            && self.characteristics(*card).is_ok_and(|characteristics| {
+                                characteristics.card_types.contains(&CardType::Creature)
+                            })
+                    })
+                    .collect(),
+            };
+            if top.card != choice.source
+                || top.controller != choice.controller
+                || top.ability_id != Some(choice.ability)
+                || registered.is_none()
+                || !effects_match
+                || choice.candidates != expected_candidates
+                || self.players[choice.chooser.0].lost
+                || self.consecutive_passes != 0
+                || self.pending_draw_replacement.is_some()
+                || self.pending_private_library_choice.is_some()
+                || self.pending_private_opponent_library_exile_choice.is_some()
+                || !self.pending_trigger_target_choices.is_empty()
+                || self.pending_optional_trigger_choice.is_some()
+            {
+                return Err(RulesError::IllegalAction(
+                    "trigger effect-object choice escaped its no-priority resolution boundary",
                 ));
             }
         }
@@ -4801,6 +4934,12 @@ impl Game {
                                         Effect::DealDamageToEachPlayerFromReceivedDamage,
                                         Effect::DealDamageToEachPlayer { amount }
                                     ) if *amount > 0
+                                ) || matches!(
+                                    (bound, actual),
+                                    (
+                                        Effect::MillTargetPlayerFromSourceDamage,
+                                        Effect::MillTargetPlayer { count }
+                                    ) if *count > 0
                                 ) || bound == actual
                             })
                 } else {
@@ -5804,7 +5943,8 @@ impl Game {
                 | Effect::DealDamageToEachNonFlyingCreature { amount }
                 | Effect::RadianceDealDamageToCreatures { amount }
                 | Effect::BeginDamageRedirection { amount }
-                | Effect::GainLifeController { amount } => *amount,
+                | Effect::GainLifeController { amount }
+                | Effect::MillTargetPlayer { count: amount } => *amount,
                 Effect::AddManaController { amount, .. } => i16::from(*amount),
                 Effect::CreateToken { .. }
                 | Effect::CreateTokenForTargetPlayer { .. }
@@ -5824,6 +5964,7 @@ impl Game {
                 | Effect::AttachSourceAndModifyTargetPt { .. }
                 | Effect::RevealTopCardPutIntoHandLoseLifeEqualToManaValue
                 | Effect::GainLifeControllerFromSourceDamage
+                | Effect::MillTargetPlayerFromSourceDamage
                 | Effect::GainLifeForEachCreature
                 | Effect::DealDamageToEachPlayerFromReceivedDamage
                 | Effect::DealDamageEqualToAttackingCreatures { .. }
@@ -5922,7 +6063,7 @@ impl Game {
                 .triggered_abilities
                 .get(self.card_definition(top.card)?.id)
                 .and_then(|abilities| abilities.get(ability_id))
-                .filter(|ability| ability.optional && ability.mana_cost.mana_value() > 0)
+                .filter(|ability| ability.optional)
         {
             self.pending_optional_trigger_choice = Some(PendingOptionalTriggeredAbilityChoice {
                 source: top.card,
@@ -5934,6 +6075,9 @@ impl Game {
             return Ok(());
         }
         if self.suspend_top_spell_for_private_library_choice()? {
+            return Ok(());
+        }
+        if self.suspend_top_trigger_for_effect_object_choice()? {
             return Ok(());
         }
         if self.suspend_top_ability_for_private_opponent_library_exile_choice()? {
@@ -5993,7 +6137,6 @@ impl Game {
                 .triggered_abilities
                 .get(self.card_definition(stack_object.card)?.id)
                 .and_then(|abilities| abilities.get(ability_id))
-            && ability.mana_cost.mana_value() > 0
         {
             let should_pay = if ability.optional {
                 optional_decision
@@ -6008,19 +6151,18 @@ impl Game {
             if !should_pay {
                 trigger_payment_paid = false;
             }
-            let mut paid_pool = self.players[stack_object.controller.0].mana_pool.clone();
-            match should_pay.then(|| paid_pool.pay(&ability.mana_cost)) {
-                Some(Ok(())) => {
-                    self.players[stack_object.controller.0].mana_pool = paid_pool;
-                    self.record_event(GameEvent::AbilityManaPaid {
-                        player: stack_object.controller,
-                        source: stack_object.card,
-                        ability: ability.id,
-                        mana_cost: ability.mana_cost.clone(),
-                    });
-                }
-                None => {}
-                Some(Err(error)) => return Err(RulesError::Mana(error)),
+            if should_pay && ability.mana_cost.mana_value() > 0 {
+                let mut paid_pool = self.players[stack_object.controller.0].mana_pool.clone();
+                paid_pool
+                    .pay(&ability.mana_cost)
+                    .map_err(RulesError::Mana)?;
+                self.players[stack_object.controller.0].mana_pool = paid_pool;
+                self.record_event(GameEvent::AbilityManaPaid {
+                    player: stack_object.controller,
+                    source: stack_object.card,
+                    ability: ability.id,
+                    mana_cost: ability.mana_cost.clone(),
+                });
             }
         }
         let mut pending_aura_attachment: Option<(
@@ -6377,6 +6519,7 @@ impl Game {
             controller,
             TriggerCondition::EntersBattlefield,
         );
+        self.flush_pending_trigger_events();
     }
 
     /// A cast trigger retains the exact spell that caused it, rather than
@@ -6406,25 +6549,16 @@ impl Game {
                         "a cast-noncreature trigger must retain one spell target",
                     ));
                 }
-                let target_incarnations = self.target_incarnations(&[Target::Spell(spell)]);
-                self.stack.push(StackObject {
-                    card: source,
-                    controller,
-                    ability_id: Some(ability.id),
-                    targets: vec![Target::Spell(spell)],
-                    target_incarnations,
-                    effects: ability.effects,
-                    chosen_x: None,
-                    mana_spent: None,
-                });
-                self.record_event(GameEvent::TriggeredAbilityStacked {
-                    controller,
-                    source,
-                    ability: ability.id,
-                });
+                self.pending_trigger_events
+                    .push(PendingTriggeredAbilityEvent {
+                        source,
+                        controller,
+                        ability,
+                        payload: TriggerEventPayload::ExactTargets(vec![Target::Spell(spell)]),
+                    });
             }
         }
-        self.consecutive_passes = 0;
+        self.flush_pending_trigger_events();
         Ok(())
     }
 
@@ -6461,6 +6595,7 @@ impl Game {
                 );
             }
         }
+        self.flush_pending_trigger_events();
         Ok(())
     }
 
@@ -6510,34 +6645,149 @@ impl Game {
                 // card alongside it in its controller's graveyard.
                 continue;
             }
-            let Some(targets) = self.select_trigger_targets(source, controller, &ability.targets)
-            else {
-                // A mandatory trigger with no legal target is not stackable;
-                // an optional one simply does not trigger.  Current RAV ETB
-                // bindings use an opponent-first deterministic selector until
-                // policy-submitted triggered choices are exposed.
+            self.pending_trigger_events
+                .push(PendingTriggeredAbilityEvent {
+                    source,
+                    controller,
+                    ability,
+                    payload: TriggerEventPayload::None,
+                });
+        }
+    }
+
+    /// Moves every just-observed trigger condition into one APNAP-ordered
+    /// placement batch.  The active player's triggers are placed first (and
+    /// therefore sit lower on the stack), followed by each next living seat.
+    /// Within one controller the public binding/source order remains stable
+    /// until policy-supplied ordering is added as a later decision layer.
+    fn flush_pending_trigger_events(&mut self) {
+        let events = std::mem::take(&mut self.pending_trigger_events);
+        if events.is_empty() {
+            return;
+        }
+        for offset in 0..self.players.len() {
+            let controller = PlayerId((self.active_player.0 + offset) % self.players.len());
+            if self.players[controller.0].lost {
                 continue;
+            }
+            self.pending_trigger_placements.extend(
+                events
+                    .iter()
+                    .filter(|event| event.controller == controller)
+                    .cloned(),
+            );
+        }
+        self.advance_pending_trigger_placements();
+    }
+
+    /// Continues a deterministic trigger-placement batch until a controller
+    /// must choose targets.  It is also called immediately after that choice,
+    /// so a later targetless trigger cannot jump ahead of an earlier
+    /// target-bearing one while priority remains blocked.
+    fn advance_pending_trigger_placements(&mut self) {
+        if !self.pending_trigger_target_choices.is_empty() {
+            return;
+        }
+        while !self.pending_trigger_placements.is_empty() {
+            let event = self.pending_trigger_placements.remove(0);
+            if self.players[event.controller.0].lost {
+                continue;
+            }
+            let effects = Self::materialize_trigger_effects(&event.ability, &event.payload);
+            let exact_targets = match &event.payload {
+                TriggerEventPayload::ExactTargets(targets) => Some(targets.clone()),
+                TriggerEventPayload::None | TriggerEventPayload::DamageAmount(_) => None,
             };
-            let target_incarnations = self.target_incarnations(&targets);
-            self.stack.push(StackObject {
-                card: source,
-                controller,
-                ability_id: Some(ability.id),
-                targets,
-                target_incarnations,
-                effects: ability.effects,
-                chosen_x: None,
-                mana_spent: None,
-            });
-            self.record_event(GameEvent::TriggeredAbilityStacked {
-                controller,
-                source,
-                ability: ability.id,
-            });
+            if let Some(targets) = exact_targets {
+                if targets.len() == event.ability.targets.len()
+                    && targets
+                        .iter()
+                        .zip(&event.ability.targets)
+                        .all(|(target, requirement)| {
+                            self.target_matches_for_source(
+                                event.controller,
+                                event.source,
+                                *target,
+                                *requirement,
+                            )
+                        })
+                {
+                    self.stack_triggered_event(&event, targets, effects);
+                }
+                continue;
+            }
+            if event.ability.targets.is_empty() {
+                self.stack_triggered_event(&event, Vec::new(), effects);
+                continue;
+            }
+            if event.ability.targets.iter().all(|requirement| {
+                !self
+                    .legal_trigger_targets(event.source, event.controller, *requirement)
+                    .is_empty()
+            }) {
+                self.pending_trigger_target_choices
+                    .push(PendingTriggeredAbilityTargetChoice {
+                        source: event.source,
+                        controller: event.controller,
+                        ability: event.ability,
+                        effects,
+                    });
+                break;
+            }
+            // The represented trigger has no legal target at its trigger
+            // placement boundary, so it cannot become a legal stack object.
         }
-        if !self.stack.is_empty() {
-            self.consecutive_passes = 0;
-        }
+    }
+
+    fn materialize_trigger_effects(
+        ability: &crate::TriggeredAbility,
+        payload: &TriggerEventPayload,
+    ) -> Vec<Effect> {
+        ability
+            .effects
+            .iter()
+            .cloned()
+            .map(|effect| match (effect, payload) {
+                (
+                    Effect::GainLifeControllerFromSourceDamage,
+                    TriggerEventPayload::DamageAmount(amount),
+                ) => Effect::GainLifeController { amount: *amount },
+                (
+                    Effect::DealDamageToEachPlayerFromReceivedDamage,
+                    TriggerEventPayload::DamageAmount(amount),
+                ) => Effect::DealDamageToEachPlayer { amount: *amount },
+                (
+                    Effect::MillTargetPlayerFromSourceDamage,
+                    TriggerEventPayload::DamageAmount(amount),
+                ) => Effect::MillTargetPlayer { count: *amount },
+                (effect, _) => effect,
+            })
+            .collect()
+    }
+
+    fn stack_triggered_event(
+        &mut self,
+        event: &PendingTriggeredAbilityEvent,
+        targets: Vec<Target>,
+        effects: Vec<Effect>,
+    ) {
+        let target_incarnations = self.target_incarnations(&targets);
+        self.stack.push(StackObject {
+            card: event.source,
+            controller: event.controller,
+            ability_id: Some(event.ability.id),
+            targets,
+            target_incarnations,
+            effects,
+            chosen_x: None,
+            mana_spent: None,
+        });
+        self.record_event(GameEvent::TriggeredAbilityStacked {
+            controller: event.controller,
+            source: event.source,
+            ability: event.ability.id,
+        });
+        self.consecutive_passes = 0;
     }
 
     /// Stacks each permanent controlled by the active player whose ability
@@ -6562,35 +6812,16 @@ impl Game {
                 .cloned()
                 .collect::<Vec<_>>();
             for ability in triggers {
-                let Some(targets) =
-                    self.select_trigger_targets(source, controller, &ability.targets)
-                else {
-                    // A mandatory trigger with no legal target is not put on
-                    // the stack. This matches the existing ETB trigger
-                    // boundary and avoids creating an illegal stack object.
-                    continue;
-                };
-                let target_incarnations = self.target_incarnations(&targets);
-                self.stack.push(StackObject {
-                    card: source,
-                    controller,
-                    ability_id: Some(ability.id),
-                    targets,
-                    target_incarnations,
-                    effects: ability.effects,
-                    chosen_x: None,
-                    mana_spent: None,
-                });
-                self.record_event(GameEvent::TriggeredAbilityStacked {
-                    controller,
-                    source,
-                    ability: ability.id,
-                });
+                self.pending_trigger_events
+                    .push(PendingTriggeredAbilityEvent {
+                        source,
+                        controller,
+                        ability,
+                        payload: TriggerEventPayload::None,
+                    });
             }
         }
-        if !self.stack.is_empty() {
-            self.consecutive_passes = 0;
-        }
+        self.flush_pending_trigger_events();
         Ok(())
     }
 
@@ -6719,7 +6950,7 @@ impl Game {
                 ability_id: Some(choice.ability.id),
                 targets,
                 target_incarnations,
-                effects: choice.ability.effects,
+                effects: choice.effects,
                 chosen_x: None,
                 mana_spent: None,
             });
@@ -6729,6 +6960,7 @@ impl Game {
                 ability: choice.ability.id,
             });
             game.consecutive_passes = 0;
+            game.advance_pending_trigger_placements();
             Ok(())
         })
     }
@@ -6791,6 +7023,203 @@ impl Game {
         })
     }
 
+    fn choose_triggered_ability_effect_object(
+        &mut self,
+        player: PlayerId,
+        source: ObjectId,
+        ability: &'static str,
+        selected: Option<ObjectId>,
+    ) -> Result<(), RulesError> {
+        self.atomic_transition(|game| {
+            let mut choice = game.pending_trigger_effect_object_choice.clone().ok_or(
+                RulesError::IllegalAction(
+                    "no triggered ability is awaiting an effect-object choice",
+                ),
+            )?;
+            if player != choice.chooser || source != choice.source || ability != choice.ability {
+                return Err(RulesError::IllegalAction(
+                    "trigger effect-object choice does not match the pending chooser or identity",
+                ));
+            }
+            match (choice.candidates.is_empty(), selected) {
+                (true, None) => {}
+                (false, Some(card)) if choice.candidates.contains(&card) => {}
+                _ => {
+                    return Err(RulesError::IllegalAction(
+                        "trigger effect-object choice must select exactly one legal candidate",
+                    ));
+                }
+            }
+            match &mut choice.kind {
+                PendingTriggeredEffectChoiceKind::DiscardEachPlayer {
+                    remaining_players,
+                    selected: selections,
+                } => {
+                    if let Some(card) = selected {
+                        selections.push((player, card));
+                    }
+                    if remaining_players.first() != Some(&player) {
+                        return Err(RulesError::IllegalAction(
+                            "discard choice player is not next in the resolving trigger",
+                        ));
+                    }
+                    remaining_players.remove(0);
+                    if let Some(next_player) = remaining_players.first().copied() {
+                        choice.chooser = next_player;
+                        choice
+                            .candidates
+                            .clone_from(&game.players[next_player.0].hand);
+                        game.pending_trigger_effect_object_choice = Some(choice);
+                        game.priority = next_player;
+                        game.consecutive_passes = 0;
+                        return Ok(());
+                    }
+                    let selections = selections.clone();
+                    game.pending_trigger_effect_object_choice = None;
+                    game.finish_trigger_effect_object_choice(source, ability, |game| {
+                        for (discarding_player, card) in selections {
+                            if game.zone_of(card) != Some(Zone::Hand)
+                                || game.object(card).is_err_and(|_| true)
+                                || game.object(card)?.owner != discarding_player
+                            {
+                                return Err(RulesError::IllegalAction(
+                                    "chosen discard card left its chooser hand before resolution",
+                                ));
+                            }
+                            game.record_event(GameEvent::CardDiscarded {
+                                player: discarding_player,
+                                card,
+                            });
+                            game.move_to_zone(card, Zone::Graveyard)?;
+                        }
+                        Ok(())
+                    })?;
+                }
+                PendingTriggeredEffectChoiceKind::SacrificeControllerCreature => {
+                    game.pending_trigger_effect_object_choice = None;
+                    game.finish_trigger_effect_object_choice(source, ability, |game| {
+                        if let Some(permanent) = selected {
+                            if game.zone_of(permanent) != Some(Zone::Battlefield)
+                                || game.object(permanent)?.controller != player
+                                || !game
+                                    .characteristics(permanent)?
+                                    .card_types
+                                    .contains(&CardType::Creature)
+                            {
+                                return Err(RulesError::IllegalAction(
+                                    "chosen sacrifice permanent is no longer a controlled creature",
+                                ));
+                            }
+                            game.record_event(GameEvent::SacrificedByEffect {
+                                source,
+                                player,
+                                permanent,
+                            });
+                            game.move_to_graveyard_or_remove_token(permanent)?;
+                        }
+                        Ok(())
+                    })?;
+                }
+            }
+            Ok(())
+        })
+    }
+
+    fn finish_trigger_effect_object_choice(
+        &mut self,
+        source: ObjectId,
+        ability: &'static str,
+        apply: impl FnOnce(&mut Self) -> Result<(), RulesError>,
+    ) -> Result<(), RulesError> {
+        let top = self.stack.last().ok_or(RulesError::IllegalAction(
+            "trigger effect-object choice has no live stack ability",
+        ))?;
+        if top.card != source
+            || top.controller != self.object(source)?.controller
+            || top.ability_id != Some(ability)
+        {
+            return Err(RulesError::IllegalAction(
+                "trigger effect-object choice no longer matches its stack ability",
+            ));
+        }
+        self.stack.pop();
+        apply(self)?;
+        self.record_event(GameEvent::AbilityResolved { source, ability });
+        self.check_state_based_actions()?;
+        self.flush_pending_land_entry_triggers()?;
+        self.flush_pending_damage_triggers();
+        self.flush_pending_life_gain_triggers();
+        self.flush_pending_dies_triggers();
+        self.priority = self.priority_after_resolution();
+        Ok(())
+    }
+
+    fn suspend_top_trigger_for_effect_object_choice(&mut self) -> Result<bool, RulesError> {
+        if self.pending_trigger_effect_object_choice.is_some() {
+            return Err(RulesError::IllegalAction(
+                "a second trigger effect-object choice attempted to open during resolution",
+            ));
+        }
+        let Some(top) = self.stack.last() else {
+            return Ok(false);
+        };
+        let Some(ability) = top.ability_id else {
+            return Ok(false);
+        };
+        let kind = match top.effects.as_slice() {
+            [Effect::DiscardOneCardEachPlayer] => {
+                PendingTriggeredEffectChoiceKind::DiscardEachPlayer {
+                    remaining_players: self
+                        .players
+                        .iter()
+                        .filter(|player| !player.lost)
+                        .map(|player| player.id)
+                        .collect(),
+                    selected: Vec::new(),
+                }
+            }
+            [Effect::SacrificeControllerCreature] => {
+                PendingTriggeredEffectChoiceKind::SacrificeControllerCreature
+            }
+            _ => return Ok(false),
+        };
+        let chooser = match &kind {
+            PendingTriggeredEffectChoiceKind::DiscardEachPlayer {
+                remaining_players, ..
+            } => *remaining_players.first().ok_or(RulesError::IllegalAction(
+                "a continuing game has no player for trigger discard choice",
+            ))?,
+            PendingTriggeredEffectChoiceKind::SacrificeControllerCreature => top.controller,
+        };
+        let candidates = match &kind {
+            PendingTriggeredEffectChoiceKind::DiscardEachPlayer { .. } => {
+                self.players[chooser.0].hand.clone()
+            }
+            PendingTriggeredEffectChoiceKind::SacrificeControllerCreature => self
+                .all_battlefield_cards()
+                .into_iter()
+                .filter(|card| {
+                    self.object(*card)
+                        .is_ok_and(|object| object.controller == chooser)
+                        && self.characteristics(*card).is_ok_and(|characteristics| {
+                            characteristics.card_types.contains(&CardType::Creature)
+                        })
+                })
+                .collect(),
+        };
+        self.pending_trigger_effect_object_choice = Some(PendingTriggeredEffectObjectChoice {
+            source: top.card,
+            controller: top.controller,
+            ability,
+            chooser,
+            candidates,
+            kind,
+        });
+        self.priority = chooser;
+        self.consecutive_passes = 0;
+        Ok(true)
+    }
+
     fn controller_creature_cards_in_graveyard(&self, controller: PlayerId) -> usize {
         self.players[controller.0]
             .graveyard
@@ -6802,9 +7231,9 @@ impl Game {
             .count()
     }
 
-    /// Captures attack triggers after attacker declaration. A target-free
-    /// trigger stacks immediately; a target-bearing trigger opens an explicit
-    /// no-priority controller choice before it can mutate the stack.
+    /// Captures attack-trigger conditions for the shared placement pipeline.
+    /// Target-bearing triggers are not allowed to reach the stack until that
+    /// pipeline opens the same controller decision used by every condition.
     fn enqueue_attack_triggers(&mut self, source: ObjectId) -> Result<(), RulesError> {
         // Tokens have no catalog definition and therefore cannot have a
         // definition-bound attack trigger in this substrate. Their attack is
@@ -6824,48 +7253,13 @@ impl Game {
             .cloned()
             .collect::<Vec<_>>();
         for ability in triggers {
-            if !ability.targets.is_empty() {
-                let has_all_targets = ability.targets.iter().all(|requirement| {
-                    !self
-                        .legal_trigger_targets(source, controller, *requirement)
-                        .is_empty()
+            self.pending_trigger_events
+                .push(PendingTriggeredAbilityEvent {
+                    source,
+                    controller,
+                    ability,
+                    payload: TriggerEventPayload::None,
                 });
-                if !has_all_targets {
-                    if ability.optional {
-                        continue;
-                    }
-                    return Err(RulesError::IllegalAction(
-                        "mandatory attack trigger has no legal target",
-                    ));
-                }
-                self.pending_trigger_target_choices
-                    .push(PendingTriggeredAbilityTargetChoice {
-                        source,
-                        controller,
-                        ability,
-                    });
-                continue;
-            }
-            let targets = Vec::new();
-            let target_incarnations = self.target_incarnations(&targets);
-            self.stack.push(StackObject {
-                card: source,
-                controller,
-                ability_id: Some(ability.id),
-                targets,
-                target_incarnations,
-                effects: ability.effects,
-                chosen_x: None,
-                mana_spent: None,
-            });
-            self.record_event(GameEvent::TriggeredAbilityStacked {
-                controller,
-                source,
-                ability: ability.id,
-            });
-        }
-        if !self.stack.is_empty() {
-            self.consecutive_passes = 0;
         }
         Ok(())
     }
@@ -6900,12 +7294,13 @@ impl Game {
             RulesError::IllegalAction("damage-trigger life gain exceeds effect representation")
         })?;
         for ability in triggers {
-            self.pending_damage_triggers.push(PendingDamageTrigger {
-                source,
-                controller,
-                ability,
-                damage_amount,
-            });
+            self.pending_trigger_events
+                .push(PendingTriggeredAbilityEvent {
+                    source,
+                    controller,
+                    ability,
+                    payload: TriggerEventPayload::DamageAmount(damage_amount),
+                });
         }
         Ok(())
     }
@@ -6940,12 +7335,13 @@ impl Game {
             RulesError::IllegalAction("received-damage trigger exceeds effect representation")
         })?;
         for ability in triggers {
-            self.pending_damage_triggers.push(PendingDamageTrigger {
-                source: recipient,
-                controller,
-                ability,
-                damage_amount,
-            });
+            self.pending_trigger_events
+                .push(PendingTriggeredAbilityEvent {
+                    source: recipient,
+                    controller,
+                    ability,
+                    payload: TriggerEventPayload::DamageAmount(damage_amount),
+                });
         }
         Ok(())
     }
@@ -6955,11 +7351,11 @@ impl Game {
     /// state-based-action boundary, while retaining the dead card object as
     /// the historical source for resolution and event auditing.
     fn enqueue_dies_triggers(&mut self, source: ObjectId, definition: &'static str) {
-        self.pending_dies_triggers.push(PendingDiesTrigger {
-            source,
-            definition,
-            condition: TriggerCondition::Dies,
-        });
+        let controller = self
+            .object(source)
+            .expect("dies source remains available for trigger provenance")
+            .controller;
+        self.enqueue_triggers_for_source(source, definition, controller, TriggerCondition::Dies);
     }
 
     /// Captures every battlefield permanent with an "another creature dies"
@@ -6998,11 +7394,13 @@ impl Game {
             })
             .collect::<Vec<_>>();
         for (source, definition) in observers {
-            self.pending_dies_triggers.push(PendingDiesTrigger {
+            let controller = self.object(source)?.controller;
+            self.enqueue_triggers_for_source(
                 source,
                 definition,
-                condition: TriggerCondition::AnotherCreatureDies,
-            });
+                controller,
+                TriggerCondition::AnotherCreatureDies,
+            );
         }
         Ok(())
     }
@@ -7031,11 +7429,12 @@ impl Game {
                 .cloned()
                 .collect::<Vec<_>>();
             for ability in triggers {
-                self.pending_life_gain_triggers
-                    .push(PendingLifeGainTrigger {
+                self.pending_trigger_events
+                    .push(PendingTriggeredAbilityEvent {
                         source,
                         controller,
                         ability,
+                        payload: TriggerEventPayload::None,
                     });
             }
         }
@@ -7045,130 +7444,21 @@ impl Game {
     /// Deferring until costs/effects finish preserves the rule that a trigger
     /// created during an activation cost is stacked after that activation.
     fn flush_pending_dies_triggers(&mut self) {
-        let pending = std::mem::take(&mut self.pending_dies_triggers);
-        for pending in pending {
-            let controller = self
-                .object(pending.source)
-                .map(|object| object.controller)
-                .expect("dies source retained");
-            let definition = pending.definition;
-            let triggers = self
-                .triggered_abilities
-                .get(definition)
-                .into_iter()
-                .flat_map(|abilities| abilities.values())
-                .filter(|ability| ability.condition == pending.condition)
-                .cloned()
-                .collect::<Vec<_>>();
-            for ability in triggers {
-                let Some(targets) =
-                    self.select_trigger_targets(pending.source, controller, &ability.targets)
-                else {
-                    // A dies trigger with no legal mandatory target cannot be
-                    // put onto the stack. Optional choice handling remains
-                    // explicit at the binding layer.
-                    continue;
-                };
-                let target_incarnations = self.target_incarnations(&targets);
-                self.stack.push(StackObject {
-                    card: pending.source,
-                    controller,
-                    ability_id: Some(ability.id),
-                    targets,
-                    target_incarnations,
-                    effects: ability.effects,
-                    chosen_x: None,
-                    mana_spent: None,
-                });
-                self.record_event(GameEvent::TriggeredAbilityStacked {
-                    controller,
-                    source: pending.source,
-                    ability: ability.id,
-                });
-            }
-        }
-        if !self.pending_dies_triggers.is_empty() {
-            unreachable!("pending dies triggers were not drained");
-        }
-        if !self.stack.is_empty() {
-            self.consecutive_passes = 0;
-        }
+        self.flush_pending_trigger_events();
     }
 
     /// Pushes all triggers observed during the just-completed damage batch.
     /// Their effects are materialized from the captured event amount before
     /// the `TriggeredAbilityStacked` receipt is emitted.
     fn flush_pending_damage_triggers(&mut self) {
-        let pending = std::mem::take(&mut self.pending_damage_triggers);
-        for pending in pending {
-            let effects = pending
-                .ability
-                .effects
-                .into_iter()
-                .map(|effect| match effect {
-                    Effect::GainLifeControllerFromSourceDamage => Effect::GainLifeController {
-                        amount: pending.damage_amount,
-                    },
-                    Effect::DealDamageToEachPlayerFromReceivedDamage => {
-                        Effect::DealDamageToEachPlayer {
-                            amount: pending.damage_amount,
-                        }
-                    }
-                    effect => effect,
-                })
-                .collect();
-            self.stack.push(StackObject {
-                card: pending.source,
-                controller: pending.controller,
-                ability_id: Some(pending.ability.id),
-                targets: vec![],
-                target_incarnations: vec![],
-                effects,
-                chosen_x: None,
-                mana_spent: None,
-            });
-            self.record_event(GameEvent::TriggeredAbilityStacked {
-                controller: pending.controller,
-                source: pending.source,
-                ability: pending.ability.id,
-            });
-        }
-        if !self.pending_damage_triggers.is_empty() {
-            unreachable!("pending damage triggers were not drained");
-        }
-        if !self.stack.is_empty() {
-            self.consecutive_passes = 0;
-        }
+        self.flush_pending_trigger_events();
     }
 
     /// Puts life-gain triggers on the stack after the enclosing effect has
     /// finished. Target legality is rechecked by the normal stack resolver,
     /// while the trigger's source and controller remain historical identities.
     fn flush_pending_life_gain_triggers(&mut self) {
-        let pending = std::mem::take(&mut self.pending_life_gain_triggers);
-        for pending in pending {
-            self.stack.push(StackObject {
-                card: pending.source,
-                controller: pending.controller,
-                ability_id: Some(pending.ability.id),
-                targets: vec![],
-                target_incarnations: vec![],
-                effects: pending.ability.effects,
-                chosen_x: None,
-                mana_spent: None,
-            });
-            self.record_event(GameEvent::TriggeredAbilityStacked {
-                controller: pending.controller,
-                source: pending.source,
-                ability: pending.ability.id,
-            });
-        }
-        if !self.pending_life_gain_triggers.is_empty() {
-            unreachable!("pending life-gain triggers were not drained");
-        }
-        if !self.stack.is_empty() {
-            self.consecutive_passes = 0;
-        }
+        self.flush_pending_trigger_events();
     }
 
     fn damage_cannot_be_prevented(&self, source: ObjectId) -> bool {
@@ -7482,6 +7772,29 @@ impl Game {
                         self.move_to_zone(card, Zone::Graveyard)?;
                     }
                 }
+            }
+            Effect::MillTargetPlayer { count } => {
+                let player =
+                    match target.ok_or(RulesError::IllegalAction("missing mill target player"))? {
+                        Target::Player(player) if !self.players[player.0].lost => player,
+                        other => return Err(RulesError::IllegalTarget(other)),
+                    };
+                if *count <= 0 {
+                    return Err(RulesError::IllegalAction(
+                        "mill instruction requires a positive materialized amount",
+                    ));
+                }
+                for _ in 0..usize::try_from(*count).expect("positive i16 fits usize") {
+                    let Some(card) = self.players[player.0].library.pop() else {
+                        break;
+                    };
+                    self.move_to_zone(card, Zone::Graveyard)?;
+                }
+            }
+            Effect::MillTargetPlayerFromSourceDamage => {
+                return Err(RulesError::IllegalAction(
+                    "source-damage mill trigger was not materialized before resolution",
+                ));
             }
             Effect::SacrificeControllerCreature => {
                 let candidate = self
@@ -11189,6 +11502,11 @@ impl Game {
                 "optional trigger payment must resolve before priority actions",
             ));
         }
+        if self.pending_trigger_effect_object_choice.is_some() {
+            return Err(RulesError::IllegalAction(
+                "trigger effect-object choice must resolve before priority actions",
+            ));
+        }
         if self.players[player.0].lost {
             return Err(RulesError::IllegalAction("an eliminated player cannot act"));
         }
@@ -11300,6 +11618,9 @@ impl Game {
         }
         if let Some(choice) = &self.pending_optional_trigger_choice {
             return choice.controller;
+        }
+        if let Some(choice) = &self.pending_trigger_effect_object_choice {
+            return choice.chooser;
         }
         match (&self.combat, self.step) {
             (Some(combat), Step::DeclareAttackers)

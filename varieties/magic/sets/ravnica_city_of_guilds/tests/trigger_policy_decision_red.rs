@@ -101,6 +101,7 @@ fn frenzied_goblin_does_not_auto_select_a_trigger_target() {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // The complete priority-boundary regression is intentionally linear.
 fn optional_trigger_payment_does_not_auto_pay_at_resolution() {
     let mut game = Game::new_with_all_bindings_and_triggers(
         card_definitions(),

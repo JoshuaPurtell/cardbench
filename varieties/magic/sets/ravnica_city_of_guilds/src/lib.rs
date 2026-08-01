@@ -38,7 +38,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 128] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 129] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -143,6 +143,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 128] = [
     "RAV-THOUGHTPICKER-WITCH",
     "RAV-SADISTIC-AUGERMAGE",
     "RAV-VINDICTIVE-MOB",
+    "RAV-BELLTOWER-SPHINX",
     "RAV-SUNHOME-FORTRESS",
     "RAV-VITU-GHAZI",
     "RAV-NULLMAGE-SHEPHERD",
@@ -2871,9 +2872,8 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Flying],
             effects: vec![],
         },
-        // Compatibility scope: normal colored-cost creature casting, base
-        // characteristics, and Flying. Its printed damage trigger remains
-        // deliberately omitted from this compatibility slice.
+        // Full fidelity: damage received queues a normal target-player
+        // trigger whose captured damage amount mills that target on resolution.
         CardDefinition {
             id: "RAV-BELLTOWER-SPHINX",
             name: "Belltower Sphinx",
@@ -2883,7 +2883,13 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Creature]),
             is_basic_land: false,
-            supported_rules: &["colored-cost-casting", "base-characteristics", "flying"],
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "flying",
+                "damage-received-target-player-mill-that-many",
+            ],
             power: Some(2),
             toughness: Some(5),
             keywords: vec![Keyword::Flying],
@@ -5498,6 +5504,17 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                 optional: false,
                 targets: vec![],
                 effects: vec![Effect::DealDamageToEachPlayerFromReceivedDamage],
+            },
+        },
+        TriggeredAbilityBinding {
+            card_definition: "RAV-BELLTOWER-SPHINX",
+            ability: TriggeredAbility {
+                id: "damage-target-player-mill-that-many",
+                condition: TriggerCondition::ReceivesDamage,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![TargetRequirement::Player],
+                effects: vec![Effect::MillTargetPlayerFromSourceDamage],
             },
         },
         TriggeredAbilityBinding {
