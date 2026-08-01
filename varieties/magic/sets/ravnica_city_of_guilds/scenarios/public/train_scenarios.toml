@@ -8896,3 +8896,107 @@ priority = 0
 mana = ["0:green:0", "0:white:0"]
 event_markers = ["AbilityManaPaid", "AbilityActivated", "TokenCreated", "ContinuousEffectCreated", "AbilityResolved"]
 digest = "fnv1a64:061ae0348caca68d"
+
+[[scenario]]
+id = "rav_vitu_ghazi_colorless_and_saproling"
+seed = 131
+description = "Use one Vitu-Ghazi for typed colorless mana, then pay a second Vitu-Ghazi's green-white token activation through the stack."
+
+[[scenario.card]]
+label = "mana_land"
+owner = 0
+definition = "RAV-VITU-GHAZI"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "token_land"
+owner = 0
+definition = "RAV-VITU-GHAZI"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "forest1"
+owner = 0
+definition = "RAV-FOREST"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "forest2"
+owner = 0
+definition = "RAV-FOREST"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "plains"
+owner = 0
+definition = "RAV-PLAINS"
+zone = "battlefield"
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "activate_bound_mana_ability"
+player = 0
+card = "mana_land"
+ability = "produce-colorless"
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "forest1"
+color = "green"
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "forest2"
+color = "green"
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "plains"
+color = "white"
+
+[[scenario.action]]
+kind = "activate_ability"
+player = 0
+card = "token_land"
+ability = "create-green-saproling"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["mana_land:battlefield", "token_land:battlefield", "forest1:battlefield", "forest2:battlefield", "plains:battlefield"]
+tapped = ["mana_land:true", "token_land:true", "forest1:true", "forest2:true", "plains:true"]
+token_count = 1
+stack_size = 0
+priority = 0
+mana = ["0:colorless:0", "0:green:0", "0:white:0"]
+mana_receipts = ["0:colorless:1"]
+event_markers = ["BoundManaAbilityActivated", "ManaAdded", "AbilityManaPaid", "AbilityActivated", "TokenCreated", "AbilityResolved"]
+digest = "fnv1a64:93ebe393f54e966f"

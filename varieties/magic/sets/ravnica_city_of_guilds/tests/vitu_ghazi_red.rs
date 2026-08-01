@@ -14,6 +14,12 @@ fn vitu_ghazi_has_colorless_mana_and_a_green_saproling_activation() {
     assert_eq!(land.name, "Vitu-Ghazi, the City-Tree");
     assert_eq!(land.card_types, [CardType::Land].into_iter().collect());
     assert_eq!(land.mana_colors, [Color::Colorless].into_iter().collect());
-    assert!(land.supported_rules.contains(&"activated-green-saproling-token"));
-    assert_eq!(ManaCost::with_colors(2, [Color::Green, Color::White]).mana_value(), 4);
+    assert!(
+        land.supported_rules
+            .contains(&"activated-green-saproling-token")
+    );
+    assert_eq!(
+        ManaCost::with_colors(2, [Color::Green, Color::White]).mana_value(),
+        4
+    );
 }
