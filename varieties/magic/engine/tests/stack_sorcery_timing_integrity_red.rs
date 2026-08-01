@@ -46,6 +46,7 @@ fn invariant_audit_rejects_a_sorcery_fabricated_onto_an_opponents_turn() {
         ability_id: None,
         targets: Vec::<Target>::new(),
         effects: vec![Effect::DealDamageController { amount: 1 }],
+        chosen_x: None,
         mana_spent: None,
     });
 

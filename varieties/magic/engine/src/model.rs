@@ -1138,6 +1138,11 @@ pub enum Effect {
     /// Destroy one target creature while preserving the distinct-target
     /// provenance required by a multi-target spell such as Hex.
     DestroyDistinctTargetCreature,
+    /// Destroy one targeted creature only when its mana value is no greater
+    /// than the explicit X paid while casting this spell. This is intentionally
+    /// separate from a generic destruction effect so the X-bound survives
+    /// cast validation and resolution auditing.
+    DestroyTargetCreatureWithManaValueAtMostChosenX,
     /// Tap one targeted creature as this spell or ability resolves. A creature
     /// that is already tapped remains a legal target but creates no duplicate
     /// tap receipt.
@@ -1252,6 +1257,14 @@ impl Effect {
         )
     }
 
+    /// Whether this instruction requires the spell cast to name an explicit
+    /// nonnegative X value. The value is paid as additional generic mana and
+    /// retained in the ordered mana receipt through resolution.
+    #[must_use]
+    pub const fn requires_chosen_x(&self) -> bool {
+        matches!(self, Self::DestroyTargetCreatureWithManaValueAtMostChosenX)
+    }
+
     #[must_use]
     pub const fn target_requirement(&self) -> Option<TargetRequirement> {
         match self {
@@ -1270,6 +1283,9 @@ impl Effect {
             | Self::ExileTargetCreature
             | Self::TapTargetCreature
             | Self::RegenerateTargetCreature => Some(TargetRequirement::Creature),
+            Self::DestroyTargetCreatureWithManaValueAtMostChosenX => {
+                Some(TargetRequirement::Creature)
+            }
             Self::DestroyDistinctTargetCreature => Some(TargetRequirement::DistinctCreature),
             Self::ExileTargetPermanent => Some(TargetRequirement::AttackingOrBlockingCreature),
             Self::CompleteDamageRedirection => Some(TargetRequirement::PlayerOrCreature),
@@ -1761,6 +1777,10 @@ pub struct StackObject {
     pub ability_id: Option<&'static str>,
     pub targets: Vec<Target>,
     pub effects: Vec<Effect>,
+    /// The value chosen for X while casting this spell.  Abilities and spells
+    /// without an X instruction retain `None`; the value is authoritative at
+    /// resolution and is never reconstructed from payment colors.
+    pub chosen_x: Option<u8>,
     /// Full color receipt for an explicitly selected spell payment. `None`
     /// denotes the legacy deterministic payment path, which is deliberately
     /// unavailable to effects that inspect colors spent to cast the spell.

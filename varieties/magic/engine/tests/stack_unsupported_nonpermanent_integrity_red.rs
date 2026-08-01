@@ -44,6 +44,7 @@ fn invariant_audit_rejects_an_unsupported_instant_fabricated_onto_the_stack() {
         ability_id: None,
         targets: Vec::<Target>::new(),
         effects: vec![],
+        chosen_x: None,
         mana_spent: None,
     });
 

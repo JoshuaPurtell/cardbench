@@ -25,6 +25,7 @@ fn three_target_object(targets: Vec<Target>) -> StackObject {
                 toughness: 1,
             },
         ],
+        chosen_x: None,
         mana_spent: None,
     }
 }

@@ -73,14 +73,14 @@ fn executable_slice_size_is_explicit_and_does_not_masquerade_as_set_coverage() {
         .collect::<std::collections::BTreeSet<_>>();
 
     // Twenty executable basic-land printings collapse to five names. The
-    // one hundred and seventy-three executable nonbasic names include the positive
+    // one hundred and seventy-four executable nonbasic names include the positive
     // full-fidelity manifest entries; all others remain deliberately bounded
     // compatibility slices. The full-fidelity Clinging Darkness and
     // Moldervine Cloak entries use the bounded static-modifier Aura substrate;
     // regeneration remains independently capability-gated.
-    assert_eq!(executable_printings, 194);
-    assert_eq!(executable_names.len(), 179);
-    assert_eq!(catalog_only_names.len(), 112);
+    assert_eq!(executable_printings, 195);
+    assert_eq!(executable_names.len(), 180);
+    assert_eq!(catalog_only_names.len(), 111);
     assert!(executable_names.is_disjoint(&catalog_only_names));
 }
 
@@ -89,5 +89,13 @@ fn clinging_darkness_resolves_to_its_executable_aura_definition() {
     assert_eq!(
         executable_definition_id_for_collector(80),
         Ok("RAV-CLINGING-DARKNESS")
+    );
+}
+
+#[test]
+fn disembowel_resolves_to_its_bounded_chosen_x_definition() {
+    assert_eq!(
+        executable_definition_id_for_collector(85),
+        Ok("RAV-DISEMBOWEL")
     );
 }

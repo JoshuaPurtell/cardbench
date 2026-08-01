@@ -1218,6 +1218,29 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 toughness: -1,
             }],
         },
+        // Compatibility scope: the selected X is paid atomically, retained
+        // on the spell stack object, and bounds the target's mana value at
+        // both cast and resolution. Public policy/scenario syntax has not yet
+        // exposed a player-authored chosen-X move, so this direct engine slice
+        // remains outside the positive full-fidelity manifest.
+        CardDefinition {
+            id: "RAV-DISEMBOWEL",
+            name: "Disembowel",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(0, [Color::Black]),
+            colors: colors([Color::Black]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Instant]),
+            is_basic_land: false,
+            supported_rules: &[
+                "chosen-x-targeted-creature-destruction",
+                "policy-chosen-x-move-not-yet-exposed",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![Effect::DestroyTargetCreatureWithManaValueAtMostChosenX],
+        },
         // Full fidelity within the current deterministic discard-choice
         // boundary: player targeting is a stack slot and the selected card is
         // the target player's oldest hand entry when this spell resolves.

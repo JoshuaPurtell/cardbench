@@ -427,6 +427,15 @@ Oracle Magic rules coverage.
   stack object. A card that inspects paid colors rejects legacy deterministic
   `cast_spell`, so engine-selected generic draining never masquerades as the
   controller's choice.
+- A spell instruction that depends on a chosen `X` cannot use ordinary
+  `cast_spell`: the caller must submit one explicit nonnegative value and an
+  explicit payment allocation for the printed cost plus `X`. The value is
+  retained on that spell's stack object—not inferred from its colored-mana
+  receipt—and its receipt must contain exactly the printed mana-symbol count
+  plus `X`. Stack abilities never carry a chosen-X value. Both cast-time and
+  resolution-time target checks read this same value, so a fabricated or
+  undersized receipt fails the invariant audit before it is treated as a legal
+  state transition.
 - An expansion may bind an explicit additional spell cost to a nonland
   definition. Its `CastRequest` selection follows ordinary effect targets but
   never enters the resulting stack object's target slots. A bound controlled-

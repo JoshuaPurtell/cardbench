@@ -1481,6 +1481,7 @@ impl Game {
             ability_id: Some(ability.id),
             targets: activation.targets,
             effects: ability.effects,
+            chosen_x: None,
             mana_spent: None,
         });
         self.record_event(GameEvent::AbilityActivated {
@@ -2609,7 +2610,7 @@ impl Game {
 
     #[allow(clippy::needless_pass_by_value)] // Public cast requests remain owned transactional inputs.
     pub fn cast_spell(&mut self, player: PlayerId, request: CastRequest) -> Result<(), RulesError> {
-        self.atomic_transition(|game| game.cast_spell_impl(player, &request, None))
+        self.atomic_transition(|game| game.cast_spell_impl(player, &request, None, None))
     }
 
     /// Casts a spell with explicit player-selected colors for all generic and
@@ -2622,7 +2623,25 @@ impl Game {
         request: CastRequest,
         selection: ManaPaymentSelection,
     ) -> Result<(), RulesError> {
-        self.atomic_transition(|game| game.cast_spell_impl(player, &request, Some(&selection)))
+        self.atomic_transition(|game| {
+            game.cast_spell_impl(player, &request, Some(&selection), None)
+        })
+    }
+
+    /// Casts a spell with an explicit chosen X value. The caller supplies the
+    /// exact generic-color allocation for the printed generic symbols plus X;
+    /// the atomic cast retains the complete receipt for resolution-time rules.
+    #[allow(clippy::needless_pass_by_value)] // Public selection ownership crosses the atomic boundary.
+    pub fn cast_spell_with_x(
+        &mut self,
+        player: PlayerId,
+        request: CastRequest,
+        x_value: u8,
+        selection: ManaPaymentSelection,
+    ) -> Result<(), RulesError> {
+        self.atomic_transition(|game| {
+            game.cast_spell_impl(player, &request, Some(&selection), Some(x_value))
+        })
     }
 
     /// Applies a cast under one all-or-error transaction. Mana abilities named
@@ -2634,6 +2653,7 @@ impl Game {
         player: PlayerId,
         request: &CastRequest,
         mana_payment_selection: Option<&ManaPaymentSelection>,
+        chosen_x: Option<u8>,
     ) -> Result<(), RulesError> {
         self.require_priority(player)?;
         let from_graveyard = self
@@ -2655,6 +2675,14 @@ impl Game {
             return Err(RulesError::IllegalAction(
                 "this spell's front-face effect is unsupported; report an engine weakness",
             ));
+        }
+        let requires_chosen_x = definition.effects.iter().any(Effect::requires_chosen_x);
+        if requires_chosen_x != chosen_x.is_some() {
+            return Err(RulesError::IllegalAction(if requires_chosen_x {
+                "this spell requires an explicit chosen X value"
+            } else {
+                "chosen X is not legal for this spell"
+            }));
         }
         if definition
             .effects
@@ -2680,6 +2708,9 @@ impl Game {
         let (spell_targets, additional_cost_selections) =
             self.split_cast_targets(&definition, &request.targets)?;
         self.validate_targets(player, &definition, &spell_targets)?;
+        if let Some(x_value) = chosen_x {
+            self.validate_chosen_x_targets(&definition, &spell_targets, x_value)?;
+        }
         self.validate_additional_spell_cost_selections(
             &definition,
             player,
@@ -2720,13 +2751,23 @@ impl Game {
                 "a graveyard permission cast cannot use mana or convoke",
             ));
         }
+        let mut payment_definition = definition.clone();
+        if let Some(x_value) = chosen_x {
+            payment_definition.mana_cost.generic = payment_definition
+                .mana_cost
+                .generic
+                .checked_add(x_value)
+                .ok_or(RulesError::IllegalAction(
+                    "chosen X overflows generic mana cost",
+                ))?;
+        }
         let (paid_cost, mana_spent) = if from_graveyard {
             (self.players[player.0].mana_pool.clone(), None)
         } else {
             self.pay_cost_with_convoke(
                 player,
                 request.card,
-                &definition,
+                &payment_definition,
                 &request.convoke,
                 mana_payment_selection,
             )?
@@ -2753,6 +2794,7 @@ impl Game {
             ability_id: None,
             targets: spell_targets,
             effects: definition.effects,
+            chosen_x,
             mana_spent: mana_spent.clone(),
         });
         if let Some(colors) = mana_spent {
@@ -2781,6 +2823,46 @@ impl Game {
         self.priority = player;
         self.check_state_based_actions()?;
         self.flush_pending_dies_triggers();
+        Ok(())
+    }
+
+    /// Verifies target constraints that depend on the selected X before any
+    /// cost, zone, or receipt mutation. Tokens have mana value zero in this
+    /// public slice, while a catalog card reads its printed mana cost.
+    fn validate_chosen_x_targets(
+        &self,
+        definition: &CardDefinition,
+        targets: &[Target],
+        x_value: u8,
+    ) -> Result<(), RulesError> {
+        let mut targets = targets.iter().copied();
+        for effect in &definition.effects {
+            let Some(requirement) = effect.target_requirement() else {
+                continue;
+            };
+            let target = targets.next().ok_or(RulesError::IllegalAction(
+                "chosen-X spell target is missing",
+            ))?;
+            if !effect.requires_chosen_x() {
+                continue;
+            }
+            if requirement != TargetRequirement::Creature {
+                return Err(RulesError::IllegalAction(
+                    "chosen-X instruction has an unsupported target requirement",
+                ));
+            }
+            let Target::Permanent(card) = target else {
+                return Err(RulesError::IllegalTarget(target));
+            };
+            let mana_value = if self.object(card)?.token.is_some() {
+                0
+            } else {
+                self.card_definition(card)?.mana_cost.mana_value()
+            };
+            if mana_value > x_value {
+                return Err(RulesError::IllegalTarget(target));
+            }
+        }
         Ok(())
     }
 
@@ -3756,6 +3838,34 @@ impl Game {
                     "a spent-mana conditional stack spell lacks its payment receipt",
                 ));
             }
+            let requires_chosen_x = definition.effects.iter().any(Effect::requires_chosen_x);
+            if is_ability && stack_object.chosen_x.is_some() {
+                return Err(RulesError::IllegalAction(
+                    "a stack ability cannot retain a spell chosen-X value",
+                ));
+            }
+            if !is_ability && requires_chosen_x != stack_object.chosen_x.is_some() {
+                return Err(RulesError::IllegalAction(
+                    "a chosen-X stack spell lacks or fabricates its selected value",
+                ));
+            }
+            if requires_chosen_x && stack_object.mana_spent.as_ref().is_none_or(Vec::is_empty) {
+                return Err(RulesError::IllegalAction(
+                    "a chosen-X stack spell lacks an explicit payment receipt",
+                ));
+            }
+            if let Some(chosen_x) = stack_object.chosen_x {
+                let expected_symbols = usize::from(definition.mana_cost.mana_value())
+                    .checked_add(usize::from(chosen_x))
+                    .ok_or(RulesError::IllegalAction(
+                        "chosen-X stack spell has an impossible paid-cost size",
+                    ))?;
+                if stack_object.mana_spent.as_ref().map_or(0, Vec::len) != expected_symbols {
+                    return Err(RulesError::IllegalAction(
+                        "chosen-X stack spell receipt does not match printed cost plus X",
+                    ));
+                }
+            }
             if let Some(colors) = &stack_object.mana_spent
                 && let Some(cast_index) = self.event_log.iter().rposition(|event| {
                     matches!(event, GameEvent::SpellCast { card, .. } if *card == stack_object.card)
@@ -4547,6 +4657,7 @@ impl Game {
                 | Effect::DestroyTargetArtifact
                 | Effect::DestroyTargetArtifactOrCreatureNoRegeneration
                 | Effect::DestroyDistinctTargetCreature
+                | Effect::DestroyTargetCreatureWithManaValueAtMostChosenX
                 | Effect::TapTargetCreature
                 | Effect::UntapSource
                 | Effect::UntapTargetLand
@@ -4683,6 +4794,7 @@ impl Game {
                     self.resolve_effect(
                         stack_object.card,
                         stack_object.controller,
+                        stack_object.chosen_x,
                         stack_object.mana_spent.as_deref(),
                         effect,
                         None,
@@ -4716,6 +4828,7 @@ impl Game {
                             self.resolve_effect(
                                 stack_object.card,
                                 stack_object.controller,
+                                stack_object.chosen_x,
                                 stack_object.mana_spent.as_deref(),
                                 effect,
                                 Some(target),
@@ -4908,6 +5021,7 @@ impl Game {
                 ability_id: Some(ability.id),
                 targets,
                 effects: ability.effects,
+                chosen_x: None,
                 mana_spent: None,
             });
             self.record_event(GameEvent::TriggeredAbilityStacked {
@@ -4956,6 +5070,7 @@ impl Game {
                     ability_id: Some(ability.id),
                     targets,
                     effects: ability.effects,
+                    chosen_x: None,
                     mana_spent: None,
                 });
                 self.record_event(GameEvent::TriggeredAbilityStacked {
@@ -5107,6 +5222,7 @@ impl Game {
                 ability_id: Some(ability.id),
                 targets,
                 effects: ability.effects,
+                chosen_x: None,
                 mana_spent: None,
             });
             self.record_event(GameEvent::TriggeredAbilityStacked {
@@ -5325,6 +5441,7 @@ impl Game {
                     ability_id: Some(ability.id),
                     targets,
                     effects: ability.effects,
+                    chosen_x: None,
                     mana_spent: None,
                 });
                 self.record_event(GameEvent::TriggeredAbilityStacked {
@@ -5370,6 +5487,7 @@ impl Game {
                 ability_id: Some(pending.ability.id),
                 targets: vec![],
                 effects,
+                chosen_x: None,
                 mana_spent: None,
             });
             self.record_event(GameEvent::TriggeredAbilityStacked {
@@ -5398,6 +5516,7 @@ impl Game {
                 ability_id: Some(pending.ability.id),
                 targets: vec![],
                 effects: pending.ability.effects,
+                chosen_x: None,
                 mana_spent: None,
             });
             self.record_event(GameEvent::TriggeredAbilityStacked {
@@ -5543,6 +5662,7 @@ impl Game {
         &mut self,
         source: ObjectId,
         controller: PlayerId,
+        chosen_x: Option<u8>,
         mana_spent: Option<&[Color]>,
         effect: &Effect,
         target: Option<Target>,
@@ -6198,6 +6318,23 @@ impl Game {
                     return Err(RulesError::IllegalTarget(Target::Permanent(target)));
                 }
                 self.destroy_permanent(source, target)?;
+            }
+            Effect::DestroyTargetCreatureWithManaValueAtMostChosenX => {
+                let target = Self::target_permanent(target)?;
+                if !self.target_matches(Target::Permanent(target), TargetRequirement::Creature) {
+                    return Err(RulesError::IllegalTarget(Target::Permanent(target)));
+                }
+                let x_value = usize::from(chosen_x.ok_or(RulesError::IllegalAction(
+                    "chosen-X resolution lacks the selected X value",
+                ))?);
+                let mana_value = if self.object(target)?.token.is_some() {
+                    0
+                } else {
+                    usize::from(self.card_definition(target)?.mana_cost.mana_value())
+                };
+                if mana_value <= x_value {
+                    self.destroy_permanent(source, target)?;
+                }
             }
             Effect::TapTargetCreature => {
                 let target = Self::target_permanent(target)?;
@@ -7485,6 +7622,11 @@ impl Game {
 
     fn validate_cast_effects_for_ability(effects: &[Effect]) -> Result<(), RulesError> {
         for effect in effects {
+            if effect.requires_chosen_x() {
+                return Err(RulesError::IllegalAction(
+                    "chosen-X effects are valid only on spells",
+                ));
+            }
             if matches!(effect, Effect::AttachSourceAndModifyTargetPt { .. }) {
                 return Err(RulesError::IllegalAction(
                     "aura attachment effects are valid only on permanent spells",
