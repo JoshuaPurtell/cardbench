@@ -985,6 +985,14 @@ pub enum Effect {
         power: i16,
         toughness: i16,
     },
+    /// Apply a temporary layer-seven adjustment and layer-six keyword grant to
+    /// one creature target. Keeping the pair in one instruction preserves one
+    /// target word and therefore one stack target slot.
+    ModifyTargetPtAndKeywordUntilEndOfTurn {
+        power: i16,
+        toughness: i16,
+        keyword: Keyword,
+    },
     ModifyTargetKeywordUntilEndOfTurn {
         keyword: Keyword,
     },
@@ -1102,6 +1110,7 @@ impl Effect {
             Self::DealDamage { target, .. }
             | Self::DealDamageEqualToAttackingCreatures { target } => Some(*target),
             Self::ModifyTargetPtUntilEndOfTurn { .. }
+            | Self::ModifyTargetPtAndKeywordUntilEndOfTurn { .. }
             | Self::ModifyTargetKeywordUntilEndOfTurn { .. }
             | Self::RadianceDealDamageToCreatures { .. }
             | Self::RadianceUntapAndModifyUntilEndOfTurn { .. }

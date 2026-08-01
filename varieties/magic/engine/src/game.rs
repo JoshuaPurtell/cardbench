@@ -3902,6 +3902,7 @@ impl Game {
                 | Effect::DealDamageToEachPlayerFromReceivedDamage
                 | Effect::DealDamageEqualToAttackingCreatures { .. }
                 | Effect::ModifyTargetPtUntilEndOfTurn { .. }
+                | Effect::ModifyTargetPtAndKeywordUntilEndOfTurn { .. }
                 | Effect::ModifyTargetKeywordUntilEndOfTurn { .. }
                 | Effect::PreventTargetBlockingSourceUntilEndOfTurn
                 | Effect::ModifySourcePtUntilEndOfTurn { .. }
@@ -5086,6 +5087,35 @@ impl Game {
                         power: *power,
                         toughness: *toughness,
                     },
+                    Duration::EndOfTurn(self.turn),
+                )?;
+            }
+            Effect::ModifyTargetPtAndKeywordUntilEndOfTurn {
+                power,
+                toughness,
+                keyword,
+            } => {
+                let target = Self::target_permanent(target)?;
+                if !self
+                    .characteristics(target)?
+                    .card_types
+                    .contains(&CardType::Creature)
+                {
+                    return Err(RulesError::IllegalTarget(Target::Permanent(target)));
+                }
+                self.install_continuous_effect(
+                    source,
+                    target,
+                    ContinuousChange::ModifyPowerToughness {
+                        power: *power,
+                        toughness: *toughness,
+                    },
+                    Duration::EndOfTurn(self.turn),
+                )?;
+                self.install_continuous_effect(
+                    source,
+                    target,
+                    ContinuousChange::AddKeyword(keyword.clone()),
                     Duration::EndOfTurn(self.turn),
                 )?;
             }

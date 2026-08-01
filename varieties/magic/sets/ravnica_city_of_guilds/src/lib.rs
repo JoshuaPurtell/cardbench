@@ -35,7 +35,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 94] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 95] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -78,6 +78,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 94] = [
     "RAV-MOROII",
     "RAV-SELESNYA-EVANGEL",
     "RAV-SELESNYA-GUILDMAGE",
+    "RAV-GOLGARI-GUILDMAGE",
     "RAV-SANDSOWER",
     "RAV-DIVEBOMBER-GRIFFIN",
     "RAV-DROMAD-PUREBRED",
@@ -2011,6 +2012,43 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
+        // Full fidelity: either color pays each hybrid cast symbol; both
+        // target-creature activations use the stack, including one composite
+        // layer-seven and layer-six modifier that retains exactly one target.
+        CardDefinition {
+            id: "RAV-GOLGARI-GUILDMAGE",
+            name: "Golgari Guildmage",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_hybrid(
+                0,
+                [],
+                [
+                    HybridManaSymbol {
+                        first: Color::Black,
+                        second: Color::Green,
+                    },
+                    HybridManaSymbol {
+                        first: Color::Black,
+                        second: Color::Green,
+                    },
+                ],
+            ),
+            colors: colors([Color::Black, Color::Green]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "hybrid-cost-casting",
+                "base-characteristics",
+                "activated-target-pump-and-trample",
+                "activated-regenerate-target-creature",
+            ],
+            power: Some(2),
+            toughness: Some(2),
+            keywords: vec![],
+            effects: vec![],
+        },
         // Compatibility scope: normal colored-cost creature casting and base
         // characteristics only. Its printed flying and activated library
         // behavior are deliberately omitted from this compatibility slice.
@@ -3210,6 +3248,40 @@ pub fn rav_mana_ability_bindings() -> Vec<ManaAbilityBinding> {
 #[allow(clippy::too_many_lines)]
 pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
     vec![
+        ActivatedAbilityBinding {
+            card_definition: "RAV-GOLGARI-GUILDMAGE",
+            ability: ActivatedAbility {
+                id: "target-pump-and-trample",
+                mana_cost: ManaCost::with_colors(0, [Color::Black, Color::Green]),
+                tap_cost: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![cardbench_magic_engine::TargetRequirement::Creature],
+                effects: vec![Effect::ModifyTargetPtAndKeywordUntilEndOfTurn {
+                    power: 1,
+                    toughness: 1,
+                    keyword: Keyword::Trample,
+                }],
+            },
+        },
+        ActivatedAbilityBinding {
+            card_definition: "RAV-GOLGARI-GUILDMAGE",
+            ability: ActivatedAbility {
+                id: "regenerate-target-creature",
+                mana_cost: ManaCost::with_colors(2, [Color::Black, Color::Green]),
+                tap_cost: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![cardbench_magic_engine::TargetRequirement::Creature],
+                effects: vec![Effect::RegenerateTargetCreature],
+            },
+        },
         ActivatedAbilityBinding {
             card_definition: "RAV-GOLGARI-ROTWURM",
             ability: ActivatedAbility {
@@ -4681,7 +4753,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 134);
+        assert_eq!(first.len(), 135);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

@@ -258,6 +258,11 @@ Oracle Magic rules coverage.
   `AdditionalCreatureTappedAsAbilityCost` immediately before its matching
   `AbilityActivated`; the invariant audit rejects orphaned, duplicate,
   wrong-source, or wrong-cardinality receipts.
+- A composite one-target modifier retains exactly one creature target slot on
+  its stack object even when it installs both a layer-seven power/toughness
+  change and a layer-six keyword grant. Both effects use that same legal
+  target, expire together at end of turn, and emit their ordinary continuous-
+  effect receipts before the enclosing ability resolves.
 - A target-tap effect rechecks its creature target at stack resolution. It may
   leave an already tapped legal target unchanged, but an untapped-to-tapped
   transition emits exactly one `PermanentTapped` receipt before the stack item
