@@ -71,7 +71,7 @@ explicitly scoped compatibility slices.
 RAV shown scenarios are fixture-driven from
 `sets/ravnica_city_of_guilds/scenarios/public/train_scenarios.toml`; each declares
 setup, actions, state assertions, event markers, and a fixed digest. The
-current corpus contains 151 scenarios and covers:
+current corpus contains 152 scenarios and covers:
 
 - casting to the stack and both-player priority passes (`Lightning Helix`);
 - colored-cost creature casting and permanent characteristics (`Watchwolf`);
@@ -89,6 +89,9 @@ current corpus contains 151 scenarios and covers:
   priority windows and untap receipts;
 - a target-free, controller-only public-graveyard land recursion slice (`Life
   from the Loam`), including Dredge 3 and ordinary graveyard-to-hand receipts;
+- a controller-only typed-library land search to a tapped battlefield entry
+  (`Farseek`), including search-prevention and deferred land-entry-trigger
+  boundaries;
 - a one-mana, fully convoked targeted temporary boost (`Gather Courage`),
   including its complete printed behavior;
 - a full-fidelity combat-scoped creature exile with Convoke (`Devouring

@@ -60,6 +60,23 @@ pub struct BasicLandTypeBinding {
     pub land_type: BasicLandType,
 }
 
+/// The expansion-neutral class of card a library-search effect may select.
+/// The engine works from typed catalog facts rather than copied card wording.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum LibrarySearchRequirement {
+    /// A land card whose registered basic-land type is one of the allowed
+    /// types. The binding is a type-line fact, not a display-name match.
+    BasicLandTypes(BTreeSet<BasicLandType>),
+}
+
+/// Destination for a selected library card. A tapped battlefield entry is a
+/// single semantic destination so the public event log cannot claim an
+/// untapped entry followed by an unrelated tap action.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum LibrarySearchDestination {
+    BattlefieldTapped,
+}
+
 /// Immutable behavior applied as a land enters the battlefield.
 ///
 /// This deliberately covers only replacement-style entry facts such as
@@ -1011,6 +1028,15 @@ pub enum Effect {
     /// next turn begins, so a rejected search cannot consume mana, cards, or
     /// priority receipts.
     PreventLibrarySearchUntilEndOfTurn,
+    /// Search the resolving controller's library for one card matching the
+    /// typed requirement, move the deterministic selected card to the stated
+    /// destination, then shuffle that controller's library. A policy may
+    /// later replace the deterministic selector without altering this stack
+    /// effect's lifecycle or receipts.
+    SearchControllerLibrary {
+        requirement: LibrarySearchRequirement,
+        destination: LibrarySearchDestination,
+    },
     /// Reveal the resolving controller's top library card, move it to hand,
     /// then make that controller lose life equal to its catalog mana value.
     /// An empty library has no card to reveal and is not a draw-loss path.
@@ -1280,6 +1306,7 @@ impl Effect {
             | Self::GainLifeControllerFromSourceDamage
             | Self::DrawController
             | Self::PreventLibrarySearchUntilEndOfTurn
+            | Self::SearchControllerLibrary { .. }
             | Self::RevealTopCardPutIntoHandLoseLifeEqualToManaValue
             | Self::DealDamageToEachPlayerFromReceivedDamage
             | Self::AddManaController { .. }
@@ -1949,6 +1976,15 @@ pub enum GameEvent {
     LibraryShuffled {
         player: PlayerId,
         cards: u16,
+    },
+    /// One represented search instruction completed. `None` means the search
+    /// found nothing (including a current-turn search-prevention effect), but
+    /// the required following shuffle retains its own receipt.
+    LibrarySearchResolved {
+        player: PlayerId,
+        source: ObjectId,
+        found: Option<ObjectId>,
+        destination: LibrarySearchDestination,
     },
     OpeningHandDrawn {
         player: PlayerId,

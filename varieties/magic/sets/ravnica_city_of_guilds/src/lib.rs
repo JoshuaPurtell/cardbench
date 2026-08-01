@@ -25,9 +25,10 @@ use cardbench_magic_engine::{
     ActivatedAbility, ActivatedAbilityBinding, ActivatedManaAbility, AdditionalSpellCost,
     AdditionalSpellCostBinding, BasicLandType, BasicLandTypeBinding, CardDefinition, CardType,
     CastRequest, Color, ConvokeContribution, ConvokePayment, DeckEntry, DeckList, DeckRules,
-    Effect, Game, HybridManaSymbol, Keyword, LandEntryBinding, ManaAbilityBinding,
-    ManaAbilityOutput, ManaBundle, ManaCost, PlayerId, RulesError, StaticContinuousEffectBinding,
-    Target, TokenSpec, TriggerCondition, TriggeredAbility, TriggeredAbilityBinding, Zone,
+    Effect, Game, HybridManaSymbol, Keyword, LandEntryBinding, LibrarySearchDestination,
+    LibrarySearchRequirement, ManaAbilityBinding, ManaAbilityOutput, ManaBundle, ManaCost,
+    PlayerId, RulesError, StaticContinuousEffectBinding, Target, TokenSpec, TriggerCondition,
+    TriggeredAbility, TriggeredAbilityBinding, Zone,
 };
 
 pub const SET_CODE: &str = "RAV";
@@ -720,6 +721,38 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             toughness: Some(0),
             keywords: vec![Keyword::Dredge(6)],
             effects: vec![],
+        },
+        // Compatibility scope: exact casting cost and typed non-Forest land
+        // search into a tapped battlefield entry. The public engine selects
+        // the first qualifying card in its deterministic library order until
+        // policies can submit the hidden-zone choice, so this is deliberately
+        // not a positive full-fidelity definition.
+        CardDefinition {
+            id: "RAV-FARSEEK",
+            name: "Farseek",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(1, [Color::Green]),
+            colors: colors([Color::Green]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Sorcery]),
+            is_basic_land: false,
+            supported_rules: &[
+                "library-nonforest-land-type-search",
+                "battlefield-tapped-land-entry",
+                "deterministic-library-search-selection",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![Effect::SearchControllerLibrary {
+                requirement: LibrarySearchRequirement::BasicLandTypes(BTreeSet::from([
+                    BasicLandType::Plains,
+                    BasicLandType::Island,
+                    BasicLandType::Swamp,
+                    BasicLandType::Mountain,
+                ])),
+                destination: LibrarySearchDestination::BattlefieldTapped,
+            }],
         },
         // Compatibility scope: normal creature casting, base characteristics,
         // and the shared Dredge replacement. Its printed upkeep and end-step
@@ -5431,7 +5464,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 151);
+        assert_eq!(first.len(), 152);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

@@ -7,10 +7,11 @@ use crate::{
     AdditionalSpellCost, AdditionalSpellCostBinding, BasicLandType, BasicLandTypeBinding,
     CardDefinition, CardObject, CardType, CastPaymentManaAbility, Characteristics, Color,
     CombatBlock, ContinuousChange, ContinuousEffect, CreatureSubtype, DeckList, Duration, Effect,
-    GameEvent, Keyword, LandEntryBinding, ManaAbilityActivation, ManaAbilityBinding,
-    ManaAbilityOutput, ManaPaymentSelection, ObjectId, PlayerId, PlayerState, PolicyMoveKind,
-    StackEffectResolution, StackObject, StackResolutionPlan, StaticContinuousEffectBinding, Step,
-    Target, TargetRequirement, TokenSpec, TriggerCondition, TriggeredAbilityBinding, Zone,
+    GameEvent, Keyword, LandEntryBinding, LibrarySearchDestination, LibrarySearchRequirement,
+    ManaAbilityActivation, ManaAbilityBinding, ManaAbilityOutput, ManaPaymentSelection, ObjectId,
+    PlayerId, PlayerState, PolicyMoveKind, StackEffectResolution, StackObject, StackResolutionPlan,
+    StaticContinuousEffectBinding, Step, Target, TargetRequirement, TokenSpec, TriggerCondition,
+    TriggeredAbilityBinding, Zone,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -375,6 +376,11 @@ pub struct Game {
     pending_damage_triggers: Vec<PendingDamageTrigger>,
     pending_life_gain_triggers: Vec<PendingLifeGainTrigger>,
     pending_dies_triggers: Vec<PendingDiesTrigger>,
+    /// Land entries produced while a spell or ability resolves. Their trigger
+    /// batches wait until that enclosing stack object has completed its own
+    /// terminal lifecycle, matching the ordinary post-resolution trigger
+    /// window rather than creating a nested stack object mid-resolution.
+    pending_land_entry_trigger_batches: u8,
     pending_damage_redirection: Option<PendingDamageRedirection>,
     damage_redirections: Vec<DamageRedirection>,
 }
@@ -578,6 +584,7 @@ impl Game {
             pending_damage_triggers: Vec::new(),
             pending_life_gain_triggers: Vec::new(),
             pending_dies_triggers: Vec::new(),
+            pending_land_entry_trigger_batches: 0,
             pending_damage_redirection: None,
             damage_redirections: Vec::new(),
         };
@@ -3005,6 +3012,71 @@ impl Game {
         Ok(())
     }
 
+    /// Resolves one stack-based, controller-owned typed library search. The
+    /// current public policy surface cannot submit hidden-library choices, so
+    /// this deliberately selects the first legal card in the deterministic
+    /// library order. It nevertheless preserves the normal search, entry,
+    /// shuffle, and post-resolution trigger boundaries for later policy work.
+    fn resolve_controller_library_search(
+        &mut self,
+        source: ObjectId,
+        player: PlayerId,
+        requirement: &LibrarySearchRequirement,
+        destination: LibrarySearchDestination,
+    ) -> Result<(), RulesError> {
+        let found = (self.library_search_prevented_until != Some(self.turn))
+            .then(|| {
+                self.players[player.0].library.iter().copied().find(|card| {
+                    self.zone_of(*card) == Some(Zone::Library)
+                        && self
+                            .object(*card)
+                            .is_ok_and(|object| object.owner == player)
+                        && self
+                            .library_search_matches(*card, requirement)
+                            .unwrap_or(false)
+                })
+            })
+            .flatten();
+        if let Some(card) = found {
+            match destination {
+                LibrarySearchDestination::BattlefieldTapped => {
+                    self.move_to_zone(card, Zone::Battlefield)?;
+                    self.objects
+                        .get_mut(&card)
+                        .ok_or(RulesError::UnknownCard(card))?
+                        .tapped = true;
+                    self.queue_land_entry_trigger_batch()?;
+                }
+            }
+        }
+        self.record_event(GameEvent::LibrarySearchResolved {
+            player,
+            source,
+            found,
+            destination,
+        });
+        self.shuffle_library(player);
+        let cards = u16::try_from(self.players[player.0].library.len()).unwrap_or(u16::MAX);
+        self.record_event(GameEvent::LibraryShuffled { player, cards });
+        Ok(())
+    }
+
+    fn library_search_matches(
+        &self,
+        card: ObjectId,
+        requirement: &LibrarySearchRequirement,
+    ) -> Result<bool, RulesError> {
+        let definition = self.card_definition(card)?;
+        if !definition.is_land() {
+            return Ok(false);
+        }
+        match requirement {
+            LibrarySearchRequirement::BasicLandTypes(types) => Ok(self
+                .basic_land_type(card)?
+                .is_some_and(|land_type| types.contains(&land_type))),
+        }
+    }
+
     pub fn set_shuffle_seed(&mut self, seed: u64) {
         self.shuffle_seed = seed;
     }
@@ -3133,7 +3205,13 @@ impl Game {
                 "pending dies trigger escaped its state-based-action batch",
             ));
         }
+        if self.pending_land_entry_trigger_batches != 0 {
+            return Err(RulesError::IllegalAction(
+                "pending land-entry trigger escaped its resolving stack object",
+            ));
+        }
         Self::validate_mana_ability_event_order(&self.event_log)?;
+        Self::validate_library_search_event_order(&self.event_log)?;
         Self::validate_spell_mana_payment_event_order(&self.event_log)?;
         self.validate_additional_spell_cost_event_order()?;
         self.validate_stack_terminal_event_order()?;
@@ -4270,6 +4348,17 @@ impl Game {
                     "targeted discard must request at least one card",
                 ));
             }
+            if matches!(
+                effect,
+                Effect::SearchControllerLibrary {
+                    requirement: LibrarySearchRequirement::BasicLandTypes(types),
+                    ..
+                } if types.is_empty()
+            ) {
+                return Err(RulesError::IllegalAction(
+                    "library search must name at least one allowed land type",
+                ));
+            }
             let amount = match effect {
                 Effect::DealDamage { amount, .. }
                 | Effect::LoseLifeTarget { amount }
@@ -4295,6 +4384,7 @@ impl Game {
                 | Effect::DrawController
                 | Effect::DrawTargetPlayer
                 | Effect::PreventLibrarySearchUntilEndOfTurn
+                | Effect::SearchControllerLibrary { .. }
                 | Effect::RevealTopCardPutIntoHandLoseLifeEqualToManaValue
                 | Effect::GainLifeControllerFromSourceDamage
                 | Effect::DealDamageToEachPlayerFromReceivedDamage
@@ -4504,6 +4594,7 @@ impl Game {
                 ability,
             });
             self.check_state_based_actions()?;
+            self.flush_pending_land_entry_triggers()?;
             self.flush_pending_damage_triggers();
             self.flush_pending_life_gain_triggers();
             self.flush_pending_dies_triggers();
@@ -4540,6 +4631,7 @@ impl Game {
                 self.enqueue_land_entry_triggers()?;
             }
         }
+        self.flush_pending_land_entry_triggers()?;
         self.flush_pending_damage_triggers();
         self.flush_pending_life_gain_triggers();
         self.flush_pending_dies_triggers();
@@ -4582,6 +4674,24 @@ impl Game {
                 controller,
                 TriggerCondition::LandEntersBattlefield,
             );
+        }
+        Ok(())
+    }
+
+    fn queue_land_entry_trigger_batch(&mut self) -> Result<(), RulesError> {
+        self.pending_land_entry_trigger_batches = self
+            .pending_land_entry_trigger_batches
+            .checked_add(1)
+            .ok_or(RulesError::IllegalAction(
+                "land-entry trigger batch count overflowed",
+            ))?;
+        Ok(())
+    }
+
+    fn flush_pending_land_entry_triggers(&mut self) -> Result<(), RulesError> {
+        let batches = std::mem::take(&mut self.pending_land_entry_trigger_batches);
+        for _ in 0..batches {
+            self.enqueue_land_entry_triggers()?;
         }
         Ok(())
     }
@@ -5568,6 +5678,17 @@ impl Game {
                     source,
                     until_turn: self.turn,
                 });
+            }
+            Effect::SearchControllerLibrary {
+                requirement,
+                destination,
+            } => {
+                self.resolve_controller_library_search(
+                    source,
+                    controller,
+                    requirement,
+                    *destination,
+                )?;
             }
             Effect::RevealTopCardPutIntoHandLoseLifeEqualToManaValue => {
                 let Some(card) = self.players[controller.0].library.last().copied() else {
@@ -7339,6 +7460,50 @@ impl Game {
             }
             Err(error) => Err(error),
         }
+    }
+
+    /// Each library search must retain its own atomic movement (when it found
+    /// a card) and immediately-following shuffle receipt. This makes the
+    /// hidden-zone selection observable without exposing every library card
+    /// to an opponent or allowing a later event to impersonate the search.
+    fn validate_library_search_event_order(events: &[GameEvent]) -> Result<(), RulesError> {
+        for (index, event) in events.iter().enumerate() {
+            let GameEvent::LibrarySearchResolved {
+                player,
+                found,
+                destination,
+                ..
+            } = event
+            else {
+                continue;
+            };
+            if let Some(card) = found
+                && !matches!(
+                    events.get(index.checked_sub(1).ok_or(RulesError::IllegalAction(
+                        "library-search receipt lacks selected-card movement",
+                    ))?),
+                    Some(GameEvent::CardMoved { card: moved, to: Zone::Battlefield }) if moved == card
+                )
+            {
+                return Err(RulesError::IllegalAction(
+                    "library-search receipt lacks its selected battlefield movement",
+                ));
+            }
+            if !matches!(destination, LibrarySearchDestination::BattlefieldTapped) {
+                return Err(RulesError::IllegalAction(
+                    "library-search receipt has an unsupported destination",
+                ));
+            }
+            if !matches!(
+                events.get(index + 1),
+                Some(GameEvent::LibraryShuffled { player: shuffled, .. }) if shuffled == player
+            ) {
+                return Err(RulesError::IllegalAction(
+                    "library-search receipt lacks its immediate controller shuffle",
+                ));
+            }
+        }
+        Ok(())
     }
 
     /// Audits the causally significant mana-ability receipt sequences. These

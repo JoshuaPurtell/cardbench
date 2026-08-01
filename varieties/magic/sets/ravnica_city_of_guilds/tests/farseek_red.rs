@@ -1,7 +1,11 @@
 //! Red regression for Farseek's typed land search slice.
 
 use cardbench_magic_engine::{CardType, CastRequest, Color, Game, GameEvent, PlayerId, Zone};
-use cardbench_magic_rav::{card_definitions, rav_basic_land_type_bindings};
+use cardbench_magic_rav::{
+    card_definitions, rav_activated_ability_bindings, rav_additional_spell_cost_bindings,
+    rav_basic_land_type_bindings, rav_land_entry_bindings, rav_mana_ability_bindings,
+    rav_static_continuous_effect_bindings, rav_triggered_ability_bindings,
+};
 
 #[test]
 fn farseek_has_its_exact_supported_casting_chassis() {
@@ -76,4 +80,157 @@ fn farseek_returns_only_a_controller_owned_nonforest_typed_land_tapped() {
     println!("Farseek trace: {:?}", game.canonical_event_log());
     game.validate_invariants()
         .expect("Farseek preserves zone, stack, and event invariants");
+}
+
+#[test]
+fn farseek_land_entry_waits_for_its_spell_to_finish_before_triggering() {
+    let mut game = Game::new_with_all_bindings_triggers_static_continuous_effects_and_land_entries(
+        card_definitions(),
+        2,
+        rav_mana_ability_bindings(),
+        rav_basic_land_type_bindings(),
+        rav_additional_spell_cost_bindings(),
+        rav_activated_ability_bindings(),
+        rav_triggered_ability_bindings(),
+        rav_static_continuous_effect_bindings(),
+        rav_land_entry_bindings(),
+    )
+    .expect("full RAV fixture builds");
+    let stone_seeder = game
+        .add_card(
+            PlayerId(0),
+            "RAV-STONE-SEEDER-HIEROPHANT",
+            Zone::Battlefield,
+        )
+        .expect("Stone-Seeder setup");
+    let farseek = game
+        .add_card(PlayerId(0), "RAV-FARSEEK", Zone::Hand)
+        .expect("Farseek setup");
+    let plains = game
+        .add_card(PlayerId(0), "RAV-PLAINS", Zone::Library)
+        .expect("Plains setup");
+    game.grant_mana(PlayerId(0), Color::Green, 2)
+        .expect("Farseek mana");
+
+    game.cast_spell(
+        PlayerId(0),
+        CastRequest {
+            card: farseek,
+            targets: vec![],
+            convoke: vec![],
+            payment_mana_abilities: vec![],
+        },
+    )
+    .expect("Farseek casts");
+    game.pass_priority(PlayerId(0)).expect("caster passes");
+    game.pass_priority(PlayerId(1)).expect("Farseek resolves");
+
+    let spell_resolved = game
+        .event_log
+        .iter()
+        .position(|event| matches!(event, GameEvent::SpellResolved { card } if *card == farseek))
+        .expect("Farseek resolution receipt");
+    let spell_to_graveyard = game
+        .event_log
+        .iter()
+        .position(|event| matches!(event, GameEvent::CardMoved { card, to: Zone::Graveyard } if *card == farseek))
+        .expect("Farseek terminal zone receipt");
+    let trigger_stacked = game
+        .event_log
+        .iter()
+        .position(|event| {
+            matches!(
+                event,
+                GameEvent::TriggeredAbilityStacked { source, ability, .. }
+                    if *source == stone_seeder && *ability == "landfall-untap-source"
+            )
+        })
+        .expect("Stone-Seeder trigger receipt");
+    assert!(spell_resolved < spell_to_graveyard);
+    assert!(spell_to_graveyard < trigger_stacked);
+    assert_eq!(game.zone_of(plains), Some(Zone::Battlefield));
+    assert_eq!(
+        game.stack.len(),
+        1,
+        "the land-entry trigger is stack-backed"
+    );
+
+    game.pass_priority(PlayerId(0))
+        .expect("controller passes trigger");
+    game.pass_priority(PlayerId(1))
+        .expect("opponent resolves trigger");
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::AbilityResolved { source, ability }
+            if *source == stone_seeder && *ability == "landfall-untap-source"
+    )));
+    game.validate_invariants()
+        .expect("deferred land-entry trigger batch is fully flushed");
+}
+
+#[test]
+fn farseek_respects_current_turn_library_search_prevention() {
+    let mut game =
+        Game::new_with_basic_land_types(card_definitions(), 2, rav_basic_land_type_bindings())
+            .expect("RAV fixture builds with typed land lines");
+    let shadow = game
+        .add_card(PlayerId(0), "RAV-SHADOW-OF-DOUBT", Zone::Hand)
+        .expect("Shadow setup");
+    let farseek = game
+        .add_card(PlayerId(0), "RAV-FARSEEK", Zone::Hand)
+        .expect("Farseek setup");
+    let plains = game
+        .add_card(PlayerId(0), "RAV-PLAINS", Zone::Library)
+        .expect("Plains setup");
+    let shadow_draw = game
+        .add_card(PlayerId(0), "RAV-FOREST", Zone::Library)
+        .expect("Shadow draw setup");
+    game.grant_mana(PlayerId(0), Color::Blue, 1)
+        .expect("Shadow mana");
+    game.grant_mana(PlayerId(0), Color::Black, 1)
+        .expect("Shadow mana");
+    game.grant_mana(PlayerId(0), Color::Green, 2)
+        .expect("Farseek mana");
+
+    game.cast_spell(
+        PlayerId(0),
+        CastRequest {
+            card: shadow,
+            targets: vec![],
+            convoke: vec![],
+            payment_mana_abilities: vec![],
+        },
+    )
+    .expect("Shadow casts");
+    game.pass_priority(PlayerId(0))
+        .expect("caster passes Shadow");
+    game.pass_priority(PlayerId(1)).expect("Shadow resolves");
+    game.cast_spell(
+        PlayerId(0),
+        CastRequest {
+            card: farseek,
+            targets: vec![],
+            convoke: vec![],
+            payment_mana_abilities: vec![],
+        },
+    )
+    .expect("Farseek still casts through prevention");
+    game.pass_priority(PlayerId(0))
+        .expect("caster passes Farseek");
+    game.pass_priority(PlayerId(1))
+        .expect("Farseek resolves without searching");
+
+    assert_eq!(game.zone_of(plains), Some(Zone::Library));
+    assert_eq!(game.zone_of(shadow_draw), Some(Zone::Hand));
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::LibrarySearchResolved {
+            player: PlayerId(0),
+            source,
+            found: None,
+            ..
+        } if *source == farseek
+    )));
+    game.validate_invariants()
+        .expect("search prevention remains compatible with Farseek resolution");
 }

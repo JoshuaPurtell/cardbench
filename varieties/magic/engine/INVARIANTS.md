@@ -78,13 +78,16 @@ Oracle Magic rules coverage.
   select the newly entered land itself but can never select an opponent's land.
 - A `LandEntersBattlefield` trigger binding is permitted only on a permanent
   source and uses the same checked effect/target shape as every other trigger.
-  Every represented normal land entry first makes the land live, reaches its
-  ordinary state-based-action boundary, queues that land's own ETB triggers,
-  then scans every live non-token permanent for land-entry observers without a
-  controller restriction. Each observer receives its own ordinary synthetic
-  stack object and `TriggeredAbilityStacked` receipt; the active player keeps
-  the normal post-land-play priority window and a trigger never performs its
-  effect inline.
+  Every represented land entry first makes the land live, reaches its ordinary
+  state-based-action boundary, queues that land's own ETB triggers, then scans
+  every live non-token permanent for land-entry observers without a controller
+  restriction. An entry that occurs while another spell or ability resolves is
+  deferred until that enclosing stack object has emitted its terminal receipt
+  and changed zones; it never creates a nested stack object mid-resolution.
+  Each observer receives its own ordinary synthetic stack object and
+  `TriggeredAbilityStacked` receipt; the active player keeps the normal
+  post-resolution priority window and a trigger never performs its effect
+  inline.
 - A stack object has a unique card and a valid controller. Resolving or
   countering it removes it from the stack before it receives its resulting zone
   move.
@@ -459,10 +462,18 @@ Oracle Magic rules coverage.
   activated ability as a separately stack-resolving object.
 - A resolving turn-scoped library-search-prevention effect records one
   `LibrarySearchesPrevented { source, until_turn }` receipt for the current
-  nonzero turn. Every represented library search (currently Transmute) checks
-  that marker before inspecting a hand card, paying mana, moving a card, or
-  writing any search receipt. The marker may equal only the current turn and
-  is cleared as the next turn begins; a stale marker is an invariant failure.
+  nonzero turn. Immediate represented search actions such as Transmute reject
+  before costs or zone changes; stack-resolving search effects instead resolve
+  with `found: None` and retain their required shuffle. The marker may equal
+  only the current turn and is cleared as the next turn begins; a stale marker
+  is an invariant failure.
+- A stack-based typed library search examines only the resolving controller's
+  library and picks no more than one matching card. It records a normal
+  `CardMoved` battlefield entry before `LibrarySearchResolved`, immediately
+  follows the latter with that controller's `LibraryShuffled` receipt, and
+  records no selected-card movement when `found` is absent. The current
+  deterministic first-match rule is an explicit policy-fidelity boundary, not
+  a hidden-zone choice approximation.
 - Turn numbers are never zero, and the consecutive-pass counter is always
   below the number of surviving players outside its atomic resolution/step
   transition. A draw-replacement marker can exist only for the active player

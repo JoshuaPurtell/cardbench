@@ -10337,3 +10337,53 @@ priority = 0
 mana = ["0:green:0"]
 event_markers = ["SpellCast", "CardMoved", "SpellResolved"]
 digest = "fnv1a64:f751b3c262d7ba31"
+
+[[scenario]]
+id = "rav_farseek_typed_land_search"
+seed = 152
+description = "Resolve Farseek's bounded deterministic non-Forest typed-land search into a tapped battlefield entry and shuffle receipt."
+
+[[scenario.card]]
+label = "farseek"
+owner = 0
+definition = "RAV-FARSEEK"
+zone = "hand"
+
+[[scenario.card]]
+label = "forest"
+owner = 0
+definition = "RAV-FOREST"
+zone = "library"
+
+[[scenario.card]]
+label = "plains"
+owner = 0
+definition = "RAV-PLAINS"
+zone = "library"
+
+[[scenario.mana]]
+player = 0
+color = "green"
+amount = 2
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "farseek"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["farseek:graveyard", "forest:library", "plains:battlefield"]
+tapped = ["plains:true"]
+stack_size = 0
+priority = 0
+mana = ["0:green:0"]
+event_markers = ["CardMoved", "LibrarySearchResolved", "LibraryShuffled", "SpellResolved"]
+digest = "fnv1a64:ebc5a1ac8218a719"
