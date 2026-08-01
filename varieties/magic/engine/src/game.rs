@@ -9350,18 +9350,23 @@ impl Game {
                 GameEvent::AbilityResolved { source, ability }
                 | GameEvent::AbilityCounteredByRules { source, ability } => {
                     let key = (*source, *ability);
-                    let open = open_abilities.get_mut(&key).ok_or(RulesError::IllegalAction(
-                        "private opponent-library receipt saw an ability terminal without activation",
-                    ))?;
-                    if *open == 0 {
-                        return Err(RulesError::IllegalAction(
-                            "private opponent-library receipt saw excess ability terminals",
-                        ));
-                    }
-                    *open -= 1;
-                    if let Some(choices) = opened_choices.get_mut(&key) {
-                        if *choices > 0 {
-                            *choices -= 1;
+                    // Triggered abilities have terminal receipts too, but this
+                    // provenance audit owns only activated abilities. An
+                    // unrelated trigger (for example Civic Wayfinder's ETB)
+                    // must not be required to have an `AbilityActivated`
+                    // receipt merely because another ability can suspend for a
+                    // private opponent-library choice.
+                    if let Some(open) = open_abilities.get_mut(&key) {
+                        if *open == 0 {
+                            return Err(RulesError::IllegalAction(
+                                "private opponent-library receipt saw excess ability terminals",
+                            ));
+                        }
+                        *open -= 1;
+                        if let Some(choices) = opened_choices.get_mut(&key) {
+                            if *choices > 0 {
+                                *choices -= 1;
+                            }
                         }
                     }
                 }
