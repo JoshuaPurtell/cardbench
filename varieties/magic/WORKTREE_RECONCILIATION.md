@@ -12,13 +12,13 @@ remains available for a later, audited red-to-green port.
   `a3a89a2e`, green `b9082950`, and closure `03debeaf`. The dev implementation
   intentionally replaces the source lane's pre-resolution hidden-card choice
   with a stack-suspension, controller-private, no-priority boundary.
-- Thoughtpicker Witch remains the existing bounded creature chassis on `dev`.
-  The source lane's proposed activation is not imported: it uses a generic-only
-  cost representation, exposes opponent-library candidate identities through
-  a public receipt, and its fixture injects mana after `begin_game`. Each
-  conflicts with the current dev cost, hidden-information, and live-state
-  transition contracts. A future port needs an opponent-library private-choice
-  suspension, not deterministic exile or public candidate disclosure.
+- Thoughtpicker Witch is now ported on `dev` as red `7f1a6526` and green
+  `62eccace`. The current implementation preserves its generic activation
+  cost, but replaces the source lane's obsolete binding/fixture path with an
+  activated-ability stack suspension. Candidate identities are projected only
+  to the activating controller; the public log records the opening metadata,
+  legal exile result, and terminal ability receipt without disclosing the
+  opponent-library snapshot.
 
 ## Green lane (`magic/okr-green`)
 

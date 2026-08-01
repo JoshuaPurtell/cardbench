@@ -305,6 +305,14 @@ and records the selected-card life payment and every zone move before the
 spell's terminal receipt. This is a state-machine boundary rather than a
 pre-cast or pre-resolution fixture choice.
 
+Thoughtpicker Witch is a full-fidelity activated-ability private-choice
+slice. After its explicit generic mana and creature-sacrifice cost, the
+targeted ability remains on the stack through both priority passes. The engine
+then projects the target opponent's top-two snapshot only to the source
+controller, permits no intervening priority action, and moves exactly one
+chosen candidate to exile before the terminal ability receipt. No candidate
+identity enters the public event log; unchosen cards retain library order.
+
 The focused Flying/Reach/Haste audit promotes Conclave Equenaut, Snapping Drake,
 Goliath Spider, Courier Hawk, and Skyknight Legionnaire into the positive fidelity manifest. Their
 complete printed functional behavior falls within Convoke, normal casting/base
