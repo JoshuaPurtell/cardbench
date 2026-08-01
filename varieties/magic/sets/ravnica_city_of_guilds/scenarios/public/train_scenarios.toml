@@ -8728,3 +8728,171 @@ priority = 0
 mana = ["0:green:0"]
 event_markers = ["SpellCast", "SpellResolved", "TriggeredAbilityStacked", "TokenCreated", "RegenerationShieldCreated", "AbilityResolved"]
 digest = "fnv1a64:6356df19129c5049"
+
+[[scenario]]
+id = "rav_selesnya_guildmage_centaur_and_anthem"
+seed = 130
+description = "Resolve Selesnya Guildmage's green Centaur activation, then its white controller-wide +1/+1 activation through the stack."
+
+[[scenario.card]]
+label = "guildmage"
+owner = 0
+definition = "RAV-SELESNYA-GUILDMAGE"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.card]]
+label = "forest1"
+owner = 0
+definition = "RAV-FOREST"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "forest2"
+owner = 0
+definition = "RAV-FOREST"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "forest3"
+owner = 0
+definition = "RAV-FOREST"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "forest4"
+owner = 0
+definition = "RAV-FOREST"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "plains1"
+owner = 0
+definition = "RAV-PLAINS"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "plains2"
+owner = 0
+definition = "RAV-PLAINS"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "plains3"
+owner = 0
+definition = "RAV-PLAINS"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "plains4"
+owner = 0
+definition = "RAV-PLAINS"
+zone = "battlefield"
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "forest1"
+color = "green"
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "forest2"
+color = "green"
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "forest3"
+color = "green"
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "forest4"
+color = "green"
+
+[[scenario.action]]
+kind = "activate_ability"
+player = 0
+card = "guildmage"
+ability = "create-green-centaur"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "plains1"
+color = "white"
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "plains2"
+color = "white"
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "plains3"
+color = "white"
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "plains4"
+color = "white"
+
+[[scenario.action]]
+kind = "activate_ability"
+player = 0
+card = "guildmage"
+ability = "anthem-controller-creatures"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["guildmage:battlefield", "forest1:battlefield", "forest2:battlefield", "forest3:battlefield", "forest4:battlefield", "plains1:battlefield", "plains2:battlefield", "plains3:battlefield", "plains4:battlefield"]
+powers = ["guildmage:3"]
+toughnesses = ["guildmage:3"]
+tapped = ["guildmage:false", "forest1:true", "forest2:true", "forest3:true", "forest4:true", "plains1:true", "plains2:true", "plains3:true", "plains4:true"]
+token_count = 1
+stack_size = 0
+priority = 0
+mana = ["0:green:0", "0:white:0"]
+event_markers = ["AbilityManaPaid", "AbilityActivated", "TokenCreated", "ContinuousEffectCreated", "AbilityResolved"]
+digest = "fnv1a64:061ae0348caca68d"

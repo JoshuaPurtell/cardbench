@@ -49,6 +49,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-SKYKNIGHT-LEGIONNAIRE",
             "RAV-MOROII",
             "RAV-SELESNYA-EVANGEL",
+            "RAV-SELESNYA-GUILDMAGE",
             "RAV-SANDSOWER",
             "RAV-DIVEBOMBER-GRIFFIN",
             "RAV-DROMAD-PUREBRED",

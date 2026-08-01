@@ -35,7 +35,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 89] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 90] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -74,6 +74,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 89] = [
     "RAV-SKYKNIGHT-LEGIONNAIRE",
     "RAV-MOROII",
     "RAV-SELESNYA-EVANGEL",
+    "RAV-SELESNYA-GUILDMAGE",
     "RAV-SANDSOWER",
     "RAV-DIVEBOMBER-GRIFFIN",
     "RAV-DROMAD-PUREBRED",
@@ -1948,6 +1949,43 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Flying],
             effects: vec![],
         },
+        // Full fidelity: either color pays each hybrid cast symbol; the two
+        // stack-backed activations create a green 3/3 Centaur or temporarily
+        // modify every creature the controller owns.
+        CardDefinition {
+            id: "RAV-SELESNYA-GUILDMAGE",
+            name: "Selesnya Guildmage",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_hybrid(
+                0,
+                [],
+                [
+                    HybridManaSymbol {
+                        first: Color::Green,
+                        second: Color::White,
+                    },
+                    HybridManaSymbol {
+                        first: Color::Green,
+                        second: Color::White,
+                    },
+                ],
+            ),
+            colors: colors([Color::Green, Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "hybrid-cost-casting",
+                "base-characteristics",
+                "activated-green-centaur-token",
+                "activated-controller-creature-anthem",
+            ],
+            power: Some(2),
+            toughness: Some(2),
+            keywords: vec![],
+            effects: vec![],
+        },
         // Compatibility scope: normal colored-cost creature casting and base
         // characteristics only. Its printed flying and activated library
         // behavior are deliberately omitted from this compatibility slice.
@@ -3284,6 +3322,40 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
             },
         },
         ActivatedAbilityBinding {
+            card_definition: "RAV-SELESNYA-GUILDMAGE",
+            ability: ActivatedAbility {
+                id: "create-green-centaur",
+                mana_cost: ManaCost::with_colors(3, [Color::Green]),
+                tap_cost: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![],
+                effects: vec![Effect::CreateToken {
+                    token: TokenSpec::green_centaur(),
+                    count: 1,
+                }],
+            },
+        },
+        ActivatedAbilityBinding {
+            card_definition: "RAV-SELESNYA-GUILDMAGE",
+            ability: ActivatedAbility {
+                id: "anthem-controller-creatures",
+                mana_cost: ManaCost::with_colors(3, [Color::White]),
+                tap_cost: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![],
+                effects: vec![Effect::ModifyControllerCreaturesPtUntilEndOfTurn {
+                    power: 1,
+                    toughness: 1,
+                }],
+            },
+        },
+        ActivatedAbilityBinding {
             card_definition: "RAV-VIASHINO-FANGTAIL",
             ability: ActivatedAbility {
                 id: "tap-deal-one-to-player-or-creature",
@@ -4452,7 +4524,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 129);
+        assert_eq!(first.len(), 130);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }
