@@ -114,6 +114,9 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-VINDICTIVE-MOB",
             "RAV-SUNHOME-FORTRESS",
             "RAV-VITU-GHAZI",
+            "RAV-NULLMAGE-SHEPHERD",
+            "RAV-VIGOR-MORTIS",
+            "RAV-STONE-SEEDER-HIEROPHANT",
         ]
     );
     let definitions = card_definitions();
