@@ -75,6 +75,15 @@ Oracle Magic rules coverage.
   trigger is queued for the prevented portion. A target departure or cleanup
   transition removes the shield and emits `DamageShieldExpired`, and an
   exhausted shield cannot remain in game state.
+- `Keyword::Protection(color)` is source-aware permanent protection: a source
+  with that color cannot target the protected permanent at cast, activation,
+  trigger-selection, or resolution-time revalidation. A creature with
+  protection from an attacker's color cannot block it, and an attacker with
+  protection from a blocker's color cannot be blocked by it. Damage from a
+  matching-color source is prevented through the same `DamagePrevented`
+  receipt path unless the source has `DamageCannotBePrevented`; non-targeted
+  damage batches therefore still honor protection even when no target slot
+  exists.
 - A dynamic creature-count life-gain effect snapshots all current battlefield
   creatures at resolution, including tokens and opposing creatures, converts
   the count into a bounded receipt, and queues life-gain triggers only for the
