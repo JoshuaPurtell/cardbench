@@ -250,7 +250,7 @@
 242	Boros Guildmage	executable:RAV-BOROS-GUILDMAGE
 243	Boros Recruit	executable:RAV-BOROS-RECRUIT
 244	Centaur Safeguard
-245	Dimir Guildmage
+245	Dimir Guildmage	executable:RAV-DIMIR-GUILDMAGE
 246	Gaze of the Gorgon	catalog-only:regeneration-and-end-of-combat-block-history-destruction-not-implemented
 247	Gleancrawler
 248	Golgari Guildmage	executable:RAV-GOLGARI-GUILDMAGE

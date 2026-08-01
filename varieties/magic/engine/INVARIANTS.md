@@ -398,6 +398,12 @@ Oracle Magic rules coverage.
   permanent spells observe sorcery timing.
 - Casting a spell resets the pass sequence and leaves priority with its caster.
   An opponent receives a response window only after the caster passes.
+- A definition-bound activation marked `sorcery_speed` is accepted only while
+  its controller is the active player in a main phase and the stack is empty.
+  This check runs before target validation, cost payment, stack placement, or
+  receipts, so a rejected timing attempt leaves the mana pool, zones, stack,
+  and event log unchanged. Target-player draw remains a stack instruction and
+  therefore moves the selected player's current top card only at resolution.
 - The supported atomic Transmute activation likewise resets the pass sequence
   and leaves priority with its controller; this slice does not model its
   activated ability as a separately stack-resolving object.

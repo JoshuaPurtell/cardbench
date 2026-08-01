@@ -26,17 +26,20 @@ fn dimir_guildmage_requires_its_hybrid_body_and_targeted_activated_pair() {
     );
     assert_eq!(definition.card_types, [CardType::Creature].into());
     assert_eq!((definition.power, definition.toughness), (Some(2), Some(2)));
-    assert!(
-        rav_activated_ability_bindings().iter().any(|binding| {
+    let bindings = rav_activated_ability_bindings();
+    let draw = bindings
+        .iter()
+        .find(|binding| {
             binding.card_definition == definition.id && binding.ability.id == "target-player-draw"
-        }),
-        "sorcery-speed target draw must be bound"
-    );
-    assert!(
-        rav_activated_ability_bindings().iter().any(|binding| {
+        })
+        .expect("sorcery-speed target draw must be bound");
+    assert!(draw.ability.sorcery_speed);
+    let discard = bindings
+        .iter()
+        .find(|binding| {
             binding.card_definition == definition.id
                 && binding.ability.id == "target-player-discard"
-        }),
-        "targeted discard must be bound"
-    );
+        })
+        .expect("targeted discard must be bound");
+    assert!(!discard.ability.sorcery_speed);
 }

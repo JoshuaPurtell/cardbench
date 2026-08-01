@@ -9867,3 +9867,74 @@ priority = 0
 event_markers = ["SpellCast", "LibrarySearchesPrevented", "CardMoved", "SpellResolved"]
 event_absent = ["Transmuted"]
 digest = "fnv1a64:3eb73b9dfda7e6bf"
+
+[[scenario]]
+id = "rav_dimir_guildmage_targeted_activations"
+seed = 144
+description = "Activate Dimir Guildmage's target-player draw and target-player discard abilities through separate stack lifecycles."
+
+[[scenario.card]]
+label = "guildmage"
+owner = 0
+definition = "RAV-DIMIR-GUILDMAGE"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "drawn"
+owner = 1
+definition = "RAV-WATCHWOLF"
+zone = "library"
+
+[[scenario.card]]
+label = "discarded"
+owner = 1
+definition = "RAV-GLASS-GOLEM"
+zone = "hand"
+
+[[scenario.mana]]
+player = 0
+color = "blue"
+amount = 4
+
+[[scenario.mana]]
+player = 0
+color = "black"
+amount = 4
+
+[[scenario.action]]
+kind = "activate_ability"
+player = 0
+card = "guildmage"
+ability = "target-player-draw"
+target = "player:1"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "activate_ability"
+player = 0
+card = "guildmage"
+ability = "target-player-discard"
+target = "player:1"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["guildmage:battlefield", "drawn:hand", "discarded:graveyard"]
+mana = ["0:blue:0", "0:black:0"]
+stack_size = 0
+priority = 0
+event_markers = ["AbilityActivated", "CardMoved", "CardDiscarded", "AbilityResolved"]
+digest = "fnv1a64:424ee204f742aa8d"

@@ -166,6 +166,11 @@ pub struct ActivatedAbility {
     pub id: &'static str,
     pub mana_cost: ManaCost,
     pub tap_cost: bool,
+    /// When true, activation is legal only while its controller is the active
+    /// player in a main phase and the stack is empty. This belongs to the
+    /// ability binding rather than a card-specific action path, so the same
+    /// priority boundary remains reusable by later expansions.
+    pub sorcery_speed: bool,
     /// Number of additional, distinct untapped creatures the activating
     /// player selects and taps as an ability cost.  These are not tap-symbol
     /// costs on those creatures, so summoning sickness does not constrain
@@ -969,6 +974,10 @@ pub enum Effect {
     /// intentionally a stack-only operation so public live-game setup cannot
     /// inject cards into a hand after the game has begun.
     DrawController,
+    /// Draw one card for the targeted player as a stack instruction. The
+    /// target slot preserves resolution-time legality instead of treating an
+    /// opponent's draw as an untracked controller-side mutation.
+    DrawTargetPlayer,
     /// Prevent represented library-search actions through the current turn.
     /// The marker is installed only by stack resolution and is cleared as the
     /// next turn begins, so a rejected search cannot consume mana, cards, or
@@ -1168,6 +1177,7 @@ impl Effect {
             Self::CompleteDamageRedirection => Some(TargetRequirement::PlayerOrCreature),
             Self::LoseLifeTarget { .. }
             | Self::CreateTokenForTargetPlayer { .. }
+            | Self::DrawTargetPlayer
             | Self::DiscardTargetPlayer { .. } => Some(TargetRequirement::Player),
             Self::DestroyTargetLand | Self::DestroyTargetLandAndUntapSourceIfNonbasic => {
                 Some(TargetRequirement::Land)

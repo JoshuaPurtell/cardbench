@@ -1206,6 +1206,13 @@ impl Game {
                 "source does not have the requested activated ability",
             ))?
             .clone();
+        if ability.sorcery_speed
+            && (player != self.active_player || !self.step.is_main() || !self.stack.is_empty())
+        {
+            return Err(RulesError::IllegalAction(
+                "this activated ability is allowed only during your main phase with an empty stack",
+            ));
+        }
         if activation.targets.len() != ability.targets.len() {
             return Err(RulesError::IllegalAction(
                 "activated ability target count does not match its definition",
@@ -4128,6 +4135,7 @@ impl Game {
                 | Effect::DrawControllerIfManaColorSpent { .. }
                 | Effect::ModifyAllCreaturesPtUntilEndOfTurnIfManaColorSpent { .. }
                 | Effect::DrawController
+                | Effect::DrawTargetPlayer
                 | Effect::PreventLibrarySearchUntilEndOfTurn
                 | Effect::RevealTopCardPutIntoHandLoseLifeEqualToManaValue
                 | Effect::GainLifeControllerFromSourceDamage
@@ -5293,6 +5301,15 @@ impl Game {
             }
             Effect::DrawController => {
                 self.draw_card_from_spell_effect(controller)?;
+            }
+            Effect::DrawTargetPlayer => {
+                let player = match target.ok_or(RulesError::IllegalAction(
+                    "missing target-player draw target",
+                ))? {
+                    Target::Player(player) if !self.players[player.0].lost => player,
+                    other => return Err(RulesError::IllegalTarget(other)),
+                };
+                self.draw_card_from_spell_effect(player)?;
             }
             Effect::PreventLibrarySearchUntilEndOfTurn => {
                 self.library_search_prevented_until = Some(self.turn);
