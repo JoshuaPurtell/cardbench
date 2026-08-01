@@ -754,6 +754,29 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 destination: LibrarySearchDestination::BattlefieldTapped,
             }],
         },
+        // Compatibility scope: normal enchantment casting plus the
+        // stack-backed `{1}`, sacrifice-a-creature cost and typed basic-land
+        // search. The public engine's deterministic library selection is
+        // explicit bounded behavior rather than a hidden-zone choice claim.
+        CardDefinition {
+            id: "RAV-PERILOUS-FORAYS",
+            name: "Perilous Forays",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(3, [Color::Green, Color::Green]),
+            colors: colors([Color::Green]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Enchantment]),
+            is_basic_land: false,
+            supported_rules: &[
+                "activated-sacrifice-creature-search-basic-land",
+                "battlefield-tapped-land-entry",
+                "deterministic-library-search-selection",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![],
+        },
         // Compatibility scope: normal creature casting, base characteristics,
         // and the shared Dredge replacement. Its printed upkeep and end-step
         // behavior is intentionally unsupported.
@@ -3918,6 +3941,31 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
             },
         },
         ActivatedAbilityBinding {
+            card_definition: "RAV-PERILOUS-FORAYS",
+            ability: ActivatedAbility {
+                id: "sacrifice-creature-search-basic-land",
+                mana_cost: ManaCost::new(1),
+                tap_cost: false,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 1,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![],
+                effects: vec![Effect::SearchControllerLibrary {
+                    requirement: LibrarySearchRequirement::BasicLandTypes(BTreeSet::from([
+                        BasicLandType::Plains,
+                        BasicLandType::Island,
+                        BasicLandType::Swamp,
+                        BasicLandType::Mountain,
+                        BasicLandType::Forest,
+                    ])),
+                    destination: LibrarySearchDestination::BattlefieldTapped,
+                }],
+            },
+        },
+        ActivatedAbilityBinding {
             card_definition: "RAV-SELESNYA-EVANGEL",
             ability: ActivatedAbility {
                 id: "create-saproling",
@@ -5464,7 +5512,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 152);
+        assert_eq!(first.len(), 153);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

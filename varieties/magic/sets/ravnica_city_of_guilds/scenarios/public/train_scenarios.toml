@@ -10387,3 +10387,55 @@ priority = 0
 mana = ["0:green:0"]
 event_markers = ["CardMoved", "LibrarySearchResolved", "LibraryShuffled", "SpellResolved"]
 digest = "fnv1a64:ebc5a1ac8218a719"
+
+[[scenario]]
+id = "rav_perilous_forays_sacrifice_land_search"
+seed = 153
+description = "Pay Perilous Forays' selected-creature sacrifice cost, then resolve its bounded typed basic-land search through the stack."
+
+[[scenario.card]]
+label = "forays"
+owner = 0
+definition = "RAV-PERILOUS-FORAYS"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "victim"
+owner = 0
+definition = "RAV-WATCHWOLF"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "forest"
+owner = 0
+definition = "RAV-FOREST"
+zone = "library"
+
+[[scenario.mana]]
+player = 0
+color = "green"
+amount = 1
+
+[[scenario.action]]
+kind = "activate_ability"
+player = 0
+card = "forays"
+ability = "sacrifice-creature-search-basic-land"
+sacrifices = ["victim"]
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["forays:battlefield", "victim:graveyard", "forest:battlefield"]
+tapped = ["forest:true"]
+stack_size = 0
+priority = 0
+mana = ["0:green:0"]
+event_markers = ["SacrificedAsAbilityCost", "AbilityActivated", "LibrarySearchResolved", "LibraryShuffled", "AbilityResolved"]
+digest = "fnv1a64:f40b05e9ec142abf"
