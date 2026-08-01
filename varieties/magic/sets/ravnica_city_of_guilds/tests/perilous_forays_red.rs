@@ -1,0 +1,103 @@
+//! Red regression for Perilous Forays' sacrifice-and-search activation.
+
+use cardbench_magic_engine::{
+    AbilityActivation, CardType, Color, Game, GameEvent, ManaCost, PlayerId, Zone,
+};
+use cardbench_magic_rav::{
+    card_definitions, rav_activated_ability_bindings, rav_additional_spell_cost_bindings,
+    rav_basic_land_type_bindings, rav_mana_ability_bindings,
+};
+
+#[test]
+fn perilous_forays_has_the_exact_activated_search_chassis() {
+    let definition = card_definitions()
+        .into_iter()
+        .find(|definition| definition.id == "RAV-PERILOUS-FORAYS")
+        .expect("Perilous Forays definition exists");
+    assert_eq!(definition.name, "Perilous Forays");
+    assert_eq!(
+        definition.mana_cost,
+        ManaCost::with_colors(3, [Color::Green, Color::Green])
+    );
+    assert_eq!(
+        definition.card_types,
+        [CardType::Enchantment].into_iter().collect()
+    );
+    assert!(
+        definition
+            .supported_rules
+            .contains(&"activated-sacrifice-creature-search-basic-land")
+    );
+    assert!(
+        definition
+            .supported_rules
+            .contains(&"battlefield-tapped-land-entry")
+    );
+}
+
+#[test]
+fn perilous_forays_pays_a_selected_creature_then_searches_and_shuffles() {
+    let mut game = Game::new_with_all_bindings(
+        card_definitions(),
+        2,
+        rav_mana_ability_bindings(),
+        rav_basic_land_type_bindings(),
+        rav_additional_spell_cost_bindings(),
+        rav_activated_ability_bindings(),
+    )
+    .expect("RAV fixture builds");
+    let forays = game
+        .add_card(PlayerId(0), "RAV-PERILOUS-FORAYS", Zone::Battlefield)
+        .expect("Perilous Forays setup");
+    let sacrificed = game
+        .add_card(PlayerId(0), "RAV-WATCHWOLF", Zone::Battlefield)
+        .expect("creature cost setup");
+    let forest = game
+        .add_card(PlayerId(0), "RAV-FOREST", Zone::Library)
+        .expect("Forest setup");
+    let opponents_plains = game
+        .add_card(PlayerId(1), "RAV-PLAINS", Zone::Library)
+        .expect("opponent library setup");
+    game.grant_mana(PlayerId(0), Color::Green, 1)
+        .expect("ability mana");
+
+    game.activate_ability(
+        PlayerId(0),
+        AbilityActivation {
+            source: forays,
+            ability_id: "sacrifice-creature-search-basic-land",
+            sacrifice_sources: vec![sacrificed],
+            additional_tap_creatures: vec![],
+            discard_cards: vec![],
+            targets: vec![],
+        },
+    )
+    .expect("Perilous Forays activation");
+
+    assert_eq!(game.zone_of(sacrificed), Some(Zone::Graveyard));
+    assert_eq!(game.stack.len(), 1, "ability must expose a response window");
+    game.pass_priority(PlayerId(0)).expect("controller passes");
+    game.pass_priority(PlayerId(1)).expect("opponent passes");
+
+    assert_eq!(game.zone_of(forest), Some(Zone::Battlefield));
+    assert!(game.object(forest).expect("Forest persists").tapped);
+    assert_eq!(game.zone_of(opponents_plains), Some(Zone::Library));
+    assert_eq!(game.zone_of(forays), Some(Zone::Battlefield));
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::SacrificedAsAbilityCost { player: PlayerId(0), permanent, .. }
+            if *permanent == sacrificed
+    )));
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::LibrarySearchResolved {
+            player: PlayerId(0),
+            source,
+            found: Some(card),
+            ..
+        } if *source == forays && *card == forest
+    )));
+    println!("Perilous Forays trace: {:?}", game.canonical_event_log());
+    game.validate_invariants()
+        .expect("sacrifice, search, stack, and event invariants hold");
+}
