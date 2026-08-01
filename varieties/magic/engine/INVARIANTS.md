@@ -217,6 +217,10 @@ Oracle Magic rules coverage.
   no candidates). Resolution atomically moves only that selected card to exile
   before `AbilityResolved`; the unchosen cards preserve their original library
   order.
+- Its receipt-order audit applies only to the activated-ability identities it
+  has observed. A triggered ability's ordinary `AbilityResolved` receipt is
+  not evidence of a private-choice lifecycle and remains valid without an
+  `AbilityActivated` receipt.
 - A stack spell target that remains on the stack must be below its source,
   because only already-existing stack objects can be chosen while casting. A
   formerly legal target may have left the stack by resolution, which remains a

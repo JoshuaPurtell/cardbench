@@ -9,5 +9,8 @@ fn unrelated_ability_terminals_do_not_break_private_opponent_choice_auditing() {
         .into_iter()
         .find(|scenario| scenario.id == "rav_civic_wayfinder_etb_basic_land_search")
         .expect("Civic Wayfinder public scenario exists");
-    println!("Civic Wayfinder invariant trace: {:?}", civic_wayfinder.event_log);
+    println!(
+        "Civic Wayfinder invariant trace: {:?}",
+        civic_wayfinder.event_log
+    );
 }
