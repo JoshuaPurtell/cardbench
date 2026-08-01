@@ -228,7 +228,7 @@ action boundaries.
 
 The easy-creature wave adds Benevolent Ancestor, Surveilling Sprite, Terraformer,
 Roofstalker Wight, Sewerdreg, Goblin Spelunkers, Ordruun Commando, Viashino
-Slasher, Civic Wayfinder, and Dowsing Shaman. These are likewise limited
+Slasher, and Dowsing Shaman. These are likewise limited
 to public identity, mana cost, color, creature type, and base power/toughness,
 with normal colored-cost creature casting as their only executable behavior,
 except that Benevolent Ancestor also records its static Defender keyword.
@@ -236,7 +236,10 @@ Every printed activation and triggered behavior remains deliberately
 unsupported. Five deterministic public scenarios exercise cast payment, stack
 resolution, zone movement, priority, and their retained base P/T values only;
 the separate Benevolent Ancestor compatibility scenario exercises its rejected
-Defender attack declaration.
+Defender attack declaration. Civic Wayfinder now separately exercises its
+stack-backed ETB basic-land search, moving the deterministic controller-owned
+selection to hand before the required shuffle; policy-submitted hidden-library
+choice remains outside this bounded slice.
 
 The first-range easy-creature wave adds Votary of the Conclave, Drake Familiar,
 Ethereal Usher, and Grozoth. Each supports normal colored-cost creature casting
