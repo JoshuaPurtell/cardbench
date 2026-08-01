@@ -71,7 +71,7 @@ explicitly scoped compatibility slices.
 RAV shown scenarios are fixture-driven from
 `sets/ravnica_city_of_guilds/scenarios/public/train_scenarios.toml`; each declares
 setup, actions, state assertions, event markers, and a fixed digest. The
-current corpus contains 155 scenarios and covers:
+current corpus contains 158 scenarios and covers:
 
 - casting to the stack and both-player priority passes (`Lightning Helix`);
 - colored-cost creature casting and permanent characteristics (`Watchwolf`);
@@ -133,6 +133,10 @@ current corpus contains 155 scenarios and covers:
 - a full-fidelity target-free global creature-and-player damage batch (`Rain of
   Embers`) plus additional explicitly transmute-only compatibility slices (`Dimir
   Machinations`, `Shred Memory`, `Clutch of the Undercity`, and `Perplex`); and
+- a source-bound generic reduction plus a retained noncreature-spell cast
+  trigger (`Blood Funnel`), with real stack/priority and sacrifice-or-counter
+  receipts but an explicitly bounded deterministic sacrifice selection until
+  that choice can be submitted by a policy; and
 - full-fidelity combat-state-dependent player-or-creature damage (`Dogpile`), a
   full-fidelity controller-wide temporary Convoke modifier (`Overwhelm`), and
   full-fidelity paid-color-conditioned resolution (`Ribbons of Night`), with
