@@ -3181,9 +3181,10 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             3,
             3,
         ),
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed land-entry trigger is deliberately
-        // omitted from this compatibility slice.
+        // Compatibility scope: its exact base characteristics and controller-
+        // scoped land-entry counter trigger are executable below. The card
+        // remains outside the positive manifest until that trigger is also
+        // exercised through the public scenario policy surface.
         bounded_creature_chassis(
             "RAV-VINELASHER-KUDZU",
             "Vinelasher Kudzu",
