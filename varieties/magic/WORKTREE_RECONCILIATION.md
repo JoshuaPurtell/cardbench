@@ -22,6 +22,11 @@ remains available for a later, audited red-to-green port.
 
 ## Green lane (`magic/okr-green`)
 
+- Dowsing Shaman is ported on `dev` as red `752b565d` and green `53a21599`.
+  The current implementation deliberately corrects the historical source
+  branch's `{3}{G}` activation-cost drift to `{2}{G}`, and uses a typed,
+  controller-owned enchantment-card graveyard target with current stack and
+  invariant APIs.
 - The dev branch already contains the safe Vinelasher Kudzu controller-land
   trigger, with controller-relative provenance. The source lane's generic
   land-entry trigger is not imported because it would also fire for an

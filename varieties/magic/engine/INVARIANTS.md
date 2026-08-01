@@ -151,6 +151,11 @@ Oracle Magic rules coverage.
   rechecks the same count while resolving. If only its target remains, the
   ability resolves without a zone move rather than returning an ineligible
   card or fabricating a new target.
+- An `EnchantmentCardInControllerGraveyard` target names only an enchantment
+  card owned by the resolving controller and currently in that player's
+  graveyard. Target validation occurs before an activation spends mana or pays
+  its tap cost and is rechecked at resolution; a legal return records the
+  ordinary owner-hand zone transition before its terminal ability receipt.
 - A target-free all-player graveyard-return instruction snapshots at most one
   creature catalog card from each living player's own graveyard before it
   moves any card. Each selected card remains owner-preserving and may move

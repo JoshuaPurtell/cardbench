@@ -230,8 +230,8 @@ rejected noncreature target, cost payment, event chronology, and state-based
 action boundaries.
 
 The easy-creature wave adds Benevolent Ancestor, Surveilling Sprite, Terraformer,
-Roofstalker Wight, Sewerdreg, Goblin Spelunkers, Ordruun Commando, Viashino
-Slasher, and Dowsing Shaman. These are likewise limited
+Roofstalker Wight, Sewerdreg, Goblin Spelunkers, Ordruun Commando, and Viashino
+Slasher. These are likewise limited
 to public identity, mana cost, color, creature type, and base power/toughness,
 with normal colored-cost creature casting as their only executable behavior,
 except that Benevolent Ancestor also records its static Defender keyword.
@@ -243,6 +243,13 @@ Defender attack declaration. Civic Wayfinder now separately exercises its
 stack-backed ETB basic-land search, moving the deterministic controller-owned
 selection to hand before the required shuffle; policy-submitted hidden-library
 choice remains outside this bounded slice.
+
+Dowsing Shaman has graduated from that bounded wave. Its fully represented
+activation uses the typed controller-owned enchantment-card graveyard target,
+pays `{2}{G}` and taps before entering the ordinary stack lifecycle, then
+returns that card to hand only if it remains a legal target at resolution. The
+focused public Rust contract records the payment, activation, priority passes,
+zone move, terminal receipt, and the atomic rejected non-enchantment control.
 
 The first-range easy-creature wave adds Votary of the Conclave, Drake Familiar,
 Ethereal Usher, and Grozoth. Each supports normal colored-cost creature casting

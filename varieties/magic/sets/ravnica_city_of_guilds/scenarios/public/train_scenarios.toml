@@ -3431,7 +3431,7 @@ digest = "fnv1a64:e78637d84b25b302"
 [[scenario]]
 id = "rav_easy_green_creatures_wave_two"
 seed = 0
-description = "Cast Civic Wayfinder and Dowsing Shaman with exact green costs, then verify their base P/T. Civic Wayfinder's land-search has a dedicated trigger scenario; Dowsing Shaman's graveyard-recursion activation remains deliberately omitted."
+description = "Cast Civic Wayfinder and Dowsing Shaman with exact green costs, then verify their base P/T. Civic Wayfinder's land-search has a dedicated trigger scenario; Dowsing Shaman's typed graveyard-recursion activation has a separate stack/event contract."
 
 [[scenario.card]]
 label = "wayfinder"
