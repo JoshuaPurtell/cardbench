@@ -747,6 +747,10 @@ pub enum Keyword {
     /// Damage dealt by a source of the named color is prevented when it would
     /// be dealt to this permanent.
     PreventDamageFromColor(Color),
+    /// This permanent has protection from sources of the named color. The
+    /// engine's core protection substrate will enforce targeting, combat,
+    /// and damage-prevention consequences for this keyword.
+    Protection(Color),
     /// Can block a creature with Flying.
     Reach,
     /// When blocked, excess combat damage can be assigned to the defending
