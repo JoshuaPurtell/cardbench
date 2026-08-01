@@ -4659,6 +4659,7 @@ impl Game {
                 | Effect::DestroyTargetLandAndUntapSourceIfNonbasic
                 | Effect::DestroyTargetArtifact
                 | Effect::DestroyTargetFlyingCreature
+                | Effect::DestroyTargetNonblackCreature
                 | Effect::AddPlusOneCounterToTarget
                 | Effect::DestroyTargetArtifactOrCreatureNoRegeneration
                 | Effect::DestroyDistinctTargetCreature
@@ -6341,6 +6342,16 @@ impl Game {
                 }
                 self.destroy_permanent(source, target)?;
             }
+            Effect::DestroyTargetNonblackCreature => {
+                let target = Self::target_permanent(target)?;
+                if !self.target_matches(
+                    Target::Permanent(target),
+                    TargetRequirement::NonblackCreature,
+                ) {
+                    return Err(RulesError::IllegalTarget(Target::Permanent(target)));
+                }
+                self.destroy_permanent(source, target)?;
+            }
             Effect::DestroyTargetArtifactOrCreatureNoRegeneration => {
                 let target = Self::target_permanent(target)?;
                 if !self.target_matches(
@@ -6798,6 +6809,7 @@ impl Game {
             (
                 Target::Permanent(card),
                 TargetRequirement::Creature
+                | TargetRequirement::NonblackCreature
                 | TargetRequirement::FlyingCreature
                 | TargetRequirement::DistinctCreature
                 | TargetRequirement::PlayerOrCreature
@@ -6805,25 +6817,7 @@ impl Game {
                 | TargetRequirement::AttackingOrBlockingCreature
                 | TargetRequirement::ControlledCreature
                 | TargetRequirement::OpponentCreature,
-            ) => {
-                self.zone_of(card) == Some(Zone::Battlefield)
-                    && self.characteristics(card).is_ok_and(|characteristics| {
-                        characteristics.card_types.contains(&CardType::Creature)
-                    })
-                    && (!matches!(requirement, TargetRequirement::BlockingCreature)
-                        || self.combat.as_ref().is_some_and(|combat| {
-                            combat.blockers.values().any(|blocker| *blocker == card)
-                        }))
-                    && (!matches!(requirement, TargetRequirement::AttackingOrBlockingCreature)
-                        || self.combat.as_ref().is_some_and(|combat| {
-                            combat.attackers.contains(&card)
-                                || combat.blockers.values().any(|blocker| *blocker == card)
-                        }))
-                    && (!matches!(requirement, TargetRequirement::FlyingCreature)
-                        || self.characteristics(card).is_ok_and(|characteristics| {
-                            characteristics.keywords.contains(&Keyword::Flying)
-                        }))
-            }
+            ) => self.creature_target_matches(card, requirement),
             (
                 Target::Permanent(card),
                 TargetRequirement::Land | TargetRequirement::ControlledLand,
@@ -6885,6 +6879,34 @@ impl Game {
         }
     }
 
+    fn is_nonblack_creature(&self, card: ObjectId) -> bool {
+        self.characteristics(card)
+            .is_ok_and(|characteristics| !characteristics.colors.contains(&Color::Black))
+    }
+
+    fn creature_target_matches(&self, card: ObjectId, requirement: TargetRequirement) -> bool {
+        self.zone_of(card) == Some(Zone::Battlefield)
+            && self.characteristics(card).is_ok_and(|characteristics| {
+                characteristics.card_types.contains(&CardType::Creature)
+            })
+            && (!matches!(requirement, TargetRequirement::BlockingCreature)
+                || self
+                    .combat
+                    .as_ref()
+                    .is_some_and(|combat| combat.blockers.values().any(|blocker| *blocker == card)))
+            && (!matches!(requirement, TargetRequirement::AttackingOrBlockingCreature)
+                || self.combat.as_ref().is_some_and(|combat| {
+                    combat.attackers.contains(&card)
+                        || combat.blockers.values().any(|blocker| *blocker == card)
+                }))
+            && (!matches!(requirement, TargetRequirement::FlyingCreature)
+                || self.characteristics(card).is_ok_and(|characteristics| {
+                    characteristics.keywords.contains(&Keyword::Flying)
+                }))
+            && (!matches!(requirement, TargetRequirement::NonblackCreature)
+                || self.is_nonblack_creature(card))
+    }
+
     /// Extends target legality with controller-scoped requirements. Keeping
     /// this separate from the general target predicate lets stack validation
     /// retain the original controller even after the source changes zones.
@@ -6937,6 +6959,7 @@ impl Game {
                 Target::Permanent(_),
                 TargetRequirement::Any
                     | TargetRequirement::Creature
+                    | TargetRequirement::NonblackCreature
                     | TargetRequirement::FlyingCreature
                     | TargetRequirement::DistinctCreature
                     | TargetRequirement::BlockingCreature

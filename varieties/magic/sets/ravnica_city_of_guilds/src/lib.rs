@@ -1157,9 +1157,9 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 toughness: 0,
             }],
         },
-        // Only the hand-zone transmute activation is executable. The printed
-        // creature-destruction spell effect has no representation in this
-        // engine slice and is deliberately non-covered.
+        // The front face uses a typed nonblack-creature target and ordinary
+        // regenerable destruction. Hand-zone Transmute remains bounded: it
+        // does not create a stack object or response window in this slice.
         CardDefinition {
             id: "RAV-BRAINSPOIL",
             name: "Brainspoil",
@@ -1169,14 +1169,18 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Sorcery]),
             is_basic_land: false,
-            supported_rules: &["transmute"],
+            supported_rules: &[
+                "colored-cost-casting",
+                "destroy-target-nonblack-creature",
+                "immediate-hand-zone-transmute-compatibility",
+            ],
             power: None,
             toughness: None,
             keywords: vec![Keyword::Transmute(ManaCost::with_colors(
                 1,
                 [Color::Black, Color::Black],
             ))],
-            effects: vec![],
+            effects: vec![Effect::DestroyTargetNonblackCreature],
         },
         // Compatibility scope: normal colored-cost creature casting, static
         // Fear, and the shared immediate hand-zone Transmute operation. Its

@@ -744,6 +744,11 @@ pub enum Keyword {
 pub enum TargetRequirement {
     Any,
     Creature,
+    /// A battlefield creature whose current characteristics do not include
+    /// Black. This is a target restriction rather than a resolution-only
+    /// filter, so illegal black creatures are rejected before any spell cost
+    /// or stack state changes.
+    NonblackCreature,
     /// A battlefield creature whose current characteristics include Flying.
     /// This stays distinct from a generic creature target so an activation
     /// such as Elvish Skysweeper's is rejected before costs are paid.
@@ -1166,6 +1171,10 @@ pub enum Effect {
     /// Destroy one targeted creature with Flying through the normal,
     /// regenerable destruction lifecycle.
     DestroyTargetFlyingCreature,
+    /// Destroy one targeted nonblack creature through the normal,
+    /// regenerable destruction lifecycle. The typed target boundary keeps a
+    /// source such as Brainspoil from accepting black creatures at cast time.
+    DestroyTargetNonblackCreature,
     /// Destroy the targeted artifact or creature during resolution without
     /// allowing a regeneration shield to replace the destruction event.
     DestroyTargetArtifactOrCreatureNoRegeneration,
@@ -1321,6 +1330,7 @@ impl Effect {
             Self::DestroyTargetCreatureWithManaValueAtMostChosenX => {
                 Some(TargetRequirement::Creature)
             }
+            Self::DestroyTargetNonblackCreature => Some(TargetRequirement::NonblackCreature),
             Self::DestroyDistinctTargetCreature => Some(TargetRequirement::DistinctCreature),
             Self::ExileTargetPermanent => Some(TargetRequirement::AttackingOrBlockingCreature),
             Self::CompleteDamageRedirection => Some(TargetRequirement::PlayerOrCreature),

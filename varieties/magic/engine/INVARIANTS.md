@@ -209,6 +209,12 @@ Oracle Magic rules coverage.
   receipts, and the same requirement is rechecked at resolution. Its ordinary
   destruction path therefore preserves regeneration replacement and the
   standard `CardDestroyed` followed by zone-departure lifecycle.
+- A `NonblackCreature` target requirement names only a current battlefield
+  creature whose resolved characteristics do not include Black. It is checked
+  before casting costs are paid and again at resolution; the legal destruction
+  path remains regenerable and records ordinary `CardDestroyed` then
+  zone-departure receipts. A black target is rejected atomically rather than
+  becoming a silently accepted no-op.
 - A global non-Flying damage effect snapshots only current battlefield
   creatures whose resolved characteristics lack `Flying`; Flying creatures
   are not accidental recipients, and all selected damage is applied before

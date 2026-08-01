@@ -1,6 +1,6 @@
 //! Red regression for Brainspoil's source-lane front-face omission.
 
-use cardbench_magic_engine::{CastRequest, Color, Game, PlayerId, Step, Target, Zone};
+use cardbench_magic_engine::{CastRequest, Color, Effect, Game, PlayerId, Step, Target, Zone};
 use cardbench_magic_rav::card_definitions;
 
 fn game() -> Game {
@@ -20,8 +20,9 @@ fn brainspoil_destroys_a_nonblack_creature_and_rejects_a_black_one_atomically() 
         .into_iter()
         .find(|definition| definition.id == "RAV-BRAINSPOIL")
         .expect("Brainspoil definition exists");
-    assert!(
-        !definition.effects.is_empty(),
+    assert_eq!(
+        definition.effects,
+        vec![Effect::DestroyTargetNonblackCreature],
         "Brainspoil must expose its typed nonblack creature-destruction face"
     );
 
