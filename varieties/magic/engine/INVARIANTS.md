@@ -139,6 +139,12 @@ Oracle Magic rules coverage.
   moves any card. Each selected card remains owner-preserving and may move
   only from that graveyard to that owner's hand; a player with no eligible
   card contributes no fabricated selection or zone receipt.
+- A target-free controller-graveyard land-return instruction snapshots no
+  more than three land cards owned by the resolving controller before any of
+  them move. It may not select an opponent's card or a nonland, and each
+  selected card follows the ordinary graveyard-to-hand transition. Until a
+  policy supplies the public-zone choice, the stable zone order is the
+  explicitly bounded deterministic selection rule rather than full fidelity.
 - A persistent `+1/+1` counter belongs only to a live battlefield creature,
   has a positive amount, and contributes once to both derived power and
   toughness after the supported timestamped layer-seven effects. Every

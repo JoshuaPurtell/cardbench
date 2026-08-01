@@ -4324,6 +4324,7 @@ impl Game {
                     ..
                 }
                 | Effect::ReturnOneCreatureCardFromEachGraveyardToHand
+                | Effect::ReturnUpToThreeControllerGraveyardLandCardsToHand
                 | Effect::ShuffleGraveyardsIntoLibraries
                 | Effect::ReturnControlledCreatureToHand
                 | Effect::ReturnControlledLandToHand
@@ -6169,6 +6170,29 @@ impl Game {
                 for (player, card) in returns {
                     debug_assert_eq!(self.object(card)?.owner, player);
                     if self.zone_of(card) == Some(Zone::Graveyard) {
+                        self.move_to_zone(card, Zone::Hand)?;
+                    }
+                }
+            }
+            Effect::ReturnUpToThreeControllerGraveyardLandCardsToHand => {
+                // Snapshot the full selection before any move. The public
+                // compatibility slice uses the deterministic first-three
+                // selection from a public zone until policy-submitted choices
+                // are available.
+                let returns = self.players[controller.0]
+                    .graveyard
+                    .iter()
+                    .copied()
+                    .filter(|card| {
+                        self.card_definition(*card)
+                            .is_ok_and(CardDefinition::is_land)
+                    })
+                    .take(3)
+                    .collect::<Vec<_>>();
+                for card in returns {
+                    if self.zone_of(card) == Some(Zone::Graveyard)
+                        && self.object(card)?.owner == controller
+                    {
                         self.move_to_zone(card, Zone::Hand)?;
                     }
                 }

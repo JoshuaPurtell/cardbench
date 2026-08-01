@@ -674,6 +674,29 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Dredge(3)],
             effects: vec![],
         },
+        // Compatibility scope: ordinary sorcery casting, Dredge 3, and a
+        // deterministic public-zone return of up to three land cards owned by
+        // the caster. The printed card calls for a choice, so it remains out
+        // of the full-fidelity manifest until that choice is policy-submitted.
+        CardDefinition {
+            id: "RAV-LIFE-FROM-THE-LOAM",
+            name: "Life from the Loam",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(1, [Color::Green, Color::Green]),
+            colors: colors([Color::Green]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Sorcery]),
+            is_basic_land: false,
+            supported_rules: &[
+                "dredge",
+                "return-up-to-three-land-cards-from-graveyard",
+                "deterministic-public-zone-selection",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![Keyword::Dredge(3)],
+            effects: vec![Effect::ReturnUpToThreeControllerGraveyardLandCardsToHand],
+        },
         // Compatibility scope: normal creature casting, base characteristics,
         // and the engine's existing Dredge replacement. The printed counter-
         // based entry behavior and regeneration activation are intentionally
@@ -5408,7 +5431,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 150);
+        assert_eq!(first.len(), 151);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

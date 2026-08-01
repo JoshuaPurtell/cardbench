@@ -1162,6 +1162,11 @@ pub enum Effect {
     /// owner's hand. The selection is a target-free public-zone operation;
     /// a policy layer may replace the deterministic choice later.
     ReturnOneCreatureCardFromEachGraveyardToHand,
+    /// Select up to three land cards from the resolving controller's graveyard
+    /// before any of them move, then return those cards to that player's hand.
+    /// The initial public slice uses deterministic public-zone selection until
+    /// a policy can submit the up-to-three choice.
+    ReturnUpToThreeControllerGraveyardLandCardsToHand,
     /// Move every player's graveyard into that player's library, then shuffle
     /// each library. This is an untargeted, owner-preserving zone operation.
     ShuffleGraveyardsIntoLibraries,
@@ -1282,6 +1287,7 @@ impl Effect {
             | Self::ModifyAllCreaturesPtUntilEndOfTurnIfManaColorSpent { .. }
             | Self::CreateToken { .. }
             | Self::ReturnOneCreatureCardFromEachGraveyardToHand
+            | Self::ReturnUpToThreeControllerGraveyardLandCardsToHand
             | Self::ShuffleGraveyardsIntoLibraries
             | Self::ModifySourcePtUntilEndOfTurn { .. }
             | Self::RemoveSourceKeywordUntilEndOfTurn { .. }
