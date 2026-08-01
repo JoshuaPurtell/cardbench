@@ -3801,7 +3801,7 @@ digest = "fnv1a64:e78637d84b25b302"
 [[scenario]]
 id = "rav_green_creature_chassis"
 seed = 0
-description = "Cast Bramble Elemental and Carven Caryatid with their exact colored costs, then verify only their base P/T. All printed card-specific behavior is deliberately omitted."
+description = "Cast bounded Bramble Elemental and full Carven Caryatid with their exact colored costs, then verify base P/T; Carven's Defender and ETB draw are exercised separately."
 
 [[scenario.card]]
 label = "bramble"
@@ -7114,7 +7114,7 @@ digest = "fnv1a64:f49730fc57bbf22d"
 [[scenario]]
 id = "rav_carven_caryatid_defender_compatibility"
 seed = 46
-description = "Reject Carven Caryatid's attack declaration through its supported Defender rule in the default compatibility scenario; its opt-in stack-backed draw trigger is covered separately."
+description = "Reject full Carven Caryatid's attack declaration through Defender; its stack-backed ETB draw has a dedicated trigger regression."
 
 [[scenario.card]]
 label = "caryatid"

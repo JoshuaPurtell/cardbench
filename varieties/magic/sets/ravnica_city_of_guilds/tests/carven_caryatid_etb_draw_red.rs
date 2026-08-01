@@ -1,9 +1,7 @@
 //! Red regression for Carven Caryatid's enter-the-battlefield draw trigger.
 //!
-//! The compatibility slice currently exposes only Defender.  This test keeps
-//! the missing trigger visible as executable back pressure: resolving the
-//! creature must put its controller's draw trigger on the stack and the
-//! resulting draw must be visible in the event log.
+//! Resolving the creature must put its controller's draw trigger on the stack
+//! and make the resulting draw visible in the event log.
 
 use cardbench_magic_engine::{CastRequest, Color, Game, GameEvent, PlayerId, Step, Zone};
 use cardbench_magic_rav::{card_definitions, rav_triggered_ability_bindings};

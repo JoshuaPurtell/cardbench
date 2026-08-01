@@ -1,4 +1,4 @@
-//! Bounded public contract for Carven Caryatid's shared Defender behavior.
+//! Public contract for Carven Caryatid's Defender and ETB draw slices.
 
 use std::collections::BTreeSet;
 
@@ -8,7 +8,7 @@ use cardbench_magic_engine::{
 use cardbench_magic_rav::{card_definitions, run_all_scenarios};
 
 #[test]
-fn carven_caryatid_definition_is_explicit_about_its_bounded_trigger_scope() {
+fn carven_caryatid_definition_declares_its_complete_trigger_scope() {
     let caryatid = card_definitions()
         .into_iter()
         .find(|definition| definition.id == "RAV-CARVEN-CARYATID")
@@ -26,7 +26,13 @@ fn carven_caryatid_definition_is_explicit_about_its_bounded_trigger_scope() {
     assert!(caryatid.effects.is_empty());
     assert_eq!(
         caryatid.supported_rules,
-        ["colored-cost-casting", "base-characteristics", "defender"]
+        [
+            "full-rules-fidelity",
+            "colored-cost-casting",
+            "base-characteristics",
+            "defender",
+            "enter-the-battlefield-draw",
+        ]
     );
 }
 

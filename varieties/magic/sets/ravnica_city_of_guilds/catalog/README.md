@@ -188,15 +188,15 @@ activations are exercised in public scenarios, while each printed spell effect
 remains non-covered.
 
 The creature-chassis batch for Carrion Howler, Coalhauler Swine, Bramble
-Elemental, Carven Caryatid, Boros Swiftblade, and Loxodon
+Elemental, Boros Swiftblade, and Loxodon
 Hierarch is also deliberately
 bounded. Each records only public identity, mana cost, color, type, and base
 power/toughness facts, and supports only normal creature casting and those base
 characteristics. Every printed keyword, static rule, triggered behavior, and
 activation on those cards is intentionally outside the executable slice. Moroii
 and Dromad Purebred have since been promoted: Moroii's Flying and stack-backed
-upkeep life-loss trigger, and Dromad's received-damage one-life trigger, are
-fully represented. The
+upkeep life-loss trigger, Dromad's received-damage one-life trigger, and
+Carven Caryatid's Defender plus ETB draw are fully represented. The
 public scenarios exercise exact colored-cost payment, stack resolution, zone
 movement, and base P/T values; they do not imply full-card fidelity.
 
@@ -260,11 +260,11 @@ sacrifice, and graveyard-triggered counter behavior remains outside the
 executable scope, so each has a focused compatibility trace plus an ignored
 full-fidelity probe rather than a positive-manifest claim.
 
-Carven Caryatid is likewise bounded to its static Defender slice in the
-default fixture constructor. The expansion now also publishes an opt-in typed
-enter-the-battlefield draw binding (`rav_triggered_ability_bindings`); its stack-backed
-trace is covered separately, while the default compatibility trace and ignored
-full-fidelity probe keep the constructor boundary explicit.
+Carven Caryatid's full trigger binding is published through
+`rav_triggered_ability_bindings`; its focused traces cover both the ordinary
+stack-backed draw and terminal empty-library draw order. The compatibility
+scenario still independently demonstrates the static Defender declaration
+rule.
 
 Selesnya Sagittars extends that wave with the shared static Reach slice. Its
 tap-to-damage activation remains outside the executable scope; the public trace

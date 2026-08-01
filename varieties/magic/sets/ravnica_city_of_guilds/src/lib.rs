@@ -35,7 +35,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 79] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 80] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -77,6 +77,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 79] = [
     "RAV-SANDSOWER",
     "RAV-DIVEBOMBER-GRIFFIN",
     "RAV-DROMAD-PUREBRED",
+    "RAV-CARVEN-CARYATID",
     "RAV-BIRDS-OF-PARADISE",
     "RAV-FIERY-CONCLUSION",
     "RAV-RIBBONS-OF-NIGHT",
@@ -1434,9 +1435,8 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 keyword: Keyword::CannotBlock,
             }],
         },
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Every printed card-specific behavior is
-        // deliberately omitted from this slice.
+        // Full printed behavior: static Defender and the bound stack-backed
+        // enter-the-battlefield draw trigger.
         CardDefinition {
             id: "RAV-BRAMBLE-ELEMENTAL",
             name: "Bramble Elemental",
@@ -1551,7 +1551,13 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Creature]),
             is_basic_land: false,
-            supported_rules: &["colored-cost-casting", "base-characteristics", "defender"],
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "defender",
+                "enter-the-battlefield-draw",
+            ],
             power: Some(2),
             toughness: Some(5),
             keywords: vec![Keyword::Defender],
