@@ -4,15 +4,20 @@
 //! every public shape reachable without `unsafe` and requires the invariant
 //! audit to reject it before a runner mistakes it for an engine transition.
 
+#[path = "support/stack_fixture.rs"]
+mod stack_fixture;
+
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
     CardDefinition, CardType, Color, ContinuousChange, ContinuousEffect, Duration, Effect, Game,
-    GameEvent, ManaCost, ObjectId, PlayerId, StackObject, Step, Target, TargetRequirement, Zone,
+    GameEvent, ManaCost, ObjectId, PlayerId, StackObject, StackObjectId, Step, Target,
+    TargetRequirement, Zone,
 };
 
 const BODY: &str = "MUTATION-BODY";
 const BOLT: &str = "MUTATION-BOLT";
+const WARMUP: &str = "MUTATION-STACK-WARMUP";
 
 fn types(types: impl IntoIterator<Item = CardType>) -> BTreeSet<CardType> {
     types.into_iter().collect()
@@ -52,6 +57,21 @@ fn definitions() -> Vec<CardDefinition> {
                 amount: 1,
                 target: TargetRequirement::Player,
             }],
+        },
+        CardDefinition {
+            id: WARMUP,
+            name: WARMUP,
+            set_code: "TST",
+            mana_cost: ManaCost::new(0),
+            colors: BTreeSet::new(),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Instant]),
+            is_basic_land: false,
+            supported_rules: &["stack-identity-warmup"],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![Effect::GainLifeController { amount: 1 }],
         },
     ]
 }
@@ -106,10 +126,12 @@ fn mutation_audit_rejects_zone_and_stack_corruption() {
     );
 
     let mut zone_and_stack = game(2);
+    stack_fixture::advance_stack_identity(&mut zone_and_stack, WARMUP);
     let card = zone_and_stack
         .add_card(first, BOLT, Zone::Hand)
         .expect("known instant enters hand");
     zone_and_stack.stack.push(StackObject {
+        id: StackObjectId(1),
         card,
         source_incarnation: 1,
         source_colors: BTreeSet::new(),
@@ -130,11 +152,13 @@ fn mutation_audit_rejects_zone_and_stack_corruption() {
     assert_rejected(&zone_and_stack, "a stack card remains in a player zone");
 
     let mut fabricated_stack_target = game(2);
+    stack_fixture::advance_stack_identity(&mut fabricated_stack_target, WARMUP);
     let card = fabricated_stack_target
         .add_card(first, BOLT, Zone::Hand)
         .expect("known instant enters hand");
     fabricated_stack_target.players[first.0].hand.clear();
     fabricated_stack_target.stack.push(StackObject {
+        id: StackObjectId(1),
         card,
         source_incarnation: 1,
         source_colors: BTreeSet::new(),
@@ -158,7 +182,9 @@ fn mutation_audit_rejects_zone_and_stack_corruption() {
     );
 
     let mut unknown_stack_card = game(2);
+    stack_fixture::advance_stack_identity(&mut unknown_stack_card, WARMUP);
     unknown_stack_card.stack.push(StackObject {
+        id: StackObjectId(1),
         card: ObjectId(999),
         source_incarnation: 1,
         source_colors: BTreeSet::new(),

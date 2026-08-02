@@ -1,14 +1,18 @@
 //! Red regression: a failed top-stack resolution must roll back its final pass.
 
+#[path = "support/stack_fixture.rs"]
+mod stack_fixture;
+
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardDefinition, CardType, Effect, Game, ManaCost, PlayerId, StackObject, Target,
-    TargetRequirement, Zone,
+    CardDefinition, CardType, Effect, Game, ManaCost, PlayerId, RulesError, StackObject,
+    StackObjectId, Target, TargetRequirement, Zone,
 };
 
 const TARGET_SPELL: &str = "STACK-ATOMICITY-TARGET";
 const MALFORMED_SPELL: &str = "STACK-ATOMICITY-MALFORMED";
+const WARMUP: &str = "STACK-ATOMICITY-WARMUP";
 
 fn instant(id: &'static str, effects: Vec<Effect>) -> CardDefinition {
     CardDefinition {
@@ -46,10 +50,13 @@ fn failed_resolution_restores_the_final_pass_and_authoritative_stack() {
                     target: TargetRequirement::InstantOrSorcerySpell,
                 }],
             ),
+            instant(WARMUP, vec![Effect::GainLifeController { amount: 1 }]),
         ],
         2,
     )
     .expect("fixture game initializes");
+    stack_fixture::advance_stack_identity(&mut game, WARMUP);
+    stack_fixture::advance_stack_identity(&mut game, WARMUP);
     let target = game
         .add_card(responder, TARGET_SPELL, Zone::Hand)
         .expect("target spell enters hand");
@@ -60,6 +67,7 @@ fn failed_resolution_restores_the_final_pass_and_authoritative_stack() {
     game.players[caster.0].hand.clear();
     game.stack = vec![
         StackObject {
+            id: StackObjectId(1),
             card: target,
             source_incarnation: 1,
             source_colors: BTreeSet::new(),
@@ -75,6 +83,7 @@ fn failed_resolution_restores_the_final_pass_and_authoritative_stack() {
             generic_cost_reduction: 0,
         },
         StackObject {
+            id: StackObjectId(2),
             card: malformed,
             source_incarnation: 1,
             source_colors: BTreeSet::new(),
@@ -112,8 +121,8 @@ fn failed_resolution_restores_the_final_pass_and_authoritative_stack() {
     );
 
     assert!(
-        result.is_err(),
-        "the malformed resolution must return an error"
+        matches!(result, Err(RulesError::IllegalTarget(Target::Spell(card))) if card == target),
+        "the malformed resolution must reject its stack-spell damage target; result={result:?}"
     );
     assert_eq!(
         game.stack, before_stack,

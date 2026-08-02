@@ -1,21 +1,34 @@
 //! The selected X is authoritative stack provenance, not an inferred payment.
 
+#[path = "support/stack_fixture.rs"]
+mod stack_fixture;
+
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardDefinition, CardType, Color, Effect, Game, ManaCost, PlayerId, StackObject, Target, Zone,
+    CardDefinition, CardType, Color, Effect, Game, ManaCost, PlayerId, RulesError, StackObject,
+    StackObjectId, Target, Zone,
 };
 
 const X_SPELL: &str = "CHOSEN-X-STACK-PROBE";
 const CREATURE: &str = "CHOSEN-X-CREATURE-PROBE";
+const WARMUP: &str = "CHOSEN-X-STACK-WARMUP";
 
 fn definition(id: &'static str, types: BTreeSet<CardType>, effects: Vec<Effect>) -> CardDefinition {
     CardDefinition {
         id,
         name: id,
         set_code: "TST",
-        mana_cost: ManaCost::with_colors(0, [Color::Black]),
-        colors: BTreeSet::from([Color::Black]),
+        mana_cost: if id == WARMUP {
+            ManaCost::new(0)
+        } else {
+            ManaCost::with_colors(0, [Color::Black])
+        },
+        colors: if id == WARMUP {
+            BTreeSet::new()
+        } else {
+            BTreeSet::from([Color::Black])
+        },
         mana_colors: BTreeSet::new(),
         card_types: types,
         is_basic_land: false,
@@ -37,10 +50,16 @@ fn invariant_rejects_a_chosen_x_receipt_that_cannot_pay_printed_cost_plus_x() {
                 vec![Effect::DestroyTargetCreatureWithManaValueAtMostChosenX],
             ),
             definition(CREATURE, BTreeSet::from([CardType::Creature]), vec![]),
+            definition(
+                WARMUP,
+                BTreeSet::from([CardType::Instant]),
+                vec![Effect::GainLifeController { amount: 1 }],
+            ),
         ],
         2,
     )
     .expect("fixture game initializes");
+    stack_fixture::advance_stack_identity(&mut game, WARMUP);
     let spell = game
         .add_card(PlayerId(0), X_SPELL, Zone::Hand)
         .expect("spell setup");
@@ -49,9 +68,10 @@ fn invariant_rejects_a_chosen_x_receipt_that_cannot_pay_printed_cost_plus_x() {
         .expect("target setup");
     game.players[0].hand.clear();
     game.stack.push(StackObject {
+        id: StackObjectId(1),
         card: spell,
         source_incarnation: 1,
-        source_colors: BTreeSet::new(),
+        source_colors: BTreeSet::from([Color::Black]),
         controller: PlayerId(0),
         ability_id: None,
         targets: vec![Target::Permanent(target)],
@@ -70,8 +90,10 @@ fn invariant_rejects_a_chosen_x_receipt_that_cannot_pay_printed_cost_plus_x() {
         game.stack,
         game.canonical_event_log()
     );
-    assert!(
-        audit.is_err(),
-        "a fabricated X must not be inferred from an undersized payment receipt"
-    );
+    assert!(matches!(
+        audit,
+        Err(RulesError::IllegalAction(
+            "chosen-X stack spell receipt does not match its post-Convoke cost"
+        ))
+    ));
 }
