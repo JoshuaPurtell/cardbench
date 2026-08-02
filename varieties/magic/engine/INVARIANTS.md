@@ -511,6 +511,17 @@ Oracle Magic rules coverage.
   then records the ordinary spell terminal lifecycle. No priority window,
   insertion-order fallback, or stale same-`ObjectId` graveyard incarnation can
   change a player's required choice.
+- `DecisionKind::PublicGraveyardLandReturn` retains one exact target-free spell
+  stack object while its controller selects zero through three of that
+  controller's own public graveyard land cards. The current legal options are
+  rederived from owner, zone, and printed land type at both decision audit and
+  submission; the response is an in-range duplicate-free subset, and only its
+  selected card incarnations are moved to hand after `DecisionCompleted`.
+  The spell/source stack identity, source incarnation, controller, zero-pass
+  boundary, public visibility, and `0..=min(3, candidates)` cardinality must
+  all remain exact. Empty candidates open no fabricated prompt and resolve as
+  the ordinary no-op instruction. No priority action, zone-order fallback, or
+  stale same-`ObjectId` graveyard incarnation can add a land to the return.
 - `DecisionKind::CounterUnlessPaysMana` keeps its counterspell at the stack
   top and captures that stack object's source/incarnation/controller together
   with the lower target spell's identity/incarnation and controller. Only the
