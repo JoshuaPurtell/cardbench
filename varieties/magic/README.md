@@ -218,8 +218,9 @@ invariant failure is attributable to one exact matchup. Set
 `event-log-manifest.tsv`, and `matrix-summary.txt`; set
 `RAV_MATRIX_SEED_COUNT=N` for a smaller public review pass and
 `RAV_MATRIX_SUMMARY_ONLY=1` to suppress trace printing. `rav-engine-audit`
-adds public API adversarial probes and an interactive three-seed version of
-that full matrix. The engine integration suite also covers rejected-action
+adds public API adversarial probes and an interactive one-seed version of that
+full matrix. It streams progress, bounds live matrix workers, and accepts
+`RAV_AUDIT_SEED_COUNT=N` for broader campaigns. The engine integration suite also covers rejected-action
 atomicity, mana-boundary clearing, LIFO/countered stack paths, SBA fixed points,
 continuous-effect lifetime, blocked-combat history, terminal draws, and
 multiplayer survivor priority.

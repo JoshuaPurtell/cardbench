@@ -88,5 +88,8 @@ cardbench-magic-policies --bin rav-reference-deck-matrix`. This writes one
 event log per game plus `event-log-manifest.tsv` and `matrix-summary.txt`.
 `RAV_MATRIX_SEED_COUNT` and `RAV_MATRIX_SUMMARY_ONLY=1` make bounded review
 passes practical. `rav-engine-audit` adds adversarial public-API probes and a
-shorter interactive matrix; both fail closed when an invariant, policy, or
+one-seed interactive matrix, streams progress at every stage/seed boundary,
+and accepts `RAV_AUDIT_SEED_COUNT=N` for broader campaigns. Matrix workers are
+bounded by available parallelism (and a ceiling of 16) rather than creating one
+OS thread per matchup. Both commands fail closed when an invariant, policy, or
 coverage problem is discovered.
