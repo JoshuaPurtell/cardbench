@@ -411,6 +411,10 @@ pub enum TriggerCondition {
     /// discards, mills, destroyed permanents, countered spells, and costs all
     /// produce the same expansion-neutral observed event.
     OpponentCardPutIntoGraveyard,
+    /// This source card moved from its owner's graveyard to that owner's
+    /// hand. The trigger holds the prior graveyard incarnation even though
+    /// the source has already advanced to its hand incarnation.
+    GraveyardToHand,
     /// The source was declared as an attacker. A triggered optional mana cost
     /// is paid only on resolution, after the post-declaration priority window.
     Attacks,

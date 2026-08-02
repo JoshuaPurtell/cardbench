@@ -104,6 +104,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 208] = [
     "RAV-GREATER-MOSSDOG",
     "RAV-STINKWEED-IMP",
     "RAV-GOLGARI-THUG",
+    "RAV-GOLGARI-BROWNSCALE",
     "RAV-BOROS-SIGNET",
     "RAV-DIMIR-SIGNET",
     "RAV-GOLGARI-SIGNET",
@@ -1042,6 +1043,9 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![Effect::RegenerateTargetCreatureAndScheduleCombatHistoryDestruction],
         },
+        // Full fidelity: the shared Dredge replacement makes an exact
+        // graveyard-to-hand transition, then stacks this source-bound life
+        // gain trigger with the departed graveyard incarnation as provenance.
         CardDefinition {
             id: "RAV-GOLGARI-BROWNSCALE",
             name: "Golgari Brownscale",
@@ -1051,7 +1055,12 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Creature]),
             is_basic_land: false,
-            supported_rules: &["dredge", "base-characteristics"],
+            supported_rules: &[
+                "full-rules-fidelity",
+                "dredge",
+                "base-characteristics",
+                "graveyard-to-hand-gain-life",
+            ],
             power: Some(2),
             toughness: Some(3),
             keywords: vec![Keyword::Dredge(2)],
@@ -7709,6 +7718,17 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                 optional: false,
                 targets: vec![TargetRequirement::CreatureCardInControllerGraveyard],
                 effects: vec![Effect::PutTargetCreatureCardInControllerGraveyardOnOwnersLibraryTop],
+            },
+        },
+        TriggeredAbilityBinding {
+            card_definition: "RAV-GOLGARI-BROWNSCALE",
+            ability: TriggeredAbility {
+                id: "graveyard-to-hand-gain-life",
+                condition: TriggerCondition::GraveyardToHand,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![Effect::GainLifeController { amount: 2 }],
             },
         },
         TriggeredAbilityBinding {

@@ -1585,6 +1585,7 @@ impl Game {
                         | TriggerCondition::AnotherCreatureDies
                         | TriggerCondition::ControlledNontokenCreatureDies
                         | TriggerCondition::OpponentCardPutIntoGraveyard
+                        | TriggerCondition::GraveyardToHand
                         | TriggerCondition::Attacks
                         | TriggerCondition::Blocks
                         | TriggerCondition::CastsNoncreatureSpell
@@ -9635,6 +9636,10 @@ impl Game {
             card,
             count: amount,
         });
+        // The full replacement has committed its mill-and-return sequence.
+        // A source-bound graveyard-to-hand trigger must stack only after this
+        // canonical receipt, never between its component zone moves.
+        self.flush_pending_trigger_events()?;
         Ok(())
     }
 
@@ -10749,6 +10754,7 @@ impl Game {
                             | TriggerCondition::AnotherCreatureDies
                             | TriggerCondition::ControlledNontokenCreatureDies
                             | TriggerCondition::OpponentCardPutIntoGraveyard
+                            | TriggerCondition::GraveyardToHand
                             | TriggerCondition::Attacks
                             | TriggerCondition::Blocks
                             | TriggerCondition::CastsNoncreatureSpell
@@ -16883,6 +16889,28 @@ impl Game {
         }
     }
 
+    /// Captures a source card's own transition from its owner's graveyard to
+    /// hand. The source's old zone incarnation remains authoritative for the
+    /// eventual triggered stack object; its new hand incarnation is never a
+    /// license to replay the departed-graveyard trigger.
+    fn enqueue_graveyard_to_hand_triggers(
+        &mut self,
+        source: ObjectId,
+        graveyard_incarnation: u64,
+        source_colors: &BTreeSet<Color>,
+        definition: &'static str,
+        owner: PlayerId,
+    ) {
+        self.enqueue_triggers_for_source_at_incarnation(
+            source,
+            graveyard_incarnation,
+            source_colors,
+            definition,
+            owner,
+            TriggerCondition::GraveyardToHand,
+        );
+    }
+
     /// Captures life-gain triggers only from permanents controlled by the
     /// player who gained positive life. Their optional mana costs are paid at
     /// trigger resolution; the pending queue retains the source and bound
@@ -21155,6 +21183,19 @@ impl Game {
     fn move_to_zone(&mut self, card: ObjectId, zone: Zone) -> Result<(), RulesError> {
         let object = self.object(card)?.clone();
         let previous_zone = self.zone_of(card);
+        let graveyard_to_hand = previous_zone == Some(Zone::Graveyard) && zone == Zone::Hand;
+        let graveyard_to_hand_trigger_source = graveyard_to_hand
+            .then(|| {
+                self.card_definition(card).map(|definition| {
+                    (
+                        definition.id,
+                        definition.colors.clone(),
+                        object.incarnation,
+                        object.owner,
+                    )
+                })
+            })
+            .transpose()?;
         let left_battlefield =
             previous_zone == Some(Zone::Battlefield) && zone != Zone::Battlefield;
         let battlefield_controller = left_battlefield
@@ -21254,6 +21295,17 @@ impl Game {
         }
         if zone == Zone::Graveyard && advanced_incarnation {
             self.enqueue_opponent_graveyard_triggers(destination_owner);
+        }
+        if let Some((definition, colors, graveyard_incarnation, owner)) =
+            graveyard_to_hand_trigger_source
+        {
+            self.enqueue_graveyard_to_hand_triggers(
+                card,
+                graveyard_incarnation,
+                &colors,
+                definition,
+                owner,
+            );
         }
         if let Some(copy) = expired_copy {
             self.record_event(GameEvent::PermanentCopyExpired {
@@ -21819,6 +21871,17 @@ impl Game {
         {
             return Err(RulesError::IllegalAction(
                 "entered-permanent bounce effects require the controlled nonartifact entry trigger",
+            ));
+        }
+        if ability.condition == TriggerCondition::GraveyardToHand
+            && (!ability.targets.is_empty()
+                || !matches!(
+                    ability.effects.as_slice(),
+                    [Effect::GainLifeController { amount }] if *amount > 0
+                ))
+        {
+            return Err(RulesError::IllegalAction(
+                "graveyard-to-hand trigger requires one positive source-controller life-gain effect",
             ));
         }
         if matches!(
