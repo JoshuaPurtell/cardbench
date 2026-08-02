@@ -534,6 +534,14 @@ Oracle Magic rules coverage.
   `controller_of`, never the owner-bound base controller, so a player may
   choose a creature they currently control through a layer-two effect; its
   normal owner-indexed graveyard move then ends the temporary control effect.
+- `CastsCreatureSpell` is controller-scoped: after a physical creature
+  spell's `SpellCast` receipt and before its caster receives priority, each
+  live controller-owned observer queues its normal trigger above that spell.
+  An opposing controller's creature cast queues none. A stacked trigger keeps
+  its captured source, controller, and incarnation provenance if its source
+  subsequently leaves; its targetless optional decision remains the captured
+  controller's, and an accepted draw resolves before the underlying creature
+  spell.
 - An `BeginningOfAnyUpkeep` trigger is stacked only after that upkeep's own
   `StepBegan` receipt and before its first priority window. Its active player
   is captured into a materialized `SacrificeCapturedPlayerCreature` stack

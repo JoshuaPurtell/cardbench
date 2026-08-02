@@ -49,8 +49,8 @@ a zone move. The fetched Aura's ordinary ETB trigger is queued only after the
 Mage trigger's terminal receipt. The opponent sees neither unselected Aura
 identities nor a private decision projection.
 
-The current catalog partition is 230 full / 27 partial / 34 catalog-only unique
-names (245 / 27 / 34 printings). The independently checked coverage-report
+The current catalog partition is 231 full / 26 partial / 34 catalog-only unique
+names (246 / 26 / 34 printings). The independently checked coverage-report
 binary emits the same partition.
 
 Bramble Elemental is full-fidelity through the expansion-neutral, current-
@@ -527,6 +527,12 @@ still-live source. The shown trace records the payment, stack placement,
 priority window, target destruction, counter, and terminal ability receipt;
 the focused negative regression proves a non-Flying target preserves both mana
 and the event log atomically.
+
+Primordial Sage is a positive-manifest entry. A creature spell cast by its
+controller queues the normal optional draw trigger above that spell after the
+ordinary cast receipt. The focused traces prove controller scope, explicit
+accept and decline, and that an already-stacked trigger remains independently
+resolvable when the Sage leaves the battlefield before it resolves.
 
 Carven Caryatid's full trigger binding is published through
 `rav_triggered_ability_bindings`; its focused traces cover both the ordinary
