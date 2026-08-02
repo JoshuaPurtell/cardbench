@@ -184,7 +184,10 @@ Oracle Magic rules coverage.
   positive remaining amount, a seated player or live creature target, a
   current-turn expiry, and a retained source identity. Creation is a stack
   effect and emits `DamageShieldCreated`; the source may have left the
-  battlefield as an activation cost without invalidating the shield. Damage
+  battlefield as an activation cost, or later leave the game with its owner,
+  without invalidating the shield. In the latter case an
+  `ObjectLeftGame`/`TokenCeasedToExist` receipt is sufficient historical source
+  provenance, but source characteristics are never dereferenced. Damage
   consumes only the represented amount and emits `DamagePrevented`; no damage
   trigger is queued for the prevented portion. A target departure or cleanup
   transition removes the shield and emits `DamageShieldExpired`, and an
@@ -222,7 +225,9 @@ Oracle Magic rules coverage.
   satisfies the typed attacking-or-blocking target requirement, emits
   `CombatDamagePreventionCreated`, prevents every positive combat packet from
   that exact creature through `CombatDamagePrevented`, and cannot follow a
-  leave-and-return incarnation. Cleanup or target departure removes it with
+  leave-and-return incarnation. Its effect is independent of a later source
+  departure, which retains historical source identity without a live-object
+  dereference. Cleanup or target departure removes it with
   `CombatDamagePreventionExpired`. `DamageCannotBePrevented` bypasses this
   prevention replacement but not unrelated redirection.
 - `Keyword::Protection(color)` is source-aware permanent protection: a source
