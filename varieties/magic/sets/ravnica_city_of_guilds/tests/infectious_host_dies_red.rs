@@ -1,11 +1,13 @@
 //! Red coverage probe for Infectious Host's dies trigger.
 
 use cardbench_magic_engine::{
-    CardType, Color, ContinuousChange, Duration, Game, GameEvent, ManaCost, PlayerId, Target, Zone,
+    CardType, Color, ContinuousChange, DecisionSelection, Duration, Game, GameEvent, ManaCost,
+    PlayerId, Target, Zone,
 };
 use cardbench_magic_rav::{
-    card_definitions, rav_activated_ability_bindings, rav_additional_spell_cost_bindings,
-    rav_basic_land_type_bindings, rav_mana_ability_bindings, rav_triggered_ability_bindings,
+    RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, rav_activated_ability_bindings,
+    rav_additional_spell_cost_bindings, rav_basic_land_type_bindings, rav_mana_ability_bindings,
+    rav_triggered_ability_bindings,
 };
 
 #[test]
@@ -20,6 +22,14 @@ fn infectious_host_exposes_its_targeted_dies_life_loss_slice() {
     assert!(
         host.supported_rules
             .contains(&"dies-target-player-life-loss")
+    );
+    assert!(
+        host.supported_rules.contains(&"full-rules-fidelity"),
+        "Infectious Host has only a typed, policy-selected dies trigger; it must not retain the old deterministic compatibility classification"
+    );
+    assert!(
+        RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&host.id),
+        "the complete policy-selected dies trigger should promote Infectious Host"
     );
 }
 
@@ -54,6 +64,17 @@ fn infectious_host_dies_trigger_targets_one_player_and_records_life_loss() {
     )
     .expect("SBA destroys the Host");
     assert_eq!(game.zone_of(host), Some(Zone::Graveyard));
+    let decision = game
+        .view_for_player(PlayerId(0))
+        .expect("Host controller receives the trigger target decision")
+        .pending_decision
+        .expect("target-bearing dies trigger opens a policy decision");
+    game.submit_decision(
+        PlayerId(0),
+        decision.id,
+        DecisionSelection::Targets(vec![Target::Player(PlayerId(1))]),
+    )
+    .expect("Host controller chooses the opposing player");
     assert_eq!(
         game.stack.last().map(|object| object.targets.clone()),
         Some(vec![Target::Player(PlayerId(1))])
@@ -70,4 +91,11 @@ fn infectious_host_dies_trigger_targets_one_player_and_records_life_loss() {
         GameEvent::LifeLost { source, player, amount }
             if *source == host && *player == PlayerId(1) && *amount == 2
     )));
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::TriggeredAbilityStacked { source, ability, .. }
+            if *source == host && *ability == "dies-target-player-life-loss"
+    )));
+    game.validate_invariants()
+        .expect("policy-targeted dies trigger preserves state-machine invariants");
 }
