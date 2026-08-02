@@ -72,10 +72,11 @@ target/stack lifecycle, and has its distinct fixed two-color mana bundle. The
 live trace covers self-return and excludes an opponent's land; its returned
 card uses the normal owner-indexed hand transition.
 
-Dimir House Guard is a positive-manifest entry. Its static Fear and immediate
-hand-zone Transmute path are paired with a stack-backed activation that
-requires one selected controlled creature sacrifice and creates a source-bound
-regeneration shield only after the ordinary priority cycle.
+Dimir House Guard is a positive-manifest entry. Its static Fear, stack-backed
+private Transmute search, and activation that requires one selected controlled
+creature sacrifice are all represented. The activation creates a source-bound
+regeneration shield only after the ordinary priority cycle; its frozen public
+Transmute fixture remains solely for deterministic parity.
 
 Brainspoil is a positive-manifest entry. Its typed nonblack-creature
 destruction obeys ordinary destruction and target legality, while its Transmute
