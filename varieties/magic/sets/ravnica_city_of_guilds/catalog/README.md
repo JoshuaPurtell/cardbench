@@ -49,8 +49,8 @@ a zone move. The fetched Aura's ordinary ETB trigger is queued only after the
 Mage trigger's terminal receipt. The opponent sees neither unselected Aura
 identities nor a private decision projection.
 
-The current catalog partition is 218 full / 38 partial / 35 catalog-only unique
-names (233 / 38 / 35 printings). The independently checked coverage-report
+The current catalog partition is 219 full / 37 partial / 35 catalog-only unique
+names (234 / 37 / 35 printings). The independently checked coverage-report
 binary emits the same partition.
 
 Bramble Elemental is full-fidelity through the expansion-neutral, current-
