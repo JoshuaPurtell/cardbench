@@ -4331,6 +4331,27 @@ impl Game {
                 }
             }
         };
+        let mut effects: Vec<_> = self
+            .continuous_effects
+            .iter()
+            .filter(|effect| effect.target == card && self.effect_is_active(effect))
+            .collect();
+        effects.sort_by_key(|effect| (effect.change.layer(), effect.timestamp));
+        // Static bindings are presently layer six or seven. Apply every
+        // timestamped layer-four/five change first so their characteristic
+        // predicates never inspect a pre-layer type or color. The later
+        // timestamped ability/P/T effects deliberately stay after static
+        // changes, preserving this substrate's existing same-layer order.
+        for effect in effects
+            .iter()
+            .filter(|effect| matches!(effect.change.layer(), Layer::Type | Layer::Color))
+        {
+            self.apply_timestamped_continuous_change_to_characteristics(
+                card,
+                &mut characteristics,
+                &effect.change,
+            )?;
+        }
         if self.zone_of(card) == Some(Zone::Battlefield) {
             // Static bindings are keyed by source definition, but their
             // recipient can be another permanent. Iterate all live sources
@@ -4353,83 +4374,15 @@ impl Game {
                 }
             }
         }
-        let mut effects: Vec<_> = self
-            .continuous_effects
-            .iter()
-            .filter(|effect| effect.target == card && self.effect_is_active(effect))
-            .collect();
-        effects.sort_by_key(|effect| (effect.change.layer(), effect.timestamp));
-        for effect in effects {
-            match &effect.change {
-                ContinuousChange::ReplaceBasicLandType(land_type) => {
-                    characteristics.basic_land_type = Some(*land_type);
-                }
-                ContinuousChange::AddCardType(card_type) => {
-                    characteristics.card_types.insert(card_type.clone());
-                }
-                ContinuousChange::AddColor(color) => {
-                    characteristics.colors.insert(*color);
-                }
-                ContinuousChange::ReplaceColorsWith(color) => {
-                    characteristics.colors.clear();
-                    characteristics.colors.insert(*color);
-                }
-                ContinuousChange::AddKeyword(keyword) => {
-                    characteristics.keywords.push(keyword.clone());
-                }
-                ContinuousChange::RemoveKeyword(keyword) => {
-                    characteristics
-                        .keywords
-                        .retain(|candidate| candidate != keyword);
-                }
-                ContinuousChange::ChangeController(_)
-                | ContinuousChange::ChangeControllerToSourceController
-                | ContinuousChange::GrantActivatedAbility(_)
-                | ContinuousChange::RedirectDamageToAttachmentController
-                | ContinuousChange::CannotBlockSource(_)
-                | ContinuousChange::AddDamageShield(_)
-                | ContinuousChange::SuppressNonManaActivatedAbilities => {}
-                ContinuousChange::ModifyPowerToughness { power, toughness } => {
-                    characteristics.power = characteristics
-                        .power
-                        .map(|current| current + i32::from(*power));
-                    characteristics.toughness = characteristics
-                        .toughness
-                        .map(|current| current + i32::from(*toughness));
-                }
-                ContinuousChange::ModifyPowerToughnessForEachOtherCreatureControlledByTarget {
-                    power_per_creature,
-                    toughness_per_creature,
-                } => {
-                    let count = i32::try_from(self.controlled_creature_count_other_than(
-                        self.controller_of(card)?,
-                        Some(card),
-                    ))
-                    .map_err(|_| {
-                        RulesError::IllegalAction(
-                            "other controlled creature count exceeds supported range",
-                        )
-                    })?;
-                    characteristics.power = characteristics
-                        .power
-                        .map(|current| current + i32::from(*power_per_creature) * count);
-                    characteristics.toughness = characteristics
-                        .toughness
-                        .map(|current| current + i32::from(*toughness_per_creature) * count);
-                }
-                ContinuousChange::ControlledCreatureCountPowerToughness
-                | ContinuousChange::OtherControlledCreaturesModifyPowerToughness { .. }
-                | ContinuousChange::OtherControlledCreaturesAddKeyword(_)
-                | ContinuousChange::ControlledCreaturesAddKeyword(_)
-                | ContinuousChange::ControlledCreaturesAddKeywordIfSourceEnchanted(_)
-                | ContinuousChange::ControlledCreaturesSharingTopLibraryCreatureCardColorsModifyPowerToughness {
-                    ..
-                } => {
-                    return Err(RulesError::IllegalAction(
-                        "a static continuous change cannot be a timestamped effect",
-                    ));
-                }
-            }
+        for effect in effects
+            .into_iter()
+            .filter(|effect| !matches!(effect.change.layer(), Layer::Type | Layer::Color))
+        {
+            self.apply_timestamped_continuous_change_to_characteristics(
+                card,
+                &mut characteristics,
+                &effect.change,
+            )?;
         }
         // Only the two P/T counter kinds modify characteristics. Every other
         // typed named counter is still real permanent state, but it carries
@@ -4451,6 +4404,88 @@ impl Game {
             .toughness
             .map(|toughness| toughness + i32::from(plus_one) - i32::from(minus_one));
         Ok(characteristics)
+    }
+
+    /// Applies one timestamped continuous change after the caller has placed
+    /// it in the global layer sequence. Static-only variants fail closed here:
+    /// they can be evaluated only by their live battlefield source bindings.
+    fn apply_timestamped_continuous_change_to_characteristics(
+        &self,
+        card: ObjectId,
+        characteristics: &mut Characteristics,
+        change: &ContinuousChange,
+    ) -> Result<(), RulesError> {
+        match change {
+            ContinuousChange::ReplaceBasicLandType(land_type) => {
+                characteristics.basic_land_type = Some(*land_type);
+            }
+            ContinuousChange::AddCardType(card_type) => {
+                characteristics.card_types.insert(card_type.clone());
+            }
+            ContinuousChange::AddColor(color) => {
+                characteristics.colors.insert(*color);
+            }
+            ContinuousChange::ReplaceColorsWith(color) => {
+                characteristics.colors.clear();
+                characteristics.colors.insert(*color);
+            }
+            ContinuousChange::AddKeyword(keyword) => {
+                characteristics.keywords.push(keyword.clone());
+            }
+            ContinuousChange::RemoveKeyword(keyword) => {
+                characteristics
+                    .keywords
+                    .retain(|candidate| candidate != keyword);
+            }
+            ContinuousChange::ChangeController(_)
+            | ContinuousChange::ChangeControllerToSourceController
+            | ContinuousChange::GrantActivatedAbility(_)
+            | ContinuousChange::RedirectDamageToAttachmentController
+            | ContinuousChange::CannotBlockSource(_)
+            | ContinuousChange::AddDamageShield(_)
+            | ContinuousChange::SuppressNonManaActivatedAbilities => {}
+            ContinuousChange::ModifyPowerToughness { power, toughness } => {
+                characteristics.power = characteristics
+                    .power
+                    .map(|current| current + i32::from(*power));
+                characteristics.toughness = characteristics
+                    .toughness
+                    .map(|current| current + i32::from(*toughness));
+            }
+            ContinuousChange::ModifyPowerToughnessForEachOtherCreatureControlledByTarget {
+                power_per_creature,
+                toughness_per_creature,
+            } => {
+                let count = i32::try_from(self.controlled_creature_count_other_than(
+                    self.controller_of(card)?,
+                    Some(card),
+                ))
+                .map_err(|_| {
+                    RulesError::IllegalAction(
+                        "other controlled creature count exceeds supported range",
+                    )
+                })?;
+                characteristics.power = characteristics
+                    .power
+                    .map(|current| current + i32::from(*power_per_creature) * count);
+                characteristics.toughness = characteristics
+                    .toughness
+                    .map(|current| current + i32::from(*toughness_per_creature) * count);
+            }
+            ContinuousChange::ControlledCreatureCountPowerToughness
+            | ContinuousChange::OtherControlledCreaturesModifyPowerToughness { .. }
+            | ContinuousChange::OtherControlledCreaturesAddKeyword(_)
+            | ContinuousChange::ControlledCreaturesAddKeyword(_)
+            | ContinuousChange::ControlledCreaturesAddKeywordIfSourceEnchanted(_)
+            | ContinuousChange::ControlledCreaturesSharingTopLibraryCreatureCardColorsModifyPowerToughness {
+                ..
+            } => {
+                return Err(RulesError::IllegalAction(
+                    "a static continuous change cannot be a timestamped effect",
+                ));
+            }
+        }
+        Ok(())
     }
 
     fn apply_static_continuous_change(
