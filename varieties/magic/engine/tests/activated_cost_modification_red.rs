@@ -162,6 +162,15 @@ fn activate(game: &mut Game, source: cardbench_magic_engine::ObjectId, ability: 
     .expect("activation succeeds");
 }
 
+fn pass_pair(game: &mut Game) {
+    let first = game.priority;
+    game.pass_priority(first)
+        .expect("activating player passes priority");
+    let second = game.priority;
+    game.pass_priority(second)
+        .expect("opponent passes priority and resolves the stack item");
+}
+
 #[test]
 fn nonmana_tax_stacks_and_preserves_colored_symbols() {
     let mut game = fixture();
@@ -336,6 +345,7 @@ fn increases_apply_before_reductions_and_leave_colored_symbols_intact() {
         .expect("effective generic mana setup");
 
     activate(&mut game, source, "red-ability");
+    pass_pair(&mut game);
     eprintln!(
         "activated-cost increase/reduction trace: events={:?}",
         game.canonical_event_log()
@@ -368,6 +378,12 @@ fn increases_apply_before_reductions_and_leave_colored_symbols_intact() {
             mana_cost,
             ..
         } if *paid_source == source && *mana_cost == ManaCost::with_colors(2, [Color::Red]))
+    }));
+    assert!(game.event_log.iter().any(|event| {
+        matches!(event, GameEvent::AbilityResolved {
+            source: resolved_source,
+            ability: "red-ability",
+        } if *resolved_source == source)
     }));
     game.validate_invariants()
         .expect("calculated increase and reduction leave valid provenance");
