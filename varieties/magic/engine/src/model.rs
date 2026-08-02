@@ -112,6 +112,12 @@ pub enum LibrarySearchCardinality {
 /// carrying [`Keyword::Transmute`] owns this one generic ability.
 pub const TRANSMUTE_ABILITY_ID: &str = "transmute";
 
+/// Stable identity for a delayed end-of-combat destruction instruction. It is
+/// expansion-neutral: a resolving effect schedules the instruction, then the
+/// engine places it on the stack at the recorded combat boundary.
+pub const DELAYED_COMBAT_HISTORY_DESTRUCTION_ABILITY_ID: &str =
+    "delayed-combat-history-destruction";
+
 /// Destination for a selected library card. A tapped battlefield entry is a
 /// single semantic destination so the public event log cannot claim an
 /// untapped entry followed by an unrelated tap action.
@@ -1934,6 +1940,12 @@ pub enum Effect {
     /// shield is consumed only by the next destruction event; it does not
     /// prevent damage, sacrifice, or a zero-toughness state-based action.
     RegenerateTargetCreature,
+    /// Put one regeneration shield on the targeted creature, then schedule a
+    /// same-turn end-of-combat stack instruction that destroys the creatures
+    /// which blocked or were blocked by that exact creature incarnation.
+    /// The future instruction reads the combat's preserved declaration
+    /// history, rather than mutable current blocker membership.
+    RegenerateTargetCreatureAndScheduleCombatHistoryDestruction,
     /// Put one regeneration replacement shield on the resolving ability's
     /// creature source. This has no target slot and models self-regeneration
     /// activations such as Sewerdreg's.
@@ -1971,6 +1983,13 @@ pub enum Effect {
     DestroyCapturedCreature {
         creature: ObjectId,
         incarnation: u64,
+    },
+    /// Runtime-only delayed materialization. It is produced only by the
+    /// typed end-of-combat scheduler and resolves from a stack ability with
+    /// no target slot; a later incarnation of a captured creature cannot
+    /// substitute for the original combat participant.
+    DestroyCapturedCombatParticipants {
+        participants: Vec<CapturedCombatParticipant>,
     },
     /// Destroy one targeted creature only when its mana value is no greater
     /// than the explicit X paid while casting this spell. This is intentionally
@@ -2298,6 +2317,7 @@ impl Effect {
             | Self::ExileTargetCreature
             | Self::TapTargetCreature
             | Self::RegenerateTargetCreature
+            | Self::RegenerateTargetCreatureAndScheduleCombatHistoryDestruction
             | Self::AddPlusOneCounterToTarget
             | Self::PutTargetCreatureOnOwnersLibraryTop
             | Self::ReplaceTargetCreatureColorsWithChosenColorUntilEndOfTurn
@@ -2429,6 +2449,7 @@ impl Effect {
             | Self::DestroyAllNonTokenCreatures
             | Self::DestroyCombatDamagedCreature
             | Self::DestroyCapturedCreature { .. }
+            | Self::DestroyCapturedCombatParticipants { .. }
             | Self::ExileAttachedCreatureAndAurasUntilEndStep => None,
         }
     }
@@ -3011,6 +3032,16 @@ pub struct LinkedExileGroupId(pub u64);
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct DelayedActionId(pub u64);
 
+/// One exact combat participant retained by a delayed instruction. This
+/// records the object incarnation at the end-of-combat trigger boundary, so
+/// resolution after an intervening zone change never follows a stable object
+/// id onto a new battlefield incarnation.
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub struct CapturedCombatParticipant {
+    pub permanent: ObjectId,
+    pub incarnation: u64,
+}
+
 /// The role a member had when a linked-exile group was created. The bounded
 /// initial substrate has one primary creature plus any Aura-like permanents
 /// attached to that exact creature incarnation.
@@ -3047,6 +3078,7 @@ pub struct LinkedExileGroup {
 /// game state.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DelayedActionTiming {
+    EndOfCombat,
     EndStep,
 }
 
@@ -3055,7 +3087,15 @@ pub enum DelayedActionTiming {
 /// closures captured from a resolver.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DelayedActionKind {
-    ReturnLinkedExileGroup { group: LinkedExileGroupId },
+    ReturnLinkedExileGroup {
+        group: LinkedExileGroupId,
+    },
+    DestroyCombatParticipants {
+        source: ObjectId,
+        source_incarnation: u64,
+        target: ObjectId,
+        target_incarnation: u64,
+    },
 }
 
 /// A scheduled, replay-visible continuation. `due_turn` is calculated when
@@ -3916,6 +3956,28 @@ pub enum GameEvent {
         action: DelayedActionId,
         group: LinkedExileGroupId,
         returned: Vec<ObjectId>,
+    },
+    /// A resolving effect scheduled a stack-backed destruction instruction
+    /// for the current turn's end-of-combat boundary. Both source and target
+    /// use exact incarnations so later zone changes cannot retarget it.
+    DelayedCombatDestructionScheduled {
+        action: DelayedActionId,
+        due_turn: u32,
+        controller: PlayerId,
+        source: ObjectId,
+        source_incarnation: u64,
+        target: ObjectId,
+        target_incarnation: u64,
+    },
+    /// The due action left the scheduler and became its ordinary stack
+    /// ability. The following priority window can respond to it normally.
+    DelayedCombatDestructionStacked {
+        action: DelayedActionId,
+        source: ObjectId,
+        source_incarnation: u64,
+        target: ObjectId,
+        target_incarnation: u64,
+        participants: Vec<CapturedCombatParticipant>,
     },
     OpeningHandDrawn {
         player: PlayerId,

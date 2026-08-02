@@ -6,8 +6,8 @@
 
 use cardbench_magic_engine::{Color, Effect, ManaCost, TargetRequirement};
 use cardbench_magic_rav::{
-    CatalogResolutionError, RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions,
-    executable_definition_id_for_collector, run_all_scenarios,
+    RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, executable_definition_id_for_collector,
+    run_all_scenarios,
 };
 
 fn definition(id: &str) -> cardbench_magic_engine::CardDefinition {
@@ -79,24 +79,19 @@ fn bounded_effect_slices_state_only_the_semantics_that_are_executable() {
 }
 
 #[test]
-fn gaze_of_gorgon_is_catalog_only_until_regeneration_and_combat_history_exist() {
+fn gaze_of_gorgon_uses_the_typed_regeneration_and_combat_history_substrate() {
     assert_eq!(
         executable_definition_id_for_collector(246),
-        Err(CatalogResolutionError::CapabilityGap {
-            collector_number: 246,
-            name: "Gaze of the Gorgon",
-            capability_gap: "regeneration-and-end-of-combat-block-history-destruction-not-implemented",
-        })
+        Ok("RAV-GAZE-OF-THE-GORGON")
+    );
+    let gaze = definition("RAV-GAZE-OF-THE-GORGON");
+    assert_eq!(
+        gaze.effects,
+        [Effect::RegenerateTargetCreatureAndScheduleCombatHistoryDestruction]
     );
     assert!(
-        !card_definitions()
-            .iter()
-            .any(|definition| definition.id == "RAV-GAZE-OF-THE-GORGON"),
-        "the prior unrelated temporary modifier must not remain executable"
-    );
-    assert!(
-        !RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&"RAV-GAZE-OF-THE-GORGON"),
-        "the positive manifest never claims this unsupported card"
+        RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&"RAV-GAZE-OF-THE-GORGON"),
+        "the exact typed implementation belongs in the positive manifest"
     );
 }
 

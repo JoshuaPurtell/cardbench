@@ -8,13 +8,14 @@ use crate::{
     ActivatedAbilityCostModifier, ActivatedAbilityCostModifierBinding, ActivatedAbilityKind,
     ActivatedCounterCostTarget, ActivatedManaAbility, AdditionalSpellCost,
     AdditionalSpellCostBinding, AttachmentBinding, AttachmentKind, BasicLandType,
-    BasicLandTypeBinding, CardDefinition, CardObject, CardType, CastPaymentManaAbility,
-    CastPermissionPayment, CastPermissionZone, CastTiming, Characteristics, Color, CombatBlock,
-    ContinuousChange, ContinuousEffect, CopiableValues, CopiedPermanent, CostReductionBinding,
-    CounterKind, CreatureSubtype, DamageReplacementChoice, DamageReplacementEffect,
-    DamageReplacementEffectBinding, DecisionContinuation, DecisionId, DecisionKind, DecisionOption,
-    DecisionSelection, DecisionVisibility, DeckList, DelayedAction, DelayedActionId,
-    DelayedActionKind, DelayedActionTiming, Duration, Effect, GameEvent,
+    BasicLandTypeBinding, CapturedCombatParticipant, CardDefinition, CardObject, CardType,
+    CastPaymentManaAbility, CastPermissionPayment, CastPermissionZone, CastTiming, Characteristics,
+    Color, CombatBlock, ContinuousChange, ContinuousEffect, CopiableValues, CopiedPermanent,
+    CostReductionBinding, CounterKind, CreatureSubtype,
+    DELAYED_COMBAT_HISTORY_DESTRUCTION_ABILITY_ID, DamageReplacementChoice,
+    DamageReplacementEffect, DamageReplacementEffectBinding, DecisionContinuation, DecisionId,
+    DecisionKind, DecisionOption, DecisionSelection, DecisionVisibility, DeckList, DelayedAction,
+    DelayedActionId, DelayedActionKind, DelayedActionTiming, Duration, Effect, GameEvent,
     GeneralizedAbilityActivation, GeneralizedActivatedAbilityCost, Keyword, LandEntryBinding,
     LibrarySearchCardinality, LibrarySearchDestination, LibrarySearchRequirement,
     LibrarySearchSelection, LinkedExileGroup, LinkedExileGroupId, LinkedExileMember,
@@ -522,6 +523,10 @@ struct CombatState {
     /// deterministic compatibility damage-assignment order until the policy
     /// decision layer records the attacking player's CR 509.2 choice.
     blockers: BTreeMap<ObjectId, Vec<ObjectId>>,
+    /// Every legal attacker/blocker pair as declared, including a pair whose
+    /// member subsequently leaves combat. Delayed effects need this immutable
+    /// declaration provenance rather than mutable blocker membership.
+    block_history: BTreeSet<CombatBlockHistory>,
     /// Multi-block groups whose attacking controller has submitted the
     /// required damage-assignment order. The order itself remains the vector
     /// in `blockers`; this set is only no-priority decision provenance.
@@ -551,6 +556,17 @@ struct CombatState {
     /// Sources that assigned damage in the first-strike damage step. They
     /// cannot assign again in this combat's later normal damage step.
     first_strike_damage_sources: BTreeSet<ObjectId>,
+}
+
+/// Exact-incarnation combat provenance for one declared block. This is kept
+/// private to the combat state until a delayed instruction snapshots its
+/// affected participants at the end-of-combat boundary.
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+struct CombatBlockHistory {
+    attacker: ObjectId,
+    attacker_incarnation: u64,
+    blocker: ObjectId,
+    blocker_incarnation: u64,
 }
 
 /// A resolution-time private library decision. The stack object remains live
@@ -4841,7 +4857,7 @@ impl Game {
     }
 
     fn consume_due_delayed_actions(&mut self) -> Result<(), RulesError> {
-        if self.step != Step::End {
+        if !matches!(self.step, Step::End | Step::EndOfCombat) {
             return Ok(());
         }
         let due = self
@@ -4849,28 +4865,157 @@ impl Game {
             .iter()
             .copied()
             .filter(|action| {
-                action.timing == DelayedActionTiming::EndStep && action.due_turn == self.turn
+                action.due_turn == self.turn
+                    && matches!(
+                        (self.step, action.timing),
+                        (Step::End, DelayedActionTiming::EndStep)
+                            | (Step::EndOfCombat, DelayedActionTiming::EndOfCombat)
+                    )
             })
             .collect::<Vec<_>>();
         self.delayed_actions.retain(|action| {
-            !(action.timing == DelayedActionTiming::EndStep && action.due_turn == self.turn)
+            !(action.due_turn == self.turn
+                && matches!(
+                    (self.step, action.timing),
+                    (Step::End, DelayedActionTiming::EndStep)
+                        | (Step::EndOfCombat, DelayedActionTiming::EndOfCombat)
+                ))
         });
         for action in due {
-            let DelayedActionKind::ReturnLinkedExileGroup { group } = action.kind;
-            let group =
-                self.linked_exile_groups
-                    .remove(&group)
-                    .ok_or(RulesError::IllegalAction(
-                        "delayed action references no linked exile group",
-                    ))?;
-            let returned = self.return_linked_exile_group(&group)?;
-            self.record_event(GameEvent::DelayedActionConsumed {
-                action: action.id,
-                group: group.id,
-                returned,
-            });
+            match action.kind {
+                DelayedActionKind::ReturnLinkedExileGroup { group } => {
+                    let group = self.linked_exile_groups.remove(&group).ok_or(
+                        RulesError::IllegalAction(
+                            "delayed action references no linked exile group",
+                        ),
+                    )?;
+                    let returned = self.return_linked_exile_group(&group)?;
+                    self.record_event(GameEvent::DelayedActionConsumed {
+                        action: action.id,
+                        group: group.id,
+                        returned,
+                    });
+                }
+                DelayedActionKind::DestroyCombatParticipants {
+                    source,
+                    source_incarnation,
+                    target,
+                    target_incarnation,
+                } => {
+                    let participants =
+                        self.captured_combat_participants(target, target_incarnation);
+                    let source_colors = self.card_definition(source)?.colors.clone();
+                    self.stack.push(StackObject {
+                        card: source,
+                        source_incarnation,
+                        source_colors,
+                        controller: action.controller,
+                        ability_id: Some(DELAYED_COMBAT_HISTORY_DESTRUCTION_ABILITY_ID),
+                        targets: Vec::new(),
+                        target_incarnations: Vec::new(),
+                        effects: vec![Effect::DestroyCapturedCombatParticipants {
+                            participants: participants.clone(),
+                        }],
+                        chosen_x: None,
+                        chosen_color: None,
+                        mana_spent: None,
+                        convoke_symbols: 0,
+                        generic_cost_reduction: 0,
+                    });
+                    self.record_event(GameEvent::DelayedCombatDestructionStacked {
+                        action: action.id,
+                        source,
+                        source_incarnation,
+                        target,
+                        target_incarnation,
+                        participants,
+                    });
+                    self.consecutive_passes = 0;
+                    self.priority = self.priority_after_resolution();
+                }
+            }
         }
         self.check_state_based_actions()?;
+        Ok(())
+    }
+
+    /// Returns the exact other combatants which blocked or were blocked by a
+    /// captured creature. The result deliberately does not consult mutable
+    /// current blocker membership: regeneration and zone changes may have
+    /// already removed either permanent from normal combat.
+    fn captured_combat_participants(
+        &self,
+        target: ObjectId,
+        target_incarnation: u64,
+    ) -> Vec<CapturedCombatParticipant> {
+        let Some(combat) = &self.combat else {
+            return Vec::new();
+        };
+        let mut participants = BTreeSet::new();
+        for block in &combat.block_history {
+            if block.attacker == target && block.attacker_incarnation == target_incarnation {
+                participants.insert(CapturedCombatParticipant {
+                    permanent: block.blocker,
+                    incarnation: block.blocker_incarnation,
+                });
+            }
+            if block.blocker == target && block.blocker_incarnation == target_incarnation {
+                participants.insert(CapturedCombatParticipant {
+                    permanent: block.attacker,
+                    incarnation: block.attacker_incarnation,
+                });
+            }
+        }
+        participants.into_iter().collect()
+    }
+
+    fn has_upcoming_end_of_combat_this_turn(&self) -> bool {
+        matches!(
+            self.step,
+            Step::Upkeep
+                | Step::Draw
+                | Step::PrecombatMain
+                | Step::DeclareAttackers
+                | Step::DeclareBlockers
+                | Step::FirstStrikeCombatDamage
+                | Step::CombatDamage
+        )
+    }
+
+    fn schedule_combat_history_destruction(
+        &mut self,
+        source: ObjectId,
+        source_incarnation: u64,
+        controller: PlayerId,
+        target: ObjectId,
+    ) -> Result<(), RulesError> {
+        if !self.has_upcoming_end_of_combat_this_turn() {
+            return Ok(());
+        }
+        let target_incarnation = self.object(target)?.incarnation;
+        let action = DelayedActionId(self.next_delayed_action_id);
+        self.next_delayed_action_id += 1;
+        self.delayed_actions.push(DelayedAction {
+            id: action,
+            timing: DelayedActionTiming::EndOfCombat,
+            due_turn: self.turn,
+            controller,
+            kind: DelayedActionKind::DestroyCombatParticipants {
+                source,
+                source_incarnation,
+                target,
+                target_incarnation,
+            },
+        });
+        self.record_event(GameEvent::DelayedCombatDestructionScheduled {
+            action,
+            due_turn: self.turn,
+            controller,
+            source,
+            source_incarnation,
+            target,
+            target_incarnation,
+        });
         Ok(())
     }
 
@@ -5321,16 +5466,32 @@ impl Game {
                 ));
             }
         }
+        let history = assignments
+            .iter()
+            .map(|assignment| {
+                Ok(CombatBlockHistory {
+                    attacker: assignment.attacker,
+                    attacker_incarnation: self.object(assignment.attacker)?.incarnation,
+                    blocker: assignment.blocker,
+                    blocker_incarnation: self.object(assignment.blocker)?.incarnation,
+                })
+            })
+            .collect::<Result<Vec<_>, RulesError>>()?;
         let combat = self
             .combat
             .as_mut()
             .ok_or(RulesError::IllegalAction("combat was not initialized"))?;
-        for assignment in assignments {
+        for (assignment, history) in assignments.iter().zip(history) {
             combat
                 .blockers
                 .entry(assignment.attacker)
                 .or_default()
                 .push(assignment.blocker);
+            if !combat.block_history.insert(history) {
+                return Err(RulesError::IllegalAction(
+                    "duplicate blocker history escaped declaration validation",
+                ));
+            }
         }
         combat.evasion_qualified_blockers = evasion_qualified_blockers;
         combat.fear_qualified_blockers = fear_qualified_blockers;
@@ -9351,7 +9512,13 @@ impl Game {
             if let Some(ability_id) = stack_object.ability_id {
                 let transmute =
                     ability_id == TRANSMUTE_ABILITY_ID && definition.transmute_cost().is_some();
-                let activated = (!transmute)
+                let delayed_combat_destruction = ability_id
+                    == DELAYED_COMBAT_HISTORY_DESTRUCTION_ABILITY_ID
+                    && matches!(
+                        definition.effects.as_slice(),
+                        [Effect::RegenerateTargetCreatureAndScheduleCombatHistoryDestruction]
+                    );
+                let activated = (!transmute && !delayed_combat_destruction)
                     .then(|| {
                         self.activated_ability_for_definition(definition.id, ability_id)
                             .map(|ability| (definition.id, ability))
@@ -9374,6 +9541,17 @@ impl Game {
                                     may_fail_to_find: true,
                                 },
                             }] if *value == definition.mana_cost.mana_value()
+                        ),
+                        0,
+                    )
+                } else if delayed_combat_destruction {
+                    (
+                        matches!(
+                            stack_object.effects.as_slice(),
+                            [Effect::DestroyCapturedCombatParticipants { participants }]
+                                if participants.iter().all(|participant| {
+                                    participant.permanent.0 > 0 && participant.incarnation > 0
+                                })
                         ),
                         0,
                     )
@@ -10468,6 +10646,35 @@ impl Game {
                     }
                 }
             }
+            if combat.block_history.iter().any(|block| {
+                block.attacker.0 == 0
+                    || block.attacker_incarnation == 0
+                    || block.blocker.0 == 0
+                    || block.blocker_incarnation == 0
+                    || block.attacker == block.blocker
+                    || !self.objects.contains_key(&block.attacker)
+                    || !self.objects.contains_key(&block.blocker)
+            }) {
+                return Err(RulesError::IllegalAction(
+                    "combat block history has invalid exact-incarnation provenance",
+                ));
+            }
+            for (attacker, assigned_blockers) in &combat.blockers {
+                for blocker in assigned_blockers {
+                    let attacker_incarnation = self.object(*attacker)?.incarnation;
+                    let blocker_incarnation = self.object(*blocker)?.incarnation;
+                    if !combat.block_history.contains(&CombatBlockHistory {
+                        attacker: *attacker,
+                        attacker_incarnation,
+                        blocker: *blocker,
+                        blocker_incarnation,
+                    }) {
+                        return Err(RulesError::IllegalAction(
+                            "current blocker assignment lacks block-history provenance",
+                        ));
+                    }
+                }
+            }
             let multi_block_attackers = combat
                 .blockers
                 .iter()
@@ -11264,7 +11471,9 @@ impl Game {
             }
             if matches!(
                 effect,
-                Effect::DestroyCombatDamagedCreature | Effect::DestroyCapturedCreature { .. }
+                Effect::DestroyCombatDamagedCreature
+                    | Effect::DestroyCapturedCreature { .. }
+                    | Effect::DestroyCapturedCombatParticipants { .. }
             ) {
                 return Err(RulesError::IllegalAction(
                     "event-provenance destruction effects are valid only on matching triggered abilities",
@@ -11403,6 +11612,7 @@ impl Game {
                 | Effect::PreventTargetCreatureCombatDamageUntilEndOfTurn { .. }
                 | Effect::PreventAllCombatDamageUntilEndOfTurn
                 | Effect::RegenerateTargetCreature
+                | Effect::RegenerateTargetCreatureAndScheduleCombatHistoryDestruction
                 | Effect::RegenerateSource
                 | Effect::AddKeywordToControllerCreaturesUntilEndOfTurn { .. }
                 | Effect::GrantActivatedAbilityToControllerCreaturesUntilEndOfTurn { .. }
@@ -11421,6 +11631,7 @@ impl Game {
                 | Effect::DestroyDistinctTargetCreature
                 | Effect::DestroyCombatDamagedCreature
                 | Effect::DestroyCapturedCreature { .. }
+                | Effect::DestroyCapturedCombatParticipants { .. }
                 | Effect::DestroyTargetCreatureWithManaValueAtMostChosenX
                 | Effect::TapTargetCreature
                 | Effect::UntapSource
@@ -16074,6 +16285,23 @@ impl Game {
                     .push(source);
                 self.record_event(GameEvent::RegenerationShieldCreated { source, target });
             }
+            Effect::RegenerateTargetCreatureAndScheduleCombatHistoryDestruction => {
+                let target = Self::target_permanent(target)?;
+                if !self.target_matches(Target::Permanent(target), TargetRequirement::Creature) {
+                    return Err(RulesError::IllegalTarget(Target::Permanent(target)));
+                }
+                self.regeneration_shields
+                    .entry(target)
+                    .or_default()
+                    .push(source);
+                self.record_event(GameEvent::RegenerationShieldCreated { source, target });
+                self.schedule_combat_history_destruction(
+                    source,
+                    source_incarnation,
+                    controller,
+                    target,
+                )?;
+            }
             Effect::RegenerateSource => {
                 if self.zone_of(source) == Some(Zone::Battlefield)
                     && self.object_has_incarnation(source, source_incarnation)
@@ -16197,6 +16425,18 @@ impl Game {
                     && self.object_has_incarnation(*creature, *incarnation)
                 {
                     self.destroy_permanent(source, *creature)?;
+                }
+            }
+            Effect::DestroyCapturedCombatParticipants { participants } => {
+                for participant in participants {
+                    if self.zone_of(participant.permanent) == Some(Zone::Battlefield)
+                        && self.object_has_incarnation(
+                            participant.permanent,
+                            participant.incarnation,
+                        )
+                    {
+                        self.destroy_permanent(source, participant.permanent)?;
+                    }
                 }
             }
             Effect::DestroyTargetCreatureWithManaValueAtMostChosenX => {
@@ -17453,6 +17693,11 @@ impl Game {
         if self.step == Step::CombatDamage {
             self.resolve_combat_damage(false)?;
         }
+        if self.step == Step::EndOfCombat {
+            // The combat history remains available until every due delayed
+            // action has captured its exact participants onto the stack.
+            self.consume_due_delayed_actions()?;
+        }
         if self.step == Step::End {
             self.consume_due_delayed_actions()?;
         }
@@ -18707,7 +18952,11 @@ impl Game {
                     "materialized basic-land-type effect escaped onto an ability binding",
                 ));
             }
-            if matches!(effect, Effect::DestroyCapturedCreature { .. }) {
+            if matches!(
+                effect,
+                Effect::DestroyCapturedCreature { .. }
+                    | Effect::DestroyCapturedCombatParticipants { .. }
+            ) {
                 return Err(RulesError::IllegalAction(
                     "materialized event-provenance effect escaped onto an ability binding",
                 ));
@@ -19201,10 +19450,14 @@ impl Game {
     /// A schedule names unique nonzero action/group identities and exact
     /// positive member incarnations; one later consume may reference only its
     /// own schedule and report a duplicate-free subset of that group.
+    #[allow(clippy::too_many_lines)]
     fn validate_delayed_action_event_order(events: &[GameEvent]) -> Result<(), RulesError> {
         let mut scheduled =
             BTreeMap::<DelayedActionId, (LinkedExileGroupId, BTreeSet<ObjectId>)>::new();
         let mut consumed = BTreeSet::<DelayedActionId>::new();
+        let mut combat_scheduled =
+            BTreeMap::<DelayedActionId, (u32, PlayerId, ObjectId, u64, ObjectId, u64)>::new();
+        let mut combat_stacked = BTreeSet::<DelayedActionId>::new();
         for event in events {
             match event {
                 GameEvent::DelayedActionScheduled {
@@ -19263,6 +19516,79 @@ impl Game {
                     {
                         return Err(RulesError::IllegalAction(
                             "delayed-action consume receipt does not match its schedule",
+                        ));
+                    }
+                }
+                GameEvent::DelayedCombatDestructionScheduled {
+                    action,
+                    due_turn,
+                    controller,
+                    source,
+                    source_incarnation,
+                    target,
+                    target_incarnation,
+                } => {
+                    if *action == DelayedActionId(0)
+                        || *due_turn == 0
+                        || source.0 == 0
+                        || *source_incarnation == 0
+                        || target.0 == 0
+                        || *target_incarnation == 0
+                        || source == target
+                        || scheduled.contains_key(action)
+                        || combat_scheduled.contains_key(action)
+                    {
+                        return Err(RulesError::IllegalAction(
+                            "combat delayed-action schedule receipt has invalid provenance",
+                        ));
+                    }
+                    combat_scheduled.insert(
+                        *action,
+                        (
+                            *due_turn,
+                            *controller,
+                            *source,
+                            *source_incarnation,
+                            *target,
+                            *target_incarnation,
+                        ),
+                    );
+                }
+                GameEvent::DelayedCombatDestructionStacked {
+                    action,
+                    source,
+                    source_incarnation,
+                    target,
+                    target_incarnation,
+                    participants,
+                } => {
+                    let Some((
+                        _,
+                        _,
+                        scheduled_source,
+                        scheduled_source_incarnation,
+                        scheduled_target,
+                        scheduled_target_incarnation,
+                    )) = combat_scheduled.get(action)
+                    else {
+                        return Err(RulesError::IllegalAction(
+                            "combat delayed-action stack receipt lacks a prior schedule",
+                        ));
+                    };
+                    let mut unique = BTreeSet::new();
+                    if *scheduled_source != *source
+                        || *scheduled_source_incarnation != *source_incarnation
+                        || *scheduled_target != *target
+                        || *scheduled_target_incarnation != *target_incarnation
+                        || !combat_stacked.insert(*action)
+                        || participants.iter().any(|participant| {
+                            participant.permanent.0 == 0
+                                || participant.incarnation == 0
+                                || !unique.insert(participant.permanent)
+                        })
+                    {
+                        return Err(RulesError::IllegalAction(
+                            "combat delayed-action stack receipt does not match its schedule",
                         ));
                     }
                 }
@@ -19342,8 +19668,36 @@ impl Game {
                 ));
             }
             largest_action = largest_action.max(action.id.0);
-            let DelayedActionKind::ReturnLinkedExileGroup { group } = action.kind;
-            *actions_by_group.entry(group).or_default() += 1;
+            match action.kind {
+                DelayedActionKind::ReturnLinkedExileGroup { group } => {
+                    if action.timing != DelayedActionTiming::EndStep {
+                        return Err(RulesError::IllegalAction(
+                            "linked-exile delayed action has the wrong timing",
+                        ));
+                    }
+                    *actions_by_group.entry(group).or_default() += 1;
+                }
+                DelayedActionKind::DestroyCombatParticipants {
+                    source,
+                    source_incarnation,
+                    target,
+                    target_incarnation,
+                } => {
+                    if action.timing != DelayedActionTiming::EndOfCombat
+                        || action.due_turn != self.turn
+                        || source.0 == 0
+                        || source_incarnation == 0
+                        || target.0 == 0
+                        || target_incarnation == 0
+                        || source == target
+                        || self.players.get(action.controller.0).is_none()
+                    {
+                        return Err(RulesError::IllegalAction(
+                            "combat-history delayed action has invalid provenance or timing",
+                        ));
+                    }
+                }
+            }
         }
         if self.next_delayed_action_id <= largest_action {
             return Err(RulesError::IllegalAction(
@@ -20247,6 +20601,19 @@ impl Game {
                 } => {
                     *open
                         .entry((*source, *source_incarnation, *ability))
+                        .or_default() += 1;
+                }
+                GameEvent::DelayedCombatDestructionStacked {
+                    source,
+                    source_incarnation,
+                    ..
+                } => {
+                    *open
+                        .entry((
+                            *source,
+                            *source_incarnation,
+                            DELAYED_COMBAT_HISTORY_DESTRUCTION_ABILITY_ID,
+                        ))
                         .or_default() += 1;
                 }
                 GameEvent::AbilityResolved {

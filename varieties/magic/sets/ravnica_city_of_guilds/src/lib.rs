@@ -42,13 +42,14 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 174] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 175] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
     "RAV-PUTREFY",
+    "RAV-GAZE-OF-THE-GORGON",
     "RAV-DROOLING-GROODION",
     "RAV-GOLGARI-ROTWURM",
     "RAV-SCATTER-THE-SEEDS",
@@ -844,6 +845,36 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             toughness: None,
             keywords: vec![],
             effects: vec![Effect::DestroyTargetArtifactOrCreatureNoRegeneration],
+        },
+        // Full fidelity: the expansion-neutral delayed-action substrate
+        // records exact block-incarnation history, waits until the current
+        // turn's end-of-combat boundary, then creates an ordinary stack
+        // instruction with its own priority window.
+        CardDefinition {
+            id: "RAV-GAZE-OF-THE-GORGON",
+            name: "Gaze of the Gorgon",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_hybrid(
+                3,
+                [],
+                [HybridManaSymbol {
+                    first: Color::Black,
+                    second: Color::Green,
+                }],
+            ),
+            colors: colors([Color::Black, Color::Green]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Instant]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "targeted-regeneration-shield",
+                "delayed-end-of-combat-block-history-destruction",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![Effect::RegenerateTargetCreatureAndScheduleCombatHistoryDestruction],
         },
         CardDefinition {
             id: "RAV-GOLGARI-BROWNSCALE",
