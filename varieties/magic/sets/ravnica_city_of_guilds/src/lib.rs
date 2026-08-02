@@ -26,13 +26,14 @@ use cardbench_magic_engine::{
     ActivatedAbilityCostModifierBinding, ActivatedManaAbility, AdditionalSpellCost,
     AdditionalSpellCostBinding, AttachmentBinding, AttachmentKind, BasicLandType,
     BasicLandTypeBinding, CardDefinition, CardType, CastRequest, Color, ContinuousChange,
-    ConvokeContribution, ConvokePayment, CostReductionBinding, DeckEntry, DeckList, DeckRules,
-    Effect, Game, HybridManaSymbol, Keyword, LandEntryBinding, LibrarySearchDestination,
-    LibrarySearchRequirement, LibrarySearchSelection, ManaAbilityBinding, ManaAbilityOutput,
-    ManaBundle, ManaCost, PlayerId, ReplacementEffect, ReplacementEffectBinding, RulesError,
-    StaticAttackRestriction, StaticAttackRestrictionBinding, StaticContinuousEffectBinding,
-    StaticEntryRestriction, StaticEntryRestrictionBinding, Target, TargetRequirement, TokenSpec,
-    TriggerCondition, TriggeredAbility, TriggeredAbilityBinding, Zone,
+    ConvokeContribution, ConvokePayment, CostReductionBinding, DamageReplacementEffect,
+    DamageReplacementEffectBinding, DeckEntry, DeckList, DeckRules, Effect, Game, HybridManaSymbol,
+    Keyword, LandEntryBinding, LibrarySearchDestination, LibrarySearchRequirement,
+    LibrarySearchSelection, ManaAbilityBinding, ManaAbilityOutput, ManaBundle, ManaCost, PlayerId,
+    ReplacementEffect, ReplacementEffectBinding, RulesError, StaticAttackRestriction,
+    StaticAttackRestrictionBinding, StaticContinuousEffectBinding, StaticEntryRestriction,
+    StaticEntryRestrictionBinding, Target, TargetRequirement, TokenSpec, TriggerCondition,
+    TriggeredAbility, TriggeredAbilityBinding, Zone,
 };
 
 pub const SET_CODE: &str = "RAV";
@@ -2122,6 +2123,29 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             ],
             power: Some(1),
             toughness: Some(1),
+            keywords: vec![],
+            effects: vec![],
+        },
+        // Compatibility scope: every represented positive damage packet is
+        // reduced by one live source-bound integer-halving replacement. The
+        // binding is intentionally not a full-fidelity claim while the engine
+        // has only bounded concurrent replacement-order coverage.
+        CardDefinition {
+            id: "RAV-GHOSTS-OF-THE-INNOCENT",
+            name: "Ghosts of the Innocent",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(5, [Color::White, Color::White]),
+            colors: colors([Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "colored-cost-casting",
+                "base-characteristics",
+                "static-global-damage-amount-halving",
+            ],
+            power: Some(4),
+            toughness: Some(5),
             keywords: vec![],
             effects: vec![],
         },
@@ -6690,6 +6714,17 @@ pub fn rav_replacement_effect_bindings() -> Vec<ReplacementEffectBinding> {
             effect: ReplacementEffect::MultiplyCounterPlacement { multiplier: 2 },
         },
     ]
+}
+
+/// Source-bound damage-amount replacements supplied by RAV permanents. The
+/// engine discovers the exact live source incarnation for each prospective
+/// damage packet; this registry supplies only expansion-owned definition data.
+#[must_use]
+pub fn rav_damage_replacement_effect_bindings() -> Vec<DamageReplacementEffectBinding> {
+    vec![DamageReplacementEffectBinding {
+        source_definition: "RAV-GHOSTS-OF-THE-INNOCENT",
+        effect: DamageReplacementEffect::HalveDamage,
+    }]
 }
 
 fn signet_binding(

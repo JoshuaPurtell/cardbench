@@ -673,15 +673,43 @@ pub struct ReplacementEffectBinding {
     pub effect: ReplacementEffect,
 }
 
+/// A source-bound replacement that changes one prospective damage amount.
+///
+/// This is deliberately distinct from token/counter quantity replacements:
+/// damage can target either a player or a permanent, and its replacement
+/// chain already carries its own target and affected-player provenance.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DamageReplacementEffect {
+    /// Replace positive damage with its integer half, rounded down.
+    HalveDamage,
+}
+
+/// Registers one expansion-owned damage-amount replacement for every live
+/// permanent with the named definition. Registration is immutable after the
+/// game starts; the actual source and its incarnation are discovered from the
+/// live battlefield for each prospective packet.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct DamageReplacementEffectBinding {
+    pub source_definition: &'static str,
+    pub effect: DamageReplacementEffect,
+}
+
 /// One currently applicable way to replace a prospective damage event.
 ///
 /// This intentionally names only the bounded damage replacement substrate:
-/// target-specific shields, permanent-local shields/protection, and the
-/// existing redirection effect.  The identity is fully serializable and is
-/// revalidated when the affected player submits it, so a policy cannot apply
-/// a stale or fabricated replacement.
+/// source-bound amount changes, target-specific shields, permanent-local
+/// shields/protection, and the existing redirection effect. The identity is
+/// fully serializable and is revalidated when the affected player submits it,
+/// so a policy cannot apply a stale or fabricated replacement.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DamageReplacementChoice {
+    /// Apply a source-bound global damage-amount replacement. The exact live
+    /// source incarnation prevents an old permanent from applying again after
+    /// it leaves and re-enters the battlefield.
+    HalveDamage {
+        source: ObjectId,
+        source_incarnation: u64,
+    },
     /// Redirect all of the bounded prospective event from `protected` to the
     /// already-selected destination.
     Redirect {
@@ -4004,6 +4032,16 @@ pub enum GameEvent {
         affected_player: PlayerId,
         target: Target,
         replacement: DamageReplacementChoice,
+    },
+    /// A source-bound amount replacement changed a positive prospective
+    /// damage packet before a later replacement or ordinary damage receipt.
+    DamageAmountReplaced {
+        source: ObjectId,
+        target: Target,
+        replacement_source: ObjectId,
+        replacement_source_incarnation: u64,
+        original_amount: i32,
+        replacement_amount: i32,
     },
     DamagePrevented {
         source: ObjectId,

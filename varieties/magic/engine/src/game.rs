@@ -11,9 +11,10 @@ use crate::{
     BasicLandTypeBinding, CardDefinition, CardObject, CardType, CastPaymentManaAbility,
     CastPermissionPayment, CastPermissionZone, CastTiming, Characteristics, Color, CombatBlock,
     ContinuousChange, ContinuousEffect, CopiableValues, CopiedPermanent, CostReductionBinding,
-    CounterKind, CreatureSubtype, DamageReplacementChoice, DecisionContinuation, DecisionId,
-    DecisionKind, DecisionOption, DecisionSelection, DecisionVisibility, DeckList, DelayedAction,
-    DelayedActionId, DelayedActionKind, DelayedActionTiming, Duration, Effect, GameEvent,
+    CounterKind, CreatureSubtype, DamageReplacementChoice, DamageReplacementEffect,
+    DamageReplacementEffectBinding, DecisionContinuation, DecisionId, DecisionKind, DecisionOption,
+    DecisionSelection, DecisionVisibility, DeckList, DelayedAction, DelayedActionId,
+    DelayedActionKind, DelayedActionTiming, Duration, Effect, GameEvent,
     GeneralizedAbilityActivation, GeneralizedActivatedAbilityCost, Keyword, LandEntryBinding,
     LibrarySearchCardinality, LibrarySearchDestination, LibrarySearchRequirement,
     LibrarySearchSelection, LinkedExileGroup, LinkedExileGroupId, LinkedExileMember,
@@ -697,6 +698,7 @@ pub struct Game {
     generalized_activated_ability_costs:
         BTreeMap<(&'static str, &'static str), GeneralizedActivatedAbilityCost>,
     replacement_effects: BTreeMap<&'static str, Vec<ReplacementEffect>>,
+    damage_replacement_effects: BTreeMap<&'static str, Vec<DamageReplacementEffect>>,
     basic_land_types: BTreeMap<&'static str, BasicLandType>,
     land_entry_behaviors: BTreeMap<&'static str, LandEntryBinding>,
     additional_spell_costs: BTreeMap<&'static str, Vec<AdditionalSpellCost>>,
@@ -961,6 +963,7 @@ impl Game {
             activated_ability_cost_modifiers: BTreeMap::new(),
             generalized_activated_ability_costs: BTreeMap::new(),
             replacement_effects: BTreeMap::new(),
+            damage_replacement_effects: BTreeMap::new(),
             basic_land_types,
             land_entry_behaviors: BTreeMap::new(),
             additional_spell_costs,
@@ -1309,6 +1312,43 @@ impl Game {
             if effects.contains(&binding.effect) {
                 return Err(RulesError::IllegalAction(
                     "duplicate replacement-effect binding for card definition",
+                ));
+            }
+            effects.push(binding.effect);
+        }
+        self.validate_invariants()
+    }
+
+    /// Registers immutable, source-bound damage-amount replacements before
+    /// the game begins. Each packet discovers the actual source from the live
+    /// battlefield, so an ordinary departure or re-entry cannot reuse a
+    /// prior incarnation.
+    pub fn register_damage_replacement_effect_bindings(
+        &mut self,
+        bindings: impl IntoIterator<Item = DamageReplacementEffectBinding>,
+    ) -> Result<(), RulesError> {
+        if self.started {
+            return Err(RulesError::IllegalAction(
+                "damage replacement-effect bindings cannot be changed after the game starts",
+            ));
+        }
+        for binding in bindings {
+            let definition = self
+                .catalog
+                .get(binding.source_definition)
+                .ok_or(RulesError::UnknownDefinition(binding.source_definition))?;
+            if !definition.is_permanent() {
+                return Err(RulesError::IllegalAction(
+                    "damage replacement effect requires a permanent source",
+                ));
+            }
+            let effects = self
+                .damage_replacement_effects
+                .entry(binding.source_definition)
+                .or_default();
+            if effects.contains(&binding.effect) {
+                return Err(RulesError::IllegalAction(
+                    "duplicate damage replacement-effect binding for card definition",
                 ));
             }
             effects.push(binding.effect);
@@ -8118,6 +8158,7 @@ impl Game {
         Self::validate_counter_lifecycle_events(&self.event_log)?;
         self.validate_counter_removal_receipt_accounting()?;
         self.validate_replacement_effect_events()?;
+        self.validate_damage_amount_replacement_events()?;
         if self.started && !self.is_game_over() && !self.step.grants_priority() {
             return Err(RulesError::IllegalAction(
                 "an automatic turn step remained stable with player priority",
@@ -9360,6 +9401,23 @@ impl Game {
             {
                 return Err(RulesError::IllegalAction(
                     "replacement-effect binding has invalid source, multiplier, or duplicate",
+                ));
+            }
+        }
+        for (definition_id, effects) in &self.damage_replacement_effects {
+            let definition = self
+                .catalog
+                .get(definition_id)
+                .ok_or(RulesError::UnknownDefinition(definition_id))?;
+            if !definition.is_permanent()
+                || effects.is_empty()
+                || effects
+                    .iter()
+                    .enumerate()
+                    .any(|(index, effect)| effects[..index].contains(effect))
+            {
+                return Err(RulesError::IllegalAction(
+                    "damage replacement-effect binding has invalid source or duplicate",
                 ));
             }
         }
@@ -13540,7 +13598,7 @@ impl Game {
         if amount <= 0 {
             return Ok(Vec::new());
         }
-        let mut candidates = Vec::new();
+        let mut candidates = self.damage_amount_replacement_candidates(target, used)?;
         let prevention_allowed = !self.damage_cannot_be_prevented(source);
         match target {
             Target::Permanent(permanent) => {
@@ -13622,6 +13680,38 @@ impl Game {
         Ok(candidates)
     }
 
+    /// Lists immutable damage-amount replacements from every currently live
+    /// permanent. Unlike token/counter quantity replacements, these effects
+    /// are not controller-scoped: their target predicate alone determines
+    /// whether they can alter the prospective packet.
+    fn damage_amount_replacement_candidates(
+        &self,
+        target: Target,
+        used: &[DamageReplacementChoice],
+    ) -> Result<Vec<DamageReplacementChoice>, RulesError> {
+        if !matches!(target, Target::Player(_) | Target::Permanent(_)) {
+            return Err(RulesError::IllegalTarget(target));
+        }
+        Ok(self
+            .all_battlefield_cards()
+            .into_iter()
+            .filter_map(|source| {
+                let definition = self.effective_definition_id(source).ok()??;
+                self.damage_replacement_effects
+                    .get(definition)
+                    .is_some_and(|effects| effects.contains(&DamageReplacementEffect::HalveDamage))
+                    .then(|| DamageReplacementChoice::HalveDamage {
+                        source,
+                        source_incarnation: self
+                            .object(source)
+                            .expect("battlefield source remains an object")
+                            .incarnation,
+                    })
+            })
+            .filter(|choice| !used.contains(choice))
+            .collect())
+    }
+
     fn affected_player_for_damage_target(&self, target: Target) -> Result<PlayerId, RulesError> {
         match target {
             Target::Player(player) if !self.player(player)?.lost => Ok(player),
@@ -13674,6 +13764,37 @@ impl Game {
             replacement,
         });
         match replacement {
+            DamageReplacementChoice::HalveDamage {
+                source: replacement_source,
+                source_incarnation,
+            } => {
+                if self.zone_of(replacement_source) != Some(Zone::Battlefield)
+                    || self.object(replacement_source)?.incarnation != source_incarnation
+                    || !self
+                        .effective_definition_id(replacement_source)?
+                        .is_some_and(|definition| {
+                            self.damage_replacement_effects
+                                .get(definition)
+                                .is_some_and(|effects| {
+                                    effects.contains(&DamageReplacementEffect::HalveDamage)
+                                })
+                        })
+                {
+                    return Err(RulesError::IllegalAction(
+                        "damage amount replacement source disappeared before selection",
+                    ));
+                }
+                let original_amount = pending.amount;
+                pending.amount /= 2;
+                self.record_event(GameEvent::DamageAmountReplaced {
+                    source: pending.source,
+                    target: pending.target,
+                    replacement_source,
+                    replacement_source_incarnation: source_incarnation,
+                    original_amount,
+                    replacement_amount: pending.amount,
+                });
+            }
             DamageReplacementChoice::Redirect {
                 id,
                 source: redirect_source,
@@ -13940,6 +14061,62 @@ impl Game {
             .map(|prevention| prevention.source)
     }
 
+    /// Applies every live source-bound amount replacement once in stable
+    /// battlefield order for a direct or combat packet that does not suspend
+    /// at the targeted-spell replacement-decision boundary. Those effects are
+    /// all the same halving operation in this initial substrate, so their
+    /// stable order cannot change the resulting integer quantity.
+    fn apply_automatic_damage_amount_replacements(
+        &mut self,
+        source: ObjectId,
+        target: Target,
+        amount: i32,
+    ) -> Result<i32, RulesError> {
+        if amount <= 0 {
+            return Ok(amount);
+        }
+        let used = Vec::new();
+        let Some(first_replacement) = self
+            .damage_amount_replacement_candidates(target, &used)?
+            .into_iter()
+            .next()
+        else {
+            return Ok(amount);
+        };
+        let source_object = self
+            .objects
+            .get(&source)
+            .or_else(|| {
+                self.virtual_spell_copies
+                    .get(&source)
+                    .and_then(|copy| self.objects.get(&copy.original))
+            })
+            .ok_or(RulesError::UnknownCard(source))?;
+        let mut pending = PendingDamageReplacementChoice {
+            source,
+            source_incarnation: source_object.incarnation,
+            controller: source_object.controller,
+            affected_player: self.affected_player_for_damage_target(target)?,
+            original_target: target,
+            target,
+            target_incarnation: self.damage_target_incarnation(target)?,
+            amount,
+            used,
+        };
+        self.apply_damage_replacement(&mut pending, first_replacement)?;
+        while pending.amount > 0 {
+            let Some(replacement) = self
+                .damage_amount_replacement_candidates(pending.target, &pending.used)?
+                .into_iter()
+                .next()
+            else {
+                break;
+            };
+            self.apply_damage_replacement(&mut pending, replacement)?;
+        }
+        Ok(pending.amount)
+    }
+
     fn deal_damage_to_permanent(
         &mut self,
         source: ObjectId,
@@ -14069,6 +14246,11 @@ impl Game {
             }
             self.damage_redirections.remove(index);
         }
+        let amount = self.apply_automatic_damage_amount_replacements(
+            source,
+            Target::Permanent(permanent),
+            amount,
+        )?;
         let (prevented, consumes_shield) = if self.damage_cannot_be_prevented(source) {
             (0, false)
         } else if self.target_prevents_damage_from_colors(permanent, source_colors)
@@ -14135,6 +14317,11 @@ impl Game {
         player: PlayerId,
         amount: i32,
     ) -> Result<(), RulesError> {
+        let amount = self.apply_automatic_damage_amount_replacements(
+            source,
+            Target::Player(player),
+            amount,
+        )?;
         let prevented = if self.damage_cannot_be_prevented(source) {
             0
         } else {
@@ -19710,6 +19897,75 @@ impl Game {
             if !next_is_chain_or_effect {
                 return Err(RulesError::IllegalAction(
                     "replacement receipt does not lead to its replaced event",
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// Every source-bound damage-amount replacement receipt must be preceded
+    /// immediately by the matching selected/automatic replacement identity,
+    /// preserve exact source-incarnation provenance, and encode the bound
+    /// arithmetic. This keeps a forged or stale event log from claiming a
+    /// damage reduction that the live expansion registry never supplied.
+    fn validate_damage_amount_replacement_events(&self) -> Result<(), RulesError> {
+        for (index, event) in self.event_log.iter().enumerate() {
+            let GameEvent::DamageAmountReplaced {
+                target,
+                replacement_source,
+                replacement_source_incarnation,
+                original_amount,
+                replacement_amount,
+                ..
+            } = event
+            else {
+                continue;
+            };
+            if *replacement_source_incarnation == 0
+                || *original_amount <= 0
+                || *replacement_amount < 0
+                || *replacement_amount != *original_amount / 2
+                || !matches!(target, Target::Player(_) | Target::Permanent(_))
+                || !matches!(
+                    self.event_log.get(index.checked_sub(1).ok_or(RulesError::IllegalAction(
+                        "damage amount replacement receipt has no preceding selection",
+                    ))?),
+                    Some(GameEvent::DamageReplacementApplied {
+                        target: selected_target,
+                        replacement:
+                            DamageReplacementChoice::HalveDamage {
+                                source,
+                                source_incarnation,
+                            },
+                        ..
+                    }) if selected_target == target
+                        && source == replacement_source
+                        && source_incarnation == replacement_source_incarnation
+                )
+            {
+                return Err(RulesError::IllegalAction(
+                    "damage amount replacement receipt lacks matching selection or arithmetic",
+                ));
+            }
+            let definition = self
+                .objects
+                .get(replacement_source)
+                .and_then(CardObject::effective_definition)
+                .or_else(|| {
+                    self.departed_card_definitions
+                        .get(replacement_source)
+                        .copied()
+                })
+                .ok_or(RulesError::IllegalAction(
+                    "damage amount replacement receipt source has no catalog definition",
+                ))?;
+            if !self
+                .damage_replacement_effects
+                .get(definition)
+                .is_some_and(|effects| effects.contains(&DamageReplacementEffect::HalveDamage))
+            {
+                return Err(RulesError::IllegalAction(
+                    "damage amount replacement receipt does not match a registered source effect",
                 ));
             }
         }
