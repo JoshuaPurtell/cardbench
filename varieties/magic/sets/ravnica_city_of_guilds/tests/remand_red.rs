@@ -17,8 +17,10 @@ fn remand_requires_an_any_spell_counter_that_draws_its_controller() {
         definition.card_types,
         [CardType::Instant].into_iter().collect()
     );
-    assert!(definition
-        .supported_rules
-        .contains(&"counter-target-spell-then-draw-controller"));
+    assert!(
+        definition
+            .supported_rules
+            .contains(&"counter-target-spell-then-draw-controller")
+    );
     assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&definition.id));
 }

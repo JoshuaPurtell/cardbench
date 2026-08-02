@@ -8599,16 +8599,27 @@ impl Game {
                         .and_then(CardObject::effective_definition)
                         .or_else(|| self.departed_card_definitions.get(card).copied())
                         .and_then(|definition| self.catalog.get(definition));
-                    if !target_definition.is_some_and(|definition| {
-                        definition.card_types.contains(&CardType::Instant)
-                            || definition.card_types.contains(&CardType::Sorcery)
-                    }) {
+                    let target_type_matches =
+                        target_definition.is_some_and(|definition| match requirement {
+                            TargetRequirement::InstantOrSorcerySpell => {
+                                definition.card_types.contains(&CardType::Instant)
+                                    || definition.card_types.contains(&CardType::Sorcery)
+                            }
+                            TargetRequirement::Spell => true,
+                            TargetRequirement::NoncreatureSpell => {
+                                !definition.card_types.contains(&CardType::Creature)
+                            }
+                            _ => false,
+                        });
+                    if !target_type_matches {
                         return Err(RulesError::IllegalTarget(*target));
                     }
                     if self
                         .stack
                         .iter()
-                        .position(|candidate| candidate.card == *card)
+                        .position(|candidate| {
+                            candidate.card == *card && candidate.ability_id.is_none()
+                        })
                         .is_some_and(|target_index| target_index >= stack_index)
                     {
                         return Err(RulesError::IllegalAction(
@@ -10184,6 +10195,7 @@ impl Game {
                 | Effect::RadianceDestroyEnchantments
                 | Effect::DestroyAllNonTokenCreatures
                 | Effect::CounterTargetInstantOrSorcerySpell
+                | Effect::CounterTargetSpell
                 | Effect::CopyTargetInstantOrSorcerySpell { .. }
                 | Effect::SacrificeCreatureOrCounterTargetSpell
                 | Effect::GrantGraveyardCastPermissionUntilEndOfTurn
@@ -14419,6 +14431,22 @@ impl Game {
                 });
                 self.move_to_spell_terminal_zone(target)?;
             }
+            Effect::CounterTargetSpell => {
+                let target = Self::target_spell(target)?;
+                let position = self
+                    .stack
+                    .iter()
+                    .position(|stack_object| {
+                        stack_object.card == target && stack_object.ability_id.is_none()
+                    })
+                    .ok_or(RulesError::IllegalTarget(Target::Spell(target)))?;
+                self.stack.remove(position);
+                self.record_event(GameEvent::SpellCountered {
+                    card: target,
+                    source,
+                });
+                self.move_to_spell_terminal_zone(target)?;
+            }
             Effect::CopyTargetInstantOrSorcerySpell {
                 may_choose_new_targets: _,
             } => {
@@ -14935,6 +14963,10 @@ impl Game {
                             || definition.card_types.contains(&CardType::Sorcery)
                     })
             }
+            (Target::Spell(card), TargetRequirement::Spell) => self
+                .stack
+                .iter()
+                .any(|stack_object| stack_object.card == card && stack_object.ability_id.is_none()),
             (Target::Spell(card), TargetRequirement::NoncreatureSpell) => {
                 self.stack
                     .iter()
@@ -15131,7 +15163,9 @@ impl Game {
                     | TargetRequirement::PlayerOrCreature
             ) | (
                 Target::Spell(_),
-                TargetRequirement::InstantOrSorcerySpell | TargetRequirement::NoncreatureSpell
+                TargetRequirement::InstantOrSorcerySpell
+                    | TargetRequirement::Spell
+                    | TargetRequirement::NoncreatureSpell
             )
         )
     }

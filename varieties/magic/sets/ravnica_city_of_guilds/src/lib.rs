@@ -41,7 +41,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 145] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 146] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -151,6 +151,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 145] = [
     "RAV-BELLTOWER-SPHINX",
     "RAV-FLIGHT-OF-FANCY",
     "RAV-DREAM-LEASH",
+    "RAV-REMAND",
     "RAV-MARK-OF-EVICTION",
     "RAV-VEDALKEN-ENTRANCER",
     "RAV-TIDEWATER-MINION",
@@ -3192,6 +3193,24 @@ pub fn card_definitions() -> Vec<CardDefinition> {
         // Full fidelity: the control effect is derived from the live Aura
         // source rather than the player who happened to cast it. Attachment
         // and source departure use the shared layer-two lifecycle.
+        CardDefinition {
+            id: "RAV-REMAND",
+            name: "Remand",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(1, [Color::Blue]),
+            colors: colors([Color::Blue]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Instant]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "counter-target-spell-then-draw-controller",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![Effect::CounterTargetSpell, Effect::DrawController],
+        },
         // Full fidelity: the Aura attaches only to a creature, then its
         // active-controller upkeep trigger reads that exact live attachment
         // endpoint when it resolves. Returning the creature follows the

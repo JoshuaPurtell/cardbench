@@ -1263,6 +1263,11 @@ pub enum TargetRequirement {
     /// names the narrow RAV counterspell slice instead of claiming support for
     /// arbitrary abilities or every kind of spell target.
     InstantOrSorcerySpell,
+    /// Any represented spell card currently on the stack, including a
+    /// creature, artifact, enchantment, or nonpermanent spell. Abilities and
+    /// virtual spell-copy objects remain outside this physical-card target
+    /// family unless a dedicated effect opts into them.
+    Spell,
     /// Any noncreature spell currently on the stack, including represented
     /// permanent artifact and enchantment spells.
     NoncreatureSpell,
@@ -1873,6 +1878,10 @@ pub enum Effect {
     /// Counter one targeted instant or sorcery spell. This is intentionally a
     /// semantic effect rather than a copied card-text string.
     CounterTargetInstantOrSorcerySpell,
+    /// Counter one targeted represented spell regardless of its card type.
+    /// This remains distinct from the narrower instant/sorcery counter effect
+    /// used by cards whose printed target restriction is narrower.
+    CounterTargetSpell,
     /// Create one virtual copy of a targeted instant or sorcery stack object.
     /// A copy retains its source's cast-time values, but its controller may
     /// choose new legal targets through the typed decision boundary when the
@@ -2094,6 +2103,7 @@ impl Effect {
             | Self::CopyTargetInstantOrSorcerySpell { .. } => {
                 Some(TargetRequirement::InstantOrSorcerySpell)
             }
+            Self::CounterTargetSpell => Some(TargetRequirement::Spell),
             Self::SacrificeCreatureOrCounterTargetSpell => {
                 Some(TargetRequirement::NoncreatureSpell)
             }
