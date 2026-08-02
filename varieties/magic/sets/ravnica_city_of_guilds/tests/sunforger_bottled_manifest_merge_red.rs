@@ -10,6 +10,9 @@ fn sunforger_bottled_manifest_has_all_positive_promotions() {
         "RAV-LURKING-INFORMANT",
         "RAV-NULLSTONE-GARGOYLE",
     ] {
-        assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&id), "missing {id}");
+        assert!(
+            RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&id),
+            "missing {id}"
+        );
     }
 }

@@ -10,6 +10,9 @@ fn plague_sunforger_manifest_has_all_positive_promotions() {
         "RAV-PARIAHS-SHIELD",
         "RAV-LURKING-INFORMANT",
     ] {
-        assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&id), "missing {id}");
+        assert!(
+            RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&id),
+            "missing {id}"
+        );
     }
 }
