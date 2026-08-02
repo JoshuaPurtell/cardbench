@@ -684,6 +684,25 @@ pub enum DamageReplacementChoice {
     SourceColorPrevention { permanent: ObjectId },
 }
 
+/// One currently applicable replacement in the shared prospective-event
+/// chain.  Quantity replacements retain both the live source incarnation and
+/// immutable bound effect; a physical card that leaves and returns is a new
+/// source and cannot be mistaken for an already-used replacement.
+///
+/// Damage continues to expose its compatibility choice shape while its
+/// bounded resolver is migrated incrementally.  Keeping both identities in
+/// this serializable enum makes the generic decision surface reusable by
+/// prevention, redirection, token, and counter replacement paths.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ReplacementChoice {
+    Quantity {
+        source: ObjectId,
+        source_incarnation: u64,
+        effect: ReplacementEffect,
+    },
+    Damage(DamageReplacementChoice),
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TriggeredAbility {
     pub id: &'static str,
@@ -2654,6 +2673,8 @@ pub enum DecisionKind {
     /// One APNAP controller orders the simultaneous triggered abilities they
     /// control before any member of that controller group enters the stack.
     TriggeredAbilityOrder,
+    /// The affected player orders applicable quantity replacements.
+    Replacement,
 }
 
 /// One public member of an APNAP simultaneous-trigger ordering group.
@@ -2682,6 +2703,9 @@ pub enum DecisionOption {
     /// controller group. It is distinct from an object choice because two
     /// abilities on the same source are independently orderable.
     TriggerOrder(TriggerOrderEntry),
+    /// A public, typed replacement identity. Hidden-zone candidate cards are
+    /// never represented by this option shape.
+    Replacement(ReplacementChoice),
 }
 
 /// A submitted answer to a typed decision. The continuation determines which
@@ -2691,6 +2715,7 @@ pub enum DecisionSelection {
     Objects(Vec<ObjectId>),
     Targets(Vec<Target>),
     TriggerOrder(Vec<TriggerOrderEntry>),
+    Replacements(Vec<ReplacementChoice>),
 }
 
 /// Stateful continuation details for the migrated trigger-effect object
@@ -2703,6 +2728,21 @@ pub enum TriggeredEffectObjectDecisionKind {
         selected: Vec<(PlayerId, ObjectId)>,
     },
     SacrificeControllerCreature,
+}
+
+/// The ordinary event that will commit after every applicable quantity
+/// replacement has been applied. It stores the effect payload rather than a
+/// resolver closure so a suspended stack item remains cloneable and auditable.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum QuantityReplacementResolution {
+    CreateTokens {
+        player: PlayerId,
+        token: TokenSpec,
+    },
+    PlaceCounters {
+        card: ObjectId,
+        counter: CounterKind,
+    },
 }
 
 /// The typed continuation that resumes when a pending decision completes.
@@ -2759,6 +2799,20 @@ pub enum DecisionContinuation {
     /// the full event payload; this continuation exposes only public ordering
     /// identities to the policy surface.
     TriggeredAbilityOrder { controller: PlayerId },
+    /// A stack item retained while concurrent token/counter multipliers are
+    /// resolved in the affected player's selected order. `used` stores the
+    /// exact source incarnation/effect identity so the same replacement can
+    /// never apply twice to one prospective event.
+    QuantityReplacement {
+        source: ObjectId,
+        source_incarnation: u64,
+        controller: PlayerId,
+        event: ReplacementEventKind,
+        original_amount: i16,
+        amount: i16,
+        used: Vec<ReplacementChoice>,
+        resolution: QuantityReplacementResolution,
+    },
 }
 
 /// One serializable, no-priority decision boundary. Candidate options remain
@@ -3129,6 +3183,7 @@ pub enum GameEvent {
     /// the replacement source, not the source that caused the original event.
     ReplacementEffectApplied {
         source: ObjectId,
+        source_incarnation: u64,
         affected_player: PlayerId,
         event: ReplacementEventKind,
         original_amount: i16,

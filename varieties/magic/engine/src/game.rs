@@ -16,13 +16,15 @@ use crate::{
     DelayedActionId, DelayedActionKind, DelayedActionTiming, Duration, Effect, GameEvent,
     GeneralizedAbilityActivation, GeneralizedActivatedAbilityCost, Keyword, LandEntryBinding,
     LibrarySearchCardinality, LibrarySearchDestination, LibrarySearchRequirement,
-    LibrarySearchSelection, LinkedExileGroup, LinkedExileGroupId, LinkedExileMember,
-    LinkedExileMemberRole, ManaAbilityActivation, ManaAbilityBinding, ManaAbilityOutput, ManaCost,
-    ManaPaymentSelection, ObjectId, PendingDecision, PlayerId, PlayerState, PolicyMoveKind,
-    ReplacementEffect, ReplacementEffectBinding, ReplacementEventKind, StackEffectResolution,
-    StackObject, StackResolutionPlan, StaticAttackRestriction, StaticAttackRestrictionBinding,
-    StaticContinuousEffectBinding, Step, TRANSMUTE_ABILITY_ID, Target, TargetRequirement,
-    TokenSpec, TriggerCondition, TriggerOrderEntry, TriggeredAbilityBinding,
+    LibrarySearchSelection, LinkedExileGroup,
+    LinkedExileGroupId, LinkedExileMember, LinkedExileMemberRole, ManaAbilityActivation,
+    ManaAbilityBinding, ManaAbilityOutput, ManaCost, ManaPaymentSelection, ObjectId,
+    PendingDecision, PlayerId, PlayerState, PolicyMoveKind, QuantityReplacementResolution,
+    ReplacementChoice, ReplacementEffect, ReplacementEffectBinding, ReplacementEventKind,
+    StackEffectResolution, StackObject, StackResolutionPlan, StaticAttackRestriction,
+    StaticAttackRestrictionBinding, StaticContinuousEffectBinding, Step, TRANSMUTE_ABILITY_ID,
+    Target, TargetRequirement, TokenSpec, TriggerCondition, TriggerOrderEntry,
+    TriggeredAbilityBinding,
     TriggeredEffectObjectDecisionKind, Zone,
 };
 
@@ -371,6 +373,10 @@ pub struct PendingDecisionView {
     /// continuation. A source can expose more than one independently
     /// orderable triggered ability, so these are not card candidates.
     pub trigger_candidates: Vec<TriggerOrderEntry>,
+    /// Public replacement identities for an affected-player ordering choice.
+    /// These are intentionally separate from cards and targets so callers
+    /// cannot submit a choice in the wrong typed domain.
+    pub replacement_candidates: Vec<ReplacementChoice>,
 }
 
 /// Public, stale-safe details for a prospective damage event requiring an
@@ -2950,6 +2956,7 @@ impl Game {
                         target_candidates: Self::decision_target_candidates(decision),
                         candidates,
                         trigger_candidates: Self::decision_trigger_candidates(decision),
+                        replacement_candidates: Self::decision_replacement_candidates(decision),
                     })
             })
             .transpose()?;
@@ -2969,7 +2976,8 @@ impl Game {
                 | DecisionContinuation::TriggeredEffectObject { .. }
                 | DecisionContinuation::CombatDamageOrder { .. }
                 | DecisionContinuation::SpellCopyTargets { .. }
-                | DecisionContinuation::TriggeredAbilityOrder { .. } => None,
+                | DecisionContinuation::TriggeredAbilityOrder { .. }
+                | DecisionContinuation::QuantityReplacement { .. } => None,
             })
             .map(|(source, destination, may_fail_to_find)| {
                 self.decision_candidate_cards(
@@ -3042,7 +3050,8 @@ impl Game {
                 | DecisionContinuation::LibraryReorder { .. }
                 | DecisionContinuation::CombatDamageOrder { .. }
                 | DecisionContinuation::SpellCopyTargets { .. }
-                | DecisionContinuation::TriggeredAbilityOrder { .. } => None,
+                | DecisionContinuation::TriggeredAbilityOrder { .. }
+                | DecisionContinuation::QuantityReplacement { .. } => None,
             })
             .map(|(source, ability)| {
                 self.decision_candidate_cards(
@@ -5432,6 +5441,30 @@ impl Game {
                     Self::validate_trigger_order_decision_selection(&decision, selection)?;
                 self.resolve_triggered_ability_order_decision(&decision, controller, selected)
             }
+            DecisionContinuation::QuantityReplacement {
+                source,
+                source_incarnation,
+                controller,
+                event,
+                original_amount,
+                amount,
+                used,
+                resolution,
+            } => {
+                let selected = Self::validate_replacement_decision_selection(&decision, selection)?;
+                self.resolve_quantity_replacement_decision(
+                    &decision,
+                    source,
+                    source_incarnation,
+                    controller,
+                    event,
+                    original_amount,
+                    amount,
+                    used,
+                    resolution,
+                    selected,
+                )
+            }
         }
     }
 
@@ -5496,6 +5529,32 @@ impl Game {
         Ok(selected)
     }
 
+    fn validate_replacement_decision_selection(
+        decision: &PendingDecision,
+        selection: DecisionSelection,
+    ) -> Result<ReplacementChoice, RulesError> {
+        let DecisionSelection::Replacements(selected) = selection else {
+            return Err(RulesError::IllegalAction(
+                "this decision requires replacement selections",
+            ));
+        };
+        if selected.len() != 1 || decision.min_selections != 1 || decision.max_selections != 1 {
+            return Err(RulesError::IllegalAction(
+                "replacement decision requires exactly one selected option",
+            ));
+        }
+        let selected = selected[0];
+        if !decision
+            .options
+            .contains(&DecisionOption::Replacement(selected))
+        {
+            return Err(RulesError::IllegalAction(
+                "replacement decision selected an unavailable option",
+            ));
+        }
+        Ok(selected)
+    }
+
     fn resolve_triggered_ability_order_decision(
         &mut self,
         decision: &PendingDecision,
@@ -5542,6 +5601,196 @@ impl Game {
                 .map(PendingTriggerPlacement::Ordered),
         );
         self.advance_pending_trigger_placements()
+    }
+
+    #[allow(clippy::too_many_arguments)] // This explicit state mirrors the cloned continuation exactly.
+    fn resolve_quantity_replacement_decision(
+        &mut self,
+        decision: &PendingDecision,
+        source: ObjectId,
+        source_incarnation: u64,
+        controller: PlayerId,
+        event: ReplacementEventKind,
+        original_amount: i16,
+        mut amount: i16,
+        mut used: Vec<ReplacementChoice>,
+        resolution: QuantityReplacementResolution,
+        selected: ReplacementChoice,
+    ) -> Result<(), RulesError> {
+        let choices = self.quantity_replacement_candidates(decision.player, event, &used)?;
+        let expected_options = choices
+            .iter()
+            .copied()
+            .map(DecisionOption::Replacement)
+            .collect::<Vec<_>>();
+        if decision.kind != DecisionKind::Replacement
+            || decision.visibility != DecisionVisibility::Public
+            || decision.options != expected_options
+            || choices.len() < 2
+        {
+            return Err(RulesError::IllegalAction(
+                "quantity replacement decision no longer matches live choices",
+            ));
+        }
+        self.apply_quantity_replacement(decision.player, event, &mut amount, &mut used, selected)?;
+        self.complete_pending_decision(decision)?;
+        self.advance_quantity_replacement_chain(
+            decision.player,
+            source,
+            source_incarnation,
+            controller,
+            event,
+            original_amount,
+            amount,
+            used,
+            resolution,
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)] // The chain carries all typed prospective-event facts between decisions.
+    fn advance_quantity_replacement_chain(
+        &mut self,
+        affected_player: PlayerId,
+        source: ObjectId,
+        source_incarnation: u64,
+        controller: PlayerId,
+        event: ReplacementEventKind,
+        original_amount: i16,
+        mut amount: i16,
+        mut used: Vec<ReplacementChoice>,
+        resolution: QuantityReplacementResolution,
+    ) -> Result<(), RulesError> {
+        loop {
+            let choices = self.quantity_replacement_candidates(affected_player, event, &used)?;
+            match choices.as_slice() {
+                [] => {
+                    return self.finish_quantity_replacement_stack_item(
+                        source,
+                        source_incarnation,
+                        controller,
+                        event,
+                        original_amount,
+                        amount,
+                        resolution,
+                    );
+                }
+                [choice] => self.apply_quantity_replacement(
+                    affected_player,
+                    event,
+                    &mut amount,
+                    &mut used,
+                    *choice,
+                )?,
+                _ => {
+                    return self.open_quantity_replacement_decision(
+                        affected_player,
+                        source,
+                        source_incarnation,
+                        controller,
+                        event,
+                        original_amount,
+                        amount,
+                        used,
+                        resolution,
+                        choices,
+                    );
+                }
+            }
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)] // Stack-shape/provenance validation and terminal lifecycle are one boundary.
+    fn finish_quantity_replacement_stack_item(
+        &mut self,
+        source: ObjectId,
+        source_incarnation: u64,
+        controller: PlayerId,
+        event: ReplacementEventKind,
+        original_amount: i16,
+        amount: i16,
+        resolution: QuantityReplacementResolution,
+    ) -> Result<(), RulesError> {
+        if amount <= 0 {
+            return Err(RulesError::IllegalAction(
+                "quantity replacement chain reached a nonpositive final amount",
+            ));
+        }
+        let stack_object = self.stack.pop().ok_or(RulesError::IllegalAction(
+            "quantity replacement decision escaped its stack item",
+        ))?;
+        let stack_shape_matches = match &resolution {
+            QuantityReplacementResolution::CreateTokens { player, token } => {
+                let token_count = u8::try_from(original_amount).ok();
+                matches!(
+                    (stack_object.effects.as_slice(), stack_object.targets.as_slice()),
+                    ([Effect::CreateToken { token: stack_token, count }], [])
+                        if stack_object.controller == *player
+                            && token_count == Some(*count)
+                            && stack_token == token
+                ) || matches!(
+                    (stack_object.effects.as_slice(), stack_object.targets.as_slice()),
+                    ([Effect::CreateTokenForTargetPlayer { token: stack_token, count }], [Target::Player(target)])
+                        if target == player
+                            && token_count == Some(*count)
+                            && stack_token == token
+                )
+            }
+            QuantityReplacementResolution::PlaceCounters { card, counter } => {
+                matches!(
+                    (stack_object.effects.as_slice(), stack_object.targets.as_slice()),
+                    ([Effect::AddCountersToSource { counter: stack_counter, amount: stack_amount }], [])
+                        if *card == source && *stack_counter == *counter && *stack_amount == original_amount
+                ) || matches!(
+                    (stack_object.effects.as_slice(), stack_object.targets.as_slice()),
+                    ([Effect::AddCountersToTarget { counter: stack_counter, amount: stack_amount }], [Target::Permanent(target)])
+                        if *target == *card && *stack_counter == *counter && *stack_amount == original_amount
+                )
+            }
+        };
+        if stack_object.card != source
+            || stack_object.source_incarnation != source_incarnation
+            || stack_object.controller != controller
+            || !stack_shape_matches
+        {
+            return Err(RulesError::IllegalAction(
+                "quantity replacement continuation has an invalid stack shape",
+            ));
+        }
+        match resolution {
+            QuantityReplacementResolution::CreateTokens { player, token } => {
+                if event != ReplacementEventKind::TokenCreation {
+                    return Err(RulesError::IllegalAction(
+                        "token continuation has a non-token replacement event",
+                    ));
+                }
+                self.create_tokens_after_replacement(player, &token, amount)?;
+            }
+            QuantityReplacementResolution::PlaceCounters { card, counter } => {
+                if event != (ReplacementEventKind::CounterPlacement { counter }) {
+                    return Err(RulesError::IllegalAction(
+                        "counter continuation has a mismatched replacement event",
+                    ));
+                }
+                self.place_counter_after_replacement(source, card, counter, amount)?;
+            }
+        }
+        if let Some(ability) = stack_object.ability_id {
+            self.record_event(GameEvent::AbilityResolved {
+                source,
+                source_incarnation,
+                ability,
+            });
+        } else {
+            self.record_event(GameEvent::SpellResolved { card: source });
+            self.move_to_spell_terminal_zone(source)?;
+        }
+        self.check_state_based_actions()?;
+        self.flush_pending_dies_triggers();
+        self.flush_pending_damage_triggers();
+        self.flush_pending_life_gain_triggers();
+        self.flush_pending_dies_triggers();
+        self.priority = self.priority_after_resolution();
+        Ok(())
     }
 
     /// Returns the still-unordered multi-block groups in a deterministic
@@ -8661,8 +8910,10 @@ impl Game {
     }
 
     /// Applies every currently applicable quantity replacement exactly once.
-    /// The collected sources are a pre-replacement snapshot, so recording a
-    /// replacement receipt cannot cause the same source to see its own result.
+    /// This compatibility path has no suspended stack continuation, so it
+    /// advances a shared prospective-event chain in stable battlefield order.
+    /// Stack effects with two or more choices use the same candidates and
+    /// application helper through a public affected-player decision instead.
     fn replace_event_quantity(
         &mut self,
         affected_player: PlayerId,
@@ -8675,7 +8926,38 @@ impl Game {
                 "replacement quantities must be positive",
             ));
         }
-        let applicable = self
+        let mut used = Vec::new();
+        let mut replaced = amount;
+        loop {
+            let Some(choice) = self
+                .quantity_replacement_candidates(affected_player, event, &used)?
+                .into_iter()
+                .next()
+            else {
+                return Ok(replaced);
+            };
+            self.apply_quantity_replacement(
+                affected_player,
+                event,
+                &mut replaced,
+                &mut used,
+                choice,
+            )?;
+        }
+    }
+
+    /// Lists live replacement sources for one token/counter event. The
+    /// identity includes the exact battlefield incarnation: a source can
+    /// apply at most once to this event, and a later re-entry is not silently
+    /// treated as the already-used object.
+    fn quantity_replacement_candidates(
+        &self,
+        affected_player: PlayerId,
+        event: ReplacementEventKind,
+        used: &[ReplacementChoice],
+    ) -> Result<Vec<ReplacementChoice>, RulesError> {
+        self.player(affected_player)?;
+        Ok(self
             .all_battlefield_cards()
             .into_iter()
             .filter(|source| self.controller_of(*source) == Ok(affected_player))
@@ -8693,25 +8975,72 @@ impl Game {
                     .flatten()
                     .copied()
                     .filter(move |effect| effect.applies_to(event))
-                    .map(move |effect| (source, effect))
+                    .map(move |effect| ReplacementChoice::Quantity {
+                        source,
+                        source_incarnation: self
+                            .object(source)
+                            .expect("battlefield source remains an object")
+                            .incarnation,
+                        effect,
+                    })
                     .collect::<Vec<_>>()
             })
-            .collect::<Vec<_>>();
-        let mut replaced = amount;
-        for (source, effect) in applicable {
-            let next = replaced.checked_mul(i16::from(effect.multiplier())).ok_or(
-                RulesError::IllegalAction("replacement quantity exceeds supported range"),
-            )?;
-            self.record_event(GameEvent::ReplacementEffectApplied {
-                source,
-                affected_player,
-                event,
-                original_amount: replaced,
-                replacement_amount: next,
-            });
-            replaced = next;
+            .filter(|choice| !used.contains(choice))
+            .collect())
+    }
+
+    /// Applies one revalidated token/counter multiplier and records the
+    /// complete source-incarnation provenance before the prospective event is
+    /// reconsidered. The caller owns the no-priority decision boundary.
+    fn apply_quantity_replacement(
+        &mut self,
+        affected_player: PlayerId,
+        event: ReplacementEventKind,
+        amount: &mut i16,
+        used: &mut Vec<ReplacementChoice>,
+        choice: ReplacementChoice,
+    ) -> Result<(), RulesError> {
+        let ReplacementChoice::Quantity {
+            source,
+            source_incarnation,
+            effect,
+        } = choice
+        else {
+            return Err(RulesError::IllegalAction(
+                "quantity replacement chain received a damage replacement identity",
+            ));
+        };
+        if *amount <= 0 || used.contains(&choice) {
+            return Err(RulesError::IllegalAction(
+                "quantity replacement is nonpositive or already used",
+            ));
         }
-        Ok(replaced)
+        let candidates = self.quantity_replacement_candidates(affected_player, event, used)?;
+        if !candidates.contains(&choice)
+            || self.zone_of(source) != Some(Zone::Battlefield)
+            || self.object(source)?.incarnation != source_incarnation
+        {
+            return Err(RulesError::IllegalAction(
+                "quantity replacement source is no longer a live applicable incarnation",
+            ));
+        }
+        let next =
+            amount
+                .checked_mul(i16::from(effect.multiplier()))
+                .ok_or(RulesError::IllegalAction(
+                    "replacement quantity exceeds supported range",
+                ))?;
+        self.record_event(GameEvent::ReplacementEffectApplied {
+            source,
+            source_incarnation,
+            affected_player,
+            event,
+            original_amount: *amount,
+            replacement_amount: next,
+        });
+        *amount = next;
+        used.push(choice);
+        Ok(())
     }
 
     fn generic_cost_reduction(&self, player: PlayerId, definition: &CardDefinition) -> u8 {
@@ -9512,6 +9841,9 @@ impl Game {
         if self.suspend_top_ability_for_private_opponent_library_exile_choice()? {
             return Ok(());
         }
+        if self.suspend_top_stack_item_for_quantity_replacement_choice()? {
+            return Ok(());
+        }
         if self.suspend_top_stack_item_for_damage_replacement_choice()? {
             return Ok(());
         }
@@ -9856,6 +10188,157 @@ impl Game {
         self.flush_pending_life_gain_triggers();
         self.flush_pending_dies_triggers();
         self.priority = self.priority_after_resolution();
+        Ok(())
+    }
+
+    /// Opens an affected-player replacement decision for a one-effect token
+    /// creation or counter-placement stack item. The generic chain retains
+    /// the stack item while the player selects an ordering, then recomputes
+    /// live source incarnations after every application.
+    fn suspend_top_stack_item_for_quantity_replacement_choice(
+        &mut self,
+    ) -> Result<bool, RulesError> {
+        if self.pending_decision.is_some() {
+            return Err(RulesError::IllegalAction(
+                "a quantity replacement decision attempted to overlap another decision",
+            ));
+        }
+        let Some(top) = self.stack.last() else {
+            return Ok(false);
+        };
+        let source = top.card;
+        let source_incarnation = top.source_incarnation;
+        let controller = top.controller;
+        let source_colors = top.source_colors.clone();
+        let candidate = match (top.effects.as_slice(), top.targets.as_slice()) {
+            ([Effect::CreateToken { token, count }], []) if *count > 0 => Some((
+                controller,
+                ReplacementEventKind::TokenCreation,
+                i16::from(*count),
+                QuantityReplacementResolution::CreateTokens {
+                    player: controller,
+                    token: token.clone(),
+                },
+            )),
+            ([Effect::CreateTokenForTargetPlayer { token, count }], [Target::Player(player)])
+                if *count > 0
+                    && self.stack_target_incarnation_matches(top, 0, Target::Player(*player))
+                    && self.target_matches_for_colors(
+                        controller,
+                        Target::Player(*player),
+                        TargetRequirement::Player,
+                        &source_colors,
+                    ) =>
+            {
+                Some((
+                    *player,
+                    ReplacementEventKind::TokenCreation,
+                    i16::from(*count),
+                    QuantityReplacementResolution::CreateTokens {
+                        player: *player,
+                        token: token.clone(),
+                    },
+                ))
+            }
+            ([Effect::AddCountersToTarget { counter, amount }], [Target::Permanent(card)])
+                if *amount > 0
+                    && self.stack_target_incarnation_matches(top, 0, Target::Permanent(*card))
+                    && self.target_matches_for_colors(
+                        controller,
+                        Target::Permanent(*card),
+                        TargetRequirement::Permanent,
+                        &source_colors,
+                    ) =>
+            {
+                Some((
+                    self.controller_of(*card)?,
+                    ReplacementEventKind::CounterPlacement { counter: *counter },
+                    *amount,
+                    QuantityReplacementResolution::PlaceCounters {
+                        card: *card,
+                        counter: *counter,
+                    },
+                ))
+            }
+            ([Effect::AddCountersToSource { counter, amount }], [])
+                if *amount > 0
+                    && self.zone_of(source) == Some(Zone::Battlefield)
+                    && self.object_has_incarnation(source, source_incarnation) =>
+            {
+                Some((
+                    self.controller_of(source)?,
+                    ReplacementEventKind::CounterPlacement { counter: *counter },
+                    *amount,
+                    QuantityReplacementResolution::PlaceCounters {
+                        card: source,
+                        counter: *counter,
+                    },
+                ))
+            }
+            _ => None,
+        };
+        let Some((affected_player, event, amount, resolution)) = candidate else {
+            return Ok(false);
+        };
+        let choices = self.quantity_replacement_candidates(affected_player, event, &[])?;
+        if choices.len() < 2 {
+            return Ok(false);
+        }
+        self.open_quantity_replacement_decision(
+            affected_player,
+            source,
+            source_incarnation,
+            controller,
+            event,
+            amount,
+            amount,
+            Vec::new(),
+            resolution,
+            choices,
+        )?;
+        Ok(true)
+    }
+
+    #[allow(clippy::too_many_arguments)] // The serializable continuation deliberately mirrors its audited state.
+    fn open_quantity_replacement_decision(
+        &mut self,
+        affected_player: PlayerId,
+        source: ObjectId,
+        source_incarnation: u64,
+        controller: PlayerId,
+        event: ReplacementEventKind,
+        original_amount: i16,
+        amount: i16,
+        used: Vec<ReplacementChoice>,
+        resolution: QuantityReplacementResolution,
+        choices: Vec<ReplacementChoice>,
+    ) -> Result<(), RulesError> {
+        if choices.len() < 2 {
+            return Err(RulesError::IllegalAction(
+                "quantity replacement decision requires concurrent choices",
+            ));
+        }
+        self.open_pending_decision(
+            affected_player,
+            DecisionVisibility::Public,
+            DecisionKind::Replacement,
+            1,
+            1,
+            choices
+                .into_iter()
+                .map(DecisionOption::Replacement)
+                .collect(),
+            DecisionContinuation::QuantityReplacement {
+                source,
+                source_incarnation,
+                controller,
+                event,
+                original_amount,
+                amount,
+                used,
+                resolution,
+            },
+        )?;
         Ok(())
     }
 
@@ -14539,6 +15022,21 @@ impl Game {
             ReplacementEventKind::TokenCreation,
             i16::from(count),
         )?;
+        self.create_tokens_after_replacement(controller, token, replaced_count)
+    }
+
+    /// Commits a token batch after the prospective-event replacement chain
+    /// has reached its final positive quantity. No replacement lookup occurs
+    /// here, preventing the already-used sources from recursively observing
+    /// their own result.
+    fn create_tokens_after_replacement(
+        &mut self,
+        controller: PlayerId,
+        token: &TokenSpec,
+        replaced_count: i16,
+    ) -> Result<Vec<ObjectId>, RulesError> {
+        self.player(controller)?;
+        Self::validate_token_spec(token)?;
         let count = u8::try_from(replaced_count).map_err(|_| {
             RulesError::IllegalAction("token creation quantity exceeds supported range")
         })?;
@@ -14789,6 +15287,25 @@ impl Game {
             ReplacementEventKind::CounterPlacement { counter },
             amount,
         )?;
+        self.place_counter_after_replacement(source, card, counter, amount)
+    }
+
+    /// Commits a positive counter-placement event after its replacement chain
+    /// has selected and applied every live applicable multiplier.
+    fn place_counter_after_replacement(
+        &mut self,
+        source: ObjectId,
+        card: ObjectId,
+        counter: CounterKind,
+        amount: i16,
+    ) -> Result<(), RulesError> {
+        if !counter.is_valid() || amount <= 0 {
+            return Err(RulesError::IllegalAction(
+                "counter placement requires a valid positive counter",
+            ));
+        }
+        self.object(source)?;
+        self.require_zone(card, Zone::Battlefield)?;
         let counters = &mut self
             .objects
             .get_mut(&card)
@@ -16908,6 +17425,7 @@ impl Game {
     /// Replacement receipts form a finite quantity chain. A source can apply
     /// once to the event snapshot, producing either the next replacement's
     /// input or the first ordinary receipt for the replaced event.
+    #[allow(clippy::too_many_lines)] // Decision-boundary receipt skipping remains part of one causal replay audit.
     fn validate_replacement_effect_events(&self) -> Result<(), RulesError> {
         for (index, event) in self.event_log.iter().enumerate() {
             let GameEvent::ReplacementEffectApplied {
@@ -16916,6 +17434,7 @@ impl Game {
                 event: event_kind,
                 original_amount,
                 replacement_amount,
+                ..
             } = event
             else {
                 continue;
@@ -16948,46 +17467,85 @@ impl Game {
                     "replacement receipt does not match a registered source effect",
                 ));
             }
-            let next_is_chain_or_effect = match self.event_log.get(index + 1) {
-                Some(GameEvent::ReplacementEffectApplied {
-                    affected_player: next_player,
-                    event: next_kind,
-                    original_amount: next_original,
-                    ..
-                }) => {
-                    next_player == affected_player
-                        && next_kind == event_kind
-                        && next_original == replacement_amount
-                }
-                Some(GameEvent::TokenCreated { .. }) => {
-                    *event_kind == ReplacementEventKind::TokenCreation
-                        && usize::try_from(*replacement_amount).is_ok_and(|expected| {
-                            self.event_log[index + 1..]
-                                .iter()
-                                .take(expected)
-                                .all(|candidate| {
-                                    matches!(
-                                        candidate,
-                                        GameEvent::TokenCreated { player, .. }
-                                            if player == affected_player
-                                    )
-                                })
-                                && self.event_log[index + 1..].iter().take(expected).count()
-                                    == expected
-                        })
-                }
-                Some(GameEvent::CounterPlaced {
-                    counter: placed_counter,
-                    amount,
-                    ..
-                }) => matches!(
-                    event_kind,
-                    ReplacementEventKind::CounterPlacement {
-                        counter: replacement_counter,
-                    } if replacement_counter == placed_counter && amount == replacement_amount
-                ),
-                _ => false,
-            };
+            // A policy-selected chain writes its `DecisionCompleted` /
+            // `DecisionOpened` lifecycle between two replacement receipts.
+            // Those receipts are structural, not a new prospective event, so
+            // skip only that narrow no-priority boundary before validating the
+            // next material replacement or committed result.
+            let next_material_index = self.event_log[index + 1..]
+                .iter()
+                .position(|candidate| {
+                    !matches!(
+                        candidate,
+                        GameEvent::DecisionOpened {
+                            kind: DecisionKind::Replacement,
+                            ..
+                        } | GameEvent::DecisionCompleted {
+                            kind: DecisionKind::Replacement,
+                            ..
+                        } | GameEvent::PolicyMoveSubmitted {
+                            kind: PolicyMoveKind::SubmitDecision,
+                            ..
+                        }
+                    )
+                })
+                .map(|offset| index + 1 + offset);
+            let next_is_chain_or_effect =
+                match next_material_index.and_then(|next| self.event_log.get(next)) {
+                    Some(GameEvent::ReplacementEffectApplied {
+                        affected_player: next_player,
+                        event: next_kind,
+                        original_amount: next_original,
+                        ..
+                    }) => {
+                        next_player == affected_player
+                            && next_kind == event_kind
+                            && next_original == replacement_amount
+                    }
+                    Some(GameEvent::TokenCreated { .. }) => {
+                        *event_kind == ReplacementEventKind::TokenCreation
+                            && usize::try_from(*replacement_amount).is_ok_and(|expected| {
+                                self.event_log
+                                    [next_material_index.expect("token receipt was materialized")..]
+                                    .iter()
+                                    .take(expected)
+                                    .all(|candidate| {
+                                        matches!(
+                                            candidate,
+                                            GameEvent::TokenCreated { player, .. }
+                                                if player == affected_player
+                                        )
+                                    })
+                                    && self.event_log[next_material_index
+                                        .expect("token receipt was materialized")..]
+                                        .iter()
+                                        .take(expected)
+                                        .count()
+                                        == expected
+                            })
+                    }
+                    Some(GameEvent::CounterPlaced {
+                        counter: placed_counter,
+                        amount,
+                        ..
+                    }) => matches!(
+                        event_kind,
+                        ReplacementEventKind::CounterPlacement {
+                            counter: replacement_counter,
+                        } if replacement_counter == placed_counter && amount == replacement_amount
+                    ),
+                    None => self.pending_decision.as_ref().is_some_and(|decision| {
+                        matches!(
+                            &decision.continuation,
+                            DecisionContinuation::QuantityReplacement {
+                                event: pending_event,
+                                amount: pending_amount,
+                                ..
+                            } if pending_event == event_kind && pending_amount == replacement_amount
+                        )
+                    }),
+                    _ => false,
+                };
             if !next_is_chain_or_effect {
                 return Err(RulesError::IllegalAction(
                     "replacement receipt does not lead to its replaced event",
@@ -17659,7 +18217,9 @@ impl Game {
             .iter()
             .filter_map(|option| match option {
                 DecisionOption::Object(card) => Some(self.card_view(*card)),
-                DecisionOption::Target(_) | DecisionOption::TriggerOrder(_) => None,
+                DecisionOption::Target(_)
+                | DecisionOption::TriggerOrder(_)
+                | DecisionOption::Replacement(_) => None,
             })
             .collect()
     }
@@ -17670,7 +18230,9 @@ impl Game {
             .iter()
             .filter_map(|option| match option {
                 DecisionOption::Target(target) => Some(*target),
-                DecisionOption::Object(_) | DecisionOption::TriggerOrder(_) => None,
+                DecisionOption::Object(_)
+                | DecisionOption::TriggerOrder(_)
+                | DecisionOption::Replacement(_) => None,
             })
             .collect()
     }
@@ -17681,6 +18243,17 @@ impl Game {
             .iter()
             .filter_map(|option| match option {
                 DecisionOption::TriggerOrder(entry) => Some(*entry),
+                DecisionOption::Object(_) | DecisionOption::Target(_) => None,
+            })
+            .collect()
+    }
+
+    fn decision_replacement_candidates(decision: &PendingDecision) -> Vec<ReplacementChoice> {
+        decision
+            .options
+            .iter()
+            .filter_map(|option| match option {
+                DecisionOption::Replacement(choice) => Some(*choice),
                 DecisionOption::Object(_) | DecisionOption::Target(_) => None,
             })
             .collect()
@@ -18125,6 +18698,77 @@ impl Game {
                 {
                     return Err(RulesError::IllegalAction(
                         "trigger-order decision violates its APNAP continuation boundary",
+                    ));
+                }
+            }
+            DecisionContinuation::QuantityReplacement {
+                source,
+                source_incarnation,
+                controller,
+                event,
+                original_amount,
+                amount,
+                used,
+                resolution,
+            } => {
+                let top = self.stack.last().ok_or(RulesError::IllegalAction(
+                    "quantity replacement decision escaped its stack item",
+                ))?;
+                let choices =
+                    self.quantity_replacement_candidates(decision.player, *event, used)?;
+                let expected_options = choices
+                    .iter()
+                    .copied()
+                    .map(DecisionOption::Replacement)
+                    .collect::<Vec<_>>();
+                let used_are_unique = !used.iter().enumerate().any(|(index, choice)| {
+                    used[index + 1..].contains(choice)
+                        || !matches!(choice, ReplacementChoice::Quantity { .. })
+                });
+                let stack_shape_matches = match resolution {
+                    QuantityReplacementResolution::CreateTokens { player, .. } => {
+                        matches!(
+                            (top.effects.as_slice(), top.targets.as_slice()),
+                            ([Effect::CreateToken { count, .. }], [])
+                                if top.controller == *player && i16::from(*count) == *original_amount
+                        ) || matches!(
+                            (top.effects.as_slice(), top.targets.as_slice()),
+                            ([Effect::CreateTokenForTargetPlayer { count, .. }], [Target::Player(target)])
+                                if target == player && i16::from(*count) == *original_amount
+                        )
+                    }
+                    QuantityReplacementResolution::PlaceCounters { card, counter } => {
+                        matches!(
+                            (top.effects.as_slice(), top.targets.as_slice()),
+                            ([Effect::AddCountersToSource { counter: stack_counter, amount: stack_amount }], [])
+                                if *card == *source
+                                    && *stack_counter == *counter
+                                    && *stack_amount == *original_amount
+                        ) || matches!(
+                            (top.effects.as_slice(), top.targets.as_slice()),
+                            ([Effect::AddCountersToTarget { counter: stack_counter, amount: stack_amount }], [Target::Permanent(target)])
+                                if *target == *card
+                                    && *stack_counter == *counter
+                                    && *stack_amount == *original_amount
+                        )
+                    }
+                };
+                if decision.kind != DecisionKind::Replacement
+                    || decision.visibility != DecisionVisibility::Public
+                    || top.card != *source
+                    || top.source_incarnation != *source_incarnation
+                    || top.controller != *controller
+                    || *original_amount <= 0
+                    || *amount <= 0
+                    || !used_are_unique
+                    || choices.len() < 2
+                    || decision.options != expected_options
+                    || decision.min_selections != 1
+                    || decision.max_selections != 1
+                    || !stack_shape_matches
+                {
+                    return Err(RulesError::IllegalAction(
+                        "quantity replacement decision violates its prospective-event boundary",
                     ));
                 }
             }

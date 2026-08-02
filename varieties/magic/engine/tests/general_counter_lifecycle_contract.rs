@@ -191,6 +191,7 @@ fn named_counter_placement_is_typed_replacement_aware_and_battlefield_only() {
                 },
                 original_amount: 2,
                 replacement_amount: 4,
+                ..
             },
             GameEvent::CounterPlaced {
                 source: counter_source,

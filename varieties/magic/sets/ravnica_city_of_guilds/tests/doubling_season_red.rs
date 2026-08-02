@@ -1,8 +1,9 @@
 //! Red regression for the token/counter replacement substrate used by Doubling Season.
 
 use cardbench_magic_engine::{
-    CardType, CastRequest, Color, ConvokeContribution, ConvokePayment, CounterKind, Game,
-    GameEvent, ManaCost, ManaPaymentSelection, PlayerId, ReplacementEventKind, Target, Zone,
+    CardType, CastRequest, Color, ConvokeContribution, ConvokePayment, CounterKind,
+    DecisionSelection, Game, GameEvent, ManaCost, ManaPaymentSelection, PlayerId,
+    ReplacementChoice, ReplacementEventKind, Target, Zone,
 };
 use cardbench_magic_rav::{
     RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, rav_replacement_effect_bindings,
@@ -112,6 +113,28 @@ fn doubling_season_doubles_controlled_token_and_counter_events_once_per_source()
         .expect("second replacement source");
     game.clear_event_log();
     resolve_scatter(&mut game, PlayerId(0));
+    let decision = game
+        .view_for_player(PlayerId(0))
+        .expect("affected-player replacement view")
+        .pending_decision
+        .expect("two live Doubling Seasons require an ordering choice");
+    let first_choice = decision
+        .replacement_candidates
+        .iter()
+        .copied()
+        .find(|choice| {
+            matches!(
+                choice,
+                ReplacementChoice::Quantity { source, .. } if *source == first_season
+            )
+        })
+        .expect("first live season is a legal first replacement");
+    game.submit_decision(
+        PlayerId(0),
+        decision.id,
+        DecisionSelection::Replacements(vec![first_choice]),
+    )
+    .expect("affected player orders the concurrent replacements");
 
     assert_eq!(token_count(&game, PlayerId(0)), 12);
     let token_replacements = game
@@ -210,6 +233,7 @@ fn doubling_season_doubles_controlled_token_and_counter_events_once_per_source()
                     },
                     original_amount: 1,
                     replacement_amount: 2,
+                    ..
                 },
                 GameEvent::CounterPlaced {
                     card,

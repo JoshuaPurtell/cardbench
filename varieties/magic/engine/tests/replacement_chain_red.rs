@@ -42,7 +42,7 @@ fn fixture() -> (Game, PlayerId, cardbench_magic_engine::ObjectId) {
             definition(QUADRUPLER, CardType::Enchantment, vec![]),
             definition(
                 TOKEN_SPELL,
-                CardType::Sorcery,
+                CardType::Instant,
                 vec![Effect::CreateToken {
                     token: TokenSpec::saproling(),
                     count: 1,
@@ -50,7 +50,7 @@ fn fixture() -> (Game, PlayerId, cardbench_magic_engine::ObjectId) {
             ),
             definition(
                 COUNTER_SPELL,
-                CardType::Sorcery,
+                CardType::Instant,
                 vec![Effect::AddCountersToTarget {
                     counter: CounterKind::Charge,
                     amount: 1,
@@ -91,6 +91,10 @@ fn fixture() -> (Game, PlayerId, cardbench_magic_engine::ObjectId) {
     let target = game
         .put_on_battlefield(player, TARGET)
         .expect("counter target enters before the game");
+    game.add_card(player, TOKEN_SPELL, Zone::Hand)
+        .expect("token spell enters before the game");
+    game.add_card(player, COUNTER_SPELL, Zone::Hand)
+        .expect("counter spell enters before the game");
     game.begin_game().expect("fixture game starts");
     (game, player, target)
 }
@@ -101,9 +105,15 @@ fn resolve_to_replacement_choice(
     spell: &'static str,
     targets: Vec<cardbench_magic_engine::Target>,
 ) -> cardbench_magic_engine::PendingDecisionView {
-    let card = game
-        .add_card(player, spell, Zone::Hand)
-        .expect("spell enters the hand");
+    let card = game.players[player.0]
+        .hand
+        .iter()
+        .copied()
+        .find(|card| {
+            game.card_definition(*card)
+                .is_ok_and(|definition| definition.id == spell)
+        })
+        .expect("pre-game fixture has the requested spell in hand");
     game.cast_spell(
         player,
         CastRequest {
@@ -139,7 +149,7 @@ fn quantity_choice(
                 effect: ReplacementEffect::MultiplyTokenCreation { multiplier: choice_multiplier }
                     | ReplacementEffect::MultiplyCounterPlacement { multiplier: choice_multiplier },
                 ..
-            } if choice_multiplier == multiplier
+            } if *choice_multiplier == multiplier
         ))
         .expect("requested source is a current replacement option")
 }
@@ -150,7 +160,10 @@ fn concurrent_token_replacements_are_chosen_in_affected_player_order_and_apply_o
     let first = resolve_to_replacement_choice(&mut game, player, TOKEN_SPELL, vec![]);
     assert_eq!(first.kind, DecisionKind::Replacement);
     assert_eq!(first.replacement_candidates.len(), 3);
-    assert!(game.pass_priority(player).is_err(), "choice blocks priority");
+    assert!(
+        game.pass_priority(player).is_err(),
+        "choice blocks priority"
+    );
 
     let triplers_choice = quantity_choice(&first, 3);
     game.submit_policy_move(
@@ -180,9 +193,14 @@ fn concurrent_token_replacements_are_chosen_in_affected_player_order_and_apply_o
     )
     .expect("affected player chooses the second replacement");
 
+    eprintln!(
+        "token replacement-chain trace: {:?}",
+        game.canonical_event_log()
+    );
+
     assert_eq!(
         game.players[player.0].battlefield.len(),
-        3 + 24,
+        4 + 24,
         "the final forced source applies once after 1 -> 3 -> 6 -> 24"
     );
     let applied = game
@@ -191,10 +209,32 @@ fn concurrent_token_replacements_are_chosen_in_affected_player_order_and_apply_o
         .filter(|event| matches!(event, GameEvent::ReplacementEffectApplied { .. }))
         .collect::<Vec<_>>();
     assert_eq!(applied.len(), 3);
-    assert!(matches!(applied[0], GameEvent::ReplacementEffectApplied { original_amount: 1, replacement_amount: 3, .. }));
-    assert!(matches!(applied[1], GameEvent::ReplacementEffectApplied { original_amount: 3, replacement_amount: 6, .. }));
-    assert!(matches!(applied[2], GameEvent::ReplacementEffectApplied { original_amount: 6, replacement_amount: 24, .. }));
-    game.validate_invariants().expect("quantity chain is invariant-safe");
+    assert!(matches!(
+        applied[0],
+        GameEvent::ReplacementEffectApplied {
+            original_amount: 1,
+            replacement_amount: 3,
+            ..
+        }
+    ));
+    assert!(matches!(
+        applied[1],
+        GameEvent::ReplacementEffectApplied {
+            original_amount: 3,
+            replacement_amount: 6,
+            ..
+        }
+    ));
+    assert!(matches!(
+        applied[2],
+        GameEvent::ReplacementEffectApplied {
+            original_amount: 6,
+            replacement_amount: 24,
+            ..
+        }
+    ));
+    game.validate_invariants()
+        .expect("quantity chain is invariant-safe");
 }
 
 #[test]
@@ -218,6 +258,10 @@ fn concurrent_counter_replacements_share_the_same_typed_chain() {
         },
     )
     .expect("choose first counter replacement");
+    eprintln!(
+        "counter replacement-chain trace: {:?}",
+        game.canonical_event_log()
+    );
     assert_eq!(
         game.object(target)
             .expect("target lives")
@@ -226,5 +270,6 @@ fn concurrent_counter_replacements_share_the_same_typed_chain() {
         Some(&6),
         "one remaining forced replacement follows the selected multiplier"
     );
-    game.validate_invariants().expect("counter chain is invariant-safe");
+    game.validate_invariants()
+        .expect("counter chain is invariant-safe");
 }
