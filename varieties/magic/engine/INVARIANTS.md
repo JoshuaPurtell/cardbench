@@ -301,14 +301,14 @@ Oracle Magic rules coverage.
   library searches, trigger target selection and triggered discard/sacrifice
   object choices, multi-block combat order, spell-copy targets, concurrent
   token/counter quantity replacement ordering, and bounded direct-damage
-  prevention/redirection.
-  Library
-  search and discard options are private: only the deciding player's
-  `GameView` contains their candidate identities, while a public sacrifice
-  option is projected safely to its deciding controller. `DecisionContinuation`
-  holds only typed cloned data, never a resolver closure. Optional-cost, color,
-  partial-redirection, and arbitrary replacement-event composition remain
-  separate bounded decision families until migrated to it.
+  prevention/redirection, plus private top-library hand/top/bottom
+  partitions. Library search, discard, and top-library partition options are
+  private: only the deciding player's `GameView` contains their candidate
+  identities, while a public sacrifice option is projected safely to its
+  deciding controller. `DecisionContinuation` holds only typed cloned data,
+  never a resolver closure. Optional-cost, color, partial-redirection, and
+  arbitrary replacement-event composition remain separate bounded decision
+  families until migrated to it.
 - Every represented trigger condition captures one source/controller/payload
   event and reaches a common active-player-first placement pipeline after its
   enclosing action. A target-bearing event stays outside the stack in its
@@ -961,6 +961,20 @@ Oracle Magic rules coverage.
   before the suspended spell or ability reaches its terminal receipt. No zone
   transition, shuffle, or unrelated priority action may interleave with the
   captured ordering boundary.
+- `LookAtTopCardsPutOneInHandOneOnTopRestOnBottom` is a one-effect,
+  spell-only private decision boundary. It snapshots the current top up to
+  its positive requested count in top-to-bottom order, retains the exact live
+  stack spell and controller, and exposes those identities only to that
+  controller's `PendingDecisionView`. A submitted
+  `LibraryTopPartition` must use every snapshot card exactly once: one moves
+  to hand, one of the remainder becomes the new top when present, and the
+  rest are ordered bottom-to-top. A one-card library therefore requires no
+  top card. Wrong-controller, stale-id, duplicate, foreign, or malformed
+  partitions reject atomically. `DecisionOpened`, `DecisionCompleted`, and
+  `PrivateLibraryTopPartitionResolved { inspected }` retain only safe
+  metadata; no look, reveal, candidate, selected-top, or selected-bottom
+  identity appears in the public receipt stream. The normal public hand move
+  and terminal spell lifecycle follow only after the private decision closes.
 - A `Permanent` target is a current battlefield object, never a player or a
   card in another zone. A permanent-bounce instruction snapshots the target's
   controller before its owner-hand zone move; its `CardMoved { to: Hand }`
