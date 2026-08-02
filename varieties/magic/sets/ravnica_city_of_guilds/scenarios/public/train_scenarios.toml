@@ -1585,7 +1585,7 @@ digest = "fnv1a64:d55b48973736e61d"
 [[scenario]]
 id = "rav_root_kin_ally_convoke_cast"
 seed = 0
-description = "Convoke Root-Kin Ally with two Green contributions and one generic contribution, then resolve the supported 3/3 creature. Its enter-the-battlefield counter behavior is unsupported."
+description = "Convoke Root-Kin Ally with two Green contributions and one generic contribution, then resolve the supported 3/3 creature. Its contributor-only enter-the-battlefield counter trigger is covered by a focused Rust contract."
 
 [[scenario.card]]
 label = "ally"
