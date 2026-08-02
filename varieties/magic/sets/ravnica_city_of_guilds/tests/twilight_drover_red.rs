@@ -4,8 +4,8 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    AbilityActivation, CardType, CastRequest, Color, Game, GameEvent, ManaCost, PlayerId, PolicyAction,
-    Target, Zone,
+    AbilityActivation, CardType, CastRequest, Color, Game, GameEvent, ManaCost, PlayerId,
+    PolicyAction, Target, Zone,
 };
 use cardbench_magic_rav::{
     RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, rav_activated_ability_bindings,
@@ -148,7 +148,8 @@ fn twilight_drover_triggers_when_another_creature_bounces_and_creates_spirit() {
     )
     .expect("Spirit activation stacks");
     game.pass_priority(PlayerId(0)).expect("activation pass");
-    game.pass_priority(PlayerId(1)).expect("activation resolves");
+    game.pass_priority(PlayerId(1))
+        .expect("activation resolves");
     assert!(game.event_log.iter().any(|event| matches!(
         event,
         GameEvent::TokenCreated { player, .. } if *player == PlayerId(0)
@@ -157,7 +158,11 @@ fn twilight_drover_triggers_when_another_creature_bounces_and_creates_spirit() {
         game.players[0]
             .battlefield
             .iter()
-            .filter(|card| game.object(**card).expect("battlefield object").token.is_some())
+            .filter(|card| game
+                .object(**card)
+                .expect("battlefield object")
+                .token
+                .is_some())
             .count(),
         1
     );

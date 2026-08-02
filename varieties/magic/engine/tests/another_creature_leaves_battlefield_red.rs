@@ -146,5 +146,6 @@ fn another_creature_leaves_trigger_observes_non_death_bounce() {
         Some(&1)
     );
     assert_eq!(game.zone_of(island), Some(Zone::Battlefield));
-    game.validate_invariants().expect("leave trigger invariants");
+    game.validate_invariants()
+        .expect("leave trigger invariants");
 }
