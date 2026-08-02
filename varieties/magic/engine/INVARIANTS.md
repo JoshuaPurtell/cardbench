@@ -1658,6 +1658,13 @@ Oracle Magic rules coverage.
 - Only the active player declares attackers. Each attacker is unique, on that
   player's battlefield, an eligible untapped creature, and is tapped when it
   attacks.
+- Vigilance is attacker-declaration provenance: it records exactly the
+  attackers that had Vigilance when they were declared and is a subset of the
+  live declared-attacker set. It explains why those attackers did not tap at
+  declaration, but it is never compared with a later layer-six keyword query:
+  a legal continuous effect may add or remove Vigilance later in the same
+  combat without rewriting the completed declaration or tapping an attacker
+  retroactively.
 - Combat-restriction keywords keep their scope: `CannotAttackOrBlock` rejects
   both attacker and blocker declarations, while `CannotBlock` rejects only a
   blocker declaration and never prevents that creature from attacking. A

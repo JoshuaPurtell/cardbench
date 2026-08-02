@@ -4,7 +4,7 @@ use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
     CardDefinition, CardType, Color, ContinuousChange, DeckEntry, DeckList, Duration, Game,
-    Keyword, ManaCost, PlayerId, Step,
+    GameEvent, Keyword, ManaCost, PlayerId, Step,
 };
 
 const ATTACKER: &str = "TEST-VIGILANCE-SNAPSHOT-ATTACKER";
@@ -126,6 +126,18 @@ fn losing_vigilance_after_attack_declaration_does_not_invalidate_combat_snapshot
     assert!(
         !game.object(attacker).expect("attacker exists").tapped,
         "losing vigilance after declaration cannot retroactively tap an attacker"
+    );
+    assert_eq!(
+        game.event_log
+            .iter()
+            .filter(|event| matches!(
+                event,
+                GameEvent::ContinuousEffectCreated { source, target, .. }
+                    if *source == attacker && *target == attacker
+            ))
+            .count(),
+        2,
+        "the committed trace records both the declaration-time grant and later keyword removal"
     );
     game.validate_invariants()
         .expect("combat keeps declaration-time vigilance provenance");

@@ -584,8 +584,9 @@ struct CombatState {
     /// declaration provenance: a later continuous effect does not retroactively
     /// make an earlier block legal.
     unblockable_attackers: BTreeSet<ObjectId>,
-    /// Attackers that were declared with vigilance. This is declaration
-    /// provenance, not a live tapped-state assertion: a vigilant attacker can
+    /// Attackers that had Vigilance when declared. This is declaration
+    /// provenance, not a current-keyword or live tapped-state assertion: a
+    /// later continuous effect can remove Vigilance, and the attacker can
     /// later pay a legal tap cost while it remains in combat.
     vigilant_attackers: BTreeSet<ObjectId>,
     /// Attackers that had Trample when declared. Unlike evasion, trample is
@@ -13791,15 +13792,6 @@ impl Game {
                 {
                     return Err(RulesError::IllegalAction(
                         "same-turn attacker lacks haste declaration provenance",
-                    ));
-                }
-                let currently_vigilant = self
-                    .characteristics(*attacker)?
-                    .keywords
-                    .contains(&Keyword::Vigilance);
-                if currently_vigilant != combat.vigilant_attackers.contains(attacker) {
-                    return Err(RulesError::IllegalAction(
-                        "vigilance declaration provenance disagrees with attacker keyword",
                     ));
                 }
             }
