@@ -110,6 +110,11 @@ Oracle Magic rules coverage.
   future turn, marked damage cannot be negative, and a card object's base
   controller always remains its owner. Only `Game::controller_of` may expose a
   different live battlefield controller.
+- `ReturnSourceToOwnersHand` is a source-relative resolution instruction, not
+  an activation cost. It moves the source only when that exact source
+  incarnation is still on the battlefield; an already departed source leaves
+  the instruction as a no-op and a later incarnation with the same stable
+  object ID can never be returned by the old stack object.
 - A regeneration shield is private, source-identified replacement state for a
   current battlefield creature. Shield creation records
   `RegenerationShieldCreated { source, target }`; the next modeled destroy or
@@ -563,6 +568,12 @@ Oracle Magic rules coverage.
   and requires every visible unterminated `SpellCast` to remain on the live
   stack. An owner leaving the game is the explicit exceptional terminal path:
   `ObjectLeftGame` removes that owner's stack object under CR 800.4a.
+- A non-Instant card on the stack has valid timing only if it was cast in its
+  controller's main phase with an empty stack, has an explicit current casting
+  permission, or its printed characteristics include `Flash`. A pending
+  resolution-time decision retains its designated decision controller as the
+  priority holder; resolving a spell or ability must not overwrite that
+  identity with ordinary active-player priority until no decision remains.
 - If the active player leaves while stack work remains, their turn continues
   without a living active player as required by CR 800.4i. The engine retains
   that departed seat only as current-turn identity, gives priority to the next
@@ -1143,6 +1154,13 @@ Oracle Magic rules coverage.
   legality produces an unattached Equipment and an `AttachmentDetached`
   receipt. No attachment may follow a stable object ID across a zone change or
   silently modify a returned incarnation.
+- A target-bearing Equipment enter-the-battlefield trigger uses the same
+  registered attachment binding, controller-relative target restriction,
+  source/target incarnation checks, linked effect creation, and
+  `EquipmentAttached` receipt as Equip. If there is no legal target when that
+  trigger would be created, it is not placed on the stack and the Equipment
+  remains a legal unattached permanent. It must never attach through a
+  card-name exception or to an opponent's creature merely because one exists.
 - The bounded linked-exile resolver intentionally stores no closures. Its
   typed group and delayed-action records remain invariant-valid while the
   creature and every linked Aura are suspended in exile, and the consuming
