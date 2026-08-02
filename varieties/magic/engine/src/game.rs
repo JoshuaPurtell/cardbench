@@ -8,14 +8,15 @@ use crate::{
     ActivatedAbilityKind, ActivatedManaAbility, AdditionalSpellCost, AdditionalSpellCostBinding,
     BasicLandType, BasicLandTypeBinding, CardDefinition, CardObject, CardType,
     CastPaymentManaAbility, Characteristics, Color, CombatBlock, ContinuousChange,
-    ContinuousEffect, CostReductionBinding, CounterKind, CreatureSubtype, DeckList, Duration,
-    Effect, GameEvent, Keyword, LandEntryBinding, LibrarySearchDestination,
-    LibrarySearchRequirement, LibrarySearchSelection, ManaAbilityActivation, ManaAbilityBinding,
-    ManaAbilityOutput, ManaCost, ManaPaymentSelection, ObjectId, PlayerId, PlayerState,
-    PolicyMoveKind, ReplacementEffect, ReplacementEffectBinding, ReplacementEventKind,
-    StackEffectResolution, StackObject, StackResolutionPlan, StaticAttackRestriction,
-    StaticAttackRestrictionBinding, StaticContinuousEffectBinding, Step, Target, TargetRequirement,
-    TokenSpec, TriggerCondition, TriggeredAbilityBinding, Zone,
+    ContinuousEffect, CostReductionBinding, CounterKind, CreatureSubtype, DeckList, DelayedAction,
+    DelayedActionId, DelayedActionKind, DelayedActionTiming, Duration, Effect, GameEvent, Keyword,
+    LandEntryBinding, LibrarySearchDestination, LibrarySearchRequirement, LibrarySearchSelection,
+    LinkedExileGroup, LinkedExileGroupId, LinkedExileMember, LinkedExileMemberRole,
+    ManaAbilityActivation, ManaAbilityBinding, ManaAbilityOutput, ManaCost, ManaPaymentSelection,
+    ObjectId, PlayerId, PlayerState, PolicyMoveKind, ReplacementEffect, ReplacementEffectBinding,
+    ReplacementEventKind, StackEffectResolution, StackObject, StackResolutionPlan,
+    StaticAttackRestriction, StaticAttackRestrictionBinding, StaticContinuousEffectBinding, Step,
+    Target, TargetRequirement, TokenSpec, TriggerCondition, TriggeredAbilityBinding, Zone,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -559,6 +560,13 @@ pub struct Game {
     additional_spell_costs: BTreeMap<&'static str, Vec<AdditionalSpellCost>>,
     graveyard_cast_permissions: BTreeMap<ObjectId, GraveyardCastPermission>,
     exile_on_resolution: BTreeSet<ObjectId>,
+    /// Exact-incarnation exile groups that still own one delayed return.
+    /// This is typed, clonable state; no resolver closure escapes onto the
+    /// game state machine.
+    linked_exile_groups: BTreeMap<LinkedExileGroupId, LinkedExileGroup>,
+    delayed_actions: Vec<DelayedAction>,
+    next_linked_exile_group_id: u64,
+    next_delayed_action_id: u64,
     /// Source-identified replacement shields created by regeneration. A
     /// target may have multiple pending shields, consumed LIFO one at a time.
     regeneration_shields: BTreeMap<ObjectId, Vec<ObjectId>>,
@@ -798,6 +806,10 @@ impl Game {
             additional_spell_costs,
             graveyard_cast_permissions: BTreeMap::new(),
             exile_on_resolution: BTreeSet::new(),
+            linked_exile_groups: BTreeMap::new(),
+            delayed_actions: Vec::new(),
+            next_linked_exile_group_id: 1,
+            next_delayed_action_id: 1,
             regeneration_shields: BTreeMap::new(),
             players,
             objects: BTreeMap::new(),
@@ -1284,6 +1296,21 @@ impl Game {
 
     pub fn object(&self, card: ObjectId) -> Result<&CardObject, RulesError> {
         self.objects.get(&card).ok_or(RulesError::UnknownCard(card))
+    }
+
+    /// Returns immutable typed provenance for one unresolved linked-exile
+    /// group. The group disappears as part of consuming its delayed action.
+    #[must_use]
+    pub fn linked_exile_group(&self, group: LinkedExileGroupId) -> Option<&LinkedExileGroup> {
+        self.linked_exile_groups.get(&group)
+    }
+
+    /// Returns every unresolved delayed action. This is an inspection surface
+    /// for policies and audit tests; gameplay cannot mutate the schedule
+    /// outside a rules transition.
+    #[must_use]
+    pub fn delayed_actions(&self) -> &[DelayedAction] {
+        &self.delayed_actions
     }
 
     pub fn card_definition(&self, card: ObjectId) -> Result<&CardDefinition, RulesError> {
@@ -2992,6 +3019,248 @@ impl Game {
             }))
     }
 
+    fn aura_attachment_spec(
+        &self,
+        card: ObjectId,
+    ) -> Result<Option<(TargetRequirement, Vec<ContinuousChange>)>, RulesError> {
+        if self.object(card)?.token.is_some() {
+            return Ok(None);
+        }
+        Ok(self
+            .card_definition(card)?
+            .effects
+            .iter()
+            .find_map(|effect| match effect {
+                Effect::AttachSourceAndModifyTargetPt { power, toughness } => Some((
+                    TargetRequirement::Creature,
+                    vec![ContinuousChange::ModifyPowerToughness {
+                        power: *power,
+                        toughness: *toughness,
+                    }],
+                )),
+                Effect::AttachSourceToTarget { target, changes } => {
+                    Some((*target, changes.clone()))
+                }
+                _ => None,
+            }))
+    }
+
+    /// Captures an Aura-relative linked-exile group. The source-relative
+    /// identity check is deliberately a no-op for a departed source: a later
+    /// incarnation with the same stable id may not start a historical
+    /// ability's exile group.
+    #[allow(clippy::too_many_lines)] // One transaction preserves the group snapshot and ordered zone receipts.
+    fn exile_attached_creature_and_auras_until_end_step(
+        &mut self,
+        source: ObjectId,
+        source_incarnation: u64,
+        controller: PlayerId,
+    ) -> Result<(), RulesError> {
+        if self.zone_of(source) != Some(Zone::Battlefield)
+            || !self.object_has_incarnation(source, source_incarnation)
+        {
+            return Ok(());
+        }
+        if !self.is_aura_like(source)? {
+            return Err(RulesError::IllegalAction(
+                "linked exile requires an Aura-like permanent source",
+            ));
+        }
+        let source_object = self.object(source)?.clone();
+        if source_object.controller != controller {
+            return Err(RulesError::IllegalAction(
+                "linked exile source controller does not match resolving ability",
+            ));
+        }
+        let Some(primary) = source_object.attached_to else {
+            return Ok(());
+        };
+        let Some(primary_incarnation) = source_object.attached_to_incarnation else {
+            return Ok(());
+        };
+        if self.zone_of(primary) != Some(Zone::Battlefield)
+            || !self.object_has_incarnation(primary, primary_incarnation)
+            || !self
+                .characteristics(primary)?
+                .card_types
+                .contains(&CardType::Creature)
+        {
+            return Ok(());
+        }
+
+        let mut attached_auras = self
+            .all_battlefield_cards()
+            .into_iter()
+            .filter(|candidate| {
+                self.is_aura_like(*candidate).is_ok_and(|is_aura| is_aura)
+                    && self.object(*candidate).is_ok_and(|object| {
+                        object.attached_to == Some(primary)
+                            && object.attached_to_incarnation == Some(primary_incarnation)
+                    })
+            })
+            .collect::<Vec<_>>();
+        attached_auras.sort_unstable();
+        if !attached_auras.contains(&source) {
+            return Err(RulesError::IllegalAction(
+                "linked exile source lost its exact Aura attachment",
+            ));
+        }
+
+        self.move_to_zone(primary, Zone::Exile)?;
+        let mut members = vec![LinkedExileMember {
+            object: primary,
+            exile_incarnation: self.object(primary)?.incarnation,
+            role: LinkedExileMemberRole::PrimaryCreature,
+        }];
+        for aura in attached_auras {
+            self.move_to_zone(aura, Zone::Exile)?;
+            members.push(LinkedExileMember {
+                object: aura,
+                exile_incarnation: self.object(aura)?.incarnation,
+                role: LinkedExileMemberRole::AttachedAura,
+            });
+        }
+
+        let group = LinkedExileGroupId(self.next_linked_exile_group_id);
+        self.next_linked_exile_group_id =
+            self.next_linked_exile_group_id
+                .checked_add(1)
+                .ok_or(RulesError::IllegalAction(
+                    "linked exile group id overflowed",
+                ))?;
+        let action = DelayedActionId(self.next_delayed_action_id);
+        self.next_delayed_action_id = self
+            .next_delayed_action_id
+            .checked_add(1)
+            .ok_or(RulesError::IllegalAction("delayed action id overflowed"))?;
+        let due_turn = if self.step == Step::End {
+            self.turn
+                .checked_add(1)
+                .ok_or(RulesError::IllegalAction("delayed action turn overflowed"))?
+        } else {
+            self.turn
+        };
+        let linked_group = LinkedExileGroup {
+            id: group,
+            controller,
+            source,
+            source_incarnation,
+            members: members.clone(),
+        };
+        self.linked_exile_groups.insert(group, linked_group);
+        self.delayed_actions.push(DelayedAction {
+            id: action,
+            timing: DelayedActionTiming::EndStep,
+            due_turn,
+            controller,
+            kind: DelayedActionKind::ReturnLinkedExileGroup { group },
+        });
+        self.record_event(GameEvent::DelayedActionScheduled {
+            action,
+            timing: DelayedActionTiming::EndStep,
+            due_turn,
+            controller,
+            group,
+            members,
+        });
+        Ok(())
+    }
+
+    fn member_is_still_in_linked_exile(&self, member: LinkedExileMember) -> bool {
+        self.zone_of(member.object) == Some(Zone::Exile)
+            && self.object_has_incarnation(member.object, member.exile_incarnation)
+    }
+
+    /// Returns every group member that still names the exact exile
+    /// incarnation owned by the delayed action. The primary creature enters
+    /// first; attached Auras follow stable object-id order and attach only to
+    /// that new creature incarnation if their ordinary attachment restriction
+    /// remains legal. A member that left exile independently is never moved.
+    fn return_linked_exile_group(
+        &mut self,
+        group: &LinkedExileGroup,
+    ) -> Result<Vec<ObjectId>, RulesError> {
+        let primary = group
+            .members
+            .iter()
+            .copied()
+            .find(|member| member.role == LinkedExileMemberRole::PrimaryCreature)
+            .ok_or(RulesError::IllegalAction(
+                "linked exile group lacks its primary creature",
+            ))?;
+        let mut returned = Vec::new();
+        let returned_primary = if self.member_is_still_in_linked_exile(primary) {
+            self.move_to_zone(primary.object, Zone::Battlefield)?;
+            returned.push(primary.object);
+            Some(primary.object)
+        } else {
+            None
+        };
+
+        let mut auras = group
+            .members
+            .iter()
+            .copied()
+            .filter(|member| member.role == LinkedExileMemberRole::AttachedAura)
+            .collect::<Vec<_>>();
+        auras.sort_by_key(|member| member.object);
+        for aura in auras {
+            if !self.member_is_still_in_linked_exile(aura) {
+                continue;
+            }
+            self.move_to_zone(aura.object, Zone::Battlefield)?;
+            returned.push(aura.object);
+            if let Some(primary) = returned_primary {
+                if let Some((requirement, changes)) = self.aura_attachment_spec(aura.object)? {
+                    let controller = self.object(aura.object)?.controller;
+                    if self.target_matches_for_source(
+                        controller,
+                        aura.object,
+                        Target::Permanent(primary),
+                        requirement,
+                    ) {
+                        self.attach_aura_with_changes(aura.object, primary, requirement, changes)?;
+                    }
+                }
+            }
+        }
+        Ok(returned)
+    }
+
+    fn consume_due_delayed_actions(&mut self) -> Result<(), RulesError> {
+        if self.step != Step::End {
+            return Ok(());
+        }
+        let due = self
+            .delayed_actions
+            .iter()
+            .copied()
+            .filter(|action| {
+                action.timing == DelayedActionTiming::EndStep && action.due_turn == self.turn
+            })
+            .collect::<Vec<_>>();
+        self.delayed_actions.retain(|action| {
+            !(action.timing == DelayedActionTiming::EndStep && action.due_turn == self.turn)
+        });
+        for action in due {
+            let DelayedActionKind::ReturnLinkedExileGroup { group } = action.kind;
+            let group =
+                self.linked_exile_groups
+                    .remove(&group)
+                    .ok_or(RulesError::IllegalAction(
+                        "delayed action references no linked exile group",
+                    ))?;
+            let returned = self.return_linked_exile_group(&group)?;
+            self.record_event(GameEvent::DelayedActionConsumed {
+                action: action.id,
+                group: group.id,
+                returned,
+            });
+        }
+        self.check_state_based_actions()?;
+        Ok(())
+    }
+
     pub fn play_land(&mut self, player: PlayerId, card: ObjectId) -> Result<(), RulesError> {
         self.atomic_transition(|game| game.play_land_impl(player, card))
     }
@@ -4652,6 +4921,8 @@ impl Game {
         Self::validate_object_incarnation_event_order(&self.event_log)?;
         Self::validate_library_search_event_order(&self.event_log)?;
         Self::validate_aura_attachment_event_order(&self.event_log)?;
+        Self::validate_delayed_action_event_order(&self.event_log)?;
+        self.validate_linked_exile_state()?;
         Self::validate_spell_mana_payment_event_order(&self.event_log)?;
         self.validate_additional_spell_cost_event_order()?;
         self.validate_stack_terminal_event_order()?;
@@ -6659,7 +6930,8 @@ impl Game {
                 | Effect::SacrificeCreatureOrCounterTargetSpell
                 | Effect::GrantGraveyardCastPermissionUntilEndOfTurn
                 | Effect::ExileTargetCreature
-                | Effect::ExileTargetPermanent => continue,
+                | Effect::ExileTargetPermanent
+                | Effect::ExileAttachedCreatureAndAurasUntilEndStep => continue,
                 Effect::AddCountersToSource { counter, amount }
                 | Effect::AddCountersToTarget { counter, amount }
                 | Effect::RemoveCountersFromSource { counter, amount }
@@ -9509,6 +9781,13 @@ impl Game {
                 let target = Self::target_permanent(target)?;
                 self.move_to_zone(target, Zone::Exile)?;
             }
+            Effect::ExileAttachedCreatureAndAurasUntilEndStep => {
+                self.exile_attached_creature_and_auras_until_end_step(
+                    source,
+                    source_incarnation,
+                    controller,
+                )?;
+            }
             Effect::DestroyTargetArtifactOrEnchantment => {
                 let target = Self::target_permanent(target)?;
                 if !self.target_matches(
@@ -10126,6 +10405,9 @@ impl Game {
         }
         if self.step == Step::CombatDamage {
             self.resolve_combat_damage(false)?;
+        }
+        if self.step == Step::End {
+            self.consume_due_delayed_actions()?;
         }
         match self.step {
             Step::Untap => {
@@ -11216,6 +11498,152 @@ impl Game {
                     "aura attachment receipt is not paired with its final continuous effect",
                 ));
             }
+        }
+        Ok(())
+    }
+
+    /// Audits delayed-action receipts independently from mutable game state.
+    /// A schedule names unique nonzero action/group identities and exact
+    /// positive member incarnations; one later consume may reference only its
+    /// own schedule and report a duplicate-free subset of that group.
+    fn validate_delayed_action_event_order(events: &[GameEvent]) -> Result<(), RulesError> {
+        let mut scheduled =
+            BTreeMap::<DelayedActionId, (LinkedExileGroupId, BTreeSet<ObjectId>)>::new();
+        let mut consumed = BTreeSet::<DelayedActionId>::new();
+        for event in events {
+            match event {
+                GameEvent::DelayedActionScheduled {
+                    action,
+                    timing,
+                    due_turn,
+                    group,
+                    members,
+                    ..
+                } => {
+                    if *action == DelayedActionId(0)
+                        || *group == LinkedExileGroupId(0)
+                        || *due_turn == 0
+                        || *timing != DelayedActionTiming::EndStep
+                        || members.is_empty()
+                        || scheduled.contains_key(action)
+                    {
+                        return Err(RulesError::IllegalAction(
+                            "delayed-action schedule receipt has invalid identity or timing",
+                        ));
+                    }
+                    let mut objects = BTreeSet::new();
+                    let primary_count = members
+                        .iter()
+                        .filter(|member| member.role == LinkedExileMemberRole::PrimaryCreature)
+                        .count();
+                    if primary_count != 1
+                        || members.iter().any(|member| {
+                            member.object.0 == 0
+                                || member.exile_incarnation == 0
+                                || !objects.insert(member.object)
+                        })
+                    {
+                        return Err(RulesError::IllegalAction(
+                            "delayed-action schedule receipt has invalid linked-exile members",
+                        ));
+                    }
+                    scheduled.insert(*action, (*group, objects));
+                }
+                GameEvent::DelayedActionConsumed {
+                    action,
+                    group,
+                    returned,
+                } => {
+                    let Some((scheduled_group, members)) = scheduled.get(action) else {
+                        return Err(RulesError::IllegalAction(
+                            "delayed-action consume receipt lacks a prior schedule",
+                        ));
+                    };
+                    let mut returned_unique = BTreeSet::new();
+                    if *scheduled_group != *group
+                        || !consumed.insert(*action)
+                        || returned
+                            .iter()
+                            .any(|card| !members.contains(card) || !returned_unique.insert(*card))
+                    {
+                        return Err(RulesError::IllegalAction(
+                            "delayed-action consume receipt does not match its schedule",
+                        ));
+                    }
+                }
+                _ => {}
+            }
+        }
+        Ok(())
+    }
+
+    fn validate_linked_exile_state(&self) -> Result<(), RulesError> {
+        let mut actions_by_group = BTreeMap::<LinkedExileGroupId, usize>::new();
+        let mut action_ids = BTreeSet::new();
+        let mut largest_action = 0_u64;
+        for action in &self.delayed_actions {
+            if action.id == DelayedActionId(0)
+                || !action_ids.insert(action.id)
+                || action.due_turn < self.turn
+            {
+                return Err(RulesError::IllegalAction(
+                    "delayed action has invalid identity or expired timing",
+                ));
+            }
+            largest_action = largest_action.max(action.id.0);
+            let DelayedActionKind::ReturnLinkedExileGroup { group } = action.kind;
+            *actions_by_group.entry(group).or_default() += 1;
+        }
+        if self.next_delayed_action_id <= largest_action {
+            return Err(RulesError::IllegalAction(
+                "next delayed-action identity is not monotonic",
+            ));
+        }
+
+        let mut largest_group = 0_u64;
+        for (id, group) in &self.linked_exile_groups {
+            if *id != group.id
+                || *id == LinkedExileGroupId(0)
+                || group.source.0 == 0
+                || group.source_incarnation == 0
+                || actions_by_group.get(id) != Some(&1)
+            {
+                return Err(RulesError::IllegalAction(
+                    "linked exile group lacks exactly one delayed return action",
+                ));
+            }
+            largest_group = largest_group.max(id.0);
+            let mut members = BTreeSet::new();
+            let primary_count = group
+                .members
+                .iter()
+                .filter(|member| member.role == LinkedExileMemberRole::PrimaryCreature)
+                .count();
+            if group.members.is_empty()
+                || primary_count != 1
+                || group.members.iter().any(|member| {
+                    member.object.0 == 0
+                        || member.exile_incarnation == 0
+                        || !members.insert(member.object)
+                })
+            {
+                return Err(RulesError::IllegalAction(
+                    "linked exile group has invalid exact-incarnation members",
+                ));
+            }
+        }
+        if self.next_linked_exile_group_id <= largest_group {
+            return Err(RulesError::IllegalAction(
+                "next linked-exile group identity is not monotonic",
+            ));
+        }
+        if actions_by_group
+            .keys()
+            .any(|group| !self.linked_exile_groups.contains_key(group))
+        {
+            return Err(RulesError::IllegalAction(
+                "delayed action references a missing linked-exile group",
+            ));
         }
         Ok(())
     }

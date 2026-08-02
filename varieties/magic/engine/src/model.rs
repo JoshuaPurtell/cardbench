@@ -1672,6 +1672,12 @@ pub enum Effect {
     /// This remains distinct from `ExileTargetCreature`, whose target may be
     /// any battlefield creature.
     ExileTargetPermanent,
+    /// Exile the Aura source's currently enchanted creature and every
+    /// Aura-like permanent attached to that exact creature incarnation, then
+    /// retain a typed group for a deterministic beginning-of-end-step return.
+    /// The source is normally one of the attached Auras; this is a generic
+    /// source-relative rules operation, not a card-name branch.
+    ExileAttachedCreatureAndAurasUntilEndStep,
 }
 
 impl Effect {
@@ -1815,7 +1821,8 @@ impl Effect {
             | Self::UntapSource
             | Self::ModifyControllerCreaturesPtUntilEndOfTurn { .. }
             | Self::AddKeywordToControllerCreaturesUntilEndOfTurn { .. }
-            | Self::DestroyAllNonTokenCreatures => None,
+            | Self::DestroyAllNonTokenCreatures
+            | Self::ExileAttachedCreatureAndAurasUntilEndStep => None,
         }
     }
 }
@@ -2181,6 +2188,75 @@ pub enum Zone {
     Battlefield,
     Graveyard,
     Exile,
+}
+
+/// Stable identity for one typed linked-exile group. A group is ephemeral
+/// rules state, not a card identity: it records precisely which object
+/// incarnations one resolving effect placed in exile for a later action.
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct LinkedExileGroupId(pub u64);
+
+/// Stable identity for one scheduled delayed action. The id is public through
+/// receipts so a replay can distinguish two otherwise identical return groups.
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct DelayedActionId(pub u64);
+
+/// The role a member had when a linked-exile group was created. The bounded
+/// initial substrate has one primary creature plus any Aura-like permanents
+/// attached to that exact creature incarnation.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum LinkedExileMemberRole {
+    PrimaryCreature,
+    AttachedAura,
+}
+
+/// An exact object incarnation owned by a linked-exile group. A later zone
+/// change deliberately makes this record stale; delayed return never treats a
+/// stable `ObjectId` alone as permission to move a later incarnation.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct LinkedExileMember {
+    pub object: ObjectId,
+    pub exile_incarnation: u64,
+    pub role: LinkedExileMemberRole,
+}
+
+/// Typed, clonable state retained while a linked-exile return is pending.
+/// `source_incarnation` is historical provenance and is intentionally valid
+/// after the source Aura is itself exiled with the group.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LinkedExileGroup {
+    pub id: LinkedExileGroupId,
+    pub controller: PlayerId,
+    pub source: ObjectId,
+    pub source_incarnation: u64,
+    pub members: Vec<LinkedExileMember>,
+}
+
+/// The timing vocabulary for typed delayed actions. More timing windows can
+/// be introduced without putting closures or card-specific continuations in
+/// game state.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DelayedActionTiming {
+    EndStep,
+}
+
+/// The typed continuation a delayed action will execute. This remains a data
+/// enum so cloning, replay auditing, and invariant validation never depend on
+/// closures captured from a resolver.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DelayedActionKind {
+    ReturnLinkedExileGroup { group: LinkedExileGroupId },
+}
+
+/// A scheduled, replay-visible continuation. `due_turn` is calculated when
+/// scheduled so an action created during an end step waits for the next one.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct DelayedAction {
+    pub id: DelayedActionId,
+    pub timing: DelayedActionTiming,
+    pub due_turn: u32,
+    pub controller: PlayerId,
+    pub kind: DelayedActionKind,
 }
 
 /// The narrow action vocabulary supplied by a code policy to the engine.
@@ -2623,6 +2699,26 @@ pub enum GameEvent {
     AuraAttached {
         aura: ObjectId,
         target: ObjectId,
+    },
+    /// A resolver created one exact-incarnation exile group and scheduled its
+    /// typed return continuation. Ordinary `CardMoved` receipts remain the
+    /// zone truth; this receipt supplies the link and delayed-action
+    /// provenance that replay cannot infer from unrelated exile moves.
+    DelayedActionScheduled {
+        action: DelayedActionId,
+        timing: DelayedActionTiming,
+        due_turn: u32,
+        controller: PlayerId,
+        group: LinkedExileGroupId,
+        members: Vec<LinkedExileMember>,
+    },
+    /// The named delayed continuation was consumed exactly once. `returned`
+    /// contains only members that were still in exile with the captured
+    /// incarnation when the action executed.
+    DelayedActionConsumed {
+        action: DelayedActionId,
+        group: LinkedExileGroupId,
+        returned: Vec<ObjectId>,
     },
     OpeningHandDrawn {
         player: PlayerId,
