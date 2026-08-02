@@ -43,7 +43,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 219] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 220] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
@@ -62,6 +62,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 219] = [
     "RAV-GOLGARI-GERMINATION",
     "RAV-NULLSTONE-GARGOYLE",
     "RAV-SCATTER-THE-SEEDS",
+    "RAV-SIEGE-WURM",
     "RAV-DOUBLING-SEASON",
     "RAV-GLARE-OF-SUBDUAL",
     "RAV-CHORD-OF-CALLING",
@@ -2175,9 +2176,9 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 toughness: -3,
             }],
         },
-        // Compatibility scope: normal creature casting, base characteristics,
-        // and the existing Convoke payment hook. Trample combat-damage
-        // assignment is intentionally unsupported.
+        // Full fidelity: ordinary Convoke payment and the bounded
+        // attacker-submitted Trample assignment both have exact public
+        // receipt and state-machine coverage.
         CardDefinition {
             id: "RAV-SIEGE-WURM",
             name: "Siege Wurm",
@@ -2187,7 +2188,12 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Creature]),
             is_basic_land: false,
-            supported_rules: &["convoke", "base-characteristics", "trample"],
+            supported_rules: &[
+                "full-rules-fidelity",
+                "convoke",
+                "base-characteristics",
+                "trample",
+            ],
             power: Some(5),
             toughness: Some(5),
             keywords: vec![Keyword::Convoke, Keyword::Trample],

@@ -84,7 +84,12 @@ fn siege_wurm_has_complete_convoke_and_trample_fidelity() {
                 .expect("green creature enters")
         })
         .collect::<Vec<_>>();
+    for _ in 0..2 {
+        game.add_card(caster, BLOCKER, Zone::Library)
+            .expect("library card enters");
+    }
     game.begin_game().expect("game begins");
+    advance_to(&mut game, 1, Step::PrecombatMain);
 
     game.cast_spell(
         caster,
@@ -99,10 +104,16 @@ fn siege_wurm_has_complete_convoke_and_trample_fidelity() {
                     creature,
                     contribution: ConvokeContribution::Generic,
                 })
-                .chain(convokers.iter().skip(5).copied().map(|creature| ConvokePayment {
-                    creature,
-                    contribution: ConvokeContribution::Color(Color::Green),
-                }))
+                .chain(
+                    convokers
+                        .iter()
+                        .skip(5)
+                        .copied()
+                        .map(|creature| ConvokePayment {
+                            creature,
+                            contribution: ConvokeContribution::Color(Color::Green),
+                        }),
+                )
                 .collect(),
             payment_mana_abilities: vec![],
         },
@@ -119,7 +130,9 @@ fn siege_wurm_has_complete_convoke_and_trample_fidelity() {
     assert_eq!(
         game.event_log
             .iter()
-            .filter(|event| matches!(event, GameEvent::ConvokeUsed { player, .. } if *player == caster))
+            .filter(
+                |event| matches!(event, GameEvent::ConvokeUsed { player, .. } if *player == caster)
+            )
             .count(),
         7
     );
@@ -151,8 +164,14 @@ fn siege_wurm_tramples_over_a_real_rav_blocker() {
         .expect("Siege Wurm attacks");
     pass_pair(&mut game);
     assert_eq!(game.step, Step::DeclareBlockers);
-    game.declare_blockers(defender, &[CombatBlock { attacker: wurm, blocker }])
-        .expect("Watchwolf blocks");
+    game.declare_blockers(
+        defender,
+        &[CombatBlock {
+            attacker: wurm,
+            blocker,
+        }],
+    )
+    .expect("Watchwolf blocks");
     pass_pair(&mut game);
 
     assert!(game.event_log.iter().any(|event| matches!(
