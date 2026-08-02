@@ -10712,6 +10712,7 @@ impl Game {
                 | Effect::ReturnControlledCreatureToHand
                 | Effect::ReturnControlledLandToHand
                 | Effect::ReturnOpponentCreatureToHand
+                | Effect::PutTargetCreatureOnOwnersLibraryTop
                 | Effect::ReturnSourceToOwnersHand
                 | Effect::ModifyControllerCreaturesPtUntilEndOfTurn { .. }
                 | Effect::RadianceUntapAndModifyUntilEndOfTurn { .. }
@@ -15638,6 +15639,17 @@ impl Game {
                     return Err(RulesError::IllegalTarget(Target::Permanent(target)));
                 }
                 self.move_to_zone(target, Zone::Hand)?;
+            }
+            Effect::PutTargetCreatureOnOwnersLibraryTop => {
+                let target = Self::target_permanent(target)?;
+                if !self.target_matches(Target::Permanent(target), TargetRequirement::Creature) {
+                    return Err(RulesError::IllegalTarget(Target::Permanent(target)));
+                }
+                // `move_to_zone` places every card in its owner's zone. Its
+                // library representation keeps the draw top at the end, so
+                // this ordinary transition produces the required top card
+                // while expiring layers, attachments, and stale identities.
+                self.move_to_zone(target, Zone::Library)?;
             }
             Effect::ReturnSourceToOwnersHand => {
                 // A resolving ability uses last-known source identity. If its

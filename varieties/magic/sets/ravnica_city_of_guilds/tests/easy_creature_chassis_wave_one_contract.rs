@@ -25,14 +25,6 @@ fn easy_creature_wave_one_is_exactly_bounded_to_public_base_facts() {
             5,
         ),
         (
-            "RAV-VEDALKEN-DISMISSER",
-            "Vedalken Dismisser",
-            ManaCost::with_colors(5, [Color::Blue]),
-            BTreeSet::from([Color::Blue]),
-            2,
-            2,
-        ),
-        (
             "RAV-ZEPHYR-SPIRIT",
             "Zephyr Spirit",
             ManaCost::with_colors(5, [Color::Blue]),

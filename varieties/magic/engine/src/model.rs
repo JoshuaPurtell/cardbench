@@ -2045,6 +2045,11 @@ pub enum Effect {
     /// hand. This remains distinct so paired targets cannot silently select
     /// two creatures on one side.
     ReturnOpponentCreatureToHand,
+    /// Put the targeted creature on top of its owner's library. Zone vectors
+    /// are ownership-indexed and their final element is the draw top, so this
+    /// uses the ordinary owner-preserving zone lifecycle rather than a
+    /// controller-relative library mutation.
+    PutTargetCreatureOnOwnersLibraryTop,
     /// Return the resolving source object to its owner's hand only while the
     /// exact incarnation that created the stack object remains on the
     /// battlefield. This is a resolution instruction, not an activation cost:
@@ -2138,7 +2143,8 @@ impl Effect {
             | Self::ExileTargetCreature
             | Self::TapTargetCreature
             | Self::RegenerateTargetCreature
-            | Self::AddPlusOneCounterToTarget => Some(TargetRequirement::Creature),
+            | Self::AddPlusOneCounterToTarget
+            | Self::PutTargetCreatureOnOwnersLibraryTop => Some(TargetRequirement::Creature),
             Self::PreventTargetCreatureCombatDamageUntilEndOfTurn { .. } => {
                 Some(TargetRequirement::AttackingOrBlockingCreature)
             }

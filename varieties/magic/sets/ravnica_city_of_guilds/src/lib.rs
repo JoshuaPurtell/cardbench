@@ -40,7 +40,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 158] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 159] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -158,6 +158,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 158] = [
     "RAV-TELLING-TIME",
     "RAV-MARK-OF-EVICTION",
     "RAV-VEDALKEN-ENTRANCER",
+    "RAV-VEDALKEN-DISMISSER",
     "RAV-TIDEWATER-MINION",
     "RAV-SUNHOME-FORTRESS",
     "RAV-VITU-GHAZI",
@@ -3679,17 +3680,30 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Flying],
             effects: vec![],
         },
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed enter-the-battlefield library
-        // movement is deliberately omitted from this compatibility slice.
-        bounded_creature_chassis(
-            "RAV-VEDALKEN-DISMISSER",
-            "Vedalken Dismisser",
-            ManaCost::with_colors(5, [Color::Blue]),
-            colors([Color::Blue]),
-            2,
-            2,
-        ),
+        // Full fidelity: the entry trigger obtains one policy-submitted
+        // creature target, then uses the owner-indexed ordinary zone lifecycle
+        // to place that exact incarnation on its owner's library top.
+        CardDefinition {
+            id: "RAV-VEDALKEN-DISMISSER",
+            name: "Vedalken Dismisser",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(5, [Color::Blue]),
+            colors: colors([Color::Blue]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "etb-target-creature-owner-library-top",
+                "policy-submitted-trigger-target",
+            ],
+            power: Some(2),
+            toughness: Some(2),
+            keywords: vec![],
+            effects: vec![],
+        },
         // Compatibility scope: normal colored-cost creature casting and base
         // characteristics only. Its printed blocking trigger is deliberately
         // omitted from this compatibility slice.
@@ -6312,6 +6326,17 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                     power: -2,
                     toughness: -2,
                 }],
+            },
+        },
+        TriggeredAbilityBinding {
+            card_definition: "RAV-VEDALKEN-DISMISSER",
+            ability: TriggeredAbility {
+                id: "etb-target-creature-owner-library-top",
+                condition: TriggerCondition::EntersBattlefield,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![cardbench_magic_engine::TargetRequirement::Creature],
+                effects: vec![Effect::PutTargetCreatureOnOwnersLibraryTop],
             },
         },
         TriggeredAbilityBinding {

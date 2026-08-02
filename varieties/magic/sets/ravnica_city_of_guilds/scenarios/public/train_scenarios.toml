@@ -4776,7 +4776,8 @@ digest = "fnv1a64:10ab6a9c0b91ec2c"
 [[scenario]]
 id = "rav_easy_blue_late_creature_chassis"
 seed = 0
-description = "Cast Vedalken Dismisser and Zephyr Spirit with exact blue costs, then verify only their base P/T. Printed entry and blocking triggers are deliberately omitted."
+triggers = true
+description = "Cast Vedalken Dismisser, select an opposing creature for its entry trigger, then cast Zephyr Spirit and verify the Dismisser target is on its owner's library top. Zephyr Spirit's printed blocking trigger remains omitted."
 
 [[scenario.card]]
 label = "dismisser"
@@ -4790,6 +4791,12 @@ owner = 0
 definition = "RAV-ZEPHYR-SPIRIT"
 zone = "hand"
 
+[[scenario.card]]
+label = "target"
+owner = 1
+definition = "RAV-WATCHWOLF"
+zone = "battlefield"
+
 [[scenario.mana]]
 player = 0
 color = "blue"
@@ -4799,6 +4806,21 @@ amount = 12
 kind = "cast"
 player = 0
 card = "dismisser"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "choose_trigger_targets"
+player = 0
+card = "dismisser"
+ability = "etb-target-creature-owner-library-top"
+target = "permanent:target"
 
 [[scenario.action]]
 kind = "pass"
@@ -4822,14 +4844,14 @@ kind = "pass"
 player = 1
 
 [scenario.expected]
-zones = ["dismisser:battlefield", "zephyr:battlefield"]
+zones = ["dismisser:battlefield", "zephyr:battlefield", "target:library"]
 powers = ["dismisser:2", "zephyr:0"]
 toughnesses = ["dismisser:2", "zephyr:6"]
 mana = ["0:blue:0"]
 stack_size = 0
 priority = 0
 event_markers = ["SpellCast", "SpellResolved"]
-digest = "fnv1a64:10ab6a9c0b91ec2c"
+digest = "fnv1a64:6531fdb61b8111fa"
 
 [[scenario]]
 id = "rav_easy_black_red_creature_chassis"
