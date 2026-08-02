@@ -239,6 +239,17 @@ Oracle Magic rules coverage.
   sacrifice triggers keep their stack object live while the relevant chooser
   submits a legal current hand or battlefield object; no deterministic fixture
   selection may move a card or permanent.
+- Every simultaneous controller group with two or more represented triggers
+  opens one public `TriggeredAbilityOrder` decision before any member of that
+  group reaches the stack. Its options and submitted permutation are exact,
+  duplicate-free `(source, source-incarnation, ability)` identities; stale,
+  partial, foreign, duplicate, or wrong-player answers are atomic rejections.
+  Groups are processed active player first and then in living turn order, so
+  the active player's submitted group is lower on the stack than each
+  nonactive group. `DecisionCompleted` immediately precedes the public
+  `TriggeredAbilityOrderChosen` receipt, which precedes the next member's
+  placement (or its requisite no-priority target choice); no priority action
+  or later APNAP group may interleave with an unfinished group.
 - A `DealsCombatDamageToCreature` trigger is queued only after a positive
   `DamageDealtToPermanent` combat receipt reaches a creature. Its materialized
   effect carries the recipient's exact battlefield incarnation and has no
