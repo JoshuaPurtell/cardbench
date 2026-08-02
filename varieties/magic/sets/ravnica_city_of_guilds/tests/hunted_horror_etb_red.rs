@@ -1,7 +1,8 @@
 //! Red probe for Hunted Horror's targeted opponent token ETB ability.
 
 use cardbench_magic_engine::{
-    CastRequest, Color, CreatureSubtype, Game, GameEvent, Keyword, PlayerId, Target, Zone,
+    CastRequest, Color, CreatureSubtype, DecisionSelection, Game, GameEvent, Keyword, PlayerId,
+    Target, Zone,
 };
 use cardbench_magic_rav::{
     card_definitions, rav_activated_ability_bindings, rav_additional_spell_cost_bindings,
@@ -57,10 +58,20 @@ fn hunted_horror_etb_creates_two_target_opponent_tokens() {
         .expect("caster passes the creature spell");
     game.pass_priority(PlayerId(1))
         .expect("opponent passes the creature spell");
+    let decision = game
+        .view_for_player(PlayerId(0))
+        .expect("Hunted Horror controller view")
+        .pending_decision
+        .expect("targeted ETB trigger opens the canonical decision boundary");
+    game.submit_decision(
+        PlayerId(0),
+        decision.id,
+        DecisionSelection::Targets(vec![Target::Player(PlayerId(1))]),
+    )
+    .expect("the controller chooses exactly one opponent");
     assert_eq!(
         game.stack.last().map(|object| object.targets.clone()),
-        Some(vec![Target::Player(PlayerId(1))]),
-        "the trigger selects exactly one opponent"
+        Some(vec![Target::Player(PlayerId(1))])
     );
     game.pass_priority(PlayerId(0))
         .expect("trigger controller passes");
