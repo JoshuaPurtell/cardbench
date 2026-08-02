@@ -45,6 +45,7 @@ fn pass_to(game: &mut Game, step: Step) {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // The full priority and replacement transcript is the regression.
 fn affected_player_orders_source_combat_and_global_damage_replacements() {
     let attacker_controller = PlayerId(0);
     let affected_player = PlayerId(1);
@@ -139,17 +140,7 @@ fn affected_player_orders_source_combat_and_global_damage_replacements() {
             ReplacementChoice::Damage(choice @ DamageReplacementChoice::HalveDamage { .. }) => {
                 Some(choice)
             }
-            ReplacementChoice::Quantity { .. }
-            | ReplacementChoice::Damage(DamageReplacementChoice::CombatDamageMillAndCounters {
-                ..
-            })
-            | ReplacementChoice::Damage(DamageReplacementChoice::Redirect { .. })
-            | ReplacementChoice::Damage(DamageReplacementChoice::AttachedRedirect { .. })
-            | ReplacementChoice::Damage(DamageReplacementChoice::TargetedShield { .. })
-            | ReplacementChoice::Damage(DamageReplacementChoice::PermanentShield { .. })
-            | ReplacementChoice::Damage(DamageReplacementChoice::SourceColorPrevention {
-                ..
-            }) => None,
+            _ => None,
         })
         .expect("the affected player can choose the global halving replacement");
     game.submit_decision(
