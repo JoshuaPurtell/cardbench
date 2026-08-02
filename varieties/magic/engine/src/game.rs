@@ -906,11 +906,16 @@ pub struct Game {
     objects: BTreeMap<ObjectId, CardObject>,
     pub stack: Vec<StackObject>,
     /// The next unresolved instruction for a stack item paused at a
-    /// no-priority replacement or recipient-private discard decision. The
-    /// stack object retains its full, immutable cast-time effect list for
-    /// provenance auditing; this cursor resumes the suffix without replaying
-    /// an already completed instruction.
+    /// no-priority replacement, recipient-private discard, or target-player
+    /// mana-color decision. The stack object retains its full, immutable
+    /// cast-time effect list for provenance auditing; this cursor resumes the
+    /// suffix without replaying an already completed instruction.
     stack_effect_cursors: BTreeMap<StackObjectId, usize>,
+    /// Recipient-selected colors for a single live target-player mana
+    /// instruction. The key retains the exact stack item and effect cursor;
+    /// the entry exists only after the decision completes and before that
+    /// current instruction is materialized by the ordinary resolver.
+    target_player_mana_choice_materializations: BTreeMap<(StackObjectId, usize), Color>,
     pub continuous_effects: Vec<ContinuousEffect>,
     pub active_player: PlayerId,
     pub priority: PlayerId,
@@ -1180,6 +1185,7 @@ impl Game {
             objects: BTreeMap::new(),
             stack: Vec::new(),
             stack_effect_cursors: BTreeMap::new(),
+            target_player_mana_choice_materializations: BTreeMap::new(),
             continuous_effects: Vec::new(),
             active_player: PlayerId(0),
             priority: PlayerId(0),
@@ -7731,17 +7737,23 @@ impl Game {
                 )
             }
             DecisionContinuation::TargetPlayerManaColor {
+                source_stack_item,
+                effect_index,
                 source,
                 source_incarnation,
                 controller,
+                ability,
                 recipient,
             } => {
                 let color = Self::validate_color_decision_selection(&decision, selection)?;
                 self.resolve_target_player_mana_color_decision(
                     &decision,
+                    source_stack_item,
+                    effect_index,
                     source,
                     source_incarnation,
                     controller,
+                    ability,
                     recipient,
                     color,
                 )
@@ -8674,15 +8686,19 @@ impl Game {
     fn resolve_target_player_mana_color_decision(
         &mut self,
         decision: &PendingDecision,
+        source_stack_item: StackObjectId,
+        effect_index: usize,
         source: ObjectId,
         source_incarnation: u64,
         controller: PlayerId,
+        ability: Option<&'static str>,
         recipient: PlayerId,
         color: Color,
     ) -> Result<(), RulesError> {
         let top = self.stack.last().ok_or(RulesError::IllegalAction(
             "target-player mana decision escaped its stack item",
         ))?;
+        let target_offset = Self::effect_target_offset(&top.effects, effect_index);
         let expected_options = Color::ALL
             .into_iter()
             .filter(|candidate| self.players[recipient.0].mana_pool.can_add(*candidate, 1))
@@ -8696,11 +8712,15 @@ impl Game {
             || decision.options != expected_options
             || !color.is_colored()
             || !self.players[recipient.0].mana_pool.can_add(color, 1)
+            || top.id != source_stack_item
             || top.card != source
             || top.source_incarnation != source_incarnation
             || top.controller != controller
-            || top.effects.as_slice() != [Effect::AddOneManaOfTargetPlayersChosenColor]
-            || top.targets.as_slice() != [Target::Player(recipient)]
+            || top.ability_id != ability
+            || self.stack_effect_cursor(top)? != effect_index
+            || top.effects.get(effect_index) != Some(&Effect::AddOneManaOfTargetPlayersChosenColor)
+            || top.targets.get(target_offset) != Some(&Target::Player(recipient))
+            || !self.stack_target_incarnation_matches(top, target_offset, Target::Player(recipient))
             || !self.target_matches_for_colors(
                 controller,
                 Target::Player(recipient),
@@ -8713,10 +8733,15 @@ impl Game {
             ));
         }
         self.complete_pending_decision(decision)?;
-        let top = self.stack.last_mut().ok_or(RulesError::IllegalAction(
-            "target-player mana stack item disappeared before materialization",
-        ))?;
-        top.effects = vec![Effect::AddManaToTargetPlayer { color, amount: 1 }];
+        if self
+            .target_player_mana_choice_materializations
+            .insert((source_stack_item, effect_index), color)
+            .is_some()
+        {
+            return Err(RulesError::IllegalAction(
+                "target-player mana instruction already has a materialized color",
+            ));
+        }
         self.resolve_top_of_stack()
     }
 
@@ -11404,6 +11429,10 @@ impl Game {
                                 | DecisionContinuation::TargetPlayerPrivateDiscard {
                                     effect_index,
                                     ..
+                                }
+                                | DecisionContinuation::TargetPlayerManaColor {
+                                    effect_index,
+                                    ..
                                 },
                             ..
                         }),
@@ -11412,6 +11441,25 @@ impl Game {
         }) {
             return Err(RulesError::IllegalAction(
                 "resumable stack instruction cursor escaped its matching decision",
+            ));
+        }
+        if self.target_player_mana_choice_materializations.iter().any(
+            |((stack_id, effect_index), color)| {
+                !color.is_colored()
+                    || self.pending_decision.is_some()
+                    || !matches!(
+                        self.stack.last(),
+                        Some(stack_object)
+                            if stack_object.id == *stack_id
+                                && self.stack_effect_cursor(stack_object).ok()
+                                    == Some(*effect_index)
+                                && stack_object.effects.get(*effect_index)
+                                    == Some(&Effect::AddOneManaOfTargetPlayersChosenColor)
+                    )
+            },
+        ) {
+            return Err(RulesError::IllegalAction(
+                "target-player mana materialization escaped its exact stack instruction",
             ));
         }
         if !self.pending_empty_library_draw_losses.is_empty()
@@ -14553,16 +14601,6 @@ impl Game {
                 "a spell-copy instruction must be the only effect on its spell",
             ));
         }
-        let target_player_mana_choice_effects = definition
-            .effects
-            .iter()
-            .filter(|effect| matches!(effect, Effect::AddOneManaOfTargetPlayersChosenColor))
-            .count();
-        if target_player_mana_choice_effects > 0 && definition.effects.len() != 1 {
-            return Err(RulesError::IllegalAction(
-                "a target-player mana choice must be the only effect on its spell",
-            ));
-        }
         for effect in &definition.effects {
             if matches!(
                 effect,
@@ -15155,6 +15193,14 @@ impl Game {
             {
                 return Ok(());
             }
+            if effect_index > next_effect_index
+                && self.suspend_resolving_stack_instruction_for_target_player_mana_color_choice(
+                    &stack_object,
+                    effect_index,
+                )?
+            {
+                return Ok(());
+            }
             match target_resolution {
                 StackEffectResolution::Untargeted => {
                     if let Effect::DealDamageAfterOptionalManaPayment { amount, .. } = effect {
@@ -15230,6 +15276,27 @@ impl Game {
                             &stack_object.source_colors,
                         )
                     {
+                        if matches!(effect, Effect::AddOneManaOfTargetPlayersChosenColor) {
+                            let color = self
+                                .target_player_mana_choice_materializations
+                                .remove(&(stack_object.id, effect_index))
+                                .ok_or(RulesError::IllegalAction(
+                                    "target-player mana effect resolved without its color decision",
+                                ))?;
+                            let materialized = Effect::AddManaToTargetPlayer { color, amount: 1 };
+                            self.resolve_effect(
+                                stack_object.card,
+                                stack_object.source_incarnation,
+                                &stack_object.source_colors,
+                                stack_object.controller,
+                                stack_object.chosen_x,
+                                stack_object.chosen_color,
+                                stack_object.mana_spent.as_deref(),
+                                &materialized,
+                                Some(target),
+                            )?;
+                            continue;
+                        }
                         if let Some((requirement, changes)) = Self::attachment_effect_spec(effect) {
                             if pending_attachment
                                 .replace((
@@ -15569,6 +15636,38 @@ impl Game {
         Ok(false)
     }
 
+    /// Reinstates an in-progress stack object only long enough for the target
+    /// player to choose the color of that exact current mana instruction.
+    /// Earlier effects have committed; the selected color is retained as
+    /// typed materialization until the ordinary resolver consumes it.
+    fn suspend_resolving_stack_instruction_for_target_player_mana_color_choice(
+        &mut self,
+        stack_object: &StackObject,
+        effect_index: usize,
+    ) -> Result<bool, RulesError> {
+        if effect_index == 0 || effect_index >= stack_object.effects.len() {
+            return Err(RulesError::IllegalAction(
+                "resumable target-player mana instruction cursor is outside a stack suffix",
+            ));
+        }
+        self.stack.push(stack_object.clone());
+        self.stack_effect_cursors
+            .insert(stack_object.id, effect_index);
+        if self.suspend_top_stack_item_for_target_player_mana_color_choice()? {
+            return Ok(true);
+        }
+        let restored = self.stack.pop().ok_or(RulesError::IllegalAction(
+            "resumable target-player mana instruction stack item disappeared",
+        ))?;
+        self.stack_effect_cursors.remove(&stack_object.id);
+        if restored.id != stack_object.id {
+            return Err(RulesError::IllegalAction(
+                "resumable target-player mana instruction stack identity changed",
+            ));
+        }
+        Ok(false)
+    }
+
     /// Opens an affected-player replacement decision for the next unresolved
     /// token-creation or counter-placement instruction. The immutable stack
     /// item remains live while the player selects an ordering, then resumes
@@ -15817,20 +15916,28 @@ impl Game {
         let Some(top) = self.stack.last().cloned() else {
             return Ok(false);
         };
-        let [Effect::AddOneManaOfTargetPlayersChosenColor] = top.effects.as_slice() else {
+        let effect_index = self.stack_effect_cursor(&top)?;
+        if self
+            .target_player_mana_choice_materializations
+            .contains_key(&(top.id, effect_index))
+        {
+            return Ok(false);
+        }
+        let target_offset = Self::effect_target_offset(&top.effects, effect_index);
+        let (Some(Effect::AddOneManaOfTargetPlayersChosenColor), Some(Target::Player(recipient))) = (
+            top.effects.get(effect_index),
+            top.targets.get(target_offset).copied(),
+        ) else {
             return Ok(false);
         };
-        let [Target::Player(recipient)] = top.targets.as_slice() else {
-            return Err(RulesError::IllegalAction(
-                "target-player mana effect has an invalid target shape",
-            ));
-        };
-        if !self.target_matches_for_colors(
-            top.controller,
-            Target::Player(*recipient),
-            TargetRequirement::Player,
-            &top.source_colors,
-        ) {
+        if !self.stack_target_incarnation_matches(&top, target_offset, Target::Player(recipient))
+            || !self.target_matches_for_colors(
+                top.controller,
+                Target::Player(recipient),
+                TargetRequirement::Player,
+                &top.source_colors,
+            )
+        {
             return Ok(false);
         }
         let options = Color::ALL
@@ -15844,17 +15951,20 @@ impl Game {
             ));
         }
         self.open_pending_decision(
-            *recipient,
+            recipient,
             DecisionVisibility::Public,
             DecisionKind::TargetPlayerManaColor,
             1,
             1,
             options,
             DecisionContinuation::TargetPlayerManaColor {
+                source_stack_item: top.id,
+                effect_index,
                 source: top.card,
                 source_incarnation: top.source_incarnation,
                 controller: top.controller,
-                recipient: *recipient,
+                ability: top.ability_id,
+                recipient,
             },
         )?;
         Ok(true)
@@ -24793,15 +24903,6 @@ impl Game {
                 "target-player library-top may-choice ability must contain exactly one effect",
             ));
         }
-        if effects
-            .iter()
-            .any(|effect| matches!(effect, Effect::AddOneManaOfTargetPlayersChosenColor))
-            && effects.len() != 1
-        {
-            return Err(RulesError::IllegalAction(
-                "a target-player mana choice must be the only effect on an ability",
-            ));
-        }
         for effect in effects {
             if matches!(effect, Effect::AddManaToTargetPlayer { .. }) {
                 return Err(RulesError::IllegalAction(
@@ -30392,9 +30493,12 @@ impl Game {
                 }
             }
             DecisionContinuation::TargetPlayerManaColor {
+                source_stack_item,
+                effect_index,
                 source,
                 source_incarnation,
                 controller,
+                ability,
                 recipient,
             } => {
                 let top = self.stack.last().ok_or(RulesError::IllegalAction(
@@ -30405,14 +30509,27 @@ impl Game {
                     .filter(|color| self.players[recipient.0].mana_pool.can_add(*color, 1))
                     .map(DecisionOption::Color)
                     .collect::<Vec<_>>();
+                let target_offset = Self::effect_target_offset(&top.effects, *effect_index);
                 if decision.kind != DecisionKind::TargetPlayerManaColor
                     || decision.visibility != DecisionVisibility::Public
                     || decision.player != *recipient
+                    || top.id != *source_stack_item
                     || top.card != *source
                     || top.source_incarnation != *source_incarnation
                     || top.controller != *controller
-                    || top.effects.as_slice() != [Effect::AddOneManaOfTargetPlayersChosenColor]
-                    || top.targets.as_slice() != [Target::Player(*recipient)]
+                    || top.ability_id != *ability
+                    || self.stack_effect_cursor(top).ok() != Some(*effect_index)
+                    || top.effects.get(*effect_index)
+                        != Some(&Effect::AddOneManaOfTargetPlayersChosenColor)
+                    || top.targets.get(target_offset) != Some(&Target::Player(*recipient))
+                    || !self.stack_target_incarnation_matches(
+                        top,
+                        target_offset,
+                        Target::Player(*recipient),
+                    )
+                    || self
+                        .target_player_mana_choice_materializations
+                        .contains_key(&(*source_stack_item, *effect_index))
                     || !self.target_matches_for_colors(
                         *controller,
                         Target::Player(*recipient),

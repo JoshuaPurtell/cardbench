@@ -3970,9 +3970,14 @@ pub enum DecisionContinuation {
     /// so the resolving controller cannot substitute itself after seeing the
     /// choice.
     TargetPlayerManaColor {
+        source_stack_item: StackObjectId,
+        /// Exact unresolved mana-choice instruction in the immutable stack
+        /// effect list. This permits a choice to suspend a middle suffix.
+        effect_index: usize,
         source: ObjectId,
         source_incarnation: u64,
         controller: PlayerId,
+        ability: Option<&'static str>,
         recipient: PlayerId,
     },
     /// Resumes a target-player top-library inspection. `top_card` is the

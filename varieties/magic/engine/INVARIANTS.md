@@ -509,18 +509,22 @@ Oracle Magic rules coverage.
   emits no payment receipt and counters only the captured lower spell. Neither
   path permits an automatic payment, an automatic decline, a self-target, an
   ability-stack target, or a target at or above the counterspell.
-- `DecisionKind::TargetPlayerManaColor` retains exactly one live stack item
-  with one `Player` target and one
-  `AddOneManaOfTargetPlayersChosenColor` instruction. The decision belongs to
-  that captured recipient rather than the resolving controller, is public,
-  requires exactly one answer, and offers precisely the represented five card
-  colors that can still fit in the recipient's bounded mana pool; it never
-  offers `Colorless`. The source, source incarnation, controller, target, and
+- `DecisionKind::TargetPlayerManaColor` retains one exact current instruction
+  of a live stack item, including its immutable `effect_index` and target
+  occurrence. The decision belongs to that captured recipient rather than the
+  resolving controller, is public, requires exactly one answer, and offers
+  precisely the represented five card colors that can still fit in the
+  recipient's bounded mana pool; it never offers `Colorless`. The source,
+  source incarnation, controller, ability identity, stack item, target, and
   current option set are revalidated before completion, so a foreign, stale,
-  malformed, noncolored, or capacity-overflow answer is atomic. The chosen
-  output is materialized only while the ordinary resolver resumes, emits one
-  `ManaAdded` receipt for the target player after `DecisionCompleted`, and
-  cannot appear in a catalog definition or permanent ability binding.
+  malformed, noncolored, or capacity-overflow answer is atomic. A nonzero
+  cursor may pause an otherwise ordinary prefix/choice/suffix stack item; the
+  chosen color is a short-lived typed materialization owned by that exact
+  instruction, consumed once by the normal resolver, then emits one
+  `ManaAdded` receipt after `DecisionCompleted`. It cannot appear in a
+  catalog definition or permanent ability binding, cannot overwrite an
+  earlier/future instruction, and no materialization may escape the live
+  stack boundary.
 - This first unified-decision migration covers policy-submitted one-card
   library searches, trigger target selection and triggered discard/sacrifice
   object choices, multi-block combat order, spell-copy targets, concurrent
