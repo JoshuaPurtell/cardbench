@@ -6720,7 +6720,7 @@ digest = "fnv1a64:d31e3938268687e6"
 [[scenario]]
 id = "rav_grozoth_defender_and_transmute_compatibility"
 seed = 42
-description = "Use Grozoth's supported immediate hand-zone search, then reject its later attack declaration because it has Defender; its entry trigger remains unsupported."
+description = "Retain Grozoth's historical immediate Transmute fixture for deterministic public parity, then reject its later attack declaration because it has Defender; direct Rust full-fidelity contracts cover the optional ETB search and stack-backed private Transmute."
 
 [[scenario.card]]
 label = "grozoth_in_hand"

@@ -1,18 +1,18 @@
-//! Bounded public contract for Grozoth.
+//! Full-fidelity contract for Grozoth.
 //!
-//! This records only the shared Defender and immediate hand-zone Transmute
-//! compatibility operations. Its entry trigger and stack-backed activated
-//! ability semantics are intentionally not claimed.
+//! The public scenario retains one frozen immediate-helper compatibility trace;
+//! direct Rust coverage below exercises the real stack-backed Transmute path.
 
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardType, Color, Game, GameEvent, Keyword, ManaCost, PlayerId, RulesError, Step, Zone,
+    CardType, Color, DecisionSelection, Game, GameEvent, Keyword, ManaCost, PlayerId, RulesError,
+    Step, Zone,
 };
 use cardbench_magic_rav::{RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, run_all_scenarios};
 
 #[test]
-fn grozoth_definition_is_explicit_about_its_bounded_compatibility_scope() {
+fn grozoth_definition_is_explicit_about_its_full_fidelity_scope() {
     let grozoth = card_definitions()
         .into_iter()
         .find(|definition| definition.id == "RAV-GROZOTH")
@@ -37,20 +37,22 @@ fn grozoth_definition_is_explicit_about_its_bounded_compatibility_scope() {
     assert_eq!(
         grozoth.supported_rules,
         [
+            "full-rules-fidelity",
             "colored-cost-casting",
             "base-characteristics",
             "defender",
-            "immediate-hand-zone-transmute-compatibility",
+            "optional-private-multi-card-mana-value-search",
+            "stack-backed-private-transmute",
         ]
     );
     assert!(
-        !RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&grozoth.id),
-        "an omitted entry trigger and immediate Transmute prohibit positive fidelity"
+        RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&grozoth.id),
+        "Grozoth's ETB search and stack-backed Transmute are fully represented"
     );
 }
 
 #[test]
-fn grozoth_rejects_attacking_and_executes_the_immediate_transmute_slice() {
+fn grozoth_rejects_attacking_and_executes_stack_backed_transmute() {
     let mut transmute_game = Game::new(card_definitions(), 2).expect("RAV game builds");
     let grozoth_in_hand = transmute_game
         .add_card(PlayerId(0), "RAV-GROZOTH", Zone::Hand)
@@ -64,16 +66,43 @@ fn grozoth_rejects_attacking_and_executes_the_immediate_transmute_slice() {
     transmute_game.clear_event_log();
 
     transmute_game
-        .transmute(PlayerId(0), grozoth_in_hand, Some(matching_value))
-        .expect("bounded immediate Transmute is available");
+        .activate_transmute(PlayerId(0), grozoth_in_hand)
+        .expect("Transmute enters the stack");
     assert!(
-        transmute_game.stack.is_empty(),
-        "this compatibility operation creates no stack object"
+        !transmute_game.stack.is_empty(),
+        "Transmute must create a response window"
     );
     assert_eq!(
         transmute_game.zone_of(grozoth_in_hand),
         Some(Zone::Graveyard)
     );
+    assert_eq!(transmute_game.zone_of(matching_value), Some(Zone::Library));
+    transmute_game
+        .pass_priority(PlayerId(0))
+        .expect("controller passes on Transmute");
+    transmute_game
+        .pass_priority(PlayerId(1))
+        .expect("opponent pass opens private Transmute search");
+    let decision = transmute_game
+        .view_for_player(PlayerId(0))
+        .expect("controller view is available")
+        .pending_decision
+        .expect("Transmute search is a private decision");
+    assert!(
+        transmute_game
+            .view_for_player(PlayerId(1))
+            .expect("opponent view is available")
+            .pending_decision
+            .is_none(),
+        "opponent must not see controller-library candidates"
+    );
+    transmute_game
+        .submit_decision(
+            PlayerId(0),
+            decision.id,
+            DecisionSelection::Objects(vec![matching_value]),
+        )
+        .expect("controller selects the matching mana-value card");
     assert_eq!(transmute_game.zone_of(matching_value), Some(Zone::Hand));
     assert!(transmute_game.event_log.iter().any(|event| {
         matches!(
@@ -87,7 +116,7 @@ fn grozoth_rejects_attacking_and_executes_the_immediate_transmute_slice() {
     }));
     transmute_game
         .validate_invariants()
-        .expect("immediate Transmute trace preserves engine invariants");
+        .expect("stack-backed Transmute trace preserves engine invariants");
 
     let mut defender_game = Game::new(card_definitions(), 2).expect("RAV game builds");
     let defender = defender_game
@@ -116,7 +145,7 @@ fn grozoth_rejects_attacking_and_executes_the_immediate_transmute_slice() {
 }
 
 #[test]
-fn grozoth_public_scenario_records_compatibility_receipts_without_attack_declaration() {
+fn grozoth_public_scenario_retains_its_frozen_compatibility_receipts_without_attack_declaration() {
     let trace = run_all_scenarios()
         .expect("shown RAV scenarios run")
         .into_iter()
@@ -124,7 +153,7 @@ fn grozoth_public_scenario_records_compatibility_receipts_without_attack_declara
         .expect("Grozoth public scenario exists");
 
     println!("Grozoth compatibility trace: {:?}", trace.event_log);
-    assert_eq!(trace.digest, "fnv1a64:72bfadc28024561c");
+    assert_eq!(trace.digest, "fnv1a64:c3aa63148bce556d");
     for marker in ["CardRevealed", "LibraryShuffled", "Transmuted", "StepBegan"] {
         assert!(
             trace.event_log.iter().any(|event| event.contains(marker)),

@@ -175,6 +175,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-COMPULSIVE-RESEARCH",
             "RAV-DRIFT-OF-PHANTASMS",
             "RAV-ETHEREAL-USHER",
+            "RAV-GROZOTH",
             "RAV-FLIGHT-OF-FANCY",
             "RAV-FLOW-OF-IDEAS",
             "RAV-SURVEILLING-SPRITE",

@@ -43,7 +43,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 243] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 244] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
@@ -206,6 +206,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 243] = [
     "RAV-COMPULSIVE-RESEARCH",
     "RAV-DRIFT-OF-PHANTASMS",
     "RAV-ETHEREAL-USHER",
+    "RAV-GROZOTH",
     "RAV-FLIGHT-OF-FANCY",
     "RAV-FLOW-OF-IDEAS",
     "RAV-SURVEILLING-SPRITE",
@@ -5845,12 +5846,10 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             ))],
             effects: vec![],
         },
-        // Compatibility scope: normal colored-cost creature casting, base
-        // characteristics, Defender, and the existing immediate hand-zone
-        // Transmute operation. Its entry-triggered library search remains
-        // unsupported, and Transmute remains outside the full-fidelity
-        // manifest because the shared substrate creates no stack object or
-        // response window for the activated ability.
+        // Full fidelity: the optional entry trigger uses the ordinary stack
+        // and a private policy-submitted multi-card library search. Transmute
+        // likewise enters the stack before that private search, so opponents
+        // receive the usual response window without seeing library contents.
         CardDefinition {
             id: "RAV-GROZOTH",
             name: "Grozoth",
@@ -5861,10 +5860,12 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             card_types: types([CardType::Creature]),
             is_basic_land: false,
             supported_rules: &[
+                "full-rules-fidelity",
                 "colored-cost-casting",
                 "base-characteristics",
                 "defender",
-                "immediate-hand-zone-transmute-compatibility",
+                "optional-private-multi-card-mana-value-search",
+                "stack-backed-private-transmute",
             ],
             power: Some(9),
             toughness: Some(9),
@@ -8318,6 +8319,27 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                     cardbench_magic_engine::TargetRequirement::CreatureCardInControllerGraveyard,
                 ],
                 effects: vec![Effect::ReturnTargetCreatureCardToHandIfAnotherInControllerGraveyard],
+            },
+        },
+        TriggeredAbilityBinding {
+            card_definition: "RAV-GROZOTH",
+            ability: TriggeredAbility {
+                id: "etb-search-mana-value-nine",
+                condition: TriggerCondition::EntersBattlefield,
+                mana_cost: ManaCost::new(0),
+                optional: true,
+                targets: vec![],
+                effects: vec![Effect::SearchControllerLibraryMany {
+                    requirement: LibrarySearchRequirement::ManaValueExactly(9),
+                    destination: LibrarySearchDestination::Hand,
+                    cardinality: cardbench_magic_engine::LibrarySearchCardinality::ZeroOrMore {
+                        maximum: u8::MAX,
+                    },
+                    selection: LibrarySearchSelection::PolicySubmitted {
+                        may_fail_to_find: false,
+                    },
+                    reveal_selected: true,
+                }],
             },
         },
         TriggeredAbilityBinding {
