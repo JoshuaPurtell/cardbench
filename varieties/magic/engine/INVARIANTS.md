@@ -210,6 +210,15 @@ Oracle Magic rules coverage.
   committed `DamageDealt*` receipt, and only committed positive damage queues
   damage triggers. The generic decision closes after that causal damage batch
   and before the suspended spell's terminal lifecycle.
+- A registered damage-amount replacement has a catalogued permanent source and
+  is fixed before the game begins. Every live source applies once to a
+  prospective player or permanent packet and retains its source incarnation in
+  both the `DamageReplacementApplied` identity and the immediately following
+  `DamageAmountReplaced` arithmetic receipt. The receipt has a positive input,
+  the bound reduced output, and must name the same source/target as its
+  preceding replacement identity. Direct and combat paths use the same source
+  discovery; the initial registered operation is integer halving, so stable
+  application of multiple identical sources cannot change its result.
 - `Keyword::DamageCannotBePrevented` excludes prevention only. It bypasses
   target shields, permanent shields, protection, and color-based prevention,
   but does not bypass a non-prevention damage redirection. A redirected event

@@ -324,6 +324,18 @@ prevention receipts, consumes only the next damage, and is removed at target or
 turn departure. The focused Char trace checks the two damage events, the
 prevented portion, and the final invariant audit.
 
+Ghosts of the Innocent is an executable bounded compatibility slice. Its RAV
+collector identity, color, cost, creature characteristics, and sole global
+damage-amount behavior were checked against the public
+[Scryfall RAV #20 record](https://scryfall.com/card/rav/20/ghosts-of-the-innocent)
+on 2026-08-02; no source response, card prose, image, or art is retained. The
+expansion-neutral binding discovers each live source incarnation and records a
+replacement receipt before the reduced player- or permanent-damage receipt.
+The focused Rust trace covers both recipient kinds and the final invariant
+audit. Concurrent ordering with the engine's broader replacement families is
+still explicitly bounded, so this entry is not added to the positive
+full-fidelity manifest.
+
 Chant of Vitu-Ghazi is a complete dynamic-Convoke life-gain slice. Its
 resolution counts every current battlefield creature, including opposing
 creatures and tokens, then emits one source-controller `LifeGained` receipt.
