@@ -31,6 +31,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-GOLGARI-GERMINATION",
             "RAV-NULLSTONE-GARGOYLE",
             "RAV-SCATTER-THE-SEEDS",
+            "RAV-SIEGE-WURM",
             "RAV-DOUBLING-SEASON",
             "RAV-GLARE-OF-SUBDUAL",
             "RAV-CHORD-OF-CALLING",
