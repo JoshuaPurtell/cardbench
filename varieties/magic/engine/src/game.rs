@@ -132,6 +132,20 @@ pub struct CastRequest {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum PolicyAction {
     Cast(CastRequest),
+    /// Casts a spell while supplying the player's complete explicit mana
+    /// allocation and, when the represented spell requires it, one chosen
+    /// nonnegative `{X}` value.  This is the policy-facing counterpart to
+    /// `Game::cast_spell_with_mana_spend` and `Game::cast_spell_with_x`; it
+    /// does not introduce a second cost-calculation path.
+    ///
+    /// The engine accepts the explicit allocation for any spell, but it is
+    /// required for represented effects conditional on mana spent. `chosen_x`
+    /// must be `Some` exactly when the executable effect model requires X.
+    CastWithPayment {
+        request: CastRequest,
+        chosen_x: Option<u8>,
+        mana_selection: ManaPaymentSelection,
+    },
     /// Chooses the normal draw or one legal dredge replacement at a draw-step
     /// replacement-decision boundary. This is not priority.
     Draw {
@@ -237,7 +251,7 @@ impl PolicyAction {
     #[must_use]
     pub const fn kind(&self) -> PolicyMoveKind {
         match self {
-            Self::Cast(_) => PolicyMoveKind::Cast,
+            Self::Cast(_) | Self::CastWithPayment { .. } => PolicyMoveKind::Cast,
             Self::Draw { .. } => PolicyMoveKind::Draw,
             Self::ChoosePrivateLibraryCards { .. } => PolicyMoveKind::ChoosePrivateLibraryCards,
             Self::ChoosePrivateOpponentLibraryCardToExile { .. } => {
@@ -3204,6 +3218,17 @@ impl Game {
         let kind = action.kind();
         match action {
             PolicyAction::Cast(request) => self.cast_spell(player, request)?,
+            PolicyAction::CastWithPayment {
+                request,
+                chosen_x,
+                mana_selection,
+            } => {
+                if let Some(x_value) = chosen_x {
+                    self.cast_spell_with_x(player, request, x_value, mana_selection)?;
+                } else {
+                    self.cast_spell_with_mana_spend(player, request, mana_selection)?;
+                }
+            }
             PolicyAction::Draw { dredge } => self.resolve_pending_draw(player, dredge)?,
             PolicyAction::ChoosePrivateLibraryCards { spell, selected } => {
                 self.choose_private_library_cards(player, spell, selected)?;

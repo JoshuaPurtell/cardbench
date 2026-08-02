@@ -4,7 +4,8 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardDefinition, CardType, CastRequest, Color, Effect, Game, GameEvent, ManaCost,
+    BasicLandManaAbilityActivation, BasicLandType, BasicLandTypeBinding, CardDefinition, CardType,
+    CastPaymentManaAbility, CastRequest, Color, Effect, Game, GameEvent, ManaCost,
     ManaPaymentSelection, PlayerId, PolicyAction, PolicyMoveKind, Target, Zone,
 };
 
@@ -12,6 +13,8 @@ const X_REMOVAL: &str = "POLICY-X-REMOVAL";
 const PAID_CONDITIONAL: &str = "POLICY-PAID-CONDITIONAL";
 const TARGET: &str = "POLICY-COST-TARGET";
 const DRAWN: &str = "POLICY-COST-DRAWN";
+const SWAMP: &str = "POLICY-COST-SWAMP";
+const ISLAND: &str = "POLICY-COST-ISLAND";
 
 fn definition(
     id: &'static str,
@@ -36,6 +39,28 @@ fn definition(
     }
 }
 
+fn basic_land(id: &'static str, color: Color) -> CardDefinition {
+    CardDefinition {
+        id,
+        name: id,
+        set_code: "TST",
+        mana_cost: ManaCost::new(0),
+        colors: BTreeSet::new(),
+        mana_colors: BTreeSet::from([color]),
+        card_types: BTreeSet::from([CardType::Land]),
+        is_basic_land: true,
+        supported_rules: &["policy-cast-payment-red"],
+        power: None,
+        toughness: None,
+        keywords: vec![],
+        effects: vec![],
+    }
+}
+
+fn basic_payment(land: cardbench_magic_engine::ObjectId, color: Color) -> CastPaymentManaAbility {
+    CastPaymentManaAbility::BasicLand(BasicLandManaAbilityActivation { land, color })
+}
+
 fn pass_pair(game: &mut Game) {
     let first = game.priority;
     game.submit_policy_move(first, "test.policy-cost.v1", PolicyAction::PassPriority)
@@ -49,7 +74,7 @@ fn pass_pair(game: &mut Game) {
 fn a_policy_submits_chosen_x_and_explicit_generic_mana_for_one_spell_cast() {
     let caster = PlayerId(0);
     let opponent = PlayerId(1);
-    let mut game = Game::new(
+    let mut game = Game::new_with_basic_land_types(
         [
             definition(
                 X_REMOVAL,
@@ -63,8 +88,13 @@ fn a_policy_submits_chosen_x_and_explicit_generic_mana_for_one_spell_cast() {
                 BTreeSet::from([CardType::Creature]),
                 vec![],
             ),
+            basic_land(SWAMP, Color::Black),
         ],
         2,
+        [BasicLandTypeBinding {
+            card_definition: SWAMP,
+            land_type: BasicLandType::Swamp,
+        }],
     )
     .expect("fixture game initializes");
     let spell = game
@@ -73,9 +103,47 @@ fn a_policy_submits_chosen_x_and_explicit_generic_mana_for_one_spell_cast() {
     let target = game
         .put_on_battlefield(opponent, TARGET)
         .expect("target setup");
-    game.grant_mana(caster, Color::Black, 3)
-        .expect("fixture mana fits");
+    let swamps = (0..3)
+        .map(|_| game.put_on_battlefield(caster, SWAMP).expect("Swamp setup"))
+        .collect::<Vec<_>>();
     game.begin_game().expect("fixture game begins");
+    let payment_mana_abilities = swamps
+        .iter()
+        .map(|land| basic_payment(*land, Color::Black))
+        .collect::<Vec<_>>();
+
+    let events_before_rejection = game.event_log.clone();
+    let rejected = game.submit_policy_move(
+        caster,
+        "test.policy-cost.v1",
+        PolicyAction::CastWithPayment {
+            request: CastRequest {
+                card: spell,
+                targets: vec![Target::Permanent(target)],
+                convoke: vec![],
+                payment_mana_abilities: payment_mana_abilities.clone(),
+            },
+            chosen_x: Some(2),
+            mana_selection: ManaPaymentSelection {
+                generic: vec![Color::Black],
+                hybrid: vec![],
+            },
+        },
+    );
+    assert!(
+        rejected.is_err(),
+        "an incomplete policy payment must reject"
+    );
+    assert_eq!(game.zone_of(spell), Some(Zone::Hand));
+    assert_eq!(game.zone_of(target), Some(Zone::Battlefield));
+    assert_eq!(game.players[caster.0].mana_pool.amount(Color::Black), 0);
+    assert!(
+        swamps
+            .iter()
+            .all(|land| { !game.object(*land).expect("fixture land persists").tapped })
+    );
+    assert!(game.stack.is_empty());
+    assert_eq!(game.event_log, events_before_rejection);
 
     game.submit_policy_move(
         caster,
@@ -85,7 +153,7 @@ fn a_policy_submits_chosen_x_and_explicit_generic_mana_for_one_spell_cast() {
                 card: spell,
                 targets: vec![Target::Permanent(target)],
                 convoke: vec![],
-                payment_mana_abilities: vec![],
+                payment_mana_abilities,
             },
             chosen_x: Some(2),
             mana_selection: ManaPaymentSelection {
@@ -96,7 +164,7 @@ fn a_policy_submits_chosen_x_and_explicit_generic_mana_for_one_spell_cast() {
     )
     .expect("policy-provided chosen X and mana selection cast the spell");
     assert!(matches!(
-        game.event_log.first(),
+        game.event_log.iter().find(|event| matches!(event, GameEvent::SpellManaPaid { .. })),
         Some(GameEvent::SpellManaPaid { player, card, colors })
             if *player == caster
                 && *card == spell
@@ -120,15 +188,13 @@ fn a_policy_submits_chosen_x_and_explicit_generic_mana_for_one_spell_cast() {
 #[test]
 fn a_policy_submits_explicit_spent_mana_for_a_conditional_spell() {
     let caster = PlayerId(0);
-    let mut game = Game::new(
+    let mut game = Game::new_with_basic_land_types(
         [
             definition(
                 PAID_CONDITIONAL,
                 ManaCost::with_colors(1, [Color::Black]),
                 BTreeSet::from([CardType::Instant]),
-                vec![Effect::DrawControllerIfManaColorSpent {
-                    color: Color::Blue,
-                }],
+                vec![Effect::DrawControllerIfManaColorSpent { color: Color::Blue }],
             ),
             definition(
                 DRAWN,
@@ -136,8 +202,20 @@ fn a_policy_submits_explicit_spent_mana_for_a_conditional_spell() {
                 BTreeSet::from([CardType::Artifact]),
                 vec![],
             ),
+            basic_land(SWAMP, Color::Black),
+            basic_land(ISLAND, Color::Blue),
         ],
         2,
+        [
+            BasicLandTypeBinding {
+                card_definition: SWAMP,
+                land_type: BasicLandType::Swamp,
+            },
+            BasicLandTypeBinding {
+                card_definition: ISLAND,
+                land_type: BasicLandType::Island,
+            },
+        ],
     )
     .expect("fixture game initializes");
     let spell = game
@@ -146,10 +224,10 @@ fn a_policy_submits_explicit_spent_mana_for_a_conditional_spell() {
     let drawn = game
         .add_card(caster, DRAWN, Zone::Library)
         .expect("library setup");
-    game.grant_mana(caster, Color::Black, 1)
-        .expect("black fixture mana fits");
-    game.grant_mana(caster, Color::Blue, 1)
-        .expect("blue fixture mana fits");
+    let swamp = game.put_on_battlefield(caster, SWAMP).expect("Swamp setup");
+    let island = game
+        .put_on_battlefield(caster, ISLAND)
+        .expect("Island setup");
     game.begin_game().expect("fixture game begins");
 
     game.submit_policy_move(
@@ -160,7 +238,10 @@ fn a_policy_submits_explicit_spent_mana_for_a_conditional_spell() {
                 card: spell,
                 targets: vec![],
                 convoke: vec![],
-                payment_mana_abilities: vec![],
+                payment_mana_abilities: vec![
+                    basic_payment(swamp, Color::Black),
+                    basic_payment(island, Color::Blue),
+                ],
             },
             chosen_x: None,
             mana_selection: ManaPaymentSelection {
