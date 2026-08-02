@@ -10280,7 +10280,7 @@ digest = "fnv1a64:4270044908263d17"
 [[scenario]]
 id = "rav_nightmare_void_targeted_discard"
 seed = 138
-description = "Cast Nightmare Void at a player with a visible hand card, then record the target-specific discard and zone transitions through normal stack resolution."
+description = "Cast Nightmare Void at a player with a visible hand card, then have that target submit its private discard choice before the normal terminal spell transition."
 
 [[scenario.card]]
 label = "void"
@@ -10313,13 +10313,18 @@ player = 0
 kind = "pass"
 player = 1
 
+[[scenario.action]]
+kind = "choose_private_discard"
+player = 1
+discard_cards = ["discarded"]
+
 [scenario.expected]
 zones = ["void:graveyard", "discarded:graveyard"]
 stack_size = 0
 priority = 0
 mana = ["0:black:0"]
-event_markers = ["SpellCast", "CardDiscarded", "CardMoved", "SpellResolved"]
-digest = "fnv1a64:5f4a23f5be5d5865"
+event_markers = ["SpellCast", "DecisionOpened", "DecisionCompleted", "CardDiscarded", "CardMoved", "SpellResolved"]
+digest = "fnv1a64:a6c16f1fada0bbca"
 
 [[scenario]]
 id = "rav_rolling_spoil_spent_black_global_modifier"
@@ -10688,13 +10693,18 @@ player = 0
 kind = "pass"
 player = 1
 
+[[scenario.action]]
+kind = "choose_private_discard"
+player = 1
+discard_cards = ["discarded"]
+
 [scenario.expected]
 zones = ["guildmage:battlefield", "drawn:hand", "discarded:graveyard"]
 mana = ["0:blue:0", "0:black:0"]
 stack_size = 0
 priority = 0
 event_markers = ["AbilityActivated", "CardMoved", "CardDiscarded", "AbilityResolved"]
-digest = "fnv1a64:45df0e5abbc2a47e"
+digest = "fnv1a64:153e44e151b19b6d"
 
 [[scenario]]
 id = "rav_boros_garrison_etb_stack_and_return"

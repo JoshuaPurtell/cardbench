@@ -93,6 +93,10 @@ struct ActionSpec {
     /// policy decision boundary visible in the fixture rather than relying on
     /// source/binding insertion order.
     trigger_order: Vec<String>,
+    /// Exact hand-card labels selected by the targeted recipient at a private
+    /// fixed-count discard continuation. These are scenario-authoring labels,
+    /// never identities recorded in the public engine event log.
+    discard_cards: Vec<String>,
     ability: String,
     color: String,
     pay: bool,
@@ -318,6 +322,7 @@ fn set_action_field(
         "chosen_x" => action.chosen_x = Some(parse_number(value, line_number)?),
         "attackers" => action.attackers = parse_string_array(value, line_number)?,
         "trigger_order" => action.trigger_order = parse_string_array(value, line_number)?,
+        "discard_cards" => action.discard_cards = parse_string_array(value, line_number)?,
         "ability" => action.ability = parse_string(value, line_number)?,
         "color" => action.color = parse_string(value, line_number)?,
         "pay" => action.pay = parse_bool(value, line_number)?,
@@ -833,6 +838,30 @@ fn execute_action(
             game.submit_policy_move(
                 player,
                 "rav-scenario.choose-library-search.v1",
+                PolicyAction::SubmitDecision {
+                    decision: decision.id,
+                    selection: DecisionSelection::Objects(selected),
+                },
+            )
+            .map_err(rules_error)
+        }
+        "choose_private_discard" => {
+            let decision = game
+                .view_for_player(player)
+                .map_err(rules_error)?
+                .pending_decision
+                .ok_or_else(|| "no recipient-private discard decision is pending".to_owned())?;
+            if decision.kind != DecisionKind::ConditionalPrivateDiscard {
+                return Err("pending decision is not a recipient-private discard choice".to_owned());
+            }
+            let selected = action
+                .discard_cards
+                .iter()
+                .map(|label| lookup(labels, label))
+                .collect::<Result<Vec<_>, _>>()?;
+            game.submit_policy_move(
+                player,
+                "rav-scenario.choose-private-discard.v1",
                 PolicyAction::SubmitDecision {
                     decision: decision.id,
                     selection: DecisionSelection::Objects(selected),

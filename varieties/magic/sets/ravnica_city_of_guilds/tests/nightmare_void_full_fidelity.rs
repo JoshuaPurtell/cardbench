@@ -1,6 +1,6 @@
 use cardbench_magic_engine::{
-    CastRequest, Color, Effect, Game, GameEvent, Keyword, ManaCost, PlayerId, Target,
-    TargetRequirement, Zone,
+    CastRequest, Color, DecisionSelection, Effect, Game, GameEvent, Keyword, ManaCost, PlayerId,
+    Target, TargetRequirement, Zone,
 };
 use cardbench_magic_rav::{RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions};
 
@@ -32,6 +32,17 @@ fn nightmare_void_targets_one_player_and_discards_that_players_oldest_hand_card(
     game.pass_priority(caster).expect("caster passes");
     game.pass_priority(target)
         .expect("target passes and resolves");
+    let decision = game
+        .view_for_player(target)
+        .expect("target sees private discard choice")
+        .pending_decision
+        .expect("target discard decision opens");
+    game.submit_decision(
+        target,
+        decision.id,
+        DecisionSelection::Objects(vec![discarded]),
+    )
+    .expect("target chooses its hand card to discard");
 
     println!("Nightmare Void trace: {:?}", game.event_log);
     assert_eq!(game.zone_of(discarded), Some(Zone::Graveyard));
