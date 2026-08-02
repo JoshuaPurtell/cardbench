@@ -43,7 +43,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 228] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 229] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
@@ -272,6 +272,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 228] = [
     "RAV-ZEPHYR-SPIRIT",
     "RAV-WIZENED-SNITCHES",
     "RAV-VULTUROUS-ZOMBIE",
+    "RAV-VINELASHER-KUDZU",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -5317,18 +5318,29 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
-        // Compatibility scope: its exact base characteristics and controller-
-        // scoped land-entry counter trigger are executable below. The card
-        // remains outside the positive manifest until that trigger is also
-        // exercised through the public scenario policy surface.
-        bounded_creature_chassis(
-            "RAV-VINELASHER-KUDZU",
-            "Vinelasher Kudzu",
-            ManaCost::with_colors(1, [Color::Green]),
-            colors([Color::Green]),
-            1,
-            1,
-        ),
+        // Full fidelity: a land entering under this source's controller queues
+        // a normal stack trigger, then adds one +1/+1 counter only after both
+        // players receive the ordinary response window.
+        CardDefinition {
+            id: "RAV-VINELASHER-KUDZU",
+            name: "Vinelasher Kudzu",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(1, [Color::Green]),
+            colors: colors([Color::Green]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "controlled-land-entry-plus-one-counter",
+            ],
+            power: Some(1),
+            toughness: Some(1),
+            keywords: vec![],
+            effects: vec![],
+        },
         // Full fidelity: a nontoken creature controlled by the live
         // enchantment controller dying creates exactly one typed Saproling
         // through the ordinary trigger stack.  Tokens and creatures under an
@@ -9634,7 +9646,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 183);
+        assert_eq!(first.len(), 184);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

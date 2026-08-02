@@ -11133,6 +11133,66 @@ event_markers = ["AbilityActivated", "AbilityResolved", "TriggeredAbilityStacked
 digest = "fnv1a64:1f9d21097aa8d4d9"
 
 [[scenario]]
+id = "rav_vinelasher_kudzu_landfall_counter"
+seed = 184
+triggers = true
+description = "Play a land under Vinelasher Kudzu's controller, put its counter trigger on the ordinary stack, and resolve it after both players pass priority."
+
+[[scenario.card]]
+label = "kudzu"
+owner = 0
+definition = "RAV-VINELASHER-KUDZU"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.card]]
+label = "entering_forest"
+owner = 0
+definition = "RAV-FOREST"
+zone = "hand"
+
+[[scenario.action]]
+kind = "begin_game"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "play_land"
+player = 0
+card = "entering_forest"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["kudzu:battlefield", "entering_forest:battlefield"]
+powers = ["kudzu:2"]
+toughnesses = ["kudzu:2"]
+stack_size = 0
+priority = 0
+event_markers = ["CardMoved", "TriggeredAbilityStacked", "CounterPlaced", "AbilityResolved"]
+digest = "fnv1a64:de4dceec892cc0d2"
+
+[[scenario]]
 id = "rav_life_from_the_loam_land_recursion"
 seed = 151
 description = "Resolve Life from the Loam's bounded controller-graveyard land recursion while retaining its Dredge 3 characteristic."
