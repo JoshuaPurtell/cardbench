@@ -3835,6 +3835,7 @@ impl Game {
                 | DecisionContinuation::TriggeredAbilityOrder { .. }
                 | DecisionContinuation::QuantityReplacement { .. }
                 | DecisionContinuation::DamageReplacement { .. }
+                | DecisionContinuation::CombatDamageReplacement { .. }
                 | DecisionContinuation::CounterUnlessPaysMana { .. }
                 | DecisionContinuation::ConditionalPrivateDiscard { .. }
                 | DecisionContinuation::TargetPlayerPrivateDiscard { .. }
@@ -3898,6 +3899,7 @@ impl Game {
                 | DecisionContinuation::TriggeredAbilityOrder { .. }
                 | DecisionContinuation::QuantityReplacement { .. }
                 | DecisionContinuation::DamageReplacement { .. }
+                | DecisionContinuation::CombatDamageReplacement { .. }
                 | DecisionContinuation::CounterUnlessPaysMana { .. }
                 | DecisionContinuation::ConditionalPrivateDiscard { .. }
                 | DecisionContinuation::TargetPlayerPrivateDiscard { .. }
@@ -3949,6 +3951,7 @@ impl Game {
                 | DecisionContinuation::TriggeredAbilityOrder { .. }
                 | DecisionContinuation::QuantityReplacement { .. }
                 | DecisionContinuation::DamageReplacement { .. }
+                | DecisionContinuation::CombatDamageReplacement { .. }
                 | DecisionContinuation::CounterUnlessPaysMana { .. }
                 | DecisionContinuation::ConditionalPrivateDiscard { .. }
                 | DecisionContinuation::TargetPlayerPrivateDiscard { .. }
@@ -3989,6 +3992,26 @@ impl Game {
                     source_incarnation: *source_incarnation,
                     target: *target,
                     target_incarnation: *target_incarnation,
+                    amount: *amount,
+                    replacements: Self::decision_replacement_candidates(decision)
+                        .into_iter()
+                        .filter_map(|choice| match choice {
+                            ReplacementChoice::Damage(choice) => Some(choice),
+                            ReplacementChoice::Quantity { .. } => None,
+                        })
+                        .collect(),
+                }),
+                DecisionContinuation::CombatDamageReplacement {
+                    source,
+                    source_incarnation,
+                    player: affected_player,
+                    amount,
+                    ..
+                } => Some(DamageReplacementChoiceView {
+                    source: *source,
+                    source_incarnation: *source_incarnation,
+                    target: Target::Player(*affected_player),
+                    target_incarnation: None,
                     amount: *amount,
                     replacements: Self::decision_replacement_candidates(decision)
                         .into_iter()
@@ -7567,6 +7590,26 @@ impl Game {
                     amount,
                     used,
                     deferred_packets,
+                    selected,
+                )
+            }
+            DecisionContinuation::CombatDamageReplacement {
+                source,
+                source_incarnation,
+                player: affected_player,
+                amount,
+                used,
+                remaining_player_damage,
+            } => {
+                let selected = Self::validate_replacement_decision_selection(&decision, selection)?;
+                self.resolve_combat_damage_replacement_decision(
+                    &decision,
+                    source,
+                    source_incarnation,
+                    affected_player,
+                    amount,
+                    used,
+                    remaining_player_damage,
                     selected,
                 )
             }
@@ -15193,6 +15236,53 @@ impl Game {
         Ok(())
     }
 
+    /// Opens a no-priority affected-player choice for one already-assigned
+    /// combat player-damage packet. The remaining player packets are a
+    /// snapshot from the same combat-damage batch and resume only after this
+    /// exact packet has committed.
+    fn open_combat_damage_replacement_decision(
+        &mut self,
+        pending: PendingDamageReplacementChoice,
+        remaining_player_damage: Vec<(ObjectId, PlayerId, i32)>,
+    ) -> Result<(), RulesError> {
+        let choices = self.combat_damage_replacement_candidates(
+            pending.source,
+            pending.affected_player,
+            pending.amount,
+            &pending.used,
+        )?;
+        if choices.len() < 2
+            || pending.original_target != Target::Player(pending.affected_player)
+            || pending.target != Target::Player(pending.affected_player)
+            || pending.target_incarnation.is_some()
+            || !pending.deferred_packets.is_empty()
+        {
+            return Err(RulesError::IllegalAction(
+                "combat damage replacement decision has an invalid packet shape",
+            ));
+        }
+        self.open_pending_decision(
+            pending.affected_player,
+            DecisionVisibility::Public,
+            DecisionKind::Replacement,
+            1,
+            1,
+            choices
+                .into_iter()
+                .map(|choice| DecisionOption::Replacement(ReplacementChoice::Damage(choice)))
+                .collect(),
+            DecisionContinuation::CombatDamageReplacement {
+                source: pending.source,
+                source_incarnation: pending.source_incarnation,
+                player: pending.affected_player,
+                amount: pending.amount,
+                used: pending.used,
+                remaining_player_damage,
+            },
+        )?;
+        Ok(())
+    }
+
     /// Opens the generic no-priority target-selection boundary for a resolving
     /// spell-copy effect. The copying spell stays on the stack until its
     /// controller submits the exact `DecisionId`; no priority action can
@@ -17076,6 +17166,98 @@ impl Game {
         }
     }
 
+    #[allow(clippy::too_many_arguments)] // The continuation stores the complete prospective packet and its assignment suffix.
+    fn resolve_combat_damage_replacement_decision(
+        &mut self,
+        decision: &PendingDecision,
+        source: ObjectId,
+        source_incarnation: u64,
+        affected_player: PlayerId,
+        amount: i32,
+        used: Vec<DamageReplacementChoice>,
+        remaining_player_damage: Vec<(ObjectId, PlayerId, i32)>,
+        selected: ReplacementChoice,
+    ) -> Result<(), RulesError> {
+        let ReplacementChoice::Damage(replacement) = selected else {
+            return Err(RulesError::IllegalAction(
+                "combat replacement decision selected a quantity replacement identity",
+            ));
+        };
+        let candidates =
+            self.combat_damage_replacement_candidates(source, affected_player, amount, &used)?;
+        let expected_options = candidates
+            .iter()
+            .copied()
+            .map(|choice| DecisionOption::Replacement(ReplacementChoice::Damage(choice)))
+            .collect::<Vec<_>>();
+        let used_are_unique = !used
+            .iter()
+            .enumerate()
+            .any(|(index, choice)| used[index + 1..].contains(choice));
+        let suffix_is_valid =
+            remaining_player_damage
+                .iter()
+                .all(|(next_source, player, amount)| {
+                    next_source.0 != 0
+                        && player.0 < self.players.len()
+                        && !self.players[player.0].lost
+                        && *amount > 0
+                        && self.zone_of(*next_source) == Some(Zone::Battlefield)
+                });
+        let combat_is_live = self.combat.as_ref().is_some_and(|combat| {
+            combat.attackers_declared
+                && combat.blockers_declared
+                && combat.defending_player == Some(affected_player)
+        });
+        if decision.kind != DecisionKind::Replacement
+            || decision.visibility != DecisionVisibility::Public
+            || decision.player != affected_player
+            || !matches!(
+                self.step,
+                Step::FirstStrikeCombatDamage | Step::CombatDamage
+            )
+            || !combat_is_live
+            || self.zone_of(source) != Some(Zone::Battlefield)
+            || self.object(source)?.incarnation != source_incarnation
+            || amount <= 0
+            || self.players[affected_player.0].lost
+            || !used_are_unique
+            || !suffix_is_valid
+            || candidates.len() < 2
+            || decision.options != expected_options
+            || decision.min_selections != 1
+            || decision.max_selections != 1
+        {
+            return Err(RulesError::IllegalAction(
+                "combat damage replacement decision no longer matches its prospective packet",
+            ));
+        }
+        let mut pending = PendingDamageReplacementChoice {
+            source,
+            source_incarnation,
+            controller: self.controller_of(source)?,
+            affected_player,
+            original_target: Target::Player(affected_player),
+            target: Target::Player(affected_player),
+            target_incarnation: None,
+            amount,
+            used,
+            deferred_packets: Vec::new(),
+        };
+        self.apply_combat_damage_replacement(&mut pending, replacement)?;
+        if let Some(next) = self.advance_combat_damage_replacement_pipeline(pending)? {
+            self.complete_pending_decision(decision)?;
+            return self.open_combat_damage_replacement_decision(next, remaining_player_damage);
+        }
+        self.complete_pending_decision(decision)?;
+        if self.resolve_combat_player_damage_queue(remaining_player_damage)? {
+            return Ok(());
+        }
+        self.finish_combat_damage_batch()?;
+        self.priority = self.priority_after_resolution();
+        Ok(())
+    }
+
     /// Finishes the one-effect instant/sorcery retained by the bounded
     /// replacement decision. The direct-damage instruction has already
     /// committed (or been fully prevented), so this records only the normal
@@ -18227,6 +18409,11 @@ impl Game {
                     replacement_amount: pending.amount,
                 });
             }
+            DamageReplacementChoice::CombatDamageMillAndCounters { .. } => {
+                return Err(RulesError::IllegalAction(
+                    "combat-only replacement reached the ordinary damage pipeline",
+                ));
+            }
             DamageReplacementChoice::Redirect {
                 id,
                 source: redirect_source,
@@ -18722,6 +18909,223 @@ impl Game {
             return Ok(());
         }
         self.deal_damage_to_player(source, player, amount)
+    }
+
+    /// Lists every represented replacement for one prospective combat-damage
+    /// packet that would be dealt to a player. The source-specific mill and
+    /// counter replacement joins the ordinary prospective-damage candidates
+    /// here instead of taking an eager shortcut, so the affected player can
+    /// order genuinely concurrent replacements.
+    fn combat_damage_replacement_candidates(
+        &self,
+        source: ObjectId,
+        player: PlayerId,
+        amount: i32,
+        used: &[DamageReplacementChoice],
+    ) -> Result<Vec<DamageReplacementChoice>, RulesError> {
+        let mut candidates =
+            self.damage_replacement_candidates(source, Target::Player(player), amount, used)?;
+        if amount > 0
+            && self.zone_of(source) == Some(Zone::Battlefield)
+            && self
+                .effective_definition_id(source)?
+                .is_some_and(|definition| {
+                    self.damage_replacement_effects
+                        .get(definition)
+                        .is_some_and(|effects| {
+                            effects.contains(
+                                &DamageReplacementEffect::ReplaceCombatDamageToPlayerWithMillAndCounters,
+                            )
+                        })
+                })
+        {
+            let candidate = DamageReplacementChoice::CombatDamageMillAndCounters {
+                source,
+                source_incarnation: self.object(source)?.incarnation,
+            };
+            if !used.contains(&candidate) {
+                candidates.push(candidate);
+            }
+        }
+        Ok(candidates)
+    }
+
+    /// Applies the source-specific combat replacement while it remains one
+    /// candidate in an affected-player ordering chain. It has no ordinary
+    /// damage remainder, so applying it completes this prospective packet.
+    fn apply_combat_damage_mill_and_counters_replacement(
+        &mut self,
+        pending: &mut PendingDamageReplacementChoice,
+        replacement: DamageReplacementChoice,
+    ) -> Result<(), RulesError> {
+        let candidates = self.combat_damage_replacement_candidates(
+            pending.source,
+            pending.affected_player,
+            pending.amount,
+            &pending.used,
+        )?;
+        if !candidates.contains(&replacement) {
+            return Err(RulesError::IllegalAction(
+                "submitted combat damage replacement is no longer applicable",
+            ));
+        }
+        let DamageReplacementChoice::CombatDamageMillAndCounters {
+            source,
+            source_incarnation,
+        } = replacement
+        else {
+            return Err(RulesError::IllegalAction(
+                "combat replacement pipeline received a non-combat replacement",
+            ));
+        };
+        if source != pending.source
+            || self.zone_of(source) != Some(Zone::Battlefield)
+            || self.object(source)?.incarnation != source_incarnation
+            || !self
+                .effective_definition_id(source)?
+                .is_some_and(|definition| {
+                    self.damage_replacement_effects
+                        .get(definition)
+                        .is_some_and(|effects| {
+                            effects.contains(
+                                &DamageReplacementEffect::ReplaceCombatDamageToPlayerWithMillAndCounters,
+                            )
+                        })
+                })
+        {
+            return Err(RulesError::IllegalAction(
+                "combat damage replacement source disappeared before selection",
+            ));
+        }
+        self.record_event(GameEvent::DamageReplacementApplied {
+            affected_player: pending.affected_player,
+            target: Target::Player(pending.affected_player),
+            replacement,
+        });
+        self.record_event(GameEvent::CombatDamageReplacedWithMillAndCounters {
+            source,
+            source_incarnation,
+            player: pending.affected_player,
+            amount: pending.amount,
+        });
+        let cards = self.players[pending.affected_player.0]
+            .library
+            .iter()
+            .rev()
+            .take(usize::try_from(pending.amount).expect("positive i32 fits usize"))
+            .copied()
+            .collect::<Vec<_>>();
+        for card in cards {
+            self.move_to_zone(card, Zone::Graveyard)?;
+        }
+        let amount = i16::try_from(pending.amount).map_err(|_| {
+            RulesError::IllegalAction("combat damage replacement amount exceeds counter capacity")
+        })?;
+        self.place_counter(source, source, CounterKind::PlusOnePlusOne, amount)?;
+        pending.used.push(replacement);
+        pending.amount = 0;
+        Ok(())
+    }
+
+    fn apply_combat_damage_replacement(
+        &mut self,
+        pending: &mut PendingDamageReplacementChoice,
+        replacement: DamageReplacementChoice,
+    ) -> Result<(), RulesError> {
+        if matches!(
+            replacement,
+            DamageReplacementChoice::CombatDamageMillAndCounters { .. }
+        ) {
+            self.apply_combat_damage_mill_and_counters_replacement(pending, replacement)
+        } else {
+            self.apply_damage_replacement(pending, replacement)
+        }
+    }
+
+    /// Completes one prospective combat player-damage packet only after all
+    /// selected amount/prevention replacements have finished. This bypasses
+    /// the ordinary automatic amount-replacement helper because the chain
+    /// already records every applied identity in `pending.used`.
+    fn commit_combat_player_damage_after_replacements(
+        &mut self,
+        source: ObjectId,
+        player: PlayerId,
+        amount: i32,
+    ) -> Result<(), RulesError> {
+        if let Some(prevented_by) = self.combat_damage_prevented_by(source) {
+            self.record_event(GameEvent::CombatDamagePrevented {
+                source,
+                prevented_by,
+                target: Target::Player(player),
+                amount,
+            });
+            return Ok(());
+        }
+        self.commit_damage_event(source, Target::Player(player), amount)
+    }
+
+    fn advance_combat_damage_replacement_pipeline(
+        &mut self,
+        mut pending: PendingDamageReplacementChoice,
+    ) -> Result<Option<PendingDamageReplacementChoice>, RulesError> {
+        loop {
+            if pending.amount == 0 {
+                return Ok(None);
+            }
+            let candidates = self.combat_damage_replacement_candidates(
+                pending.source,
+                pending.affected_player,
+                pending.amount,
+                &pending.used,
+            )?;
+            match candidates.as_slice() {
+                [] => {
+                    self.commit_combat_player_damage_after_replacements(
+                        pending.source,
+                        pending.affected_player,
+                        pending.amount,
+                    )?;
+                    return Ok(None);
+                }
+                [replacement] => {
+                    self.apply_combat_damage_replacement(&mut pending, *replacement)?;
+                }
+                _ => return Ok(Some(pending)),
+            }
+        }
+    }
+
+    fn suspend_combat_damage_replacement_if_needed(
+        &mut self,
+        source: ObjectId,
+        player: PlayerId,
+        amount: i32,
+        remaining_player_damage: &[(ObjectId, PlayerId, i32)],
+    ) -> Result<bool, RulesError> {
+        if amount <= 0 || self.combat_damage_prevented_by(source).is_some() {
+            return Ok(false);
+        }
+        let source_incarnation = self.object(source)?.incarnation;
+        let candidates = self.combat_damage_replacement_candidates(source, player, amount, &[])?;
+        if candidates.len() < 2 {
+            return Ok(false);
+        }
+        self.open_combat_damage_replacement_decision(
+            PendingDamageReplacementChoice {
+                source,
+                source_incarnation,
+                controller: self.controller_of(source)?,
+                affected_player: player,
+                original_target: Target::Player(player),
+                target: Target::Player(player),
+                target_incarnation: None,
+                amount,
+                used: Vec::new(),
+                deferred_packets: Vec::new(),
+            },
+            remaining_player_damage.to_vec(),
+        )?;
+        Ok(true)
     }
 
     /// Applies the source-bound combat replacement shared by cards whose
@@ -22019,9 +22423,39 @@ impl Game {
         for (source, permanent, amount) in permanent_damage {
             self.deal_combat_damage_to_permanent(source, permanent, amount)?;
         }
-        for (source, player, amount) in player_damage {
+        if self.resolve_combat_player_damage_queue(player_damage)? {
+            return Ok(());
+        }
+        self.finish_combat_damage_batch()
+    }
+
+    /// Resolves the already-assigned combat player-damage packets in their
+    /// deterministic assignment order. A concurrent replacement choice stops
+    /// at one packet and captures the suffix in its continuation; it never
+    /// creates a fresh combat state or exposes an ordinary priority window.
+    fn resolve_combat_player_damage_queue(
+        &mut self,
+        mut player_damage: Vec<(ObjectId, PlayerId, i32)>,
+    ) -> Result<bool, RulesError> {
+        while !player_damage.is_empty() {
+            let (source, player, amount) = player_damage.remove(0);
+            if self.suspend_combat_damage_replacement_if_needed(
+                source,
+                player,
+                amount,
+                &player_damage,
+            )? {
+                return Ok(true);
+            }
             self.deal_combat_damage_to_player(source, player, amount)?;
         }
+        Ok(false)
+    }
+
+    /// Performs the one shared post-assignment boundary after every combat
+    /// damage packet has committed. A suspended replacement continuation
+    /// calls this only after it has resumed every retained player packet.
+    fn finish_combat_damage_batch(&mut self) -> Result<(), RulesError> {
         self.check_state_based_actions()?;
         self.flush_pending_damage_triggers();
         self.flush_pending_life_gain_triggers();
@@ -28613,6 +29047,64 @@ impl Game {
                 {
                     return Err(RulesError::IllegalAction(
                         "damage replacement decision violates its prospective-event boundary",
+                    ));
+                }
+            }
+            DecisionContinuation::CombatDamageReplacement {
+                source,
+                source_incarnation,
+                player,
+                amount,
+                used,
+                remaining_player_damage,
+            } => {
+                let choices =
+                    self.combat_damage_replacement_candidates(*source, *player, *amount, used)?;
+                let expected_options = choices
+                    .iter()
+                    .copied()
+                    .map(|choice| DecisionOption::Replacement(ReplacementChoice::Damage(choice)))
+                    .collect::<Vec<_>>();
+                let used_are_unique = !used
+                    .iter()
+                    .enumerate()
+                    .any(|(index, choice)| used[index + 1..].contains(choice));
+                let suffix_is_valid =
+                    remaining_player_damage
+                        .iter()
+                        .all(|(source, player, amount)| {
+                            source.0 != 0
+                                && player.0 < self.players.len()
+                                && !self.players[player.0].lost
+                                && *amount > 0
+                                && self.zone_of(*source) == Some(Zone::Battlefield)
+                        });
+                let combat_is_live = self.combat.as_ref().is_some_and(|combat| {
+                    combat.attackers_declared
+                        && combat.blockers_declared
+                        && combat.defending_player == Some(*player)
+                });
+                if decision.kind != DecisionKind::Replacement
+                    || decision.visibility != DecisionVisibility::Public
+                    || decision.player != *player
+                    || !matches!(
+                        self.step,
+                        Step::FirstStrikeCombatDamage | Step::CombatDamage
+                    )
+                    || !combat_is_live
+                    || self.zone_of(*source) != Some(Zone::Battlefield)
+                    || self.object(*source)?.incarnation != *source_incarnation
+                    || *amount <= 0
+                    || self.players[player.0].lost
+                    || !used_are_unique
+                    || !suffix_is_valid
+                    || choices.len() < 2
+                    || decision.options != expected_options
+                    || decision.min_selections != 1
+                    || decision.max_selections != 1
+                {
+                    return Err(RulesError::IllegalAction(
+                        "combat damage replacement decision violates its prospective-event boundary",
                     ));
                 }
             }

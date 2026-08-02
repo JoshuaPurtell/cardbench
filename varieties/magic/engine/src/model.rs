@@ -826,6 +826,15 @@ pub enum DamageReplacementChoice {
         source: ObjectId,
         source_incarnation: u64,
     },
+    /// Replace this exact live source's combat damage to a player with that
+    /// player's library movement and +1/+1 counters on the source. Keeping
+    /// this as a prospective-event identity (rather than an eager combat
+    /// shortcut) lets the affected player order it against other applicable
+    /// replacements.
+    CombatDamageMillAndCounters {
+        source: ObjectId,
+        source_incarnation: u64,
+    },
     /// Redirect all of the bounded prospective event from `protected` to the
     /// already-selected destination.
     Redirect {
@@ -3856,6 +3865,19 @@ pub enum DecisionContinuation {
         /// resolution order after the currently selected packet. They remain
         /// within the same no-priority spell-resolution boundary.
         deferred_packets: Vec<DamageReplacementPacket>,
+    },
+    /// Resumes one combat player-damage packet after the affected player
+    /// selects an applicable replacement. The remaining already-assigned
+    /// combat player packets are retained in declaration/assignment order,
+    /// so opening a no-priority choice cannot recreate combat or discard a
+    /// later legal assignment.
+    CombatDamageReplacement {
+        source: ObjectId,
+        source_incarnation: u64,
+        player: PlayerId,
+        amount: i32,
+        used: Vec<DamageReplacementChoice>,
+        remaining_player_damage: Vec<(ObjectId, PlayerId, i32)>,
     },
     /// A counterspell remains on top of the stack while the lower target
     /// spell's controller chooses whether to pay.  Both stack identities are

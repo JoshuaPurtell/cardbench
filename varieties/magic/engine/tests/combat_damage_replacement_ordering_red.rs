@@ -4,8 +4,9 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardDefinition, CardType, DamageReplacementEffect, DamageReplacementEffectBinding, Game,
-    ManaCost, PlayerId, Step, Zone,
+    CardDefinition, CardType, CounterKind, DamageReplacementChoice, DamageReplacementEffect,
+    DamageReplacementEffectBinding, DecisionSelection, Game, GameEvent, ManaCost, PlayerId,
+    ReplacementChoice, Step, Zone,
 };
 
 const REPLACER: &str = "COMBAT-REPLACEMENT-SOURCE";
@@ -102,7 +103,7 @@ fn affected_player_orders_source_combat_and_global_damage_replacements() {
     // First-strike damage has no assignments. The following two passes begin
     // ordinary combat damage, where both replacements apply to the same
     // prospective four-damage player packet.
-    for _ in 0..4 {
+    for _ in 0..2 {
         let priority = game.priority;
         game.pass_priority(priority)
             .expect("combat advances to the replacement boundary");
@@ -131,6 +132,63 @@ fn affected_player_orders_source_combat_and_global_damage_replacements() {
         4,
         "neither replacement commits before the affected player chooses an order",
     );
+    let halve = decision
+        .replacement_candidates
+        .iter()
+        .find_map(|choice| match choice {
+            ReplacementChoice::Damage(choice @ DamageReplacementChoice::HalveDamage { .. }) => {
+                Some(choice)
+            }
+            ReplacementChoice::Quantity { .. }
+            | ReplacementChoice::Damage(DamageReplacementChoice::CombatDamageMillAndCounters {
+                ..
+            })
+            | ReplacementChoice::Damage(DamageReplacementChoice::Redirect { .. })
+            | ReplacementChoice::Damage(DamageReplacementChoice::AttachedRedirect { .. })
+            | ReplacementChoice::Damage(DamageReplacementChoice::TargetedShield { .. })
+            | ReplacementChoice::Damage(DamageReplacementChoice::PermanentShield { .. })
+            | ReplacementChoice::Damage(DamageReplacementChoice::SourceColorPrevention {
+                ..
+            }) => None,
+        })
+        .expect("the affected player can choose the global halving replacement");
+    game.submit_decision(
+        affected_player,
+        decision.id,
+        DecisionSelection::Replacements(vec![ReplacementChoice::Damage(*halve)]),
+    )
+    .expect("affected player chooses to halve before replacing combat damage");
+    assert_eq!(
+        game.player(affected_player)
+            .expect("affected player remains live")
+            .library
+            .len(),
+        2,
+        "the re-evaluated source replacement mills the halved two-damage packet",
+    );
+    assert!(game.event_log.iter().any(|event| {
+        matches!(event, GameEvent::CounterPlaced {
+            source,
+            card,
+            counter: CounterKind::PlusOnePlusOne,
+            amount: 2,
+        } if *source == attacker && *card == attacker)
+    }));
+    assert!(game.event_log.iter().any(|event| {
+        matches!(
+            event,
+            GameEvent::DamageReplacementApplied {
+                replacement: DamageReplacementChoice::HalveDamage { .. },
+                ..
+            }
+        )
+    }));
+    assert!(game.event_log.iter().any(|event| {
+        matches!(event, GameEvent::DamageReplacementApplied {
+            replacement: DamageReplacementChoice::CombatDamageMillAndCounters { source, .. },
+            ..
+        } if *source == attacker)
+    }));
     game.validate_invariants()
         .expect("the suspended combat replacement state is auditable");
 }
