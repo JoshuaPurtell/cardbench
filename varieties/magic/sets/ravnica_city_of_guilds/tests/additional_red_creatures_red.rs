@@ -1,7 +1,8 @@
 //! Red discovery probes for the next easy creature/ETB/static slice.
 
 use cardbench_magic_engine::{
-    CardType, CastRequest, Color, Game, GameEvent, Keyword, ObjectId, PlayerId, Zone,
+    CardType, CastRequest, Color, DecisionSelection, Game, GameEvent, Keyword, ObjectId, PlayerId,
+    Target, Zone,
 };
 use cardbench_magic_rav::{RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions};
 use cardbench_magic_rav::{
@@ -108,6 +109,17 @@ fn sparkmage_apprentice_etb_targets_opponent_and_deals_one() {
     .expect("cast Sparkmage");
     game.pass_priority(PlayerId(0)).expect("cast priority pass");
     game.pass_priority(PlayerId(1)).expect("creature resolves");
+    let decision = game
+        .view_for_player(PlayerId(0))
+        .expect("Sparkmage controller view")
+        .pending_decision
+        .expect("Sparkmage ETB target decision");
+    game.submit_decision(
+        PlayerId(0),
+        decision.id,
+        DecisionSelection::Targets(vec![Target::Player(PlayerId(1))]),
+    )
+    .expect("Sparkmage chooses opponent target");
     assert!(game.event_log.iter().any(|event| matches!(
         event,
         GameEvent::TriggeredAbilityStacked { source, ability, .. }
@@ -145,6 +157,17 @@ fn hunted_dragon_etb_creates_three_first_strike_knights_for_one_targeted_opponen
     .expect("cast Hunted Dragon");
     game.pass_priority(PlayerId(0)).expect("cast priority pass");
     game.pass_priority(PlayerId(1)).expect("dragon resolves");
+    let decision = game
+        .view_for_player(PlayerId(0))
+        .expect("Hunted Dragon controller view")
+        .pending_decision
+        .expect("Hunted Dragon opponent target decision");
+    game.submit_decision(
+        PlayerId(0),
+        decision.id,
+        DecisionSelection::Targets(vec![Target::Player(PlayerId(1))]),
+    )
+    .expect("Hunted Dragon chooses one opponent");
     assert_eq!(
         game.stack.last().map(|object| object.targets.clone()),
         Some(vec![cardbench_magic_engine::Target::Player(PlayerId(1))])
