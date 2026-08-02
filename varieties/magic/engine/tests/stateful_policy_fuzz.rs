@@ -1035,6 +1035,14 @@ fn seed_six_preserves_combat_block_history_exact_incarnations() {
 }
 
 #[test]
+fn seed_max_preserves_live_combat_participant_provenance() {
+    // Red discovery: after the ceased-token history fix lets this trace
+    // progress, a later DeclareBlockers transition dereferences a token that
+    // has already left combat and reports `unknown card 167`.
+    let _ = run_trace(u64::MAX);
+}
+
+#[test]
 fn stateful_policy_transcripts_replay_identically_for_the_same_seed() {
     for seed in [0, 1, 0xC0FF_EE12_3456_7890, u64::MAX] {
         let first = run_trace(seed);
