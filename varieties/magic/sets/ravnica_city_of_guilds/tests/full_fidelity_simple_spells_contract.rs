@@ -185,6 +185,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-CHANT-OF-VITU-GHAZI",
             "RAV-CENTAUR-SAFEGUARD",
             "RAV-CYCLOPEAN-SNARE",
+            "RAV-TERRARION",
             "RAV-GRIFTERS-BLADE",
             "RAV-FESTIVAL-OF-THE-GUILDPACT",
             "RAV-FLICKERFORM",
