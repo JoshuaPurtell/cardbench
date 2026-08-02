@@ -1353,6 +1353,38 @@ impl Game {
         self.objects.get(&card).ok_or(RulesError::UnknownCard(card))
     }
 
+    /// Returns the rules-derived controller of an object.
+    ///
+    /// `CardObject::controller` is the base controller. Only a live
+    /// battlefield permanent can have that value replaced by layer-two
+    /// continuous effects, which are applied in timestamp order. Zone vectors
+    /// stay owner-indexed throughout; controlling a permanent never performs
+    /// a hidden zone move.
+    pub fn controller_of(&self, card: ObjectId) -> Result<PlayerId, RulesError> {
+        let object = self.object(card)?;
+        let mut controller = object.controller;
+        if self.zone_of(card) != Some(Zone::Battlefield) {
+            return Ok(controller);
+        }
+        let mut effects = self
+            .continuous_effects
+            .iter()
+            .filter(|effect| {
+                effect.target == card
+                    && self.effect_is_active(effect)
+                    && matches!(effect.change, ContinuousChange::ChangeController(_))
+            })
+            .collect::<Vec<_>>();
+        effects.sort_by_key(|effect| effect.timestamp);
+        for effect in effects {
+            if let ContinuousChange::ChangeController(next) = effect.change {
+                controller = next;
+            }
+        }
+        self.player(controller)?;
+        Ok(controller)
+    }
+
     /// Returns immutable typed provenance for one unresolved linked-exile
     /// group. The group disappears as part of consuming its delayed action.
     #[must_use]
@@ -1484,6 +1516,7 @@ impl Game {
                 attached_to: None,
                 attached_to_incarnation: None,
                 entered_turn: self.turn,
+                controller_changed_turn: self.turn,
                 token: None,
                 copied_permanent: None,
             },
@@ -1671,6 +1704,7 @@ impl Game {
             .get_mut(&card)
             .ok_or(RulesError::UnknownCard(card))?;
         object.entered_turn = entered_turn;
+        object.controller_changed_turn = entered_turn;
         self.validate_invariants()
     }
 
@@ -1702,7 +1736,7 @@ impl Game {
     ) -> Result<(), RulesError> {
         self.require_zone(land, Zone::Battlefield)?;
         let object = self.object(land)?;
-        if object.controller != player || object.tapped {
+        if self.controller_of(land)? != player || object.tapped {
             return Err(RulesError::IllegalAction(
                 "mana ability requires an untapped land you control",
             ));
@@ -1843,7 +1877,7 @@ impl Game {
     ) -> Result<(), RulesError> {
         self.require_zone(activation.source, Zone::Battlefield)?;
         let source = self.object(activation.source)?.clone();
-        if source.controller != player {
+        if self.controller_of(activation.source)? != player {
             return Err(RulesError::IllegalAction(
                 "activated ability source must be controlled by its activator",
             ));
@@ -1910,7 +1944,7 @@ impl Game {
             }
             self.require_zone(*permanent, Zone::Battlefield)?;
             let object = self.object(*permanent)?;
-            if object.controller != player {
+            if self.controller_of(*permanent)? != player {
                 return Err(RulesError::IllegalAction(
                     "an activated ability can tap only a controlled additional creature",
                 ));
@@ -1946,8 +1980,7 @@ impl Game {
                 ));
             }
             self.require_zone(*permanent, Zone::Battlefield)?;
-            let object = self.object(*permanent)?;
-            if object.controller != player {
+            if self.controller_of(*permanent)? != player {
                 return Err(RulesError::IllegalAction(
                     "an activated ability can sacrifice only a controlled permanent",
                 ));
@@ -2026,7 +2059,7 @@ impl Game {
             }
             let characteristics = self.characteristics(activation.source)?;
             if characteristics.card_types.contains(&CardType::Creature)
-                && source.entered_turn >= self.turn
+                && source.controller_changed_turn >= self.turn
                 && !characteristics.keywords.contains(&Keyword::Haste)
             {
                 return Err(RulesError::IllegalAction(
@@ -2129,7 +2162,7 @@ impl Game {
     ) -> Result<(), RulesError> {
         self.require_zone(activation.source, Zone::Battlefield)?;
         let source = self.object(activation.source)?.clone();
-        if source.controller != player {
+        if self.controller_of(activation.source)? != player {
             return Err(RulesError::IllegalAction(
                 "mana ability source must be controlled by its activator",
             ));
@@ -2231,7 +2264,7 @@ impl Game {
             }
             let characteristics = self.characteristics(activation.source)?;
             if characteristics.card_types.contains(&CardType::Creature)
-                && source.entered_turn >= self.turn
+                && source.controller_changed_turn >= self.turn
                 && !characteristics.keywords.contains(&Keyword::Haste)
             {
                 return Err(RulesError::IllegalAction(
@@ -2381,19 +2414,22 @@ impl Game {
     }
 
     fn player_controls_basic_land_type(&self, player: PlayerId, land_type: BasicLandType) -> bool {
-        self.players[player.0].battlefield.iter().any(|card| {
-            self.basic_land_type(*card)
-                .is_ok_and(|registered| registered == Some(land_type))
+        self.all_battlefield_cards().into_iter().any(|card| {
+            self.controller_of(card) == Ok(player)
+                && self
+                    .basic_land_type(card)
+                    .is_ok_and(|registered| registered == Some(land_type))
         })
     }
 
     fn controller_saprolings_cannot_block(&self, player: PlayerId) -> bool {
-        self.players[player.0].battlefield.iter().any(|source| {
-            self.characteristics(*source).is_ok_and(|characteristics| {
-                characteristics
-                    .keywords
-                    .contains(&Keyword::SaprolingsCannotBlock)
-            })
+        self.all_battlefield_cards().into_iter().any(|source| {
+            self.controller_of(source) == Ok(player)
+                && self.characteristics(source).is_ok_and(|characteristics| {
+                    characteristics
+                        .keywords
+                        .contains(&Keyword::SaprolingsCannotBlock)
+                })
         })
     }
 
@@ -2472,10 +2508,11 @@ impl Game {
                 candidates,
             });
         }
-        let own_battlefield = state
-            .battlefield
-            .iter()
-            .map(|card| self.card_view(*card))
+        let own_battlefield = self
+            .all_battlefield_cards()
+            .into_iter()
+            .filter(|card| self.controller_of(*card) == Ok(player))
+            .map(|card| self.card_view(card))
             .collect::<Result<Vec<_>, _>>()?;
         let draw_replacement_pending = self.pending_draw_replacement == Some(player);
         let dredge_candidates = if draw_replacement_pending {
@@ -2628,23 +2665,24 @@ impl Game {
             .transpose()?;
         let mut opponent_life = Vec::new();
         let mut opponent_battlefield = Vec::new();
-        for opponent in self
-            .players
-            .iter()
+        for opponent in self.players.iter().filter(|candidate| {
             // A departed seat is not a current opponent. In particular, a
             // policy must not be handed a life-total target that the rules
             // layer will reject as eliminated.
-            .filter(|candidate| candidate.id != player && !candidate.lost)
-        {
+            candidate.id != player && !candidate.lost
+        }) {
             opponent_life.push((opponent.id, opponent.life));
-            opponent_battlefield.extend(
-                opponent
-                    .battlefield
-                    .iter()
-                    .map(|card| self.card_view(*card))
-                    .collect::<Result<Vec<_>, _>>()?,
-            );
         }
+        opponent_battlefield.extend(
+            self.all_battlefield_cards()
+                .into_iter()
+                .filter(|card| {
+                    self.controller_of(*card)
+                        .is_ok_and(|controller| controller != player)
+                })
+                .map(|card| self.card_view(card))
+                .collect::<Result<Vec<_>, _>>()?,
+        );
         let (combat_attackers, attackers_declared, blockers_declared) =
             if let Some(combat) = &self.combat {
                 (
@@ -2896,7 +2934,8 @@ impl Game {
                         .keywords
                         .retain(|candidate| candidate != keyword);
                 }
-                ContinuousChange::CannotBlockSource(_)
+                ContinuousChange::ChangeController(_)
+                | ContinuousChange::CannotBlockSource(_)
                 | ContinuousChange::AddDamageShield(_)
                 | ContinuousChange::SuppressNonManaActivatedAbilities => {}
                 ContinuousChange::ModifyPowerToughness { power, toughness } => {
@@ -2951,7 +2990,7 @@ impl Game {
                 if source != card {
                     return Ok(());
                 }
-                let controller = self.object(card)?.controller;
+                let controller = self.controller_of(card)?;
                 let count =
                     i32::try_from(self.controlled_creature_count(controller)).map_err(|_| {
                         RulesError::IllegalAction(
@@ -2964,7 +3003,7 @@ impl Game {
             }
             ContinuousChange::OtherControlledCreaturesModifyPowerToughness { power, toughness } => {
                 if source == card
-                    || self.object(source)?.controller != self.object(card)?.controller
+                    || self.controller_of(source)? != self.controller_of(card)?
                     || !characteristics.card_types.contains(&CardType::Creature)
                 {
                     return Ok(());
@@ -2979,7 +3018,7 @@ impl Game {
             }
             ContinuousChange::OtherControlledCreaturesAddKeyword(keyword) => {
                 if source == card
-                    || self.object(source)?.controller != self.object(card)?.controller
+                    || self.controller_of(source)? != self.controller_of(card)?
                     || !characteristics.card_types.contains(&CardType::Creature)
                 {
                     return Ok(());
@@ -2990,7 +3029,7 @@ impl Game {
                 Ok(())
             }
             ContinuousChange::ControlledCreaturesAddKeywordIfSourceEnchanted(keyword) => {
-                if self.object(source)?.controller != self.object(card)?.controller
+                if self.controller_of(source)? != self.controller_of(card)?
                     || !characteristics.card_types.contains(&CardType::Creature)
                     || !self.source_has_live_aura_attachment(source)?
                 {
@@ -3034,26 +3073,24 @@ impl Game {
     }
 
     fn controlled_creature_count(&self, controller: PlayerId) -> usize {
-        self.players.get(controller.0).map_or(0, |player| {
-            player
-                .battlefield
-                .iter()
-                .filter(|card| {
-                    self.objects.get(card).is_some_and(|object| {
-                        object.token.as_ref().map_or_else(
-                            || {
-                                self.effective_definition_id(**card)
-                                    .ok()
-                                    .flatten()
-                                    .and_then(|definition| self.catalog.get(definition))
-                                    .is_some_and(CardDefinition::is_creature)
-                            },
-                            |token| token.card_types.contains(&CardType::Creature),
-                        )
-                    })
+        self.all_battlefield_cards()
+            .into_iter()
+            .filter(|card| self.controller_of(*card) == Ok(controller))
+            .filter(|card| {
+                self.objects.get(card).is_some_and(|object| {
+                    object.token.as_ref().map_or_else(
+                        || {
+                            self.effective_definition_id(*card)
+                                .ok()
+                                .flatten()
+                                .and_then(|definition| self.catalog.get(definition))
+                                .is_some_and(CardDefinition::is_creature)
+                        },
+                        |token| token.card_types.contains(&CardType::Creature),
+                    )
                 })
-                .count()
-        })
+            })
+            .count()
     }
 
     pub fn add_continuous_effect(
@@ -3100,6 +3137,13 @@ impl Game {
                 "a static continuous change cannot be installed dynamically",
             ));
         }
+        if let ContinuousChange::ChangeController(controller) = &change {
+            if self.player(*controller)?.lost {
+                return Err(RulesError::IllegalAction(
+                    "a departed player cannot control a permanent",
+                ));
+            }
+        }
         match duration {
             Duration::Permanent
                 if self.zone_of(source) != Some(Zone::Battlefield)
@@ -3122,8 +3166,13 @@ impl Game {
             _ => {}
         }
         let layer = change.layer();
+        let control_destination = match &change {
+            ContinuousChange::ChangeController(controller) => Some(*controller),
+            _ => None,
+        };
         let source_incarnation = self.object(source)?.incarnation;
         let target_incarnation = self.object(target)?.incarnation;
+        let controller_before = self.controller_of(target)?;
         if let ContinuousChange::AddDamageShield(amount) = &change {
             self.objects
                 .get_mut(&target)
@@ -3145,6 +3194,20 @@ impl Game {
             target,
             layer,
         });
+        if let Some(controller) = control_destination {
+            if controller_before != controller {
+                self.objects
+                    .get_mut(&target)
+                    .ok_or(RulesError::UnknownCard(target))?
+                    .controller_changed_turn = self.turn;
+                self.record_event(GameEvent::ControllerChanged {
+                    source,
+                    target,
+                    from: controller_before,
+                    to: controller,
+                });
+            }
+        }
         Ok(())
     }
 
@@ -3265,7 +3328,7 @@ impl Game {
             ));
         }
         let source_object = self.object(source)?.clone();
-        if source_object.controller != controller {
+        if self.controller_of(source)? != controller {
             return Err(RulesError::IllegalAction(
                 "linked exile source controller does not match resolving ability",
             ));
@@ -3410,7 +3473,7 @@ impl Game {
             returned.push(aura.object);
             if let Some(primary) = returned_primary {
                 if let Some((requirement, changes)) = self.aura_attachment_spec(aura.object)? {
-                    let controller = self.object(aura.object)?.controller;
+                    let controller = self.controller_of(aura.object)?;
                     if self.target_matches_for_source(
                         controller,
                         aura.object,
@@ -3516,7 +3579,7 @@ impl Game {
         }
         for source in self.all_battlefield_cards() {
             let object = self.object(source)?;
-            if object.controller != defending_player {
+            if self.controller_of(source)? != defending_player {
                 continue;
             }
             let Some(definition_id) = self.effective_definition_id(source)? else {
@@ -3581,9 +3644,9 @@ impl Game {
             let object = self.object(*attacker)?;
             let characteristics = self.characteristics(*attacker)?;
             let has_haste = characteristics.keywords.contains(&Keyword::Haste);
-            if object.controller != player
+            if self.controller_of(*attacker)? != player
                 || object.tapped
-                || (object.entered_turn >= self.turn && !has_haste)
+                || (object.controller_changed_turn >= self.turn && !has_haste)
                 || !characteristics.card_types.contains(&CardType::Creature)
                 || characteristics.keywords.contains(&Keyword::Defender)
                 || characteristics
@@ -3721,7 +3784,7 @@ impl Game {
             self.require_zone(assignment.blocker, Zone::Battlefield)?;
             let object = self.object(assignment.blocker)?;
             let characteristics = self.characteristics(assignment.blocker)?;
-            if object.controller != player
+            if self.controller_of(assignment.blocker)? != player
                 || object.tapped
                 || !characteristics.card_types.contains(&CardType::Creature)
                 || self.target_cannot_block_attacker(assignment.blocker, assignment.attacker)
@@ -4992,7 +5055,8 @@ impl Game {
                             self.object_has_incarnation(target, incarnation)
                         })
                         && self.target_matches_for_source(
-                            self.objects[&aura].controller,
+                            self.controller_of(aura)
+                                .unwrap_or(self.objects[&aura].controller),
                             aura,
                             Target::Permanent(target),
                             requirement,
@@ -5426,8 +5490,8 @@ impl Game {
                     .all_battlefield_cards()
                     .into_iter()
                     .filter(|card| {
-                        self.object(*card)
-                            .is_ok_and(|object| object.controller == choice.chooser)
+                        self.controller_of(*card)
+                            .is_ok_and(|controller| controller == choice.chooser)
                             && self.characteristics(*card).is_ok_and(|characteristics| {
                                 characteristics.card_types.contains(&CardType::Creature)
                             })
@@ -5714,15 +5778,14 @@ impl Game {
                     if object.id != *card {
                         return Err(RulesError::IllegalAction("object id key mismatch"));
                     }
-                    if (zone == Zone::Battlefield && object.controller != player.id)
-                        || (zone != Zone::Battlefield && object.owner != player.id)
-                    {
+                    if object.owner != player.id {
                         return Err(RulesError::IllegalAction(
                             "card is in the wrong player's zone",
                         ));
                     }
                     if object.incarnation == 0
                         || object.entered_turn > self.turn
+                        || object.controller_changed_turn > self.turn
                         || object.damage < 0
                         || object.damage_shield < 0
                         || (zone != Zone::Battlefield && !object.counters.is_empty())
@@ -5794,9 +5857,9 @@ impl Game {
                             ));
                         }
                     }
-                    if zone != Zone::Battlefield && object.controller != object.owner {
+                    if object.controller != object.owner {
                         return Err(RulesError::IllegalAction(
-                            "a nonbattlefield card retained a non-owner controller",
+                            "a card object retained a non-owner base controller",
                         ));
                     }
                 }
@@ -5856,7 +5919,7 @@ impl Game {
             }
             if is_ability
                 && self.zone_of(stack_object.card) == Some(Zone::Battlefield)
-                && object.controller != stack_object.controller
+                && self.controller_of(stack_object.card)? != stack_object.controller
             {
                 return Err(RulesError::IllegalAction(
                     "a battlefield ability source must remain controlled by its activator",
@@ -6290,6 +6353,18 @@ impl Game {
                     "a static continuous change appeared in the timestamped effect list",
                 ));
             }
+            if let ContinuousChange::ChangeController(controller) = effect.change {
+                if self.players.get(controller.0).is_none() || self.players[controller.0].lost {
+                    return Err(RulesError::IllegalAction(
+                        "control effect names an invalid or departed controller",
+                    ));
+                }
+                if self.zone_of(effect.target) != Some(Zone::Battlefield) {
+                    return Err(RulesError::IllegalAction(
+                        "control effect target is not a live battlefield permanent",
+                    ));
+                }
+            }
             if effect.timestamp == 0
                 || !effect_timestamps.insert(effect.timestamp)
                 || effect.timestamp >= self.next_timestamp
@@ -6384,7 +6459,7 @@ impl Game {
             if self.zone_of(target) != Some(Zone::Battlefield)
                 || !self.object_has_incarnation(target, target_incarnation)
                 || !self.target_matches_for_source(
-                    object.controller,
+                    self.controller_of(aura)?,
                     aura,
                     Target::Permanent(target),
                     *requirement,
@@ -6546,7 +6621,7 @@ impl Game {
                 }
                 if self.zone_of(*attacker) == Some(Zone::Battlefield) {
                     let object = self.object(*attacker)?;
-                    if object.entered_turn >= self.turn
+                    if object.controller_changed_turn >= self.turn
                         && !combat.hasty_attackers.contains(attacker)
                     {
                         return Err(RulesError::IllegalAction(
@@ -6712,15 +6787,14 @@ impl Game {
                 "replacement quantities must be positive",
             ));
         }
-        let applicable = self.players[affected_player.0]
-            .battlefield
-            .iter()
-            .copied()
+        let applicable = self
+            .all_battlefield_cards()
+            .into_iter()
+            .filter(|source| self.controller_of(*source) == Ok(affected_player))
             .flat_map(|source| {
                 let Some(definition) = self
                     .objects
                     .get(&source)
-                    .filter(|object| object.controller == affected_player)
                     .and_then(CardObject::effective_definition)
                 else {
                     return Vec::new();
@@ -6757,7 +6831,7 @@ impl Game {
             .into_iter()
             .filter_map(|source| {
                 let object = self.object(source).ok()?;
-                if object.controller != player {
+                if self.controller_of(source) != Ok(player) {
                     return None;
                 }
                 let source_definition = self.effective_definition_id(source).ok()??;
@@ -6902,7 +6976,7 @@ impl Game {
             }
             self.require_zone(payment.creature, Zone::Battlefield)?;
             let creature = self.object(payment.creature)?;
-            if creature.controller != player || creature.tapped {
+            if self.controller_of(payment.creature)? != player || creature.tapped {
                 return Err(RulesError::IllegalAction(
                     "convoke requires an untapped creature you control",
                 ));
@@ -7065,7 +7139,7 @@ impl Game {
                         ));
                     }
                     if self.zone_of(*card) != Some(Zone::Battlefield)
-                        || self.object(*card)?.controller != player
+                        || self.controller_of(*card)? != player
                         || !self
                             .characteristics(*card)?
                             .card_types
@@ -7206,6 +7280,7 @@ impl Game {
                 Effect::CreateToken { .. }
                 | Effect::CreateTokenForTargetPlayer { .. }
                 | Effect::AttachSourceToTarget { .. }
+                | Effect::GainControlTargetUntilEndOfTurn
                 | Effect::AddPlusOneCounterToSource
                 | Effect::LoseLifeEachOpponentEqualToControlledCreatures
                 | Effect::DiscardOneCardEachPlayer
@@ -7943,7 +8018,12 @@ impl Game {
         controller: PlayerId,
         spell: ObjectId,
     ) -> Result<(), RulesError> {
-        for source in self.players[controller.0].battlefield.clone() {
+        let sources = self
+            .all_battlefield_cards()
+            .into_iter()
+            .filter(|source| self.controller_of(*source) == Ok(controller))
+            .collect::<Vec<_>>();
+        for source in sources {
             let Some(definition) = self.effective_definition_id(source)? else {
                 continue;
             };
@@ -7989,8 +8069,10 @@ impl Game {
         let sources = self.all_battlefield_cards();
         for source in sources {
             let (definition, controller) = {
-                let object = self.object(source)?;
-                (self.effective_definition_id(source)?, object.controller)
+                (
+                    self.effective_definition_id(source)?,
+                    self.controller_of(source)?,
+                )
             };
             let Some(definition) = definition else {
                 continue;
@@ -8255,12 +8337,16 @@ impl Game {
     /// preserves the mandatory trigger window at the state-machine boundary.
     fn enqueue_upkeep_triggers(&mut self) -> Result<(), RulesError> {
         let controller = self.active_player;
-        let sources = self.players[controller.0].battlefield.clone();
+        let sources = self
+            .all_battlefield_cards()
+            .into_iter()
+            .filter(|source| self.controller_of(*source) == Ok(controller))
+            .collect::<Vec<_>>();
         for source in sources {
             let (source_controller, source_is_token, source_incarnation, source_colors) = {
                 let object = self.object(source)?;
                 (
-                    object.controller,
+                    self.controller_of(source)?,
                     object.token.is_some(),
                     object.incarnation,
                     self.characteristics(source)?.colors,
@@ -8315,8 +8401,8 @@ impl Game {
                 .copied()
                 .filter(|candidate| self.zone_of(*candidate) == Some(Zone::Battlefield))
                 .filter(|candidate| {
-                    self.object(*candidate)
-                        .is_ok_and(|object| object.controller != controller)
+                    self.controller_of(*candidate)
+                        .is_ok_and(|target_controller| target_controller != controller)
                 })
                 .map(Target::Permanent)
                 .find(|target| {
@@ -8669,7 +8755,7 @@ impl Game {
                     game.finish_trigger_effect_object_choice(source, ability, |game| {
                         if let Some(permanent) = selected {
                             if game.zone_of(permanent) != Some(Zone::Battlefield)
-                                || game.object(permanent)?.controller != player
+                                || game.controller_of(permanent)? != player
                                 || !game
                                     .characteristics(permanent)?
                                     .card_types
@@ -8704,7 +8790,7 @@ impl Game {
             "trigger effect-object choice has no live stack ability",
         ))?;
         if top.card != source
-            || top.controller != self.object(source)?.controller
+            || top.controller != self.controller_of(source)?
             || top.ability_id != Some(ability)
         {
             return Err(RulesError::IllegalAction(
@@ -8773,8 +8859,8 @@ impl Game {
                 .all_battlefield_cards()
                 .into_iter()
                 .filter(|card| {
-                    self.object(*card)
-                        .is_ok_and(|object| object.controller == chooser)
+                    self.controller_of(*card)
+                        .is_ok_and(|controller| controller == chooser)
                         && self.characteristics(*card).is_ok_and(|characteristics| {
                             characteristics.card_types.contains(&CardType::Creature)
                         })
@@ -8817,7 +8903,7 @@ impl Game {
             return Ok(());
         }
         let definition = self.card_definition(source)?.id;
-        let controller = self.object(source)?.controller;
+        let controller = self.controller_of(source)?;
         let source_colors = self.characteristics(source)?.colors;
         let triggers = self
             .triggered_abilities
@@ -8855,7 +8941,7 @@ impl Game {
             return Ok(());
         }
         let definition = self.card_definition(source)?.id;
-        let controller = self.object(source)?.controller;
+        let controller = self.controller_of(source)?;
         let source_colors = self.characteristics(source)?.colors;
         let triggers = self
             .triggered_abilities
@@ -8899,7 +8985,7 @@ impl Game {
             return Ok(());
         }
         let definition = self.card_definition(recipient)?.id;
-        let controller = self.object(recipient)?.controller;
+        let controller = self.controller_of(recipient)?;
         let source_colors = self.characteristics(recipient)?.colors;
         let triggers = self
             .triggered_abilities
@@ -8939,11 +9025,8 @@ impl Game {
         source_incarnation: u64,
         source_colors: &BTreeSet<Color>,
         definition: &'static str,
+        controller: PlayerId,
     ) {
-        let controller = self
-            .object(source)
-            .expect("dies source remains available for trigger provenance")
-            .controller;
         self.enqueue_triggers_for_source_at_incarnation(
             source,
             source_incarnation,
@@ -9012,10 +9095,10 @@ impl Game {
             .filter_map(|source| {
                 let definition = self.card_definition(source).ok()?.id;
                 let object = self.object(source).ok()?;
-                (object.controller == life_gain_player).then_some((
+                (self.controller_of(source).ok()? == life_gain_player).then_some((
                     source,
                     definition,
-                    object.controller,
+                    self.controller_of(source).ok()?,
                     object.incarnation,
                     self.characteristics(source).ok()?.colors,
                 ))
@@ -9197,7 +9280,7 @@ impl Game {
     fn affected_player_for_damage_target(&self, target: Target) -> Result<PlayerId, RulesError> {
         match target {
             Target::Player(player) if !self.player(player)?.lost => Ok(player),
-            Target::Permanent(permanent) => Ok(self.object(permanent)?.controller),
+            Target::Permanent(permanent) => self.controller_of(permanent),
             Target::Player(player) => {
                 Err(RulesError::IllegalAction(if self.player(player)?.lost {
                     "an eliminated player cannot choose a damage replacement"
@@ -9642,6 +9725,16 @@ impl Game {
                     return Err(RulesError::IllegalTarget(Target::SacrificePermanent(card)));
                 }
             },
+            Effect::GainControlTargetUntilEndOfTurn => {
+                let target = Self::target_permanent(target)?;
+                self.require_zone(target, Zone::Battlefield)?;
+                self.install_continuous_effect(
+                    source,
+                    target,
+                    ContinuousChange::ChangeController(controller),
+                    Duration::EndOfTurn(self.turn),
+                )?;
+            }
             Effect::LoseLifeTarget { amount } => {
                 let player =
                     match target.ok_or(RulesError::IllegalAction("missing life-loss target"))? {
@@ -9766,8 +9859,8 @@ impl Game {
                     .into_iter()
                     .filter(|candidate| *candidate != source)
                     .find(|candidate| {
-                        self.object(*candidate)
-                            .is_ok_and(|object| object.controller == controller)
+                        self.controller_of(*candidate)
+                            .is_ok_and(|candidate_controller| candidate_controller == controller)
                             && self
                                 .characteristics(*candidate)
                                 .is_ok_and(|characteristics| {
@@ -9777,8 +9870,8 @@ impl Game {
                     .or_else(|| {
                         (self.zone_of(source) == Some(Zone::Battlefield)
                             && self
-                                .object(source)
-                                .is_ok_and(|object| object.controller == controller)
+                                .controller_of(source)
+                                .is_ok_and(|source_controller| source_controller == controller)
                             && self.characteristics(source).is_ok_and(|characteristics| {
                                 characteristics.card_types.contains(&CardType::Creature)
                             }))
@@ -10146,8 +10239,8 @@ impl Game {
                     || !self.object_has_incarnation(source, source_incarnation)
                     || self.zone_of(protected) != Some(Zone::Battlefield)
                     || !self
-                        .object(protected)
-                        .is_ok_and(|object| object.controller == controller)
+                        .controller_of(protected)
+                        .is_ok_and(|target_controller| target_controller == controller)
                 {
                     return Err(RulesError::IllegalTarget(Target::Permanent(protected)));
                 }
@@ -10498,8 +10591,8 @@ impl Game {
                     .all_battlefield_cards()
                     .into_iter()
                     .filter(|candidate| {
-                        self.object(*candidate)
-                            .is_ok_and(|object| object.controller == controller)
+                        self.controller_of(*candidate)
+                            .is_ok_and(|candidate_controller| candidate_controller == controller)
                             && self
                                 .characteristics(*candidate)
                                 .is_ok_and(|characteristics| {
@@ -10524,14 +10617,15 @@ impl Game {
                     .all_battlefield_cards()
                     .into_iter()
                     .filter(|candidate| {
-                        self.object(*candidate).is_ok_and(|object| {
-                            object.controller == controller
-                                && self
-                                    .characteristics(*candidate)
-                                    .is_ok_and(|characteristics| {
-                                        characteristics.card_types.contains(&CardType::Creature)
-                                    })
-                        })
+                        self.controller_of(*candidate)
+                            .is_ok_and(|candidate_controller| {
+                                candidate_controller == controller
+                                    && self.characteristics(*candidate).is_ok_and(
+                                        |characteristics| {
+                                            characteristics.card_types.contains(&CardType::Creature)
+                                        },
+                                    )
+                            })
                     })
                     .collect::<Vec<_>>();
                 for creature in creatures {
@@ -10651,8 +10745,8 @@ impl Game {
             Effect::SacrificeCreatureOrCounterTargetSpell => {
                 let target = Self::target_spell(target)?;
                 let candidate = self.all_battlefield_cards().into_iter().find(|candidate| {
-                    self.object(*candidate)
-                        .is_ok_and(|object| object.controller == controller)
+                    self.controller_of(*candidate)
+                        .is_ok_and(|candidate_controller| candidate_controller == controller)
                         && self
                             .characteristics(*candidate)
                             .is_ok_and(|characteristics| {
@@ -10729,7 +10823,7 @@ impl Game {
                 if !self.target_matches(Target::Permanent(target), TargetRequirement::Permanent) {
                     return Err(RulesError::IllegalTarget(Target::Permanent(target)));
                 }
-                let target_controller = self.object(target)?.controller;
+                let target_controller = self.controller_of(target)?;
                 self.move_to_zone(target, Zone::Hand)?;
                 self.players[target_controller.0].life -= i64::from(*amount);
                 self.record_event(GameEvent::LifeLost {
@@ -10927,8 +11021,8 @@ impl Game {
             .filter(|attacker| {
                 self.zone_of(**attacker) == Some(Zone::Battlefield)
                     && self
-                        .object(**attacker)
-                        .is_ok_and(|object| object.controller == controller)
+                        .controller_of(**attacker)
+                        .is_ok_and(|attacker_controller| attacker_controller == controller)
                     && self
                         .characteristics(**attacker)
                         .is_ok_and(|characteristics| {
@@ -11171,14 +11265,14 @@ impl Game {
                     .object(card)
                     .is_ok_and(|object| object.owner == controller),
                 (Target::Permanent(card), TargetRequirement::ControlledCreature) => self
-                    .object(card)
-                    .is_ok_and(|object| object.controller == controller),
+                    .controller_of(card)
+                    .is_ok_and(|target_controller| target_controller == controller),
                 (Target::Permanent(card), TargetRequirement::ControlledLand) => self
-                    .object(card)
-                    .is_ok_and(|object| object.controller == controller),
+                    .controller_of(card)
+                    .is_ok_and(|target_controller| target_controller == controller),
                 (Target::Permanent(card), TargetRequirement::OpponentCreature) => self
-                    .object(card)
-                    .is_ok_and(|object| object.controller != controller),
+                    .controller_of(card)
+                    .is_ok_and(|target_controller| target_controller != controller),
                 (Target::Player(player), TargetRequirement::Opponent) => player != controller,
                 _ => true,
             }
@@ -11345,7 +11439,11 @@ impl Game {
         match self.step {
             Step::Untap => {
                 self.players[self.active_player.0].lands_played = 0;
-                let battlefield = self.players[self.active_player.0].battlefield.clone();
+                let battlefield = self
+                    .all_battlefield_cards()
+                    .into_iter()
+                    .filter(|card| self.controller_of(*card) == Ok(self.active_player))
+                    .collect::<Vec<_>>();
                 let mut untapped = Vec::new();
                 for card in battlefield {
                     let object = self
@@ -11401,6 +11499,7 @@ impl Game {
                     .filter(|effect| effect.duration == Duration::EndOfTurn(self.turn))
                     .cloned()
                     .collect::<Vec<_>>();
+                let control_before = self.control_targets_before_expiration(&expired)?;
                 self.continuous_effects
                     .retain(|effect| effect.duration != Duration::EndOfTurn(self.turn));
                 self.damage_redirections
@@ -11421,6 +11520,7 @@ impl Game {
                         layer: effect.change.layer(),
                     });
                 }
+                self.record_control_reversions(&control_before)?;
                 for shield in expired_shields {
                     self.record_event(GameEvent::DamageShieldExpired {
                         source: shield.source,
@@ -11793,6 +11893,7 @@ impl Game {
                 attached_to: None,
                 attached_to_incarnation: None,
                 entered_turn: self.turn,
+                controller_changed_turn: self.turn,
                 token: Some(token),
                 copied_permanent: None,
             },
@@ -11825,6 +11926,9 @@ impl Game {
         }
         let was_battlefield = self.zone_of(card) == Some(Zone::Battlefield);
         let battlefield_incarnation = self.object(card)?.incarnation;
+        let battlefield_controller = was_battlefield
+            .then(|| self.controller_of(card))
+            .transpose()?;
         let battlefield_colors = was_battlefield
             .then(|| {
                 self.characteristics(card)
@@ -11845,6 +11949,9 @@ impl Game {
                 battlefield_incarnation,
                 &battlefield_colors,
                 definition,
+                battlefield_controller.ok_or(RulesError::IllegalAction(
+                    "battlefield departure lacks controller provenance",
+                ))?,
             );
         }
         Ok(())
@@ -11922,11 +12029,10 @@ impl Game {
                 .ok_or(RulesError::UnknownCard(card))?
                 .attached_to_incarnation = None;
         }
-        let destination_owner = if zone == Zone::Battlefield {
-            object.controller
-        } else {
-            object.owner
-        };
+        // Every public zone vector is ownership-indexed. Control effects are
+        // derived layer-two state and therefore never relocate a permanent
+        // from the owner's battlefield vector.
+        let destination_owner = object.owner;
         if zone == Zone::Battlefield {
             let battlefield_object = self
                 .objects
@@ -11938,6 +12044,7 @@ impl Game {
             battlefield_object.attached_to = None;
             battlefield_object.attached_to_incarnation = None;
             battlefield_object.entered_turn = self.turn;
+            battlefield_object.controller_changed_turn = self.turn;
         }
         self.place_in_zone(destination_owner, card, zone)?;
         self.record_event(GameEvent::CardMoved { card, to: zone });
@@ -12077,6 +12184,9 @@ impl Game {
             .filter(|effect| effect.source == card || effect.target == card)
             .cloned()
             .collect::<Vec<_>>();
+        let control_before = self
+            .control_targets_before_expiration(&expired)
+            .unwrap_or_default();
         self.continuous_effects
             .retain(|effect| effect.source != card && effect.target != card);
         for effect in expired {
@@ -12087,6 +12197,54 @@ impl Game {
                 layer: effect.change.layer(),
             });
         }
+        // This helper is called only for transitions whose surrounding public
+        // method runs the invariant audit. An absent target is an ordinary
+        // zone-change case; a malformed live control effect is caught there.
+        let _ = self.record_control_reversions(&control_before);
+    }
+
+    fn control_targets_before_expiration(
+        &self,
+        expired: &[ContinuousEffect],
+    ) -> Result<BTreeMap<ObjectId, (PlayerId, ObjectId)>, RulesError> {
+        let mut targets = BTreeMap::new();
+        for effect in expired {
+            if !matches!(effect.change, ContinuousChange::ChangeController(_))
+                || self.zone_of(effect.target) != Some(Zone::Battlefield)
+            {
+                continue;
+            }
+            let controller = self.controller_of(effect.target)?;
+            targets
+                .entry(effect.target)
+                .or_insert((controller, effect.source));
+        }
+        Ok(targets)
+    }
+
+    fn record_control_reversions(
+        &mut self,
+        before: &BTreeMap<ObjectId, (PlayerId, ObjectId)>,
+    ) -> Result<(), RulesError> {
+        for (target, (from, source)) in before {
+            if self.zone_of(*target) != Some(Zone::Battlefield) {
+                continue;
+            }
+            let to = self.controller_of(*target)?;
+            if *from != to {
+                self.objects
+                    .get_mut(target)
+                    .ok_or(RulesError::UnknownCard(*target))?
+                    .controller_changed_turn = self.turn;
+                self.record_event(GameEvent::ControllerChanged {
+                    source: *source,
+                    target: *target,
+                    from: *from,
+                    to,
+                });
+            }
+        }
+        Ok(())
     }
 
     fn remove_damage_shield_for_effect(&mut self, effect: &ContinuousEffect) {
@@ -14371,6 +14529,7 @@ impl Game {
 
     fn card_view(&self, card: ObjectId) -> Result<CardView, RulesError> {
         let object = self.object(card)?;
+        let controller = self.controller_of(card)?;
         let characteristics = self.characteristics(card)?;
         let effective_definition = self.effective_definition_id(card)?;
         let mana_colors = effective_definition
@@ -14378,17 +14537,17 @@ impl Game {
             .map_or_else(BTreeSet::new, |definition| definition.mana_colors.clone());
         let basic_land_type = effective_definition
             .and_then(|definition| self.basic_land_types.get(definition).copied());
-        let can_attack = object.controller == self.active_player
+        let can_attack = controller == self.active_player
             && self.zone_of(card) == Some(Zone::Battlefield)
             && !object.tapped
-            && (object.entered_turn < self.turn
+            && (object.controller_changed_turn < self.turn
                 || characteristics.keywords.contains(&Keyword::Haste))
             && characteristics.card_types.contains(&CardType::Creature)
             && !characteristics.keywords.contains(&Keyword::Defender);
         Ok(CardView {
             id: card,
             definition: effective_definition,
-            controller: object.controller,
+            controller,
             tapped: object.tapped,
             colors: characteristics.colors,
             mana_colors,
@@ -14483,10 +14642,13 @@ impl Game {
         }
 
         let controlled_but_not_owned = self
-            .objects
-            .iter()
-            .filter_map(|(id, object)| {
-                (object.controller == player && object.owner != player).then_some(*id)
+            .all_battlefield_cards()
+            .into_iter()
+            .filter(|object| {
+                self.controller_of(*object) == Ok(player)
+                    && self
+                        .object(*object)
+                        .is_ok_and(|state| state.owner != player)
             })
             .collect::<Vec<_>>();
         for object in controlled_but_not_owned {
@@ -14496,11 +14658,7 @@ impl Game {
             self.move_to_zone(object, Zone::Exile)
                 .expect("controlled object must have a valid owner exile zone");
             self.regeneration_shields.remove(&object);
-            let object_state = self
-                .objects
-                .get_mut(&object)
-                .expect("controlled object was collected from this game");
-            object_state.controller = owner;
+            debug_assert_eq!(self.objects[&object].controller, owner);
         }
     }
 

@@ -1281,6 +1281,10 @@ pub enum Effect {
         amount: i16,
         target: TargetRequirement,
     },
+    /// Apply a layer-two control effect to one target permanent through the
+    /// current turn's cleanup step. The object never changes zones: its owner
+    /// remains authoritative for every nonbattlefield destination.
+    GainControlTargetUntilEndOfTurn,
     /// Make one targeted player lose life without dealing damage. Prevention,
     /// redirection, and damage triggers therefore do not apply.
     LoseLifeTarget {
@@ -1794,9 +1798,8 @@ impl Effect {
             }
             Self::AddCountersToTarget { .. }
             | Self::RemoveCountersFromTarget { .. }
-            | Self::ReturnTargetPermanentToHandAndLoseControllerLife { .. } => {
-                Some(TargetRequirement::Permanent)
-            }
+            | Self::ReturnTargetPermanentToHandAndLoseControllerLife { .. }
+            | Self::GainControlTargetUntilEndOfTurn => Some(TargetRequirement::Permanent),
             Self::ReturnTargetCardToHand => Some(TargetRequirement::OwnGraveyardCard),
             Self::ReturnTargetEnchantmentCardToHand => {
                 Some(TargetRequirement::EnchantmentCardInControllerGraveyard)
@@ -2060,6 +2063,9 @@ pub struct CardObject {
     /// target and continuous-effect provenance.
     pub incarnation: u64,
     pub owner: PlayerId,
+    /// Base controller. On the battlefield, `Game::controller_of` derives the
+    /// live controller by applying active layer-two control effects in
+    /// timestamp order. Outside the battlefield this must equal `owner`.
     pub controller: PlayerId,
     pub tapped: bool,
     /// Marked damage is runtime state, not printed card data.  It is wider
@@ -2078,6 +2084,11 @@ pub struct CardObject {
     /// object it was attached to before a zone change.
     pub attached_to_incarnation: Option<u64>,
     pub entered_turn: u32,
+    /// Turn in which this permanent most recently changed controller. This
+    /// tracks the continuous-control boundary separately from entry so a
+    /// creature stolen this turn cannot attack or pay a tap-symbol cost unless
+    /// it has Haste.
+    pub controller_changed_turn: u32,
     pub token: Option<TokenSpec>,
     /// A layer-one copy snapshot currently applied to this battlefield
     /// incarnation.  It deliberately contains copiable values only: marked
@@ -2155,6 +2166,7 @@ pub enum Layer {
     /// Layer one copy effects are represented as an object-local copiable
     /// snapshot rather than a timestamped layer-4--7 continuous effect.
     Copy = 1,
+    Control = 2,
     Type = 4,
     Color = 5,
     Ability = 6,
@@ -2163,6 +2175,11 @@ pub enum Layer {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ContinuousChange {
+    /// A timestamped layer-two control effect. `CardObject::controller` is
+    /// the object's base controller; live controller queries apply these
+    /// changes in timestamp order without moving the object between its
+    /// owner's zone vectors.
+    ChangeController(PlayerId),
     AddCardType(CardType),
     AddColor(Color),
     AddKeyword(Keyword),
@@ -2202,6 +2219,7 @@ impl ContinuousChange {
     #[must_use]
     pub const fn layer(&self) -> Layer {
         match self {
+            Self::ChangeController(_) => Layer::Control,
             Self::AddCardType(_) => Layer::Type,
             Self::AddColor(_) => Layer::Color,
             Self::AddKeyword(_)
@@ -3044,6 +3062,16 @@ pub enum GameEvent {
         source: ObjectId,
         target: ObjectId,
         layer: Layer,
+    },
+    /// A layer-two continuous effect changed the current controller of a
+    /// battlefield permanent. The permanent remains in its owner's
+    /// battlefield-zone vector; this receipt is the replay-visible boundary
+    /// for policy views and controller-relative rules.
+    ControllerChanged {
+        source: ObjectId,
+        target: ObjectId,
+        from: PlayerId,
+        to: PlayerId,
     },
     PermanentsUntapped {
         player: PlayerId,
