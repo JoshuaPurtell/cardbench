@@ -50,8 +50,8 @@ different eligible Aura or decline a successful search in this slice. That
 choice fidelity remains unsupported, so Auratouched Mage is not in
 `RAV_FULL_FIDELITY_DEFINITION_IDS`.
 
-The current catalog partition is 201 full / 54 partial / 36 catalog-only unique
-names (216 / 54 / 36 printings). The independently checked coverage-report
+The current catalog partition is 202 full / 53 partial / 36 catalog-only unique
+names (217 / 53 / 36 printings). The independently checked coverage-report
 binary emits the same partition.
 
 `RAV_FULL_FIDELITY_DEFINITION_IDS` is a deliberately small positive manifest,
@@ -284,12 +284,12 @@ The original easy-creature wave adds Benevolent Ancestor, Surveilling Sprite,
 Terraformer, Roofstalker Wight, Sewerdreg, Goblin Spelunkers, Ordruun Commando,
 and Viashino Slasher. Its remaining bounded entries are limited
 to public identity, mana cost, color, creature type, and base power/toughness,
-with normal colored-cost creature casting as their only executable behavior,
-except that Benevolent Ancestor also records its static Defender keyword.
-Five deterministic public scenarios exercise cast payment, stack
-resolution, zone movement, priority, and their retained base P/T values only;
-the separate Benevolent Ancestor compatibility scenario exercises its rejected
-Defender attack declaration. Roofstalker Wight has graduated from that
+with normal colored-cost creature casting as their only executable behavior.
+Benevolent Ancestor has graduated: its static Defender, ordinary tapped
+activation, player-or-creature target validation, target-side one-damage shield,
+and receipt/invariant lifecycle are all represented. The separate compatibility
+scenario continues to exercise its rejected Defender attack declaration.
+Roofstalker Wight has graduated from that
 compatibility chassis: it retains its exact Black casting identity and uses the
 shared target-free stack activation to gain Flying through the current turn's
 cleanup. Civic Wayfinder now separately exercises its

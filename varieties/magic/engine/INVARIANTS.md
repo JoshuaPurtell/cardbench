@@ -189,6 +189,12 @@ Oracle Magic rules coverage.
   trigger is queued for the prevented portion. A target departure or cleanup
   transition removes the shield and emits `DamageShieldExpired`, and an
   exhausted shield cannot remain in game state.
+- A target-side prevention shield created by a typed activated ability has one
+  exact player or live permanent target and a strictly positive amount. The
+  source's ordinary tap-cost receipt/stack lifecycle is authoritative for its
+  creation, while the shield itself follows the ordinary target lifecycle: a
+  later source tap state or source departure cannot retarget, duplicate, or
+  silently revoke that already-created shield.
 - A permanent static source may grant
   `PreventDamageFromControlledSources` to each current creature its controller
   controls. The quality is evaluated for every prospective permanent-damage
