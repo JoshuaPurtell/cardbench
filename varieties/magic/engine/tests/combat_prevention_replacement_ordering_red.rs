@@ -193,6 +193,10 @@ fn affected_player_orders_combat_prevention_and_source_replacement() {
         )),
         "the unselected source replacement must not produce its mill/counter consequence",
     );
+    eprintln!(
+        "combat prevention/replacement ordering trace={:?}",
+        game.canonical_event_log()
+    );
     game.validate_invariants()
         .expect("combat prevention ordering preserves the state-machine invariants");
 }
