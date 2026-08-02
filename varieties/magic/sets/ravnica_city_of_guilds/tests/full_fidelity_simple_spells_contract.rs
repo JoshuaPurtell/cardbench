@@ -140,6 +140,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-SEED-SPARK",
             "RAV-LEAVE-NO-TRACE",
             "RAV-HUNTED-LAMMASU",
+            "RAV-HUNTED-HORROR",
             "RAV-HOUR-OF-RECKONING",
             "RAV-OATHSWORN-GIANT",
             "RAV-VETERAN-ARMORER",
@@ -151,6 +152,10 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-CENTAUR-SAFEGUARD",
             "RAV-CYCLOPEAN-SNARE",
             "RAV-GRIFTERS-BLADE",
+            "RAV-FESTIVAL-OF-THE-GUILDPACT",
+            "RAV-FLICKERFORM",
+            "RAV-SUPPRESSION-FIELD",
+            "RAV-LOXODON-GATEKEEPER",
         ]
     );
     let definitions = card_definitions();

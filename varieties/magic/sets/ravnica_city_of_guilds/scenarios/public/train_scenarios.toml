@@ -6624,7 +6624,7 @@ stack_size = 0
 priority = 0
 mana = ["0:black:0"]
 event_markers = ["SpellCast", "SpellResolved", "TriggeredAbilityStacked", "TokenCreated", "AbilityResolved"]
-digest = "fnv1a64:791b5696125840c0"
+digest = "fnv1a64:4f064b3ff46abb4f"
 
 [[scenario]]
 id = "rav_keening_banshee_etb_modifier"
