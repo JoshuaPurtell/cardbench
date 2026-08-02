@@ -49,8 +49,8 @@ a zone move. The fetched Aura's ordinary ETB trigger is queued only after the
 Mage trigger's terminal receipt. The opponent sees neither unselected Aura
 identities nor a private decision projection.
 
-The current catalog partition is 223 full / 33 partial / 35 catalog-only unique
-names (238 / 33 / 35 printings). The independently checked coverage-report
+The current catalog partition is 224 full / 32 partial / 35 catalog-only unique
+names (239 / 32 / 35 printings). The independently checked coverage-report
 binary emits the same partition.
 
 Bramble Elemental is full-fidelity through the expansion-neutral, current-
@@ -367,10 +367,11 @@ scenario continues to exercise its rejected Defender attack declaration.
 Roofstalker Wight has graduated from that
 compatibility chassis: it retains its exact Black casting identity and uses the
 shared target-free stack activation to gain Flying through the current turn's
-cleanup. Civic Wayfinder now separately exercises its
-stack-backed ETB basic-land search, moving the deterministic controller-owned
-selection to hand before the required shuffle; policy-submitted hidden-library
-choice remains outside this bounded slice.
+cleanup. Civic Wayfinder is now full-fidelity: its stack-backed ETB exposes only
+legal basic-land candidates to its controller, accepts an explicit selection or
+failure to find, publicly reveals a selected card immediately before moving it
+to hand, and then shuffles. Declining does not disclose a card but still
+performs the required shuffle.
 
 Dowsing Shaman has graduated from that bounded wave. Its fully represented
 activation uses the typed controller-owned enchantment-card graveyard target,

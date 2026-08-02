@@ -1265,13 +1265,19 @@ Oracle Magic rules coverage.
   `None` is legal only when the search permits failure to find or has no
   candidates. Priority and every unrelated choice reject atomically while the
   boundary is open.
-  Completion records a normal `CardMoved` entry to its exact declared
-  destination (`Battlefield`, `BattlefieldTapped`, or `Hand`) before
-  `LibrarySearchResolved`, immediately follows the latter with that
-  controller's `LibraryShuffled` receipt, and records no selected-card
-  movement when `found` is absent. Either battlefield destination may queue
-  ordinary entry-trigger work only after the search source reaches its own
-  terminal stack lifecycle.
+  A `reveal_selected: true` instruction records exactly one public
+  `CardRevealed` receipt for the chosen current library object immediately
+  before that object's normal `CardMoved` receipt; the player, object, and
+  definition must agree. A `reveal_selected: false` generic search creates no
+  synthetic selected-card reveal (Transmute has its separately specified
+  reveal lifecycle). Completion then records the normal `CardMoved` entry to
+  its exact declared destination (`Battlefield`, `BattlefieldTapped`, or
+  `Hand`) before `LibrarySearchResolved`, immediately follows the latter with
+  that controller's `LibraryShuffled` receipt, and records neither a selected
+  card movement nor a selected-card reveal when `found` is absent. Public
+  receipts cannot disclose candidate identities before an actual selected-card
+  reveal. Either battlefield destination may queue ordinary entry-trigger work
+  only after the search source reaches its own terminal stack lifecycle.
 - A source-bound Aura search is the same private, id-bearing zero-or-one
   library decision, but its candidates are additionally restricted to Auras
   that can establish a registered typed Aura attachment to the resolving
