@@ -412,6 +412,10 @@ pub struct PendingDecisionView {
     /// These are intentionally separate from cards and targets so callers
     /// cannot submit a choice in the wrong typed domain.
     pub replacement_candidates: Vec<ReplacementChoice>,
+    /// Colored mana outputs available to a target-player mana decision. This
+    /// is separate from card, target, and replacement domains so a policy
+    /// cannot accidentally submit a cross-domain choice.
+    pub color_candidates: Vec<Color>,
 }
 
 /// Public, stale-safe details for a prospective damage event requiring an
@@ -3379,6 +3383,7 @@ impl Game {
                         candidates,
                         trigger_candidates: Self::decision_trigger_candidates(decision),
                         replacement_candidates: Self::decision_replacement_candidates(decision),
+                        color_candidates: Self::decision_color_candidates(decision),
                     })
             })
             .transpose()?;
@@ -3404,7 +3409,8 @@ impl Game {
                 | DecisionContinuation::QuantityReplacement { .. }
                 | DecisionContinuation::DamageReplacement { .. }
                 | DecisionContinuation::CounterUnlessPaysMana { .. }
-                | DecisionContinuation::ConditionalPrivateDiscard { .. } => None,
+                | DecisionContinuation::ConditionalPrivateDiscard { .. }
+                | DecisionContinuation::TargetPlayerManaColor { .. } => None,
             })
             .map(|(source, destination, may_fail_to_find)| {
                 self.decision_candidate_cards(
@@ -3461,7 +3467,8 @@ impl Game {
                 | DecisionContinuation::QuantityReplacement { .. }
                 | DecisionContinuation::DamageReplacement { .. }
                 | DecisionContinuation::CounterUnlessPaysMana { .. }
-                | DecisionContinuation::ConditionalPrivateDiscard { .. } => None,
+                | DecisionContinuation::ConditionalPrivateDiscard { .. }
+                | DecisionContinuation::TargetPlayerManaColor { .. } => None,
             });
         let optional_triggered_ability_choice = self
             .pending_optional_trigger_choice
@@ -3506,7 +3513,8 @@ impl Game {
                 | DecisionContinuation::QuantityReplacement { .. }
                 | DecisionContinuation::DamageReplacement { .. }
                 | DecisionContinuation::CounterUnlessPaysMana { .. }
-                | DecisionContinuation::ConditionalPrivateDiscard { .. } => None,
+                | DecisionContinuation::ConditionalPrivateDiscard { .. }
+                | DecisionContinuation::TargetPlayerManaColor { .. } => None,
             })
             .map(|(source, ability)| {
                 self.decision_candidate_cards(
@@ -3561,7 +3569,8 @@ impl Game {
                 | DecisionContinuation::TriggeredAbilityOrder { .. }
                 | DecisionContinuation::QuantityReplacement { .. }
                 | DecisionContinuation::CounterUnlessPaysMana { .. }
-                | DecisionContinuation::ConditionalPrivateDiscard { .. } => None,
+                | DecisionContinuation::ConditionalPrivateDiscard { .. }
+                | DecisionContinuation::TargetPlayerManaColor { .. } => None,
             });
         let mut opponent_life = Vec::new();
         let mut opponent_battlefield = Vec::new();
@@ -6596,6 +6605,22 @@ impl Game {
                     &decision, source, recipient, selected,
                 )
             }
+            DecisionContinuation::TargetPlayerManaColor {
+                source,
+                source_incarnation,
+                controller,
+                recipient,
+            } => {
+                let color = Self::validate_color_decision_selection(&decision, selection)?;
+                self.resolve_target_player_mana_color_decision(
+                    &decision,
+                    source,
+                    source_incarnation,
+                    controller,
+                    recipient,
+                    color,
+                )
+            }
         }
     }
 
@@ -6772,6 +6797,60 @@ impl Game {
         Ok(())
     }
 
+    /// Materializes one recipient-selected colored mana output, then resumes
+    /// the ordinary stack resolver. This keeps target revalidation, terminal
+    /// spell/ability receipts, state-based actions, and priority restoration
+    /// on the one shared resolution path.
+    #[allow(clippy::too_many_arguments)] // Captured decision provenance is intentionally explicit.
+    fn resolve_target_player_mana_color_decision(
+        &mut self,
+        decision: &PendingDecision,
+        source: ObjectId,
+        source_incarnation: u64,
+        controller: PlayerId,
+        recipient: PlayerId,
+        color: Color,
+    ) -> Result<(), RulesError> {
+        let top = self.stack.last().ok_or(RulesError::IllegalAction(
+            "target-player mana decision escaped its stack item",
+        ))?;
+        let expected_options = Color::ALL
+            .into_iter()
+            .filter(|candidate| self.players[recipient.0].mana_pool.can_add(*candidate, 1))
+            .map(DecisionOption::Color)
+            .collect::<Vec<_>>();
+        if decision.kind != DecisionKind::TargetPlayerManaColor
+            || decision.visibility != DecisionVisibility::Public
+            || decision.player != recipient
+            || decision.min_selections != 1
+            || decision.max_selections != 1
+            || decision.options != expected_options
+            || !color.is_colored()
+            || !self.players[recipient.0].mana_pool.can_add(color, 1)
+            || top.card != source
+            || top.source_incarnation != source_incarnation
+            || top.controller != controller
+            || top.effects.as_slice() != [Effect::AddOneManaOfTargetPlayersChosenColor]
+            || top.targets.as_slice() != [Target::Player(recipient)]
+            || !self.target_matches_for_colors(
+                controller,
+                Target::Player(recipient),
+                TargetRequirement::Player,
+                &top.source_colors,
+            )
+        {
+            return Err(RulesError::IllegalAction(
+                "target-player mana decision no longer matches its stack item or recipient",
+            ));
+        }
+        self.complete_pending_decision(decision)?;
+        let top = self.stack.last_mut().ok_or(RulesError::IllegalAction(
+            "target-player mana stack item disappeared before materialization",
+        ))?;
+        top.effects = vec![Effect::AddManaToTargetPlayer { color, amount: 1 }];
+        self.resolve_top_of_stack()
+    }
+
     fn validate_object_decision_selection(
         decision: &PendingDecision,
         selection: DecisionSelection,
@@ -6818,7 +6897,8 @@ impl Game {
                 DecisionOption::Object(card) => Ok(*card),
                 DecisionOption::Target(_)
                 | DecisionOption::TriggerOrder(_)
-                | DecisionOption::Replacement(_) => Err(RulesError::IllegalAction(
+                | DecisionOption::Replacement(_)
+                | DecisionOption::Color(_) => Err(RulesError::IllegalAction(
                     "private library partition contains a non-card option",
                 )),
             })
@@ -6912,6 +6992,28 @@ impl Game {
             ));
         }
         Ok(selected)
+    }
+
+    #[allow(clippy::needless_pass_by_value)] // Generic decision dispatch transfers its owned answer once.
+    fn validate_color_decision_selection(
+        decision: &PendingDecision,
+        selection: DecisionSelection,
+    ) -> Result<Color, RulesError> {
+        let DecisionSelection::Color(color) = selection else {
+            return Err(RulesError::IllegalAction(
+                "this decision requires one colored-mana selection",
+            ));
+        };
+        if decision.min_selections != 1
+            || decision.max_selections != 1
+            || !color.is_colored()
+            || !decision.options.contains(&DecisionOption::Color(color))
+        {
+            return Err(RulesError::IllegalAction(
+                "mana-color decision selected an unavailable or non-card color",
+            ));
+        }
+        Ok(color)
     }
 
     fn resolve_triggered_ability_order_decision(
@@ -11528,7 +11630,22 @@ impl Game {
                 "a spell-copy instruction must be the only effect on its spell",
             ));
         }
+        let target_player_mana_choice_effects = definition
+            .effects
+            .iter()
+            .filter(|effect| matches!(effect, Effect::AddOneManaOfTargetPlayersChosenColor))
+            .count();
+        if target_player_mana_choice_effects > 0 && definition.effects.len() != 1 {
+            return Err(RulesError::IllegalAction(
+                "a target-player mana choice must be the only effect on its spell",
+            ));
+        }
         for effect in &definition.effects {
+            if matches!(effect, Effect::AddManaToTargetPlayer { .. }) {
+                return Err(RulesError::IllegalAction(
+                    "materialized target-player mana effect escaped into a card definition",
+                ));
+            }
             if let Effect::GrantActivatedAbilityToControllerCreaturesUntilEndOfTurn { ability } =
                 effect
             {
@@ -11632,10 +11749,12 @@ impl Game {
                 | Effect::GainLifeController { amount }
                 | Effect::MillTargetPlayer { count: amount }
                 | Effect::MillCapturedPlayer { count: amount, .. } => *amount,
-                Effect::AddManaController { amount, .. } => i16::from(*amount),
+                Effect::AddManaController { amount, .. }
+                | Effect::AddManaToTargetPlayer { amount, .. } => i16::from(*amount),
                 Effect::CreateToken { .. }
                 | Effect::CreateTokenForTargetPlayer { .. }
                 | Effect::CreateTokenForTargetOpponent { .. }
+                | Effect::AddOneManaOfTargetPlayersChosenColor
                 | Effect::AttachSourceToTarget { .. }
                 | Effect::GainControlTargetUntilEndOfTurn
                 | Effect::AddPlusOneCounterToSource
@@ -11841,6 +11960,9 @@ impl Game {
             return Ok(());
         }
         if self.suspend_top_stack_item_for_damage_replacement_choice()? {
+            return Ok(());
+        }
+        if self.suspend_top_stack_item_for_target_player_mana_color_choice()? {
             return Ok(());
         }
         if counter_unless_payment.is_none()
@@ -12423,6 +12545,64 @@ impl Game {
                 target_spell: *target_spell,
                 target_incarnation,
                 mana_cost: mana_cost.clone(),
+            },
+        )?;
+        Ok(true)
+    }
+
+    /// Holds one target-player mana instruction on the stack until the
+    /// recipient chooses the colored mana it will receive. The target is
+    /// checked before opening this no-priority boundary; an illegal target is
+    /// left to the ordinary all-targets-illegal counter path.
+    fn suspend_top_stack_item_for_target_player_mana_color_choice(
+        &mut self,
+    ) -> Result<bool, RulesError> {
+        if self.pending_decision.is_some() {
+            return Err(RulesError::IllegalAction(
+                "a target-player mana choice attempted to overlap another decision",
+            ));
+        }
+        let Some(top) = self.stack.last().cloned() else {
+            return Ok(false);
+        };
+        let [Effect::AddOneManaOfTargetPlayersChosenColor] = top.effects.as_slice() else {
+            return Ok(false);
+        };
+        let [Target::Player(recipient)] = top.targets.as_slice() else {
+            return Err(RulesError::IllegalAction(
+                "target-player mana effect has an invalid target shape",
+            ));
+        };
+        if !self.target_matches_for_colors(
+            top.controller,
+            Target::Player(*recipient),
+            TargetRequirement::Player,
+            &top.source_colors,
+        ) {
+            return Ok(false);
+        }
+        let options = Color::ALL
+            .into_iter()
+            .filter(|color| self.players[recipient.0].mana_pool.can_add(*color, 1))
+            .map(DecisionOption::Color)
+            .collect::<Vec<_>>();
+        if options.is_empty() {
+            return Err(RulesError::IllegalAction(
+                "target player cannot represent any chosen colored mana",
+            ));
+        }
+        self.open_pending_decision(
+            *recipient,
+            DecisionVisibility::Public,
+            DecisionKind::TargetPlayerManaColor,
+            1,
+            1,
+            options,
+            DecisionContinuation::TargetPlayerManaColor {
+                source: top.card,
+                source_incarnation: top.source_incarnation,
+                controller: top.controller,
+                recipient: *recipient,
             },
         )?;
         Ok(true)
@@ -15793,6 +15973,36 @@ impl Game {
                     amount: *amount,
                 });
             }
+            Effect::AddOneManaOfTargetPlayersChosenColor => {
+                return Err(RulesError::IllegalAction(
+                    "target-player mana effect resolved without its color decision",
+                ));
+            }
+            Effect::AddManaToTargetPlayer { color, amount } => {
+                let player = match target {
+                    Some(Target::Player(player)) if !self.players[player.0].lost => player,
+                    Some(other) => return Err(RulesError::IllegalTarget(other)),
+                    None => {
+                        return Err(RulesError::IllegalAction(
+                            "target-player mana effect is missing its player target",
+                        ));
+                    }
+                };
+                if !color.is_colored()
+                    || *amount == 0
+                    || !self.players[player.0].mana_pool.can_add(*color, *amount)
+                {
+                    return Err(RulesError::IllegalAction(
+                        "target-player mana effect cannot add the requested colored mana",
+                    ));
+                }
+                self.players[player.0].mana_pool.add(*color, *amount);
+                self.record_event(GameEvent::ManaAdded {
+                    player,
+                    color: *color,
+                    amount: *amount,
+                });
+            }
             Effect::AddPlusOneCounterToSource => {
                 if self.zone_of(source) == Some(Zone::Battlefield)
                     && self.object_has_incarnation(source, source_incarnation)
@@ -19009,7 +19219,21 @@ impl Game {
                 "a private opponent-library choice ability must contain exactly one effect",
             ));
         }
+        if effects
+            .iter()
+            .any(|effect| matches!(effect, Effect::AddOneManaOfTargetPlayersChosenColor))
+            && effects.len() != 1
+        {
+            return Err(RulesError::IllegalAction(
+                "a target-player mana choice must be the only effect on an ability",
+            ));
+        }
         for effect in effects {
+            if matches!(effect, Effect::AddManaToTargetPlayer { .. }) {
+                return Err(RulesError::IllegalAction(
+                    "materialized target-player mana effect escaped onto an ability binding",
+                ));
+            }
             if matches!(
                 effect,
                 Effect::ReplaceControllerLandsBasicLandTypeUntilEndOfTurn { .. }
@@ -22301,7 +22525,8 @@ impl Game {
                 DecisionOption::Object(card) => Some(self.card_view(*card)),
                 DecisionOption::Target(_)
                 | DecisionOption::TriggerOrder(_)
-                | DecisionOption::Replacement(_) => None,
+                | DecisionOption::Replacement(_)
+                | DecisionOption::Color(_) => None,
             })
             .collect()
     }
@@ -22314,7 +22539,8 @@ impl Game {
                 DecisionOption::Target(target) => Some(*target),
                 DecisionOption::Object(_)
                 | DecisionOption::TriggerOrder(_)
-                | DecisionOption::Replacement(_) => None,
+                | DecisionOption::Replacement(_)
+                | DecisionOption::Color(_) => None,
             })
             .collect()
     }
@@ -22327,7 +22553,8 @@ impl Game {
                 DecisionOption::TriggerOrder(entry) => Some(*entry),
                 DecisionOption::Object(_)
                 | DecisionOption::Target(_)
-                | DecisionOption::Replacement(_) => None,
+                | DecisionOption::Replacement(_)
+                | DecisionOption::Color(_) => None,
             })
             .collect()
     }
@@ -22340,7 +22567,22 @@ impl Game {
                 DecisionOption::Replacement(choice) => Some(*choice),
                 DecisionOption::Object(_)
                 | DecisionOption::Target(_)
-                | DecisionOption::TriggerOrder(_) => None,
+                | DecisionOption::TriggerOrder(_)
+                | DecisionOption::Color(_) => None,
+            })
+            .collect()
+    }
+
+    fn decision_color_candidates(decision: &PendingDecision) -> Vec<Color> {
+        decision
+            .options
+            .iter()
+            .filter_map(|option| match option {
+                DecisionOption::Color(color) => Some(*color),
+                DecisionOption::Object(_)
+                | DecisionOption::Target(_)
+                | DecisionOption::TriggerOrder(_)
+                | DecisionOption::Replacement(_) => None,
             })
             .collect()
     }
@@ -23038,6 +23280,43 @@ impl Game {
                 {
                     return Err(RulesError::IllegalAction(
                         "conditional private discard decision violates its private hand and stack boundary",
+                    ));
+                }
+            }
+            DecisionContinuation::TargetPlayerManaColor {
+                source,
+                source_incarnation,
+                controller,
+                recipient,
+            } => {
+                let top = self.stack.last().ok_or(RulesError::IllegalAction(
+                    "target-player mana decision escaped its stack item",
+                ))?;
+                let expected_options = Color::ALL
+                    .into_iter()
+                    .filter(|color| self.players[recipient.0].mana_pool.can_add(*color, 1))
+                    .map(DecisionOption::Color)
+                    .collect::<Vec<_>>();
+                if decision.kind != DecisionKind::TargetPlayerManaColor
+                    || decision.visibility != DecisionVisibility::Public
+                    || decision.player != *recipient
+                    || top.card != *source
+                    || top.source_incarnation != *source_incarnation
+                    || top.controller != *controller
+                    || top.effects.as_slice() != [Effect::AddOneManaOfTargetPlayersChosenColor]
+                    || top.targets.as_slice() != [Target::Player(*recipient)]
+                    || !self.target_matches_for_colors(
+                        *controller,
+                        Target::Player(*recipient),
+                        TargetRequirement::Player,
+                        &top.source_colors,
+                    )
+                    || decision.options != expected_options
+                    || decision.min_selections != 1
+                    || decision.max_selections != 1
+                {
+                    return Err(RulesError::IllegalAction(
+                        "target-player mana decision violates its stack and recipient boundary",
                     ));
                 }
             }

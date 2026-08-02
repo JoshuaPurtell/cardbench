@@ -1655,6 +1655,18 @@ pub enum Effect {
         color: Color,
         amount: u8,
     },
+    /// The targeted player chooses one of the five card colors as this stack
+    /// instruction resolves, then receives one mana of that color.  The
+    /// choice belongs to the recipient, never the resolving controller.
+    AddOneManaOfTargetPlayersChosenColor,
+    /// Internal materialization of
+    /// [`Self::AddOneManaOfTargetPlayersChosenColor`] after its recipient
+    /// submits the public typed color decision.  Catalog definitions and
+    /// ability bindings must never contain this variant directly.
+    AddManaToTargetPlayer {
+        color: Color,
+        amount: u8,
+    },
     /// Place one persistent +1/+1 counter on the ability or spell source if
     /// that source is still a battlefield permanent as this instruction
     /// resolves. A departed source is an ordinary no-op, not a failed trigger
@@ -2346,7 +2358,9 @@ impl Effect {
             | Self::DrawTargetPlayerThenConditionalPrivateDiscard
             | Self::DiscardTargetPlayer { .. }
             | Self::MillTargetPlayer { .. }
-            | Self::MillTargetPlayerFromSourceDamage => Some(TargetRequirement::Player),
+            | Self::MillTargetPlayerFromSourceDamage
+            | Self::AddOneManaOfTargetPlayersChosenColor
+            | Self::AddManaToTargetPlayer { .. } => Some(TargetRequirement::Player),
             Self::CreateTokenForTargetOpponent { .. } => Some(TargetRequirement::Opponent),
             Self::LookAtTopCardsOfTargetOpponentExileOne { .. } => {
                 Some(TargetRequirement::Opponent)
@@ -3169,6 +3183,10 @@ pub enum DecisionKind {
     /// privately choose either one land card or two distinct cards from their
     /// current hand.  It is deliberately not a priority action.
     ConditionalPrivateDiscard,
+    /// The target of a resolving mana effect chooses exactly one of the five
+    /// card colors. This is a public no-priority decision because both the
+    /// target and the received mana are public game information.
+    TargetPlayerManaColor,
 }
 
 /// One public member of an APNAP simultaneous-trigger ordering group.
@@ -3200,6 +3218,9 @@ pub enum DecisionOption {
     /// A public, typed replacement identity. Hidden-zone candidate cards are
     /// never represented by this option shape.
     Replacement(ReplacementChoice),
+    /// One of Magic's five card colors. `Colorless` is a mana kind rather
+    /// than a card color and is never a legal choice for this option.
+    Color(Color),
 }
 
 /// A submitted answer to a typed decision. The continuation determines which
@@ -3218,6 +3239,7 @@ pub enum DecisionSelection {
     Targets(Vec<Target>),
     TriggerOrder(Vec<TriggerOrderEntry>),
     Replacements(Vec<ReplacementChoice>),
+    Color(Color),
     /// A resolution-time mana payment is either an explicit decline or a
     /// complete selected spend, optionally preceded by listed mana abilities.
     CounterUnlessPaysMana {
@@ -3374,6 +3396,16 @@ pub enum DecisionContinuation {
     /// target, never inferred from the spell controller.
     ConditionalPrivateDiscard {
         source: ObjectId,
+        recipient: PlayerId,
+    },
+    /// The top stack item remains live while its current target chooses a
+    /// colored mana output. The recipient is captured from the target slot,
+    /// so the resolving controller cannot substitute itself after seeing the
+    /// choice.
+    TargetPlayerManaColor {
+        source: ObjectId,
+        source_incarnation: u64,
+        controller: PlayerId,
         recipient: PlayerId,
     },
 }
