@@ -12281,6 +12281,22 @@ impl Game {
             let mut index = activation_index;
             while let Some(previous) = index.checked_sub(1) {
                 match self.event_log.get(previous) {
+                    Some(GameEvent::ObjectIncarnationAdvanced { object, .. }) => {
+                        let Some(move_index) = previous.checked_sub(1) else {
+                            break;
+                        };
+                        if !matches!(
+                            self.event_log.get(move_index),
+                            Some(GameEvent::CardMoved { card, .. }) if card == object
+                        ) {
+                            break;
+                        }
+                        // The incarnation receipt is structural provenance for
+                        // the immediately preceding cost move. Step over it so
+                        // the ordinary sacrifice/discard audit can consume the
+                        // causal receipt and transition as one unit.
+                        index = previous;
+                    }
                     Some(GameEvent::AdditionalCreatureTappedAsAbilityCost {
                         player: receipt_player,
                         source: receipt_source,
