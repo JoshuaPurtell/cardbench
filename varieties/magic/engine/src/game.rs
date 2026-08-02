@@ -9,15 +9,17 @@ use crate::{
     BasicLandType, BasicLandTypeBinding, CardDefinition, CardObject, CardType,
     CastPaymentManaAbility, Characteristics, Color, CombatBlock, ContinuousChange,
     ContinuousEffect, CopiableValues, CopiedPermanent, CostReductionBinding, CounterKind,
-    CreatureSubtype, DamageReplacementChoice, DeckList, DelayedAction, DelayedActionId,
-    DelayedActionKind, DelayedActionTiming, Duration, Effect, GameEvent, Keyword, LandEntryBinding,
-    LibrarySearchDestination, LibrarySearchRequirement, LibrarySearchSelection, LinkedExileGroup,
-    LinkedExileGroupId, LinkedExileMember, LinkedExileMemberRole, ManaAbilityActivation,
-    ManaAbilityBinding, ManaAbilityOutput, ManaCost, ManaPaymentSelection, ObjectId, PlayerId,
-    PlayerState, PolicyMoveKind, ReplacementEffect, ReplacementEffectBinding, ReplacementEventKind,
-    StackEffectResolution, StackObject, StackResolutionPlan, StaticAttackRestriction,
-    StaticAttackRestrictionBinding, StaticContinuousEffectBinding, Step, Target, TargetRequirement,
-    TokenSpec, TriggerCondition, TriggeredAbilityBinding, Zone,
+    CreatureSubtype, DamageReplacementChoice, DecisionContinuation, DecisionId, DecisionKind,
+    DecisionOption, DecisionSelection, DecisionVisibility, DeckList, DelayedAction,
+    DelayedActionId, DelayedActionKind, DelayedActionTiming, Duration, Effect, GameEvent, Keyword,
+    LandEntryBinding, LibrarySearchDestination, LibrarySearchRequirement, LibrarySearchSelection,
+    LinkedExileGroup, LinkedExileGroupId, LinkedExileMember, LinkedExileMemberRole,
+    ManaAbilityActivation, ManaAbilityBinding, ManaAbilityOutput, ManaCost, ManaPaymentSelection,
+    ObjectId, PendingDecision, PlayerId, PlayerState, PolicyMoveKind, ReplacementEffect,
+    ReplacementEffectBinding, ReplacementEventKind, StackEffectResolution, StackObject,
+    StackResolutionPlan, StaticAttackRestriction, StaticAttackRestrictionBinding,
+    StaticContinuousEffectBinding, Step, Target, TargetRequirement, TokenSpec, TriggerCondition,
+    TriggeredAbilityBinding, TriggeredEffectObjectDecisionKind, Zone,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -160,6 +162,13 @@ pub enum PolicyAction {
         pay: bool,
         target: Option<Target>,
     },
+    /// Submits an answer to the one current typed decision. The exact
+    /// `DecisionId` is mandatory: a response to an earlier prompt cannot
+    /// accidentally resolve a later matching source/ability prompt.
+    SubmitDecision {
+        decision: DecisionId,
+        selection: DecisionSelection,
+    },
     /// Activates transmute, optionally selecting a matching mana-value card
     /// from the controller's library. A hidden-zone quality search may find
     /// nothing; the engine enforces timing and payment in either case.
@@ -219,6 +228,7 @@ impl PolicyAction {
             Self::ResolveOptionalTriggeredAbility { .. } => {
                 PolicyMoveKind::ResolveOptionalTriggeredAbility
             }
+            Self::SubmitDecision { .. } => PolicyMoveKind::SubmitDecision,
             Self::Transmute { .. } => PolicyMoveKind::Transmute,
             Self::PassPriority => PolicyMoveKind::PassPriority,
             Self::PlayLand { .. } => PolicyMoveKind::PlayLand,
@@ -316,6 +326,19 @@ pub struct TriggeredAbilityEffectObjectChoiceView {
     pub candidates: Vec<CardView>,
 }
 
+/// The generic projection of one pending decision. Candidate identities are
+/// exposed only to the deciding player; existing specialized views remain as
+/// compatibility projections for migrated consumers.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PendingDecisionView {
+    pub id: DecisionId,
+    pub kind: DecisionKind,
+    pub visibility: DecisionVisibility,
+    pub min_selections: u8,
+    pub max_selections: u8,
+    pub candidates: Vec<CardView>,
+}
+
 /// Public, stale-safe details for a prospective damage event requiring an
 /// affected-player replacement choice. Unlike hidden-zone choices, all of
 /// these identities are already public battlefield/player information.
@@ -362,6 +385,9 @@ pub struct GameView {
     pub triggered_ability_target_choice: Option<TriggeredAbilityTargetChoiceView>,
     pub optional_triggered_ability_choice: Option<OptionalTriggeredAbilityChoiceView>,
     pub triggered_ability_effect_object_choice: Option<TriggeredAbilityEffectObjectChoiceView>,
+    /// The canonical typed no-priority decision surface. This first migration
+    /// covers library search and triggered discard/sacrifice selections.
+    pub pending_decision: Option<PendingDecisionView>,
     /// Present only to the affected player while a bounded prospective damage
     /// event requires replacement ordering.
     pub damage_replacement_choice: Option<DamageReplacementChoiceView>,
@@ -466,18 +492,6 @@ struct PendingPrivateOpponentLibraryExileChoice {
     cards: Vec<ObjectId>,
 }
 
-/// A resolving typed library search awaiting an explicit controller choice.
-/// The source remains live on top of the stack until this boundary finishes.
-#[derive(Clone, Debug, Eq, PartialEq)]
-struct PendingLibrarySearchChoice {
-    source: ObjectId,
-    controller: PlayerId,
-    requirement: LibrarySearchRequirement,
-    destination: LibrarySearchDestination,
-    may_fail_to_find: bool,
-    cards: Vec<ObjectId>,
-}
-
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct PendingTriggeredAbilityTargetChoice {
     source: ObjectId,
@@ -495,29 +509,6 @@ struct PendingOptionalTriggeredAbilityChoice {
     source_colors: BTreeSet<Color>,
     controller: PlayerId,
     ability: crate::TriggeredAbility,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-enum PendingTriggeredEffectChoiceKind {
-    DiscardEachPlayer {
-        remaining_players: Vec<PlayerId>,
-        selected: Vec<(PlayerId, ObjectId)>,
-    },
-    SacrificeControllerCreature,
-}
-
-/// A one-effect trigger remains on the stack while its resolving player
-/// selects a discard or sacrifice object. The state is deliberately separate
-/// from targets: neither selection is a spell target and neither may be
-/// silently substituted by fixture order.
-#[derive(Clone, Debug, Eq, PartialEq)]
-struct PendingTriggeredEffectObjectChoice {
-    source: ObjectId,
-    controller: PlayerId,
-    ability: &'static str,
-    chooser: PlayerId,
-    candidates: Vec<ObjectId>,
-    kind: PendingTriggeredEffectChoiceKind,
 }
 
 #[derive(Clone, Debug)]
@@ -638,6 +629,10 @@ pub struct Game {
     seated_player_count: usize,
     next_object_id: u64,
     next_timestamp: u64,
+    /// The next identity assigned to an opened typed decision. It is never
+    /// rewound by a successful continuation, so stale policy responses cannot
+    /// alias a later prompt from the same source.
+    next_decision_id: u64,
     /// Immutable definitions retained for cards removed by CR 800.4a. A
     /// departed spell may remain named by a lower stack object's historical
     /// target even though its live object and zone membership are gone.
@@ -656,10 +651,9 @@ pub struct Game {
     pending_draw_replacement: Option<PlayerId>,
     pending_private_library_choice: Option<PendingPrivateLibraryChoice>,
     pending_private_opponent_library_exile_choice: Option<PendingPrivateOpponentLibraryExileChoice>,
-    pending_library_search_choice: Option<PendingLibrarySearchChoice>,
+    pending_decision: Option<PendingDecision>,
     pending_trigger_target_choices: Vec<PendingTriggeredAbilityTargetChoice>,
     pending_optional_trigger_choice: Option<PendingOptionalTriggeredAbilityChoice>,
-    pending_trigger_effect_object_choice: Option<PendingTriggeredEffectObjectChoice>,
     pending_damage_replacement_choice: Option<PendingDamageReplacementChoice>,
     /// A resolving rule may prevent every represented library search until the
     /// current turn ends. It is deliberately a turn number, rather than a
@@ -878,6 +872,7 @@ impl Game {
             seated_player_count: player_count,
             next_object_id: 1,
             next_timestamp: 1,
+            next_decision_id: 1,
             departed_card_definitions: BTreeMap::new(),
             consecutive_passes: 0,
             shuffle_seed: 0,
@@ -887,10 +882,9 @@ impl Game {
             pending_draw_replacement: None,
             pending_private_library_choice: None,
             pending_private_opponent_library_exile_choice: None,
-            pending_library_search_choice: None,
+            pending_decision: None,
             pending_trigger_target_choices: Vec::new(),
             pending_optional_trigger_choice: None,
-            pending_trigger_effect_object_choice: None,
             pending_damage_replacement_choice: None,
             library_search_prevented_until: None,
             pending_trigger_events: Vec::new(),
@@ -2564,22 +2558,47 @@ impl Game {
                     })
             })
             .transpose()?;
-        let library_search_choice = self
-            .pending_library_search_choice
+        let pending_decision = self
+            .pending_decision
             .as_ref()
-            .filter(|choice| choice.controller == player)
-            .map(|choice| {
-                choice
-                    .cards
-                    .iter()
-                    .map(|card| self.card_view(*card))
-                    .collect::<Result<Vec<_>, _>>()
-                    .map(|cards| LibrarySearchChoiceView {
-                        source: choice.source,
-                        cards,
-                        destination: choice.destination,
-                        may_fail_to_find: choice.may_fail_to_find,
+            .filter(|decision| decision.player == player)
+            .map(|decision| {
+                self.decision_candidate_cards(decision)
+                    .map(|candidates| PendingDecisionView {
+                        id: decision.id,
+                        kind: decision.kind,
+                        visibility: decision.visibility,
+                        min_selections: decision.min_selections,
+                        max_selections: decision.max_selections,
+                        candidates,
                     })
+            })
+            .transpose()?;
+        let library_search_choice = self
+            .pending_decision
+            .as_ref()
+            .filter(|decision| decision.player == player)
+            .and_then(|decision| match &decision.continuation {
+                DecisionContinuation::LibrarySearch {
+                    source,
+                    destination,
+                    may_fail_to_find,
+                    ..
+                } => Some((*source, *destination, *may_fail_to_find)),
+                DecisionContinuation::TriggeredEffectObject { .. } => None,
+            })
+            .map(|(source, destination, may_fail_to_find)| {
+                self.decision_candidate_cards(
+                    self.pending_decision
+                        .as_ref()
+                        .expect("decision continuation came from pending state"),
+                )
+                .map(|cards| LibrarySearchChoiceView {
+                    source,
+                    cards,
+                    destination,
+                    may_fail_to_find,
+                })
             })
             .transpose()?;
         let triggered_ability_target_choice = self
@@ -2627,20 +2646,26 @@ impl Game {
                 }
             });
         let triggered_ability_effect_object_choice = self
-            .pending_trigger_effect_object_choice
+            .pending_decision
             .as_ref()
-            .filter(|choice| choice.chooser == player)
-            .map(|choice| {
-                choice
-                    .candidates
-                    .iter()
-                    .map(|card| self.card_view(*card))
-                    .collect::<Result<Vec<_>, _>>()
-                    .map(|candidates| TriggeredAbilityEffectObjectChoiceView {
-                        source: choice.source,
-                        ability: choice.ability,
-                        candidates,
-                    })
+            .filter(|decision| decision.player == player)
+            .and_then(|decision| match &decision.continuation {
+                DecisionContinuation::TriggeredEffectObject {
+                    source, ability, ..
+                } => Some((*source, *ability)),
+                DecisionContinuation::LibrarySearch { .. } => None,
+            })
+            .map(|(source, ability)| {
+                self.decision_candidate_cards(
+                    self.pending_decision
+                        .as_ref()
+                        .expect("decision continuation came from pending state"),
+                )
+                .map(|candidates| TriggeredAbilityEffectObjectChoiceView {
+                    source,
+                    ability,
+                    candidates,
+                })
             })
             .transpose()?;
         let damage_replacement_choice = self
@@ -2727,6 +2752,7 @@ impl Game {
             triggered_ability_target_choice,
             optional_triggered_ability_choice,
             triggered_ability_effect_object_choice,
+            pending_decision,
             damage_replacement_choice,
             transmute_searches,
             own_battlefield,
@@ -2803,6 +2829,10 @@ impl Game {
             } => {
                 self.resolve_optional_triggered_ability(player, source, ability, pay, target)?;
             }
+            PolicyAction::SubmitDecision {
+                decision,
+                selection,
+            } => self.submit_decision(player, decision, selection)?,
             PolicyAction::Transmute { card, found } => self.transmute(player, card, found)?,
             PolicyAction::PassPriority => self.pass_priority(player)?,
             PolicyAction::PlayLand { card } => self.play_land(player, card)?,
@@ -4273,9 +4303,9 @@ impl Game {
                 "the private opponent-library choice must resolve before priority can pass",
             ));
         }
-        if self.pending_library_search_choice.is_some() {
+        if self.pending_decision.is_some() {
             return Err(RulesError::IllegalAction(
-                "the library search choice must resolve before priority can pass",
+                "the pending decision must resolve before priority can pass",
             ));
         }
         if !self.pending_trigger_target_choices.is_empty() {
@@ -4286,11 +4316,6 @@ impl Game {
         if self.pending_optional_trigger_choice.is_some() {
             return Err(RulesError::IllegalAction(
                 "optional trigger payment must resolve before priority can pass",
-            ));
-        }
-        if self.pending_trigger_effect_object_choice.is_some() {
-            return Err(RulesError::IllegalAction(
-                "trigger effect-object choice must resolve before priority can pass",
             ));
         }
         if self.pending_damage_replacement_choice.is_some() {
@@ -4672,29 +4697,127 @@ impl Game {
         selected: Option<ObjectId>,
     ) -> Result<(), RulesError> {
         self.atomic_transition(|game| {
-            game.resolve_pending_library_search_choice(player, source, selected)
-        })
-    }
-
-    #[allow(clippy::too_many_lines)] // The suspended selection and terminal stack lifecycle are one transaction.
-    fn resolve_pending_library_search_choice(
-        &mut self,
-        player: PlayerId,
-        source: ObjectId,
-        selected: Option<ObjectId>,
-    ) -> Result<(), RulesError> {
-        self.require_game_in_progress()?;
-        let choice =
-            self.pending_library_search_choice
-                .clone()
+            let decision = game
+                .pending_decision
+                .as_ref()
                 .ok_or(RulesError::IllegalAction(
                     "there is no pending policy-submitted library search",
                 ))?;
-        if choice.controller != player || choice.source != source {
+            if !matches!(
+                decision.continuation,
+                DecisionContinuation::LibrarySearch { source: pending_source, .. }
+                    if pending_source == source
+            ) {
+                return Err(RulesError::IllegalAction(
+                    "library search compatibility action does not match the pending decision",
+                ));
+            }
+            game.resolve_pending_decision(
+                player,
+                decision.id,
+                DecisionSelection::Objects(selected.into_iter().collect()),
+            )
+        })
+    }
+
+    /// Submits a typed, id-bearing answer to the current no-priority
+    /// decision. Unlike compatibility shims, callers must supply the exact
+    /// monotonic identity observed in their `GameView`.
+    pub fn submit_decision(
+        &mut self,
+        player: PlayerId,
+        decision: DecisionId,
+        selection: DecisionSelection,
+    ) -> Result<(), RulesError> {
+        self.atomic_transition(|game| game.resolve_pending_decision(player, decision, selection))
+    }
+
+    fn resolve_pending_decision(
+        &mut self,
+        player: PlayerId,
+        decision_id: DecisionId,
+        selection: DecisionSelection,
+    ) -> Result<(), RulesError> {
+        self.require_game_in_progress()?;
+        let decision = self
+            .pending_decision
+            .clone()
+            .ok_or(RulesError::IllegalAction(
+                "there is no pending typed decision",
+            ))?;
+        if decision.id != decision_id {
+            return Err(RulesError::IllegalAction("stale or unknown decision id"));
+        }
+        if decision.player != player {
             return Err(RulesError::IllegalAction(
-                "only the resolving controller may submit this library search choice",
+                "only the decision player may submit this decision",
             ));
         }
+        let selected = Self::validate_decision_selection(&decision, selection)?;
+        match decision.continuation.clone() {
+            DecisionContinuation::LibrarySearch {
+                source,
+                requirement,
+                destination,
+                may_fail_to_find,
+            } => self.resolve_library_search_decision(
+                decision,
+                source,
+                requirement,
+                destination,
+                may_fail_to_find,
+                selected.into_iter().next(),
+            ),
+            DecisionContinuation::TriggeredEffectObject {
+                source,
+                controller,
+                ability,
+                kind,
+            } => self.resolve_triggered_effect_object_decision(
+                decision,
+                source,
+                controller,
+                ability,
+                kind,
+                selected.into_iter().next(),
+            ),
+        }
+    }
+
+    fn validate_decision_selection(
+        decision: &PendingDecision,
+        selection: DecisionSelection,
+    ) -> Result<Vec<ObjectId>, RulesError> {
+        let DecisionSelection::Objects(selected) = selection;
+        let count = u8::try_from(selected.len())
+            .map_err(|_| RulesError::IllegalAction("decision selection exceeds engine range"))?;
+        if count < decision.min_selections || count > decision.max_selections {
+            return Err(RulesError::IllegalAction(
+                "decision selection violates its minimum or maximum cardinality",
+            ));
+        }
+        let mut seen = HashSet::new();
+        for card in &selected {
+            if !seen.insert(*card) || !decision.options.contains(&DecisionOption::Object(*card)) {
+                return Err(RulesError::IllegalAction(
+                    "decision selection contains a duplicate or illegal option",
+                ));
+            }
+        }
+        Ok(selected)
+    }
+
+    #[allow(clippy::too_many_lines)] // The suspended selection and terminal stack lifecycle are one transaction.
+    fn resolve_library_search_decision(
+        &mut self,
+        decision: PendingDecision,
+        source: ObjectId,
+        requirement: LibrarySearchRequirement,
+        destination: LibrarySearchDestination,
+        may_fail_to_find: bool,
+        selected: Option<ObjectId>,
+    ) -> Result<(), RulesError> {
+        let player = decision.player;
         let (ability, chosen_x, source_incarnation) = {
             let top = self.stack.last().ok_or(RulesError::IllegalAction(
                 "library search choice has no live stack item",
@@ -4702,13 +4825,15 @@ impl Game {
             let matches_pending_search = matches!(
                 top.effects.as_slice(),
                 [Effect::SearchControllerLibrary {
-                    requirement,
-                    destination,
+                    requirement: stack_requirement,
+                    destination: stack_destination,
                     selection:
-                        LibrarySearchSelection::PolicySubmitted { may_fail_to_find },
-                }] if requirement == &choice.requirement
-                    && *destination == choice.destination
-                    && *may_fail_to_find == choice.may_fail_to_find
+                        LibrarySearchSelection::PolicySubmitted {
+                            may_fail_to_find: stack_may_fail,
+                        },
+                }] if stack_requirement == &requirement
+                    && *stack_destination == destination
+                    && *stack_may_fail == may_fail_to_find
             );
             if top.card != source || top.controller != player || !matches_pending_search {
                 return Err(RulesError::IllegalAction(
@@ -4717,21 +4842,26 @@ impl Game {
             }
             (top.ability_id, top.chosen_x, top.source_incarnation)
         };
-        let expected_cards =
-            self.library_search_candidates(player, &choice.requirement, chosen_x)?;
-        if choice.cards != expected_cards {
+        let expected_cards = self.library_search_candidates(player, &requirement, chosen_x)?;
+        if decision.options
+            != expected_cards
+                .iter()
+                .copied()
+                .map(DecisionOption::Object)
+                .collect::<Vec<_>>()
+        {
             return Err(RulesError::IllegalAction(
                 "library search candidates changed before selection",
             ));
         }
         match selected {
-            Some(card) if choice.cards.contains(&card) => {}
+            Some(card) if expected_cards.contains(&card) => {}
             Some(_) => {
                 return Err(RulesError::IllegalAction(
                     "library search selected a card outside its legal candidates",
                 ));
             }
-            None if choice.may_fail_to_find || choice.cards.is_empty() => {}
+            None if may_fail_to_find || expected_cards.is_empty() => {}
             None => {
                 return Err(RulesError::IllegalAction(
                     "this library search must select a matching card when one exists",
@@ -4742,15 +4872,15 @@ impl Game {
         self.stack.pop().ok_or(RulesError::IllegalAction(
             "library search stack item disappeared before resolution",
         ))?;
-        self.pending_library_search_choice = None;
+        self.complete_pending_decision(&decision)?;
 
         let mut entered_permanent = None;
         if let Some(card) = selected {
-            match choice.destination {
+            match destination {
                 LibrarySearchDestination::Battlefield
                 | LibrarySearchDestination::BattlefieldTapped => {
                     self.move_to_zone(card, Zone::Battlefield)?;
-                    if choice.destination == LibrarySearchDestination::BattlefieldTapped {
+                    if destination == LibrarySearchDestination::BattlefieldTapped {
                         self.objects
                             .get_mut(&card)
                             .ok_or(RulesError::UnknownCard(card))?
@@ -4771,7 +4901,7 @@ impl Game {
             player,
             source,
             found: selected,
-            destination: choice.destination,
+            destination,
         });
         self.shuffle_library(player);
         let cards = u16::try_from(self.players[player.0].library.len()).unwrap_or(u16::MAX);
@@ -4802,6 +4932,169 @@ impl Game {
         self.flush_pending_life_gain_triggers();
         self.flush_pending_dies_triggers();
         self.priority = self.priority_after_resolution();
+        Ok(())
+    }
+
+    fn resolve_triggered_effect_object_decision(
+        &mut self,
+        decision: PendingDecision,
+        source: ObjectId,
+        controller: PlayerId,
+        ability: &'static str,
+        mut kind: TriggeredEffectObjectDecisionKind,
+        selected: Option<ObjectId>,
+    ) -> Result<(), RulesError> {
+        let player = decision.player;
+        match &mut kind {
+            TriggeredEffectObjectDecisionKind::DiscardEachPlayer {
+                remaining_players,
+                selected: selections,
+            } => {
+                if remaining_players.first() != Some(&player) {
+                    return Err(RulesError::IllegalAction(
+                        "discard choice player is not next in the resolving trigger",
+                    ));
+                }
+                if let Some(card) = selected {
+                    selections.push((player, card));
+                }
+                remaining_players.remove(0);
+                self.complete_pending_decision(&decision)?;
+                if let Some(next_player) = remaining_players.first().copied() {
+                    let options = self.players[next_player.0]
+                        .hand
+                        .iter()
+                        .copied()
+                        .map(DecisionOption::Object)
+                        .collect::<Vec<_>>();
+                    let (min_selections, max_selections) =
+                        if options.is_empty() { (0, 0) } else { (1, 1) };
+                    self.open_pending_decision(
+                        next_player,
+                        DecisionVisibility::Private,
+                        DecisionKind::TriggeredEffectObject,
+                        min_selections,
+                        max_selections,
+                        options,
+                        DecisionContinuation::TriggeredEffectObject {
+                            source,
+                            controller,
+                            ability,
+                            kind,
+                        },
+                    )?;
+                    return Ok(());
+                }
+                let selections = selections.clone();
+                self.finish_trigger_effect_object_choice(source, ability, |game| {
+                    for (discarding_player, card) in selections {
+                        if game.zone_of(card) != Some(Zone::Hand)
+                            || game.object(card).is_err_and(|_| true)
+                            || game.object(card)?.owner != discarding_player
+                        {
+                            return Err(RulesError::IllegalAction(
+                                "chosen discard card left its chooser hand before resolution",
+                            ));
+                        }
+                        game.record_event(GameEvent::CardDiscarded {
+                            player: discarding_player,
+                            card,
+                        });
+                        game.move_to_zone(card, Zone::Graveyard)?;
+                    }
+                    Ok(())
+                })?;
+            }
+            TriggeredEffectObjectDecisionKind::SacrificeControllerCreature => {
+                self.complete_pending_decision(&decision)?;
+                self.finish_trigger_effect_object_choice(source, ability, |game| {
+                    if let Some(permanent) = selected {
+                        if game.zone_of(permanent) != Some(Zone::Battlefield)
+                            || game.object(permanent)?.controller != player
+                            || !game
+                                .characteristics(permanent)?
+                                .card_types
+                                .contains(&CardType::Creature)
+                        {
+                            return Err(RulesError::IllegalAction(
+                                "chosen sacrifice permanent is no longer a controlled creature",
+                            ));
+                        }
+                        game.record_event(GameEvent::SacrificedByEffect {
+                            source,
+                            player,
+                            permanent,
+                        });
+                        game.move_to_graveyard_or_remove_token(permanent)?;
+                    }
+                    Ok(())
+                })?;
+            }
+        }
+        Ok(())
+    }
+
+    fn open_pending_decision(
+        &mut self,
+        player: PlayerId,
+        visibility: DecisionVisibility,
+        kind: DecisionKind,
+        min_selections: u8,
+        max_selections: u8,
+        options: Vec<DecisionOption>,
+        continuation: DecisionContinuation,
+    ) -> Result<DecisionId, RulesError> {
+        if self.pending_decision.is_some() {
+            return Err(RulesError::IllegalAction(
+                "a second typed decision attempted to open before the first completed",
+            ));
+        }
+        if min_selections > max_selections || usize::from(max_selections) > options.len() {
+            return Err(RulesError::IllegalAction(
+                "pending decision has invalid selection cardinality",
+            ));
+        }
+        let id = DecisionId(self.next_decision_id);
+        self.next_decision_id = self
+            .next_decision_id
+            .checked_add(1)
+            .ok_or(RulesError::IllegalAction("decision id space exhausted"))?;
+        let decision = PendingDecision {
+            id,
+            player,
+            visibility,
+            kind,
+            min_selections,
+            max_selections,
+            options,
+            continuation,
+        };
+        self.record_event(GameEvent::DecisionOpened {
+            decision: id,
+            player,
+            kind,
+            visibility,
+            min_selections,
+            max_selections,
+        });
+        self.pending_decision = Some(decision);
+        self.priority = player;
+        self.consecutive_passes = 0;
+        Ok(id)
+    }
+
+    fn complete_pending_decision(&mut self, decision: &PendingDecision) -> Result<(), RulesError> {
+        if self.pending_decision.as_ref() != Some(decision) {
+            return Err(RulesError::IllegalAction(
+                "pending decision changed before completion",
+            ));
+        }
+        self.pending_decision = None;
+        self.record_event(GameEvent::DecisionCompleted {
+            decision: decision.id,
+            player: decision.player,
+            kind: decision.kind,
+        });
         Ok(())
     }
 
@@ -5281,7 +5574,7 @@ impl Game {
                 .copied()
                 .collect::<Vec<_>>();
             if self.pending_draw_replacement.is_some()
-                || self.pending_library_search_choice.is_some()
+                || self.pending_decision.is_some()
                 || self.pending_private_opponent_library_exile_choice.is_some()
                 || top.card != choice.spell
                 || top.controller != choice.controller
@@ -5324,7 +5617,7 @@ impl Game {
                 .copied()
                 .collect::<Vec<_>>();
             if self.pending_draw_replacement.is_some()
-                || self.pending_library_search_choice.is_some()
+                || self.pending_decision.is_some()
                 || self.pending_private_library_choice.is_some()
                 || top.card != choice.source
                 || top.controller != choice.controller
@@ -5361,45 +5654,7 @@ impl Game {
                 "private opponent-library event receipts disagree with the live resolution boundary",
             ));
         }
-        if let Some(choice) = &self.pending_library_search_choice {
-            let top = self.stack.last().ok_or(RulesError::IllegalAction(
-                "library search choice escaped its stack item",
-            ))?;
-            let (requirement, destination, may_fail_to_find) = match top.effects.as_slice() {
-                [
-                    Effect::SearchControllerLibrary {
-                        requirement,
-                        destination,
-                        selection: LibrarySearchSelection::PolicySubmitted { may_fail_to_find },
-                    },
-                ] => (requirement, *destination, *may_fail_to_find),
-                _ => {
-                    return Err(RulesError::IllegalAction(
-                        "library search choice has an invalid stack effect shape",
-                    ));
-                }
-            };
-            let expected_cards =
-                self.library_search_candidates(choice.controller, requirement, top.chosen_x)?;
-            if self.pending_draw_replacement.is_some()
-                || self.pending_private_library_choice.is_some()
-                || self.pending_private_opponent_library_exile_choice.is_some()
-                || !self.pending_trigger_target_choices.is_empty()
-                || self.pending_optional_trigger_choice.is_some()
-                || top.card != choice.source
-                || top.controller != choice.controller
-                || destination != choice.destination
-                || may_fail_to_find != choice.may_fail_to_find
-                || self.priority != choice.controller
-                || self.consecutive_passes != 0
-                || self.players[choice.controller.0].lost
-                || choice.cards != expected_cards
-            {
-                return Err(RulesError::IllegalAction(
-                    "library search choice escaped its no-priority resolution boundary",
-                ));
-            }
-        }
+        self.validate_pending_decision()?;
         for (index, choice) in self.pending_trigger_target_choices.iter().enumerate() {
             let registered = self
                 .card_definition(choice.source)
@@ -5423,9 +5678,8 @@ impl Game {
                 || self.pending_draw_replacement.is_some()
                 || self.pending_private_library_choice.is_some()
                 || self.pending_private_opponent_library_exile_choice.is_some()
-                || self.pending_library_search_choice.is_some()
+                || self.pending_decision.is_some()
                 || self.pending_optional_trigger_choice.is_some()
-                || self.pending_trigger_effect_object_choice.is_some()
             {
                 return Err(RulesError::IllegalAction(
                     "trigger-target choice escaped its no-priority decision boundary",
@@ -5453,66 +5707,11 @@ impl Game {
                 || self.pending_draw_replacement.is_some()
                 || self.pending_private_library_choice.is_some()
                 || self.pending_private_opponent_library_exile_choice.is_some()
-                || self.pending_library_search_choice.is_some()
+                || self.pending_decision.is_some()
                 || !self.pending_trigger_target_choices.is_empty()
-                || self.pending_trigger_effect_object_choice.is_some()
             {
                 return Err(RulesError::IllegalAction(
                     "optional trigger choice escaped its no-priority resolution boundary",
-                ));
-            }
-        }
-        if let Some(choice) = &self.pending_trigger_effect_object_choice {
-            let top = self.stack.last().ok_or(RulesError::IllegalAction(
-                "trigger effect-object choice escaped its stack ability",
-            ))?;
-            let registered = self
-                .card_definition(choice.source)
-                .ok()
-                .and_then(|definition| self.triggered_abilities.get(definition.id))
-                .and_then(|abilities| abilities.get(choice.ability));
-            let effects_match = matches!(
-                (&choice.kind, top.effects.as_slice()),
-                (
-                    PendingTriggeredEffectChoiceKind::DiscardEachPlayer { .. },
-                    [Effect::DiscardOneCardEachPlayer]
-                ) | (
-                    PendingTriggeredEffectChoiceKind::SacrificeControllerCreature,
-                    [Effect::SacrificeControllerCreature]
-                )
-            );
-            let expected_candidates = match &choice.kind {
-                PendingTriggeredEffectChoiceKind::DiscardEachPlayer { .. } => {
-                    self.players[choice.chooser.0].hand.clone()
-                }
-                PendingTriggeredEffectChoiceKind::SacrificeControllerCreature => self
-                    .all_battlefield_cards()
-                    .into_iter()
-                    .filter(|card| {
-                        self.controller_of(*card)
-                            .is_ok_and(|controller| controller == choice.chooser)
-                            && self.characteristics(*card).is_ok_and(|characteristics| {
-                                characteristics.card_types.contains(&CardType::Creature)
-                            })
-                    })
-                    .collect(),
-            };
-            if top.card != choice.source
-                || top.controller != choice.controller
-                || top.ability_id != Some(choice.ability)
-                || registered.is_none()
-                || !effects_match
-                || choice.candidates != expected_candidates
-                || self.players[choice.chooser.0].lost
-                || self.consecutive_passes != 0
-                || self.pending_draw_replacement.is_some()
-                || self.pending_private_library_choice.is_some()
-                || self.pending_private_opponent_library_exile_choice.is_some()
-                || !self.pending_trigger_target_choices.is_empty()
-                || self.pending_optional_trigger_choice.is_some()
-            {
-                return Err(RulesError::IllegalAction(
-                    "trigger effect-object choice escaped its no-priority resolution boundary",
                 ));
             }
         }
@@ -5555,10 +5754,9 @@ impl Game {
                 || self.pending_draw_replacement.is_some()
                 || self.pending_private_library_choice.is_some()
                 || self.pending_private_opponent_library_exile_choice.is_some()
-                || self.pending_library_search_choice.is_some()
+                || self.pending_decision.is_some()
                 || !self.pending_trigger_target_choices.is_empty()
                 || self.pending_optional_trigger_choice.is_some()
-                || self.pending_trigger_effect_object_choice.is_some()
             {
                 return Err(RulesError::IllegalAction(
                     "damage replacement choice escaped its no-priority resolution boundary",
@@ -7802,7 +8000,7 @@ impl Game {
     /// bypasses the boundary: the ordinary resolver records a failed search
     /// and its required shuffle without exposing nonexistent candidates.
     fn suspend_top_stack_item_for_library_search_choice(&mut self) -> Result<bool, RulesError> {
-        if self.pending_library_search_choice.is_some()
+        if self.pending_decision.is_some()
             || self.pending_private_library_choice.is_some()
             || self.pending_private_opponent_library_exile_choice.is_some()
         {
@@ -7835,16 +8033,31 @@ impl Game {
                 _ => return Ok(false),
             };
         let cards = self.library_search_candidates(controller, &requirement, chosen_x)?;
-        self.pending_library_search_choice = Some(PendingLibrarySearchChoice {
-            source,
+        let options = cards
+            .into_iter()
+            .map(DecisionOption::Object)
+            .collect::<Vec<_>>();
+        let (min_selections, max_selections) = if options.is_empty() {
+            (0, 0)
+        } else if may_fail_to_find {
+            (0, 1)
+        } else {
+            (1, 1)
+        };
+        self.open_pending_decision(
             controller,
-            requirement,
-            destination,
-            may_fail_to_find,
-            cards,
-        });
-        self.priority = controller;
-        self.consecutive_passes = 0;
+            DecisionVisibility::Private,
+            DecisionKind::LibrarySearch,
+            min_selections,
+            max_selections,
+            options,
+            DecisionContinuation::LibrarySearch {
+                source,
+                requirement,
+                destination,
+                may_fail_to_find,
+            },
+        )?;
         Ok(true)
     }
 
@@ -7853,7 +8066,7 @@ impl Game {
     /// submits the selection, so no player can respond using information that
     /// belongs to its unresolved hidden-zone instruction.
     fn suspend_top_spell_for_private_library_choice(&mut self) -> Result<bool, RulesError> {
-        if self.pending_library_search_choice.is_some()
+        if self.pending_decision.is_some()
             || self.pending_private_library_choice.is_some()
             || self.pending_private_opponent_library_exile_choice.is_some()
         {
@@ -7916,7 +8129,7 @@ impl Game {
     fn suspend_top_ability_for_private_opponent_library_exile_choice(
         &mut self,
     ) -> Result<bool, RulesError> {
-        if self.pending_library_search_choice.is_some()
+        if self.pending_decision.is_some()
             || self.pending_private_library_choice.is_some()
             || self.pending_private_opponent_library_exile_choice.is_some()
         {
@@ -8684,97 +8897,26 @@ impl Game {
         selected: Option<ObjectId>,
     ) -> Result<(), RulesError> {
         self.atomic_transition(|game| {
-            let mut choice = game.pending_trigger_effect_object_choice.clone().ok_or(
-                RulesError::IllegalAction(
-                    "no triggered ability is awaiting an effect-object choice",
-                ),
-            )?;
-            if player != choice.chooser || source != choice.source || ability != choice.ability {
+            let decision = game.pending_decision.as_ref().ok_or(RulesError::IllegalAction(
+                "no triggered ability is awaiting an effect-object choice",
+            ))?;
+            if !matches!(
+                decision.continuation,
+                DecisionContinuation::TriggeredEffectObject {
+                    source: pending_source,
+                    ability: pending_ability,
+                    ..
+                } if pending_source == source && pending_ability == ability
+            ) {
                 return Err(RulesError::IllegalAction(
-                    "trigger effect-object choice does not match the pending chooser or identity",
+                    "trigger effect-object compatibility action does not match the pending decision",
                 ));
             }
-            match (choice.candidates.is_empty(), selected) {
-                (true, None) => {}
-                (false, Some(card)) if choice.candidates.contains(&card) => {}
-                _ => {
-                    return Err(RulesError::IllegalAction(
-                        "trigger effect-object choice must select exactly one legal candidate",
-                    ));
-                }
-            }
-            match &mut choice.kind {
-                PendingTriggeredEffectChoiceKind::DiscardEachPlayer {
-                    remaining_players,
-                    selected: selections,
-                } => {
-                    if let Some(card) = selected {
-                        selections.push((player, card));
-                    }
-                    if remaining_players.first() != Some(&player) {
-                        return Err(RulesError::IllegalAction(
-                            "discard choice player is not next in the resolving trigger",
-                        ));
-                    }
-                    remaining_players.remove(0);
-                    if let Some(next_player) = remaining_players.first().copied() {
-                        choice.chooser = next_player;
-                        choice
-                            .candidates
-                            .clone_from(&game.players[next_player.0].hand);
-                        game.pending_trigger_effect_object_choice = Some(choice);
-                        game.priority = next_player;
-                        game.consecutive_passes = 0;
-                        return Ok(());
-                    }
-                    let selections = selections.clone();
-                    game.pending_trigger_effect_object_choice = None;
-                    game.finish_trigger_effect_object_choice(source, ability, |game| {
-                        for (discarding_player, card) in selections {
-                            if game.zone_of(card) != Some(Zone::Hand)
-                                || game.object(card).is_err_and(|_| true)
-                                || game.object(card)?.owner != discarding_player
-                            {
-                                return Err(RulesError::IllegalAction(
-                                    "chosen discard card left its chooser hand before resolution",
-                                ));
-                            }
-                            game.record_event(GameEvent::CardDiscarded {
-                                player: discarding_player,
-                                card,
-                            });
-                            game.move_to_zone(card, Zone::Graveyard)?;
-                        }
-                        Ok(())
-                    })?;
-                }
-                PendingTriggeredEffectChoiceKind::SacrificeControllerCreature => {
-                    game.pending_trigger_effect_object_choice = None;
-                    game.finish_trigger_effect_object_choice(source, ability, |game| {
-                        if let Some(permanent) = selected {
-                            if game.zone_of(permanent) != Some(Zone::Battlefield)
-                                || game.controller_of(permanent)? != player
-                                || !game
-                                    .characteristics(permanent)?
-                                    .card_types
-                                    .contains(&CardType::Creature)
-                            {
-                                return Err(RulesError::IllegalAction(
-                                    "chosen sacrifice permanent is no longer a controlled creature",
-                                ));
-                            }
-                            game.record_event(GameEvent::SacrificedByEffect {
-                                source,
-                                player,
-                                permanent,
-                            });
-                            game.move_to_graveyard_or_remove_token(permanent)?;
-                        }
-                        Ok(())
-                    })?;
-                }
-            }
-            Ok(())
+            game.resolve_pending_decision(
+                player,
+                decision.id,
+                DecisionSelection::Objects(selected.into_iter().collect()),
+            )
         })
     }
 
@@ -8813,9 +8955,9 @@ impl Game {
     }
 
     fn suspend_top_trigger_for_effect_object_choice(&mut self) -> Result<bool, RulesError> {
-        if self.pending_trigger_effect_object_choice.is_some() {
+        if self.pending_decision.is_some() {
             return Err(RulesError::IllegalAction(
-                "a second trigger effect-object choice attempted to open during resolution",
+                "a second typed decision attempted to open during resolution",
             ));
         }
         let Some(top) = self.stack.last() else {
@@ -8826,7 +8968,7 @@ impl Game {
         };
         let kind = match top.effects.as_slice() {
             [Effect::DiscardOneCardEachPlayer] => {
-                PendingTriggeredEffectChoiceKind::DiscardEachPlayer {
+                TriggeredEffectObjectDecisionKind::DiscardEachPlayer {
                     remaining_players: self
                         .players
                         .iter()
@@ -8837,23 +8979,23 @@ impl Game {
                 }
             }
             [Effect::SacrificeControllerCreature] => {
-                PendingTriggeredEffectChoiceKind::SacrificeControllerCreature
+                TriggeredEffectObjectDecisionKind::SacrificeControllerCreature
             }
             _ => return Ok(false),
         };
         let chooser = match &kind {
-            PendingTriggeredEffectChoiceKind::DiscardEachPlayer {
+            TriggeredEffectObjectDecisionKind::DiscardEachPlayer {
                 remaining_players, ..
             } => *remaining_players.first().ok_or(RulesError::IllegalAction(
                 "a continuing game has no player for trigger discard choice",
             ))?,
-            PendingTriggeredEffectChoiceKind::SacrificeControllerCreature => top.controller,
+            TriggeredEffectObjectDecisionKind::SacrificeControllerCreature => top.controller,
         };
         let candidates = match &kind {
-            PendingTriggeredEffectChoiceKind::DiscardEachPlayer { .. } => {
+            TriggeredEffectObjectDecisionKind::DiscardEachPlayer { .. } => {
                 self.players[chooser.0].hand.clone()
             }
-            PendingTriggeredEffectChoiceKind::SacrificeControllerCreature => self
+            TriggeredEffectObjectDecisionKind::SacrificeControllerCreature => self
                 .all_battlefield_cards()
                 .into_iter()
                 .filter(|card| {
@@ -8865,16 +9007,32 @@ impl Game {
                 })
                 .collect(),
         };
-        self.pending_trigger_effect_object_choice = Some(PendingTriggeredEffectObjectChoice {
-            source: top.card,
-            controller: top.controller,
-            ability,
+        let options = candidates
+            .into_iter()
+            .map(DecisionOption::Object)
+            .collect::<Vec<_>>();
+        let (min_selections, max_selections) = if options.is_empty() { (0, 0) } else { (1, 1) };
+        self.open_pending_decision(
             chooser,
-            candidates,
-            kind,
-        });
-        self.priority = chooser;
-        self.consecutive_passes = 0;
+            match &kind {
+                TriggeredEffectObjectDecisionKind::DiscardEachPlayer { .. } => {
+                    DecisionVisibility::Private
+                }
+                TriggeredEffectObjectDecisionKind::SacrificeControllerCreature => {
+                    DecisionVisibility::Public
+                }
+            },
+            DecisionKind::TriggeredEffectObject,
+            min_selections,
+            max_selections,
+            options,
+            DecisionContinuation::TriggeredEffectObject {
+                source: top.card,
+                controller: top.controller,
+                ability,
+                kind,
+            },
+        )?;
         Ok(true)
     }
 
@@ -14326,9 +14484,9 @@ impl Game {
                 "the private opponent-library choice must resolve before priority actions",
             ));
         }
-        if self.pending_library_search_choice.is_some() {
+        if self.pending_decision.is_some() {
             return Err(RulesError::IllegalAction(
-                "the library search choice must resolve before priority actions",
+                "the pending decision must resolve before priority actions",
             ));
         }
         if !self.pending_trigger_target_choices.is_empty() {
@@ -14339,11 +14497,6 @@ impl Game {
         if self.pending_optional_trigger_choice.is_some() {
             return Err(RulesError::IllegalAction(
                 "optional trigger payment must resolve before priority actions",
-            ));
-        }
-        if self.pending_trigger_effect_object_choice.is_some() {
-            return Err(RulesError::IllegalAction(
-                "trigger effect-object choice must resolve before priority actions",
             ));
         }
         if self.pending_damage_replacement_choice.is_some() {
@@ -14457,17 +14610,14 @@ impl Game {
         if let Some(choice) = &self.pending_private_opponent_library_exile_choice {
             return choice.controller;
         }
-        if let Some(choice) = &self.pending_library_search_choice {
-            return choice.controller;
+        if let Some(decision) = &self.pending_decision {
+            return decision.player;
         }
         if let Some(choice) = self.pending_trigger_target_choices.first() {
             return choice.controller;
         }
         if let Some(choice) = &self.pending_optional_trigger_choice {
             return choice.controller;
-        }
-        if let Some(choice) = &self.pending_trigger_effect_object_choice {
-            return choice.chooser;
         }
         if let Some(choice) = &self.pending_damage_replacement_choice {
             return choice.affected_player;
@@ -14484,6 +14634,234 @@ impl Game {
                 .unwrap_or(self.priority),
             _ => self.priority,
         }
+    }
+
+    fn decision_candidate_cards(
+        &self,
+        decision: &PendingDecision,
+    ) -> Result<Vec<CardView>, RulesError> {
+        decision
+            .options
+            .iter()
+            .map(|option| match option {
+                DecisionOption::Object(card) => self.card_view(*card),
+            })
+            .collect()
+    }
+
+    /// Audits the single generalized no-priority boundary and the public
+    /// open/complete receipt lifecycle. Candidate identities remain only in
+    /// private state and player-local views; the event log names just the
+    /// decision identity and safe metadata.
+    fn validate_pending_decision(&self) -> Result<(), RulesError> {
+        let mut receipt_state = BTreeMap::<DecisionId, (PlayerId, DecisionKind, bool)>::new();
+        for event in &self.event_log {
+            match event {
+                GameEvent::DecisionOpened {
+                    decision,
+                    player,
+                    kind,
+                    ..
+                } => {
+                    if decision.0 == 0
+                        || decision.0 >= self.next_decision_id
+                        || receipt_state
+                            .insert(*decision, (*player, *kind, false))
+                            .is_some()
+                    {
+                        return Err(RulesError::IllegalAction(
+                            "decision-opened receipts do not form a monotonic unique lifecycle",
+                        ));
+                    }
+                }
+                GameEvent::DecisionCompleted {
+                    decision,
+                    player,
+                    kind,
+                } => {
+                    let Some((opened_player, opened_kind, completed)) =
+                        receipt_state.get_mut(decision)
+                    else {
+                        return Err(RulesError::IllegalAction(
+                            "decision-completed receipt lacks an opened decision",
+                        ));
+                    };
+                    if *completed || *opened_player != *player || *opened_kind != *kind {
+                        return Err(RulesError::IllegalAction(
+                            "decision-completed receipt does not match its opened decision",
+                        ));
+                    }
+                    *completed = true;
+                }
+                _ => {}
+            }
+        }
+
+        let Some(decision) = &self.pending_decision else {
+            if receipt_state.values().any(|(_, _, completed)| !completed) {
+                return Err(RulesError::IllegalAction(
+                    "a decision receipt remains open without pending decision state",
+                ));
+            }
+            return Ok(());
+        };
+        if decision.id.0 == 0
+            || decision.id.0 >= self.next_decision_id
+            || decision.min_selections > decision.max_selections
+            || usize::from(decision.max_selections) > decision.options.len()
+            || self.players.get(decision.player.0).is_none()
+            || self.players[decision.player.0].lost
+            || self.priority != decision.player
+            || self.consecutive_passes != 0
+            || self.pending_draw_replacement.is_some()
+            || self.pending_private_library_choice.is_some()
+            || self.pending_private_opponent_library_exile_choice.is_some()
+            || !self.pending_trigger_target_choices.is_empty()
+            || self.pending_optional_trigger_choice.is_some()
+            || self.pending_damage_replacement_choice.is_some()
+            || decision
+                .options
+                .iter()
+                .enumerate()
+                .any(|(index, option)| decision.options[index + 1..].contains(option))
+            || receipt_state.get(&decision.id) != Some(&(decision.player, decision.kind, false))
+        {
+            return Err(RulesError::IllegalAction(
+                "pending decision violates its identity, cardinality, or no-priority boundary",
+            ));
+        }
+
+        match &decision.continuation {
+            DecisionContinuation::LibrarySearch {
+                source,
+                requirement,
+                destination,
+                may_fail_to_find,
+            } => {
+                let top = self.stack.last().ok_or(RulesError::IllegalAction(
+                    "library-search decision escaped its stack item",
+                ))?;
+                let matches_stack = matches!(
+                    top.effects.as_slice(),
+                    [Effect::SearchControllerLibrary {
+                        requirement: stack_requirement,
+                        destination: stack_destination,
+                        selection: LibrarySearchSelection::PolicySubmitted {
+                            may_fail_to_find: stack_may_fail,
+                        },
+                    }] if stack_requirement == requirement
+                        && stack_destination == destination
+                        && stack_may_fail == may_fail_to_find
+                );
+                let expected_options = self
+                    .library_search_candidates(decision.player, requirement, top.chosen_x)?
+                    .into_iter()
+                    .map(DecisionOption::Object)
+                    .collect::<Vec<_>>();
+                let (expected_min, expected_max) = if expected_options.is_empty() {
+                    (0, 0)
+                } else if *may_fail_to_find {
+                    (0, 1)
+                } else {
+                    (1, 1)
+                };
+                if decision.kind != DecisionKind::LibrarySearch
+                    || decision.visibility != DecisionVisibility::Private
+                    || top.card != *source
+                    || top.controller != decision.player
+                    || !matches_stack
+                    || decision.options != expected_options
+                    || decision.min_selections != expected_min
+                    || decision.max_selections != expected_max
+                {
+                    return Err(RulesError::IllegalAction(
+                        "library-search decision escaped its typed continuation boundary",
+                    ));
+                }
+            }
+            DecisionContinuation::TriggeredEffectObject {
+                source,
+                controller,
+                ability,
+                kind,
+            } => {
+                let top = self.stack.last().ok_or(RulesError::IllegalAction(
+                    "trigger-effect decision escaped its stack ability",
+                ))?;
+                let registered = self
+                    .card_definition(*source)
+                    .ok()
+                    .and_then(|definition| self.triggered_abilities.get(definition.id))
+                    .and_then(|abilities| abilities.get(ability));
+                let (expected_options, expected_visibility, expected_effects) = match kind {
+                    TriggeredEffectObjectDecisionKind::DiscardEachPlayer {
+                        remaining_players,
+                        selected,
+                    } => {
+                        if remaining_players.first() != Some(&decision.player)
+                            || remaining_players
+                                .iter()
+                                .any(|player| self.players[player.0].lost)
+                            || selected.iter().any(|(player, card)| {
+                                self.zone_of(*card) != Some(Zone::Hand)
+                                    || self
+                                        .object(*card)
+                                        .map_or(true, |object| object.owner != *player)
+                            })
+                        {
+                            return Err(RulesError::IllegalAction(
+                                "discard decision continuation has stale player or hand provenance",
+                            ));
+                        }
+                        (
+                            self.players[decision.player.0]
+                                .hand
+                                .iter()
+                                .copied()
+                                .map(DecisionOption::Object)
+                                .collect::<Vec<_>>(),
+                            DecisionVisibility::Private,
+                            matches!(top.effects.as_slice(), [Effect::DiscardOneCardEachPlayer]),
+                        )
+                    }
+                    TriggeredEffectObjectDecisionKind::SacrificeControllerCreature => (
+                        self.all_battlefield_cards()
+                            .into_iter()
+                            .filter(|card| {
+                                self.object(*card)
+                                    .is_ok_and(|object| object.controller == decision.player)
+                                    && self.characteristics(*card).is_ok_and(|characteristics| {
+                                        characteristics.card_types.contains(&CardType::Creature)
+                                    })
+                            })
+                            .map(DecisionOption::Object)
+                            .collect::<Vec<_>>(),
+                        DecisionVisibility::Public,
+                        matches!(
+                            top.effects.as_slice(),
+                            [Effect::SacrificeControllerCreature]
+                        ),
+                    ),
+                };
+                let expected_min = if expected_options.is_empty() { 0 } else { 1 };
+                if decision.kind != DecisionKind::TriggeredEffectObject
+                    || top.card != *source
+                    || top.controller != *controller
+                    || top.ability_id != Some(*ability)
+                    || registered.is_none()
+                    || !expected_effects
+                    || decision.visibility != expected_visibility
+                    || decision.options != expected_options
+                    || decision.min_selections != expected_min
+                    || decision.max_selections != expected_min
+                {
+                    return Err(RulesError::IllegalAction(
+                        "trigger-effect decision escaped its typed continuation boundary",
+                    ));
+                }
+            }
+        }
+        Ok(())
     }
 
     fn all_battlefield_cards(&self) -> Vec<ObjectId> {

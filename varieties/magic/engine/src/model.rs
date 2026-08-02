@@ -2364,6 +2364,91 @@ pub struct DelayedAction {
     pub kind: DelayedActionKind,
 }
 
+/// A monotonically increasing identity for one no-priority policy decision.
+/// A decision id is never reused, including when the same source opens a
+/// later, otherwise identical choice. This prevents a stale policy response
+/// from mutating a newer continuation.
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct DecisionId(pub u64);
+
+/// Whether candidate identities may be projected outside the deciding policy.
+/// Both variants leave the selected result to ordinary typed game receipts;
+/// hidden candidates never enter the public canonical log.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DecisionVisibility {
+    Public,
+    Private,
+}
+
+/// The expansion-neutral category of a currently supported decision.
+/// Additional categories can share the same id, cardinality, projection, and
+/// continuation substrate without adding more pending booleans to `Game`.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DecisionKind {
+    LibrarySearch,
+    TriggeredEffectObject,
+}
+
+/// A concrete option retained in typed pending-decision state. This first
+/// migration supports object choices; the enum deliberately keeps the policy
+/// surface extensible for targets, colors, ordering, and replacements.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DecisionOption {
+    Object(ObjectId),
+}
+
+/// A submitted answer to a typed decision. The continuation determines which
+/// shapes are legal; it never stores an executable closure in game state.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum DecisionSelection {
+    Objects(Vec<ObjectId>),
+}
+
+/// Stateful continuation details for the migrated trigger-effect object
+/// choices. The values are plain cloned data, so they remain replay-auditable
+/// across multi-player discard prompts.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum TriggeredEffectObjectDecisionKind {
+    DiscardEachPlayer {
+        remaining_players: Vec<PlayerId>,
+        selected: Vec<(PlayerId, ObjectId)>,
+    },
+    SacrificeControllerCreature,
+}
+
+/// The typed continuation that resumes when a pending decision completes.
+/// This replaces specialized game-local marker structs for the migrated
+/// decision paths while preserving their existing effect-specific receipts.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum DecisionContinuation {
+    LibrarySearch {
+        source: ObjectId,
+        requirement: LibrarySearchRequirement,
+        destination: LibrarySearchDestination,
+        may_fail_to_find: bool,
+    },
+    TriggeredEffectObject {
+        source: ObjectId,
+        controller: PlayerId,
+        ability: &'static str,
+        kind: TriggeredEffectObjectDecisionKind,
+    },
+}
+
+/// One serializable, no-priority decision boundary. Candidate options remain
+/// internal until projected through the deciding player's `GameView`.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct PendingDecision {
+    pub id: DecisionId,
+    pub player: PlayerId,
+    pub visibility: DecisionVisibility,
+    pub kind: DecisionKind,
+    pub min_selections: u8,
+    pub max_selections: u8,
+    pub options: Vec<DecisionOption>,
+    pub continuation: DecisionContinuation,
+}
+
 /// The narrow action vocabulary supplied by a code policy to the engine.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum PolicyMoveKind {
@@ -2376,6 +2461,7 @@ pub enum PolicyMoveKind {
     ChooseTriggeredAbilityEffectObject,
     ChooseDamageReplacement,
     ResolveOptionalTriggeredAbility,
+    SubmitDecision,
     Transmute,
     PassPriority,
     PlayLand,
@@ -2614,6 +2700,24 @@ pub enum GameEvent {
         player: PlayerId,
         policy: String,
         kind: PolicyMoveKind,
+    },
+    /// A typed no-priority decision opened. Candidate identities and the
+    /// submitted answer deliberately remain absent from the public receipt.
+    DecisionOpened {
+        decision: DecisionId,
+        player: PlayerId,
+        kind: DecisionKind,
+        visibility: DecisionVisibility,
+        min_selections: u8,
+        max_selections: u8,
+    },
+    /// A typed decision completed successfully. Effect-specific public
+    /// receipts, such as a sacrifice or search movement, follow through the
+    /// continuation without revealing private unselected candidates.
+    DecisionCompleted {
+        decision: DecisionId,
+        player: PlayerId,
+        kind: DecisionKind,
     },
     CardMoved {
         card: ObjectId,

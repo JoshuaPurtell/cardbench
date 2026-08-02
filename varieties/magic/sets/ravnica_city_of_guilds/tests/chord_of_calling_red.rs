@@ -1,8 +1,9 @@
 //! Red-to-green regression for Chord of Calling's policy-submitted search.
 
 use cardbench_magic_engine::{
-    CastRequest, Color, ConvokeContribution, ConvokePayment, Game, GameEvent,
-    LibrarySearchDestination, ManaPaymentSelection, PlayerId, PolicyAction, PolicyMoveKind, Zone,
+    CastRequest, Color, ConvokeContribution, ConvokePayment, DecisionKind, DecisionSelection,
+    DecisionVisibility, Game, GameEvent, LibrarySearchDestination, ManaPaymentSelection, PlayerId,
+    PolicyAction, PolicyMoveKind, Zone,
 };
 use cardbench_magic_rav::{
     card_definitions, executable_definition_id_for_collector, rav_activated_ability_bindings,
@@ -90,7 +91,14 @@ fn chord_uses_convoke_and_chosen_x_then_waits_for_a_private_exact_search_selecti
     let choice = controller_view
         .library_search_choice
         .expect("controller receives private search candidates");
+    let decision = controller_view
+        .pending_decision
+        .expect("controller receives the generic private search decision");
     assert_eq!(choice.source, chord);
+    assert_eq!(decision.kind, DecisionKind::LibrarySearch);
+    assert_eq!(decision.visibility, DecisionVisibility::Private);
+    assert_eq!(decision.min_selections, 0);
+    assert_eq!(decision.max_selections, 1);
     assert_eq!(choice.destination, LibrarySearchDestination::Battlefield);
     assert!(choice.may_fail_to_find);
     assert_eq!(
@@ -105,11 +113,28 @@ fn chord_uses_convoke_and_chosen_x_then_waits_for_a_private_exact_search_selecti
         "opponents never receive the controller's hidden-library candidates"
     );
     assert!(
+        game.view_for_player(PlayerId(1))
+            .expect("opponent generic view")
+            .pending_decision
+            .is_none(),
+        "opponents never receive the generic hidden-library decision candidates"
+    );
+    assert!(
         game.event_log
             .iter()
             .all(|event| !matches!(event, GameEvent::LibrarySearchResolved { .. })),
         "opening the private decision does not reveal a selected card"
     );
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::DecisionOpened {
+            decision: event_id,
+            player,
+            kind: DecisionKind::LibrarySearch,
+            visibility: DecisionVisibility::Private,
+            ..
+        } if *event_id == decision.id && *player == PlayerId(0)
+    )));
     assert_eq!(game.zone_of(opponent_hidden), Some(Zone::Library));
 
     let events_before_rejection = game.event_log.clone();
@@ -117,9 +142,9 @@ fn chord_uses_convoke_and_chosen_x_then_waits_for_a_private_exact_search_selecti
         game.submit_policy_move(
             PlayerId(1),
             "test.chord.v1",
-            PolicyAction::ChooseLibrarySearchCard {
-                source: chord,
-                selected: Some(candidates[1]),
+            PolicyAction::SubmitDecision {
+                decision: decision.id,
+                selection: DecisionSelection::Objects(vec![candidates[1]]),
             },
         )
         .is_err()
@@ -132,9 +157,9 @@ fn chord_uses_convoke_and_chosen_x_then_waits_for_a_private_exact_search_selecti
         game.submit_policy_move(
             PlayerId(0),
             "test.chord.v1",
-            PolicyAction::ChooseLibrarySearchCard {
-                source: chord,
-                selected: Some(over_bound),
+            PolicyAction::SubmitDecision {
+                decision: decision.id,
+                selection: DecisionSelection::Objects(vec![over_bound]),
             },
         )
         .is_err()
@@ -146,9 +171,9 @@ fn chord_uses_convoke_and_chosen_x_then_waits_for_a_private_exact_search_selecti
     game.submit_policy_move(
         PlayerId(0),
         "test.chord.v1",
-        PolicyAction::ChooseLibrarySearchCard {
-            source: chord,
-            selected: Some(candidates[1]),
+        PolicyAction::SubmitDecision {
+            decision: decision.id,
+            selection: DecisionSelection::Objects(vec![candidates[1]]),
         },
     )
     .expect("exact legal candidate completes Chord");
@@ -176,7 +201,7 @@ fn chord_uses_convoke_and_chosen_x_then_waits_for_a_private_exact_search_selecti
         game.event_log.last(),
         Some(GameEvent::PolicyMoveSubmitted {
             player,
-            kind: PolicyMoveKind::ChooseLibrarySearchCard,
+            kind: PolicyMoveKind::SubmitDecision,
             ..
         }) if *player == PlayerId(0)
     ));
