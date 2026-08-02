@@ -18,6 +18,13 @@ Oracle Magic rules coverage.
   completes; the caster does not regain priority merely because their cast
   completed. Without such a decision, the caster retains priority after the
   completed cast in the ordinary way.
+- A trigger-order or trigger-target decision is never itself a priority
+  action. The engine retains the exact priority holder immediately before the
+  first suspended APNAP placement decision, preserves it across chained order
+  and target selections, and restores it only after the whole placement batch
+  has either stacked every trigger or discarded triggers with no legal target.
+  An external state with a trigger-placement decision but no live saved holder,
+  or a saved holder outside that exact no-priority boundary, is rejected.
 - A game ends only when zero or one players remain. Its terminal transition
   emits exactly one `GameEnded { winner }` record (where `winner` is `None`
   for a draw). In a continuing multiplayer game, an eliminated player is
