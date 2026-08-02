@@ -157,7 +157,13 @@ fn easy_creature_wave_one_is_exactly_bounded_to_public_base_facts() {
     assert_eq!((drake.power, drake.toughness), (Some(2), Some(2)));
     assert_eq!(
         drake.supported_rules,
-        ["colored-cost-casting", "base-characteristics", "flying"]
+        [
+            "full-rules-fidelity",
+            "colored-cost-casting",
+            "base-characteristics",
+            "flying",
+            "self-regeneration",
+        ]
     );
 }
 

@@ -41,7 +41,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 144] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 145] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -89,6 +89,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 144] = [
     "RAV-FOREST",
     "RAV-CONCLAVE-EQUENAUT",
     "RAV-SNAPPING-DRAKE",
+    "RAV-TATTERED-DRAKE",
     "RAV-GOLIATH-SPIDER",
     "RAV-COURIER-HAWK",
     "RAV-SKYKNIGHT-LEGIONNAIRE",
@@ -3417,9 +3418,9 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Unblockable],
             effects: vec![],
         },
-        // Compatibility scope: normal colored-cost creature casting, base
-        // characteristics, and Flying. Its regeneration activation remains
-        // deliberately unsupported, so this is not a full-fidelity card.
+        // Full fidelity: normal colored-cost casting, base characteristics,
+        // Flying blocker legality, and the stack-backed black self-regeneration
+        // activation are represented by the shared engine.
         CardDefinition {
             id: "RAV-TATTERED-DRAKE",
             name: "Tattered Drake",
@@ -3429,7 +3430,13 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Creature]),
             is_basic_land: false,
-            supported_rules: &["colored-cost-casting", "base-characteristics", "flying"],
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "flying",
+                "self-regeneration",
+            ],
             power: Some(2),
             toughness: Some(2),
             keywords: vec![Keyword::Flying],
@@ -4996,6 +5003,22 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
         },
         ActivatedAbilityBinding {
             card_definition: "RAV-SEWERDREG",
+            ability: ActivatedAbility {
+                id: "self-regeneration",
+                mana_cost: ManaCost::with_colors(0, [Color::Black]),
+                tap_cost: false,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![],
+                effects: vec![Effect::RegenerateSource],
+            },
+        },
+        ActivatedAbilityBinding {
+            card_definition: "RAV-TATTERED-DRAKE",
             ability: ActivatedAbility {
                 id: "self-regeneration",
                 mana_cost: ManaCost::with_colors(0, [Color::Black]),

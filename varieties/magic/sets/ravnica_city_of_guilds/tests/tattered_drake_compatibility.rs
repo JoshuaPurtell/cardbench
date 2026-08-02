@@ -1,4 +1,4 @@
-//! Bounded public contract for Tattered Drake's shared Flying behavior.
+//! Full-fidelity contract for Tattered Drake's Flying and regeneration.
 
 use std::collections::BTreeSet;
 
@@ -6,7 +6,7 @@ use cardbench_magic_engine::{CardType, Color, Keyword, ManaCost};
 use cardbench_magic_rav::{RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, run_all_scenarios};
 
 #[test]
-fn tattered_drake_definition_is_explicit_about_the_omitted_regeneration() {
+fn tattered_drake_definition_records_its_complete_supported_behavior() {
     let drake = card_definitions()
         .into_iter()
         .find(|definition| definition.id == "RAV-TATTERED-DRAKE")
@@ -19,9 +19,15 @@ fn tattered_drake_definition_is_explicit_about_the_omitted_regeneration() {
     assert!(drake.effects.is_empty());
     assert_eq!(
         drake.supported_rules,
-        ["colored-cost-casting", "base-characteristics", "flying"]
+        [
+            "full-rules-fidelity",
+            "colored-cost-casting",
+            "base-characteristics",
+            "flying",
+            "self-regeneration",
+        ]
     );
-    assert!(!RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&drake.id));
+    assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&drake.id));
 }
 
 #[test]

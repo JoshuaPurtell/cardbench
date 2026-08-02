@@ -1,6 +1,4 @@
-//! Red coverage probe for Tattered Drake's shared Flying rule.
-//!
-//! Its regeneration activation is deliberately not approximated here.
+//! Coverage probe for Tattered Drake's full static behavior.
 
 use std::collections::BTreeSet;
 
@@ -23,7 +21,13 @@ fn tattered_drake_exposes_its_supported_flying_compatibility_slice() {
     assert!(drake.effects.is_empty());
     assert_eq!(
         drake.supported_rules,
-        ["colored-cost-casting", "base-characteristics", "flying"],
-        "the regeneration activation remains intentionally bounded"
+        [
+            "full-rules-fidelity",
+            "colored-cost-casting",
+            "base-characteristics",
+            "flying",
+            "self-regeneration",
+        ],
+        "the regeneration activation is now represented by the shared stack substrate"
     );
 }
