@@ -1635,6 +1635,13 @@ pub enum Effect {
     /// intentionally a stack-only operation so public live-game setup cannot
     /// inject cards into a hand after the game has begun.
     DrawController,
+    /// Snapshot the resolving controller's live permanents with the stated
+    /// registered basic-land type, then make that many ordinary spell-effect
+    /// draws. The type-line lookup is expansion-neutral and does not infer a
+    /// land type from a card's display name or mana ability.
+    DrawControllerForEachControlledBasicLandType {
+        land_type: BasicLandType,
+    },
     /// Draw one card for the targeted player as a stack instruction. The
     /// target slot preserves resolution-time legality instead of treating an
     /// opponent's draw as an untracked controller-side mutation.
@@ -2126,6 +2133,7 @@ impl Effect {
             | Self::GainLifeForEachCreature
             | Self::GainLifeControllerFromSourceDamage
             | Self::DrawController
+            | Self::DrawControllerForEachControlledBasicLandType { .. }
             | Self::PreventLibrarySearchUntilEndOfTurn
             | Self::SearchControllerLibrary { .. }
             | Self::SearchControllerLibraryMany { .. }

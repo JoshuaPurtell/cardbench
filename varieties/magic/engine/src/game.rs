@@ -2899,6 +2899,26 @@ impl Game {
         })
     }
 
+    /// Counts only the resolving controller's live permanents with one
+    /// expansion-registered basic-land type. The caller snapshots this count
+    /// at one instruction's resolution boundary before any downstream draws
+    /// can change zones or player state.
+    fn controlled_basic_land_type_count(
+        &self,
+        player: PlayerId,
+        land_type: BasicLandType,
+    ) -> usize {
+        self.all_battlefield_cards()
+            .into_iter()
+            .filter(|card| {
+                self.controller_of(*card) == Ok(player)
+                    && self
+                        .basic_land_type(*card)
+                        .is_ok_and(|registered| registered == Some(land_type))
+            })
+            .count()
+    }
+
     fn controller_saprolings_cannot_block(&self, player: PlayerId) -> bool {
         self.all_battlefield_cards().into_iter().any(|source| {
             self.controller_of(source) == Ok(player)
@@ -10131,6 +10151,7 @@ impl Game {
                 | Effect::DrawControllerIfManaColorSpent { .. }
                 | Effect::ModifyAllCreaturesPtUntilEndOfTurnIfManaColorSpent { .. }
                 | Effect::DrawController
+                | Effect::DrawControllerForEachControlledBasicLandType { .. }
                 | Effect::DrawTargetPlayer
                 | Effect::PreventLibrarySearchUntilEndOfTurn
                 | Effect::SearchControllerLibrary { .. }
@@ -13743,6 +13764,12 @@ impl Game {
             }
             Effect::DrawController => {
                 self.draw_card_from_spell_effect(controller)?;
+            }
+            Effect::DrawControllerForEachControlledBasicLandType { land_type } => {
+                let draw_count = self.controlled_basic_land_type_count(controller, *land_type);
+                for _ in 0..draw_count {
+                    self.draw_card_from_spell_effect(controller)?;
+                }
             }
             Effect::DrawTargetPlayer => {
                 let player = match target.ok_or(RulesError::IllegalAction(

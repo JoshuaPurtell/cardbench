@@ -207,6 +207,12 @@ Oracle Magic rules coverage.
   provenance, invalid source/controller identities, an unsupported source
   binding, or a fabricated token incarnation. Source departure immediately
   revokes the restriction without a delayed cleanup effect.
+- A stack instruction that draws for each controlled registered basic-land type
+  snapshots the resolving controller's live count once at that instruction's
+  resolution boundary. Only the exact registered type contributes; lands an
+  opponent controls, untyped lands, display-name coincidences, and later zone
+  changes do not. The resulting draw attempts use the ordinary spell-effect
+  draw lifecycle and retain its empty-library handling.
 - A registered land-entry behavior names exactly one land definition and
   currently represents only a mandatory tapped entry. Playing that land marks
   it tapped before state-based actions and before any resulting ETB ability is

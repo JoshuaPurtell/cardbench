@@ -41,7 +41,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 146] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 147] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -150,6 +150,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 146] = [
     "RAV-VINDICTIVE-MOB",
     "RAV-BELLTOWER-SPHINX",
     "RAV-FLIGHT-OF-FANCY",
+    "RAV-FLOW-OF-IDEAS",
     "RAV-DREAM-LEASH",
     "RAV-REMAND",
     "RAV-MARK-OF-EVICTION",
@@ -3169,6 +3170,29 @@ pub fn card_definitions() -> Vec<CardDefinition> {
         },
         // Full fidelity: Defender and the tap activation that mills a target
         // player for two cards are both typed engine rules.
+        // Full fidelity: resolution snapshots the controller's registered
+        // Island count, then makes one ordinary spell-effect draw for each
+        // snapshot member. Opponent Islands never contribute.
+        CardDefinition {
+            id: "RAV-FLOW-OF-IDEAS",
+            name: "Flow of Ideas",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(5, [Color::Blue]),
+            colors: colors([Color::Blue]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Sorcery]),
+            is_basic_land: false,
+            supported_rules: &["full-rules-fidelity", "draw-for-each-controlled-island"],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![Effect::DrawControllerForEachControlledBasicLandType {
+                land_type: BasicLandType::Island,
+            }],
+        },
+        // Full fidelity: the control effect is derived from the live Aura
+        // source rather than the player who happened to cast it. Attachment
+        // and source departure use the shared layer-two lifecycle.
         CardDefinition {
             id: "RAV-DREAM-LEASH",
             name: "Dream Leash",
