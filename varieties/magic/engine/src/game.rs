@@ -8,16 +8,16 @@ use crate::{
     ActivatedAbilityKind, ActivatedManaAbility, AdditionalSpellCost, AdditionalSpellCostBinding,
     BasicLandType, BasicLandTypeBinding, CardDefinition, CardObject, CardType,
     CastPaymentManaAbility, Characteristics, Color, CombatBlock, ContinuousChange,
-    ContinuousEffect, CostReductionBinding, CounterKind, CreatureSubtype, DeckList, DelayedAction,
-    DelayedActionId, DelayedActionKind, DelayedActionTiming, Duration, Effect, GameEvent, Keyword,
-    LandEntryBinding, LibrarySearchDestination, LibrarySearchRequirement, LibrarySearchSelection,
-    LinkedExileGroup, LinkedExileGroupId, LinkedExileMember, LinkedExileMemberRole,
-    ManaAbilityActivation, ManaAbilityBinding, ManaAbilityOutput, ManaCost, ManaPaymentSelection,
-    ObjectId, PlayerId, PlayerState, PolicyMoveKind, ReplacementEffect, ReplacementEffectBinding,
-    ReplacementEventKind, StackEffectResolution, StackObject, StackResolutionPlan,
-    StaticAttackRestriction, StaticAttackRestrictionBinding, StaticContinuousEffectBinding, Step,
-    Target, TargetRequirement, TokenSpec, TriggerCondition, TriggeredAbilityBinding, Zone,
-    DamageReplacementChoice,
+    ContinuousEffect, CostReductionBinding, CounterKind, CreatureSubtype, DamageReplacementChoice,
+    DeckList, DelayedAction, DelayedActionId, DelayedActionKind, DelayedActionTiming, Duration,
+    Effect, GameEvent, Keyword, LandEntryBinding, LibrarySearchDestination,
+    LibrarySearchRequirement, LibrarySearchSelection, LinkedExileGroup, LinkedExileGroupId,
+    LinkedExileMember, LinkedExileMemberRole, ManaAbilityActivation, ManaAbilityBinding,
+    ManaAbilityOutput, ManaCost, ManaPaymentSelection, ObjectId, PlayerId, PlayerState,
+    PolicyMoveKind, ReplacementEffect, ReplacementEffectBinding, ReplacementEventKind,
+    StackEffectResolution, StackObject, StackResolutionPlan, StaticAttackRestriction,
+    StaticAttackRestrictionBinding, StaticContinuousEffectBinding, Step, Target, TargetRequirement,
+    TokenSpec, TriggerCondition, TriggeredAbilityBinding, Zone,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -8946,6 +8946,12 @@ impl Game {
                         if source_colors.contains(color)
                 )
             })
+        })
+    }
+
+    fn target_prevents_damage_from_source(&self, source: ObjectId, target: ObjectId) -> bool {
+        self.characteristics(source).is_ok_and(|characteristics| {
+            self.target_prevents_damage_from_colors(target, &characteristics.colors)
         })
     }
 
