@@ -14999,6 +14999,31 @@ impl Game {
             self.consecutive_passes = 0;
             return Ok(());
         }
+        // A declined optional trigger resolves without executing any of its
+        // instructions.  This must happen before instruction-specific
+        // suspension checks: otherwise a declined private search could expose
+        // library candidates even though the trigger's effects are skipped.
+        if matches!(optional_decision, Some((false, _))) {
+            let declined = self.stack.pop().ok_or(RulesError::IllegalAction(
+                "optional triggered ability disappeared before its decline resolved",
+            ))?;
+            let ability = declined.ability_id.ok_or(RulesError::IllegalAction(
+                "optional trigger decision escaped a non-ability stack object",
+            ))?;
+            self.stack_effect_cursors.remove(&declined.id);
+            self.record_event(GameEvent::AbilityResolved {
+                source: declined.card,
+                source_incarnation: declined.source_incarnation,
+                ability,
+            });
+            self.check_state_based_actions()?;
+            self.flush_pending_land_entry_triggers()?;
+            self.flush_pending_damage_triggers();
+            self.flush_pending_life_gain_triggers();
+            self.flush_pending_dies_triggers();
+            self.restore_priority_after_stack_resolution();
+            return Ok(());
+        }
         if self.suspend_top_stack_item_for_activated_ability_retarget_choice()? {
             return Ok(());
         }
