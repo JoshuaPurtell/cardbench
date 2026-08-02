@@ -125,6 +125,7 @@ fn consult_requires_a_policy_submitted_branch_and_rejects_an_out_of_range_mode()
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // Both policy-selected modal branches must retain their full event transcripts.
 fn consult_policy_draw_and_discard_branches_retain_stack_and_event_provenance() {
     let mut draw_game = Game::new(card_definitions(), 2).expect("RAV game builds");
     let consult = draw_game

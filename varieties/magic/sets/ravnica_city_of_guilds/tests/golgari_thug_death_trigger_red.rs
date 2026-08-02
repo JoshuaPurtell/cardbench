@@ -32,6 +32,7 @@ fn resolve_top(game: &mut Game) {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // Death trigger, private library choice, and return provenance form one transcript.
 fn golgari_thug_death_trigger_is_ability_complete() {
     let definition = card_definitions()
         .into_iter()
