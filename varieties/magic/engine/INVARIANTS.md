@@ -842,6 +842,14 @@ Oracle Magic rules coverage.
   that card's graveyard move and before `AbilityActivated`. The invariant audit
   rejects orphaned discard receipts, receipts for abilities without a discard
   binding, and any non-graveyard destination.
+- A stack-using activated ability captures its controller at activation in the
+  immutable stack object and matching `AbilityActivated` receipt. A later
+  layer-two control change to its live battlefield source does not change or
+  invalidate that historical controller: effects resolve for the captured
+  activator, while ordinary source zone and target-incarnation checks continue
+  to govern legality independently. In particular, a valid response that
+  steals the source must not make the response transition fail its invariant
+  audit or retarget the already-activated ability.
 - Every activated-ability sacrifice cost is represented by explicit, distinct
   policy-selected controlled battlefield permanents in binding order: source
   sacrifices first, then the configured number of creatures, then lands. The
