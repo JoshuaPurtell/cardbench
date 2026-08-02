@@ -1633,6 +1633,14 @@ pub enum Effect {
     RadianceDealDamageToCreatures {
         amount: i16,
     },
+    /// Install one independent one-shot prevention shield on the targeted
+    /// creature and every other current creature sharing one of its colors.
+    /// The target remains included even when colorless. The recipient set is
+    /// snapshotted while this instruction resolves, before any later effect
+    /// or state-based action can change it.
+    RadianceAddTargetDamageShieldUntilEndOfTurn {
+        amount: i16,
+    },
     GainLifeController {
         amount: i16,
     },
@@ -2090,6 +2098,7 @@ impl Effect {
             | Self::ModifyTargetKeywordUntilEndOfTurn { .. }
             | Self::AttachSourceAndModifyTargetPt { .. }
             | Self::RadianceDealDamageToCreatures { .. }
+            | Self::RadianceAddTargetDamageShieldUntilEndOfTurn { .. }
             | Self::RadianceUntapAndModifyUntilEndOfTurn { .. }
             | Self::RadianceModifyPtUntilEndOfTurn { .. }
             | Self::RadianceAddKeywordUntilEndOfTurn { .. }

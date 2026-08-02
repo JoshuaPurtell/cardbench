@@ -108,6 +108,12 @@ fn radiance_prevention_shields_target_and_every_shared_color_creature() {
         .add_card(PlayerId(0), DAMAGE, Zone::Hand)
         .expect("damage spell setup");
 
+    for card in [apothecary, target, shared, off_color] {
+        game.set_entered_turn_for_setup(card, 0)
+            .expect("pre-game creature ages through the setup boundary");
+    }
+    game.begin_game().expect("fixture begins");
+
     game.activate_ability(
         PlayerId(0),
         AbilityActivation {

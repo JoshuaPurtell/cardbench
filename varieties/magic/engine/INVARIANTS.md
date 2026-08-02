@@ -152,6 +152,13 @@ Oracle Magic rules coverage.
   that amount before the spell's ordinary terminal zone move. X equal to zero
   is legal, draws or resolves the spell's other instructions normally, and
   creates no zero-valued shield or synthetic prevention receipt.
+- A target-bearing Radiance prevention instruction snapshots the target plus
+  every other current battlefield creature sharing at least one of that
+  target's colors, even across controllers. It emits one independent positive
+  `DamageShieldCreated` receipt per selected creature; an off-color creature
+  never receives one, and a colorless target selects only itself. Each receipt
+  is governed by the ordinary target-side shield lifecycle above, rather than
+  a shared mutable batch record.
 - A source-side combat-damage prevention record has a unique positive id, a
   current-turn expiry, a retained creating-source identity, and one exact live
   battlefield creature incarnation. It is created only while its target still

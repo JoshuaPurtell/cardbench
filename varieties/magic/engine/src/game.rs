@@ -10533,6 +10533,7 @@ impl Game {
                 | Effect::DealDamageToEachPlayer { amount }
                 | Effect::DealDamageToEachNonFlyingCreature { amount }
                 | Effect::RadianceDealDamageToCreatures { amount }
+                | Effect::RadianceAddTargetDamageShieldUntilEndOfTurn { amount }
                 | Effect::BeginDamageRedirection { amount }
                 | Effect::GainLifeController { amount }
                 | Effect::MillTargetPlayer { count: amount }
@@ -10641,7 +10642,7 @@ impl Game {
             };
             if amount <= 0 {
                 return Err(RulesError::IllegalAction(
-                    "damage and life-gain effect amounts must be positive",
+                    "damage, prevention, and life-gain effect amounts must be positive",
                 ));
             }
         }
@@ -14367,6 +14368,21 @@ impl Game {
                     )?;
                 }
             }
+            Effect::RadianceAddTargetDamageShieldUntilEndOfTurn { amount } => {
+                let target = Self::target_permanent(target)?;
+                // Snapshot the full Radiance recipient set before creating
+                // independent replacement records. Each shield must retain
+                // its own target identity and remain valid if the activating
+                // source later leaves the battlefield.
+                let recipients = self.radiance_creatures_sharing_color(target)?;
+                for recipient in recipients {
+                    self.install_damage_prevention_shield(
+                        source,
+                        Target::Permanent(recipient),
+                        *amount,
+                    )?;
+                }
+            }
             Effect::GainLifeController { amount } => {
                 self.players[controller.0].life += i64::from(*amount);
                 self.record_event(GameEvent::LifeGained {
@@ -17153,12 +17169,13 @@ impl Game {
                 | Effect::DealDamageToEachCreatureAndPlayer { amount }
                 | Effect::DealDamageToEachPlayer { amount }
                 | Effect::RadianceDealDamageToCreatures { amount }
+                | Effect::RadianceAddTargetDamageShieldUntilEndOfTurn { amount }
                 | Effect::GainLifeController { amount } => *amount,
                 _ => continue,
             };
             if amount <= 0 {
                 return Err(RulesError::IllegalAction(
-                    "damage and life-gain effect amounts must be positive",
+                    "damage, prevention, and life-gain effect amounts must be positive",
                 ));
             }
         }
