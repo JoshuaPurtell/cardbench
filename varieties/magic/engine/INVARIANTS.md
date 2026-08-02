@@ -1815,10 +1815,15 @@ Oracle Magic rules coverage.
 - A Radiance `CannotBlock` effect installs one layer-six restriction for the
   target and each shared-color creature, never for unrelated colors. The
   restriction expires at end of turn and does not alter attacker legality.
-- An unconditional spell draw is performed only after all earlier spell
-  instructions resolve successfully, moves exactly one library card to hand
-  (or performs the normal empty-library loss), and records the ordinary card
-  movement receipt before the spell itself leaves the stack.
+- A spell or ability draw is performed only after all earlier instructions
+  resolve successfully. A successful draw moves exactly one library card to
+  hand; an empty library instead creates a private player-specific pending
+  loss marker. That marker remains only while its enclosing stack object (or
+  its no-priority continuation) is live, blocks ordinary priority, and is
+  consumed at the next state-based-action fixed point. Therefore every later
+  instruction and the resolving object's `SpellResolved`/`AbilityResolved`
+  plus terminal zone receipt precede `PlayerLost`; no pending empty-library
+  marker may escape an externally observable transition.
 - A target-free global creature-and-player damage effect snapshots every
   battlefield creature in stable object-id order, emits one permanent-damage
   receipt for each, then emits one player-damage receipt for each surviving
