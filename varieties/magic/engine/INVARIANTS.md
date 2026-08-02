@@ -1202,7 +1202,11 @@ append, removal, rewrite, or reorder of the public `event_log` is a corruption
 and is rejected by this audit. `clear_event_log()` is the explicit authorized
 reset and resets that seal alongside the public vector; it is intended before
 a measured run, not after a terminal result whose required `GameEnded` receipt
-must remain present.
+must remain present. A reset is receipt-quiescent: while a typed
+`PendingDecision`, activated/triggered stack ability, permission-timed spell,
+linked-exile delayed action, attached Equipment, or terminal lifecycle remains
+live, `clear_event_log()` is a deliberate no-op. It must never erase the
+opening/creation receipt needed to validate or complete that live transition.
 
 `PolicyAction::ReportEngineWeakness { code, detail }` is the deliberate path
 for an interaction that cannot be represented by the implemented rules slice.
