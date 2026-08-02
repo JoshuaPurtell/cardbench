@@ -52,12 +52,21 @@ fn seeds_of_strength_preserves_three_separate_target_modifiers() {
 }
 
 #[test]
-fn bounded_effect_slices_state_only_the_semantics_that_are_executable() {
+fn dryads_caress_uses_the_exact_graveyard_creature_effects() {
     let caress = definition("RAV-DRYADS-CARESS");
-    assert_eq!(caress.supported_rules, ["controller-life-gain"]);
+    assert_eq!(
+        caress.supported_rules,
+        [
+            "full-rules-fidelity",
+            "graveyard-creature-count-life-gain-and-target-return",
+        ]
+    );
     assert_eq!(
         caress.effects,
-        vec![Effect::GainLifeController { amount: 1 }]
+        vec![
+            Effect::GainLifeForEachCreatureCardInControllerGraveyard,
+            Effect::ReturnTargetCreatureCardToHand,
+        ]
     );
 
     let conclusion = definition("RAV-FIERY-CONCLUSION");

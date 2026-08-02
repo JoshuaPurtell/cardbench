@@ -1912,6 +1912,10 @@ pub enum Effect {
     /// battlefield when the instruction resolves. The count includes tokens
     /// and creatures controlled by every living player.
     GainLifeForEachCreature,
+    /// Gain life equal to the number of creature cards currently in the
+    /// resolving controller's graveyard. This is a resolution-time zone
+    /// count, distinct from a battlefield creature count.
+    GainLifeForEachCreatureCardInControllerGraveyard,
     /// Gain life equal to the resolving ability controller's live creatures
     /// that have the named color.
     GainLifeForEachControlledCreatureOfColor {
@@ -2392,6 +2396,9 @@ pub enum Effect {
     /// Return the targeted card from the resolving spell controller's
     /// graveyard to that player's hand.
     ReturnTargetCardToHand,
+    /// Return one targeted creature card from the resolving controller's
+    /// graveyard to its owner's hand.
+    ReturnTargetCreatureCardToHand,
     /// Return a targeted enchantment card from the resolving source
     /// controller's graveyard to that player's hand.
     ReturnTargetEnchantmentCardToHand,
@@ -2663,7 +2670,8 @@ impl Effect {
             Self::ReturnTargetEnchantmentCardToHand => {
                 Some(TargetRequirement::EnchantmentCardInControllerGraveyard)
             }
-            Self::ReturnTargetCreatureCardToHandIfAnotherInControllerGraveyard
+            Self::ReturnTargetCreatureCardToHand
+            | Self::ReturnTargetCreatureCardToHandIfAnotherInControllerGraveyard
             | Self::ReturnTargetCreatureCardToBattlefieldWithCounterIfManaColorSpent { .. }
             | Self::PutTargetCreatureCardInControllerGraveyardOnOwnersLibraryTop => {
                 Some(TargetRequirement::CreatureCardInControllerGraveyard)
@@ -2709,6 +2717,7 @@ impl Effect {
             | Self::DealDamageToEachNonFlyingCreature { .. }
             | Self::GainLifeController { .. }
             | Self::GainLifeForEachCreature
+            | Self::GainLifeForEachCreatureCardInControllerGraveyard
             | Self::GainLifeForEachControlledCreatureOfColor { .. }
             | Self::GainLifeControllerFromSourceDamage
             | Self::DrawController

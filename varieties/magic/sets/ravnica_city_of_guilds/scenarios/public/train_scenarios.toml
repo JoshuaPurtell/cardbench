@@ -691,13 +691,31 @@ digest = "fnv1a64:c8d601a41abb5ac1"
 [[scenario]]
 id = "rav_dryads_caress_life"
 seed = 0
-description = "Resolve the bounded Dryad's Caress controller-life-gain component."
+description = "Count the controller's creature cards in graveyard for life, then return the targeted creature card."
 
 [[scenario.card]]
 label = "caress"
 owner = 0
 definition = "RAV-DRYADS-CARESS"
 zone = "hand"
+
+[[scenario.card]]
+label = "returned"
+owner = 0
+definition = "RAV-WATCHWOLF"
+zone = "graveyard"
+
+[[scenario.card]]
+label = "other_creature"
+owner = 0
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "graveyard"
+
+[[scenario.card]]
+label = "noncreature"
+owner = 0
+definition = "RAV-CHAR"
+zone = "graveyard"
 
 [[scenario.mana]]
 player = 0
@@ -708,6 +726,7 @@ amount = 5
 kind = "cast"
 player = 0
 card = "caress"
+targets = ["permanent:returned"]
 
 [[scenario.action]]
 kind = "pass"
@@ -718,10 +737,10 @@ kind = "pass"
 player = 1
 
 [scenario.expected]
-life = [21, 20]
-zones = ["caress:graveyard"]
+life = [22, 20]
+zones = ["caress:graveyard", "returned:hand", "other_creature:graveyard", "noncreature:graveyard"]
 event_markers = ["LifeGained", "SpellResolved"]
-digest = "fnv1a64:4aa3247a9fa5ed5e"
+digest = "fnv1a64:913ef45634bdb5c0"
 
 [[scenario]]
 id = "rav_fiery_conclusion_sacrifice_damage"

@@ -13888,6 +13888,7 @@ impl Game {
                 | Effect::MillTargetPlayerFromSourceDamage
                 | Effect::MillSourceControllerFromSourceDamage
                 | Effect::GainLifeForEachCreature
+                | Effect::GainLifeForEachCreatureCardInControllerGraveyard
                 | Effect::GainLifeForEachControlledCreatureOfColor { .. }
                 | Effect::DealDamageToEachPlayerFromReceivedDamage
                 | Effect::DealDamageEqualToAttackingCreatures { .. }
@@ -13931,6 +13932,7 @@ impl Game {
                 | Effect::UntapTargetPermanent
                 | Effect::DestroyTargetArtifactOrEnchantment
                 | Effect::ReturnTargetCardToHand
+                | Effect::ReturnTargetCreatureCardToHand
                 | Effect::ReturnTargetEnchantmentCardToHand
                 | Effect::ReturnTargetCreatureCardToHandIfAnotherInControllerGraveyard
                 | Effect::ReturnTargetCreatureCardToBattlefieldWithCounterIfManaColorSpent {
@@ -19170,6 +19172,22 @@ impl Game {
                     self.enqueue_life_gain_triggers(controller);
                 }
             }
+            Effect::GainLifeForEachCreatureCardInControllerGraveyard => {
+                let count = self.controller_creature_cards_in_graveyard(controller);
+                let amount = i16::try_from(count).map_err(|_| {
+                    RulesError::IllegalAction(
+                        "graveyard creature count exceeds life-gain event capacity",
+                    )
+                })?;
+                if amount > 0 {
+                    self.players[controller.0].life += i64::from(amount);
+                    self.record_event(GameEvent::LifeGained {
+                        player: controller,
+                        amount,
+                    });
+                    self.enqueue_life_gain_triggers(controller);
+                }
+            }
             Effect::GainLifeForEachControlledCreatureOfColor { color } => {
                 let count = self
                     .all_battlefield_cards()
@@ -20414,6 +20432,17 @@ impl Game {
                     controller,
                     Target::Permanent(target),
                     TargetRequirement::OwnGraveyardCard,
+                ) {
+                    return Err(RulesError::IllegalTarget(Target::Permanent(target)));
+                }
+                self.move_to_zone(target, Zone::Hand)?;
+            }
+            Effect::ReturnTargetCreatureCardToHand => {
+                let target = Self::target_permanent(target)?;
+                if !self.target_matches_for_controller(
+                    controller,
+                    Target::Permanent(target),
+                    TargetRequirement::CreatureCardInControllerGraveyard,
                 ) {
                     return Err(RulesError::IllegalTarget(Target::Permanent(target)));
                 }

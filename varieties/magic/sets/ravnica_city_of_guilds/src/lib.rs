@@ -43,7 +43,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 222] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 223] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
@@ -65,6 +65,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 222] = [
     "RAV-SIEGE-WURM",
     "RAV-DOUBLING-SEASON",
     "RAV-GLARE-OF-SUBDUAL",
+    "RAV-DRYADS-CARESS",
     "RAV-CHORD-OF-CALLING",
     "RAV-FARSEEK",
     "RAV-MUDDLE-THE-MIXTURE",
@@ -666,8 +667,9 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
-        // Compatibility scope: the controller life-gain component only. The
-        // selected graveyard-card return is intentionally not approximated.
+        // Full fidelity: both instructions sample the resolving controller's
+        // graveyard. The first counts creature cards for life, then the
+        // targeted creature card returns through the ordinary stack path.
         CardDefinition {
             id: "RAV-DRYADS-CARESS",
             name: "Dryad's Caress",
@@ -677,11 +679,17 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Sorcery]),
             is_basic_land: false,
-            supported_rules: &["controller-life-gain"],
+            supported_rules: &[
+                "full-rules-fidelity",
+                "graveyard-creature-count-life-gain-and-target-return",
+            ],
             power: None,
             toughness: None,
             keywords: vec![],
-            effects: vec![Effect::GainLifeController { amount: 1 }],
+            effects: vec![
+                Effect::GainLifeForEachCreatureCardInControllerGraveyard,
+                Effect::ReturnTargetCreatureCardToHand,
+            ],
         },
         // Complete public slice: the expansion binds its required controlled
         // creature sacrifice as an explicit cast cost; the shared engine then

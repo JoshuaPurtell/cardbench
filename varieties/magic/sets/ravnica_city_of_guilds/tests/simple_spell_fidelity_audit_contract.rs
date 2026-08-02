@@ -16,7 +16,13 @@ fn definition(id: &str) -> cardbench_magic_engine::CardDefinition {
 #[test]
 fn audited_simple_spells_keep_their_precise_compatibility_boundaries() {
     let expected = [
-        ("RAV-DRYADS-CARESS", &["controller-life-gain"] as &[_]),
+        (
+            "RAV-DRYADS-CARESS",
+            &[
+                "full-rules-fidelity",
+                "graveyard-creature-count-life-gain-and-target-return",
+            ] as &[_],
+        ),
         (
             "RAV-MUDDLE-THE-MIXTURE",
             &[
@@ -37,7 +43,10 @@ fn audited_simple_spells_keep_their_precise_compatibility_boundaries() {
     for (id, supported_rules) in expected {
         let spell = definition(id);
         assert_eq!(spell.supported_rules, supported_rules, "{id}");
-        if !matches!(id, "RAV-DIZZY-SPELL" | "RAV-MUDDLE-THE-MIXTURE") {
+        if !matches!(
+            id,
+            "RAV-DIZZY-SPELL" | "RAV-MUDDLE-THE-MIXTURE" | "RAV-DRYADS-CARESS"
+        ) {
             assert!(
                 !RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&id),
                 "{id} has an explicit unsupported functional rule and must not be promoted"
