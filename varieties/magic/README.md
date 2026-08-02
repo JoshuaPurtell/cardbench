@@ -116,7 +116,9 @@ current corpus contains 174 scenarios and covers:
   these cover only the named shared keyword plus normal casting/base
   characteristics, never omitted printed behavior (`Golgari Grave-Troll`,
   `Necroplasm`, `Grave-Shell Scarab`, `Shambling Shell`, `Conclave Phalanx`,
-  `Autochthon Wurm`, and the Stinkweed Imp and Woebringer Demon Flying slices);
+  `Autochthon Wurm`, and the Stinkweed Imp Flying slice);
+- a full-fidelity each-upkeep sacrifice trigger with the active upkeep player
+  captured into an explicit public choice (`Woebringer Demon`);
 - a full-fidelity Convoke creature with typed vigilance combat behavior
   (`Guardian of Vitu-Ghazi`);
 - full-fidelity Flying/Reach blocker declaration and Flying/Vigilance attacker

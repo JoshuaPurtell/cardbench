@@ -10919,6 +10919,7 @@ impl Game {
         Self::validate_attachment_detach_event_order(&self.event_log)?;
         Self::validate_delayed_action_event_order(&self.event_log)?;
         Self::validate_trigger_order_event_order(&self.event_log)?;
+        self.validate_any_upkeep_trigger_event_order()?;
         self.validate_blocks_trigger_event_order()?;
         self.validate_linked_exile_state()?;
         self.validate_linked_hand_exile_state()?;
@@ -25256,6 +25257,48 @@ impl Game {
             {
                 return Err(RulesError::IllegalAction(
                     "blocks trigger does not name a committed current-combat blocker",
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// An `BeginningOfAnyUpkeep` receipt is valid only immediately after that
+    /// upkeep's own step marker. The active player is the historical payload
+    /// that materializes the later sacrifice-choice continuation; looking at
+    /// the live active-player field after priorities or a control change would
+    /// lose that provenance.
+    fn validate_any_upkeep_trigger_event_order(&self) -> Result<(), RulesError> {
+        for (stacked_index, event) in self.event_log.iter().enumerate() {
+            let GameEvent::TriggeredAbilityStacked {
+                source, ability, ..
+            } = event
+            else {
+                continue;
+            };
+            let Some(definition) = self.object(*source)?.definition else {
+                continue;
+            };
+            let is_any_upkeep = self
+                .triggered_abilities
+                .get(definition)
+                .and_then(|abilities| abilities.get(ability))
+                .is_some_and(|binding| binding.condition == TriggerCondition::BeginningOfAnyUpkeep);
+            if !is_any_upkeep {
+                continue;
+            }
+            if !matches!(
+                self.event_log[..stacked_index].iter().rev().find(|prior| {
+                    matches!(prior, GameEvent::StepBegan { .. })
+                }),
+                Some(GameEvent::StepBegan {
+                    active_player,
+                    step: Step::Upkeep,
+                    ..
+                }) if active_player.0 < self.players.len()
+            ) {
+                return Err(RulesError::IllegalAction(
+                    "any-upkeep trigger lacks its active-player upkeep boundary",
                 ));
             }
         }

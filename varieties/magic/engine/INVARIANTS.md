@@ -503,6 +503,16 @@ Oracle Magic rules coverage.
   `controller_of`, never the owner-bound base controller, so a player may
   choose a creature they currently control through a layer-two effect; its
   normal owner-indexed graveyard move then ends the temporary control effect.
+- An `BeginningOfAnyUpkeep` trigger is stacked only after that upkeep's own
+  `StepBegan` receipt and before its first priority window. Its active player
+  is captured into a materialized `SacrificeCapturedPlayerCreature` stack
+  effect; it is never recomputed from the trigger source's controller or a
+  later turn state. The corresponding public trigger-effect decision belongs
+  to precisely that captured player, offers only creatures they currently
+  control, and rejects a submission from the trigger controller when that is
+  another player. The stack-shape audit rejects an unmaterialized template, an
+  out-of-range captured seat, or an any-upkeep stack receipt without the
+  immediately preceding upkeep boundary.
 - A `ControlledAuraEntersBattlefield` observer queues only when a live
   Aura-like permanent enters under that observer's current controller. The
   ordinary trigger stack item retains the live observer source/incarnation and
