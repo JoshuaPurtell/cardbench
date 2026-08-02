@@ -1,11 +1,13 @@
-//! Red regression for Perilous Forays' sacrifice-and-search activation.
+//! Full-fidelity regression for Perilous Forays' sacrifice-and-search activation.
 
 use cardbench_magic_engine::{
-    AbilityActivation, CardType, Color, Game, GameEvent, ManaCost, PlayerId, Zone,
+    AbilityActivation, CardType, Color, DecisionSelection, Game, GameEvent, ManaCost, PlayerId,
+    PolicyAction, Zone,
 };
 use cardbench_magic_rav::{
-    card_definitions, rav_activated_ability_bindings, rav_additional_spell_cost_bindings,
-    rav_basic_land_type_bindings, rav_mana_ability_bindings, rav_triggered_ability_bindings,
+    RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, rav_activated_ability_bindings,
+    rav_additional_spell_cost_bindings, rav_basic_land_type_bindings, rav_mana_ability_bindings,
+    rav_triggered_ability_bindings,
 };
 
 #[test]
@@ -33,6 +35,12 @@ fn perilous_forays_has_the_exact_activated_search_chassis() {
             .supported_rules
             .contains(&"battlefield-tapped-land-entry")
     );
+    assert!(
+        definition
+            .supported_rules
+            .contains(&"policy-submitted-basic-land-search")
+    );
+    assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&definition.id));
 }
 
 #[test]
@@ -78,6 +86,20 @@ fn perilous_forays_pays_a_selected_creature_then_searches_and_shuffles() {
     assert_eq!(game.stack.len(), 1, "ability must expose a response window");
     game.pass_priority(PlayerId(0)).expect("controller passes");
     game.pass_priority(PlayerId(1)).expect("opponent passes");
+    let decision = game
+        .view_for_player(PlayerId(0))
+        .expect("controller view")
+        .pending_decision
+        .expect("private basic-land search choice");
+    game.submit_policy_move(
+        PlayerId(0),
+        "perilous-forays-full-fidelity-test.v1",
+        PolicyAction::SubmitDecision {
+            decision: decision.id,
+            selection: DecisionSelection::Objects(vec![forest]),
+        },
+    )
+    .expect("controller chooses the available Forest");
 
     assert_eq!(game.zone_of(forest), Some(Zone::Battlefield));
     assert!(game.object(forest).expect("Forest persists").tapped);
@@ -147,6 +169,20 @@ fn perilous_forays_land_entry_waits_for_its_ability_to_finish_before_triggering(
     .expect("Perilous Forays activation");
     game.pass_priority(PlayerId(0)).expect("controller passes");
     game.pass_priority(PlayerId(1)).expect("ability resolves");
+    let decision = game
+        .view_for_player(PlayerId(0))
+        .expect("controller view")
+        .pending_decision
+        .expect("private basic-land search choice");
+    game.submit_policy_move(
+        PlayerId(0),
+        "perilous-forays-landfall-order-test.v1",
+        PolicyAction::SubmitDecision {
+            decision: decision.id,
+            selection: DecisionSelection::Objects(vec![forest]),
+        },
+    )
+    .expect("controller chooses the available Forest");
 
     let ability_resolved = game
         .event_log

@@ -43,12 +43,13 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 245] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 246] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
     "RAV-LIGHTNING-HELIX",
     "RAV-LIFE-FROM-THE-LOAM",
+    "RAV-PERILOUS-FORAYS",
     "RAV-SEARING-MEDITATION",
     "RAV-BLOCKBUSTER",
     "RAV-PEREGRINE-MASK",
@@ -1312,10 +1313,9 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 reveal_selected: false,
             }],
         },
-        // Compatibility scope: normal enchantment casting plus the
-        // stack-backed `{1}`, sacrifice-a-creature cost and typed basic-land
-        // search. The public engine's deterministic library selection is
-        // explicit bounded behavior rather than a hidden-zone choice claim.
+        // Full fidelity: the controller pays the typed `{1}` and selected
+        // creature-sacrifice cost, then privately selects or declines an
+        // eligible basic land through the ordinary suspended stack ability.
         CardDefinition {
             id: "RAV-PERILOUS-FORAYS",
             name: "Perilous Forays",
@@ -1326,9 +1326,10 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             card_types: types([CardType::Enchantment]),
             is_basic_land: false,
             supported_rules: &[
+                "full-rules-fidelity",
                 "activated-sacrifice-creature-search-basic-land",
                 "battlefield-tapped-land-entry",
-                "deterministic-library-search-selection",
+                "policy-submitted-basic-land-search",
             ],
             power: None,
             toughness: None,
@@ -7201,7 +7202,9 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                         BasicLandType::Forest,
                     ])),
                     destination: LibrarySearchDestination::BattlefieldTapped,
-                    selection: LibrarySearchSelection::DeterministicFirstMatch,
+                    selection: LibrarySearchSelection::PolicySubmitted {
+                        may_fail_to_find: true,
+                    },
                     reveal_selected: false,
                 }],
             },

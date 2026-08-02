@@ -11612,7 +11612,7 @@ digest = "fnv1a64:08e176e384c0416d"
 [[scenario]]
 id = "rav_perilous_forays_sacrifice_land_search"
 seed = 153
-description = "Pay Perilous Forays' selected-creature sacrifice cost, then resolve its bounded typed basic-land search through the stack."
+description = "Pay Perilous Forays' selected-creature sacrifice cost, then privately select a tapped basic land through its stack ability."
 
 [[scenario.card]]
 label = "forays"
@@ -11652,14 +11652,19 @@ player = 0
 kind = "pass"
 player = 1
 
+[[scenario.action]]
+kind = "choose_library_search"
+player = 0
+found = "forest"
+
 [scenario.expected]
 zones = ["forays:battlefield", "victim:graveyard", "forest:battlefield"]
 tapped = ["forest:true"]
 stack_size = 0
 priority = 0
 mana = ["0:green:0"]
-event_markers = ["SacrificedAsAbilityCost", "AbilityActivated", "LibrarySearchResolved", "LibraryShuffled", "AbilityResolved"]
-digest = "fnv1a64:13ce8464e8d83567"
+event_markers = ["SacrificedAsAbilityCost", "AbilityActivated", "DecisionOpened", "DecisionCompleted", "LibrarySearchResolved", "LibraryShuffled", "AbilityResolved"]
+digest = "fnv1a64:b9a6755ebefce54a"
 
 [[scenario]]
 id = "rav_moldervine_cloak_persistent_attachment"
