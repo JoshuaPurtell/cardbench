@@ -748,16 +748,27 @@ Oracle Magic rules coverage.
   receipts, so a rejected timing attempt leaves the mana pool, zones, stack,
   and event log unchanged. Target-player draw remains a stack instruction and
   therefore moves the selected player's current top card only at resolution.
-- The supported atomic Transmute activation likewise resets the pass sequence
-  and leaves priority with its controller; this slice does not model its
-  activated ability as a separately stack-resolving object.
+- Transmute is a source-incarnation-backed synthetic activated ability, not an
+  immediate hidden-zone operation. At legal sorcery speed it pays its printed
+  mana cost, emits `AbilityManaPaid`, discards its source with
+  `DiscardedAsAbilityCost`, then places exactly one targetless
+  `transmute` ability on the stack before `AbilityActivated`. Its one effect is
+  a policy-submitted controller-library search for exactly the discarded
+  card's mana value. The activating player retains priority; no card is
+  revealed, moved from a library, or shuffled until every surviving player has
+  passed and the private search decision is completed. A successful selection
+  emits `CardRevealed` before its hand move, followed by
+  `LibrarySearchResolved`, `LibraryShuffled`, `Transmuted`, and
+  `AbilityResolved`; a legal failure to find has no reveal/move but retains the
+  terminal search, shuffle, and Transmuted receipts. The private decision is
+  visible only to the ability controller and blocks priority submissions.
 - A resolving turn-scoped library-search-prevention effect records one
   `LibrarySearchesPrevented { source, until_turn }` receipt for the current
-  nonzero turn. Immediate represented search actions such as Transmute reject
-  before costs or zone changes; stack-resolving search effects instead resolve
-  with `found: None` and retain their required shuffle. The marker may equal
-  only the current turn and is cleared as the next turn begins; a stale marker
-  is an invariant failure.
+  nonzero turn. The legacy immediate `Game::transmute` compatibility helper
+  rejects before costs or zone changes; the policy-stack Transmute path and
+  other stack-resolving search effects instead resolve with `found: None` and
+  retain their required shuffle. The marker may equal only the current turn and
+  is cleared as the next turn begins; a stale marker is an invariant failure.
 - A stack-based typed library search examines only the resolving controller's
   library and selects no more than one card satisfying its expansion-neutral
   predicate. A deterministic selector remains an explicitly bounded
