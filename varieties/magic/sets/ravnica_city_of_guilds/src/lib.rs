@@ -228,6 +228,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 194] = [
     "RAV-CENTAUR-SAFEGUARD",
     "RAV-BLOODLETTER-QUILL",
     "RAV-CYCLOPEAN-SNARE",
+    "RAV-CLOUDSTONE-CURIO",
     "RAV-TERRARION",
     "RAV-GRIFTERS-BLADE",
     "RAV-FESTIVAL-OF-THE-GUILDPACT",
@@ -3420,6 +3421,29 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 "controller-top-library-revealed",
                 "top-creature-shared-color-creatures-plus-one-plus-one",
                 "green-white-rotate-controller-library-top-to-bottom",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![],
+        },
+        // Full fidelity: this artifact observes each nonartifact permanent
+        // entering under its controller, retains the entrant's card types as
+        // trigger provenance, then opens an optional non-targeting choice of
+        // one other controlled permanent sharing any captured type.
+        CardDefinition {
+            id: "RAV-CLOUDSTONE-CURIO",
+            name: "Cloudstone Curio",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::new(3),
+            colors: BTreeSet::new(),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Artifact]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colorless-artifact-casting",
+                "controlled-nonartifact-etb-may-bounce-another-sharing-card-type",
             ],
             power: None,
             toughness: None,
@@ -7292,6 +7316,17 @@ pub fn rav_static_entry_restriction_bindings() -> Vec<StaticEntryRestrictionBind
 #[allow(clippy::too_many_lines)] // Keep the declarative trigger registry centralized for audit review.
 pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
     vec![
+        TriggeredAbilityBinding {
+            card_definition: "RAV-CLOUDSTONE-CURIO",
+            ability: TriggeredAbility {
+                id: "controlled-nonartifact-etb-may-bounce-sharing-card-type",
+                condition: TriggerCondition::ControlledNonartifactPermanentEntersBattlefield,
+                mana_cost: ManaCost::new(0),
+                optional: true,
+                targets: vec![],
+                effects: vec![Effect::ReturnAnotherControlledPermanentSharingEnteredCardTypes],
+            },
+        },
         TriggeredAbilityBinding {
             card_definition: "RAV-TERRARION",
             ability: TriggeredAbility {

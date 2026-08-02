@@ -338,6 +338,11 @@ pub struct ActivatedAbilityBinding {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum TriggerCondition {
     EntersBattlefield,
+    /// A nonartifact permanent entered the battlefield under the source
+    /// controller's control. The entering permanent's identity and current
+    /// card types are captured with the trigger event, because it can leave
+    /// the battlefield before its observed trigger resolves.
+    ControlledNonartifactPermanentEntersBattlefield,
     /// A land entered the battlefield through a represented normal zone
     /// transition. Unlike `EntersBattlefield`, this condition observes every
     /// qualifying land entry rather than only the permanent that entered.
@@ -2305,6 +2310,18 @@ pub enum Effect {
     /// hand. This remains distinct so paired targets cannot silently select
     /// two creatures on one side.
     ReturnOpponentCreatureToHand,
+    /// Marker bound to a controller-scoped nonartifact-permanent entry
+    /// trigger. It materializes into the captured form below when the trigger
+    /// is placed on the stack; it is never directly resolved.
+    ReturnAnotherControlledPermanentSharingEnteredCardTypes,
+    /// The materialized non-targeting return instruction. This retains the
+    /// event's entering permanent and its exact card types rather than
+    /// inspecting a possibly departed or changed object during resolution.
+    ReturnAnotherControlledPermanentSharingCardTypes {
+        entered: ObjectId,
+        entered_incarnation: u64,
+        card_types: BTreeSet<CardType>,
+    },
     /// Put the targeted creature on top of its owner's library. Zone vectors
     /// are ownership-indexed and their final element is the draw top, so this
     /// uses the ordinary owner-preserving zone lifecycle rather than a
@@ -2553,6 +2570,8 @@ impl Effect {
             | Self::CreateToken { .. }
             | Self::ReturnOneCreatureCardFromEachGraveyardToHand
             | Self::ReturnUpToThreeControllerGraveyardLandCardsToHand
+            | Self::ReturnAnotherControlledPermanentSharingEnteredCardTypes
+            | Self::ReturnAnotherControlledPermanentSharingCardTypes { .. }
             | Self::ReturnSourceAttachedPermanentToHand
             | Self::LookAtTopCardsChooseForLifeOrGraveyard { .. }
             | Self::ShuffleGraveyardsIntoLibraries
@@ -3399,6 +3418,16 @@ pub enum TriggeredEffectObjectDecisionKind {
         selected: Vec<(PlayerId, ObjectId)>,
     },
     SacrificeControllerCreature,
+    /// The source controller may choose one other currently controlled
+    /// permanent that shares at least one card type with the nonartifact
+    /// permanent that caused this trigger. The entering object's identity
+    /// and characteristics are historical facts; the selected permanent is
+    /// rechecked immediately before the owner-hand move.
+    ReturnAnotherControlledPermanentSharingEnteredCardTypes {
+        entered: ObjectId,
+        entered_incarnation: u64,
+        card_types: BTreeSet<CardType>,
+    },
 }
 
 /// The ordinary event that will commit after every applicable quantity

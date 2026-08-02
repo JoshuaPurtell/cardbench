@@ -672,6 +672,15 @@ enum TriggerEventPayload {
         permanent: ObjectId,
         incarnation: u64,
     },
+    /// A nonartifact permanent entered under the observing source's
+    /// controller. The snapshot keeps this event distinct from a later
+    /// incarnation of the same stable object id and never asks a departed
+    /// permanent for current card types at trigger resolution.
+    EnteredPermanent {
+        permanent: ObjectId,
+        incarnation: u64,
+        card_types: BTreeSet<CardType>,
+    },
     /// The event itself identifies the trigger's sole target. This is used
     /// for the represented Blood Funnel cast trigger, where the triggering
     /// spell is not a policy-selected target.
@@ -1518,6 +1527,7 @@ impl Game {
                 || !matches!(
                     binding.ability.condition,
                     TriggerCondition::EntersBattlefield
+                        | TriggerCondition::ControlledNonartifactPermanentEntersBattlefield
                         | TriggerCondition::LandEntersBattlefield
                         | TriggerCondition::ControlledLandEntersBattlefield
                         | TriggerCondition::BeginningOfUpkeep
@@ -8772,6 +8782,39 @@ impl Game {
                     Ok(())
                 })?;
             }
+            TriggeredEffectObjectDecisionKind::ReturnAnotherControlledPermanentSharingEnteredCardTypes {
+                entered,
+                entered_incarnation,
+                card_types,
+            } => {
+                self.complete_pending_decision(decision)?;
+                self.finish_trigger_effect_object_choice(source, ability, |game| {
+                    if let Some(permanent) = selected {
+                        let candidates = game.controlled_permanents_sharing_card_types(
+                            player,
+                            *entered,
+                            &card_types,
+                        );
+                        if !candidates.contains(&permanent) {
+                            return Err(RulesError::IllegalAction(
+                                "chosen return permanent no longer shares the entered permanent card type",
+                            ));
+                        }
+                        // The historical entering identity must be nonzero and
+                        // the stack effect must retain it. It need not still be
+                        // live: Cloudstone Curio's ability uses the trigger
+                        // event's last-known card types, not a resolution-time
+                        // query of that permanent.
+                        if *entered_incarnation == 0 {
+                            return Err(RulesError::IllegalAction(
+                                "entered-permanent trigger payload lacks an incarnation",
+                            ));
+                        }
+                        game.move_to_zone(permanent, Zone::Hand)?;
+                    }
+                    Ok(())
+                })?;
+            }
         }
         Ok(())
     }
@@ -9906,6 +9949,7 @@ impl Game {
                     || !matches!(
                         ability.condition,
                         TriggerCondition::EntersBattlefield
+                            | TriggerCondition::ControlledNonartifactPermanentEntersBattlefield
                             | TriggerCondition::LandEntersBattlefield
                             | TriggerCondition::ControlledLandEntersBattlefield
                             | TriggerCondition::BeginningOfUpkeep
@@ -10344,6 +10388,22 @@ impl Game {
                                     incarnation,
                                 }]
                             ) if creature.0 > 0 && *incarnation > 0
+                        )
+                    } else if trigger_condition
+                        == Some(TriggerCondition::ControlledNonartifactPermanentEntersBattlefield)
+                    {
+                        matches!(
+                            (effects.as_slice(), stack_object.effects.as_slice()),
+                            (
+                                [Effect::ReturnAnotherControlledPermanentSharingEnteredCardTypes],
+                                [Effect::ReturnAnotherControlledPermanentSharingCardTypes {
+                                    entered,
+                                    entered_incarnation,
+                                    card_types,
+                                }]
+                            ) if entered.0 > 0
+                                && *entered_incarnation > 0
+                                && !card_types.is_empty()
                         )
                     } else {
                         *effects == stack_object.effects
@@ -12446,6 +12506,8 @@ impl Game {
                 }
                 | Effect::ReturnOneCreatureCardFromEachGraveyardToHand
                 | Effect::ReturnUpToThreeControllerGraveyardLandCardsToHand
+                | Effect::ReturnAnotherControlledPermanentSharingEnteredCardTypes
+                | Effect::ReturnAnotherControlledPermanentSharingCardTypes { .. }
                 | Effect::ReturnSourceAttachedPermanentToHand
                 | Effect::LookAtTopCardsChooseForLifeOrGraveyard { .. }
                 | Effect::LookAtTopCardsOfTargetOpponentExileOne { .. }
@@ -12534,7 +12596,20 @@ impl Game {
                 .triggered_abilities
                 .get(self.card_definition(top.card)?.id)
                 .and_then(|abilities| abilities.get(ability_id))
-                .filter(|ability| ability.optional)
+                // `TriggeredAbility::optional` originally denoted an
+                // optional resolution-time mana payment. Some triggers, such
+                // as an optional non-targeting object choice, carry their
+                // own typed decision boundary and must not be diverted into
+                // that payment-only compatibility path.
+                .filter(|ability| {
+                    ability.optional
+                        && !ability.effects.iter().any(|effect| {
+                            matches!(
+                                effect,
+                                Effect::ReturnAnotherControlledPermanentSharingEnteredCardTypes
+                            )
+                        })
+                })
         {
             self.pending_optional_trigger_choice = Some(PendingOptionalTriggeredAbilityChoice {
                 source: top.card,
@@ -14025,7 +14100,70 @@ impl Game {
             controller,
             TriggerCondition::EntersBattlefield,
         );
+        self.enqueue_controlled_nonartifact_permanent_entry_triggers(source, controller)?;
         self.flush_pending_trigger_events()
+    }
+
+    /// Captures each live observer of a nonartifact permanent entering under
+    /// its controller. This is deliberately separate from source-self ETB
+    /// dispatch: a token has no definition-bound own ETB trigger, but it is
+    /// still a permanent that can cause a represented observer trigger.
+    fn enqueue_controlled_nonartifact_permanent_entry_triggers(
+        &mut self,
+        entering: ObjectId,
+        entering_controller: PlayerId,
+    ) -> Result<(), RulesError> {
+        if self.zone_of(entering) != Some(Zone::Battlefield)
+            || self.controller_of(entering)? != entering_controller
+        {
+            return Ok(());
+        }
+        let entering_characteristics = self.characteristics(entering)?;
+        if entering_characteristics.card_types.contains(&CardType::Artifact) {
+            return Ok(());
+        }
+        let entering_incarnation = self.object(entering)?.incarnation;
+        let entering_card_types = entering_characteristics.card_types;
+        let observers = self
+            .all_battlefield_cards()
+            .into_iter()
+            .filter_map(|source| {
+                let object = self.object(source).ok()?;
+                if object.token.is_some() || self.controller_of(source).ok()? != entering_controller {
+                    return None;
+                }
+                let definition = self.card_definition(source).ok()?.id;
+                let source_colors = self.characteristics(source).ok()?.colors;
+                Some((source, definition, object.incarnation, source_colors))
+            })
+            .collect::<Vec<_>>();
+        for (source, definition, source_incarnation, source_colors) in observers {
+            let triggers = self
+                .triggered_abilities
+                .get(definition)
+                .into_iter()
+                .flat_map(|abilities| abilities.values())
+                .filter(|ability| {
+                    ability.condition == TriggerCondition::ControlledNonartifactPermanentEntersBattlefield
+                })
+                .cloned()
+                .collect::<Vec<_>>();
+            for ability in triggers {
+                self.pending_trigger_events.push(PendingTriggeredAbilityEvent {
+                    source,
+                    source_incarnation,
+                    source_colors: source_colors.clone(),
+                    controller: entering_controller,
+                    ability,
+                    payload: TriggerEventPayload::EnteredPermanent {
+                        permanent: entering,
+                        incarnation: entering_incarnation,
+                        card_types: entering_card_types.clone(),
+                    },
+                });
+            }
+        }
+        Ok(())
     }
 
     /// A cast trigger retains the exact spell that caused it, rather than
@@ -14280,7 +14418,8 @@ impl Game {
                 TriggerEventPayload::None
                 | TriggerEventPayload::DamageAmount(_)
                 | TriggerEventPayload::DamageAmountAndSourceController { .. }
-                | TriggerEventPayload::CombatDamageRecipient { .. } => None,
+                | TriggerEventPayload::CombatDamageRecipient { .. }
+                | TriggerEventPayload::EnteredPermanent { .. } => None,
             };
             if let Some(targets) = exact_targets {
                 if targets.len() == event.ability.targets.len()
@@ -14429,6 +14568,18 @@ impl Game {
                 ) => Effect::DestroyCapturedCreature {
                     creature: *permanent,
                     incarnation: *incarnation,
+                },
+                (
+                    Effect::ReturnAnotherControlledPermanentSharingEnteredCardTypes,
+                    TriggerEventPayload::EnteredPermanent {
+                        permanent,
+                        incarnation,
+                        card_types,
+                    },
+                ) => Effect::ReturnAnotherControlledPermanentSharingCardTypes {
+                    entered: *permanent,
+                    entered_incarnation: *incarnation,
+                    card_types: card_types.clone(),
                 },
                 (effect, _) => effect,
             })
@@ -14947,6 +15098,15 @@ impl Game {
             [Effect::SacrificeControllerCreature] => {
                 TriggeredEffectObjectDecisionKind::SacrificeControllerCreature
             }
+            [Effect::ReturnAnotherControlledPermanentSharingCardTypes {
+                entered,
+                entered_incarnation,
+                card_types,
+            }] => TriggeredEffectObjectDecisionKind::ReturnAnotherControlledPermanentSharingEnteredCardTypes {
+                entered: *entered,
+                entered_incarnation: *entered_incarnation,
+                card_types: card_types.clone(),
+            },
             _ => return Ok(false),
         };
         let chooser = match &kind {
@@ -14955,7 +15115,8 @@ impl Game {
             } => *remaining_players.first().ok_or(RulesError::IllegalAction(
                 "a continuing game has no player for trigger discard choice",
             ))?,
-            TriggeredEffectObjectDecisionKind::SacrificeControllerCreature => top.controller,
+            TriggeredEffectObjectDecisionKind::SacrificeControllerCreature
+            | TriggeredEffectObjectDecisionKind::ReturnAnotherControlledPermanentSharingEnteredCardTypes { .. } => top.controller,
         };
         let candidates = match &kind {
             TriggeredEffectObjectDecisionKind::DiscardEachPlayer { .. } => {
@@ -14972,12 +15133,23 @@ impl Game {
                         })
                 })
                 .collect(),
+            TriggeredEffectObjectDecisionKind::ReturnAnotherControlledPermanentSharingEnteredCardTypes {
+                entered,
+                card_types,
+                ..
+            } => self.controlled_permanents_sharing_card_types(chooser, *entered, card_types),
         };
         let options = candidates
             .into_iter()
             .map(DecisionOption::Object)
             .collect::<Vec<_>>();
-        let (min_selections, max_selections) = if options.is_empty() { (0, 0) } else { (1, 1) };
+        let (min_selections, max_selections) = match &kind {
+            TriggeredEffectObjectDecisionKind::ReturnAnotherControlledPermanentSharingEnteredCardTypes { .. } => {
+                (0, u8::from(!options.is_empty()))
+            }
+            _ if options.is_empty() => (0, 0),
+            _ => (1, 1),
+        };
         self.open_pending_decision(
             chooser,
             match &kind {
@@ -14985,6 +15157,9 @@ impl Game {
                     DecisionVisibility::Private
                 }
                 TriggeredEffectObjectDecisionKind::SacrificeControllerCreature => {
+                    DecisionVisibility::Public
+                }
+                TriggeredEffectObjectDecisionKind::ReturnAnotherControlledPermanentSharingEnteredCardTypes { .. } => {
                     DecisionVisibility::Public
                 }
             },
@@ -15011,6 +15186,31 @@ impl Game {
                     .is_ok_and(|definition| definition.card_types.contains(&CardType::Creature))
             })
             .count()
+    }
+
+    /// Returns every currently controlled, live battlefield permanent that
+    /// is distinct from `entered` and shares at least one captured card type.
+    /// The incoming card type set comes from the entry event; it is never
+    /// reconstructed from an object that may have changed zones.
+    fn controlled_permanents_sharing_card_types(
+        &self,
+        controller: PlayerId,
+        entered: ObjectId,
+        card_types: &BTreeSet<CardType>,
+    ) -> Vec<ObjectId> {
+        self.all_battlefield_cards()
+            .into_iter()
+            .filter(|candidate| *candidate != entered)
+            .filter(|candidate| self.controller_of(*candidate) == Ok(controller))
+            .filter(|candidate| {
+                self.characteristics(*candidate).is_ok_and(|characteristics| {
+                    characteristics
+                        .card_types
+                        .iter()
+                        .any(|card_type| card_types.contains(card_type))
+                })
+            })
+            .collect()
     }
 
     /// Captures attack-trigger conditions for the shared placement pipeline.
@@ -16447,6 +16647,12 @@ impl Game {
                 // no-priority continuation before this generic dispatcher.
                 // With none available, the target-change instruction is an
                 // ordinary no-op and later effects still resolve.
+            }
+            Effect::ReturnAnotherControlledPermanentSharingEnteredCardTypes
+            | Effect::ReturnAnotherControlledPermanentSharingCardTypes { .. } => {
+                return Err(RulesError::IllegalAction(
+                    "entered-permanent bounce effect bypassed its trigger decision boundary",
+                ));
             }
             Effect::DealDamage { amount, .. } => match target
                 .ok_or(RulesError::IllegalAction("missing damage target"))?
@@ -19361,6 +19567,7 @@ impl Game {
         );
         self.place_in_zone(controller, id, Zone::Battlefield)?;
         self.apply_static_entry_restriction(id)?;
+        self.enqueue_controlled_nonartifact_permanent_entry_triggers(id, controller)?;
         Ok(id)
     }
 
@@ -20077,6 +20284,29 @@ impl Game {
         {
             return Err(RulesError::IllegalAction(
                 "combat-damage provenance destruction has the wrong trigger condition",
+            ));
+        }
+        if ability.condition == TriggerCondition::ControlledNonartifactPermanentEntersBattlefield
+            && (ability.optional != true
+                || !ability.targets.is_empty()
+                || ability.effects.as_slice()
+                    != [Effect::ReturnAnotherControlledPermanentSharingEnteredCardTypes])
+        {
+            return Err(RulesError::IllegalAction(
+                "controlled nonartifact entry trigger requires one optional non-targeting bounce effect",
+            ));
+        }
+        if ability.condition != TriggerCondition::ControlledNonartifactPermanentEntersBattlefield
+            && ability.effects.iter().any(|effect| {
+                matches!(
+                    effect,
+                    Effect::ReturnAnotherControlledPermanentSharingEnteredCardTypes
+                        | Effect::ReturnAnotherControlledPermanentSharingCardTypes { .. }
+                )
+            })
+        {
+            return Err(RulesError::IllegalAction(
+                "entered-permanent bounce effects require the controlled nonartifact entry trigger",
             ));
         }
         if ability
@@ -24084,8 +24314,41 @@ impl Game {
                             [Effect::SacrificeControllerCreature]
                         ),
                     ),
+                    TriggeredEffectObjectDecisionKind::ReturnAnotherControlledPermanentSharingEnteredCardTypes {
+                        entered,
+                        entered_incarnation,
+                        card_types,
+                    } => (
+                        self.controlled_permanents_sharing_card_types(
+                            decision.player,
+                            *entered,
+                            card_types,
+                        )
+                        .into_iter()
+                        .map(DecisionOption::Object)
+                        .collect::<Vec<_>>(),
+                        DecisionVisibility::Public,
+                        *entered_incarnation > 0
+                            && matches!(
+                                top.effects.as_slice(),
+                                [Effect::ReturnAnotherControlledPermanentSharingCardTypes {
+                                    entered: stack_entered,
+                                    entered_incarnation: stack_incarnation,
+                                    card_types: stack_card_types,
+                                }] if stack_entered == entered
+                                    && stack_incarnation == entered_incarnation
+                                    && stack_card_types == card_types
+                            ),
+                    ),
                 };
-                let expected_min = u8::from(!expected_options.is_empty());
+                let expected_min = match kind {
+                    TriggeredEffectObjectDecisionKind::ReturnAnotherControlledPermanentSharingEnteredCardTypes { .. } => 0,
+                    _ => u8::from(!expected_options.is_empty()),
+                };
+                let expected_max = match kind {
+                    TriggeredEffectObjectDecisionKind::ReturnAnotherControlledPermanentSharingEnteredCardTypes { .. } => 1,
+                    _ => expected_min,
+                };
                 if decision.kind != DecisionKind::TriggeredEffectObject
                     || top.card != *source
                     || top.controller != *controller
@@ -24095,7 +24358,7 @@ impl Game {
                     || decision.visibility != expected_visibility
                     || decision.options != expected_options
                     || decision.min_selections != expected_min
-                    || decision.max_selections != expected_min
+                    || decision.max_selections != expected_max
                 {
                     return Err(RulesError::IllegalAction(
                         "trigger-effect decision escaped its typed continuation boundary",
