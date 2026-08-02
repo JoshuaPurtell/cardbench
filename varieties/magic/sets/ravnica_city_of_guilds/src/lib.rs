@@ -40,7 +40,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 153] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 154] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -114,6 +114,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 153] = [
     "RAV-VIASHINO-FANGTAIL",
     "RAV-BOROS-GUILDMAGE",
     "RAV-WOJEK-EMBERMAGE",
+    "RAV-WOJEK-APOTHECARY",
     "RAV-THUNDERSONG-TRUMPETER",
     "RAV-SABERTOOTH-ALLEY-CAT",
     "RAV-FLAME-KIN-ZEALOT",
@@ -4714,6 +4715,30 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
+        // Full fidelity: the target-bearing tap ability uses the shared
+        // resolution-time Radiance shield substrate. It snapshots the target
+        // plus every current creature sharing its color and creates one
+        // independently consumable prevention shield for each recipient.
+        CardDefinition {
+            id: "RAV-WOJEK-APOTHECARY",
+            name: "Wojek Apothecary",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(2, [Color::White, Color::White]),
+            colors: colors([Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "tap-radiance-prevent-one-damage",
+            ],
+            power: Some(1),
+            toughness: Some(1),
+            keywords: vec![],
+            effects: vec![],
+        },
         signet_definition("RAV-BOROS-SIGNET", "Boros Signet"),
         signet_definition("RAV-DIMIR-SIGNET", "Dimir Signet"),
         signet_definition("RAV-GOLGARI-SIGNET", "Golgari Signet"),
@@ -5631,6 +5656,22 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 discard_cards: 0,
                 targets: vec![cardbench_magic_engine::TargetRequirement::Creature],
                 effects: vec![Effect::RadianceDealDamageToCreatures { amount: 1 }],
+            },
+        },
+        ActivatedAbilityBinding {
+            card_definition: "RAV-WOJEK-APOTHECARY",
+            ability: ActivatedAbility {
+                id: "tap-radiance-prevent-one-damage",
+                mana_cost: ManaCost::new(0),
+                tap_cost: true,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![TargetRequirement::Creature],
+                effects: vec![Effect::RadianceAddTargetDamageShieldUntilEndOfTurn { amount: 1 }],
             },
         },
         ActivatedAbilityBinding {
