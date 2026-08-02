@@ -26,7 +26,7 @@ fn belltower_sphinx_definition_includes_its_damage_trigger() {
             "colored-cost-casting",
             "base-characteristics",
             "flying",
-            "damage-received-target-player-mill-that-many",
+            "damage-received-source-controller-mill-that-many",
         ]
     );
     assert!(

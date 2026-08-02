@@ -1488,6 +1488,20 @@ pub enum Effect {
     /// event amount out of the card binding prevents a later resolution from
     /// inspecting unrelated or stale damage.
     MillTargetPlayerFromSourceDamage,
+    /// A recipient-damage trigger materializes this into
+    /// [`Self::MillCapturedPlayer`] using the controller of the damage
+    /// source. It has no target slot in the card binding.
+    MillSourceControllerFromSourceDamage,
+    /// A recipient-damage trigger materializes this into a captured-player
+    /// mill instruction. The player is the controller of the source that
+    /// dealt the damage, not the controller of the recipient trigger source.
+    /// Keeping the player in the resolved effect preserves that relationship
+    /// across source and recipient zone changes without opening a target
+    /// decision.
+    MillCapturedPlayer {
+        player: PlayerId,
+        count: i16,
+    },
     /// Deal damage to one target equal to the number of creatures controlled
     /// by this spell's controller that are still attacking as it resolves.
     ///
@@ -2059,6 +2073,8 @@ impl Effect {
             | Self::RevealTopLibraryCardsAndReorder { .. }
             | Self::RevealTopCardPutIntoHandLoseLifeEqualToManaValue
             | Self::DealDamageToEachPlayerFromReceivedDamage
+            | Self::MillSourceControllerFromSourceDamage
+            | Self::MillCapturedPlayer { .. }
             | Self::AddManaController { .. }
             | Self::AddPlusOneCounterToSource
             | Self::AddCountersToSource { .. }

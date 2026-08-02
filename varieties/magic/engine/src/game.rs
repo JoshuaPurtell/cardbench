@@ -565,6 +565,13 @@ enum TriggerEventPayload {
     /// Damage has already happened. Dynamic damage-trigger effects must use
     /// this captured amount instead of inspecting a later game state.
     DamageAmount(i16),
+    /// Damage has already happened and the damage source's controller was
+    /// captured before any later zone or control change. This is used by
+    /// Belltower Sphinx's non-targeting mill trigger.
+    DamageAmountAndSourceController {
+        amount: i16,
+        source_controller: PlayerId,
+    },
     /// The exact battlefield object that received the combat damage, retained
     /// independently of a stable object id so a later zone change cannot make
     /// a "that creature" instruction affect a new incarnation.
@@ -8140,6 +8147,12 @@ impl Game {
                                             Effect::MillTargetPlayerFromSourceDamage,
                                             Effect::MillTargetPlayer { count }
                                         ) if *count > 0
+                                    ) || matches!(
+                                        (bound, actual),
+                                        (
+                                            Effect::MillSourceControllerFromSourceDamage,
+                                            Effect::MillCapturedPlayer { player: _, count }
+                                        ) if *count > 0
                                     ) || bound == actual
                                 })
                     } else if trigger_condition
@@ -9817,7 +9830,8 @@ impl Game {
                 | Effect::RadianceDealDamageToCreatures { amount }
                 | Effect::BeginDamageRedirection { amount }
                 | Effect::GainLifeController { amount }
-                | Effect::MillTargetPlayer { count: amount } => *amount,
+                | Effect::MillTargetPlayer { count: amount }
+                | Effect::MillCapturedPlayer { count: amount, .. } => *amount,
                 Effect::AddManaController { amount, .. } => i16::from(*amount),
                 Effect::CreateToken { .. }
                 | Effect::CreateTokenForTargetPlayer { .. }
@@ -9841,6 +9855,7 @@ impl Game {
                 | Effect::RevealTopCardPutIntoHandLoseLifeEqualToManaValue
                 | Effect::GainLifeControllerFromSourceDamage
                 | Effect::MillTargetPlayerFromSourceDamage
+                | Effect::MillSourceControllerFromSourceDamage
                 | Effect::GainLifeForEachCreature
                 | Effect::DealDamageToEachPlayerFromReceivedDamage
                 | Effect::DealDamageEqualToAttackingCreatures { .. }
@@ -11296,6 +11311,7 @@ impl Game {
                 TriggerEventPayload::ExactTargets(targets) => Some(targets.clone()),
                 TriggerEventPayload::None
                 | TriggerEventPayload::DamageAmount(_)
+                | TriggerEventPayload::DamageAmountAndSourceController { .. }
                 | TriggerEventPayload::CombatDamageRecipient { .. } => None,
             };
             if let Some(targets) = exact_targets {
@@ -11426,6 +11442,16 @@ impl Game {
                     Effect::MillTargetPlayerFromSourceDamage,
                     TriggerEventPayload::DamageAmount(amount),
                 ) => Effect::MillTargetPlayer { count: *amount },
+                (
+                    Effect::MillSourceControllerFromSourceDamage,
+                    TriggerEventPayload::DamageAmountAndSourceController {
+                        amount,
+                        source_controller,
+                    },
+                ) => Effect::MillCapturedPlayer {
+                    player: *source_controller,
+                    count: *amount,
+                },
                 (
                     Effect::DestroyCombatDamagedCreature,
                     TriggerEventPayload::CombatDamageRecipient {
@@ -12147,6 +12173,7 @@ impl Game {
     /// has moved to its graveyard.
     fn enqueue_received_damage_triggers(
         &mut self,
+        damage_source: ObjectId,
         recipient: ObjectId,
         amount: i32,
     ) -> Result<(), RulesError> {
@@ -12170,7 +12197,20 @@ impl Game {
         let damage_amount = i16::try_from(amount).map_err(|_| {
             RulesError::IllegalAction("received-damage trigger exceeds effect representation")
         })?;
+        let damage_source_controller = self.controller_of(damage_source)?;
         for ability in triggers {
+            let payload = if ability
+                .effects
+                .iter()
+                .any(|effect| matches!(effect, Effect::MillSourceControllerFromSourceDamage))
+            {
+                TriggerEventPayload::DamageAmountAndSourceController {
+                    amount: damage_amount,
+                    source_controller: damage_source_controller,
+                }
+            } else {
+                TriggerEventPayload::DamageAmount(damage_amount)
+            };
             self.pending_trigger_events
                 .push(PendingTriggeredAbilityEvent {
                     source: recipient,
@@ -12178,7 +12218,7 @@ impl Game {
                     source_colors: source_colors.clone(),
                     controller,
                     ability,
-                    payload: TriggerEventPayload::DamageAmount(damage_amount),
+                    payload,
                 });
         }
         Ok(())
@@ -12722,7 +12762,7 @@ impl Game {
                     amount,
                 });
                 self.enqueue_damage_triggers(source, amount)?;
-                self.enqueue_received_damage_triggers(permanent, amount)?;
+                self.enqueue_received_damage_triggers(source, permanent, amount)?;
             }
             Target::Spell(card) => return Err(RulesError::IllegalTarget(Target::Spell(card))),
             Target::SacrificePermanent(card) => {
@@ -12918,7 +12958,7 @@ impl Game {
                 amount: remaining,
             });
             self.enqueue_damage_triggers(source, remaining)?;
-            self.enqueue_received_damage_triggers(permanent, remaining)?;
+            self.enqueue_received_damage_triggers(source, permanent, remaining)?;
         }
         Ok(())
     }
@@ -13123,6 +13163,27 @@ impl Game {
                 return Err(RulesError::IllegalAction(
                     "source-damage mill trigger was not materialized before resolution",
                 ));
+            }
+            Effect::MillSourceControllerFromSourceDamage => {
+                return Err(RulesError::IllegalAction(
+                    "source-controller mill trigger was not materialized before resolution",
+                ));
+            }
+            Effect::MillCapturedPlayer { player, count } => {
+                if *count <= 0 {
+                    return Err(RulesError::IllegalAction(
+                        "captured-player mill requires a positive materialized amount",
+                    ));
+                }
+                if self.players[player.0].lost {
+                    return Ok(());
+                }
+                for _ in 0..usize::try_from(*count).expect("positive i16 fits usize") {
+                    let Some(card) = self.players[player.0].library.pop() else {
+                        break;
+                    };
+                    self.move_to_zone(card, Zone::Graveyard)?;
+                }
             }
             Effect::SacrificeControllerCreature => {
                 let candidate = self

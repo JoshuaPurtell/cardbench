@@ -1,8 +1,7 @@
 //! Red regression for the reusable triggered-ability scheduling boundary.
 
 use cardbench_magic_engine::{
-    AbilityActivation, Effect, Game, GameEvent, PlayerId, PolicyAction, Target, TargetRequirement,
-    TriggerCondition, Zone,
+    AbilityActivation, Effect, Game, GameEvent, PlayerId, Target, TriggerCondition, Zone,
 };
 use cardbench_magic_rav::{
     card_definitions, rav_activated_ability_bindings, rav_additional_spell_cost_bindings,
@@ -18,16 +17,16 @@ fn belltower_damage_trigger_is_bound_through_the_generic_scheduler() {
         .ability;
 
     assert_eq!(ability.condition, TriggerCondition::ReceivesDamage);
-    assert_eq!(ability.targets, [TargetRequirement::Player]);
+    assert!(ability.targets.is_empty());
     assert_eq!(
         ability.effects,
-        [Effect::MillTargetPlayerFromSourceDamage],
-        "the source-damage amount must be materialized by the deferred trigger scheduler"
+        [Effect::MillSourceControllerFromSourceDamage],
+        "the source controller and damage amount must be materialized by the deferred trigger scheduler"
     );
 }
 
 #[test]
-fn belltower_damage_waits_for_controller_target_then_mills_captured_amount() {
+fn belltower_damage_mills_damage_source_controller_without_target_choice() {
     let mut game = Game::new_with_all_bindings_and_triggers(
         card_definitions(),
         2,
@@ -49,6 +48,9 @@ fn belltower_damage_waits_for_controller_target_then_mills_captured_amount() {
     let milled = game
         .add_card(PlayerId(1), "RAV-ISLAND", Zone::Library)
         .expect("opponent library card enters");
+    let untouched = game
+        .add_card(PlayerId(0), "RAV-ISLAND", Zone::Library)
+        .expect("Sphinx controller library card enters");
 
     game.begin_game().expect("game starts");
     game.pass_priority(PlayerId(0))
@@ -70,40 +72,17 @@ fn belltower_damage_waits_for_controller_target_then_mills_captured_amount() {
     game.pass_priority(PlayerId(0))
         .expect("Fangtail ability resolves and queues the trigger");
 
-    let choice = game
-        .view_for_player(PlayerId(0))
-        .expect("Sphinx controller view")
-        .triggered_ability_target_choice
-        .expect("recipient-damage trigger requires controller target choice");
-    assert_eq!(choice.source, sphinx);
-    assert_eq!(choice.ability, "damage-target-player-mill-that-many");
-    assert_eq!(
-        choice.target_options,
-        [vec![
-            Target::Player(PlayerId(0)),
-            Target::Player(PlayerId(1))
-        ]]
-    );
     assert!(
-        game.stack.is_empty(),
-        "no target-bearing trigger reaches the stack early"
+        game.view_for_player(PlayerId(0))
+            .expect("Sphinx controller view")
+            .triggered_ability_target_choice
+            .is_none()
     );
-    assert!(!game.event_log.iter().any(|event| matches!(
+    assert!(game.event_log.iter().any(|event| matches!(
         event,
         GameEvent::TriggeredAbilityStacked { source, ability, .. }
-            if *source == sphinx && *ability == "damage-target-player-mill-that-many"
+            if *source == sphinx && *ability == "damage-source-controller-mill-that-many"
     )));
-
-    game.submit_policy_move(
-        PlayerId(0),
-        "test.belltower-target.v1",
-        PolicyAction::ChooseTriggeredAbilityTargets {
-            source: sphinx,
-            ability: "damage-target-player-mill-that-many",
-            targets: vec![Target::Player(PlayerId(1))],
-        },
-    )
-    .expect("controller chooses the opponent to mill");
     game.pass_priority(PlayerId(0))
         .expect("trigger controller passes");
     game.pass_priority(PlayerId(1)).expect("trigger resolves");
@@ -113,10 +92,11 @@ fn belltower_damage_waits_for_controller_target_then_mills_captured_amount() {
         game.canonical_event_log()
     );
     assert_eq!(game.zone_of(milled), Some(Zone::Graveyard));
+    assert_eq!(game.zone_of(untouched), Some(Zone::Library));
     assert!(game.event_log.iter().any(|event| matches!(
         event,
         GameEvent::TriggeredAbilityStacked { source, ability, .. }
-            if *source == sphinx && *ability == "damage-target-player-mill-that-many"
+            if *source == sphinx && *ability == "damage-source-controller-mill-that-many"
     )));
     game.validate_invariants()
         .expect("Belltower scheduler trace preserves invariants");

@@ -2903,8 +2903,8 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Flying],
             effects: vec![],
         },
-        // Full fidelity: damage received queues a normal target-player
-        // trigger whose captured damage amount mills that target on resolution.
+        // Full fidelity: damage received queues a non-targeting trigger whose
+        // captured amount mills the controller of the damage source.
         CardDefinition {
             id: "RAV-BELLTOWER-SPHINX",
             name: "Belltower Sphinx",
@@ -2919,7 +2919,7 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 "colored-cost-casting",
                 "base-characteristics",
                 "flying",
-                "damage-received-target-player-mill-that-many",
+                "damage-received-source-controller-mill-that-many",
             ],
             power: Some(2),
             toughness: Some(5),
@@ -5542,12 +5542,12 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
         TriggeredAbilityBinding {
             card_definition: "RAV-BELLTOWER-SPHINX",
             ability: TriggeredAbility {
-                id: "damage-target-player-mill-that-many",
+                id: "damage-source-controller-mill-that-many",
                 condition: TriggerCondition::ReceivesDamage,
                 mana_cost: ManaCost::new(0),
                 optional: false,
-                targets: vec![TargetRequirement::Player],
-                effects: vec![Effect::MillTargetPlayerFromSourceDamage],
+                targets: vec![],
+                effects: vec![Effect::MillSourceControllerFromSourceDamage],
             },
         },
         TriggeredAbilityBinding {

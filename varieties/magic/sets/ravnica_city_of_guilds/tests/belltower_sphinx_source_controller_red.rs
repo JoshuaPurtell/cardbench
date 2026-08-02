@@ -12,7 +12,10 @@ fn belltower_damage_trigger_mills_damage_source_controller_without_target_choice
         .ability;
 
     assert_eq!(ability.condition, TriggerCondition::ReceivesDamage);
-    assert!(ability.targets.is_empty(), "the trigger has no player target");
+    assert!(
+        ability.targets.is_empty(),
+        "the trigger has no player target"
+    );
     assert_eq!(
         ability.effects,
         [Effect::MillSourceControllerFromSourceDamage],
