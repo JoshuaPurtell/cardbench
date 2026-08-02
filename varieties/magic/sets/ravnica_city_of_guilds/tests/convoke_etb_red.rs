@@ -187,11 +187,12 @@ fn root_kin_ally_etb_resolves_without_fabricating_a_convoke_contributor() {
         .expect("opponent resolves empty ETB without a fabricated contributor");
 
     println!("Root-Kin Ally no-Convoke trace: {:?}", game.event_log);
-    assert!(game
-        .object(bystander)
-        .expect("bystander remains")
-        .counters
-        .is_empty());
+    assert!(
+        game.object(bystander)
+            .expect("bystander remains")
+            .counters
+            .is_empty()
+    );
     assert!(game.event_log.iter().any(|event| {
         matches!(event, GameEvent::AbilityResolved { ability, .. }
             if *ability == "etb-counter-exact-convoke-contributors")

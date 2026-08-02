@@ -1111,13 +1111,14 @@ Oracle Magic rules coverage.
   physical non-ability spell and that spell's exact stack incarnation. Its
   captured contributors are nonzero, duplicate-free `(ObjectId, incarnation)`
   pairs and its length exactly matches the spell's recorded Convoke symbols.
-  The group is created only after the cast payment succeeds; it is consumed on
-  permanent entry and removed on countering, terminal spell movement, or
-  player-departure cleanup. A Root-Kin-style ETB marker materializes only into
-  this exact captured set, and resolution counters only contributors that are
-  still live creature permanents with the captured incarnation. Thus a later
-  zone change or a later cast of the same physical card cannot inherit a prior
-  Convoke payment.
+  The group is created only after a nonempty Convoke payment succeeds; it is
+  consumed on permanent entry and removed on countering, terminal spell
+  movement, or player-departure cleanup. A Root-Kin-style ETB marker
+  materializes into that exact captured set—or a valid empty set for a spell
+  cast with no Convoke payment—and resolution counters only contributors that
+  are still live creature permanents with the captured incarnation. Thus a
+  later zone change or a later cast of the same physical card cannot inherit a
+  prior Convoke payment.
 - A registered activated-cost modifier has a catalogued permanent source, a
   positive generic amount, one unique declarative modifier per source
   definition, and is fixed before the game starts. The initial RAV-sufficient
