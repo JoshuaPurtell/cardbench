@@ -36,6 +36,22 @@ Oracle Magic rules coverage.
   zone-departure cleanup for the object and any continuous effects involving
   it. It is not lethal damage and cannot be silently substituted with a
   graveyard move.
+- Every pending linked-exile group has one positive, unique group identity,
+  exactly one primary-creature member, duplicate-free attached-Aura members,
+  and one delayed return action. Each member records the exact positive
+  incarnation it had after the ordinary exile move. A delayed return moves
+  only members that are still in `Exile` with that exact incarnation; a card
+  that independently changed zones is never revived or reattached merely
+  because its stable `ObjectId` matches. The primary creature returns first;
+  linked Auras follow in stable object-id order and may attach only through a
+  new ordinary legality-checked attachment to that returned incarnation.
+- A delayed linked-exile action has a nonzero unique action identity, typed
+  `EndStep` timing, and a due turn no earlier than the current turn. It is
+  consumed exactly once with its group, removing both from suspended state.
+  `DelayedActionScheduled` names the exact exiled members, while
+  `DelayedActionConsumed` records only the duplicate-free subset that was
+  still eligible to return. Those receipts are replay-audited against their
+  schedule; ordinary `CardMoved` and incarnation receipts remain zone truth.
 - An Aura definition owns exactly one typed attachment instruction. Its live
   target must remain a battlefield permanent satisfying that enchant
   restriction, and each declared attachment-linked continuous change has
@@ -853,6 +869,13 @@ Oracle Magic rules coverage.
   can act. Its attachment records the attached target's incarnation, so a
   prior attachment cannot become attached to a newly returned object with the
   same stable ID.
+- The bounded linked-exile resolver intentionally stores no closures. Its
+  typed group and delayed-action records remain invariant-valid while the
+  creature and every linked Aura are suspended in exile, and the consuming
+  end-step transition reaches the normal SBA boundary after returns. It is a
+  substrate only: individual card promotion, arbitrary simultaneous delayed
+  action ordering, and broader blink/zone-replacement interactions remain
+  separate coverage work.
 - Static continuous bindings are immutable expansion data, never timestamped
   runtime effects. Each registered binding names one creature definition and
   one supported static change. It applies only while an object with that
