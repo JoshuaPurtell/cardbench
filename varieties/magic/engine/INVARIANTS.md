@@ -1469,7 +1469,7 @@ Oracle Magic rules coverage.
   library and selects no more than one card satisfying its expansion-neutral
   predicate. A deterministic selector remains an explicitly bounded
   compatibility mode. A policy-submitted selector instead suspends its
-  one-effect resolving stack item with zero passes in a private
+  one-effect resolving spell or activated-ability stack item with zero passes in a private
   `PendingDecision`; only that controller sees the ordered matching candidates.
   Their `DecisionId`-bearing submitted object must still be in that snapshot
   and match the typed predicate (including a spell's retained chosen X).
