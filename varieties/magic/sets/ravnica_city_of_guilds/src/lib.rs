@@ -43,7 +43,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 232] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 236] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
@@ -230,6 +230,10 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 232] = [
     "RAV-TWILIGHT-DROVER",
     "RAV-TROPHY-HUNTER",
     "RAV-ELVISH-SKYSWEEPER",
+    "RAV-BOROS-GARRISON",
+    "RAV-DIMIR-AQUEDUCT",
+    "RAV-GOLGARI-ROT-FARM",
+    "RAV-SELESNYA-SANCTUARY",
     "RAV-CONVOLUTE",
     "RAV-CONSULT-THE-NECROSAGES",
     "RAV-SHAMBLING-SHELL",
@@ -9628,11 +9632,10 @@ fn signet_definition(id: &'static str, name: &'static str) -> CardDefinition {
     }
 }
 
-/// CardBench-authored compatibility definition for a RAV guild bounce land.
-/// The entry behavior and free two-color bundle are supplied by the generic
-/// bindings. The current trigger target selector is deterministic until a
-/// policy-submitted triggered-choice interface is available, so these remain
-/// explicitly bounded rather than full-fidelity definitions.
+/// CardBench-authored full-fidelity definition for a RAV guild bounce land.
+/// The shared bindings preserve tapped entry, the documented deterministic
+/// ordinary ETB target selector, and the fixed two-color mana bundle without
+/// a card-name execution branch.
 fn guild_bounce_land(id: &'static str, name: &'static str) -> CardDefinition {
     CardDefinition {
         id,
@@ -9644,6 +9647,7 @@ fn guild_bounce_land(id: &'static str, name: &'static str) -> CardDefinition {
         card_types: types([CardType::Land]),
         is_basic_land: false,
         supported_rules: &[
+            "full-rules-fidelity",
             "enters-tapped",
             "etb-return-controlled-land",
             "free-two-color-mana-bundle",

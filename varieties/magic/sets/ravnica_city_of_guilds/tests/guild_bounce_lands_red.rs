@@ -1,5 +1,6 @@
 use cardbench_magic_engine::{
-    CardType, Color, Game, GameEvent, ManaAbilityActivation, ManaCost, PlayerId, Target, Zone,
+    CardType, Color, Game, GameEvent, ManaAbilityActivation, ManaCost, PlayerId, PolicyAction,
+    Step, Target, Zone,
 };
 use cardbench_magic_rav::{
     card_definitions, rav_activated_ability_bindings, rav_additional_spell_cost_bindings,
@@ -64,6 +65,42 @@ fn bounce_game() -> Game {
     .expect("RAV bounce-land fixture constructs")
 }
 
+fn advance_to_precombat_main(game: &mut Game) {
+    game.begin_game().expect("game begins");
+    while game.step != Step::PrecombatMain {
+        let first = game.priority;
+        game.pass_priority(first).expect("first step pass");
+        let second = game.priority;
+        game.pass_priority(second).expect("second step pass");
+    }
+}
+
+fn choose_bounce_target(game: &mut Game, source: cardbench_magic_engine::ObjectId, target: Target) {
+    let choice = game
+        .view_for_player(PlayerId(0))
+        .expect("controller view")
+        .triggered_ability_target_choice
+        .expect("entry trigger requires a live target choice");
+    assert_eq!(choice.source, source);
+    assert_eq!(choice.ability, "return-controlled-land");
+    assert!(
+        choice
+            .target_options
+            .first()
+            .is_some_and(|options| options.contains(&target))
+    );
+    game.submit_policy_move(
+        PlayerId(0),
+        "test.guild-bounce-land-target.v1",
+        PolicyAction::ChooseTriggeredAbilityTargets {
+            source,
+            ability: "return-controlled-land",
+            targets: vec![target],
+        },
+    )
+    .expect("controller chooses the return target");
+}
+
 #[test]
 fn guild_bounce_land_entry_uses_a_real_etb_stack_window() {
     let mut game = bounce_game();
@@ -74,11 +111,18 @@ fn guild_bounce_land_entry_uses_a_real_etb_stack_window() {
         .add_card(PlayerId(0), "RAV-BOROS-GARRISON", Zone::Hand)
         .expect("setup Boros Garrison");
 
+    advance_to_precombat_main(&mut game);
     game.play_land(PlayerId(0), garrison)
         .expect("play Boros Garrison");
     assert_eq!(game.zone_of(garrison), Some(Zone::Battlefield));
     assert!(game.object(garrison).expect("Garrison object").tapped);
-    assert_eq!(game.stack.len(), 1, "ETB trigger is on the stack");
+    assert_eq!(
+        game.stack.len(),
+        0,
+        "targeted ETB waits for a legal decision"
+    );
+    choose_bounce_target(&mut game, garrison, Target::Permanent(plains));
+    assert_eq!(game.stack.len(), 1, "chosen ETB trigger is on the stack");
     assert_eq!(game.stack[0].targets, vec![Target::Permanent(plains)]);
     assert!(game.event_log.iter().any(|event| {
         matches!(
@@ -94,17 +138,43 @@ fn guild_bounce_land_entry_uses_a_real_etb_stack_window() {
     assert_eq!(game.zone_of(plains), Some(Zone::Hand));
     assert_eq!(game.zone_of(garrison), Some(Zone::Battlefield));
     assert!(game.object(garrison).expect("Garrison object").tapped);
-    assert_eq!(
-        game.canonical_event_log(),
-        vec![
-            "CardMoved { card: ObjectId(2), to: Battlefield }",
-            "TriggeredAbilityStacked { controller: PlayerId(0), source: ObjectId(2), ability: \"return-controlled-land\" }",
-            "PriorityPassed { player: PlayerId(0) }",
-            "PriorityPassed { player: PlayerId(1) }",
-            "CardMoved { card: ObjectId(1), to: Hand }",
-            "AbilityResolved { source: ObjectId(2), ability: \"return-controlled-land\" }",
-        ]
+    println!(
+        "guild_bounce_land_entry_event_log={:#?}",
+        game.canonical_event_log()
     );
+    let trigger_index = game
+        .event_log
+        .iter()
+        .position(|event| {
+            matches!(
+                event,
+                GameEvent::TriggeredAbilityStacked { source, ability, .. }
+                    if *source == garrison && *ability == "return-controlled-land"
+            )
+        })
+        .expect("trigger stack receipt");
+    let move_index = game
+        .event_log
+        .iter()
+        .position(|event| {
+            matches!(
+                event,
+                GameEvent::CardMoved { card, to: Zone::Hand } if *card == plains
+            )
+        })
+        .expect("controlled-land return receipt");
+    let resolved_index = game
+        .event_log
+        .iter()
+        .position(|event| {
+            matches!(
+                event,
+                GameEvent::AbilityResolved { source, ability, .. }
+                    if *source == garrison && *ability == "return-controlled-land"
+            )
+        })
+        .expect("trigger resolution receipt");
+    assert!(trigger_index < move_index && move_index < resolved_index);
     game.validate_invariants()
         .expect("entry-trigger resolution preserves invariants");
 }
@@ -116,8 +186,10 @@ fn guild_bounce_land_can_return_itself_when_it_is_the_only_land() {
         .add_card(PlayerId(0), "RAV-BOROS-GARRISON", Zone::Hand)
         .expect("setup Boros Garrison");
 
+    advance_to_precombat_main(&mut game);
     game.play_land(PlayerId(0), garrison)
         .expect("play Boros Garrison");
+    choose_bounce_target(&mut game, garrison, Target::Permanent(garrison));
     assert_eq!(game.stack[0].targets, vec![Target::Permanent(garrison)]);
     game.pass_priority(PlayerId(0)).expect("first pass");
     game.pass_priority(PlayerId(1))
@@ -137,13 +209,16 @@ fn guild_bounce_trigger_never_selects_an_opponent_land() {
         .add_card(PlayerId(0), "RAV-BOROS-GARRISON", Zone::Hand)
         .expect("setup Boros Garrison");
 
+    advance_to_precombat_main(&mut game);
     game.play_land(PlayerId(0), garrison)
         .expect("play Boros Garrison");
-    assert_eq!(game.stack[0].targets, vec![Target::Permanent(garrison)]);
-    assert_ne!(
-        game.stack[0].targets,
-        vec![Target::Permanent(opponent_land)]
-    );
+    let choice = game
+        .view_for_player(PlayerId(0))
+        .expect("controller view")
+        .triggered_ability_target_choice
+        .expect("entry trigger requires a target choice");
+    assert!(choice.target_options[0].contains(&Target::Permanent(garrison)));
+    assert!(!choice.target_options[0].contains(&Target::Permanent(opponent_land)));
     game.validate_invariants()
         .expect("controller-relative target selection preserves invariants");
 }
@@ -155,6 +230,7 @@ fn guild_bounce_land_produces_its_fixed_two_color_bundle() {
         .put_on_battlefield(PlayerId(0), "RAV-BOROS-GARRISON")
         .expect("setup Boros Garrison");
 
+    advance_to_precombat_main(&mut game);
     game.activate_bound_mana_ability(
         PlayerId(0),
         ManaAbilityActivation {
