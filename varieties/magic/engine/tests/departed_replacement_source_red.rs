@@ -31,6 +31,7 @@ fn instant(id: &'static str, effects: Vec<Effect>) -> CardDefinition {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // The complete three-player replacement trace is intentionally explicit.
 fn departed_spell_owner_does_not_invalidate_a_persistent_player_shield() {
     let survivor = PlayerId(0);
     let bystander = PlayerId(1);
