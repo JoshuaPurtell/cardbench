@@ -6,8 +6,8 @@ use std::collections::BTreeSet;
 use cardbench_magic_engine::{
     AbilityActivation, ActivatedAbility, ActivatedAbilityBinding, ActivatedAbilityCostModifier,
     ActivatedAbilityCostModifierBinding, ActivatedManaAbility, CardDefinition, CardType, Color,
-    Game, ManaAbilityActivation, ManaAbilityBinding, ManaAbilityOutput, ManaBundle, ManaCost,
-    PlayerId, RulesError, Zone,
+    Game, GameEvent, ManaAbilityActivation, ManaAbilityBinding, ManaAbilityOutput, ManaBundle,
+    ManaCost, ManaPaymentSelection, PlayerId, RulesError, Zone,
 };
 
 const TAXER: &str = "ACTIVATED-COST-RED-TAXER";
@@ -15,6 +15,7 @@ const ABILITY_SOURCE: &str = "ACTIVATED-COST-RED-ABILITY-SOURCE";
 const COSTLY_SOURCE: &str = "ACTIVATED-COST-RED-COSTLY-SOURCE";
 const DISCARD: &str = "ACTIVATED-COST-RED-DISCARD";
 const MANA_SOURCE: &str = "ACTIVATED-COST-RED-MANA-SOURCE";
+const REDUCER: &str = "ACTIVATED-COST-RED-REDUCER";
 
 fn creature(id: &'static str) -> CardDefinition {
     CardDefinition {
@@ -41,6 +42,7 @@ fn fixture() -> Game {
             creature(ABILITY_SOURCE),
             creature(COSTLY_SOURCE),
             creature(MANA_SOURCE),
+            creature(REDUCER),
             CardDefinition {
                 card_types: BTreeSet::from([CardType::Instant]),
                 power: None,
@@ -125,6 +127,19 @@ fn fixture() -> Game {
         },
     }])
     .expect("tax binding registers before the game begins");
+    game
+}
+
+fn fixture_with_reducer() -> Game {
+    let mut game = fixture();
+    game.register_activated_ability_cost_modifier_bindings([ActivatedAbilityCostModifierBinding {
+        source_definition: REDUCER,
+        modifier: ActivatedAbilityCostModifier::ReduceGeneric {
+            amount: 1,
+            nonmana_only: true,
+        },
+    }])
+    .expect("reducer binding registers before the game begins");
     game
 }
 
@@ -270,6 +285,162 @@ fn tax_does_not_apply_to_mana_abilities_and_departure_revokes_it() {
     activate(&mut game, taxer, "sacrifice-self");
     assert_eq!(game.zone_of(taxer), Some(Zone::Graveyard));
     activate(&mut game, ability_source, "red-ability");
+    eprintln!(
+        "activated-cost departure trace: events={:?}",
+        game.canonical_event_log()
+    );
+    let calculated = game
+        .event_log
+        .iter()
+        .filter_map(|event| match event {
+            GameEvent::ActivatedAbilityCostCalculated { context } => Some(context),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        calculated.len(),
+        1,
+        "departed taxer must not tax later activations"
+    );
+    assert_eq!(calculated[0].source, taxer);
+    assert_eq!(calculated[0].base_mana_cost, ManaCost::new(0));
+    assert_eq!(calculated[0].effective_mana_cost, ManaCost::new(2));
+    assert_eq!(calculated[0].increases.len(), 1);
+    assert!(game.event_log.iter().any(|event| {
+        matches!(event, GameEvent::AbilityManaPaid {
+            source: paid_source,
+            ability: "red-ability",
+            mana_cost,
+            ..
+        } if *paid_source == ability_source
+            && *mana_cost == ManaCost::with_colors(1, [Color::Red]))
+    }));
     game.validate_invariants()
         .expect("source departure revokes the tax cleanly");
+}
+
+#[test]
+fn increases_apply_before_reductions_and_leave_colored_symbols_intact() {
+    let mut game = fixture_with_reducer();
+    let player = PlayerId(0);
+    game.put_on_battlefield(player, TAXER)
+        .expect("taxer enters");
+    game.put_on_battlefield(player, REDUCER)
+        .expect("reducer enters");
+    let source = game
+        .put_on_battlefield(player, ABILITY_SOURCE)
+        .expect("ability source enters");
+    game.grant_mana(player, Color::Red, 1)
+        .expect("red mana setup");
+    game.grant_mana(player, Color::Colorless, 2)
+        .expect("effective generic mana setup");
+
+    activate(&mut game, source, "red-ability");
+    eprintln!(
+        "activated-cost increase/reduction trace: events={:?}",
+        game.canonical_event_log()
+    );
+    let context = game
+        .event_log
+        .iter()
+        .find_map(|event| match event {
+            GameEvent::ActivatedAbilityCostCalculated { context } if context.source == source => {
+                Some(context)
+            }
+            _ => None,
+        })
+        .expect("modified activation records calculated-cost provenance");
+    assert_eq!(
+        context.base_mana_cost,
+        ManaCost::with_colors(1, [Color::Red])
+    );
+    assert_eq!(context.increases.len(), 1);
+    assert_eq!(context.reductions.len(), 1);
+    assert_eq!(
+        context.effective_mana_cost,
+        ManaCost::with_colors(2, [Color::Red]),
+        "{{1}}{{R}} plus {{2}} then minus {{1}} must remain {{2}}{{R}}"
+    );
+    assert!(game.event_log.iter().any(|event| {
+        matches!(event, GameEvent::AbilityManaPaid {
+            source: paid_source,
+            ability: "red-ability",
+            mana_cost,
+            ..
+        } if *paid_source == source && *mana_cost == ManaCost::with_colors(2, [Color::Red]))
+    }));
+    game.validate_invariants()
+        .expect("calculated increase and reduction leave valid provenance");
+}
+
+#[test]
+fn modifier_binding_rejects_a_mana_ability_scope_outside_the_supported_boundary() {
+    let mut game = fixture();
+    let result = game.register_activated_ability_cost_modifier_bindings([
+        ActivatedAbilityCostModifierBinding {
+            source_definition: TAXER,
+            modifier: ActivatedAbilityCostModifier::IncreaseGeneric {
+                amount: 1,
+                nonmana_only: false,
+            },
+        },
+    ]);
+    assert!(matches!(result, Err(RulesError::IllegalAction(_))));
+    game.validate_invariants()
+        .expect("rejected modifier registration cannot corrupt the immutable binding map");
+}
+
+#[test]
+fn explicit_mana_selection_pays_the_calculated_not_base_ability_cost() {
+    let mut game = fixture();
+    let player = PlayerId(0);
+    game.put_on_battlefield(player, TAXER)
+        .expect("taxer enters");
+    let source = game
+        .put_on_battlefield(player, ABILITY_SOURCE)
+        .expect("ability source enters");
+    game.grant_mana(player, Color::Red, 1)
+        .expect("red mana setup");
+    game.grant_mana(player, Color::Colorless, 3)
+        .expect("calculated generic mana setup");
+
+    game.activate_ability_with_mana_spend(
+        player,
+        AbilityActivation {
+            source,
+            ability_id: "red-ability",
+            sacrifice_sources: vec![],
+            additional_tap_creatures: vec![],
+            discard_cards: vec![],
+            targets: vec![],
+        },
+        ManaPaymentSelection {
+            generic: vec![Color::Colorless, Color::Colorless, Color::Colorless],
+            hybrid: vec![],
+        },
+    )
+    .expect("selection pays the modified {{3}}{{R}} cost");
+    let context = game
+        .event_log
+        .iter()
+        .find_map(|event| match event {
+            GameEvent::ActivatedAbilityCostCalculated { context } if context.source == source => {
+                Some(context)
+            }
+            _ => None,
+        })
+        .expect("selection is retained in calculated-cost provenance");
+    assert_eq!(
+        context.effective_mana_cost,
+        ManaCost::with_colors(3, [Color::Red])
+    );
+    assert_eq!(
+        context.payment_selection,
+        Some(ManaPaymentSelection {
+            generic: vec![Color::Colorless, Color::Colorless, Color::Colorless],
+            hybrid: vec![],
+        })
+    );
+    game.validate_invariants()
+        .expect("explicit effective-cost payment remains replayable");
 }
