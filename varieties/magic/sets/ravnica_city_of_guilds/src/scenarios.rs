@@ -80,6 +80,7 @@ struct ActionSpec {
     attackers: Vec<String>,
     ability: String,
     color: String,
+    pay: bool,
     dredge: String,
     found: String,
     expected_error: String,
@@ -297,6 +298,7 @@ fn set_action_field(
         "attackers" => action.attackers = parse_string_array(value, line_number)?,
         "ability" => action.ability = parse_string(value, line_number)?,
         "color" => action.color = parse_string(value, line_number)?,
+        "pay" => action.pay = parse_bool(value, line_number)?,
         "dredge" => action.dredge = parse_string(value, line_number)?,
         "found" => action.found = parse_string(value, line_number)?,
         "expected_error" => action.expected_error = parse_string(value, line_number)?,
@@ -663,6 +665,37 @@ fn execute_action(
                     source,
                     ability: ability_id,
                     selected,
+                },
+            )
+            .map_err(rules_error)
+        }
+        "resolve_optional_trigger" => {
+            let source = lookup(labels, &action.card)?;
+            let definition = game.card_definition(source).map_err(rules_error)?.id;
+            let ability_id = rav_triggered_ability_bindings()
+                .into_iter()
+                .find(|binding| {
+                    binding.card_definition == definition && binding.ability.id == action.ability
+                })
+                .map(|binding| binding.ability.id)
+                .ok_or_else(|| {
+                    format!(
+                        "unknown RAV optional triggered ability `{}` for `{definition}`",
+                        action.ability
+                    )
+                })?;
+            let target = (!action.target.is_empty())
+                .then_some(action.target.as_str())
+                .map(|target| parse_target(target, labels))
+                .transpose()?;
+            game.submit_policy_move(
+                player,
+                "rav-scenario.resolve-optional-trigger.v1",
+                cardbench_magic_engine::PolicyAction::ResolveOptionalTriggeredAbility {
+                    source,
+                    ability: ability_id,
+                    pay: action.pay,
+                    target,
                 },
             )
             .map_err(rules_error)

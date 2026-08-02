@@ -6670,6 +6670,176 @@ event_markers = ["SpellCast", "SpellResolved", "TriggeredAbilityStacked", "Token
 digest = "fnv1a64:4f064b3ff46abb4f"
 
 [[scenario]]
+id = "rav_twilight_drover_leave_and_spirit"
+seed = 108
+description = "Bounce another creature to stack Twilight Drover's optional counter trigger, accept it, then pay {2}{W} for a flying Spirit token."
+triggers = true
+
+[[scenario.card]]
+label = "drover"
+owner = 0
+definition = "RAV-TWILIGHT-DROVER"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "exiter"
+owner = 0
+definition = "RAV-WATCHWOLF"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "clutch"
+owner = 0
+definition = "RAV-CLUTCH-OF-THE-UNDERCITY"
+zone = "hand"
+
+[[scenario.card]]
+label = "island"
+owner = 0
+definition = "RAV-ISLAND"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "swamp1"
+owner = 0
+definition = "RAV-SWAMP"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "swamp2"
+owner = 0
+definition = "RAV-SWAMP"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "plains1"
+owner = 0
+definition = "RAV-PLAINS"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "plains2"
+owner = 0
+definition = "RAV-PLAINS"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "plains3"
+owner = 0
+definition = "RAV-PLAINS"
+zone = "battlefield"
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "island"
+color = "blue"
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "swamp1"
+color = "black"
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "swamp2"
+color = "black"
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "plains1"
+color = "white"
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "plains2"
+color = "white"
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "plains3"
+color = "white"
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "clutch"
+target = "permanent:exiter"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "resolve_optional_trigger"
+player = 0
+card = "drover"
+ability = "another-creature-leaves-plus-one-counter"
+pay = true
+
+[[scenario.action]]
+kind = "activate_ability"
+player = 0
+card = "drover"
+ability = "create-flying-spirit"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["drover:battlefield", "exiter:hand", "clutch:graveyard", "island:battlefield", "swamp1:battlefield", "swamp2:battlefield", "plains1:battlefield", "plains2:battlefield", "plains3:battlefield"]
+powers = ["drover:2"]
+toughnesses = ["drover:2"]
+token_count = 1
+stack_size = 0
+priority = 0
+mana = ["0:blue:0", "0:black:0", "0:white:0"]
+event_markers = ["CardMoved", "TriggeredAbilityStacked", "CounterPlaced", "TokenCreated", "AbilityResolved"]
+digest = "fnv1a64:f8f38467f5ac2e2d"
+
+[[scenario]]
 id = "rav_keening_banshee_etb_modifier"
 seed = 60
 description = "Cast Keening Banshee, stack its target-bearing ETB ability, and resolve the target creature's temporary -2/-2 modifier."
