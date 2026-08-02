@@ -257,17 +257,19 @@ temporary layer-7 modifier. Public scenarios cover their accepted selection,
 rejected noncreature target, cost payment, event chronology, and state-based
 action boundaries.
 
-The easy-creature wave adds Benevolent Ancestor, Surveilling Sprite, Terraformer,
-Roofstalker Wight, Sewerdreg, Goblin Spelunkers, Ordruun Commando, and Viashino
-Slasher. These are likewise limited
+The original easy-creature wave adds Benevolent Ancestor, Surveilling Sprite,
+Terraformer, Roofstalker Wight, Sewerdreg, Goblin Spelunkers, Ordruun Commando,
+and Viashino Slasher. Its remaining bounded entries are limited
 to public identity, mana cost, color, creature type, and base power/toughness,
 with normal colored-cost creature casting as their only executable behavior,
 except that Benevolent Ancestor also records its static Defender keyword.
-Every printed activation and triggered behavior remains deliberately
-unsupported. Five deterministic public scenarios exercise cast payment, stack
+Five deterministic public scenarios exercise cast payment, stack
 resolution, zone movement, priority, and their retained base P/T values only;
 the separate Benevolent Ancestor compatibility scenario exercises its rejected
-Defender attack declaration. Civic Wayfinder now separately exercises its
+Defender attack declaration. Roofstalker Wight has graduated from that
+compatibility chassis: it retains its exact Black casting identity and uses the
+shared target-free stack activation to gain Flying through the current turn's
+cleanup. Civic Wayfinder now separately exercises its
 stack-backed ETB basic-land search, moving the deterministic controller-owned
 selection to hand before the required shuffle; policy-submitted hidden-library
 choice remains outside this bounded slice.

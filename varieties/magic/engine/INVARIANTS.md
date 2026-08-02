@@ -501,6 +501,13 @@ Oracle Magic rules coverage.
   ability)` rather than the stable object ID alone. Source-relative effects
   must do nothing if their captured source is not the same live battlefield
   incarnation.
+- `AddSourceKeywordUntilEndOfTurn` is a target-free source-relative stack
+  instruction. When its exact source incarnation remains on the battlefield,
+  it creates exactly one layer-six `AddKeyword` continuous effect whose source
+  and target are that source; the effect expires at the resolving turn's
+  cleanup. If a response moved or re-created the source, the ability still
+  receives its ordinary terminal receipt but must create neither a continuous
+  effect nor a keyword on the later incarnation.
 - A `CreatureCardInControllerGraveyard` target names a creature catalog card
   currently in the resolving controller's graveyard. An ETB ability with an
   intervening "another creature card" condition is stacked only if that
