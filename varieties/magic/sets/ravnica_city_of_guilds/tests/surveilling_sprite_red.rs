@@ -18,10 +18,6 @@ fn surveilling_sprite_requires_flying_and_a_dies_draw_trigger() {
         [CardType::Creature].into_iter().collect()
     );
     assert_eq!(definition.keywords, [Keyword::Flying]);
-    assert!(
-        definition
-            .supported_rules
-            .contains(&"dies-draw-controller")
-    );
+    assert!(definition.supported_rules.contains(&"dies-draw-controller"));
     assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&definition.id));
 }

@@ -40,7 +40,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 150] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 151] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -150,6 +150,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 150] = [
     "RAV-BELLTOWER-SPHINX",
     "RAV-FLIGHT-OF-FANCY",
     "RAV-FLOW-OF-IDEAS",
+    "RAV-SURVEILLING-SPRITE",
     "RAV-DREAM-LEASH",
     "RAV-REMAND",
     "RAV-TELLING-TIME",
@@ -3690,17 +3691,30 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Defender],
             effects: vec![],
         },
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed evasion and death-triggered
-        // behavior are deliberately omitted from this compatibility slice.
-        bounded_creature_chassis(
-            "RAV-SURVEILLING-SPRITE",
-            "Surveilling Sprite",
-            ManaCost::with_colors(1, [Color::Blue]),
-            colors([Color::Blue]),
-            1,
-            1,
-        ),
+        // Full fidelity: normal colored-cost casting, Flying combat legality,
+        // and the target-free dies trigger use the shared trigger stack before
+        // drawing for the source controller.
+        CardDefinition {
+            id: "RAV-SURVEILLING-SPRITE",
+            name: "Surveilling Sprite",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(1, [Color::Blue]),
+            colors: colors([Color::Blue]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "flying",
+                "dies-draw-controller",
+            ],
+            power: Some(1),
+            toughness: Some(1),
+            keywords: vec![Keyword::Flying],
+            effects: vec![],
+        },
         // Compatibility scope: normal colored-cost creature casting and base
         // characteristics only. Its printed land-type activation is deliberately
         // omitted from this compatibility slice.
@@ -6143,6 +6157,17 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                     token: TokenSpec::white_spirit(),
                     count: 1,
                 }],
+            },
+        },
+        TriggeredAbilityBinding {
+            card_definition: "RAV-SURVEILLING-SPRITE",
+            ability: TriggeredAbility {
+                id: "dies-draw-controller",
+                condition: TriggerCondition::Dies,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![Effect::DrawController],
             },
         },
         TriggeredAbilityBinding {

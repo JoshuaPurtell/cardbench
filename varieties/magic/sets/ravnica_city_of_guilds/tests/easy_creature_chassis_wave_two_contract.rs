@@ -15,14 +15,6 @@ fn easy_creature_wave_two_is_exactly_bounded_to_public_base_facts() {
     let definitions = card_definitions();
     let expected = [
         (
-            "RAV-SURVEILLING-SPRITE",
-            "Surveilling Sprite",
-            ManaCost::with_colors(1, [Color::Blue]),
-            BTreeSet::from([Color::Blue]),
-            1,
-            1,
-        ),
-        (
             "RAV-TERRAFORMER",
             "Terraformer",
             ManaCost::with_colors(2, [Color::Blue]),
