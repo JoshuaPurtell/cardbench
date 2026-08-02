@@ -43,7 +43,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 237] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 238] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
@@ -98,6 +98,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 237] = [
     "RAV-DARKBLAST",
     "RAV-NECROPLASM",
     "RAV-DIZZY-SPELL",
+    "RAV-BRAINSPOIL",
     "RAV-DISEMBOWEL",
     "RAV-NIGHTMARE-VOID",
     "RAV-MOONLIGHT-BARGAIN",
@@ -1808,9 +1809,10 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 toughness: 0,
             }],
         },
-        // The front face uses a typed nonblack-creature target and ordinary
-        // regenerable destruction. Hand-zone Transmute remains bounded: it
-        // does not create a stack object or response window in this slice.
+        // Full fidelity: the front face uses a typed nonblack-creature target
+        // and ordinary regenerable destruction. Its hand-zone Transmute is
+        // a stack-backed, controller-private library search after ordinary
+        // payment and priority handling.
         CardDefinition {
             id: "RAV-BRAINSPOIL",
             name: "Brainspoil",
@@ -1821,9 +1823,10 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             card_types: types([CardType::Sorcery]),
             is_basic_land: false,
             supported_rules: &[
+                "full-rules-fidelity",
                 "colored-cost-casting",
                 "destroy-target-nonblack-creature",
-                "immediate-hand-zone-transmute-compatibility",
+                "stack-backed-private-transmute",
             ],
             power: None,
             toughness: None,

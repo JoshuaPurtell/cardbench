@@ -26,7 +26,10 @@ fn brainspoil_uses_typed_nonblack_destruction_and_stack_backed_transmute() {
     );
     assert_eq!(
         definition.keywords,
-        [Keyword::Transmute(ManaCost::with_colors(1, [Color::Black, Color::Black]))]
+        [Keyword::Transmute(ManaCost::with_colors(
+            1,
+            [Color::Black, Color::Black]
+        ))]
     );
     assert_eq!(definition.effects, [Effect::DestroyTargetNonblackCreature]);
 
@@ -80,7 +83,10 @@ fn brainspoil_uses_typed_nonblack_destruction_and_stack_backed_transmute() {
     )
     .expect("controller chooses the matching library card while ability resolves");
 
-    println!("Brainspoil full-fidelity trace: {:?}", game.canonical_event_log());
+    println!(
+        "Brainspoil full-fidelity trace: {:?}",
+        game.canonical_event_log()
+    );
     assert_eq!(game.zone_of(found), Some(Zone::Hand));
     assert!(game.event_log.iter().any(|event| matches!(
         event,

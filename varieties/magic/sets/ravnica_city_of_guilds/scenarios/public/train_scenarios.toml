@@ -1882,7 +1882,7 @@ digest = "fnv1a64:0e67622ab3e4a02c"
 [[scenario]]
 id = "rav_brainspoil_transmute"
 seed = 41
-description = "Use Brainspoil's scoped transmute activation; its nonblack creature-destruction front face has a separate focused stack regression."
+description = "Retain the frozen immediate-compatibility Transmute fixture for Brainspoil. Its full stack-backed private-search lifecycle and nonblack creature-destruction face are covered by direct Rust regressions."
 
 [[scenario.card]]
 label = "brainspoil"
