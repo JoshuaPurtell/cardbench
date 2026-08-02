@@ -36,6 +36,8 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-CHORD-OF-CALLING",
             "RAV-SCION-OF-THE-WILD",
             "RAV-GUARDIAN-OF-VITU-GHAZI",
+            "RAV-CONCLAVE-PHALANX",
+            "RAV-ROOT-KIN-ALLY",
             "RAV-LAST-GASP",
             "RAV-ELVES-OF-DEEP-SHADOW",
             "RAV-BOROS-RECRUIT",

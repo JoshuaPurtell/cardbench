@@ -155,8 +155,15 @@ back every source, pool, stack, and log mutation if a later payment fails. The
 four RAV Signets are separately positive-manifest entries because their
 definition-bound abilities use the same ordered atomic cast-payment boundary.
 
-Root-Kin Ally remains explicitly compatibility-bounded, supporting only normal
-creature casting, base characteristics, and the shared Convoke payment hook.
+Root-Kin Ally is now a positive-manifest entry: its ETB trigger retains each
+actual Convoke contributor's exact object incarnation, placing a counter only
+on contributors still represented by that incarnation when the trigger
+resolves. Conclave Phalanx likewise records its controller-white-creature life
+ETB using the shared resolution-time count. Their focused traces cover
+`ConvokeUsed`, spell resolution, trigger stacking, contributor-only
+`CounterPlaced`, and `LifeGained` receipts. Siege Wurm and Autochthon Wurm
+remain compatibility-bounded because controller-chosen arbitrary trample
+allocation is not yet represented.
 Stinkweed Imp and Golgari Thug instead are positive-manifest cards. The Imp's
 static Flying and shared Dredge behavior are joined by the existing
 exact-incarnation combat-damage-recipient trigger, which has no free target choice
