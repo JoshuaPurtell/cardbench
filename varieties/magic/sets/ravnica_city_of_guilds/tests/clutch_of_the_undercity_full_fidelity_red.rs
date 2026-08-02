@@ -22,7 +22,10 @@ fn clutch_of_the_undercity_uses_its_exact_front_face_mana_value() {
     );
     assert_eq!(
         definition.keywords,
-        [Keyword::Transmute(ManaCost::with_colors(1, [Color::Blue, Color::Blue]))]
+        [Keyword::Transmute(ManaCost::with_colors(
+            1,
+            [Color::Blue, Color::Blue]
+        ))]
     );
     assert_eq!(
         definition.effects,
@@ -97,7 +100,10 @@ fn clutch_of_the_undercity_combines_its_front_face_with_stack_backed_transmute()
     )
     .expect("controller chooses the matching card while ability resolves");
 
-    println!("Clutch full-fidelity trace: {:?}", game.canonical_event_log());
+    println!(
+        "Clutch full-fidelity trace: {:?}",
+        game.canonical_event_log()
+    );
     assert_eq!(game.zone_of(found), Some(Zone::Hand));
     assert!(game.event_log.iter().any(|event| matches!(
         event,
