@@ -1256,11 +1256,14 @@ Oracle Magic rules coverage.
   arbitrary player-selected assignment amounts remain explicit capability gaps
   rather than approximated damage assignment.
 - A target-free all-combat-damage prevention record is valid only when it has
-  a unique nonzero identity, an existing provenance source, and an unexpired
-  turn-bound lifetime. It is source-independent after the stack object
-  resolves: the creating permanent may leave the battlefield without revoking
-  prevention. Each prospective combat-damage packet first respects the
-  source's `DamageCannotBePrevented` status, then may emit exactly one
+  a unique nonzero identity, an allocated provenance source identity, and an
+  unexpired turn-bound lifetime. It is source-independent after the stack
+  object resolves: the creating permanent may leave the battlefield or cease
+  to exist without revoking prevention. Creation receipts must trace to a
+  bound activated ability with the typed effect; every expiry receipt accounts
+  for one prior creation, and creation counts equal live-plus-expired records.
+  Each prospective combat-damage packet first respects the source's
+  `DamageCannotBePrevented` status, then may emit exactly one
   `CombatDamagePrevented` receipt naming a live matching target-specific or
   global prevention source. Cleanup removes every current-turn global record
   and records one matching `GlobalCombatDamagePreventionExpired` receipt, so

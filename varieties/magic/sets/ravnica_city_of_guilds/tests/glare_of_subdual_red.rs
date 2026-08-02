@@ -47,7 +47,10 @@ fn glare_of_subdual_binds_one_creature_cost_to_each_activated_ability() {
     assert_eq!(tap_target.ability.mana_cost, ManaCost::new(0));
     assert!(!tap_target.ability.tap_cost);
     assert_eq!(tap_target.ability.additional_tap_creatures, 1);
-    assert_eq!(tap_target.ability.targets, vec![TargetRequirement::Creature]);
+    assert_eq!(
+        tap_target.ability.targets,
+        vec![TargetRequirement::Creature]
+    );
 
     let prevent_combat = bindings
         .iter()

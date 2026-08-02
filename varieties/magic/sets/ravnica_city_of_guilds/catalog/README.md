@@ -50,8 +50,8 @@ different eligible Aura or decline a successful search in this slice. That
 choice fidelity remains unsupported, so Auratouched Mage is not in
 `RAV_FULL_FIDELITY_DEFINITION_IDS`.
 
-After this bounded promotion, the catalog partition is 164 full / 58 partial /
-69 catalog-only unique names (179 / 58 / 69 printings). The independently
+After the Glare of Subdual promotion, the catalog partition is 168 full / 56 partial /
+67 catalog-only unique names (183 / 56 / 67 printings). The independently
 checked coverage-report binary emits the same partition.
 
 `RAV_FULL_FIDELITY_DEFINITION_IDS` is a deliberately small positive manifest,
@@ -81,6 +81,14 @@ leaving mana abilities legal, and its separate ETB trigger gains four life only
 after the Aura has legally resolved and attached. The focused contract covers
 both a creature and a land target, atomic rejected activation, receipts, and
 attachment invariants.
+
+Glare of Subdual is a positive-manifest entry. Both of its zero-mana activated
+abilities require one explicit, distinct, untapped controlled creature as a
+cost: one uses the ordinary target-tap stack instruction, and the other creates
+one target-free record that prevents every combat-damage packet through cleanup.
+The public scenario pins the cost/stack/event sequence; the focused combat
+contract demonstrates prevention, `DamageCannotBePrevented` precedence, expiry,
+and the state-machine invariant audit without retaining card prose or art.
 
 The focused Darkblast/Scatter the Seeds/Siege Wurm/Guardian of Vitu-Ghazi audit
 uses the same fail-closed rule. Darkblast is in the positive manifest because its

@@ -1,8 +1,6 @@
 //! Full stack and combat contracts for Glare of Subdual.
 
-use cardbench_magic_engine::{
-    AbilityActivation, Game, GameEvent, PlayerId, Step, Target, Zone,
-};
+use cardbench_magic_engine::{AbilityActivation, Game, GameEvent, PlayerId, Step, Target, Zone};
 use cardbench_magic_rav::{
     card_definitions, rav_activated_ability_bindings, rav_additional_spell_cost_bindings,
     rav_basic_land_type_bindings, rav_mana_ability_bindings,
@@ -101,7 +99,11 @@ fn glare_taps_a_selected_controlled_creature_before_tapping_its_target() {
         },
     )
     .expect("Glare tap ability stacks");
-    assert!(game.object(cost_creature).expect("cost creature remains").tapped);
+    assert!(
+        game.object(cost_creature)
+            .expect("cost creature remains")
+            .tapped
+    );
     assert!(!game.object(glare).expect("Glare remains").tapped);
     assert!(!game.object(target).expect("target remains").tapped);
 
@@ -136,7 +138,10 @@ fn glare_prevents_all_combat_damage_after_its_selected_creature_cost() {
     let attacker = game
         .put_on_battlefield(PlayerId(1), "RAV-WATCHWOLF")
         .expect("attacker setup");
-    for creature in [cost_creature, attacker] {
+    let unpreventable_attacker = game
+        .put_on_battlefield(PlayerId(1), "RAV-EXCRUCIATOR")
+        .expect("unpreventable attacker setup");
+    for creature in [cost_creature, attacker, unpreventable_attacker] {
         game.set_entered_turn_for_setup(creature, 0)
             .expect("fixture creature predates measured turn");
     }
@@ -144,7 +149,7 @@ fn glare_prevents_all_combat_damage_after_its_selected_creature_cost() {
     advance_to_opponent_declare_attackers(&mut game);
     game.clear_event_log();
 
-    game.declare_attackers(PlayerId(1), &[attacker])
+    game.declare_attackers(PlayerId(1), &[attacker, unpreventable_attacker])
         .expect("attacker declares");
     game.pass_priority(PlayerId(1))
         .expect("attacker controller passes to Glare controller");
@@ -160,7 +165,11 @@ fn glare_prevents_all_combat_damage_after_its_selected_creature_cost() {
         },
     )
     .expect("Glare prevention ability stacks");
-    assert!(game.object(cost_creature).expect("cost creature remains").tapped);
+    assert!(
+        game.object(cost_creature)
+            .expect("cost creature remains")
+            .tapped
+    );
     assert!(!game.object(glare).expect("Glare remains").tapped);
 
     pass_pair(&mut game);
@@ -175,7 +184,7 @@ fn glare_prevents_all_combat_damage_after_its_selected_creature_cost() {
         .expect("no blockers declared");
     pass_pair(&mut game);
 
-    assert_eq!(game.player(PlayerId(0)).expect("player remains").life, 20);
+    assert_eq!(game.player(PlayerId(0)).expect("player remains").life, 13);
     assert!(game.event_log.iter().any(|event| matches!(
         event,
         GameEvent::CombatDamagePrevented {
@@ -184,6 +193,15 @@ fn glare_prevents_all_combat_damage_after_its_selected_creature_cost() {
             target: Target::Player(player),
             amount: 3,
         } if *source == attacker && *prevented_by == glare && *player == PlayerId(0)
+    )));
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::DamageDealtToPlayer { source, player, amount: 7 }
+            if *source == unpreventable_attacker && *player == PlayerId(0)
+    )));
+    assert!(!game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::CombatDamagePrevented { source, .. } if *source == unpreventable_attacker
     )));
     while game.turn == 2 {
         if game
@@ -227,7 +245,10 @@ fn glare_prevents_all_combat_damage_after_its_selected_creature_cost() {
         event,
         GameEvent::GlobalCombatDamagePreventionExpired { source } if *source == glare
     )));
-    eprintln!("glare_global_prevention_trace={:?}", game.canonical_event_log());
+    eprintln!(
+        "glare_global_prevention_trace={:?}",
+        game.canonical_event_log()
+    );
     game.validate_invariants()
         .expect("Glare global combat-prevention trace preserves invariants");
 }

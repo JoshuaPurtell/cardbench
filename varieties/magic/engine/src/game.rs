@@ -8417,6 +8417,7 @@ impl Game {
         self.validate_counter_removal_receipt_accounting()?;
         self.validate_replacement_effect_events()?;
         self.validate_damage_amount_replacement_events()?;
+        self.validate_global_combat_damage_prevention_event_order()?;
         if self.started && !self.is_game_over() && !self.step.grants_priority() {
             return Err(RulesError::IllegalAction(
                 "an automatic turn step remained stable with player priority",
@@ -9964,9 +9965,10 @@ impl Game {
         }
         let mut global_combat_prevention_ids = BTreeSet::new();
         for prevention in &self.global_combat_damage_preventions {
-            self.object(prevention.source)?;
             if prevention.id == 0
                 || prevention.id >= self.next_timestamp
+                || prevention.source.0 == 0
+                || prevention.source.0 >= self.next_object_id
                 || prevention.expires_turn < self.turn
             {
                 return Err(RulesError::IllegalAction(
@@ -19932,6 +19934,100 @@ impl Game {
             return Err(RulesError::IllegalAction(
                 "ability activation and terminal receipts disagree with the live stack",
             ));
+        }
+        Ok(())
+    }
+
+    /// Audits the public lifecycle for target-free all-combat-damage
+    /// prevention. Unlike target-specific combat prevention, this record has
+    /// no creature incarnation and remains valid after its originating source
+    /// leaves the battlefield (including a token source ceasing to exist).
+    fn validate_global_combat_damage_prevention_event_order(&self) -> Result<(), RulesError> {
+        let mut created = BTreeMap::<ObjectId, usize>::new();
+        let mut expired = BTreeMap::<ObjectId, usize>::new();
+        for (index, event) in self.event_log.iter().enumerate() {
+            match event {
+                GameEvent::GlobalCombatDamagePreventionCreated {
+                    source,
+                    expires_turn,
+                } => {
+                    if source.0 == 0 || *expires_turn == 0 {
+                        return Err(RulesError::IllegalAction(
+                            "global combat prevention receipt has an invalid source or lifetime",
+                        ));
+                    }
+                    let mut found_bound_activation = false;
+                    for prior in self.event_log[..index].iter().rev() {
+                        match prior {
+                            GameEvent::AbilityResolved {
+                                source: terminal_source,
+                                ..
+                            }
+                            | GameEvent::AbilityCounteredByRules {
+                                source: terminal_source,
+                                ..
+                            } if terminal_source == source => break,
+                            GameEvent::AbilityActivated {
+                                source: activation_source,
+                                definition,
+                                ability,
+                                ..
+                            } if activation_source == source => {
+                                found_bound_activation = self
+                                    .activated_abilities
+                                    .get(definition)
+                                    .and_then(|abilities| abilities.get(ability))
+                                    .is_some_and(|binding| {
+                                        binding.effects.iter().any(|effect| {
+                                            matches!(
+                                                effect,
+                                                Effect::PreventAllCombatDamageUntilEndOfTurn
+                                            )
+                                        })
+                                    });
+                                break;
+                            }
+                            _ => {}
+                        }
+                    }
+                    if !found_bound_activation {
+                        return Err(RulesError::IllegalAction(
+                            "global combat prevention receipt lacks a matching bound activation",
+                        ));
+                    }
+                    *created.entry(*source).or_default() += 1;
+                }
+                GameEvent::GlobalCombatDamagePreventionExpired { source } => {
+                    let expiration_count = expired.entry(*source).or_default();
+                    *expiration_count += 1;
+                    if *expiration_count > created.get(source).copied().unwrap_or_default() {
+                        return Err(RulesError::IllegalAction(
+                            "global combat prevention expiry lacks a creation receipt",
+                        ));
+                    }
+                }
+                _ => {}
+            }
+        }
+        let mut live = BTreeMap::<ObjectId, usize>::new();
+        for prevention in &self.global_combat_damage_preventions {
+            *live.entry(prevention.source).or_default() += 1;
+        }
+        let sources = created
+            .keys()
+            .chain(expired.keys())
+            .chain(live.keys())
+            .copied()
+            .collect::<BTreeSet<_>>();
+        for source in sources {
+            if created.get(&source).copied().unwrap_or_default()
+                != expired.get(&source).copied().unwrap_or_default()
+                    + live.get(&source).copied().unwrap_or_default()
+            {
+                return Err(RulesError::IllegalAction(
+                    "global combat prevention receipts disagree with live state",
+                ));
+            }
         }
         Ok(())
     }
