@@ -297,6 +297,17 @@ Oracle Magic rules coverage.
   committed `DamageDealt*` receipt, and only committed positive damage queues
   damage triggers. The generic decision closes after that causal damage batch,
   then resumes only the unresolved suffix or terminal lifecycle.
+- The same decision boundary applies to every snapshotted packet of a
+  represented untargeted `DealDamageToEachCreatureAndPlayer` instruction. The
+  resolver captures each current creature's exact battlefield incarnation and
+  every living player before any packet commits. Singleton packets may commit
+  first, but a later recipient with two or more live replacements suspends the
+  original stack object with that recipient as the sole decision player. Its
+  remaining original packets are duplicate-free, positive, and
+  incarnation-audited separately from a partial redirect's new-recipient
+  packets. After the selected packet and any redirect remainder finish, the
+  batch resumes the exact remaining snapshot once, then skips the already
+  resolved global instruction before its suffix or terminal stack lifecycle.
 - A registered damage-amount replacement has a catalogued permanent source and
   is fixed before the game begins. Every live source applies once to a
   prospective player or permanent packet and retains its source incarnation in
@@ -339,8 +350,9 @@ Oracle Magic rules coverage.
   applicable replacements; one source-bound replacement identity cannot
   apply twice to the same prospective event.
 - The current decision continuation is intentionally narrow: it supports a
-  targeted direct-damage stack instruction and bounded redirections
-  that may split the pending event. A partial redirect commits its
+  targeted direct-damage stack instruction, the represented untargeted
+  all-creature-and-player damage instruction, and bounded redirections that
+  may split the pending event. A partial redirect commits its
   new-recipient packet first and retains the protected remainder as a
   deterministic deferred packet inside the same no-priority stack
   continuation. Every deferred packet has a positive amount, a live matching
