@@ -1179,6 +1179,14 @@ Oracle Magic rules coverage.
   player instruction, and never open a policy target decision. Its positive
   amount and captured player must survive source/recipient zone changes and
   match the binding before resolution.
+  Self-ETB and represented entry-observer triggers capture their source while
+  the entering permanent is still its live battlefield object, before any
+  resulting state-based actions. They remain pending until the normal SBA
+  fixed point and then stack in the shared trigger placement pipeline. Thus a
+  zero-toughness creature may move to its graveyard before its ETB trigger is
+  stacked, but that `TriggeredAbilityStacked.source_incarnation` must name the
+  `ObjectIncarnationAdvanced` receipt immediately following its
+  `CardMoved(Battlefield)` event, never the later graveyard incarnation.
 - A resolving all-player discard effect selects at most one controller-owned
   hand card per living player in deterministic hand order. Every
   `CardDiscarded` receipt is immediately followed by that exact card's
