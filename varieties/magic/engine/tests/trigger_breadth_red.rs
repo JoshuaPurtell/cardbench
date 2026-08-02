@@ -8,8 +8,9 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardDefinition, CardType, CastRequest, Color, CombatBlock, Effect, Game, GameEvent, ManaCost,
-    PlayerId, Target, TriggerCondition, TriggeredAbility, TriggeredAbilityBinding, Zone,
+    CardDefinition, CardType, CastRequest, Color, CombatBlock, DecisionKind, DecisionSelection,
+    Effect, Game, GameEvent, ManaCost, PlayerId, PolicyAction, Target, TriggerCondition,
+    TriggeredAbility, TriggeredAbilityBinding, Zone,
 };
 
 fn card(
@@ -152,6 +153,7 @@ fn combat_damage_trigger_must_retain_the_creature_that_received_damage() {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // Public/private decision and trigger timing form one regression transcript.
 fn opponent_graveyard_trigger_observes_a_discard_from_hand() {
     let definitions = vec![
         card(
@@ -221,7 +223,27 @@ fn opponent_graveyard_trigger_observes_a_discard_from_hand() {
     .expect("cast discard spell");
     game.pass_priority(PlayerId(0)).expect("caster passes");
     game.pass_priority(PlayerId(1))
-        .expect("resolve discard spell");
+        .expect("targeted discard reaches its private recipient decision");
+    let discard_decision = game
+        .view_for_player(PlayerId(1))
+        .expect("targeted player receives the private discard view")
+        .pending_decision
+        .expect("targeted discard must not choose an opponent hand card deterministically");
+    assert_eq!(
+        discard_decision.kind,
+        DecisionKind::ConditionalPrivateDiscard
+    );
+    assert_eq!(discard_decision.candidates.len(), 1);
+    assert_eq!(discard_decision.candidates[0].id, discarded);
+    game.submit_policy_move(
+        PlayerId(1),
+        "test.trigger-breadth-private-discard.v1",
+        PolicyAction::SubmitDecision {
+            decision: discard_decision.id,
+            selection: DecisionSelection::Objects(vec![discarded]),
+        },
+    )
+    .expect("targeted player submits the sole legal private discard");
     game.pass_priority(PlayerId(0))
         .expect("pass pending trigger");
     game.pass_priority(PlayerId(1))
