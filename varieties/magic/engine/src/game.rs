@@ -11204,8 +11204,7 @@ impl Game {
                                 [Effect::AddPlusOneCountersToCapturedConvokeCreatures {
                                     creatures,
                                 }]
-                            ) if !creatures.is_empty()
-                                && creatures.iter().all(|captured| {
+                            ) if creatures.iter().all(|captured| {
                                     captured.creature.0 > 0 && captured.incarnation > 0
                                 })
                                 && creatures.iter().enumerate().all(|(index, captured)| {
