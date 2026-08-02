@@ -11528,6 +11528,18 @@ impl Game {
                 }
             }
             if !changed {
+                // A terminal SBA boundary ends the game before any newly
+                // observed triggers are put onto the stack.  Existing stack
+                // provenance remains frozen for event-log auditing, but a
+                // trigger caused by the departure that ended the game has no
+                // legal priority window in which to resolve.
+                if self.is_game_over() {
+                    self.pending_trigger_events.clear();
+                    self.pending_trigger_placements.clear();
+                    self.pending_trigger_order_group = None;
+                    self.record_game_end_if_needed();
+                    return Ok(());
+                }
                 self.flush_pending_dies_triggers();
                 self.normalize_priority_after_elimination()?;
                 self.record_game_end_if_needed();

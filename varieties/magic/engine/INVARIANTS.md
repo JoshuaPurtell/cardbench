@@ -34,6 +34,10 @@ Oracle Magic rules coverage.
   stack object's final lifecycle receipt (`AbilityResolved` or the applicable
   source-departure receipt), then emits the single `GameEnded`; no later event
   may follow it.
+- A terminal SBA fixed point discards trigger observations created by that
+  same loss transition before APNAP placement. Such a trigger cannot produce
+  a `TriggeredAbilityStacked` receipt or a new decision after the game has
+  ended; pre-existing stack provenance remains frozen only for replay audit.
 - On a player-loss transition, objects owned by that player leave this game
   and emit `ObjectLeftGame`; a non-owned object under that player's control is
   exiled to its owner. A stack-only virtual spell copy controlled by that
