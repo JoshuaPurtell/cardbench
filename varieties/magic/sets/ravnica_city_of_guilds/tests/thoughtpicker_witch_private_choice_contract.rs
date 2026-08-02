@@ -45,6 +45,7 @@ fn game_with_witch() -> (
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // One private-choice trace keeps the information boundary reviewable.
 fn witch_keeps_ability_on_stack_for_a_controller_private_opponent_library_choice() {
     let (mut game, witch, fodder, second, top) = game_with_witch();
     game.add_mana_from_action(PlayerId(0), Color::Black, 1)

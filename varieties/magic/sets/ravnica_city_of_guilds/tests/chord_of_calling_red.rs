@@ -30,6 +30,7 @@ fn chord_of_calling_requires_an_executable_policy_submitted_search_definition() 
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // The public selected-X/search trace is intentionally linear.
 fn chord_uses_convoke_and_chosen_x_then_waits_for_a_private_exact_search_selection() {
     let mut game = Game::new(card_definitions(), 2).expect("RAV fixture builds");
     let chord = game
