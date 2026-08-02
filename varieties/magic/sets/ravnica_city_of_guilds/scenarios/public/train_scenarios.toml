@@ -116,7 +116,7 @@ mana = ["0:green:0"]
 stack_size = 0
 priority = 0
 event_markers = ["SpellCast", "PriorityPassed", "SpellResolved"]
-digest = "fnv1a64:ada48a35818fe4db"
+digest = "fnv1a64:2cc5af3754319faa"
 
 [[scenario]]
 id = "rav_wave_three_guild_creature_chassis"
@@ -208,7 +208,7 @@ mana = ["0:white:0", "0:black:0", "0:red:0", "0:green:0"]
 stack_size = 0
 priority = 0
 event_markers = ["SpellCast", "PriorityPassed", "SpellResolved"]
-digest = "fnv1a64:0ecf0e95b6bb1ca6"
+digest = "fnv1a64:0609f50cca0ee7a5"
 
 [[scenario]]
 id = "rav_wave_three_boros_golgari_creature_chassis"
@@ -319,7 +319,7 @@ mana = ["0:white:0", "0:black:0", "0:red:0", "0:green:0"]
 stack_size = 0
 priority = 0
 event_markers = ["SpellCast", "PriorityPassed", "SpellResolved"]
-digest = "fnv1a64:94fcfbd88fedb5d5"
+digest = "fnv1a64:34e8d9dd07dead39"
 
 [[scenario]]
 id = "rav_seeds_of_strength_three_modifiers"
@@ -367,7 +367,7 @@ zones = ["seeds:graveyard"]
 powers = ["target:5"]
 toughnesses = ["target:6"]
 event_markers = ["ContinuousEffectCreated", "SpellResolved"]
-digest = "fnv1a64:ebc25aad50a714cf"
+digest = "fnv1a64:c6274f2ede4c2452"
 
 [[scenario]]
 id = "rav_fists_of_ironwood_tokens"
@@ -402,7 +402,7 @@ player = 1
 zones = ["fists:battlefield"]
 token_count = 2
 event_markers = ["TokenCreated", "SpellResolved"]
-digest = "fnv1a64:0bb775239ac22a44"
+digest = "fnv1a64:31fb7084dc0541c1"
 
 [[scenario]]
 id = "rav_dryads_caress_life"
@@ -437,7 +437,7 @@ player = 1
 life = [21, 20]
 zones = ["caress:graveyard"]
 event_markers = ["LifeGained", "SpellResolved"]
-digest = "fnv1a64:ff38507e57a246b3"
+digest = "fnv1a64:4aa3247a9fa5ed5e"
 
 [[scenario]]
 id = "rav_fiery_conclusion_sacrifice_damage"
@@ -484,7 +484,7 @@ player = 1
 [scenario.expected]
 zones = ["conclusion:graveyard", "target:graveyard", "sacrifice:graveyard"]
 event_markers = ["SacrificedAsAdditionalSpellCost", "CardMoved", "DamageDealtToPermanent", "StateBasedAction", "SpellResolved"]
-digest = "fnv1a64:052445229da19b58"
+digest = "fnv1a64:363ca7f1e26fca06"
 
 [[scenario]]
 id = "rav_incite_hysteria_radiance_blockers"
@@ -537,7 +537,7 @@ player = 1
 [scenario.expected]
 zones = ["incite:graveyard", "target:battlefield", "shared:battlefield", "other:battlefield"]
 event_markers = ["ContinuousEffectCreated", "SpellResolved"]
-digest = "fnv1a64:28fbb1bf8d88508b"
+digest = "fnv1a64:96d4b57a3583f56e"
 
 [[scenario]]
 id = "rav_stack_lightning_helix"
@@ -578,7 +578,7 @@ player = 1
 life = [23, 17]
 zones = ["helix:graveyard"]
 event_markers = ["SpellCast", "PriorityPassed", "DamageDealtToPlayer", "LifeGained", "SpellResolved"]
-digest = "fnv1a64:265d3974b35e7bdb"
+digest = "fnv1a64:157b663c738b92f6"
 
 [[scenario]]
 id = "rav_convoke_scatter_the_seeds"
@@ -633,7 +633,7 @@ zones = ["scatter:graveyard"]
 tapped = ["first:true", "second:true", "third:true"]
 token_count = 3
 event_markers = ["ConvokeUsed", "TokenCreated", "SpellResolved"]
-digest = "fnv1a64:964c69b67173b214"
+digest = "fnv1a64:f950b54473285b69"
 
 [[scenario]]
 id = "rav_gather_courage_convoke_boost"
@@ -672,7 +672,7 @@ zones = ["courage:graveyard"]
 powers = ["target:4"]
 tapped = ["target:true"]
 event_markers = ["SpellCast", "ConvokeUsed", "ContinuousEffectCreated", "SpellResolved"]
-digest = "fnv1a64:6db04b0389d0685b"
+digest = "fnv1a64:224b4f9df0e925fe"
 
 [[scenario]]
 id = "rav_dredge_replaces_draw"
@@ -705,7 +705,7 @@ dredge = "brownscale"
 [scenario.expected]
 zones = ["brownscale:hand", "forest_one:graveyard", "forest_two:graveyard"]
 event_markers = ["Dredged", "CardMoved"]
-digest = "fnv1a64:7da29aa6e53decc7"
+digest = "fnv1a64:5ef75e866369662a"
 
 [[scenario]]
 id = "rav_transmute_search"
@@ -743,7 +743,7 @@ found = "helix"
 [scenario.expected]
 zones = ["muddle:graveyard", "helix:hand"]
 event_markers = ["CardRevealed", "Transmuted", "CardMoved", "LibraryShuffled"]
-digest = "fnv1a64:739072d3bbc5d674"
+digest = "fnv1a64:6ee4beaac14dfddb"
 
 [[scenario]]
 id = "rav_muddle_counterspell"
@@ -800,7 +800,7 @@ player = 0
 life = [20, 20]
 zones = ["char:graveyard", "muddle:graveyard"]
 event_markers = ["SpellCast", "SpellCountered", "SpellResolved"]
-digest = "fnv1a64:97673aa7f0ad2b4b"
+digest = "fnv1a64:6c8b2826b2453bed"
 
 [[scenario]]
 id = "rav_radiance_layers"
@@ -863,7 +863,7 @@ player = 1
 [scenario.expected]
 powers = ["target:4", "allied:7", "opposing:4"]
 event_markers = ["ContinuousEffectCreated", "SpellResolved"]
-digest = "fnv1a64:b27578d6cd70e0ba"
+digest = "fnv1a64:1e8c8185fabfdad7"
 
 [[scenario]]
 id = "rav_last_gasp_state_based_action"
@@ -904,7 +904,7 @@ player = 1
 [scenario.expected]
 zones = ["gasp:graveyard", "victim:graveyard"]
 event_markers = ["ContinuousEffectCreated", "StateBasedAction"]
-digest = "fnv1a64:535a401a32929653"
+digest = "fnv1a64:405a428b8584bff1"
 
 [[scenario]]
 id = "rav_radiance_cleanup_expiration"
@@ -1023,7 +1023,7 @@ player = 1
 powers = ["target:2", "allied:5", "opposing:2"]
 tapped = ["target:false", "allied:false", "opposing:false"]
 event_markers = ["PermanentsUntapped", "StepBegan"]
-digest = "fnv1a64:34f698f4aee034bc"
+digest = "fnv1a64:a2d01722cefecab9"
 
 [[scenario]]
 id = "rav_land_play_limit"
@@ -1056,7 +1056,7 @@ expected_error = "land play limit reached"
 [scenario.expected]
 zones = ["first_land:battlefield", "second_land:hand"]
 event_markers = ["CardMoved"]
-digest = "fnv1a64:4a092fbb2608bbad"
+digest = "fnv1a64:b40d6a1bb7ed22c1"
 
 [[scenario]]
 id = "rav_priority_rejection"
@@ -1158,7 +1158,7 @@ player = 1
 zones = ["thug:battlefield", "mill_one:graveyard", "mill_two:graveyard", "mill_three:graveyard", "mill_four:graveyard"]
 powers = ["thug:1"]
 event_markers = ["Dredged", "SpellCast", "SpellResolved"]
-digest = "fnv1a64:22d84ec03922474e"
+digest = "fnv1a64:12a0ef76674d7c5f"
 
 [[scenario]]
 id = "rav_stinkweed_imp_dredge_and_cast"
@@ -1233,7 +1233,7 @@ player = 1
 zones = ["imp:battlefield", "mill_one:graveyard", "mill_two:graveyard", "mill_three:graveyard", "mill_four:graveyard", "mill_five:graveyard"]
 powers = ["imp:1"]
 event_markers = ["Dredged", "SpellCast", "SpellResolved"]
-digest = "fnv1a64:57557ed8e6e9821d"
+digest = "fnv1a64:289ab247393e544f"
 
 [[scenario]]
 id = "rav_greater_mossdog_dredge_and_cast"
@@ -1296,7 +1296,7 @@ player = 1
 zones = ["mossdog:battlefield", "mill_one:graveyard", "mill_two:graveyard", "mill_three:graveyard"]
 powers = ["mossdog:3"]
 event_markers = ["Dredged", "CardMoved", "SpellCast", "SpellResolved"]
-digest = "fnv1a64:6eb82ad42dbc780c"
+digest = "fnv1a64:d55b48973736e61d"
 
 [[scenario]]
 id = "rav_root_kin_ally_convoke_cast"
@@ -1351,7 +1351,7 @@ zones = ["ally:battlefield"]
 powers = ["ally:3"]
 tapped = ["first:true", "second:true", "third:true"]
 event_markers = ["SpellCast", "ConvokeUsed", "SpellResolved"]
-digest = "fnv1a64:3f73263c8babe476"
+digest = "fnv1a64:7214e362a3cb713b"
 
 [[scenario]]
 id = "rav_watchwolf_colored_cost"
@@ -1392,7 +1392,7 @@ zones = ["watchwolf:battlefield"]
 powers = ["watchwolf:3"]
 toughnesses = ["watchwolf:3"]
 event_markers = ["SpellCast", "SpellResolved"]
-digest = "fnv1a64:2371b092f503844f"
+digest = "fnv1a64:0f02a43f6c3921ea"
 
 [[scenario]]
 id = "rav_glass_golem_colorless_cost"
@@ -1428,7 +1428,7 @@ zones = ["glass_golem:battlefield"]
 powers = ["glass_golem:6"]
 toughnesses = ["glass_golem:2"]
 event_markers = ["SpellCast", "SpellResolved"]
-digest = "fnv1a64:2371b092f503844f"
+digest = "fnv1a64:0f02a43f6c3921ea"
 
 [[scenario]]
 id = "rav_invalid_convoke_rejection"
@@ -1536,7 +1536,7 @@ player = 1
 zones = ["dizzy:graveyard"]
 powers = ["victim:-1"]
 event_markers = ["SpellCast", "ContinuousEffectCreated", "SpellResolved"]
-digest = "fnv1a64:f084f234f5342cf7"
+digest = "fnv1a64:eac1c369cf649e6a"
 
 [[scenario]]
 id = "rav_dizzy_spell_transmute"
@@ -1574,7 +1574,7 @@ found = "darkblast"
 [scenario.expected]
 zones = ["dizzy:graveyard", "darkblast:hand"]
 event_markers = ["CardRevealed", "Transmuted", "CardMoved", "LibraryShuffled"]
-digest = "fnv1a64:48e44379388f1e83"
+digest = "fnv1a64:0e67622ab3e4a02c"
 
 [[scenario]]
 id = "rav_brainspoil_transmute"
@@ -1612,7 +1612,7 @@ found = "found_brainspoil"
 [scenario.expected]
 zones = ["brainspoil:graveyard", "found_brainspoil:hand"]
 event_markers = ["CardRevealed", "Transmuted", "CardMoved", "LibraryShuffled"]
-digest = "fnv1a64:6fb497cc4073243c"
+digest = "fnv1a64:6a3dcfcb221d1f9b"
 
 [[scenario]]
 id = "rav_darkblast_modifier_and_dredge"
@@ -1677,7 +1677,7 @@ dredge = "darkblast"
 zones = ["darkblast:hand", "forest_one:graveyard", "forest_two:graveyard", "forest_three:graveyard"]
 powers = ["victim:1"]
 event_markers = ["SpellCast", "ContinuousEffectCreated", "SpellResolved", "Dredged", "CardMoved"]
-digest = "fnv1a64:c3dd582e9ae7447f"
+digest = "fnv1a64:de22311339e6cdf5"
 
 [[scenario]]
 id = "rav_birds_of_paradise_bound_mana_ability"
@@ -1832,7 +1832,7 @@ zones = ["birds:battlefield", "turn_two_draw:hand"]
 powers = ["birds:0"]
 tapped = ["birds:true", "forest:true"]
 event_markers = ["SpellCast", "SpellResolved", "StepBegan", "BoundManaAbilityActivated", "ManaAdded"]
-digest = "fnv1a64:7115881e15dd0d84"
+digest = "fnv1a64:5a8ec7b022db5023"
 
 [[scenario]]
 id = "rav_wojek_siren_radiance"
@@ -1890,7 +1890,7 @@ zones = ["siren:graveyard"]
 powers = ["target:4", "shared:3", "off_color:1"]
 tapped = ["target:true", "shared:true", "off_color:true"]
 event_markers = ["SpellCast", "ContinuousEffectCreated", "SpellResolved"]
-digest = "fnv1a64:634a0db6947bd665"
+digest = "fnv1a64:53d9452cd605d078"
 
 [[scenario]]
 id = "rav_boros_signet_paid_bundle"
@@ -2068,7 +2068,7 @@ stack_size = 0
 priority = 0
 event_markers = ["CastPaymentManaAbilityActivated", "BoundManaAbilityBundleActivated", "ManaAbilityManaPaid", "ManaAdded", "SpellCast", "SpellResolved"]
 mana_receipts = ["0:white:1", "0:red:1"]
-digest = "fnv1a64:3f573ef9429b7e39"
+digest = "fnv1a64:1202ef97e6f0ddf2"
 
 [[scenario]]
 id = "rav_dimir_signet_cast_payment"
@@ -2114,7 +2114,7 @@ stack_size = 0
 priority = 0
 event_markers = ["CastPaymentManaAbilityActivated", "BoundManaAbilityBundleActivated", "ManaAbilityManaPaid", "ManaAdded", "SpellCast", "SpellResolved"]
 mana_receipts = ["0:blue:1", "0:black:1"]
-digest = "fnv1a64:6d5779fe95ab3801"
+digest = "fnv1a64:4a90eb346de5f7ba"
 
 [[scenario]]
 id = "rav_golgari_signet_cast_payment"
@@ -2160,7 +2160,7 @@ stack_size = 0
 priority = 0
 event_markers = ["CastPaymentManaAbilityActivated", "BoundManaAbilityBundleActivated", "ManaAbilityManaPaid", "ManaAdded", "SpellCast", "SpellResolved"]
 mana_receipts = ["0:black:1", "0:green:1"]
-digest = "fnv1a64:1c83c12e8229cad9"
+digest = "fnv1a64:553c9cb123a2f092"
 
 [[scenario]]
 id = "rav_selesnya_signet_cast_payment"
@@ -2206,7 +2206,7 @@ stack_size = 0
 priority = 0
 event_markers = ["CastPaymentManaAbilityActivated", "BoundManaAbilityBundleActivated", "ManaAbilityManaPaid", "ManaAdded", "SpellCast", "SpellResolved"]
 mana_receipts = ["0:white:1", "0:green:1"]
-digest = "fnv1a64:509a60b50efd545f"
+digest = "fnv1a64:4be8bf677706d990"
 
 [[scenario]]
 id = "rav_cleansing_beam_radiance_damage"
@@ -2259,7 +2259,7 @@ player = 1
 [scenario.expected]
 zones = ["beam:graveyard", "target:graveyard", "shared:graveyard", "off_color:battlefield"]
 event_markers = ["SpellCast", "DamageDealtToPermanent", "SpellResolved", "StateBasedAction"]
-digest = "fnv1a64:b161e284ddd9e82d"
+digest = "fnv1a64:cd545e75f777405f"
 
 [[scenario]]
 id = "rav_cleansing_beam_requires_creature_target"
@@ -2369,7 +2369,7 @@ player = 1
 [scenario.expected]
 zones = ["troll:graveyard", "mill_one:graveyard", "mill_two:graveyard", "mill_three:graveyard", "mill_four:graveyard", "mill_five:graveyard", "mill_six:graveyard"]
 event_markers = ["Dredged", "SpellCast", "SpellResolved", "StateBasedAction"]
-digest = "fnv1a64:1560ed94b49c59af"
+digest = "fnv1a64:60c49ba05e586fa4"
 
 [[scenario]]
 id = "rav_necroplasm_dredge_and_cast_slice"
@@ -2426,7 +2426,7 @@ player = 1
 zones = ["necroplasm:battlefield", "mill_one:graveyard", "mill_two:graveyard"]
 powers = ["necroplasm:1"]
 event_markers = ["Dredged", "SpellCast", "SpellResolved"]
-digest = "fnv1a64:35ecbb78e0524c69"
+digest = "fnv1a64:79b89fce27f506dd"
 
 [[scenario]]
 id = "rav_grave_shell_scarab_dredge_and_cast_slice"
@@ -2482,7 +2482,7 @@ player = 1
 zones = ["scarab:battlefield", "mill_one:graveyard"]
 powers = ["scarab:4"]
 event_markers = ["Dredged", "SpellCast", "SpellResolved"]
-digest = "fnv1a64:b14a6b939d00a681"
+digest = "fnv1a64:d2ab3bb26a7c2003"
 
 [[scenario]]
 id = "rav_shambling_shell_dredge_and_cast_slice"
@@ -2550,7 +2550,7 @@ player = 1
 zones = ["shell:battlefield", "mill_one:graveyard", "mill_two:graveyard", "mill_three:graveyard"]
 powers = ["shell:3"]
 event_markers = ["Dredged", "SpellCast", "SpellResolved"]
-digest = "fnv1a64:6eb82ad42dbc780c"
+digest = "fnv1a64:d55b48973736e61d"
 
 [[scenario]]
 id = "rav_conclave_equenaut_convoke_slice"
@@ -2611,7 +2611,7 @@ zones = ["equenaut:battlefield"]
 powers = ["equenaut:3"]
 tapped = ["one:true", "two:true", "three:true", "four:true"]
 event_markers = ["SpellCast", "ConvokeUsed", "SpellResolved"]
-digest = "fnv1a64:e6d94b7618cfb40f"
+digest = "fnv1a64:1c5e0e7c20fd8baa"
 
 [[scenario]]
 id = "rav_conclave_phalanx_convoke_slice"
@@ -2672,7 +2672,7 @@ zones = ["phalanx:battlefield"]
 powers = ["phalanx:2"]
 tapped = ["one:true", "two:true", "three:true", "four:true"]
 event_markers = ["SpellCast", "ConvokeUsed", "SpellResolved"]
-digest = "fnv1a64:e6d94b7618cfb40f"
+digest = "fnv1a64:1c5e0e7c20fd8baa"
 
 [[scenario]]
 id = "rav_guardian_of_vitu_ghazi_convoke_slice"
@@ -2750,7 +2750,7 @@ zones = ["guardian:battlefield"]
 powers = ["guardian:4"]
 tapped = ["one:true", "two:true", "three:true", "four:true", "five:true", "six:true"]
 event_markers = ["SpellCast", "ConvokeUsed", "SpellResolved"]
-digest = "fnv1a64:a68cdb671a037d94"
+digest = "fnv1a64:5879703a16844529"
 
 [[scenario]]
 id = "rav_guardian_of_vitu_ghazi_vigilance_attack"
@@ -2915,7 +2915,7 @@ zones = ["wurm:battlefield"]
 powers = ["wurm:9"]
 tapped = ["one:true", "two:true", "three:true", "four:true", "five:true", "six:true", "seven:true", "eight:true", "nine:true", "ten:true"]
 event_markers = ["SpellCast", "ConvokeUsed", "SpellResolved"]
-digest = "fnv1a64:b99b83e79f760710"
+digest = "fnv1a64:b7de62a0397d3235"
 
 [[scenario]]
 id = "rav_rain_of_embers_global_damage"
@@ -2962,7 +2962,7 @@ player = 1
 life = [19, 19]
 zones = ["rain:graveyard", "thug:graveyard", "birds:graveyard"]
 event_markers = ["SpellCast", "DamageDealtToPermanent", "DamageDealtToPlayer", "SpellResolved", "StateBasedAction"]
-digest = "fnv1a64:2df3e7b7dadf9c1a"
+digest = "fnv1a64:d8c8a2a2df958ce8"
 
 [[scenario]]
 id = "rav_dimir_machinations_transmute"
@@ -3000,7 +3000,7 @@ found = "found_machinations"
 [scenario.expected]
 zones = ["machinations:graveyard", "found_machinations:hand"]
 event_markers = ["CardRevealed", "Transmuted", "CardMoved", "LibraryShuffled"]
-digest = "fnv1a64:ef334b2d2b1a5ccf"
+digest = "fnv1a64:6f1b4dd34a241a80"
 
 [[scenario]]
 id = "rav_shred_memory_transmute"
@@ -3038,7 +3038,7 @@ found = "found_shred"
 [scenario.expected]
 zones = ["shred:graveyard", "found_shred:hand"]
 event_markers = ["CardRevealed", "Transmuted", "CardMoved", "LibraryShuffled"]
-digest = "fnv1a64:631a3f71a5fbc831"
+digest = "fnv1a64:9eb118ca7ddf016e"
 
 [[scenario]]
 id = "rav_clutch_of_the_undercity_transmute"
@@ -3076,7 +3076,7 @@ found = "found_clutch"
 [scenario.expected]
 zones = ["clutch:graveyard", "found_clutch:hand"]
 event_markers = ["CardRevealed", "Transmuted", "CardMoved", "LibraryShuffled"]
-digest = "fnv1a64:ce33fff3fabd2058"
+digest = "fnv1a64:aa8632099100aa57"
 
 [[scenario]]
 id = "rav_perplex_transmute"
@@ -3119,7 +3119,7 @@ found = "found_perplex"
 [scenario.expected]
 zones = ["perplex:graveyard", "found_perplex:hand"]
 event_markers = ["CardRevealed", "Transmuted", "CardMoved", "LibraryShuffled"]
-digest = "fnv1a64:3efe00bd81d03cdb"
+digest = "fnv1a64:665bffdf349bdb34"
 
 [[scenario]]
 id = "rav_white_blue_creature_chassis"
@@ -3179,7 +3179,7 @@ zones = ["dromad:battlefield", "drake:battlefield"]
 powers = ["dromad:1", "drake:3"]
 toughnesses = ["dromad:5", "drake:2"]
 event_markers = ["SpellCast", "SpellResolved"]
-digest = "fnv1a64:e78637d84b25b302"
+digest = "fnv1a64:10ab6a9c0b91ec2c"
 
 [[scenario]]
 id = "rav_easy_white_blue_creatures_wave_two"
@@ -3242,7 +3242,7 @@ mana = ["0:white:0", "0:blue:0"]
 stack_size = 0
 priority = 0
 event_markers = ["SpellCast", "PriorityPassed", "SpellResolved"]
-digest = "fnv1a64:e78637d84b25b302"
+digest = "fnv1a64:10ab6a9c0b91ec2c"
 
 [[scenario]]
 id = "rav_easy_blue_black_creatures_wave_two"
@@ -3305,7 +3305,7 @@ mana = ["0:blue:0", "0:black:0"]
 stack_size = 0
 priority = 0
 event_markers = ["SpellCast", "PriorityPassed", "SpellResolved"]
-digest = "fnv1a64:e78637d84b25b302"
+digest = "fnv1a64:10ab6a9c0b91ec2c"
 
 [[scenario]]
 id = "rav_easy_blue_red_creatures_wave_two"
@@ -3368,7 +3368,7 @@ mana = ["0:blue:0", "0:red:0"]
 stack_size = 0
 priority = 0
 event_markers = ["SpellCast", "PriorityPassed", "SpellResolved"]
-digest = "fnv1a64:e78637d84b25b302"
+digest = "fnv1a64:10ab6a9c0b91ec2c"
 
 [[scenario]]
 id = "rav_easy_red_creatures_wave_two"
@@ -3426,7 +3426,7 @@ mana = ["0:red:0"]
 stack_size = 0
 priority = 0
 event_markers = ["SpellCast", "PriorityPassed", "SpellResolved"]
-digest = "fnv1a64:e78637d84b25b302"
+digest = "fnv1a64:10ab6a9c0b91ec2c"
 
 [[scenario]]
 id = "rav_easy_green_creatures_wave_two"
@@ -3484,7 +3484,7 @@ mana = ["0:green:0"]
 stack_size = 0
 priority = 0
 event_markers = ["SpellCast", "PriorityPassed", "SpellResolved"]
-digest = "fnv1a64:e78637d84b25b302"
+digest = "fnv1a64:10ab6a9c0b91ec2c"
 
 [[scenario]]
 id = "rav_civic_wayfinder_etb_basic_land_search"
@@ -3541,7 +3541,7 @@ zones = ["wayfinder:battlefield", "forest:hand", "opponent_island:library"]
 stack_size = 0
 priority = 0
 event_markers = ["TriggeredAbilityStacked", "LibrarySearchResolved", "LibraryShuffled", "AbilityResolved"]
-digest = "fnv1a64:74bfe3d04a3ea0b9"
+digest = "fnv1a64:d79347f0d71c8635"
 
 [[scenario]]
 id = "rav_one_mana_creature_chassis"
@@ -3604,7 +3604,7 @@ mana = ["0:blue:0", "0:green:0"]
 stack_size = 0
 priority = 0
 event_markers = ["SpellCast", "PriorityPassed", "SpellResolved"]
-digest = "fnv1a64:e78637d84b25b302"
+digest = "fnv1a64:10ab6a9c0b91ec2c"
 
 [[scenario]]
 id = "rav_red_black_creature_chassis_two"
@@ -3667,7 +3667,7 @@ mana = ["0:red:0", "0:black:0"]
 stack_size = 0
 priority = 0
 event_markers = ["SpellCast", "PriorityPassed", "SpellResolved"]
-digest = "fnv1a64:e78637d84b25b302"
+digest = "fnv1a64:10ab6a9c0b91ec2c"
 
 [[scenario]]
 id = "rav_forgeling_dancer_creature_chassis"
@@ -3730,7 +3730,7 @@ mana = ["0:red:0", "0:green:0"]
 stack_size = 0
 priority = 0
 event_markers = ["SpellCast", "PriorityPassed", "SpellResolved"]
-digest = "fnv1a64:e78637d84b25b302"
+digest = "fnv1a64:10ab6a9c0b91ec2c"
 
 [[scenario]]
 id = "rav_spider_sagittars_creature_chassis"
@@ -3793,7 +3793,7 @@ mana = ["0:green:0", "0:white:0"]
 stack_size = 0
 priority = 0
 event_markers = ["SpellCast", "PriorityPassed", "SpellResolved"]
-digest = "fnv1a64:3d74cd919c9d23aa"
+digest = "fnv1a64:9f886d22ba6c1f9c"
 
 [[scenario]]
 id = "rav_black_red_creature_chassis"
@@ -3853,7 +3853,7 @@ zones = ["howler:battlefield", "swine:battlefield"]
 powers = ["howler:2", "swine:4"]
 toughnesses = ["howler:2", "swine:4"]
 event_markers = ["SpellCast", "SpellResolved"]
-digest = "fnv1a64:e78637d84b25b302"
+digest = "fnv1a64:10ab6a9c0b91ec2c"
 
 [[scenario]]
 id = "rav_green_creature_chassis"
@@ -3908,7 +3908,7 @@ zones = ["bramble:battlefield", "caryatid:battlefield"]
 powers = ["bramble:4", "caryatid:2"]
 toughnesses = ["bramble:4", "caryatid:5"]
 event_markers = ["SpellCast", "SpellResolved"]
-digest = "fnv1a64:e78637d84b25b302"
+digest = "fnv1a64:10ab6a9c0b91ec2c"
 
 [[scenario]]
 id = "rav_boros_creature_chassis"
@@ -3968,7 +3968,7 @@ zones = ["swiftblade:battlefield", "legionnaire:battlefield"]
 powers = ["swiftblade:1", "legionnaire:2"]
 toughnesses = ["swiftblade:2", "legionnaire:2"]
 event_markers = ["SpellCast", "SpellResolved"]
-digest = "fnv1a64:e78637d84b25b302"
+digest = "fnv1a64:10ab6a9c0b91ec2c"
 
 [[scenario]]
 id = "rav_guild_creature_chassis"
@@ -4038,7 +4038,7 @@ zones = ["hierarch:battlefield", "moroii:battlefield"]
 powers = ["hierarch:4", "moroii:4"]
 toughnesses = ["hierarch:4", "moroii:4"]
 event_markers = ["SpellCast", "SpellResolved"]
-digest = "fnv1a64:e78637d84b25b302"
+digest = "fnv1a64:10ab6a9c0b91ec2c"
 
 [[scenario]]
 id = "rav_ribbons_of_night_damage_life_slice"
@@ -4086,7 +4086,7 @@ player = 1
 life = [24, 20]
 zones = ["ribbons:graveyard", "victim:graveyard"]
 event_markers = ["SpellManaPaid", "SpellCast", "DamageDealtToPermanent", "LifeGained", "SpellResolved", "StateBasedAction"]
-digest = "fnv1a64:7c84594c12a3a99d"
+digest = "fnv1a64:ec33432325972981"
 
 [[scenario]]
 id = "rav_ribbons_of_night_blue_spend_draw"
@@ -4140,7 +4140,7 @@ player = 1
 life = [24, 20]
 zones = ["ribbons:graveyard", "victim:graveyard", "drawn:hand"]
 event_markers = ["SpellManaPaid", "SpellCast", "DamageDealtToPermanent", "LifeGained", "CardMoved", "SpellResolved", "StateBasedAction"]
-digest = "fnv1a64:ef27c0265a519e88"
+digest = "fnv1a64:1894f1c87137f0fa"
 
 [[scenario]]
 id = "rav_overwhelm_convoke_wide_modifier"
@@ -4214,7 +4214,7 @@ powers = ["first:5", "second:5", "third:5", "fourth:5", "fifth:5", "opponent:2"]
 toughnesses = ["first:6", "second:6", "third:6", "fourth:6", "fifth:6", "opponent:3"]
 tapped = ["first:true", "second:true", "third:true", "fourth:true", "fifth:true"]
 event_markers = ["SpellCast", "ConvokeUsed", "ContinuousEffectCreated", "SpellResolved"]
-digest = "fnv1a64:1a2adb4991fff975"
+digest = "fnv1a64:64a448e8aaf35770"
 
 [[scenario]]
 id = "rav_recollect_graveyard_return"
@@ -4255,7 +4255,7 @@ player = 1
 [scenario.expected]
 zones = ["recollect:graveyard", "target:hand"]
 event_markers = ["SpellCast", "CardMoved", "SpellResolved"]
-digest = "fnv1a64:7ce8ed29de3cb37e"
+digest = "fnv1a64:51067d5521505bf4"
 
 [[scenario]]
 id = "rav_dogpile_combat_count_damage"
@@ -4558,7 +4558,7 @@ tapped = ["first_attacker:true", "second_attacker:true", "mountain_one:true", "m
 stack_size = 0
 priority = 0
 event_markers = ["AttackersDeclared", "ManaAbilityActivated", "SpellCast", "DamageDealtToPermanent", "SpellResolved", "StateBasedAction"]
-digest = "fnv1a64:d9eaf97adcefeb91"
+digest = "fnv1a64:0591dc5dca33de25"
 
 [[scenario]]
 id = "rav_dogpile_rejects_noncreature_target"
@@ -4634,7 +4634,7 @@ mana = ["0:white:0"]
 stack_size = 0
 priority = 0
 event_markers = ["SpellCast", "PriorityPassed", "SpellResolved"]
-digest = "fnv1a64:2371b092f503844f"
+digest = "fnv1a64:0f02a43f6c3921ea"
 
 [[scenario]]
 id = "rav_easy_blue_sphinx_chassis"
@@ -4692,7 +4692,7 @@ mana = ["0:blue:0"]
 stack_size = 0
 priority = 0
 event_markers = ["SpellCast", "SpellResolved"]
-digest = "fnv1a64:e78637d84b25b302"
+digest = "fnv1a64:10ab6a9c0b91ec2c"
 
 [[scenario]]
 id = "rav_easy_blue_phantasm_drake_chassis"
@@ -4750,7 +4750,7 @@ mana = ["0:blue:0"]
 stack_size = 0
 priority = 0
 event_markers = ["SpellCast", "SpellResolved"]
-digest = "fnv1a64:e78637d84b25b302"
+digest = "fnv1a64:10ab6a9c0b91ec2c"
 
 [[scenario]]
 id = "rav_easy_blue_late_creature_chassis"
@@ -4808,7 +4808,7 @@ mana = ["0:blue:0"]
 stack_size = 0
 priority = 0
 event_markers = ["SpellCast", "SpellResolved"]
-digest = "fnv1a64:e78637d84b25b302"
+digest = "fnv1a64:10ab6a9c0b91ec2c"
 
 [[scenario]]
 id = "rav_easy_black_red_creature_chassis"
@@ -4890,7 +4890,7 @@ mana = ["0:black:0", "0:red:0"]
 stack_size = 0
 priority = 0
 event_markers = ["SpellCast", "SpellResolved"]
-digest = "fnv1a64:68d4a28396f03982"
+digest = "fnv1a64:6e6bce9c7bf182e5"
 
 [[scenario]]
 id = "rav_demon_witch_creature_chassis"
@@ -4948,7 +4948,7 @@ mana = ["0:black:0"]
 stack_size = 0
 priority = 0
 event_markers = ["SpellCast", "SpellResolved"]
-digest = "fnv1a64:e78637d84b25b302"
+digest = "fnv1a64:10ab6a9c0b91ec2c"
 
 [[scenario]]
 id = "rav_shade_mob_creature_chassis"
@@ -5006,7 +5006,7 @@ mana = ["0:black:0"]
 stack_size = 0
 priority = 0
 event_markers = ["SpellCast", "SpellResolved"]
-digest = "fnv1a64:e78637d84b25b302"
+digest = "fnv1a64:10ab6a9c0b91ec2c"
 
 [[scenario]]
 id = "rav_riftcutter_excruciator_creature_chassis"
@@ -5064,7 +5064,7 @@ mana = ["0:red:0"]
 stack_size = 0
 priority = 0
 event_markers = ["SpellCast", "SpellResolved"]
-digest = "fnv1a64:e78637d84b25b302"
+digest = "fnv1a64:10ab6a9c0b91ec2c"
 
 [[scenario]]
 id = "rav_fire_fiend_brute_creature_chassis"
@@ -5122,7 +5122,7 @@ mana = ["0:red:0"]
 stack_size = 0
 priority = 0
 event_markers = ["SpellCast", "SpellResolved"]
-digest = "fnv1a64:e78637d84b25b302"
+digest = "fnv1a64:10ab6a9c0b91ec2c"
 
 [[scenario]]
 id = "rav_easy_white_creature_chassis_wave_five"
@@ -5218,7 +5218,7 @@ mana = ["0:white:0"]
 stack_size = 0
 priority = 0
 event_markers = ["SpellCast", "PriorityPassed", "SpellResolved"]
-digest = "fnv1a64:b3acee0b8c63b96d"
+digest = "fnv1a64:81e57f4f9dd76b89"
 
 [[scenario]]
 id = "rav_conclave_equenaut_flying_goliath_spider_reach_block"
@@ -5582,7 +5582,7 @@ stack_size = 0
 priority = 0
 event_markers = ["StepBegan", "BoundManaAbilityActivated", "ManaAdded", "DamageDealtToPlayer"]
 event_absent = ["ManaAbilityLifePaid"]
-digest = "fnv1a64:82956a3c643de2b8"
+digest = "fnv1a64:fbc77aaaa3194b51"
 
 [[scenario]]
 id = "rav_boros_recruit_hybrid_first_strike"
@@ -5721,7 +5721,7 @@ stack_size = 0
 priority = 0
 event_markers = ["SpellCast", "FirstStrikeCombatDamage", "DamageDealtToPermanent"]
 event_absent = ["source: ObjectId(3)"]
-digest = "fnv1a64:2e7d251d98b65f6d"
+digest = "fnv1a64:0da656c902d520f9"
 
 [[scenario]]
 id = "rav_easy_blue_creature_chassis_wave_five"
@@ -5817,7 +5817,7 @@ mana = ["0:blue:0"]
 stack_size = 0
 priority = 0
 event_markers = ["SpellCast", "PriorityPassed", "SpellResolved"]
-digest = "fnv1a64:b3acee0b8c63b96d"
+digest = "fnv1a64:81e57f4f9dd76b89"
 [[scenario]]
 id = "rav_basic_land_type_lines"
 seed = 0
@@ -6008,7 +6008,7 @@ stack_size = 0
 priority = 0
 event_markers = ["SpellCast", "FirstStrikeCombatDamage", "DamageDealtToPermanent"]
 event_absent = ["source: ObjectId(3)"]
-digest = "fnv1a64:9c23b1d2141a782f"
+digest = "fnv1a64:9e54d8c68d8bc46a"
 
 [[scenario]]
 id = "rav_basic_land_cast_payment"
@@ -6058,7 +6058,7 @@ stack_size = 0
 priority = 0
 event_markers = ["CastPaymentBasicLandManaAbilityActivated", "ManaAbilityActivated", "ManaAdded", "SpellCast", "SpellResolved"]
 event_absent = ["BoundManaAbilityActivated", "BoundManaAbilityBundleActivated"]
-digest = "fnv1a64:092e92750db81bd3"
+digest = "fnv1a64:c85756aa061171ba"
 
 [[scenario]]
 id = "rav_skyknight_legionnaire_flying_haste_attack"
@@ -6134,7 +6134,7 @@ mana_receipts = ["0:red:1", "0:white:1", "0:green:1"]
 stack_size = 0
 priority = 0
 event_markers = ["CastPaymentBasicLandManaAbilityActivated", "SpellCast", "SpellResolved", "AttackersDeclared"]
-digest = "fnv1a64:295ee29ac0f19820"
+digest = "fnv1a64:f0471bc798a414ad"
 
 [[scenario]]
 id = "rav_birds_of_paradise_flying_cast_payment"
@@ -6205,7 +6205,7 @@ stack_size = 0
 priority = 0
 event_markers = ["CastPaymentManaAbilityActivated", "BoundManaAbilityActivated", "CastPaymentBasicLandManaAbilityActivated", "ManaAbilityActivated", "ManaAdded", "SpellCast", "SpellResolved"]
 event_absent = ["AttackersDeclared", "BlockersDeclared"]
-digest = "fnv1a64:62c889c1e01620b4"
+digest = "fnv1a64:7c938e9cda5a74c1"
 
 [[scenario]]
 id = "rav_drift_of_phantasms_defender_and_transmute_compatibility"
@@ -6293,7 +6293,7 @@ stack_size = 0
 priority = 0
 event_markers = ["CardRevealed", "LibraryShuffled", "Transmuted", "StepBegan"]
 event_absent = ["AttackersDeclared"]
-digest = "fnv1a64:74b1293dcdd0928b"
+digest = "fnv1a64:d31e3938268687e6"
 
 [[scenario]]
 id = "rav_grozoth_defender_and_transmute_compatibility"
@@ -6381,7 +6381,7 @@ stack_size = 0
 priority = 0
 event_markers = ["CardRevealed", "LibraryShuffled", "Transmuted", "StepBegan"]
 event_absent = ["AttackersDeclared"]
-digest = "fnv1a64:72bfadc28024561c"
+digest = "fnv1a64:c3aa63148bce556d"
 
 [[scenario]]
 id = "rav_torpid_moloch_defender_compatibility"
@@ -6624,7 +6624,7 @@ stack_size = 0
 priority = 0
 mana = ["0:black:0"]
 event_markers = ["SpellCast", "SpellResolved", "TriggeredAbilityStacked", "TokenCreated", "AbilityResolved"]
-digest = "fnv1a64:8882f647d8a00059"
+digest = "fnv1a64:791b5696125840c0"
 
 [[scenario]]
 id = "rav_keening_banshee_etb_modifier"
@@ -6748,7 +6748,7 @@ stack_size = 0
 priority = 0
 mana = ["0:black:0"]
 event_markers = ["SpellCast", "SpellResolved", "TriggeredAbilityStacked", "ContinuousEffectCreated", "AbilityResolved"]
-digest = "fnv1a64:f535e5ed2a831334"
+digest = "fnv1a64:2c00ee5c7a059bd7"
 
 [[scenario]]
 id = "rav_infectious_host_dies_targeted_life_loss"
@@ -6808,7 +6808,7 @@ zones = ["gasp:graveyard", "host:graveyard"]
 stack_size = 0
 priority = 0
 event_markers = ["SpellCast", "StateBasedAction", "TriggeredAbilityStacked", "LifeLost", "AbilityResolved"]
-digest = "fnv1a64:a3188611c7a3479e"
+digest = "fnv1a64:74d5cc4fa0c55281"
 
 [[scenario]]
 id = "rav_undercity_shade_black_evasion_compatibility"
@@ -7070,7 +7070,7 @@ stack_size = 0
 priority = 0
 event_markers = ["DamageDealtToPlayer", "TriggeredAbilityStacked", "LifeGained", "AbilityResolved"]
 event_absent = ["SpellCast"]
-digest = "fnv1a64:8edcecff9d12423c"
+digest = "fnv1a64:2f605545433a3cb0"
 
 [[scenario]]
 id = "rav_flame_kin_zealot_etb_team_trigger"
@@ -7187,7 +7187,7 @@ toughnesses = ["zealot:3", "watchwolf:4"]
 stack_size = 0
 priority = 0
 event_markers = ["SpellResolved", "TriggeredAbilityStacked", "ContinuousEffectCreated", "AbilityResolved"]
-digest = "fnv1a64:f49730fc57bbf22d"
+digest = "fnv1a64:1d128a8e8bdd6324"
 
 [[scenario]]
 id = "rav_carven_caryatid_defender_compatibility"
@@ -7439,7 +7439,7 @@ tapped = ["fangtail:true"]
 stack_size = 0
 priority = 0
 event_markers = ["AbilityActivated", "DamageDealtToPlayer", "AbilityResolved"]
-digest = "fnv1a64:fbc94a7a6f3d926f"
+digest = "fnv1a64:cb97aa89d6c372f5"
 
 [[scenario]]
 id = "rav_boros_guildmage_keyword_grants"
@@ -7521,7 +7521,7 @@ life = [20, 20]
 stack_size = 0
 priority = 0
 event_markers = ["AbilityActivated", "ContinuousEffectCreated", "AbilityResolved"]
-digest = "fnv1a64:266ab101e99cfc68"
+digest = "fnv1a64:5ccb148436980c46"
 
 [[scenario]]
 id = "rav_wojek_embermage_radiance_tap_damage"
@@ -7574,7 +7574,7 @@ tapped = ["embermage:true"]
 stack_size = 0
 priority = 0
 event_markers = ["AbilityActivated", "DamageDealtToPermanent", "AbilityResolved"]
-digest = "fnv1a64:7791f770f15e466d"
+digest = "fnv1a64:9f5cd2633fbffad3"
 
 [[scenario]]
 id = "rav_thundersong_trumpeter_combat_restriction"
@@ -7620,7 +7620,7 @@ tapped = ["trumpeter:true", "target:false"]
 stack_size = 0
 priority = 0
 event_markers = ["AbilityActivated", "ContinuousEffectCreated", "AbilityResolved"]
-digest = "fnv1a64:cca1a74ece4154a1"
+digest = "fnv1a64:e8847fc86fb62827"
 
 [[scenario]]
 id = "rav_sabertooth_alley_cat_mountain_block_restriction"
@@ -7786,7 +7786,7 @@ stack_size = 0
 priority = 0
 event_markers = ["CastPaymentBasicLandManaAbilityActivated", "SpellCast", "SpellResolved", "AttackersDeclared"]
 event_absent = ["BlockersDeclared"]
-digest = "fnv1a64:966f0757a8d36c88"
+digest = "fnv1a64:b2365849577bf8b7"
 
 [[scenario]]
 id = "rav_belltower_sphinx_flying_compatibility"
@@ -8500,7 +8500,7 @@ stack_size = 0
 priority = 0
 event_markers = ["Transmuted", "AttackersDeclared"]
 event_absent = ["BlockersDeclared"]
-digest = "fnv1a64:b7486c2626e10b80"
+digest = "fnv1a64:9366feebbf6d7203"
 
 [[scenario]]
 id = "rav_sadistic_augermage_death_discard"
@@ -8571,7 +8571,7 @@ zones = ["augermage:battlefield", "p0_discard:graveyard", "p0_keep:hand", "p1_di
 stack_size = 0
 priority = 0
 event_markers = ["StateBasedAction", "TriggeredAbilityStacked", "CardDiscarded", "AbilityResolved"]
-digest = "fnv1a64:f214eb35bb280cf1"
+digest = "fnv1a64:31e9d1faf7341bde"
 
 [[scenario]]
 id = "rav_dimir_house_guard_fear_and_transmute_compatibility"
@@ -8680,7 +8680,7 @@ stack_size = 0
 priority = 0
 event_markers = ["Transmuted", "AttackersDeclared"]
 event_absent = ["BlockersDeclared"]
-digest = "fnv1a64:594a2e5e1cc03219"
+digest = "fnv1a64:97a30037b00f4baa"
 
 [[scenario]]
 id = "rav_hunted_troll_faeries_and_regeneration"
@@ -8826,7 +8826,7 @@ stack_size = 0
 priority = 0
 mana = ["0:green:0"]
 event_markers = ["SpellCast", "SpellResolved", "TriggeredAbilityStacked", "TokenCreated", "RegenerationShieldCreated", "AbilityResolved"]
-digest = "fnv1a64:ab6dd96ea893fc21"
+digest = "fnv1a64:5349dc6e4f5e916c"
 
 [[scenario]]
 id = "rav_selesnya_guildmage_centaur_and_anthem"
@@ -8994,7 +8994,7 @@ stack_size = 0
 priority = 0
 mana = ["0:green:0", "0:white:0"]
 event_markers = ["AbilityManaPaid", "AbilityActivated", "TokenCreated", "ContinuousEffectCreated", "AbilityResolved"]
-digest = "fnv1a64:061ae0348caca68d"
+digest = "fnv1a64:52f34ca4bff65465"
 
 [[scenario]]
 id = "rav_vitu_ghazi_colorless_and_saproling"
@@ -9098,7 +9098,7 @@ priority = 0
 mana = ["0:colorless:0", "0:green:0", "0:white:0"]
 mana_receipts = ["0:colorless:1"]
 event_markers = ["BoundManaAbilityActivated", "ManaAdded", "AbilityManaPaid", "AbilityActivated", "TokenCreated", "AbilityResolved"]
-digest = "fnv1a64:93ebe393f54e966f"
+digest = "fnv1a64:5ced0aba1391a8e5"
 
 [[scenario]]
 id = "rav_putrefy_bypasses_regeneration"
@@ -9216,7 +9216,7 @@ priority = 0
 mana = ["0:green:0", "0:black:0"]
 event_markers = ["RegenerationShieldCreated", "SpellCast", "CardDestroyed", "AbilityResolved", "SpellResolved"]
 event_absent = ["RegenerationShieldUsed"]
-digest = "fnv1a64:0c8cde22044bac97"
+digest = "fnv1a64:7ce1e17162bad44f"
 
 [[scenario]]
 id = "rav_golgari_rotwurm_creature_sacrifice_life_loss"
@@ -9291,7 +9291,7 @@ stack_size = 0
 priority = 0
 mana = ["0:black:0"]
 event_markers = ["ManaAbilityActivated", "ManaAdded", "AbilityManaPaid", "SacrificedAsAbilityCost", "AbilityActivated", "LifeLost", "AbilityResolved"]
-digest = "fnv1a64:1726d61475db97e6"
+digest = "fnv1a64:62cff5cd97406009"
 
 [[scenario]]
 id = "rav_drooling_groodion_creature_sacrifice_modifier"
@@ -9385,7 +9385,7 @@ stack_size = 0
 priority = 0
 mana = ["0:black:0", "0:green:0"]
 event_markers = ["ManaAbilityActivated", "ManaAdded", "AbilityManaPaid", "SacrificedAsAbilityCost", "AbilityActivated", "ContinuousEffectCreated", "AbilityResolved"]
-digest = "fnv1a64:b07a5576eae9aae3"
+digest = "fnv1a64:88691bffbc8ce30e"
 
 [[scenario]]
 id = "rav_golgari_guildmage_pump_and_trample"
@@ -9472,7 +9472,7 @@ stack_size = 0
 priority = 0
 mana = ["0:black:0", "0:green:0"]
 event_markers = ["ManaAbilityActivated", "ManaAdded", "AbilityManaPaid", "AbilityActivated", "ContinuousEffectCreated", "AbilityResolved"]
-digest = "fnv1a64:acb95d36a159263f"
+digest = "fnv1a64:31ea7f2eed898bd5"
 
 [[scenario]]
 id = "rav_helldozer_nonbasic_land_untap"
@@ -9570,7 +9570,7 @@ stack_size = 0
 priority = 0
 mana = ["0:black:0"]
 event_markers = ["ManaAbilityActivated", "ManaAdded", "AbilityManaPaid", "AbilityActivated", "CardDestroyed", "PermanentUntapped", "AbilityResolved"]
-digest = "fnv1a64:00cd840078911ac9"
+digest = "fnv1a64:5451eaf946bef0d2"
 
 [[scenario]]
 id = "rav_scion_of_the_wild_live_characteristics"
@@ -9617,7 +9617,7 @@ zones = ["scion:battlefield", "watchwolf:battlefield"]
 powers = ["scion:2", "watchwolf:3"]
 toughnesses = ["scion:2", "watchwolf:3"]
 event_markers = ["SpellCast", "SpellResolved"]
-digest = "fnv1a64:56667ddbd04addac"
+digest = "fnv1a64:4270044908263d17"
 
 [[scenario]]
 id = "rav_nightmare_void_targeted_discard"
@@ -9661,7 +9661,7 @@ stack_size = 0
 priority = 0
 mana = ["0:black:0"]
 event_markers = ["SpellCast", "CardDiscarded", "CardMoved", "SpellResolved"]
-digest = "fnv1a64:84b4d07daaec8d97"
+digest = "fnv1a64:5f4a23f5be5d5865"
 
 [[scenario]]
 id = "rav_rolling_spoil_spent_black_global_modifier"
@@ -9730,7 +9730,7 @@ stack_size = 0
 priority = 0
 mana = ["0:green:0", "0:black:0", "0:red:0"]
 event_markers = ["SpellManaPaid", "SpellCast", "CardDestroyed", "ContinuousEffectCreated", "SpellResolved"]
-digest = "fnv1a64:2ace9190b49c7d27"
+digest = "fnv1a64:5d60611ecfcce4c9"
 
 [[scenario]]
 id = "rav_netherborn_phalanx_etb_opponent_creature_count"
@@ -9791,7 +9791,7 @@ stack_size = 0
 priority = 0
 mana = ["0:black:0"]
 event_markers = ["SpellCast", "SpellResolved", "TriggeredAbilityStacked", "LifeLost", "AbilityResolved"]
-digest = "fnv1a64:92a5e742175e8d89"
+digest = "fnv1a64:f688f8740b5bc544"
 
 [[scenario]]
 id = "rav_hex_six_distinct_creatures"
@@ -9865,7 +9865,7 @@ stack_size = 0
 priority = 0
 mana = ["0:black:0"]
 event_markers = ["SpellCast", "CardDestroyed", "SpellResolved"]
-digest = "fnv1a64:b64fcece6cc543a6"
+digest = "fnv1a64:f8a665612d089e3e"
 
 [[scenario]]
 id = "rav_dark_confidant_upkeep_reveal_life_loss"
@@ -9904,7 +9904,7 @@ zones = ["confidant:battlefield", "revealed:hand"]
 stack_size = 0
 priority = 0
 event_markers = ["StepBegan", "TriggeredAbilityStacked", "CardRevealed", "CardMoved", "LifeLost", "AbilityResolved"]
-digest = "fnv1a64:444c0a67889afef9"
+digest = "fnv1a64:a9002557bf9e6970"
 
 [[scenario]]
 id = "rav_shadow_of_doubt_search_prevention"
@@ -9965,7 +9965,7 @@ stack_size = 0
 priority = 0
 event_markers = ["SpellCast", "LibrarySearchesPrevented", "CardMoved", "SpellResolved"]
 event_absent = ["Transmuted"]
-digest = "fnv1a64:3eb73b9dfda7e6bf"
+digest = "fnv1a64:45f0ed5a8be04aa8"
 
 [[scenario]]
 id = "rav_dimir_guildmage_targeted_activations"
@@ -10036,7 +10036,7 @@ mana = ["0:blue:0", "0:black:0"]
 stack_size = 0
 priority = 0
 event_markers = ["AbilityActivated", "CardMoved", "CardDiscarded", "AbilityResolved"]
-digest = "fnv1a64:424ee204f742aa8d"
+digest = "fnv1a64:a97eb069cf60666c"
 
 [[scenario]]
 id = "rav_boros_garrison_etb_stack_and_return"
@@ -10083,7 +10083,7 @@ tapped = ["garrison:true"]
 stack_size = 0
 priority = 0
 event_markers = ["CardMoved", "TriggeredAbilityStacked", "AbilityResolved"]
-digest = "fnv1a64:3a087eee95786069"
+digest = "fnv1a64:4fa9b104e32edfa2"
 
 [[scenario]]
 id = "rav_mausoleum_turnkey_conditional_graveyard_return"
@@ -10148,7 +10148,7 @@ stack_size = 0
 priority = 0
 mana = ["0:black:0"]
 event_markers = ["SpellResolved", "TriggeredAbilityStacked", "CardMoved", "AbilityResolved"]
-digest = "fnv1a64:9cd2018baf59b3fb"
+digest = "fnv1a64:8e9e7ffe4a761b2f"
 
 [[scenario]]
 id = "rav_empty_the_catacombs_all_player_graveyard_return"
@@ -10197,7 +10197,7 @@ stack_size = 0
 priority = 0
 mana = ["0:black:0"]
 event_markers = ["SpellCast", "CardMoved", "SpellResolved"]
-digest = "fnv1a64:d9c1ba8398531f6b"
+digest = "fnv1a64:cc7ad8c384894e57"
 
 [[scenario]]
 id = "rav_nullmage_shepherd_four_creature_removal"
@@ -10262,7 +10262,7 @@ tapped = ["cost_one:true", "cost_two:true", "cost_three:true", "cost_four:true"]
 stack_size = 0
 priority = 0
 event_markers = ["AdditionalCreatureTappedAsAbilityCost", "AbilityActivated", "CardDestroyed", "AbilityResolved"]
-digest = "fnv1a64:42a67fe5ac6f80c8"
+digest = "fnv1a64:b223246845323439"
 
 [[scenario]]
 id = "rav_vigor_mortis_spent_green_counter"
@@ -10314,7 +10314,7 @@ stack_size = 0
 priority = 0
 mana = ["0:black:0", "0:green:0"]
 event_markers = ["SpellManaPaid", "SpellCast", "CardMoved", "CounterPlaced", "SpellResolved"]
-digest = "fnv1a64:caae9c04ca10026d"
+digest = "fnv1a64:fde48d0afcdb514a"
 
 [[scenario]]
 id = "rav_stone_seeder_hierophant_landfall_untap"
@@ -10394,7 +10394,7 @@ tapped = ["hierophant:false"]
 stack_size = 0
 priority = 0
 event_markers = ["AbilityActivated", "AbilityResolved", "TriggeredAbilityStacked", "PermanentUntapped"]
-digest = "fnv1a64:1c386d3cde96e6d9"
+digest = "fnv1a64:93f4f0f5d9a767fb"
 
 [[scenario]]
 id = "rav_life_from_the_loam_land_recursion"
@@ -10449,7 +10449,7 @@ stack_size = 0
 priority = 0
 mana = ["0:green:0"]
 event_markers = ["SpellCast", "CardMoved", "SpellResolved"]
-digest = "fnv1a64:f751b3c262d7ba31"
+digest = "fnv1a64:064d63ec916d9f38"
 
 [[scenario]]
 id = "rav_farseek_typed_land_search"
@@ -10499,7 +10499,7 @@ stack_size = 0
 priority = 0
 mana = ["0:green:0"]
 event_markers = ["CardMoved", "LibrarySearchResolved", "LibraryShuffled", "SpellResolved"]
-digest = "fnv1a64:ebc5a1ac8218a719"
+digest = "fnv1a64:a623d146eac2dc7e"
 
 [[scenario]]
 id = "rav_perilous_forays_sacrifice_land_search"
@@ -10551,7 +10551,7 @@ stack_size = 0
 priority = 0
 mana = ["0:green:0"]
 event_markers = ["SacrificedAsAbilityCost", "AbilityActivated", "LibrarySearchResolved", "LibraryShuffled", "AbilityResolved"]
-digest = "fnv1a64:f40b05e9ec142abf"
+digest = "fnv1a64:79e405e183d04cfa"
 
 [[scenario]]
 id = "rav_moldervine_cloak_persistent_attachment"
@@ -10597,7 +10597,7 @@ stack_size = 0
 priority = 0
 mana = ["0:green:0"]
 event_markers = ["SpellCast", "CardMoved", "ContinuousEffectCreated", "AuraAttached", "SpellResolved"]
-digest = "fnv1a64:5722a4a187704a98"
+digest = "fnv1a64:74efe2597f160cf9"
 
 [[scenario]]
 id = "rav_doubling_season_token_replacement"
@@ -10660,7 +10660,7 @@ stack_size = 0
 priority = 0
 token_count = 6
 event_markers = ["SpellCast", "ReplacementEffectApplied", "TokenCreated", "SpellResolved"]
-digest = "fnv1a64:6c7981d2efc1f034"
+digest = "fnv1a64:a5586f8ee1ef22cf"
 
 [[scenario]]
 id = "rav_clutch_of_the_undercity_permanent_bounce"
@@ -10710,7 +10710,7 @@ stack_size = 0
 priority = 0
 mana = ["0:blue:0", "0:black:0"]
 event_markers = ["SpellCast", "CardMoved", "LifeLost", "SpellResolved"]
-digest = "fnv1a64:9ee33828f5d89817"
+digest = "fnv1a64:23e0df735a7c82e3"
 
 [[scenario]]
 id = "rav_blood_funnel_cast_trigger"
@@ -10769,7 +10769,7 @@ priority = 0
 mana = ["0:green:0"]
 token_count = 2
 event_markers = ["SpellCast", "TriggeredAbilityStacked", "SacrificedByEffect", "AbilityResolved", "TokenCreated", "SpellResolved"]
-digest = "fnv1a64:bf6d3eafd132ae03"
+digest = "fnv1a64:04411863f8d67a41"
 
 [[scenario]]
 id = "rav_clinging_darkness_persistent_attachment"
@@ -10815,4 +10815,4 @@ stack_size = 0
 priority = 0
 mana = ["0:black:1"]
 event_markers = ["SpellCast", "CardMoved", "ContinuousEffectCreated", "AuraAttached", "SpellResolved"]
-digest = "fnv1a64:5722a4a187704a98"
+digest = "fnv1a64:74efe2597f160cf9"
