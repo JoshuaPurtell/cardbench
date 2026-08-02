@@ -43,7 +43,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 214] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 215] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
@@ -213,6 +213,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 214] = [
     "RAV-CLINGING-DARKNESS",
     "RAV-URSAPINE",
     "RAV-TRANSLUMINANT",
+    "RAV-INFECTIOUS-HOST",
     "RAV-TWILIGHT-DROVER",
     "RAV-ELVISH-SKYSWEEPER",
     "RAV-CONVOLUTE",
@@ -846,10 +847,10 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Flying],
             effects: vec![],
         },
-        // Compatibility scope: normal colored-cost casting, base
-        // characteristics, and its stack-backed dies trigger are represented.
-        // The printed target player is selected deterministically
-        // opponent-first until triggered-choice actions are policy-submitted.
+        // Full printed behavior: normal colored-cost casting, base
+        // characteristics, and its stack-backed dies trigger. The controller
+        // submits the target player through the public target-bearing trigger
+        // decision before the ability is put onto the stack.
         CardDefinition {
             id: "RAV-INFECTIOUS-HOST",
             name: "Infectious Host",
@@ -860,10 +861,11 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             card_types: types([CardType::Creature]),
             is_basic_land: false,
             supported_rules: &[
+                "full-rules-fidelity",
                 "colored-cost-casting",
                 "base-characteristics",
                 "dies-target-player-life-loss",
-                "deterministic-opponent-target-choice",
+                "policy-selected-trigger-target",
             ],
             power: Some(1),
             toughness: Some(1),
