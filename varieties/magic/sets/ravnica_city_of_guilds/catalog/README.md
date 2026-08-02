@@ -177,9 +177,9 @@ on contributors still represented by that incarnation when the trigger
 resolves. Conclave Phalanx likewise records its controller-white-creature life
 ETB using the shared resolution-time count. Their focused traces cover
 `ConvokeUsed`, spell resolution, trigger stacking, contributor-only
-`CounterPlaced`, and `LifeGained` receipts. Siege Wurm now has its own complete
-Convoke-and-Trample contract; Autochthon Wurm remains compatibility-bounded
-because its additional non-printed engine dependencies are not yet represented.
+`CounterPlaced`, and `LifeGained` receipts. Siege Wurm and Autochthon Wurm now
+have complete Convoke-and-Trample contracts, including the attacker-owned
+multi-block damage-order decision and exact excess-damage receipts.
 Golgari Brownscale, Golgari Grave-Troll, Stinkweed Imp, and Golgari Thug instead
 are positive-manifest
 cards. Brownscale's Dredge replacement retains its exact prior graveyard
@@ -218,7 +218,7 @@ does not yet use last-known counter information, so it is not in the positive
 full-fidelity manifest.
 
 The generic-keyword coverage batch for Conclave Phalanx, Golgari Grave-Troll,
-Grave-Shell Scarab, Shambling Shell, and Autochthon Wurm follows the same
+Grave-Shell Scarab, and Shambling Shell follows the same
 fail-closed boundary. Each
 definition records only its public identity, mana cost, color, type, base
 characteristics, and the engine's existing generic Dredge or Convoke hook. The

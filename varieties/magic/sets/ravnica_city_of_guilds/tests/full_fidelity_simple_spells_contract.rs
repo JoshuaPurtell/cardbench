@@ -188,6 +188,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-CARRION-HOWLER",
             "RAV-MORTIPEDE",
             "RAV-SELESNYA-SAGITTARS",
+            "RAV-AUTOCHTHON-WURM",
             "RAV-TWILIGHT-DROVER",
             "RAV-ELVISH-SKYSWEEPER",
             "RAV-CONVOLUTE",
