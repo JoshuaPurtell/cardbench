@@ -16,8 +16,8 @@ use crate::{
     DamageReplacementEffect, DamageReplacementEffectBinding, DecisionContinuation, DecisionId,
     DecisionKind, DecisionOption, DecisionSelection, DecisionVisibility, DeckList, DelayedAction,
     DelayedActionId, DelayedActionKind, DelayedActionTiming, Duration, Effect, GameEvent,
-    GeneralizedAbilityActivation, GeneralizedActivatedAbilityCost, Keyword, LandEntryBinding,
-    LibrarySearchCardinality, LibrarySearchDestination, LibrarySearchRequirement,
+    GeneralizedAbilityActivation, GeneralizedActivatedAbilityCost, HandCardSnapshot, Keyword,
+    LandEntryBinding, LibrarySearchCardinality, LibrarySearchDestination, LibrarySearchRequirement,
     LibrarySearchSelection, LinkedExileGroup, LinkedExileGroupId, LinkedExileMember,
     LinkedExileMemberRole, ManaAbilityActivation, ManaAbilityBinding,
     ManaAbilityBundleChoiceActivation, ManaAbilityCostBinding, ManaAbilityOutput, ManaBundle,
@@ -3814,6 +3814,7 @@ impl Game {
                 | DecisionContinuation::DamageReplacement { .. }
                 | DecisionContinuation::CounterUnlessPaysMana { .. }
                 | DecisionContinuation::ConditionalPrivateDiscard { .. }
+                | DecisionContinuation::TargetPlayerPrivateDiscard { .. }
                 | DecisionContinuation::TargetPlayerManaColor { .. }
                 | DecisionContinuation::TargetPlayerLibraryTopMayGraveyard { .. }
                 | DecisionContinuation::RetargetActivatedAbility { .. } => None,
@@ -3876,6 +3877,7 @@ impl Game {
                 | DecisionContinuation::DamageReplacement { .. }
                 | DecisionContinuation::CounterUnlessPaysMana { .. }
                 | DecisionContinuation::ConditionalPrivateDiscard { .. }
+                | DecisionContinuation::TargetPlayerPrivateDiscard { .. }
                 | DecisionContinuation::TargetPlayerManaColor { .. }
                 | DecisionContinuation::TargetPlayerLibraryTopMayGraveyard { .. }
                 | DecisionContinuation::RetargetActivatedAbility { .. } => None,
@@ -3926,6 +3928,7 @@ impl Game {
                 | DecisionContinuation::DamageReplacement { .. }
                 | DecisionContinuation::CounterUnlessPaysMana { .. }
                 | DecisionContinuation::ConditionalPrivateDiscard { .. }
+                | DecisionContinuation::TargetPlayerPrivateDiscard { .. }
                 | DecisionContinuation::TargetPlayerManaColor { .. }
                 | DecisionContinuation::TargetPlayerLibraryTopMayGraveyard { .. }
                 | DecisionContinuation::RetargetActivatedAbility { .. } => None,
@@ -3986,6 +3989,7 @@ impl Game {
                 | DecisionContinuation::QuantityReplacement { .. }
                 | DecisionContinuation::CounterUnlessPaysMana { .. }
                 | DecisionContinuation::ConditionalPrivateDiscard { .. }
+                | DecisionContinuation::TargetPlayerPrivateDiscard { .. }
                 | DecisionContinuation::TargetPlayerManaColor { .. }
                 | DecisionContinuation::TargetPlayerLibraryTopMayGraveyard { .. }
                 | DecisionContinuation::RetargetActivatedAbility { .. } => None,
@@ -7552,6 +7556,30 @@ impl Game {
                     &decision, source, recipient, selected,
                 )
             }
+            DecisionContinuation::TargetPlayerPrivateDiscard {
+                source_stack_item,
+                source,
+                source_incarnation,
+                controller,
+                ability,
+                recipient,
+                count,
+                hand_snapshot,
+            } => {
+                let selected = Self::validate_object_decision_selection(&decision, selection)?;
+                self.resolve_target_player_private_discard_decision(
+                    &decision,
+                    source_stack_item,
+                    source,
+                    source_incarnation,
+                    controller,
+                    ability,
+                    recipient,
+                    count,
+                    &hand_snapshot,
+                    selected,
+                )
+            }
             DecisionContinuation::TargetPlayerManaColor {
                 source,
                 source_incarnation,
@@ -7968,6 +7996,274 @@ impl Game {
         self.flush_pending_life_gain_triggers();
         self.flush_pending_dies_triggers();
         self.priority = self.priority_after_resolution();
+        Ok(())
+    }
+
+    /// Returns the ordered, recipient-owned hand snapshot used by a private
+    /// discard continuation.  Stable object ids alone are insufficient: a
+    /// card can leave and later re-enter hand with the same id, so every
+    /// captured candidate also retains its exact current incarnation.
+    fn recipient_hand_snapshot(
+        &self,
+        recipient: PlayerId,
+    ) -> Result<Vec<HandCardSnapshot>, RulesError> {
+        let player = self
+            .players
+            .get(recipient.0)
+            .ok_or(RulesError::UnknownPlayer(recipient))?;
+        player
+            .hand
+            .iter()
+            .copied()
+            .map(|card| {
+                let object = self.object(card)?;
+                if self.zone_of(card) != Some(Zone::Hand) || object.owner != recipient {
+                    return Err(RulesError::IllegalAction(
+                        "recipient private discard snapshot contains a foreign or non-hand card",
+                    ));
+                }
+                Ok(HandCardSnapshot {
+                    card,
+                    incarnation: object.incarnation,
+                })
+            })
+            .collect()
+    }
+
+    /// Suspends one exact targeted-discard stack item so its target, never
+    /// the resolving controller, privately chooses the cards to discard.
+    /// This is shared by spells and activated abilities with a single typed
+    /// `DiscardTargetPlayer` instruction.
+    fn suspend_top_stack_item_for_target_player_private_discard_choice(
+        &mut self,
+    ) -> Result<bool, RulesError> {
+        if self.pending_decision.is_some()
+            || self.pending_private_library_choice.is_some()
+            || self.pending_private_opponent_library_exile_choice.is_some()
+        {
+            return Err(RulesError::IllegalAction(
+                "a recipient-private discard choice attempted to overlap another decision",
+            ));
+        }
+        let Some(top) = self.stack.last().cloned() else {
+            return Ok(false);
+        };
+        let ([Effect::DiscardTargetPlayer { count }], [Target::Player(recipient)]) =
+            (top.effects.as_slice(), top.targets.as_slice())
+        else {
+            return Ok(false);
+        };
+        if *count == 0 {
+            return Err(RulesError::IllegalAction(
+                "targeted private discard must request at least one card",
+            ));
+        }
+        // Let the ordinary all-targets-illegal resolution path counter an
+        // illegal target; a hidden hand decision must never open for it.
+        if !self.stack_target_incarnation_matches(&top, 0, Target::Player(*recipient))
+            || !self.target_matches_for_colors(
+                top.controller,
+                Target::Player(*recipient),
+                TargetRequirement::Player,
+                &top.source_colors,
+            )
+        {
+            return Ok(false);
+        }
+        let hand_snapshot = self.recipient_hand_snapshot(*recipient)?;
+        let required = usize::from(*count).min(hand_snapshot.len());
+        if required == 0 {
+            // No legal object choice exists. The ordinary resolver records
+            // the same no-discard terminal transition without manufacturing
+            // an invalid zero-card private decision.
+            return Ok(false);
+        }
+        let required = u8::try_from(required).map_err(|_| {
+            RulesError::IllegalAction("recipient private discard selection exceeds engine range")
+        })?;
+        self.open_pending_decision(
+            *recipient,
+            DecisionVisibility::Private,
+            DecisionKind::ConditionalPrivateDiscard,
+            required,
+            required,
+            hand_snapshot
+                .iter()
+                .map(|snapshot| DecisionOption::Object(snapshot.card))
+                .collect(),
+            DecisionContinuation::TargetPlayerPrivateDiscard {
+                source_stack_item: top.id,
+                source: top.card,
+                source_incarnation: top.source_incarnation,
+                controller: top.controller,
+                ability: top.ability_id,
+                recipient: *recipient,
+                count: *count,
+                hand_snapshot,
+            },
+        )?;
+        Ok(true)
+    }
+
+    /// Completes a fixed-count private targeted discard. Every provenance
+    /// component is compared before the terminal stack item is removed, and
+    /// the submitted objects must still be the captured hand incarnations.
+    #[allow(clippy::too_many_arguments)] // The entire continuation provenance is intentionally explicit.
+    fn resolve_target_player_private_discard_decision(
+        &mut self,
+        decision: &PendingDecision,
+        source_stack_item: StackObjectId,
+        source: ObjectId,
+        source_incarnation: u64,
+        controller: PlayerId,
+        ability: Option<&'static str>,
+        recipient: PlayerId,
+        count: u8,
+        hand_snapshot: &[HandCardSnapshot],
+        selected: Vec<ObjectId>,
+    ) -> Result<(), RulesError> {
+        let top = self.stack.last().cloned().ok_or(RulesError::IllegalAction(
+            "recipient private discard escaped its stack item",
+        ))?;
+        let current_snapshot = self.recipient_hand_snapshot(recipient)?;
+        let required = usize::from(count).min(hand_snapshot.len());
+        let expected_options = hand_snapshot
+            .iter()
+            .map(|snapshot| DecisionOption::Object(snapshot.card))
+            .collect::<Vec<_>>();
+        if decision.kind != DecisionKind::ConditionalPrivateDiscard
+            || decision.visibility != DecisionVisibility::Private
+            || decision.player != recipient
+            || decision.min_selections
+                != u8::try_from(required).map_err(|_| {
+                    RulesError::IllegalAction(
+                        "recipient private discard selection exceeds engine range",
+                    )
+                })?
+            || decision.max_selections
+                != u8::try_from(required).map_err(|_| {
+                    RulesError::IllegalAction(
+                        "recipient private discard selection exceeds engine range",
+                    )
+                })?
+            || decision.options != expected_options
+            || top.id != source_stack_item
+            || top.card != source
+            || top.source_incarnation != source_incarnation
+            || top.controller != controller
+            || top.ability_id != ability
+            || top.targets.as_slice() != [Target::Player(recipient)]
+            || top.effects.as_slice() != [Effect::DiscardTargetPlayer { count }]
+            || !self.stack_target_incarnation_matches(&top, 0, Target::Player(recipient))
+            || !self.target_matches_for_colors(
+                controller,
+                Target::Player(recipient),
+                TargetRequirement::Player,
+                &top.source_colors,
+            )
+            || current_snapshot != hand_snapshot
+            || selected.len() != required
+            || selected
+                .iter()
+                .any(|card| !hand_snapshot.iter().any(|snapshot| snapshot.card == *card))
+        {
+            return Err(RulesError::IllegalAction(
+                "recipient private discard no longer matches its stack source or hand snapshot",
+            ));
+        }
+
+        self.stack.pop().ok_or(RulesError::IllegalAction(
+            "recipient private discard stack item disappeared before resolution",
+        ))?;
+        self.complete_pending_decision(decision)?;
+        for card in selected {
+            self.record_event(GameEvent::CardDiscarded {
+                player: recipient,
+                card,
+            });
+            self.move_to_zone(card, Zone::Graveyard)?;
+        }
+        self.finish_resolved_private_discard_stack_item(&top)
+    }
+
+    /// Finishes the normal terminal lifecycle after a private discard has
+    /// committed its ordinary card moves. The suspended instruction was the
+    /// sole effect, so only stack lifecycle, SBAs, and trigger flushing remain.
+    fn finish_resolved_private_discard_stack_item(
+        &mut self,
+        stack_object: &StackObject,
+    ) -> Result<(), RulesError> {
+        if let Some(ability) = stack_object.ability_id {
+            self.record_event(GameEvent::AbilityResolved {
+                source: stack_object.card,
+                source_incarnation: stack_object.source_incarnation,
+                ability,
+            });
+            self.check_state_based_actions()?;
+            self.flush_pending_land_entry_triggers()?;
+            self.flush_pending_damage_triggers();
+            self.flush_pending_life_gain_triggers();
+            self.flush_pending_dies_triggers();
+            self.restore_priority_after_stack_resolution();
+            return Ok(());
+        }
+        if let Some(copy) = self.virtual_spell_copies.remove(&stack_object.card) {
+            self.record_event(GameEvent::SpellCopyResolved {
+                copy: stack_object.card,
+                original: copy.original,
+            });
+            self.check_state_based_actions()?;
+            self.flush_pending_dies_triggers();
+            self.flush_pending_land_entry_triggers()?;
+            self.flush_pending_damage_triggers();
+            self.flush_pending_life_gain_triggers();
+            self.flush_pending_dies_triggers();
+            self.restore_priority_after_stack_resolution();
+            return Ok(());
+        }
+        if !self.objects.contains_key(&stack_object.card) {
+            self.restore_priority_after_stack_resolution();
+            self.record_game_end_if_needed();
+            return Ok(());
+        }
+        self.record_event(GameEvent::SpellResolved {
+            card: stack_object.card,
+        });
+        let definition_id = self.card_definition(stack_object.card)?.id;
+        let permanent_resolution = self.card_definition(stack_object.card)?.is_permanent();
+        let entering_is_land = self.card_definition(stack_object.card)?.is_land();
+        let entering_controller = self.object(stack_object.card)?.controller;
+        let convoke_contributors = if permanent_resolution {
+            self.convoke_contributor_provenance
+                .remove(&(stack_object.card, stack_object.source_incarnation))
+                .unwrap_or_default()
+        } else {
+            Vec::new()
+        };
+        if permanent_resolution {
+            self.move_to_zone(stack_object.card, Zone::Battlefield)?;
+        } else {
+            self.move_to_spell_terminal_zone(stack_object.card)?;
+        }
+        self.check_state_based_actions()?;
+        self.flush_pending_dies_triggers();
+        self.flush_pending_dies_triggers();
+        if permanent_resolution {
+            self.enqueue_enter_triggers(
+                stack_object.card,
+                definition_id,
+                entering_controller,
+                &convoke_contributors,
+            )?;
+            if entering_is_land {
+                self.enqueue_land_entry_triggers(entering_controller)?;
+            }
+        }
+        self.flush_pending_land_entry_triggers()?;
+        self.flush_pending_damage_triggers();
+        self.flush_pending_life_gain_triggers();
+        self.flush_pending_dies_triggers();
+        self.restore_priority_after_stack_resolution();
         Ok(())
     }
 
@@ -13776,6 +14072,9 @@ impl Game {
             return Ok(());
         }
         if self.suspend_top_stack_item_for_conditional_private_discard_choice()? {
+            return Ok(());
+        }
+        if self.suspend_top_stack_item_for_target_player_private_discard_choice()? {
             return Ok(());
         }
         if self.suspend_top_stack_item_for_library_search_and_cast_choice()? {
@@ -27291,6 +27590,65 @@ impl Game {
                 {
                     return Err(RulesError::IllegalAction(
                         "conditional private discard decision violates its private hand and stack boundary",
+                    ));
+                }
+            }
+            DecisionContinuation::TargetPlayerPrivateDiscard {
+                source_stack_item,
+                source,
+                source_incarnation,
+                controller,
+                ability,
+                recipient,
+                count,
+                hand_snapshot,
+            } => {
+                let top = self.stack.last().ok_or(RulesError::IllegalAction(
+                    "recipient private discard decision escaped its stack item",
+                ))?;
+                let current_snapshot = self.recipient_hand_snapshot(*recipient)?;
+                let required = usize::from(*count).min(hand_snapshot.len());
+                let required = u8::try_from(required).map_err(|_| {
+                    RulesError::IllegalAction(
+                        "recipient private discard selection exceeds engine range",
+                    )
+                })?;
+                let expected_options = hand_snapshot
+                    .iter()
+                    .map(|snapshot| DecisionOption::Object(snapshot.card))
+                    .collect::<Vec<_>>();
+                if decision.kind != DecisionKind::ConditionalPrivateDiscard
+                    || decision.visibility != DecisionVisibility::Private
+                    || decision.player != *recipient
+                    || *count == 0
+                    || hand_snapshot.is_empty()
+                    || hand_snapshot.iter().enumerate().any(|(index, snapshot)| {
+                        snapshot.incarnation == 0
+                            || hand_snapshot[index + 1..]
+                                .iter()
+                                .any(|other| other.card == snapshot.card)
+                    })
+                    || top.id != *source_stack_item
+                    || top.card != *source
+                    || top.source_incarnation != *source_incarnation
+                    || top.controller != *controller
+                    || top.ability_id != *ability
+                    || top.targets.as_slice() != [Target::Player(*recipient)]
+                    || top.effects.as_slice() != [Effect::DiscardTargetPlayer { count: *count }]
+                    || !self.stack_target_incarnation_matches(top, 0, Target::Player(*recipient))
+                    || !self.target_matches_for_colors(
+                        *controller,
+                        Target::Player(*recipient),
+                        TargetRequirement::Player,
+                        &top.source_colors,
+                    )
+                    || current_snapshot != *hand_snapshot
+                    || decision.options != expected_options
+                    || decision.min_selections != required
+                    || decision.max_selections != required
+                {
+                    return Err(RulesError::IllegalAction(
+                        "recipient private discard decision violates its stack and hand-incarnation boundary",
                     ));
                 }
             }

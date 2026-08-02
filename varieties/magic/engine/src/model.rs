@@ -1739,9 +1739,9 @@ pub enum Effect {
     /// explicit event-log receipt.
     DiscardOneCardEachPlayer,
     /// Discard up to the requested number of cards from a target player's
-    /// hand. Until a discard-choice policy action exists, the resolver selects
-    /// that player's oldest hand entries deterministically and records every
-    /// discard plus zone movement.
+    /// hand. When that player has a choice, resolution suspends at a private,
+    /// recipient-owned decision boundary whose exact hand snapshot is
+    /// revalidated before any discard or zone movement.
     DiscardTargetPlayer {
         count: u8,
     },
@@ -3517,9 +3517,10 @@ pub enum DecisionKind {
     /// The controller of a targeted spell must explicitly pay or decline an
     /// "unless that spell's controller pays" resolution-time mana cost.
     CounterUnlessPaysMana,
-    /// The targeted player has drawn cards while a spell resolves and must
-    /// privately choose either one land card or two distinct cards from their
-    /// current hand.  It is deliberately not a priority action.
+    /// A targeted player privately selects cards from their hand while a
+    /// resolving stack object is suspended. The continuation specifies
+    /// whether this is a fixed count or the conditional one-land/two-card
+    /// branch; it is deliberately not a priority action.
     ConditionalPrivateDiscard,
     /// The target of a resolving mana effect chooses exactly one of the five
     /// card colors. This is a public no-priority decision because both the
@@ -3781,6 +3782,20 @@ pub enum DecisionContinuation {
         source: ObjectId,
         recipient: PlayerId,
     },
+    /// Resumes one exact targeted discard instruction after its recipient
+    /// privately selects the required current-hand cards. The snapshot
+    /// includes object incarnations so a card that left and re-entered hand
+    /// cannot satisfy a stale answer merely by retaining its stable id.
+    TargetPlayerPrivateDiscard {
+        source_stack_item: StackObjectId,
+        source: ObjectId,
+        source_incarnation: u64,
+        controller: PlayerId,
+        ability: Option<&'static str>,
+        recipient: PlayerId,
+        count: u8,
+        hand_snapshot: Vec<HandCardSnapshot>,
+    },
     /// The top stack item remains live while its current target chooses a
     /// colored mana output. The recipient is captured from the target slot,
     /// so the resolving controller cannot substitute itself after seeing the
@@ -3813,6 +3828,17 @@ pub enum DecisionContinuation {
         target_requirement: TargetRequirement,
         original_target: Target,
     },
+}
+
+/// One recipient-owned hand object captured for a private discard decision.
+///
+/// Object ids are stable across zone changes, while incarnations distinguish
+/// successive rules objects. Keeping both prevents a stale selection from
+/// applying to a later hand incarnation after a zone round trip.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct HandCardSnapshot {
+    pub card: ObjectId,
+    pub incarnation: u64,
 }
 
 /// One serializable, no-priority decision boundary. Candidate options remain

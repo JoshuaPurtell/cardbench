@@ -5,8 +5,8 @@
 //! by Consult's discard mode.
 
 use cardbench_magic_engine::{
-    CastRequest, Color, DecisionKind, DecisionSelection, Game, PlayerId, PolicyAction,
-    Step, Target, Zone,
+    CastRequest, Color, DecisionKind, DecisionSelection, Game, PlayerId, PolicyAction, Step,
+    Target, Zone,
 };
 use cardbench_magic_rav::card_definitions;
 
@@ -108,7 +108,6 @@ fn consult_target_privately_chooses_non_oldest_hand_cards_to_discard() {
     assert_eq!(game.zone_of(selected_one), Some(Zone::Graveyard));
     assert_eq!(game.zone_of(selected_two), Some(Zone::Graveyard));
     assert_eq!(game.zone_of(consult), Some(Zone::Graveyard));
-    game
-        .validate_invariants()
+    game.validate_invariants()
         .expect("recipient-private discard preserves state-machine invariants");
 }

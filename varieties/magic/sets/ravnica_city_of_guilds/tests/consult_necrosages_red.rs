@@ -1,8 +1,8 @@
 //! Compatibility contract for Consult the Necrosages' cast-selected modes.
 
 use cardbench_magic_engine::{
-    CardType, CastRequest, Color, Effect, Game, GameEvent, ManaCost, PlayerId, PolicyAction,
-    PolicyMoveKind, RulesError, Step, Target, Zone,
+    CardType, CastRequest, Color, DecisionKind, DecisionSelection, Effect, Game, GameEvent,
+    ManaCost, PlayerId, PolicyAction, PolicyMoveKind, RulesError, Step, Target, Zone,
 };
 use cardbench_magic_rav::{RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions};
 
@@ -72,6 +72,11 @@ fn consult_the_necrosages_requires_a_cast_selected_modal_target_player_effect() 
         definition
             .supported_rules
             .contains(&"caster-selected-modal-target-player-draw-or-discard")
+    );
+    assert!(
+        definition
+            .supported_rules
+            .contains(&"target-player-discard-two-private-recipient-selection")
     );
     assert!(
         !RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&definition.id),
@@ -205,12 +210,33 @@ fn consult_policy_draw_and_discard_branches_retain_stack_and_event_provenance() 
         vec![Effect::DiscardTargetPlayer { count: 2 }]
     );
     pass_pair(&mut discard_game);
+    let decision = discard_game
+        .view_for_player(PlayerId(1))
+        .expect("target recipient view")
+        .pending_decision
+        .expect("discard target receives private hand selection");
+    assert_eq!(decision.kind, DecisionKind::ConditionalPrivateDiscard);
+    discard_game
+        .submit_decision(
+            PlayerId(1),
+            decision.id,
+            DecisionSelection::Objects(vec![first, second]),
+        )
+        .expect("target selects the two cards to discard");
     assert_eq!(discard_game.zone_of(first), Some(Zone::Graveyard));
     assert_eq!(discard_game.zone_of(second), Some(Zone::Graveyard));
     assert_eq!(discard_game.players[1].hand, vec![retained]);
     assert!(discard_game.event_log.iter().any(|event| matches!(
         event,
         GameEvent::SpellModeChosen { card, mode: 1, .. } if *card == consult
+    )));
+    assert!(discard_game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::DecisionOpened {
+            player: PlayerId(1),
+            kind: DecisionKind::ConditionalPrivateDiscard,
+            ..
+        }
     )));
     println!("consult_draw_trace={:#?}", draw_game.canonical_event_log());
     println!(

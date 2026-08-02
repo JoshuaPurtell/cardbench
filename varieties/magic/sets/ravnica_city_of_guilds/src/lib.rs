@@ -1017,12 +1017,12 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![Effect::MillTargetPlayer { count: 10 }],
         },
-        // Bounded compatibility: casting retains the controller's explicit
-        // draw or discard mode and materializes its ordinary player target
-        // before the card leaves the hand. The target-discard branch uses the
-        // current engine's documented deterministic hand ordering until its
-        // recipient-private discard-selection substrate is available, so this
-        // card deliberately remains outside the positive fidelity manifest.
+        // Bounded catalog classification: casting retains the controller's
+        // explicit draw or discard mode and materializes its ordinary player
+        // target before the card leaves the hand. The target-discard branch
+        // uses the expansion-neutral recipient-private selection substrate;
+        // positive-manifest promotion remains an explicit later reconciliation
+        // step rather than an implicit consequence of executable status.
         CardDefinition {
             id: "RAV-CONSULT-THE-NECROSAGES",
             name: "Consult the Necrosages",
@@ -1036,7 +1036,7 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 "colored-cost-casting",
                 "caster-selected-modal-target-player-draw-or-discard",
                 "target-player-draw-two",
-                "target-player-discard-two-deterministic-oldest",
+                "target-player-discard-two-private-recipient-selection",
             ],
             power: None,
             toughness: None,
