@@ -125,6 +125,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-SURVEILLING-SPRITE",
             "RAV-DREAM-LEASH",
             "RAV-REMAND",
+            "RAV-INDUCE-PARANOIA",
             "RAV-TELLING-TIME",
             "RAV-MARK-OF-EVICTION",
             "RAV-VEDALKEN-ENTRANCER",
@@ -173,6 +174,14 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
         (
             "RAV-SINS-OF-THE-PAST",
             vec![Effect::GrantGraveyardCastPermissionUntilEndOfTurn],
+        ),
+        (
+            "RAV-INDUCE-PARANOIA",
+            vec![
+                Effect::CounterTargetPhysicalSpellThenMillItsControllerByManaValueIfManaColorSpent {
+                    color: Color::Blue,
+                },
+            ],
         ),
         (
             "RAV-CHAR",

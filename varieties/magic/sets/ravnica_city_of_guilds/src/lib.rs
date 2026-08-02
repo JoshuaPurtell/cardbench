@@ -40,7 +40,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 155] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 156] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -154,6 +154,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 155] = [
     "RAV-SURVEILLING-SPRITE",
     "RAV-DREAM-LEASH",
     "RAV-REMAND",
+    "RAV-INDUCE-PARANOIA",
     "RAV-TELLING-TIME",
     "RAV-MARK-OF-EVICTION",
     "RAV-VEDALKEN-ENTRANCER",
@@ -3344,6 +3345,32 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             toughness: None,
             keywords: vec![],
             effects: vec![Effect::CounterTargetSpell, Effect::DrawController],
+        },
+        // Full fidelity: the shared counter/mill instruction captures the
+        // physical target spell's controller and mana value before the
+        // counter terminal move. The retained explicit payment receipt gates
+        // only the follow-up mill, rather than reading a mutable mana pool.
+        CardDefinition {
+            id: "RAV-INDUCE-PARANOIA",
+            name: "Induce Paranoia",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(2, [Color::Blue]),
+            colors: colors([Color::Blue]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Instant]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "counter-spell-then-mill-controller-by-mana-value-if-blue-spent",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![
+                Effect::CounterTargetPhysicalSpellThenMillItsControllerByManaValueIfManaColorSpent {
+                    color: Color::Blue,
+                },
+            ],
         },
         // Full fidelity: the controller alone receives the exact top-three
         // snapshot once the stack spell resolves, then submits an exhaustive

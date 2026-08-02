@@ -1278,6 +1278,11 @@ pub enum TargetRequirement {
     /// Any spell card currently on the stack.  This intentionally excludes
     /// activated and triggered abilities, whose stack objects are not spells.
     Spell,
+    /// A non-copy spell card currently on the stack. This is intentionally
+    /// narrower than `Spell`: effects that must retain the target card's
+    /// owner/controller or printed mana value across a terminal zone move
+    /// cannot accept a stack-only virtual copy.
+    PhysicalSpell,
     /// A nonpermanent spell card currently on the stack. This deliberately
     /// names the narrow RAV counterspell slice instead of claiming support for
     /// arbitrary abilities or every kind of spell target.
@@ -1929,6 +1934,15 @@ pub enum Effect {
     /// This remains distinct from the narrower instant/sorcery counter effect
     /// used by cards whose printed target restriction is narrower.
     CounterTargetSpell,
+    /// Counter one targeted physical spell, then mill that spell's controller
+    /// by its mana value only when the resolving spell's explicit cast-payment
+    /// receipt contains the named color.  The resolver snapshots the target
+    /// spell controller and mana value before the counter changes its zone;
+    /// this keeps the ordered operation expansion-neutral and avoids asking a
+    /// departed object for current stack characteristics.
+    CounterTargetPhysicalSpellThenMillItsControllerByManaValueIfManaColorSpent {
+        color: Color,
+    },
     /// Counter one target spell unless that spell's current controller pays
     /// the exact declared mana cost at the resolution-time decision boundary.
     /// The engine never makes this payment decision automatically.
@@ -2060,6 +2074,7 @@ impl Effect {
             Self::DrawControllerIfManaColorSpent { .. }
                 | Self::ModifyAllCreaturesPtUntilEndOfTurnIfManaColorSpent { .. }
                 | Self::ReturnTargetCreatureCardToBattlefieldWithCounterIfManaColorSpent { .. }
+                | Self::CounterTargetPhysicalSpellThenMillItsControllerByManaValueIfManaColorSpent { .. }
                 | Self::PreventTargetCreatureCombatDamageUntilEndOfTurn {
                     damage_target_controller_equal_to_power_if_mana_color_spent: Some(_),
                 }
@@ -2163,8 +2178,12 @@ impl Effect {
             | Self::CopyTargetInstantOrSorcerySpell { .. } => {
                 Some(TargetRequirement::InstantOrSorcerySpell)
             }
-            Self::CounterTargetSpell => Some(TargetRequirement::Spell),
-            Self::CounterTargetSpellUnlessControllerPays { .. } => Some(TargetRequirement::Spell),
+            Self::CounterTargetSpell | Self::CounterTargetSpellUnlessControllerPays { .. } => {
+                Some(TargetRequirement::Spell)
+            }
+            Self::CounterTargetPhysicalSpellThenMillItsControllerByManaValueIfManaColorSpent {
+                ..
+            } => Some(TargetRequirement::PhysicalSpell),
             Self::SacrificeCreatureOrCounterTargetSpell => {
                 Some(TargetRequirement::NoncreatureSpell)
             }

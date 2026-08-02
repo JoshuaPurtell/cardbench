@@ -8970,7 +8970,7 @@ impl Game {
                                 definition.card_types.contains(&CardType::Instant)
                                     || definition.card_types.contains(&CardType::Sorcery)
                             }
-                            TargetRequirement::Spell => true,
+                            TargetRequirement::Spell | TargetRequirement::PhysicalSpell => true,
                             TargetRequirement::NoncreatureSpell => {
                                 !definition.card_types.contains(&CardType::Creature)
                             }
@@ -10620,6 +10620,7 @@ impl Game {
                 | Effect::DestroyAllNonTokenCreatures
                 | Effect::CounterTargetInstantOrSorcerySpell
                 | Effect::CounterTargetSpell
+                | Effect::CounterTargetPhysicalSpellThenMillItsControllerByManaValueIfManaColorSpent { .. }
                 | Effect::CounterTargetSpellUnlessControllerPays { .. }
                 | Effect::CopyTargetInstantOrSorcerySpell { .. }
                 | Effect::SacrificeCreatureOrCounterTargetSpell
@@ -15152,6 +15153,42 @@ impl Game {
                 });
                 self.move_to_spell_terminal_zone(target)?;
             }
+            Effect::CounterTargetPhysicalSpellThenMillItsControllerByManaValueIfManaColorSpent {
+                color,
+            } => {
+                let target = Self::target_spell(target)?;
+                let position = self
+                    .stack
+                    .iter()
+                    .position(|stack_object| {
+                        stack_object.card == target
+                            && stack_object.ability_id.is_none()
+                            && !self.virtual_spell_copies.contains_key(&target)
+                    })
+                    .ok_or(RulesError::IllegalTarget(Target::Spell(target)))?;
+                // The counter is a terminal zone transition. Capture every
+                // fact this ordered follow-up needs while the physical target
+                // remains a live stack object; neither its controller nor its
+                // definition may be reconstructed from the graveyard later.
+                let target_controller = self.stack[position].controller;
+                let mana_value = i16::from(self.card_definition(target)?.mana_cost.mana_value());
+                self.stack.remove(position);
+                self.record_event(GameEvent::SpellCountered {
+                    card: target,
+                    source,
+                });
+                self.move_to_spell_terminal_zone(target)?;
+                if mana_spent.is_some_and(|spent| spent.contains(color)) {
+                    for _ in 0..usize::try_from(mana_value)
+                        .expect("nonnegative mana value fits usize")
+                    {
+                        let Some(card) = self.players[target_controller.0].library.pop() else {
+                            break;
+                        };
+                        self.move_to_zone(card, Zone::Graveyard)?;
+                    }
+                }
+            }
             Effect::CounterTargetSpellUnlessControllerPays { .. } => {
                 return Err(RulesError::IllegalAction(
                     "counter-unless effect must resolve through its payment decision",
@@ -15690,6 +15727,13 @@ impl Game {
                 .stack
                 .iter()
                 .any(|stack_object| stack_object.card == card && stack_object.ability_id.is_none()),
+            (Target::Spell(card), TargetRequirement::PhysicalSpell) => {
+                self.stack.iter().any(|stack_object| {
+                    stack_object.card == card
+                        && stack_object.ability_id.is_none()
+                        && !self.virtual_spell_copies.contains_key(&card)
+                })
+            }
             _ => false,
         }
     }
@@ -15880,6 +15924,7 @@ impl Game {
                 Target::Spell(_),
                 TargetRequirement::InstantOrSorcerySpell
                     | TargetRequirement::Spell
+                    | TargetRequirement::PhysicalSpell
                     | TargetRequirement::NoncreatureSpell
             )
         )
