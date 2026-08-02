@@ -20701,9 +20701,7 @@ impl Game {
                 let Target::Permanent(land) = target else {
                     return Err(RulesError::IllegalTarget(target));
                 };
-                if self.zone_of(land) != Some(Zone::Battlefield)
-                    || !self.card_definition(land)?.is_land()
-                {
+                if !self.target_matches(Target::Permanent(land), TargetRequirement::Land) {
                     return Err(RulesError::IllegalTarget(target));
                 }
                 self.destroy_permanent(source, land)?;
@@ -20713,9 +20711,7 @@ impl Game {
                 let Target::Permanent(land) = target else {
                     return Err(RulesError::IllegalTarget(target));
                 };
-                if self.zone_of(land) != Some(Zone::Battlefield)
-                    || !self.card_definition(land)?.is_land()
-                {
+                if !self.target_matches(Target::Permanent(land), TargetRequirement::Land) {
                     return Err(RulesError::IllegalTarget(target));
                 }
                 let target_was_nonbasic = !self.card_definition(land)?.is_basic_land;
@@ -20740,12 +20736,7 @@ impl Game {
                 let Target::Permanent(artifact) = target else {
                     return Err(RulesError::IllegalTarget(target));
                 };
-                if self.zone_of(artifact) != Some(Zone::Battlefield)
-                    || !self
-                        .card_definition(artifact)?
-                        .card_types
-                        .contains(&CardType::Artifact)
-                {
+                if !self.target_matches(Target::Permanent(artifact), TargetRequirement::Artifact) {
                     return Err(RulesError::IllegalTarget(target));
                 }
                 self.destroy_permanent(source, artifact)?;
@@ -21888,15 +21879,15 @@ impl Game {
                 TargetRequirement::Land | TargetRequirement::ControlledLand,
             ) => {
                 self.zone_of(card) == Some(Zone::Battlefield)
-                    && self
-                        .card_definition(card)
-                        .is_ok_and(CardDefinition::is_land)
+                    && self.characteristics(card).is_ok_and(|characteristics| {
+                        characteristics.card_types.contains(&CardType::Land)
+                    })
             }
             (Target::Permanent(card), TargetRequirement::Artifact) => {
                 self.zone_of(card) == Some(Zone::Battlefield)
-                    && self
-                        .card_definition(card)
-                        .is_ok_and(|definition| definition.card_types.contains(&CardType::Artifact))
+                    && self.characteristics(card).is_ok_and(|characteristics| {
+                        characteristics.card_types.contains(&CardType::Artifact)
+                    })
             }
             (Target::Permanent(card), TargetRequirement::ArtifactOrCreature) => {
                 self.zone_of(card) == Some(Zone::Battlefield)
