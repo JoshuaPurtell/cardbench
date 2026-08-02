@@ -133,13 +133,18 @@ Oracle Magic rules coverage.
   amount, and the exact replacement identities already used. For the initial
   one-effect targeted instant/sorcery slice, the engine gathers live
   target-shields, permanent shields/protection, and full-event redirections
-  before it records any damage. Two or more candidates open a no-priority
-  decision visible only to the affected player; the submitted identity must
-  still be live, is applied once, and applicability is recomputed. The stack
-  spell remains live while this decision is pending. Its public
-  `DamageReplacementApplied` receipt precedes the authoritative
-  `DamagePrevented`, `DamageRedirected`, or committed `DamageDealt*` receipt,
-  and only committed positive damage queues damage triggers.
+  before it records any damage. Two or more candidates open the same public,
+  id-bearing `DecisionKind::Replacement` boundary used by quantity
+  replacement; its options are `ReplacementChoice::Damage` values visible
+  only to the affected player. The submitted identity must still be live, is
+  applied once, and applicability is recomputed. The stack spell remains live
+  while this decision is pending. The legacy `ChooseDamageReplacement` action
+  is only a checked compatibility shim over that exact current `DecisionId`;
+  new policies use `SubmitDecision`. Its public `DamageReplacementApplied`
+  receipt precedes the authoritative `DamagePrevented`, `DamageRedirected`, or
+  committed `DamageDealt*` receipt, and only committed positive damage queues
+  damage triggers. The generic decision closes after that causal damage batch
+  and before the suspended spell's terminal lifecycle.
 - `Keyword::DamageCannotBePrevented` excludes prevention only. It bypasses
   target shields, permanent shields, protection, and color-based prevention,
   but does not bypass a non-prevention damage redirection. A redirected event
@@ -221,15 +226,15 @@ Oracle Magic rules coverage.
   use the id-bearing generic action.
 - This first unified-decision migration covers policy-submitted one-card
   library searches, triggered discard/sacrifice object choices, multi-block
-  combat order, spell-copy targets, and concurrent token/counter quantity
-  replacement ordering. Library
+  combat order, spell-copy targets, concurrent token/counter quantity
+  replacement ordering, and bounded direct-damage prevention/redirection.
+  Library
   search and discard options are private: only the deciding player's
   `GameView` contains their candidate identities, while a public sacrifice
   option is projected safely to its deciding controller. `DecisionContinuation`
   holds only typed cloned data, never a resolver closure. Future target,
-  optional-cost, color, and the legacy damage prevention/redirection
-  replacement choice remain separate bounded decision families until migrated
-  to it.
+  optional-cost, color, partial-redirection, and arbitrary replacement-event
+  composition remain separate bounded decision families until migrated to it.
 - Every represented trigger condition captures one source/controller/payload
   event and reaches a common active-player-first placement pipeline after its
   enclosing action. A target-bearing event stays outside the stack until its
