@@ -7852,11 +7852,11 @@ pub fn rav_generalized_activated_ability_cost_bindings() -> Vec<ActivatedAbility
             card_definition: "RAV-BLOODLETTER-QUILL",
             ability_id: "blue-black-remove-blood",
             cost: GeneralizedActivatedAbilityCost {
-            counter_removals: vec![ActivatedCounterCost {
-                target: ActivatedCounterCostTarget::Source,
-                counter: CounterKind::Named("blood"),
-                amount: 1,
-            }],
+                counter_removals: vec![ActivatedCounterCost {
+                    target: ActivatedCounterCostTarget::Source,
+                    counter: CounterKind::Named("blood"),
+                    amount: 1,
+                }],
                 ..GeneralizedActivatedAbilityCost::default()
             },
         },
