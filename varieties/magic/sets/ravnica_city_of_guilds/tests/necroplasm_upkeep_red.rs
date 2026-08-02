@@ -6,7 +6,8 @@
 //! card-specific precomputed value.
 
 use cardbench_magic_engine::{
-    CounterKind, DecisionKind, DecisionSelection, Effect, Game, GameEvent, ManaCost, PlayerId, Zone,
+    CastRequest, Color, CounterKind, DecisionKind, DecisionSelection, Effect, Game, GameEvent,
+    ManaCost, PlayerId, Target, Zone,
 };
 use cardbench_magic_rav::{
     card_definitions, rav_activated_ability_bindings, rav_additional_spell_cost_bindings,
@@ -164,4 +165,91 @@ fn necroplasm_sweep_reads_the_counter_after_the_controller_orders_upkeep_trigger
     )));
     game.validate_invariants()
         .expect("the resolution-time counter sweep preserves invariants");
+}
+
+#[test]
+fn necroplasm_sweep_uses_last_known_counter_value_after_source_departure() {
+    let mut game = game();
+    let necroplasm = game
+        .put_on_battlefield(PlayerId(0), "RAV-NECROPLASM")
+        .expect("Necroplasm begins on battlefield");
+    let mana_value_one = game
+        .put_on_battlefield(PlayerId(1), "RAV-ELVES-OF-DEEP-SHADOW")
+        .expect("one-mana creature begins on battlefield");
+    let mana_value_two = game
+        .put_on_battlefield(PlayerId(1), "RAV-WATCHWOLF")
+        .expect("two-mana creature begins on battlefield");
+    let swamp = game
+        .put_on_battlefield(PlayerId(0), "RAV-SWAMP")
+        .expect("black mana source begins on battlefield");
+    let last_gasp = game
+        .add_card(PlayerId(0), "RAV-LAST-GASP", Zone::Hand)
+        .expect("Last Gasp begins in hand");
+    game.begin_game().expect("game reaches the first upkeep");
+
+    let decision = game
+        .view_for_player(PlayerId(0))
+        .expect("controller view is available")
+        .pending_decision
+        .expect("Necroplasm's simultaneous triggers require an order");
+    let sweep = *decision
+        .trigger_candidates
+        .iter()
+        .find(|entry| entry.ability == "upkeep-destroy-creatures-by-plus-one-counter-mana-value")
+        .expect("sweep trigger is orderable");
+    let counter = *decision
+        .trigger_candidates
+        .iter()
+        .find(|entry| entry.ability == "upkeep-add-plus-one-counter")
+        .expect("counter trigger is orderable");
+    game.submit_decision(
+        PlayerId(0),
+        decision.id,
+        // The counter resolves first and makes the source's last known
+        // +1/+1-counter total one before the response removes it.
+        DecisionSelection::TriggerOrder(vec![sweep, counter]),
+    )
+    .expect("controller orders counter above sweep");
+    pass_pair(&mut game);
+
+    game.activate_mana_ability(PlayerId(0), swamp, Color::Black)
+        .expect("the controller can make black mana while the sweep is pending");
+
+    game.cast_spell(
+        PlayerId(0),
+        CastRequest {
+            card: last_gasp,
+            targets: vec![Target::Permanent(necroplasm)],
+            convoke: vec![],
+            payment_mana_abilities: vec![],
+        },
+    )
+    .expect("Last Gasp responds before the pending sweep resolves");
+    pass_pair(&mut game);
+    assert_eq!(game.zone_of(necroplasm), Some(Zone::Graveyard));
+
+    pass_pair(&mut game);
+    println!(
+        "Necroplasm departed-source counter trace: {:#?}",
+        game.canonical_event_log()
+    );
+    assert_eq!(
+        game.zone_of(mana_value_one),
+        Some(Zone::Graveyard),
+        "the sweep must use the departed source's last known one-counter value"
+    );
+    assert_eq!(game.zone_of(mana_value_two), Some(Zone::Battlefield));
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::SourceCounterValueMaterialized {
+            source,
+            ability,
+            counter: CounterKind::PlusOnePlusOne,
+            amount: 1,
+            ..
+        } if *source == necroplasm
+            && *ability == "upkeep-destroy-creatures-by-plus-one-counter-mana-value"
+    )));
+    game.validate_invariants()
+        .expect("departed-source counter provenance remains invariant-valid");
 }
