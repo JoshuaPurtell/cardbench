@@ -704,6 +704,13 @@ mod tests {
     }
 
     #[test]
+    fn reference_matrix_caps_live_workers_instead_of_spawning_one_thread_per_match() {
+        assert_eq!(reference_matrix_worker_limit(630, Some(8)), 8);
+        assert_eq!(reference_matrix_worker_limit(7, Some(32)), 7);
+        assert_eq!(reference_matrix_worker_limit(3, None), 1);
+    }
+
+    #[test]
     fn fail_closed_tournament_accepts_a_rules_valid_simultaneous_loss_draw() {
         let draw = DeckMatchResult {
             id: RAV_DECK_MATCH_ID,
