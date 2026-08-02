@@ -284,11 +284,19 @@ Oracle Magic rules coverage.
   be followed by the matching source `+1/+1` counter placement and no
   intervening ordinary player-damage receipt from that source to that player.
   Any resulting library moves retain their ordinary `CardMoved` and
-  incarnation receipts. This currently supplies a deterministic
-  single-replacement compatibility path only. If it competes with another
-  applicable combat-damage replacement, the affected-player ordering choice
-  is deliberately not fabricated; that broader replacement-order boundary is
-  tracked as an open engine weakness.
+  incarnation receipts. When it competes with another represented
+  amount-changing combat replacement (currently a live halving source or
+  targeted player shield), the engine opens a public, affected-player
+  `DecisionKind::Replacement` boundary before either consequence commits.
+  The typed continuation freezes the exact source incarnation, damaged
+  player, positive packet amount, already-used replacement identities, and
+  remaining assigned player-damage packets. It applies each selected identity
+  at most once, recomputes the live candidates after every choice, and keeps
+  the rest of combat-damage assignment unchanged until the packet reaches
+  zero or has no candidate. Only then can the queued packet suffix, state
+  actions, and triggers continue. Combat-specific prevention effects are not
+  yet represented in this ordering continuation, so the invariant does not
+  claim a complete replacement-event algebra.
 - `Keyword::DamageCannotBePrevented` excludes prevention only. It bypasses
   target shields, permanent shields, protection, and color-based prevention,
   but does not bypass a non-prevention damage redirection. A redirected event
