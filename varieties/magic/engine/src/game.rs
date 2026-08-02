@@ -16,16 +16,14 @@ use crate::{
     DelayedActionId, DelayedActionKind, DelayedActionTiming, Duration, Effect, GameEvent,
     GeneralizedAbilityActivation, GeneralizedActivatedAbilityCost, Keyword, LandEntryBinding,
     LibrarySearchCardinality, LibrarySearchDestination, LibrarySearchRequirement,
-    LibrarySearchSelection, LinkedExileGroup,
-    LinkedExileGroupId, LinkedExileMember, LinkedExileMemberRole, ManaAbilityActivation,
-    ManaAbilityBinding, ManaAbilityOutput, ManaCost, ManaPaymentSelection, ObjectId,
-    PendingDecision, PlayerId, PlayerState, PolicyMoveKind, QuantityReplacementResolution,
-    ReplacementChoice, ReplacementEffect, ReplacementEffectBinding, ReplacementEventKind,
-    StackEffectResolution, StackObject, StackResolutionPlan, StaticAttackRestriction,
-    StaticAttackRestrictionBinding, StaticContinuousEffectBinding, Step, TRANSMUTE_ABILITY_ID,
-    Target, TargetRequirement, TokenSpec, TriggerCondition, TriggerOrderEntry,
-    TriggeredAbilityBinding,
-    TriggeredEffectObjectDecisionKind, Zone,
+    LibrarySearchSelection, LinkedExileGroup, LinkedExileGroupId, LinkedExileMember,
+    LinkedExileMemberRole, ManaAbilityActivation, ManaAbilityBinding, ManaAbilityOutput, ManaCost,
+    ManaPaymentSelection, ObjectId, PendingDecision, PlayerId, PlayerState, PolicyMoveKind,
+    QuantityReplacementResolution, ReplacementChoice, ReplacementEffect, ReplacementEffectBinding,
+    ReplacementEventKind, StackEffectResolution, StackObject, StackResolutionPlan,
+    StaticAttackRestriction, StaticAttackRestrictionBinding, StaticContinuousEffectBinding, Step,
+    TRANSMUTE_ABILITY_ID, Target, TargetRequirement, TokenSpec, TriggerCondition,
+    TriggerOrderEntry, TriggeredAbilityBinding, TriggeredEffectObjectDecisionKind, Zone,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -5333,6 +5331,7 @@ impl Game {
         self.atomic_transition(|game| game.resolve_pending_decision(player, decision, selection))
     }
 
+    #[allow(clippy::too_many_lines)] // One dispatch boundary keeps each typed continuation stale-safe.
     fn resolve_pending_decision(
         &mut self,
         player: PlayerId,
@@ -6382,7 +6381,7 @@ impl Game {
         self.flush_pending_dies_triggers();
         for (card, definition, controller) in entered_permanents {
             if self.zone_of(card) == Some(Zone::Battlefield) {
-                self.enqueue_enter_triggers(card, definition, controller);
+                self.enqueue_enter_triggers(card, definition, controller)?;
                 if self.card_definition(card)?.is_land() {
                     self.queue_land_entry_trigger_batch(controller)?;
                 }
@@ -18243,7 +18242,9 @@ impl Game {
             .iter()
             .filter_map(|option| match option {
                 DecisionOption::TriggerOrder(entry) => Some(*entry),
-                DecisionOption::Object(_) | DecisionOption::Target(_) => None,
+                DecisionOption::Object(_)
+                | DecisionOption::Target(_)
+                | DecisionOption::Replacement(_) => None,
             })
             .collect()
     }
@@ -18254,7 +18255,9 @@ impl Game {
             .iter()
             .filter_map(|option| match option {
                 DecisionOption::Replacement(choice) => Some(*choice),
-                DecisionOption::Object(_) | DecisionOption::Target(_) => None,
+                DecisionOption::Object(_)
+                | DecisionOption::Target(_)
+                | DecisionOption::TriggerOrder(_) => None,
             })
             .collect()
     }
