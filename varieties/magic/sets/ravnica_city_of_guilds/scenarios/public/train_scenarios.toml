@@ -3419,7 +3419,7 @@ digest = "fnv1a64:10ab6a9c0b91ec2c"
 [[scenario]]
 id = "rav_easy_white_blue_creatures_wave_two"
 seed = 0
-description = "Cast Benevolent Ancestor and Roofstalker Wight with exact white and blue costs, then verify only their base P/T. Their printed defender, prevention, and temporary evasion abilities are deliberately omitted."
+description = "Cast Benevolent Ancestor and Roofstalker Wight with exact white and Black costs, then verify their base P/T. Benevolent Ancestor's prevention remains bounded; the Wight's temporary evasion is covered separately."
 
 [[scenario.card]]
 label = "ancestor"
@@ -3440,7 +3440,7 @@ amount = 3
 
 [[scenario.mana]]
 player = 0
-color = "blue"
+color = "black"
 amount = 2
 
 [[scenario.action]]
@@ -3473,7 +3473,7 @@ player = 1
 zones = ["ancestor:battlefield", "wight:battlefield"]
 powers = ["ancestor:0", "wight:2"]
 toughnesses = ["ancestor:4", "wight:1"]
-mana = ["0:white:0", "0:blue:0"]
+mana = ["0:white:0", "0:black:0"]
 stack_size = 0
 priority = 0
 event_markers = ["SpellCast", "PriorityPassed", "SpellResolved"]

@@ -1,46 +1,36 @@
-//! Public contract for a low-complexity RAV creature-chassis wave.
+//! Public contract for the former low-complexity RAV creature-chassis wave.
 //!
-//! Each compatibility definition deliberately supports only normal casting and
-//! base characteristics. Printed keywords, activated abilities, and triggered
-//! abilities stay outside the executable slice.
+//! Its only member has graduated to a full-fidelity card. Keep this explicit so
+//! a future catalog reconciliation cannot silently reintroduce the incorrect
+//! Blue chassis or discard the stack-backed activation.
 
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{CardType, Color, ManaCost};
-use cardbench_magic_rav::{card_definitions, run_all_scenarios};
+use cardbench_magic_rav::{RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, run_all_scenarios};
 
 #[test]
 #[allow(clippy::too_many_lines)] // Declarative public fact table stays together for auditability.
-fn easy_creature_wave_two_is_exactly_bounded_to_public_base_facts() {
+fn easy_creature_wave_two_promotes_roofstalker_wight_without_a_stale_blue_chassis() {
     let definitions = card_definitions();
-    let expected = [(
-        "RAV-ROOFSTALKER-WIGHT",
-        "Roofstalker Wight",
-        ManaCost::with_colors(1, [Color::Blue]),
-        BTreeSet::from([Color::Blue]),
-        2,
-        1,
-    )];
-
-    for (id, name, mana_cost, colors, power, toughness) in expected {
-        let definition = definitions
-            .iter()
-            .find(|definition| definition.id == id)
-            .unwrap_or_else(|| panic!("missing public RAV definition {id}"));
-        assert_eq!(definition.name, name, "{id}");
-        assert_eq!(definition.mana_cost, mana_cost, "{id}");
-        assert_eq!(definition.colors, colors, "{id}");
-        assert_eq!(definition.card_types, BTreeSet::from([CardType::Creature]));
-        assert_eq!(definition.power, Some(power), "{id}");
-        assert_eq!(definition.toughness, Some(toughness), "{id}");
-        assert_eq!(
-            definition.supported_rules,
-            ["colored-cost-casting", "base-characteristics"],
-            "{id} must not present an unsupported card-specific ability"
-        );
-        assert!(definition.keywords.is_empty(), "{id}");
-        assert!(definition.effects.is_empty(), "{id}");
-    }
+    let wight = definitions
+        .iter()
+        .find(|definition| definition.id == "RAV-ROOFSTALKER-WIGHT")
+        .expect("Roofstalker Wight definition exists");
+    assert_eq!(wight.name, "Roofstalker Wight");
+    assert_eq!(wight.mana_cost, ManaCost::with_colors(1, [Color::Black]));
+    assert_eq!(wight.colors, BTreeSet::from([Color::Black]));
+    assert_eq!(wight.card_types, BTreeSet::from([CardType::Creature]));
+    assert_eq!(wight.power, Some(2));
+    assert_eq!(wight.toughness, Some(1));
+    assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&wight.id));
+    assert!(
+        wight
+            .supported_rules
+            .contains(&"self-flying-until-end-of-turn")
+    );
+    assert!(wight.keywords.is_empty());
+    assert!(wight.effects.is_empty());
 
     let commando = definitions
         .iter()

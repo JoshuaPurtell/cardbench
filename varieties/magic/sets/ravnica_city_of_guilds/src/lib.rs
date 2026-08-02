@@ -41,7 +41,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 165] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 166] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -91,6 +91,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 165] = [
     "RAV-SNAPPING-DRAKE",
     "RAV-TATTERED-DRAKE",
     "RAV-TERRAFORMER",
+    "RAV-ROOFSTALKER-WIGHT",
     "RAV-CERULEAN-SPHINX",
     "RAV-HUNTED-PHANTASM",
     "RAV-GOLIATH-SPIDER",
@@ -3979,17 +3980,28 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed temporary evasion activation is
-        // deliberately omitted from this compatibility slice.
-        bounded_creature_chassis(
-            "RAV-ROOFSTALKER-WIGHT",
-            "Roofstalker Wight",
-            ManaCost::with_colors(1, [Color::Blue]),
-            colors([Color::Blue]),
-            2,
-            1,
-        ),
+        // Full fidelity: exact Black creature identity plus a target-free,
+        // stack-backed `{1}{U}` self-Flying grant through end of turn.
+        CardDefinition {
+            id: "RAV-ROOFSTALKER-WIGHT",
+            name: "Roofstalker Wight",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(1, [Color::Black]),
+            colors: colors([Color::Black]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "self-flying-until-end-of-turn",
+            ],
+            power: Some(2),
+            toughness: Some(1),
+            keywords: vec![],
+            effects: vec![],
+        },
         // Full fidelity: normal colored-cost creature casting, base
         // characteristics, static Fear, and the stack-backed self-regeneration
         // activation are represented by the shared engine.
@@ -5190,6 +5202,24 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 targets: vec![],
                 effects: vec![Effect::RemoveSourceKeywordUntilEndOfTurn {
                     keyword: Keyword::Defender,
+                }],
+            },
+        },
+        ActivatedAbilityBinding {
+            card_definition: "RAV-ROOFSTALKER-WIGHT",
+            ability: ActivatedAbility {
+                id: "blue-gain-flying",
+                mana_cost: ManaCost::with_colors(1, [Color::Blue]),
+                tap_cost: false,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![],
+                effects: vec![Effect::AddSourceKeywordUntilEndOfTurn {
+                    keyword: Keyword::Flying,
                 }],
             },
         },

@@ -10927,6 +10927,7 @@ impl Game {
                 | Effect::ModifyTargetKeywordUntilEndOfTurn { .. }
                 | Effect::PreventTargetBlockingSourceUntilEndOfTurn
                 | Effect::ModifySourcePtUntilEndOfTurn { .. }
+                | Effect::AddSourceKeywordUntilEndOfTurn { .. }
                 | Effect::RemoveSourceKeywordUntilEndOfTurn { .. }
                 | Effect::AddSourceDamageShieldUntilEndOfTurn { .. }
                 | Effect::AddControllerDamageShieldEqualToChosenXUntilEndOfTurn
@@ -15374,6 +15375,19 @@ impl Game {
                         power: *power,
                         toughness: *toughness,
                     },
+                    Duration::EndOfTurn(self.turn),
+                )?;
+            }
+            Effect::AddSourceKeywordUntilEndOfTurn { keyword } => {
+                if self.zone_of(source) != Some(Zone::Battlefield)
+                    || !self.object_has_incarnation(source, source_incarnation)
+                {
+                    return Ok(());
+                }
+                self.install_continuous_effect(
+                    source,
+                    source,
+                    ContinuousChange::AddKeyword(keyword.clone()),
                     Duration::EndOfTurn(self.turn),
                 )?;
             }

@@ -1855,6 +1855,13 @@ pub enum Effect {
         power: i16,
         toughness: i16,
     },
+    /// Apply a temporary layer-six keyword grant to the permanent that
+    /// activated the resolving ability.  The effect remains source-relative,
+    /// so it has no target slot and cannot affect a new object after the
+    /// original source changes zones.
+    AddSourceKeywordUntilEndOfTurn {
+        keyword: Keyword,
+    },
     RemoveSourceKeywordUntilEndOfTurn {
         keyword: Keyword,
     },
@@ -2345,6 +2352,7 @@ impl Effect {
             | Self::ReturnSourceToOwnersHand
             | Self::MoveSourceToOwnersLibraryAndShuffle
             | Self::ModifySourcePtUntilEndOfTurn { .. }
+            | Self::AddSourceKeywordUntilEndOfTurn { .. }
             | Self::RemoveSourceKeywordUntilEndOfTurn { .. }
             | Self::AddSourceDamageShieldUntilEndOfTurn { .. }
             | Self::AddControllerDamageShieldEqualToChosenXUntilEndOfTurn

@@ -9,8 +9,8 @@ use std::collections::BTreeSet;
 use cardbench_magic_engine::{
     AbilityActivation, ActivatedAbility, ActivatedAbilityBinding, BasicLandManaAbilityActivation,
     BasicLandType, BasicLandTypeBinding, CardDefinition, CardType, CastPaymentManaAbility,
-    CastRequest, Color, ContinuousChange, CounterKind, Duration, Effect, Game, GameEvent, ManaCost,
-    ManaPaymentSelection, PlayerId, Target, TriggerCondition, TriggeredAbility,
+    CastRequest, Color, ContinuousChange, CounterKind, Duration, Effect, Game, GameEvent, Keyword,
+    ManaCost, ManaPaymentSelection, PlayerId, Target, TriggerCondition, TriggeredAbility,
     TriggeredAbilityBinding, Zone,
 };
 
@@ -162,6 +162,24 @@ fn game() -> Game {
                     }],
                 },
             },
+            ActivatedAbilityBinding {
+                card_definition: SOURCE,
+                ability: ActivatedAbility {
+                    id: "self-flying",
+                    mana_cost: ManaCost::new(0),
+                    tap_cost: false,
+                    sorcery_speed: false,
+                    additional_tap_creatures: 0,
+                    sacrifice_source: false,
+                    sacrifice_creatures: 0,
+                    sacrifice_lands: 0,
+                    discard_cards: 0,
+                    targets: vec![],
+                    effects: vec![Effect::AddSourceKeywordUntilEndOfTurn {
+                        keyword: Keyword::Flying,
+                    }],
+                },
+            },
         ],
     )
     .expect("fixture game initializes")
@@ -174,6 +192,108 @@ fn pass_pair(game: &mut Game) {
     let second = game.priority;
     game.pass_priority(second)
         .expect("second priority pass succeeds");
+}
+
+#[test]
+fn source_relative_keyword_grant_uses_the_live_source_incarnation() {
+    let caster = PlayerId(0);
+    let responder = PlayerId(1);
+    let mut live_game = game();
+    let source = live_game
+        .put_on_battlefield(caster, SOURCE)
+        .expect("source enters battlefield");
+    live_game.begin_game().expect("fixture game begins");
+    live_game.clear_event_log();
+
+    live_game
+        .activate_ability(
+            caster,
+            AbilityActivation {
+                source,
+                ability_id: "self-flying",
+                sacrifice_sources: vec![],
+                additional_tap_creatures: vec![],
+                discard_cards: vec![],
+                targets: vec![],
+            },
+        )
+        .expect("source-relative ability reaches the stack");
+    pass_pair(&mut live_game);
+    assert!(
+        live_game
+            .characteristics(source)
+            .expect("source remains live")
+            .keywords
+            .contains(&Keyword::Flying)
+    );
+    assert!(live_game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::ContinuousEffectCreated { source: effect_source, target, .. }
+            if *effect_source == source && *target == source
+    )));
+    live_game
+        .validate_invariants()
+        .expect("live source keyword effect preserves invariants");
+
+    let mut stale_game = game();
+    let stale_source = stale_game
+        .put_on_battlefield(caster, SOURCE)
+        .expect("stale source enters battlefield");
+    let stale_destroy = stale_game
+        .add_card(responder, DESTROY, Zone::Hand)
+        .expect("destroy enters responder hand");
+    stale_game.begin_game().expect("stale fixture begins");
+    stale_game.clear_event_log();
+    stale_game
+        .activate_ability(
+            caster,
+            AbilityActivation {
+                source: stale_source,
+                ability_id: "self-flying",
+                sacrifice_sources: vec![],
+                additional_tap_creatures: vec![],
+                discard_cards: vec![],
+                targets: vec![],
+            },
+        )
+        .expect("stale source ability reaches the stack");
+    stale_game
+        .pass_priority(caster)
+        .expect("caster yields response priority");
+    stale_game
+        .cast_spell(
+            responder,
+            CastRequest {
+                card: stale_destroy,
+                targets: vec![Target::Permanent(stale_source)],
+                convoke: vec![],
+                payment_mana_abilities: vec![],
+            },
+        )
+        .expect("response destroys the old source incarnation");
+    pass_pair(&mut stale_game);
+    assert_eq!(stale_game.zone_of(stale_source), Some(Zone::Graveyard));
+    pass_pair(&mut stale_game);
+    assert!(
+        !stale_game.event_log.iter().any(|event| matches!(
+            event,
+            GameEvent::ContinuousEffectCreated { source: effect_source, target, .. }
+                if *effect_source == stale_source && *target == stale_source
+        )),
+        "a departed source cannot create a continuous effect on its stale incarnation"
+    );
+    assert!(stale_game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::AbilityResolved { source: event_source, ability, .. }
+            if *event_source == stale_source && *ability == "self-flying"
+    )));
+    println!(
+        "source_relative_keyword_event_log={:#?}",
+        stale_game.canonical_event_log()
+    );
+    stale_game
+        .validate_invariants()
+        .expect("stale source no-op preserves invariants");
 }
 
 #[test]
