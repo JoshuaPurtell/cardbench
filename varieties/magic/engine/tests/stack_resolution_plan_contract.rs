@@ -3,12 +3,13 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    Effect, ObjectId, PlayerId, StackEffectResolution, StackObject, StackResolutionPlan, Target,
-    TargetRequirement,
+    Effect, ObjectId, PlayerId, StackEffectResolution, StackObject, StackObjectId,
+    StackResolutionPlan, Target, TargetRequirement,
 };
 
 fn three_target_object(targets: Vec<Target>) -> StackObject {
     StackObject {
+        id: StackObjectId(1),
         card: ObjectId(7),
         source_incarnation: 1,
         source_colors: BTreeSet::new(),
