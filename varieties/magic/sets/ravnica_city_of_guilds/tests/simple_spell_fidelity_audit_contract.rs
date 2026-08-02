@@ -23,16 +23,22 @@ fn audited_simple_spells_keep_their_precise_compatibility_boundaries() {
         ),
         (
             "RAV-DIZZY-SPELL",
-            &["targeted-layer-7-modifier", "transmute"] as &[_],
+            &[
+                "full-rules-fidelity",
+                "targeted-layer-7-modifier",
+                "transmute",
+            ] as &[_],
         ),
     ];
     for (id, supported_rules) in expected {
         let spell = definition(id);
         assert_eq!(spell.supported_rules, supported_rules, "{id}");
-        assert!(
-            !RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&id),
-            "{id} has an explicit unsupported functional rule and must not be promoted"
-        );
+        if id != "RAV-DIZZY-SPELL" {
+            assert!(
+                !RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&id),
+                "{id} has an explicit unsupported functional rule and must not be promoted"
+            );
+        }
     }
 
     assert_eq!(

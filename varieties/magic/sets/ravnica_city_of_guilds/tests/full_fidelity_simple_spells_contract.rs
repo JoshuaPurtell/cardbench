@@ -62,6 +62,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-GATHER-COURAGE",
             "RAV-SEEDS-OF-STRENGTH",
             "RAV-DARKBLAST",
+            "RAV-DIZZY-SPELL",
             "RAV-NIGHTMARE-VOID",
             "RAV-MOONLIGHT-BARGAIN",
             "RAV-ROLLING-SPOIL",

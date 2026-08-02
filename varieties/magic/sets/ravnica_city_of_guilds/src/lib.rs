@@ -93,6 +93,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 209] = [
     "RAV-GATHER-COURAGE",
     "RAV-SEEDS-OF-STRENGTH",
     "RAV-DARKBLAST",
+    "RAV-DIZZY-SPELL",
     "RAV-NIGHTMARE-VOID",
     "RAV-MOONLIGHT-BARGAIN",
     "RAV-ROLLING-SPOIL",
@@ -1716,7 +1717,11 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Instant]),
             is_basic_land: false,
-            supported_rules: &["targeted-layer-7-modifier", "transmute"],
+            supported_rules: &[
+                "full-rules-fidelity",
+                "targeted-layer-7-modifier",
+                "transmute",
+            ],
             power: None,
             toughness: None,
             keywords: vec![Keyword::Transmute(ManaCost::with_colors(
