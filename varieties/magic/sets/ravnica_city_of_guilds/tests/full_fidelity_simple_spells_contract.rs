@@ -41,6 +41,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-GLASS-GOLEM",
             "RAV-OVERGROWN-TOMB",
             "RAV-JUNKTROLLER",
+            "RAV-LEASHLING",
             "RAV-CROWN-OF-CONVERGENCE",
             "RAV-CLEANSING-BEAM",
             "RAV-RALLY-THE-RIGHTEOUS",

@@ -73,14 +73,14 @@ fn executable_slice_size_is_explicit_and_does_not_masquerade_as_set_coverage() {
         .collect::<std::collections::BTreeSet<_>>();
 
     // Twenty executable basic-land printings collapse to five names. The
-    // two hundred and thirty-six executable nonbasic names include the positive
+    // two hundred and thirty-seven executable nonbasic names include the positive
     // full-fidelity manifest entries; all others remain deliberately bounded
     // compatibility slices. The full-fidelity Clinging Darkness and
     // Moldervine Cloak entries use the bounded static-modifier Aura substrate;
     // regeneration remains independently capability-gated.
-    assert_eq!(executable_printings, 256);
-    assert_eq!(executable_names.len(), 241);
-    assert_eq!(catalog_only_names.len(), 50);
+    assert_eq!(executable_printings, 257);
+    assert_eq!(executable_names.len(), 242);
+    assert_eq!(catalog_only_names.len(), 49);
     assert!(executable_names.is_disjoint(&catalog_only_names));
 }
 
@@ -113,6 +113,14 @@ fn junktroller_resolves_to_its_full_graveyard_target_definition() {
     assert_eq!(
         executable_definition_id_for_collector(264),
         Ok("RAV-JUNKTROLLER")
+    );
+}
+
+#[test]
+fn leashling_resolves_to_its_full_hand_library_cost_definition() {
+    assert_eq!(
+        executable_definition_id_for_collector(265),
+        Ok("RAV-LEASHLING")
     );
 }
 

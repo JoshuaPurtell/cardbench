@@ -1057,7 +1057,12 @@ Oracle Magic rules coverage.
   selection has exact ordered arity, requires the source first when required,
   otherwise names distinct controlled battlefield permanents, and every
   `ReturnedAsAbilityCost` receipt is immediately followed by its owner-hand
-  move (and structural incarnation receipt). A positive life payment may not
+  move (and structural incarnation receipt). A hand-to-library cost has exact
+  ordered arity, names distinct cards owned by the activating player while
+  they are in hand, cannot overlap an activation discard, and each
+  `HandCardPutOnLibraryTopAsAbilityCost` receipt is immediately followed by
+  its ordinary library move; selections are committed bottom-to-top. A
+  positive life payment may not
   exceed the controller's current life and records `AbilityLifePaid`. The
   complete mana/life/counter/return/X block is validated against exactly one
   subsequent `AbilityActivated` receipt; missing, fabricated, duplicated, or
