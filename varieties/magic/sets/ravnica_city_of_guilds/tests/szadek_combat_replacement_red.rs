@@ -1,7 +1,9 @@
 //! Red regression for Szadek's combat-damage replacement.
 
-use cardbench_magic_engine::{Game, GameEvent, PlayerId, Step, Zone};
-use cardbench_magic_rav::{RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions};
+use cardbench_magic_engine::{CounterKind, Game, GameEvent, PlayerId, Step, Zone};
+use cardbench_magic_rav::{
+    RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, rav_damage_replacement_effect_bindings,
+};
 
 #[test]
 fn szadek_replaces_player_combat_damage_with_mill_and_source_counters() {
@@ -11,6 +13,8 @@ fn szadek_replaces_player_combat_damage_with_mill_and_source_counters() {
         .expect("Szadek definition exists");
 
     let mut game = Game::new(card_definitions(), 2).expect("RAV game builds");
+    game.register_damage_replacement_effect_bindings(rav_damage_replacement_effect_bindings())
+        .expect("RAV replacement bindings register");
     let szadek = game
         .put_on_battlefield(PlayerId(0), "RAV-SZADEK")
         .expect("Szadek begins on the battlefield");
@@ -39,6 +43,15 @@ fn szadek_replaces_player_combat_damage_with_mill_and_source_counters() {
     }
 
     println!("szadek_red_event_log={:?}", game.canonical_event_log());
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::CombatDamageReplacedWithMillAndCounters {
+            source,
+            player: PlayerId(1),
+            amount: 5,
+            ..
+        } if *source == szadek
+    )));
     assert_eq!(
         game.player(PlayerId(1)).expect("opponent exists").life,
         20,
@@ -58,6 +71,15 @@ fn szadek_replaces_player_combat_damage_with_mill_and_source_counters() {
         Some(10),
         "the source receives one +1/+1 counter per replaced damage"
     );
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::CounterPlaced {
+            source,
+            card,
+            counter: CounterKind::PlusOnePlusOne,
+            amount: 5,
+        } if *source == szadek && *card == szadek
+    )));
     assert!(
         !game.event_log.iter().any(|event| matches!(
             event,
@@ -67,13 +89,13 @@ fn szadek_replaces_player_combat_damage_with_mill_and_source_counters() {
         "the original player-damage receipt must not survive the replacement"
     );
     assert!(
-        RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&definition.id),
-        "Szadek needs its combat-damage replacement before it is fidelity-complete"
+        !RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&definition.id),
+        "automatic replacement ordering remains outside this bounded slice"
     );
     assert!(
         definition
             .supported_rules
-            .contains(&"replace-player-combat-damage-with-mill-and-counters"),
+            .contains(&"combat-player-damage-mill-and-counter-replacement"),
         "the replacement must be declared rather than approximated as ordinary damage"
     );
     game.validate_invariants()

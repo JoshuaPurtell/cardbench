@@ -10910,6 +10910,7 @@ impl Game {
         Self::validate_source_counter_life_loss_event_order(&self.event_log)?;
         self.validate_replacement_effect_events()?;
         self.validate_damage_amount_replacement_events()?;
+        self.validate_combat_damage_mill_counter_replacement_events()?;
         self.validate_global_combat_damage_prevention_event_order()?;
         if self.started && !self.is_game_over() && !self.step.grants_priority() {
             return Err(RulesError::IllegalAction(
@@ -18414,6 +18415,9 @@ impl Game {
         player: PlayerId,
         amount: i32,
     ) -> Result<(), RulesError> {
+        if self.replace_source_combat_damage_to_player(source, player, amount)? {
+            return Ok(());
+        }
         if let Some(prevented_by) = self.combat_damage_prevented_by(source) {
             self.record_event(GameEvent::CombatDamagePrevented {
                 source,
@@ -18424,6 +18428,57 @@ impl Game {
             return Ok(());
         }
         self.deal_damage_to_player(source, player, amount)
+    }
+
+    /// Applies the source-bound combat replacement shared by cards whose
+    /// combat damage to a player becomes a mill-and-counter event. It occurs
+    /// before ordinary damage commitment, so no player-damage receipt or
+    /// damage trigger can observe a packet that was replaced.
+    fn replace_source_combat_damage_to_player(
+        &mut self,
+        source: ObjectId,
+        player: PlayerId,
+        amount: i32,
+    ) -> Result<bool, RulesError> {
+        if amount <= 0 || self.zone_of(source) != Some(Zone::Battlefield) {
+            return Ok(false);
+        }
+        let Some(definition) = self.effective_definition_id(source)? else {
+            return Ok(false);
+        };
+        if !self
+            .damage_replacement_effects
+            .get(definition)
+            .is_some_and(|effects| {
+                effects.contains(
+                    &DamageReplacementEffect::ReplaceCombatDamageToPlayerWithMillAndCounters,
+                )
+            })
+        {
+            return Ok(false);
+        }
+        let amount_i16 = i16::try_from(amount).map_err(|_| {
+            RulesError::IllegalAction("combat damage replacement amount exceeds counter capacity")
+        })?;
+        let source_incarnation = self.object(source)?.incarnation;
+        let cards = self.players[player.0]
+            .library
+            .iter()
+            .rev()
+            .take(usize::try_from(amount).expect("positive i32 fits usize"))
+            .copied()
+            .collect::<Vec<_>>();
+        self.record_event(GameEvent::CombatDamageReplacedWithMillAndCounters {
+            source,
+            source_incarnation,
+            player,
+            amount,
+        });
+        for card in cards {
+            self.move_to_zone(card, Zone::Graveyard)?;
+        }
+        self.place_counter(source, source, CounterKind::PlusOnePlusOne, amount_i16)?;
+        Ok(true)
     }
 
     #[allow(clippy::too_many_lines)] // Damage replacement and receipt ordering share one transaction.
@@ -26238,6 +26293,82 @@ impl Game {
             {
                 return Err(RulesError::IllegalAction(
                     "damage amount replacement receipt does not match a registered source effect",
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// Audits a combat-only player-damage replacement whose consequences are
+    /// card movements and a source counter placement rather than an ordinary
+    /// damage receipt. The source's current incarnation is retained in the
+    /// replacement receipt, and the counter receipt must follow before any
+    /// later same-source player-damage event can appear in a replay.
+    fn validate_combat_damage_mill_counter_replacement_events(&self) -> Result<(), RulesError> {
+        for (index, event) in self.event_log.iter().enumerate() {
+            let GameEvent::CombatDamageReplacedWithMillAndCounters {
+                source,
+                source_incarnation,
+                player,
+                amount,
+            } = event
+            else {
+                continue;
+            };
+            if *source_incarnation == 0 || *amount <= 0 || self.player(*player)?.lost {
+                return Err(RulesError::IllegalAction(
+                    "combat mill-and-counter replacement receipt has invalid provenance",
+                ));
+            }
+            let definition = self
+                .objects
+                .get(source)
+                .and_then(CardObject::effective_definition)
+                .or_else(|| self.departed_card_definitions.get(source).copied())
+                .ok_or(RulesError::IllegalAction(
+                    "combat mill-and-counter replacement source has no catalog definition",
+                ))?;
+            if !self
+                .damage_replacement_effects
+                .get(definition)
+                .is_some_and(|effects| {
+                    effects.contains(
+                        &DamageReplacementEffect::ReplaceCombatDamageToPlayerWithMillAndCounters,
+                    )
+                })
+            {
+                return Err(RulesError::IllegalAction(
+                    "combat mill-and-counter replacement receipt lacks registered source effect",
+                ));
+            }
+            let following = &self.event_log[index + 1..];
+            let Some(counter_offset) = following.iter().position(|following_event| {
+                matches!(
+                    following_event,
+                    GameEvent::CounterPlaced {
+                        source: counter_source,
+                        card,
+                        counter: CounterKind::PlusOnePlusOne,
+                        amount: counter_amount,
+                    } if counter_source == source && card == source && *counter_amount >= i16::try_from(*amount).unwrap_or(i16::MAX)
+                )
+            }) else {
+                return Err(RulesError::IllegalAction(
+                    "combat mill-and-counter replacement receipt lacks source counter placement",
+                ));
+            };
+            if following[..counter_offset].iter().any(|following_event| {
+                matches!(
+                    following_event,
+                    GameEvent::DamageDealtToPlayer {
+                        source: damage_source,
+                        player: damage_player,
+                        ..
+                    } if damage_source == source && damage_player == player
+                )
+            }) {
+                return Err(RulesError::IllegalAction(
+                    "combat replacement emitted an ordinary player-damage receipt",
                 ));
             }
         }

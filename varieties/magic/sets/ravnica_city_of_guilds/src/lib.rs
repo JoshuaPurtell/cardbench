@@ -554,11 +554,7 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Creature]),
             is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colored-cost-casting",
-                "dynamic-controlled-creature-count",
-            ],
+            supported_rules: &["colored-cost-casting", "dynamic-controlled-creature-count"],
             power: Some(0),
             toughness: Some(0),
             keywords: vec![],
@@ -3356,9 +3352,9 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Flying],
             effects: vec![],
         },
-        // Compatibility scope: normal colored-cost creature casting, base
-        // characteristics, and static Flying. Szadek's combat-damage mill and
-        // counter trigger remains separate engine work and is not approximated.
+        // Compatibility scope: a source-bound combat replacement converts
+        // player damage into immediate library movement and source counters.
+        // Competing replacement ordering remains a policy/infrastructure gap.
         CardDefinition {
             id: "RAV-SZADEK",
             name: "Szadek, Lord of Secrets",
@@ -3371,7 +3367,13 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Creature]),
             is_basic_land: false,
-            supported_rules: &["colored-cost-casting", "base-characteristics", "flying"],
+            supported_rules: &[
+                "colored-cost-casting",
+                "base-characteristics",
+                "flying",
+                "combat-player-damage-mill-and-counter-replacement",
+                "automatic-replacement-order-compatibility",
+            ],
             power: Some(5),
             toughness: Some(5),
             keywords: vec![Keyword::Flying],
@@ -8722,10 +8724,16 @@ pub fn rav_replacement_effect_bindings() -> Vec<ReplacementEffectBinding> {
 /// damage packet; this registry supplies only expansion-owned definition data.
 #[must_use]
 pub fn rav_damage_replacement_effect_bindings() -> Vec<DamageReplacementEffectBinding> {
-    vec![DamageReplacementEffectBinding {
-        source_definition: "RAV-GHOSTS-OF-THE-INNOCENT",
-        effect: DamageReplacementEffect::HalveDamage,
-    }]
+    vec![
+        DamageReplacementEffectBinding {
+            source_definition: "RAV-GHOSTS-OF-THE-INNOCENT",
+            effect: DamageReplacementEffect::HalveDamage,
+        },
+        DamageReplacementEffectBinding {
+            source_definition: "RAV-SZADEK",
+            effect: DamageReplacementEffect::ReplaceCombatDamageToPlayerWithMillAndCounters,
+        },
+    ]
 }
 
 fn signet_binding(
@@ -9371,6 +9379,7 @@ fn fresh_game() -> Result<Game, RulesError> {
     game.register_generalized_activated_ability_cost_bindings(
         rav_generalized_activated_ability_cost_bindings(),
     )?;
+    game.register_damage_replacement_effect_bindings(rav_damage_replacement_effect_bindings())?;
     Ok(game)
 }
 
@@ -9550,7 +9559,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 181);
+        assert_eq!(first.len(), 182);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

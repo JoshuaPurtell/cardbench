@@ -12572,3 +12572,123 @@ stack_size = 0
 priority = 0
 event_markers = ["AttackersDeclared", "BlockersDeclared", "DecisionOpened", "CombatDamageOrderChosen", "DamageDealtToPermanent", "DamageDealtToPlayer", "StateBasedAction"]
 digest = "fnv1a64:7aa8298b399408df"
+[[scenario]]
+id = "rav_szadek_combat_mill_replacement"
+seed = 0
+description = "An unblocked long-controlled Szadek replaces five combat damage to a player with five library-to-graveyard moves and five source counters."
+
+[[scenario.card]]
+label = "szadek"
+owner = 0
+definition = "RAV-SZADEK"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.card]]
+label = "mill_one"
+owner = 1
+definition = "RAV-FOREST"
+zone = "library"
+
+[[scenario.card]]
+label = "mill_two"
+owner = 1
+definition = "RAV-FOREST"
+zone = "library"
+
+[[scenario.card]]
+label = "mill_three"
+owner = 1
+definition = "RAV-FOREST"
+zone = "library"
+
+[[scenario.card]]
+label = "mill_four"
+owner = 1
+definition = "RAV-FOREST"
+zone = "library"
+
+[[scenario.card]]
+label = "mill_five"
+owner = 1
+definition = "RAV-FOREST"
+zone = "library"
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "declare_attackers"
+player = 0
+attackers = ["szadek"]
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "declare_blockers"
+player = 1
+attackers = []
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+life = [20, 20]
+zones = ["szadek:battlefield", "mill_one:graveyard", "mill_two:graveyard", "mill_three:graveyard", "mill_four:graveyard", "mill_five:graveyard"]
+powers = ["szadek:10"]
+toughnesses = ["szadek:10"]
+event_markers = ["CombatDamageReplacedWithMillAndCounters", "CounterPlaced"]
+event_absent = ["DamageDealtToPlayer"]
+digest = "fnv1a64:54380ee83ff17cf9"

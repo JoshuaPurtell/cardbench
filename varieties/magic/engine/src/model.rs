@@ -790,6 +790,10 @@ pub struct ReplacementEffectBinding {
 pub enum DamageReplacementEffect {
     /// Replace positive damage with its integer half, rounded down.
     HalveDamage,
+    /// Replace this source's combat damage to a player with milling that
+    /// player and placing that many +1/+1 counters on the source. This is a
+    /// source-bound combat replacement, not a delayed damage trigger.
+    ReplaceCombatDamageToPlayerWithMillAndCounters,
 }
 
 /// Registers one expansion-owned damage-amount replacement for every live
@@ -4911,6 +4915,16 @@ pub enum GameEvent {
         replacement_source_incarnation: u64,
         original_amount: i32,
         replacement_amount: i32,
+    },
+    /// A source-bound combat-damage replacement prevented an otherwise
+    /// positive player-damage packet and performed its immediate non-damage
+    /// consequences. The ordinary `CardMoved` and `CounterPlaced` receipts
+    /// that follow remain the authoritative zone and counter mutations.
+    CombatDamageReplacedWithMillAndCounters {
+        source: ObjectId,
+        source_incarnation: u64,
+        player: PlayerId,
+        amount: i32,
     },
     DamagePrevented {
         source: ObjectId,
