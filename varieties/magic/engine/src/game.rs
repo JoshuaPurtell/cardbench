@@ -10680,6 +10680,40 @@ impl Game {
                     Ok(())
                 })?;
             }
+            TriggeredEffectObjectDecisionKind::SacrificeCreatureOrCounterTargetSpell {
+                target_spell,
+            } => {
+                self.complete_pending_decision(decision)?;
+                self.finish_trigger_effect_object_choice(source, ability, |game| {
+                    if !game.stack.iter().any(|item| {
+                        item.card == *target_spell && item.ability_id.is_none()
+                    }) {
+                        return Err(RulesError::IllegalAction(
+                            "Blood Funnel sacrifice choice lost its retained spell",
+                        ));
+                    }
+                    let permanent = selected.ok_or(RulesError::IllegalAction(
+                        "Blood Funnel sacrifice choice requires one creature",
+                    ))?;
+                    if game.zone_of(permanent) != Some(Zone::Battlefield)
+                        || game.controller_of(permanent)? != player
+                        || !game
+                            .characteristics(permanent)?
+                            .card_types
+                            .contains(&CardType::Creature)
+                    {
+                        return Err(RulesError::IllegalAction(
+                            "Blood Funnel chosen sacrifice is no longer a controlled creature",
+                        ));
+                    }
+                    game.record_event(GameEvent::SacrificedByEffect {
+                        source,
+                        player,
+                        permanent,
+                    });
+                    game.move_to_graveyard_or_remove_token(permanent)
+                })?;
+            }
             TriggeredEffectObjectDecisionKind::SacrificeCapturedPlayerCreature {
                 player: captured_player,
             } => {
@@ -19058,6 +19092,16 @@ impl Game {
             [Effect::SacrificeControllerCreature] => {
                 TriggeredEffectObjectDecisionKind::SacrificeControllerCreature
             }
+            [Effect::SacrificeCreatureOrCounterTargetSpell] => {
+                let [Target::Spell(target_spell)] = top.targets.as_slice() else {
+                    return Err(RulesError::IllegalAction(
+                        "sacrifice-or-counter trigger lacks its retained noncreature spell",
+                    ));
+                };
+                TriggeredEffectObjectDecisionKind::SacrificeCreatureOrCounterTargetSpell {
+                    target_spell: *target_spell,
+                }
+            }
             [Effect::SacrificeCapturedPlayerCreature { player }] => {
                 TriggeredEffectObjectDecisionKind::SacrificeCapturedPlayerCreature {
                     player: *player,
@@ -19086,6 +19130,7 @@ impl Game {
                 "a continuing game has no player for trigger discard choice",
             ))?,
             TriggeredEffectObjectDecisionKind::SacrificeControllerCreature
+            | TriggeredEffectObjectDecisionKind::SacrificeCreatureOrCounterTargetSpell { .. }
             | TriggeredEffectObjectDecisionKind::ReturnAnotherControlledPermanentSharingEnteredCardTypes { .. } => top.controller,
             TriggeredEffectObjectDecisionKind::SacrificeCapturedPlayerCreature { player } => *player,
             TriggeredEffectObjectDecisionKind::SacrificeCapturedPlayerUntappedLand { player } => {
@@ -19097,6 +19142,7 @@ impl Game {
                 self.players[chooser.0].hand.clone()
             }
             TriggeredEffectObjectDecisionKind::SacrificeControllerCreature
+            | TriggeredEffectObjectDecisionKind::SacrificeCreatureOrCounterTargetSpell { .. }
             | TriggeredEffectObjectDecisionKind::SacrificeCapturedPlayerCreature { .. } => self
                 .all_battlefield_cards()
                 .into_iter()
@@ -19134,14 +19180,15 @@ impl Game {
             && matches!(
                 kind,
                 TriggeredEffectObjectDecisionKind::SacrificeControllerCreature
+                    | TriggeredEffectObjectDecisionKind::SacrificeCreatureOrCounterTargetSpell { .. }
                     | TriggeredEffectObjectDecisionKind::SacrificeCapturedPlayerCreature { .. }
                     | TriggeredEffectObjectDecisionKind::SacrificeCapturedPlayerUntappedLand { .. }
             )
         {
-            // A mandatory sacrifice with no legal permanent is a normal
-            // no-op. Do not suspend the stack behind a zero-option policy
-            // prompt; the direct resolver records the ordinary ability
-            // terminal receipt without fabricating a selection.
+            // A mandatory sacrifice with no legal permanent does not open a
+            // zero-option policy prompt. The direct resolver either records
+            // the ordinary no-op or (for sacrifice-or-counter) counters the
+            // retained spell before its terminal ability receipt.
             return Ok(false);
         }
         let (min_selections, max_selections) = match &kind {
@@ -19158,6 +19205,7 @@ impl Game {
                     DecisionVisibility::Private
                 }
                 TriggeredEffectObjectDecisionKind::SacrificeControllerCreature
+                | TriggeredEffectObjectDecisionKind::SacrificeCreatureOrCounterTargetSpell { .. }
                 | TriggeredEffectObjectDecisionKind::SacrificeCapturedPlayerCreature { .. }
                 | TriggeredEffectObjectDecisionKind::SacrificeCapturedPlayerUntappedLand { .. }
                 | TriggeredEffectObjectDecisionKind::ReturnAnotherControlledPermanentSharingEnteredCardTypes { .. } => {
@@ -30817,6 +30865,30 @@ impl Game {
                             top.effects.as_slice(),
                             [Effect::SacrificeControllerCreature]
                         ),
+                    ),
+                    TriggeredEffectObjectDecisionKind::SacrificeCreatureOrCounterTargetSpell {
+                        target_spell,
+                    } => (
+                        self.all_battlefield_cards()
+                            .into_iter()
+                            .filter(|card| {
+                                self.controller_of(*card)
+                                    .is_ok_and(|controller| controller == decision.player)
+                                    && self.characteristics(*card).is_ok_and(|characteristics| {
+                                        characteristics.card_types.contains(&CardType::Creature)
+                                    })
+                            })
+                            .map(DecisionOption::Object)
+                            .collect::<Vec<_>>(),
+                        DecisionVisibility::Public,
+                        self.target_matches_for_controller(
+                            *controller,
+                            Target::Spell(*target_spell),
+                            TargetRequirement::NoncreatureSpell,
+                        ) && matches!(
+                            top.effects.as_slice(),
+                            [Effect::SacrificeCreatureOrCounterTargetSpell]
+                        ) && matches!(top.targets.as_slice(), [Target::Spell(stack_target)] if stack_target == target_spell),
                     ),
                     TriggeredEffectObjectDecisionKind::SacrificeCapturedPlayerCreature {
                         player,

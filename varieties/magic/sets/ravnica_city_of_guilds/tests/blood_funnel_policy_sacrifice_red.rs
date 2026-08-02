@@ -1,6 +1,8 @@
 //! Red regression for Blood Funnel's controller-selected sacrifice branch.
 
-use cardbench_magic_engine::{CastRequest, Color, DecisionKind, Game, PlayerId, Target, Zone};
+use cardbench_magic_engine::{
+    CastRequest, Color, DecisionKind, DecisionSelection, Game, GameEvent, PlayerId, Target, Zone,
+};
 use cardbench_magic_rav::{
     card_definitions, rav_activated_ability_bindings, rav_additional_spell_cost_bindings,
     rav_basic_land_type_bindings, rav_cost_reduction_bindings, rav_mana_ability_bindings,
@@ -74,4 +76,25 @@ fn blood_funnel_controller_chooses_which_creature_to_sacrifice() {
         vec![first, chosen, target],
         "all and only controller creatures are selectable"
     );
+    game.submit_decision(
+        PlayerId(0),
+        decision.id,
+        DecisionSelection::Objects(vec![chosen]),
+    )
+    .expect("controller chooses the second creature rather than the first");
+
+    println!(
+        "Blood Funnel selected-sacrifice trace: {:?}",
+        game.canonical_event_log()
+    );
+    assert_eq!(game.zone_of(first), Some(Zone::Battlefield));
+    assert_eq!(game.zone_of(chosen), Some(Zone::Graveyard));
+    assert_eq!(game.zone_of(target), Some(Zone::Battlefield));
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::SacrificedByEffect { player, permanent, .. }
+            if *player == PlayerId(0) && *permanent == chosen
+    )));
+    game.validate_invariants()
+        .expect("Blood Funnel selected sacrifice preserves invariants");
 }

@@ -3753,6 +3753,12 @@ pub enum TriggeredEffectObjectDecisionKind {
         selected: Vec<(PlayerId, ObjectId)>,
     },
     SacrificeControllerCreature,
+    /// The controller of a resolving trigger chooses one controlled creature
+    /// to sacrifice; if none existed at the opening boundary, the retained
+    /// spell object is countered by the direct effect resolver instead.
+    SacrificeCreatureOrCounterTargetSpell {
+        target_spell: ObjectId,
+    },
     /// The captured upkeep player selects one currently controlled creature
     /// (or submits no object when none are legal). This identity is stored in
     /// the continuation rather than read from a later active-player field.

@@ -44,7 +44,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 247] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 248] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
@@ -53,6 +53,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 247] = [
     "RAV-PERILOUS-FORAYS",
     "RAV-SEARING-MEDITATION",
     "RAV-BLOCKBUSTER",
+    "RAV-BLOOD-FUNNEL",
     "RAV-PEREGRINE-MASK",
     "RAV-VOYAGER-STAFF",
     "RAV-SPECTRAL-SEARCHLIGHT",
@@ -413,12 +414,10 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 },
             ],
         },
-        // Bounded fidelity: the live source reduces only generic cost on
-        // noncreature spells, then its retained spell target is
-        // sacrificed-for or countered on the stack. The controller's creature
-        // selection remains a policy choice gap, so fixture execution uses
-        // stable battlefield order and this definition stays outside the
-        // positive full-fidelity manifest.
+        // Full fidelity: a live source reduces only generic cost on
+        // noncreature spells, then its retained spell target is sacrificed-for
+        // or countered on the stack. The trigger suspends for the source
+        // controller's mandatory public creature selection when one exists.
         CardDefinition {
             id: "RAV-BLOOD-FUNNEL",
             name: "Blood Funnel",
@@ -429,8 +428,10 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             card_types: types([CardType::Enchantment]),
             is_basic_land: false,
             supported_rules: &[
+                "full-rules-fidelity",
                 "noncreature-generic-cost-reduction",
                 "cast-sacrifice-or-counter-trigger",
+                "controller-selected-sacrifice-or-counter",
             ],
             power: None,
             toughness: None,

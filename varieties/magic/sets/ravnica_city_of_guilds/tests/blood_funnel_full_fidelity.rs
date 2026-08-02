@@ -1,6 +1,8 @@
-//! Compatibility contract for Blood Funnel's cost and cast-trigger substrate.
+//! Full-fidelity contract for Blood Funnel's cost and cast-trigger substrate.
 
-use cardbench_magic_engine::{CastRequest, Color, Game, GameEvent, PlayerId, Target, Zone};
+use cardbench_magic_engine::{
+    CastRequest, Color, DecisionKind, DecisionSelection, Game, GameEvent, PlayerId, Target, Zone,
+};
 use cardbench_magic_rav::{
     RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, rav_activated_ability_bindings,
     rav_additional_spell_cost_bindings, rav_basic_land_type_bindings, rav_cost_reduction_bindings,
@@ -55,7 +57,19 @@ fn noncreature_cast_is_reduced_and_trigger_sacrifices_before_spell_resolution() 
     game.pass_priority(PlayerId(0))
         .expect("caster passes trigger");
     game.pass_priority(PlayerId(1))
-        .expect("trigger resolves first");
+        .expect("trigger opens its controller choice");
+    let decision = game
+        .view_for_player(PlayerId(0))
+        .expect("Blood Funnel controller view")
+        .pending_decision
+        .expect("a controlled creature choice opens");
+    assert_eq!(decision.kind, DecisionKind::TriggeredEffectObject);
+    game.submit_decision(
+        PlayerId(0),
+        decision.id,
+        DecisionSelection::Objects(vec![fodder]),
+    )
+    .expect("controller sacrifices the selected creature");
     assert_eq!(game.zone_of(fodder), Some(Zone::Graveyard));
     assert_eq!(
         game.stack.len(),
@@ -127,8 +141,8 @@ fn noncreature_cast_without_a_creature_is_countered_by_its_own_trigger() {
 #[test]
 fn creature_cast_is_not_reduced_or_triggered() {
     assert!(
-        !RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&"RAV-BLOOD-FUNNEL"),
-        "the deterministic sacrifice selection remains an explicit policy gap"
+        RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&"RAV-BLOOD-FUNNEL"),
+        "the controller-selected sacrifice trigger completes Blood Funnel"
     );
     let mut game = game_with_funnel_rules();
     let funnel = game
