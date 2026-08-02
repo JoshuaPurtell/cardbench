@@ -1401,6 +1401,9 @@ pub enum TargetRequirement {
     /// qualification stays in `Game` so this target remains reusable by other
     /// expansions.
     OwnGraveyardCard,
+    /// Any card in a public graveyard. Unlike `OwnGraveyardCard`, this never
+    /// constrains the card owner to the resolving source's controller.
+    GraveyardCard,
     /// A creature card in the resolving source controller's graveyard. This
     /// keeps graveyard-recursion effects from accepting an arbitrary spell or
     /// land card merely because it shares the controller's graveyard.
@@ -2253,6 +2256,10 @@ pub enum Effect {
     /// uses the ordinary owner-preserving zone lifecycle rather than a
     /// controller-relative library mutation.
     PutTargetCreatureOnOwnersLibraryTop,
+    /// Put one targeted public graveyard card on the bottom of its owner's
+    /// library. The target retains its exact graveyard incarnation while the
+    /// stack item waits to resolve.
+    PutTargetGraveyardCardOnOwnersLibraryBottom,
     /// Return the resolving source object to its owner's hand only while the
     /// exact incarnation that created the stack object remains on the
     /// battlefield. This is a resolution instruction, not an activation cost:
@@ -2419,6 +2426,9 @@ impl Effect {
             | Self::UntapTargetPermanent
             | Self::GainControlTargetUntilEndOfTurn => Some(TargetRequirement::Permanent),
             Self::ReturnTargetCardToHand => Some(TargetRequirement::OwnGraveyardCard),
+            Self::PutTargetGraveyardCardOnOwnersLibraryBottom => {
+                Some(TargetRequirement::GraveyardCard)
+            }
             Self::ReturnTargetEnchantmentCardToHand => {
                 Some(TargetRequirement::EnchantmentCardInControllerGraveyard)
             }

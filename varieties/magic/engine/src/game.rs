@@ -12019,6 +12019,7 @@ impl Game {
                 | Effect::ReturnControlledLandToHand
                 | Effect::ReturnOpponentCreatureToHand
                 | Effect::PutTargetCreatureOnOwnersLibraryTop
+                | Effect::PutTargetGraveyardCardOnOwnersLibraryBottom
                 | Effect::ReturnSourceToOwnersHand
                 | Effect::MoveSourceToOwnersLibraryAndShuffle
                 | Effect::ModifyControllerCreaturesPtUntilEndOfTurn { .. }
@@ -17602,6 +17603,28 @@ impl Game {
                 // while expiring layers, attachments, and stale identities.
                 self.move_to_zone(target, Zone::Library)?;
             }
+            Effect::PutTargetGraveyardCardOnOwnersLibraryBottom => {
+                let target = Self::target_permanent(target)?;
+                if !self.target_matches(Target::Permanent(target), TargetRequirement::GraveyardCard)
+                {
+                    return Err(RulesError::IllegalTarget(Target::Permanent(target)));
+                }
+                let owner = self.object(target)?.owner;
+                self.move_to_zone(target, Zone::Library)?;
+                // The ordinary zone mover uses the final library slot as the
+                // draw top. It must have placed this exact card at that slot;
+                // only then move it below every pre-existing library card.
+                let library = &mut self.players[owner.0].library;
+                let moved = library.pop().ok_or(RulesError::IllegalAction(
+                    "graveyard card disappeared from its owner's library during bottom move",
+                ))?;
+                if moved != target {
+                    return Err(RulesError::IllegalAction(
+                        "graveyard card bottom move disturbed an unrelated library card",
+                    ));
+                }
+                library.insert(0, target);
+            }
             Effect::ReturnSourceToOwnersHand => {
                 // A resolving ability uses last-known source identity. If its
                 // source left and re-entered, the new permanent is not the
@@ -17802,9 +17825,10 @@ impl Game {
                         characteristics.card_types.contains(&CardType::Enchantment)
                     })
             }
-            (Target::Permanent(card), TargetRequirement::OwnGraveyardCard) => {
-                self.zone_of(card) == Some(Zone::Graveyard)
-            }
+            (
+                Target::Permanent(card),
+                TargetRequirement::OwnGraveyardCard | TargetRequirement::GraveyardCard,
+            ) => self.zone_of(card) == Some(Zone::Graveyard),
             (Target::Permanent(card), TargetRequirement::CreatureCardInControllerGraveyard) => {
                 self.zone_of(card) == Some(Zone::Graveyard)
                     && self
@@ -18044,6 +18068,7 @@ impl Game {
                     | TargetRequirement::ArtifactOrCreature
                     | TargetRequirement::ArtifactOrEnchantment
                     | TargetRequirement::OwnGraveyardCard
+                    | TargetRequirement::GraveyardCard
                     | TargetRequirement::CreatureCardInControllerGraveyard
                     | TargetRequirement::EnchantmentCardInControllerGraveyard
                     | TargetRequirement::InstantOrSorceryCardInControllerGraveyard
