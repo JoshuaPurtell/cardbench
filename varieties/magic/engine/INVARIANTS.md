@@ -827,16 +827,23 @@ Oracle Magic rules coverage.
   sources controlled by the affected player apply. Every candidate and
   `ReplacementEffectApplied` receipt records the source's exact positive
   incarnation; the same source incarnation/effect cannot apply twice to one
-  prospective event. One-effect stack token/counter instructions with two or
-  more live candidates open a public `DecisionKind::Replacement` boundary for
-  the affected player. The submitted option is revalidated, applied once, and
-  candidates are recomputed; a fresh monotonic decision id opens only while
-  two or more choices remain, while one remaining candidate applies without a
-  prompt. `DecisionCompleted`/`DecisionOpened` and a submitted policy receipt
-  may appear between causal replacement receipts, but the replay audit still
-  requires a finite same-event chain ending in exactly the resulting
-  `TokenCreated` batch or `CounterPlaced` receipt. Direct non-suspended helper
-  paths use the same live candidate/application logic in stable order.
+  prospective event. Any stack token/counter instruction with two or more
+  live candidates—whether it is the first, middle, or final instruction—opens
+  a public `DecisionKind::Replacement` boundary for the affected player. The
+  immutable stack effect list and target occurrences remain the cast-time
+  provenance source; a private nonzero `StackObjectId → effect_index` cursor
+  is valid only for that live top stack item and matching
+  `QuantityReplacement` continuation. It executes the already-resolved prefix
+  exactly once, holds priority closed while the current replacement is chosen,
+  and resumes only the unresolved suffix. The submitted option is revalidated,
+  applied once, and candidates are recomputed; a fresh monotonic decision id
+  opens only while two or more choices remain, while one remaining candidate
+  applies without a prompt. `DecisionCompleted`/`DecisionOpened` and a
+  submitted policy receipt may appear between causal replacement receipts, but
+  the replay audit still requires a finite same-event chain ending in exactly
+  the resulting `TokenCreated` batch or `CounterPlaced` receipt. Direct
+  non-suspended helper paths use the same live candidate/application logic in
+  stable order.
 - A `DistinctCreature` target slot must name a creature permanent and may not
   reuse any other distinct-creature occurrence in the same spell. The cast
   validator and the stack-provenance audit both reject a duplicate before any
