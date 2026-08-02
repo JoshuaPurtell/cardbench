@@ -59,7 +59,10 @@ fn public_scenario_preserves_unblockable_declaration_provenance() {
         "Dimir Infiltrator compatibility trace: {:?}",
         trace.event_log
     );
-    assert_eq!(trace.digest, "fnv1a64:b7486c2626e10b80");
+    assert_eq!(
+        trace.digest, "fnv1a64:b7486c2626e10b80",
+        "the Rust contract must track the checked-in public scenario digest"
+    );
     assert!(
         trace
             .event_log
