@@ -8687,7 +8687,7 @@ digest = "fnv1a64:1dcdb2289fdaa917"
 [[scenario]]
 id = "rav_vulturous_zombie_flying_compatibility"
 seed = 50
-description = "Declare Vulturous Zombie as a Flying attacker, then reject a ground creature's block declaration; its graveyard-triggered counter behavior remains unsupported."
+description = "Declare Vulturous Zombie as a Flying attacker, then reject a ground creature's block declaration; its full opponent-graveyard trigger is covered by a focused Rust event-log contract."
 
 [[scenario.card]]
 label = "zombie"

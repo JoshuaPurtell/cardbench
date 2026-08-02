@@ -493,11 +493,11 @@ subsequent state-based action.
 
 The following bounded keyword wave adds the static Defender slice for Torpid
 Moloch and the static Flying slices for Belltower Sphinx, Screeching Griffin,
-Tattered Drake, and Vulturous Zombie. Their trigger, activation, regeneration,
-damage-triggered destruction, and graveyard-triggered counter behavior remains
-outside the executable scope, so each has a focused compatibility trace plus an
-ignored full-fidelity probe rather than a positive-manifest claim. Stinkweed Imp
-has since graduated separately through the exact combat-damage trigger substrate.
+and Tattered Drake. Their trigger, activation, regeneration, and
+damage-triggered destruction behavior remains outside the executable scope, so
+each has a focused compatibility trace plus an ignored full-fidelity probe rather
+than a positive-manifest claim. Stinkweed Imp has since graduated separately
+through the exact combat-damage trigger substrate.
 
 Woebringer Demon is now a positive-manifest entry. Its beginning-of-each-upkeep
 trigger captures the active player at the upkeep boundary, opens that player's
@@ -506,6 +506,13 @@ selected permanent's sacrifice and zone transition before the terminal ability
 receipt. The shown trace exercises the controller's upkeep; the focused Rust
 trace separately confirms that an opponent, rather than the Demon controller,
 owns the choice on that opponent's upkeep.
+
+Vulturous Zombie is also a positive-manifest entry. Its battlefield observer
+uses the shared opponent-graveyard transition condition, so an opponent-owned
+discard, mill, destruction, countered spell, or paid cost can queue one ordinary
+source counter trigger. The focused Rust trace exercises the private-discard
+case and records the normal stack, priority, counter, and terminal receipts;
+the invariant audit checks the same cross-player provenance.
 
 Carven Caryatid's full trigger binding is published through
 `rav_triggered_ability_bindings`; its focused traces cover both the ordinary
