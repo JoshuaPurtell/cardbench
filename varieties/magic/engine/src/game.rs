@@ -12937,8 +12937,6 @@ impl Game {
                     || block.blocker.0 == 0
                     || block.blocker_incarnation == 0
                     || block.attacker == block.blocker
-                    || !self.objects.contains_key(&block.attacker)
-                    || !self.objects.contains_key(&block.blocker)
             }) {
                 return Err(RulesError::IllegalAction(
                     "combat block history has invalid exact-incarnation provenance",
@@ -12947,12 +12945,13 @@ impl Game {
             for (attacker, assigned_blockers) in &combat.blockers {
                 for blocker in assigned_blockers {
                     let attacker_incarnation = self.object(*attacker)?.incarnation;
-                    let blocker_incarnation = self.object(*blocker)?.incarnation;
-                    let has_live_history = combat.block_history.contains(&CombatBlockHistory {
-                        attacker: *attacker,
-                        attacker_incarnation,
-                        blocker: *blocker,
-                        blocker_incarnation,
+                    let has_live_history = self.object(*blocker).ok().is_some_and(|object| {
+                        combat.block_history.contains(&CombatBlockHistory {
+                            attacker: *attacker,
+                            attacker_incarnation,
+                            blocker: *blocker,
+                            blocker_incarnation: object.incarnation,
+                        })
                     });
                     // A blocker that died or regenerated remains in the
                     // assignment vector until combat ends, but its current
