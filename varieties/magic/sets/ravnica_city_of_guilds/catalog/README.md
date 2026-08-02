@@ -173,6 +173,12 @@ moves to its owner's library top after its historical battlefield incarnation di
 The checked-in definitions and public scenarios make every remaining omission
 visible without reproducing card rules text.
 
+Farseek is a positive-manifest entry: its typed non-Forest land search is a
+controller-private policy decision, so a legal Island or Plains selection is
+captured before the tapped battlefield move, shuffle, and terminal resolution.
+The public scenario and focused Rust contracts retain that private decision
+boundary without copying card rules text.
+
 The generic-keyword coverage batch for Conclave Phalanx, Golgari Grave-Troll,
 Necroplasm, Grave-Shell Scarab, Shambling Shell, and Autochthon Wurm follows
 the same fail-closed boundary. Each
