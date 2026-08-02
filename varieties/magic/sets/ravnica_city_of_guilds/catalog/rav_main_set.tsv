@@ -54,7 +54,7 @@
 46	Drift of Phantasms	executable:RAV-DRIFT-OF-PHANTASMS
 47	Ethereal Usher	executable:RAV-ETHEREAL-USHER
 48	Eye of the Storm
-49	Flight of Fancy
+49	Flight of Fancy	executable:RAV-FLIGHT-OF-FANCY
 50	Flow of Ideas
 51	Followed Footsteps
 52	Grayscaled Gharial	executable:RAV-GRAYSCALED-GHARIAL
@@ -79,7 +79,7 @@
 71	Tidewater Minion
 72	Tunnel Vision
 73	Vedalken Dismisser	executable:RAV-VEDALKEN-DISMISSER
-74	Vedalken Entrancer
+74	Vedalken Entrancer	executable:RAV-VEDALKEN-ENTRANCER
 75	Wizened Snitches
 76	Zephyr Spirit	executable:RAV-ZEPHYR-SPIRIT
 77	Blood Funnel	executable:RAV-BLOOD-FUNNEL

@@ -2,9 +2,7 @@
 
 use std::collections::BTreeSet;
 
-use cardbench_magic_engine::{
-    CardType, Color, Effect, Keyword, ManaCost, TargetRequirement,
-};
+use cardbench_magic_engine::{CardType, Color, Effect, Keyword, ManaCost, TargetRequirement};
 use cardbench_magic_rav::{
     RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, rav_activated_ability_bindings,
 };
@@ -35,8 +33,14 @@ fn vedalken_entrancer_requires_tap_mana_target_player_mill_two_activation() {
         .find(|binding| binding.card_definition == "RAV-VEDALKEN-ENTRANCER")
         .expect("Vedalken Entrancer mill binding exists");
     assert_eq!(binding.ability.id, "tap-blue-mill-two");
-    assert_eq!(binding.ability.mana_cost, ManaCost::with_colors(0, [Color::Blue]));
+    assert_eq!(
+        binding.ability.mana_cost,
+        ManaCost::with_colors(0, [Color::Blue])
+    );
     assert!(binding.ability.tap_cost);
     assert_eq!(binding.ability.targets, [TargetRequirement::Player]);
-    assert_eq!(binding.ability.effects, [Effect::MillTargetPlayer { count: 2 }]);
+    assert_eq!(
+        binding.ability.effects,
+        [Effect::MillTargetPlayer { count: 2 }]
+    );
 }

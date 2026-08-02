@@ -39,7 +39,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 133] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 135] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -146,6 +146,8 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 133] = [
     "RAV-SADISTIC-AUGERMAGE",
     "RAV-VINDICTIVE-MOB",
     "RAV-BELLTOWER-SPHINX",
+    "RAV-FLIGHT-OF-FANCY",
+    "RAV-VEDALKEN-ENTRANCER",
     "RAV-SUNHOME-FORTRESS",
     "RAV-VITU-GHAZI",
     "RAV-NULLMAGE-SHEPHERD",
@@ -2998,6 +3000,52 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Flying],
             effects: vec![],
         },
+        // Full fidelity: this Aura attaches to a creature, grants Flying,
+        // and its ETB trigger draws two cards through the ordinary stack.
+        CardDefinition {
+            id: "RAV-FLIGHT-OF-FANCY",
+            name: "Flight of Fancy",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(3, [Color::Blue]),
+            colors: colors([Color::Blue]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Enchantment]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "aura-enchant-creature-flying-etb-draw-two",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![Effect::AttachSourceToTarget {
+                target: TargetRequirement::Creature,
+                changes: vec![ContinuousChange::AddKeyword(Keyword::Flying)],
+            }],
+        },
+        // Full fidelity: Defender and the tap activation that mills a target
+        // player for two cards are both typed engine rules.
+        CardDefinition {
+            id: "RAV-VEDALKEN-ENTRANCER",
+            name: "Vedalken Entrancer",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(3, [Color::Blue]),
+            colors: colors([Color::Blue]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "defender",
+                "tap-blue-target-player-mill-two",
+            ],
+            power: Some(1),
+            toughness: Some(4),
+            keywords: vec![Keyword::Defender],
+            effects: vec![],
+        },
         // Full fidelity: either color pays each hybrid cast symbol; the two
         // stack-backed activations create a green 3/3 Centaur or temporarily
         // modify every creature the controller owns.
@@ -4724,6 +4772,22 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
             },
         },
         ActivatedAbilityBinding {
+            card_definition: "RAV-VEDALKEN-ENTRANCER",
+            ability: ActivatedAbility {
+                id: "tap-blue-target-player-mill-two",
+                mana_cost: ManaCost::with_colors(0, [Color::Blue]),
+                tap_cost: true,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![TargetRequirement::Player],
+                effects: vec![Effect::MillTargetPlayer { count: 2 }],
+            },
+        },
+        ActivatedAbilityBinding {
             card_definition: "RAV-GRIFTERS-BLADE",
             ability: ActivatedAbility {
                 id: "equip-plus-one-plus-one",
@@ -5328,6 +5392,17 @@ pub fn rav_static_attack_restriction_bindings() -> Vec<StaticAttackRestrictionBi
 #[allow(clippy::too_many_lines)] // Keep the declarative trigger registry centralized for audit review.
 pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
     vec![
+        TriggeredAbilityBinding {
+            card_definition: "RAV-FLIGHT-OF-FANCY",
+            ability: TriggeredAbility {
+                id: "etb-draw-two",
+                condition: TriggerCondition::EntersBattlefield,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![Effect::DrawController, Effect::DrawController],
+            },
+        },
         TriggeredAbilityBinding {
             card_definition: "RAV-FAITHS-FETTERS",
             ability: TriggeredAbility {

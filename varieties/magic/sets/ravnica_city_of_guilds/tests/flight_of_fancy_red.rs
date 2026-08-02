@@ -43,6 +43,12 @@ fn flight_of_fancy_requires_creature_aura_flying_and_two_card_etb_draw() {
         .find(|binding| binding.card_definition == "RAV-FLIGHT-OF-FANCY")
         .expect("Flight of Fancy draw trigger exists");
     assert_eq!(trigger.ability.id, "etb-draw-two");
-    assert_eq!(trigger.ability.condition, TriggerCondition::EntersBattlefield);
-    assert_eq!(trigger.ability.effects, [Effect::DrawController, Effect::DrawController]);
+    assert_eq!(
+        trigger.ability.condition,
+        TriggerCondition::EntersBattlefield
+    );
+    assert_eq!(
+        trigger.ability.effects,
+        [Effect::DrawController, Effect::DrawController]
+    );
 }
