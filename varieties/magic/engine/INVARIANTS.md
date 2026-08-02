@@ -727,11 +727,18 @@ Oracle Magic rules coverage.
   occurrence remains its own resolution slot, so a later illegal target is
   skipped without collapsing the remaining legal instructions.
 - A targeted-discard instruction owns one player target slot and requests a
-  strictly positive count. At resolution it may move only cards still in that
-  target's hand, emits `CardDiscarded` before the corresponding graveyard move
-  for each card, and cannot discard from an unrelated player. Until a policy
-  submits hidden-hand choices, the implemented selection is the target
-  player's oldest current hand entry rather than a cast-time snapshot.
+  strictly positive count. When that target has cards, its one-effect stack
+  item suspends at a private `ConditionalPrivateDiscard` decision controlled
+  by the target, never the caster. The continuation retains the exact
+  stack-item id, source/incarnation/controller, ability identity when present,
+  target, requested count, and ordered recipient-owned hand
+  object/incarnation snapshot. A submitted selection has the exact required
+  cardinality (`min(requested, snapshot length)`), is duplicate-free, and is
+  revalidated against the unchanged live hand snapshot before any mutation.
+  Wrong-player, stale-id, foreign, duplicate, wrong-zone, or reincarnated-card
+  submissions are atomic. `DecisionOpened` and `DecisionCompleted` expose only
+  safe metadata; `CardDiscarded` immediately precedes each corresponding
+  graveyard move, and no public receipt discloses the private candidates.
 - A dynamic opponent-creature-count life-loss instruction is target-free but
   evaluates every living opponent independently at ability resolution. It
   excludes the resolving controller, reads only that opponent's current

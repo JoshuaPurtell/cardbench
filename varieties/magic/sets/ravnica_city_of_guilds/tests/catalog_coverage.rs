@@ -109,7 +109,7 @@ fn disembowel_resolves_to_its_bounded_chosen_x_definition() {
 }
 
 #[test]
-fn consult_the_necrosages_resolves_to_its_bounded_modal_definition() {
+fn consult_the_necrosages_resolves_to_its_full_modal_definition() {
     assert_eq!(
         executable_definition_id_for_collector(199),
         Ok("RAV-CONSULT-THE-NECROSAGES")
