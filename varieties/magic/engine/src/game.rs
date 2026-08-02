@@ -24265,6 +24265,37 @@ impl Game {
         Ok(())
     }
 
+    /// Removes a token that leaves the game because its controller departed.
+    /// This is a battlefield departure, so other "leaves the battlefield"
+    /// abilities observe it, but it is neither a zone move nor a death: CR
+    /// 800.4a does not send the token to a graveyard before it ceases to
+    /// exist.  In particular, it must not emit `CardMoved`, advance its
+    /// incarnation, or queue dies-only triggers.
+    fn remove_token_leaving_game(&mut self, token: ObjectId) -> Result<(), RulesError> {
+        let object = self.object(token)?.clone();
+        if object.token.is_none() {
+            return Err(RulesError::IllegalAction(
+                "only a token can cease because its controller left the game",
+            ));
+        }
+        self.require_zone(token, Zone::Battlefield)?;
+        self.enqueue_another_creature_leaves_battlefield_triggers(token)?;
+        self.remove_from_combat(token);
+        self.remove_from_all_zones(token);
+        self.objects.remove(&token);
+        self.regeneration_shields.remove(&token);
+        self.record_event(GameEvent::TokenCeasedToExist { token });
+        if let Some(copy) = object.copied_permanent {
+            self.record_event(GameEvent::PermanentCopyExpired {
+                target: token,
+                target_incarnation: object.incarnation,
+                timestamp: copy.timestamp,
+            });
+        }
+        self.expire_continuous_effects_involving(token);
+        Ok(())
+    }
+
     /// Counters one lower non-ability spell from the stack. A virtual spell
     /// copy has no card object or zone membership, so its terminal lifecycle
     /// is recorded separately instead of delegating to a zone transition.
@@ -31488,6 +31519,16 @@ impl Game {
         for object in controlled_but_not_owned {
             self.stack
                 .retain(|stack_object| stack_object.card != object);
+            if self
+                .object(object)
+                .expect("controlled permanent must still have an object record")
+                .token
+                .is_some()
+            {
+                self.remove_token_leaving_game(object)
+                    .expect("controlled token must cease as its controller leaves");
+                continue;
+            }
             let owner = self.objects[&object].owner;
             self.move_to_zone(object, Zone::Exile)
                 .expect("controlled object must have a valid owner exile zone");

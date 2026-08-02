@@ -152,6 +152,11 @@ Oracle Magic rules coverage.
 - A non-token object has exactly one catalog definition; a token has exactly
   one token specification and exists only on the battlefield. An object cannot
   be both, and no nonpermanent card can occupy the battlefield.
+- When a player leaves the game, a token they control but do not own leaves
+  the battlefield and immediately ceases to exist. This is not an exile or
+  graveyard move: it emits `TokenCeasedToExist` without a `CardMoved` or an
+  incarnation advance, and may observe only ordinary leaves-the-battlefield
+  triggers, never dies-only triggers.
 - A token's mechanically relevant creature subtypes are typed separately from
   its display name. A token with any such subtype must be a creature; the
   public `Characteristics` view preserves that type-line information and the

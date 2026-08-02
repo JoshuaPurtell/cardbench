@@ -103,6 +103,13 @@ fn token_controlled_by_departing_player_ceases_instead_of_entering_exile() {
     assert!(game.event_log.iter().any(|event| {
         matches!(event, GameEvent::TokenCeasedToExist { token: ceased } if *ceased == token)
     }));
+    assert!(
+        !game.event_log.iter().any(|event| {
+            matches!(event, GameEvent::CardMoved { card, to: Zone::Exile } if *card == token)
+        }),
+        "a token's departure cannot impersonate an owner-zone exile; events: {:?}",
+        game.canonical_event_log()
+    );
     game.validate_invariants()
         .expect("player-loss cleanup must leave no token outside the battlefield");
 }
