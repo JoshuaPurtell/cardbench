@@ -203,3 +203,52 @@ fn recipient_can_select_two_distinct_nonlands() {
 fn compulsive_research_is_positive_manifest() {
     assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&"RAV-COMPULSIVE-RESEARCH"));
 }
+
+#[test]
+fn empty_library_recipient_loss_does_not_rollback_the_resolving_spell() {
+    let caster = PlayerId(0);
+    let recipient = PlayerId(1);
+    let mut game = game();
+    let research = game
+        .add_card(caster, "RAV-COMPULSIVE-RESEARCH", Zone::Hand)
+        .expect("Compulsive Research setup");
+    let islands = (0..3)
+        .map(|_| {
+            game.put_on_battlefield(caster, "RAV-ISLAND")
+                .expect("caster mana source")
+        })
+        .collect::<Vec<_>>();
+
+    game.begin_game().expect("game begins");
+    advance_to_first_main(&mut game);
+    for island in islands {
+        game.activate_mana_ability(caster, island, Color::Blue)
+            .expect("cast mana");
+    }
+    game.cast_spell(
+        caster,
+        CastRequest {
+            card: research,
+            targets: vec![Target::Player(recipient)],
+            convoke: vec![],
+            payment_mana_abilities: vec![],
+        },
+    )
+    .expect("Compulsive Research casts");
+    game.pass_priority(caster).expect("caster passes");
+    game.pass_priority(recipient)
+        .expect("an empty-library loss completes, rather than rolls back, spell resolution");
+
+    assert!(game.players[recipient.0].lost, "recipient lost drawing from empty library");
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::PlayerLost { player, reason: "attempted to draw from an empty library" }
+            if *player == recipient
+    )));
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::SpellResolved { card } if *card == research
+    )));
+    game.validate_invariants()
+        .expect("terminal loss branch preserves engine invariants");
+}
