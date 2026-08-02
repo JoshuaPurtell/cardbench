@@ -49,8 +49,8 @@ a zone move. The fetched Aura's ordinary ETB trigger is queued only after the
 Mage trigger's terminal receipt. The opponent sees neither unselected Aura
 identities nor a private decision projection.
 
-The current catalog partition is 217 full / 39 partial / 35 catalog-only unique
-names (232 / 39 / 35 printings). The independently checked coverage-report
+The current catalog partition is 218 full / 38 partial / 35 catalog-only unique
+names (233 / 38 / 35 printings). The independently checked coverage-report
 binary emits the same partition.
 
 `RAV_FULL_FIDELITY_DEFINITION_IDS` is a deliberately small positive manifest,
@@ -310,9 +310,15 @@ combat constraint and a legal blocker assignment; the focused contract also
 proves that an empty assignment is rejected atomically when a legal blocker is
 available.
 
+Selesnya Sagittars is a positive-manifest entry. Its static Reach remains live
+for blocker legality, and its zero-cost tap activation targets exactly one
+attacking or blocking creature. The shown scenario captures the one-damage
+stack resolution against an attacking creature; the focused contract validates
+the typed target restriction, source tap, damage receipt, and final invariant
+state.
+
 The second creature-chassis batch adds Elvish Skysweeper, Frenzied Goblin,
-Greater Forgeling, Lore Broker, Selesnya Evangel, and Selesnya
-Sagittars. These definitions likewise
+Greater Forgeling, Lore Broker, and Selesnya Evangel. These definitions likewise
 record only public identity, mana cost, color, creature type, and base
 power/toughness. Their card-specific activated, triggered, evasion, token, and
 combat behavior is intentionally unsupported. Four public cast-and-resolve
@@ -479,10 +485,6 @@ Carven Caryatid's full trigger binding is published through
 stack-backed draw and terminal empty-library draw order. The compatibility
 scenario still independently demonstrates the static Defender declaration
 rule.
-
-Selesnya Sagittars extends that wave with the shared static Reach slice. Its
-tap-to-damage activation remains outside the executable scope; the public trace
-proves only that Reach legally qualifies it to block a Flying attacker.
 
 Drift of Phantasms is a narrower compatibility exception: its public definition
 does encode Defender and the established hand-zone Transmute operation, and a
