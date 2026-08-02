@@ -71,7 +71,16 @@ pub enum LibrarySearchRequirement {
     /// on the resolving spell. This is typed card information rather than a
     /// card-name or display-text predicate.
     CreatureWithManaValueAtMostChosenX,
+    /// Any card with exactly the named mana value. This is a catalog fact,
+    /// rather than a display-name predicate, and supplies Transmute's shared
+    /// library-search boundary.
+    ManaValueExactly(u8),
 }
+
+/// Stable identity for the rules-defined hand-zone Transmute activated
+/// ability. It is intentionally not an expansion binding: any card definition
+/// carrying [`Keyword::Transmute`] owns this one generic ability.
+pub const TRANSMUTE_ABILITY_ID: &str = "transmute";
 
 /// Destination for a selected library card. A tapped battlefield entry is a
 /// single semantic destination so the public event log cannot claim an

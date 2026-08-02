@@ -1,6 +1,6 @@
 use cardbench_magic_engine::{
-    CardType, CastRequest, Color, ConvokeContribution, ConvokePayment, GameView, ObjectId,
-    PlayerId, PolicyAction, Step, Target,
+    CardType, CastRequest, Color, ConvokeContribution, ConvokePayment, DecisionSelection, GameView,
+    ObjectId, PlayerId, PolicyAction, Step, Target,
 };
 
 use crate::CodePolicy;
@@ -28,6 +28,17 @@ impl CodePolicy for DimirTransmuteConvokePolicy {
     fn propose_move(&mut self, view: &GameView) -> PolicyAction {
         if view.player != self.player || view.decision_player != self.player {
             return PolicyAction::PassPriority;
+        }
+        if let Some(decision) = &view.pending_decision {
+            let selected = decision
+                .candidates
+                .iter()
+                .find(|card| card.definition == Some("RAV-LIGHTNING-HELIX"))
+                .map_or_else(Vec::new, |card| vec![card.id]);
+            return PolicyAction::SubmitDecision {
+                decision: decision.id,
+                selection: DecisionSelection::Objects(selected),
+            };
         }
         match view.step {
             Step::DeclareAttackers
@@ -126,14 +137,11 @@ fn transmute_for_helix(view: &GameView) -> Option<PolicyAction> {
             .iter()
             .any(|card| card.id == search.card && card.definition == Some("RAV-MUDDLE-THE-MIXTURE"))
     })?;
-    let found = search
+    let _found = search
         .candidates
         .iter()
         .find(|card| card.definition == Some("RAV-LIGHTNING-HELIX"))?;
-    Some(PolicyAction::Transmute {
-        card: search.card,
-        found: Some(found.id),
-    })
+    Some(PolicyAction::Transmute { card: search.card })
 }
 
 fn cast(card: ObjectId, targets: Vec<Target>) -> PolicyAction {
@@ -309,7 +317,7 @@ mod tests {
         let muddle = game
             .add_card(PlayerId(0), "RAV-MUDDLE-THE-MIXTURE", Zone::Hand)
             .expect("Muddle in hand");
-        let helix = game
+        let _helix = game
             .add_card(PlayerId(0), "RAV-LIGHTNING-HELIX", Zone::Library)
             .expect("Helix in library");
         game.grant_mana(PlayerId(0), Color::Blue, 2)
@@ -318,13 +326,7 @@ mod tests {
             .expect("generic mana");
         let mut policy = DimirTransmuteConvokePolicy::new(PlayerId(0));
         let action = policy.propose_move(&game.view_for_player(PlayerId(0)).expect("view"));
-        assert_eq!(
-            action,
-            PolicyAction::Transmute {
-                card: muddle,
-                found: Some(helix)
-            }
-        );
+        assert_eq!(action, PolicyAction::Transmute { card: muddle });
         game.submit_policy_move(PlayerId(0), policy.id(), action)
             .expect("transmute proposal is legal");
         game.validate_invariants()

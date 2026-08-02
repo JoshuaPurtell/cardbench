@@ -412,7 +412,7 @@ fn probe_transmute_sorcery_timing() -> Option<Finding> {
     let muddle = game
         .add_card(PlayerId(1), "RAV-MUDDLE-THE-MIXTURE", Zone::Hand)
         .ok()?;
-    let found = game
+    let _found = game
         .add_card(PlayerId(1), "RAV-LIGHTNING-HELIX", Zone::Library)
         .ok()?;
     game.grant_mana(PlayerId(0), Color::Red, 3).ok()?;
@@ -427,7 +427,7 @@ fn probe_transmute_sorcery_timing() -> Option<Finding> {
         },
     )
     .ok()?;
-    if !game.stack.is_empty() && game.transmute(PlayerId(1), muddle, Some(found)).is_ok() {
+    if !game.stack.is_empty() && game.activate_transmute(PlayerId(1), muddle).is_ok() {
         return Some(Finding {
             code: "transmute-accepts-instant-speed-activation",
             detail: "Muddle the Mixture transmuted in response to a spell on the stack".to_owned(),

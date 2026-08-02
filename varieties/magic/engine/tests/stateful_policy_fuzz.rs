@@ -15,8 +15,8 @@ use std::collections::{BTreeSet, HashSet};
 
 use cardbench_magic_engine::{
     CardDefinition, CardObject, CardType, CastRequest, Color, CombatBlock, ConvokeContribution,
-    ConvokePayment, Effect, Game, GameEvent, GameView, Keyword, ManaCost, ObjectId, PlayerId,
-    PlayerState, PolicyAction, StackObject, Target, TargetRequirement, Zone,
+    ConvokePayment, DecisionSelection, Effect, Game, GameEvent, GameView, Keyword, ManaCost,
+    ObjectId, PlayerId, PlayerState, PolicyAction, StackObject, Target, TargetRequirement, Zone,
 };
 
 const POLICY_ID: &str = "engine.stateful-policy-fuzz.v1";
@@ -494,6 +494,30 @@ fn submit_rejected_atomically(
 
 fn pass_until_stack_is_empty(game: &mut Game, seed: u64, operation: &mut usize, label: &str) {
     while !game.stack.is_empty() {
+        if let Some(decision) = game
+            .view_for_player(game.next_policy_player())
+            .expect("decision player has a valid view")
+            .pending_decision
+        {
+            submit_accepted(
+                game,
+                seed,
+                *operation,
+                label,
+                game.next_policy_player(),
+                PolicyAction::SubmitDecision {
+                    decision: decision.id,
+                    selection: DecisionSelection::Objects(
+                        decision
+                            .candidates
+                            .first()
+                            .map_or_else(Vec::new, |card| vec![card.id]),
+                    ),
+                },
+            );
+            *operation += 1;
+            continue;
+        }
         let player = game.priority;
         submit_accepted(
             game,
@@ -533,6 +557,17 @@ fn selected_action(game: &Game, player: PlayerId, rng: &mut TraceRng) -> PolicyA
         .expect("validated state always produces a policy view");
     if view.draw_replacement_pending {
         return PolicyAction::Draw { dredge: None };
+    }
+    if let Some(decision) = view.pending_decision {
+        return PolicyAction::SubmitDecision {
+            decision: decision.id,
+            selection: DecisionSelection::Objects(
+                decision
+                    .candidates
+                    .first()
+                    .map_or_else(Vec::new, |card| vec![card.id]),
+            ),
+        };
     }
     match game.step {
         cardbench_magic_engine::Step::DeclareAttackers if !view.attackers_declared => {
@@ -894,11 +929,12 @@ fn run_trace(seed: u64) -> TraceReceipt {
         first,
         PolicyAction::Transmute {
             card: fixture.transmuter,
-            found: Some(fixture.transmute_target),
         },
     );
     operation += 1;
     accepted += 1;
+    pass_until_stack_is_empty(game, seed, &mut operation, "resolve-transmute");
+    accepted += 3;
     assert_eq!(game.zone_of(fixture.transmuter), Some(Zone::Graveyard));
     assert_eq!(game.zone_of(fixture.transmute_target), Some(Zone::Hand));
 
@@ -949,7 +985,7 @@ fn run_trace(seed: u64) -> TraceReceipt {
 
     assert_eq!(
         accepted,
-        199,
+        202,
         "trace must retain its complete accepted policy transcript: {}",
         trace_context(seed, operation, "accepted-count", game),
     );
@@ -973,7 +1009,7 @@ fn run_trace(seed: u64) -> TraceReceipt {
 fn stateful_policy_campaign_preserves_invariants_across_sixty_four_seeded_traces() {
     let receipts: Vec<_> = (0..64).map(run_trace).collect();
     assert_eq!(receipts.len(), 64);
-    assert!(receipts.iter().all(|receipt| receipt.accepted == 199));
+    assert!(receipts.iter().all(|receipt| receipt.accepted == 202));
     assert!(receipts.iter().all(|receipt| receipt.rejected == 33));
     assert!(
         receipts.iter().all(|receipt| receipt
@@ -1022,6 +1058,7 @@ fn stateful_policy_campaign_uses_all_major_policy_move_kinds() {
         "ActivateManaAbility",
         "Cast",
         "Transmute",
+        "SubmitDecision",
         "PassPriority",
         "DeclareAttackers",
         "DeclareBlockers",

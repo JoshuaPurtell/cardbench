@@ -20,7 +20,8 @@ use crate::{
     ManaAbilityOutput, ManaCost, ManaPaymentSelection, ObjectId, PendingDecision, PlayerId,
     PlayerState, PolicyMoveKind, ReplacementEffect, ReplacementEffectBinding, ReplacementEventKind,
     StackEffectResolution, StackObject, StackResolutionPlan, StaticAttackRestriction,
-    StaticAttackRestrictionBinding, StaticContinuousEffectBinding, Step, Target, TargetRequirement,
+    StaticAttackRestrictionBinding, StaticContinuousEffectBinding, Step, TRANSMUTE_ABILITY_ID,
+    Target, TargetRequirement,
     TokenSpec, TriggerCondition, TriggeredAbilityBinding, TriggeredEffectObjectDecisionKind, Zone,
 };
 
@@ -171,12 +172,10 @@ pub enum PolicyAction {
         decision: DecisionId,
         selection: DecisionSelection,
     },
-    /// Activates transmute, optionally selecting a matching mana-value card
-    /// from the controller's library. A hidden-zone quality search may find
-    /// nothing; the engine enforces timing and payment in either case.
+    /// Activates Transmute. Its controller chooses a matching card only after
+    /// the stack ability begins resolving through a private typed decision.
     Transmute {
         card: ObjectId,
-        found: Option<ObjectId>,
     },
     PassPriority,
     PlayLand {
@@ -3130,7 +3129,7 @@ impl Game {
                 decision,
                 selection,
             } => self.submit_decision(player, decision, selection)?,
-            PolicyAction::Transmute { card, found } => self.transmute(player, card, found)?,
+            PolicyAction::Transmute { card } => self.activate_transmute(player, card)?,
             PolicyAction::PassPriority => self.pass_priority(player)?,
             PolicyAction::PlayLand { card } => self.play_land(player, card)?,
             PolicyAction::ActivateManaAbility { land, color } => {
@@ -5334,6 +5333,13 @@ impl Game {
 
         let mut entered_permanent = None;
         if let Some(card) = selected {
+            if ability == Some(TRANSMUTE_ABILITY_ID) {
+                self.record_event(GameEvent::CardRevealed {
+                    player,
+                    card,
+                    definition: self.card_definition(card)?.id,
+                });
+            }
             match destination {
                 LibrarySearchDestination::Battlefield
                 | LibrarySearchDestination::BattlefieldTapped => {
@@ -5366,6 +5372,13 @@ impl Game {
         self.record_event(GameEvent::LibraryShuffled { player, cards });
 
         if let Some(ability) = ability {
+            if ability == TRANSMUTE_ABILITY_ID {
+                self.record_event(GameEvent::Transmuted {
+                    player,
+                    discarded: source,
+                    found: selected,
+                });
+            }
             self.record_event(GameEvent::AbilityResolved {
                 source,
                 source_incarnation,
@@ -5596,9 +5609,103 @@ impl Game {
         Ok(())
     }
 
-    /// Resolves transmute's hand-zone activated ability. A selected matching card is revealed
-    /// before moving to hand; `None` models the legal choice to find nothing in a hidden zone.
-    /// The library is shuffled by a deterministic seed afterwards.
+    /// Activates the rules-defined Transmute ability from a card in hand.
+    ///
+    /// Its mana and discard costs are paid atomically, then the ability stays
+    /// on the ordinary stack. After all players pass, it opens a controller-
+    /// private [`DecisionKind::LibrarySearch`] prompt rather than accepting a
+    /// library identity at activation time.
+    pub fn activate_transmute(
+        &mut self,
+        player: PlayerId,
+        card: ObjectId,
+    ) -> Result<(), RulesError> {
+        self.atomic_transition(|game| game.activate_transmute_impl(player, card))
+    }
+
+    fn activate_transmute_impl(
+        &mut self,
+        player: PlayerId,
+        card: ObjectId,
+    ) -> Result<(), RulesError> {
+        self.require_priority(player)?;
+        if player != self.active_player || !self.step.is_main() || !self.stack.is_empty() {
+            return Err(RulesError::IllegalAction(
+                "transmute is allowed only during your main phase with an empty stack",
+            ));
+        }
+        self.require_zone(card, Zone::Hand)?;
+        let source = self.object(card)?.clone();
+        if source.owner != player {
+            return Err(RulesError::IllegalAction(
+                "transmute searches only your own library",
+            ));
+        }
+        let definition = self.card_definition(card)?.clone();
+        let cost = definition
+            .transmute_cost()
+            .cloned()
+            .ok_or(RulesError::IllegalAction("card has no transmute ability"))?;
+        let mut paid_pool = self.players[player.0].mana_pool.clone();
+        paid_pool.pay(&cost).map_err(RulesError::Mana)?;
+
+        // All legality and payment checks above precede every mutable action.
+        // The discard is an ability cost, so the card's former hand
+        // incarnation remains the stack ability's historical source even
+        // after the ordinary graveyard zone transition.
+        self.players[player.0].mana_pool = paid_pool;
+        self.record_event(GameEvent::AbilityManaPaid {
+            player,
+            source: card,
+            ability: TRANSMUTE_ABILITY_ID,
+            mana_cost: cost,
+        });
+        self.record_event(GameEvent::DiscardedAsAbilityCost {
+            player,
+            source: card,
+            card,
+        });
+        self.move_to_zone(card, Zone::Graveyard)?;
+        self.stack.push(StackObject {
+            card,
+            source_incarnation: source.incarnation,
+            source_colors: definition.colors.clone(),
+            controller: player,
+            ability_id: Some(TRANSMUTE_ABILITY_ID),
+            targets: Vec::new(),
+            target_incarnations: Vec::new(),
+            effects: vec![Effect::SearchControllerLibrary {
+                requirement: LibrarySearchRequirement::ManaValueExactly(
+                    definition.mana_cost.mana_value(),
+                ),
+                destination: LibrarySearchDestination::Hand,
+                selection: LibrarySearchSelection::PolicySubmitted {
+                    may_fail_to_find: true,
+                },
+            }],
+            chosen_x: None,
+            mana_spent: None,
+            convoke_symbols: 0,
+            generic_cost_reduction: 0,
+        });
+        self.record_event(GameEvent::AbilityActivated {
+            player,
+            source: card,
+            source_incarnation: source.incarnation,
+            definition: definition.id,
+            ability: TRANSMUTE_ABILITY_ID,
+        });
+        self.consecutive_passes = 0;
+        self.priority = player;
+        Ok(())
+    }
+
+    /// Resolves the historical immediate Transmute compatibility operation.
+    ///
+    /// New policy and engine integrations must use [`Self::activate_transmute`]
+    /// so choices are made through a stack-backed private decision. This
+    /// compatibility helper remains only for frozen older public scenarios
+    /// whose one-action syntax predates the policy decision boundary.
     pub fn transmute(
         &mut self,
         player: PlayerId,
@@ -5769,6 +5876,9 @@ impl Game {
                 ))?;
                 Ok(definition.card_types.contains(&CardType::Creature)
                     && definition.mana_cost.mana_value() <= x_value)
+            }
+            LibrarySearchRequirement::ManaValueExactly(mana_value) => {
+                Ok(definition.mana_cost.mana_value() == *mana_value)
             }
         }
     }
@@ -6628,59 +6738,78 @@ impl Game {
                 ));
             }
             if let Some(ability_id) = stack_object.ability_id {
-                let activated = self
-                    .activated_abilities
-                    .get(definition.id)
-                    .and_then(|abilities| abilities.get(ability_id));
-                let triggered = self
-                    .triggered_abilities
-                    .get(definition.id)
-                    .and_then(|abilities| abilities.get(ability_id));
-                let (effects, target_count, trigger_condition) = activated
-                    .map(|ability| (&ability.effects, ability.targets.len(), None))
-                    .or_else(|| {
-                        triggered.map(|ability| {
-                            (
-                                &ability.effects,
-                                ability.targets.len(),
-                                Some(ability.condition),
-                            )
-                        })
-                    })
-                    .ok_or(RulesError::IllegalAction(
-                        "stack ability is not bound to its source definition",
-                    ))?;
-                let effects_match = if matches!(
-                    trigger_condition,
-                    Some(TriggerCondition::DealsDamage | TriggerCondition::ReceivesDamage)
-                ) {
-                    effects.len() == stack_object.effects.len()
-                        && effects
-                            .iter()
-                            .zip(&stack_object.effects)
-                            .all(|(bound, actual)| {
-                                matches!(
-                                    (bound, actual),
-                                    (
-                                        Effect::GainLifeControllerFromSourceDamage,
-                                        Effect::GainLifeController { amount }
-                                    ) if *amount > 0
-                                ) || matches!(
-                                    (bound, actual),
-                                    (
-                                        Effect::DealDamageToEachPlayerFromReceivedDamage,
-                                        Effect::DealDamageToEachPlayer { amount }
-                                    ) if *amount > 0
-                                ) || matches!(
-                                    (bound, actual),
-                                    (
-                                        Effect::MillTargetPlayerFromSourceDamage,
-                                        Effect::MillTargetPlayer { count }
-                                    ) if *count > 0
-                                ) || bound == actual
-                            })
+                let transmute =
+                    ability_id == TRANSMUTE_ABILITY_ID && definition.transmute_cost().is_some();
+                let (effects_match, target_count) = if transmute {
+                    (
+                        matches!(
+                            stack_object.effects.as_slice(),
+                            [Effect::SearchControllerLibrary {
+                                requirement: LibrarySearchRequirement::ManaValueExactly(value),
+                                destination: LibrarySearchDestination::Hand,
+                                selection: LibrarySearchSelection::PolicySubmitted {
+                                    may_fail_to_find: true,
+                                },
+                            }] if *value == definition.mana_cost.mana_value()
+                        ),
+                        0,
+                    )
                 } else {
-                    *effects == stack_object.effects
+                    let activated = self
+                        .activated_abilities
+                        .get(definition.id)
+                        .and_then(|abilities| abilities.get(ability_id));
+                    let triggered = self
+                        .triggered_abilities
+                        .get(definition.id)
+                        .and_then(|abilities| abilities.get(ability_id));
+                    let (effects, target_count, trigger_condition) = activated
+                        .map(|ability| (&ability.effects, ability.targets.len(), None))
+                        .or_else(|| {
+                            triggered.map(|ability| {
+                                (
+                                    &ability.effects,
+                                    ability.targets.len(),
+                                    Some(ability.condition),
+                                )
+                            })
+                        })
+                        .ok_or(RulesError::IllegalAction(
+                            "stack ability is not bound to its source definition",
+                        ))?;
+                    let effects_match = if matches!(
+                        trigger_condition,
+                        Some(TriggerCondition::DealsDamage | TriggerCondition::ReceivesDamage)
+                    ) {
+                        effects.len() == stack_object.effects.len()
+                            && effects
+                                .iter()
+                                .zip(&stack_object.effects)
+                                .all(|(bound, actual)| {
+                                    matches!(
+                                        (bound, actual),
+                                        (
+                                            Effect::GainLifeControllerFromSourceDamage,
+                                            Effect::GainLifeController { amount }
+                                        ) if *amount > 0
+                                    ) || matches!(
+                                        (bound, actual),
+                                        (
+                                            Effect::DealDamageToEachPlayerFromReceivedDamage,
+                                            Effect::DealDamageToEachPlayer { amount }
+                                        ) if *amount > 0
+                                    ) || matches!(
+                                        (bound, actual),
+                                        (
+                                            Effect::MillTargetPlayerFromSourceDamage,
+                                            Effect::MillTargetPlayer { count }
+                                        ) if *count > 0
+                                    ) || bound == actual
+                                })
+                    } else {
+                        *effects == stack_object.effects
+                    };
+                    (effects_match, target_count)
                 };
                 if !effects_match || target_count != stack_object.target_count() {
                     return Err(RulesError::IllegalAction(
@@ -8502,6 +8631,24 @@ impl Game {
                 {
                     self.attach_with_binding(stack_object.card, target, &binding)?;
                 }
+            }
+            if ability == TRANSMUTE_ABILITY_ID {
+                let found = self.event_log.iter().rev().find_map(|event| match event {
+                    GameEvent::LibrarySearchResolved {
+                        player,
+                        source,
+                        found,
+                        destination: LibrarySearchDestination::Hand,
+                    } if *player == stack_object.controller && *source == stack_object.card => {
+                        Some(*found)
+                    }
+                    _ => None,
+                });
+                self.record_event(GameEvent::Transmuted {
+                    player: stack_object.controller,
+                    discarded: stack_object.card,
+                    found: found.flatten(),
+                });
             }
             self.record_event(GameEvent::AbilityResolved {
                 source: stack_object.card,
@@ -14928,6 +15075,17 @@ impl Game {
             else {
                 continue;
             };
+            if *ability == TRANSMUTE_ABILITY_ID
+                && self
+                    .catalog
+                    .get(source_definition)
+                    .is_some_and(|definition| definition.transmute_cost().is_some())
+            {
+                // Transmute discards its own hand-zone source, not a
+                // battlefield permanent. Its distinct cost receipt is
+                // audited below; it cannot carry a sacrifice selection.
+                continue;
+            }
             let binding = self
                 .activated_abilities
                 .get(source_definition)
@@ -15110,6 +15268,34 @@ impl Game {
                 .ok_or(RulesError::IllegalAction(
                     "discard-cost receipt has no matching ability activation",
                 ))?;
+            if ability_id == TRANSMUTE_ABILITY_ID {
+                let cost = self
+                    .catalog
+                    .get(source_definition)
+                    .and_then(CardDefinition::transmute_cost)
+                    .ok_or(RulesError::IllegalAction(
+                        "discard-cost receipt names a Transmute source without Transmute",
+                    ))?;
+                if source != card
+                    || !matches!(
+                        index.checked_sub(1).and_then(|previous| self.event_log.get(previous)),
+                        Some(GameEvent::AbilityManaPaid {
+                            player: paid_player,
+                            source: paid_source,
+                            ability,
+                            mana_cost,
+                        }) if paid_player == player
+                            && paid_source == source
+                            && *ability == TRANSMUTE_ABILITY_ID
+                            && mana_cost == cost
+                    )
+                {
+                    return Err(RulesError::IllegalAction(
+                        "Transmute discard cost lacks its exact preceding mana payment",
+                    ));
+                }
+                continue;
+            }
             let ability = self
                 .activated_abilities
                 .get(source_definition)
@@ -15158,6 +15344,19 @@ impl Game {
                 index -= 1;
                 consumed.insert(index);
                 selected.push(*permanent);
+            }
+            if *ability == TRANSMUTE_ABILITY_ID
+                && self
+                    .catalog
+                    .get(source_definition)
+                    .is_some_and(|definition| definition.transmute_cost().is_some())
+            {
+                if !selected.is_empty() {
+                    return Err(RulesError::IllegalAction(
+                        "Transmute cannot carry additional creature tap costs",
+                    ));
+                }
+                continue;
             }
             let bound = self
                 .activated_abilities

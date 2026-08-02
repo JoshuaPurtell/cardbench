@@ -8,7 +8,8 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardDefinition, CardType, Color, Game, GameEvent, Keyword, ManaCost, PlayerId, Zone,
+    CardDefinition, CardType, Color, DecisionSelection, Game, GameEvent, Keyword, ManaCost,
+    PlayerId, Zone,
 };
 
 const TRANSMUTER: &str = "TST-STACK-TRANSMUTER";
@@ -68,11 +69,8 @@ fn transmute_costs_create_a_live_ability_before_the_private_search() {
         .expect("fixture provides generic Transmute cost");
     game.clear_event_log();
 
-    // The old compatibility operation accepts a preselected hidden card and
-    // completes immediately.  This assertion is intentionally red until the
-    // activation is represented as a real stack ability.
-    game.transmute(player, transmuter, Some(found))
-        .expect("fixture can activate the legacy Transmute path");
+    game.activate_transmute(player, transmuter)
+        .expect("Transmute costs create a stack ability");
 
     assert_eq!(game.stack.len(), 1, "Transmute must wait on the stack");
     assert_eq!(game.zone_of(transmuter), Some(Zone::Graveyard));
@@ -95,4 +93,47 @@ fn transmute_costs_create_a_live_ability_before_the_private_search() {
             .any(|event| matches!(event, GameEvent::CardRevealed { .. })),
         "a hidden card is revealed only while Transmute resolves"
     );
+
+    game.pass_priority(player)
+        .expect("activating player passes on the stack ability");
+    game.pass_priority(PlayerId(1))
+        .expect("opponent pass starts Transmute resolution");
+    let controller_view = game
+        .view_for_player(player)
+        .expect("controller receives the private decision view");
+    let decision = controller_view
+        .pending_decision
+        .expect("Transmute opens an id-bearing private search decision");
+    assert_eq!(
+        decision
+            .candidates
+            .iter()
+            .map(|card| card.id)
+            .collect::<Vec<_>>(),
+        [found]
+    );
+    assert!(
+        game.view_for_player(PlayerId(1))
+            .expect("opponent receives a safe projection")
+            .pending_decision
+            .is_none(),
+        "the opponent cannot see Transmute's hidden-library candidates"
+    );
+    assert!(
+        game.pass_priority(player).is_err(),
+        "the private search decision blocks ordinary priority actions"
+    );
+    game.submit_decision(player, decision.id, DecisionSelection::Objects(vec![found]))
+        .expect("controller selects the matching card while Transmute resolves");
+    assert_eq!(game.zone_of(found), Some(Zone::Hand));
+    assert_eq!(game.stack.len(), 0);
+    assert!(game.event_log.iter().any(|event| {
+        matches!(
+            event,
+            GameEvent::Transmuted { discarded, found: Some(selected), .. }
+                if *discarded == transmuter && *selected == found
+        )
+    }));
+    game.validate_invariants()
+        .expect("stack-backed Transmute retains a complete event lifecycle");
 }

@@ -7,9 +7,9 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardDefinition, CardType, CastRequest, Color, ContinuousChange, Duration, Effect, Game,
-    GameEvent, Keyword, ManaCost, ObjectId, PlayerId, PolicyAction, PolicyMoveKind, RulesError,
-    Target, TargetRequirement, Zone,
+    CardDefinition, CardType, CastRequest, Color, ContinuousChange, DecisionSelection, Duration,
+    Effect, Game, GameEvent, Keyword, ManaCost, ObjectId, PlayerId, PolicyAction, PolicyMoveKind,
+    RulesError, Target, TargetRequirement, Zone,
 };
 
 const RED_BOLT: &str = "TEST-RED-BOLT";
@@ -250,14 +250,54 @@ fn policy_submitted_transmute_uses_the_audited_engine_path() {
     game.submit_policy_move(
         player,
         "engine-transmute-contract",
-        PolicyAction::Transmute {
-            card: transmuter,
-            found: Some(search.candidates[0].id),
-        },
+        PolicyAction::Transmute { card: transmuter },
     )
     .expect("legal transmute is accepted through policy submission");
 
     assert_eq!(game.zone_of(transmuter), Some(Zone::Graveyard));
+    assert_eq!(game.zone_of(found), Some(Zone::Library));
+    assert_eq!(game.stack.len(), 1, "Transmute awaits the response window");
+    game.submit_policy_move(
+        player,
+        "engine-transmute-contract",
+        PolicyAction::PassPriority,
+    )
+    .expect("controller passes on Transmute");
+    game.submit_policy_move(
+        PlayerId(1),
+        "engine-transmute-contract",
+        PolicyAction::PassPriority,
+    )
+    .expect("opponent pass begins the private search");
+    let decision = game
+        .view_for_player(player)
+        .expect("controller view")
+        .pending_decision
+        .expect("Transmute opens a private search decision");
+    assert_eq!(
+        decision
+            .candidates
+            .iter()
+            .map(|card| card.id)
+            .collect::<Vec<_>>(),
+        [found]
+    );
+    assert!(
+        game.view_for_player(PlayerId(1))
+            .expect("opponent view")
+            .pending_decision
+            .is_none(),
+        "opponent library cards and controller candidates remain hidden"
+    );
+    game.submit_policy_move(
+        player,
+        "engine-transmute-contract",
+        PolicyAction::SubmitDecision {
+            decision: decision.id,
+            selection: DecisionSelection::Objects(vec![found]),
+        },
+    )
+    .expect("controller submits the resolving Transmute selection");
     assert_eq!(game.zone_of(found), Some(Zone::Hand));
     assert!(game.event_log.iter().any(|event| {
         matches!(

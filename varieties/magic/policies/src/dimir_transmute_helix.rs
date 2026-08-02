@@ -1,5 +1,6 @@
 use cardbench_magic_engine::{
-    CardType, CastRequest, Color, GameView, ObjectId, PlayerId, PolicyAction, Step, Target,
+    CardType, CastRequest, Color, DecisionSelection, GameView, ObjectId, PlayerId, PolicyAction,
+    Step, Target,
 };
 
 use crate::CodePolicy;
@@ -27,6 +28,17 @@ impl CodePolicy for DimirTransmuteHelixPolicy {
     fn propose_move(&mut self, view: &GameView) -> PolicyAction {
         if view.player != self.player || view.decision_player != self.player {
             return PolicyAction::PassPriority;
+        }
+        if let Some(decision) = &view.pending_decision {
+            let selected = decision
+                .candidates
+                .iter()
+                .find(|card| card.definition == Some("RAV-LIGHTNING-HELIX"))
+                .map_or_else(Vec::new, |card| vec![card.id]);
+            return PolicyAction::SubmitDecision {
+                decision: decision.id,
+                selection: DecisionSelection::Objects(selected),
+            };
         }
         if let Some(action) = counterspell_response(view, self.player) {
             return action;
@@ -110,14 +122,11 @@ fn transmute_for_helix(view: &GameView) -> Option<PolicyAction> {
             .iter()
             .any(|card| card.id == search.card && card.definition == Some("RAV-MUDDLE-THE-MIXTURE"))
     })?;
-    let found = search
+    let _found = search
         .candidates
         .iter()
         .find(|card| card.definition == Some("RAV-LIGHTNING-HELIX"))?;
-    Some(PolicyAction::Transmute {
-        card: search.card,
-        found: Some(found.id),
-    })
+    Some(PolicyAction::Transmute { card: search.card })
 }
 
 fn counterspell_response(view: &GameView, player: PlayerId) -> Option<PolicyAction> {
@@ -327,16 +336,20 @@ mod tests {
         assert_eq!(view.transmute_searches.len(), 1);
         assert_eq!(view.transmute_searches[0].candidates.len(), 1);
         let action = policy.propose_move(&view);
-        assert_eq!(
-            action,
-            PolicyAction::Transmute {
-                card: muddle,
-                found: Some(helix)
-            }
-        );
+        assert_eq!(action, PolicyAction::Transmute { card: muddle });
         game.submit_policy_move(PlayerId(0), policy.id(), action)
             .expect("policy transmute proposal is legal");
         assert_eq!(game.zone_of(muddle), Some(Zone::Graveyard));
+        assert_eq!(game.zone_of(helix), Some(Zone::Library));
+        resolve_top_of_stack(&mut game);
+        let decision = policy.propose_move(
+            &game
+                .view_for_player(PlayerId(0))
+                .expect("controller sees private search decision"),
+        );
+        assert!(matches!(decision, PolicyAction::SubmitDecision { .. }));
+        game.submit_policy_move(PlayerId(0), policy.id(), decision)
+            .expect("policy submits the private Transmute search");
         assert_eq!(game.zone_of(helix), Some(Zone::Hand));
         game.validate_invariants()
             .expect("transmute policy submission preserves invariants");
