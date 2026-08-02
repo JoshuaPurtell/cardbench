@@ -220,14 +220,16 @@ Oracle Magic rules coverage.
   older policies dispatch through the same continuation but new policies must
   use the id-bearing generic action.
 - This first unified-decision migration covers policy-submitted one-card
-  library searches and triggered discard/sacrifice object choices. Library
+  library searches, triggered discard/sacrifice object choices, multi-block
+  combat order, spell-copy targets, and concurrent token/counter quantity
+  replacement ordering. Library
   search and discard options are private: only the deciding player's
   `GameView` contains their candidate identities, while a public sacrifice
   option is projected safely to its deciding controller. `DecisionContinuation`
-  holds only typed cloned data, never a resolver closure; public multi-block
-  combat-damage ordering also uses this slot. Future target, optional-cost,
-  color, and replacement choices remain separate bounded decision families
-  until migrated to it.
+  holds only typed cloned data, never a resolver closure. Future target,
+  optional-cost, color, and the legacy damage prevention/redirection
+  replacement choice remain separate bounded decision families until migrated
+  to it.
 - Every represented trigger condition captures one source/controller/payload
   event and reaches a common active-player-first placement pipeline after its
   enclosing action. A target-bearing event stays outside the stack until its
@@ -367,12 +369,19 @@ Oracle Magic rules coverage.
 - A registered quantity replacement has a catalogued permanent source, a
   multiplier of at least two, and is fixed before the game begins. When tokens
   are created or a represented counter is placed, only live battlefield
-  sources controlled by the affected player apply. The engine snapshots that
-  source list before changing the quantity, applies each source at most once,
-  and records every exact `ReplacementEffectApplied` transition before the
-  resulting `TokenCreated` or `CounterPlaced` receipt. A replacement receipt
-  must name a registered source/effect, multiply a positive input exactly, and
-  lead through a finite same-event chain to the corresponding ordinary event.
+  sources controlled by the affected player apply. Every candidate and
+  `ReplacementEffectApplied` receipt records the source's exact positive
+  incarnation; the same source incarnation/effect cannot apply twice to one
+  prospective event. One-effect stack token/counter instructions with two or
+  more live candidates open a public `DecisionKind::Replacement` boundary for
+  the affected player. The submitted option is revalidated, applied once, and
+  candidates are recomputed; a fresh monotonic decision id opens only while
+  two or more choices remain, while one remaining candidate applies without a
+  prompt. `DecisionCompleted`/`DecisionOpened` and a submitted policy receipt
+  may appear between causal replacement receipts, but the replay audit still
+  requires a finite same-event chain ending in exactly the resulting
+  `TokenCreated` batch or `CounterPlaced` receipt. Direct non-suspended helper
+  paths use the same live candidate/application logic in stable order.
 - A `DistinctCreature` target slot must name a creature permanent and may not
   reuse any other distinct-creature occurrence in the same spell. The cast
   validator and the stack-provenance audit both reject a duplicate before any
