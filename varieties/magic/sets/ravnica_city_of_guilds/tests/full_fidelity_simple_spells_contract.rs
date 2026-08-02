@@ -110,6 +110,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-GOLGARI-GUILDMAGE",
             "RAV-DIMIR-GUILDMAGE",
             "RAV-DIMIR-HOUSE-GUARD",
+            "RAV-DIMIR-INFILTRATOR",
             "RAV-LURKING-INFORMANT",
             "RAV-SANDSOWER",
             "RAV-DIVEBOMBER-GRIFFIN",

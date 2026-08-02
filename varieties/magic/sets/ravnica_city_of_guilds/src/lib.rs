@@ -43,7 +43,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 240] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 241] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
@@ -141,6 +141,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 240] = [
     "RAV-GOLGARI-GUILDMAGE",
     "RAV-DIMIR-GUILDMAGE",
     "RAV-DIMIR-HOUSE-GUARD",
+    "RAV-DIMIR-INFILTRATOR",
     "RAV-LURKING-INFORMANT",
     "RAV-SANDSOWER",
     "RAV-DIVEBOMBER-GRIFFIN",
@@ -5787,11 +5788,9 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Flying, Keyword::FirstStrike],
             effects: vec![],
         },
-        // Compatibility scope: normal creature casting, base characteristics,
-        // static unblockability, and the existing immediate hand-zone
-        // Transmute operation. The shared Transmute substrate deliberately
-        // remains outside the full-fidelity manifest because it has no stack
-        // object or response window for an activated ability.
+        // Full fidelity: normal creature casting, base characteristics, static
+        // unblockability, and a stack-backed private Transmute search cover
+        // every represented functional rule.
         CardDefinition {
             id: "RAV-DIMIR-INFILTRATOR",
             name: "Dimir Infiltrator",
@@ -5802,10 +5801,11 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             card_types: types([CardType::Creature]),
             is_basic_land: false,
             supported_rules: &[
+                "full-rules-fidelity",
                 "colored-cost-casting",
                 "base-characteristics",
                 "unblockable",
-                "immediate-hand-zone-transmute-compatibility",
+                "stack-backed-private-transmute",
             ],
             power: Some(1),
             toughness: Some(3),

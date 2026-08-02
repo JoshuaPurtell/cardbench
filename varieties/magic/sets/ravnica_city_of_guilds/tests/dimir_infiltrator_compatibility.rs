@@ -1,4 +1,4 @@
-//! Bounded public contract for Dimir Infiltrator.
+//! Public compatibility and full-fidelity contract for Dimir Infiltrator.
 
 use std::collections::BTreeSet;
 
@@ -6,7 +6,7 @@ use cardbench_magic_engine::{CardType, Color, Keyword, ManaCost};
 use cardbench_magic_rav::{RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, run_all_scenarios};
 
 #[test]
-fn dimir_infiltrator_represents_static_evasion_and_immediate_transmute_only() {
+fn dimir_infiltrator_represents_complete_static_evasion_and_stack_transmute_rules() {
     let infiltrator = card_definitions()
         .into_iter()
         .find(|definition| definition.id == "RAV-DIMIR-INFILTRATOR")
@@ -36,15 +36,16 @@ fn dimir_infiltrator_represents_static_evasion_and_immediate_transmute_only() {
     assert_eq!(
         infiltrator.supported_rules,
         [
+            "full-rules-fidelity",
             "colored-cost-casting",
             "base-characteristics",
             "unblockable",
-            "immediate-hand-zone-transmute-compatibility",
+            "stack-backed-private-transmute",
         ]
     );
     assert!(
-        !RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&infiltrator.id),
-        "immediate transmute has no stack response window"
+        RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&infiltrator.id),
+        "static unblockability and stack-backed Transmute are fully represented"
     );
 }
 
@@ -60,7 +61,7 @@ fn public_scenario_preserves_unblockable_declaration_provenance() {
         trace.event_log
     );
     assert_eq!(
-        trace.digest, "fnv1a64:b7486c2626e10b80",
+        trace.digest, "fnv1a64:9366feebbf6d7203",
         "the Rust contract must track the checked-in public scenario digest"
     );
     assert!(
