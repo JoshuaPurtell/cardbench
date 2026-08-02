@@ -7000,6 +7000,111 @@ event_markers = ["TriggeredAbilityStacked", "DecisionOpened", "DecisionCompleted
 digest = "fnv1a64:3ac950bce107c09d"
 
 [[scenario]]
+id = "rav_stoneshaker_shaman_end_step_untapped_land_sacrifice"
+seed = 145
+description = "Resolve Stoneshaker Shaman's target-free end-step trigger through the active player's public untapped-land sacrifice choice."
+triggers = true
+
+[[scenario.card]]
+label = "shaman"
+owner = 0
+definition = "RAV-STONESHAKER-SHAMAN"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "land"
+owner = 0
+definition = "RAV-MOUNTAIN"
+zone = "battlefield"
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "declare_attackers"
+player = 0
+attackers = []
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "choose_trigger_effect_object"
+player = 0
+card = "shaman"
+ability = "each-end-step-active-player-sacrifice-untapped-land"
+found = "land"
+
+[scenario.expected]
+zones = ["shaman:battlefield", "land:graveyard"]
+stack_size = 0
+priority = 0
+event_markers = ["TriggeredAbilityStacked", "DecisionOpened", "DecisionCompleted", "SacrificedByEffect", "AbilityResolved"]
+digest = "fnv1a64:65e99e0445036d4c"
+
+[[scenario]]
 id = "rav_hunted_horror_centaur_compatibility"
 seed = 59
 description = "Cast Hunted Horror and resolve its ETB trigger for exactly two 3/3 green Centaurs under one opponent's control; their printed protection from black remains explicitly unsupported."

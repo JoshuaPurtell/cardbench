@@ -43,7 +43,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 238] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 239] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
@@ -173,6 +173,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 238] = [
     "RAV-SELL-SWORD-BRUTE",
     "RAV-FRENZIED-GOBLIN",
     "RAV-SPARKMAGE-APPRENTICE",
+    "RAV-STONESHAKER-SHAMAN",
     "RAV-HUNTED-DRAGON",
     "RAV-HUNTED-TROLL",
     "RAV-KEENING-BANSHEE",
@@ -3172,6 +3173,28 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 "colored-cost-casting",
                 "base-characteristics",
                 "etb-targeted-damage",
+            ],
+            power: Some(1),
+            toughness: Some(1),
+            keywords: vec![],
+            effects: vec![],
+        },
+        // Full fidelity: each end step captures the active player and asks
+        // that player to sacrifice one of their currently untapped lands.
+        CardDefinition {
+            id: "RAV-STONESHAKER-SHAMAN",
+            name: "Stoneshaker Shaman",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(2, [Color::Red]),
+            colors: colors([Color::Red]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "each-end-step-active-player-sacrifices-untapped-land",
             ],
             power: Some(1),
             toughness: Some(1),
@@ -8413,6 +8436,17 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
             },
         },
         TriggeredAbilityBinding {
+            card_definition: "RAV-STONESHAKER-SHAMAN",
+            ability: TriggeredAbility {
+                id: "each-end-step-active-player-sacrifice-untapped-land",
+                condition: TriggerCondition::BeginningOfAnyEndStep,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![Effect::SacrificeEndStepPlayerUntappedLand],
+            },
+        },
+        TriggeredAbilityBinding {
             card_definition: "RAV-SEARING-MEDITATION",
             ability: TriggeredAbility {
                 id: "life-gain-deal-two",
@@ -9751,7 +9785,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 186);
+        assert_eq!(first.len(), 187);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

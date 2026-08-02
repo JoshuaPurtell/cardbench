@@ -687,6 +687,10 @@ enum TriggerEventPayload {
     /// boundary before any trigger is stacked, preserving an each-upkeep
     /// instruction if the source later changes controller or leaves play.
     UpkeepPlayer(PlayerId),
+    /// The player whose end step began. The player is sampled at the end-step
+    /// boundary before any trigger is stacked, preserving an each-end-step
+    /// instruction if the source later changes controller or leaves play.
+    EndStepPlayer(PlayerId),
     /// Damage has already happened. Dynamic damage-trigger effects must use
     /// this captured amount instead of inspecting a later game state.
     DamageAmount(i16),
@@ -1615,6 +1619,7 @@ impl Game {
                         | TriggerCondition::BeginningOfUpkeep
                         | TriggerCondition::BeginningOfOpponentsUpkeep
                         | TriggerCondition::BeginningOfAnyUpkeep
+                        | TriggerCondition::BeginningOfAnyEndStep
                         | TriggerCondition::LifeGained
                         | TriggerCondition::DealsDamage
                         | TriggerCondition::DealsCombatDamageToCreature
@@ -10111,6 +10116,39 @@ impl Game {
                     Ok(())
                 })?;
             }
+            TriggeredEffectObjectDecisionKind::SacrificeCapturedPlayerUntappedLand {
+                player: captured_player,
+            } => {
+                if player != *captured_player {
+                    return Err(RulesError::IllegalAction(
+                        "end-step sacrifice choice player does not match the captured end-step player",
+                    ));
+                }
+                self.complete_pending_decision(decision)?;
+                self.finish_trigger_effect_object_choice(source, ability, |game| {
+                    if let Some(permanent) = selected {
+                        if game.zone_of(permanent) != Some(Zone::Battlefield)
+                            || game.controller_of(permanent)? != *captured_player
+                            || game.object(permanent)?.tapped
+                            || !game
+                                .characteristics(permanent)?
+                                .card_types
+                                .contains(&CardType::Land)
+                        {
+                            return Err(RulesError::IllegalAction(
+                                "chosen sacrifice permanent is no longer an untapped land controlled by the captured end-step player",
+                            ));
+                        }
+                        game.record_event(GameEvent::SacrificedByEffect {
+                            source,
+                            player: *captured_player,
+                            permanent,
+                        });
+                        game.move_to_graveyard_or_remove_token(permanent)?;
+                    }
+                    Ok(())
+                })?;
+            }
             TriggeredEffectObjectDecisionKind::ReturnAnotherControlledPermanentSharingEnteredCardTypes {
                 entered,
                 entered_incarnation,
@@ -11012,6 +11050,7 @@ impl Game {
         Self::validate_delayed_action_event_order(&self.event_log)?;
         Self::validate_trigger_order_event_order(&self.event_log)?;
         self.validate_any_upkeep_trigger_event_order()?;
+        self.validate_any_end_step_trigger_event_order()?;
         self.validate_blocks_trigger_event_order()?;
         self.validate_linked_exile_state()?;
         self.validate_linked_hand_exile_state()?;
@@ -11409,6 +11448,7 @@ impl Game {
                             | TriggerCondition::BeginningOfUpkeep
                             | TriggerCondition::BeginningOfOpponentsUpkeep
                             | TriggerCondition::BeginningOfAnyUpkeep
+                            | TriggerCondition::BeginningOfAnyEndStep
                             | TriggerCondition::LifeGained
                             | TriggerCondition::DealsDamage
                             | TriggerCondition::DealsCombatDamageToCreature
@@ -11880,6 +11920,16 @@ impl Game {
                             (
                                 [Effect::SacrificeUpkeepPlayerCreature],
                                 [Effect::SacrificeCapturedPlayerCreature { player }]
+                            ) if player.0 < self.players.len()
+                        )
+                    } else if trigger_condition
+                        == Some(TriggerCondition::BeginningOfAnyEndStep)
+                    {
+                        matches!(
+                            (effects.as_slice(), stack_object.effects.as_slice()),
+                            (
+                                [Effect::SacrificeEndStepPlayerUntappedLand],
+                                [Effect::SacrificeCapturedPlayerUntappedLand { player }]
                             ) if player.0 < self.players.len()
                         )
                     } else if trigger_condition == Some(TriggerCondition::EntersBattlefield)
@@ -14191,6 +14241,8 @@ impl Game {
                 | Effect::SacrificeControllerCreature
                 | Effect::SacrificeUpkeepPlayerCreature
                 | Effect::SacrificeCapturedPlayerCreature { .. }
+                | Effect::SacrificeEndStepPlayerUntappedLand
+                | Effect::SacrificeCapturedPlayerUntappedLand { .. }
                 | Effect::CompleteDamageRedirection
                 | Effect::DrawControllerIfManaColorSpent { .. }
                 | Effect::ModifyAllCreaturesPtUntilEndOfTurnIfManaColorSpent { .. }
@@ -16612,7 +16664,8 @@ impl Game {
                 | TriggerEventPayload::CombatDamageRecipient { .. }
                 | TriggerEventPayload::EnteredPermanent { .. }
                 | TriggerEventPayload::ConvokeContributors(_)
-                | TriggerEventPayload::UpkeepPlayer(_) => None,
+                | TriggerEventPayload::UpkeepPlayer(_)
+                | TriggerEventPayload::EndStepPlayer(_) => None,
             };
             if let Some(targets) = exact_targets {
                 if targets.len() == event.ability.targets.len()
@@ -16788,6 +16841,10 @@ impl Game {
                     Effect::SacrificeUpkeepPlayerCreature,
                     TriggerEventPayload::UpkeepPlayer(player),
                 ) => Effect::SacrificeCapturedPlayerCreature { player: *player },
+                (
+                    Effect::SacrificeEndStepPlayerUntappedLand,
+                    TriggerEventPayload::EndStepPlayer(player),
+                ) => Effect::SacrificeCapturedPlayerUntappedLand { player: *player },
                 (effect, _) => effect,
             })
             .collect()
@@ -16876,6 +16933,51 @@ impl Game {
                         controller: source_controller,
                         ability,
                         payload: TriggerEventPayload::UpkeepPlayer(active_player),
+                    });
+            }
+        }
+        self.flush_pending_trigger_events()?;
+        Ok(())
+    }
+
+    /// Stacks each battlefield permanent's registered any-end-step trigger
+    /// after the public `StepBegan` receipt and before the end step's first
+    /// priority window. The active player is captured in the payload instead
+    /// of being recomputed when a target-free choice later resolves.
+    fn enqueue_end_step_triggers(&mut self) -> Result<(), RulesError> {
+        let active_player = self.active_player;
+        let sources = self.all_battlefield_cards().into_iter().collect::<Vec<_>>();
+        for source in sources {
+            let (source_controller, source_is_token, source_incarnation, source_colors) = {
+                let object = self.object(source)?;
+                (
+                    self.controller_of(source)?,
+                    object.token.is_some(),
+                    object.incarnation,
+                    self.characteristics(source)?.colors,
+                )
+            };
+            if source_is_token {
+                continue;
+            }
+            let definition = self.card_definition(source)?.id;
+            let triggers = self
+                .triggered_abilities
+                .get(definition)
+                .into_iter()
+                .flat_map(|abilities| abilities.values())
+                .filter(|ability| ability.condition == TriggerCondition::BeginningOfAnyEndStep)
+                .cloned()
+                .collect::<Vec<_>>();
+            for ability in triggers {
+                self.pending_trigger_events
+                    .push(PendingTriggeredAbilityEvent {
+                        source,
+                        source_incarnation,
+                        source_colors: source_colors.clone(),
+                        controller: source_controller,
+                        ability,
+                        payload: TriggerEventPayload::EndStepPlayer(active_player),
                     });
             }
         }
@@ -17413,6 +17515,11 @@ impl Game {
                     player: *player,
                 }
             }
+            [Effect::SacrificeCapturedPlayerUntappedLand { player }] => {
+                TriggeredEffectObjectDecisionKind::SacrificeCapturedPlayerUntappedLand {
+                    player: *player,
+                }
+            }
             [Effect::ReturnAnotherControlledPermanentSharingCardTypes {
                 entered,
                 entered_incarnation,
@@ -17433,6 +17540,9 @@ impl Game {
             TriggeredEffectObjectDecisionKind::SacrificeControllerCreature
             | TriggeredEffectObjectDecisionKind::ReturnAnotherControlledPermanentSharingEnteredCardTypes { .. } => top.controller,
             TriggeredEffectObjectDecisionKind::SacrificeCapturedPlayerCreature { player } => *player,
+            TriggeredEffectObjectDecisionKind::SacrificeCapturedPlayerUntappedLand { player } => {
+                *player
+            }
         };
         let candidates = match &kind {
             TriggeredEffectObjectDecisionKind::DiscardEachPlayer { .. } => {
@@ -17450,6 +17560,18 @@ impl Game {
                         })
                 })
                 .collect(),
+            TriggeredEffectObjectDecisionKind::SacrificeCapturedPlayerUntappedLand { .. } => self
+                .all_battlefield_cards()
+                .into_iter()
+                .filter(|card| {
+                    self.controller_of(*card)
+                        .is_ok_and(|controller| controller == chooser)
+                        && !self.object(*card).is_ok_and(|object| object.tapped)
+                        && self.characteristics(*card).is_ok_and(|characteristics| {
+                            characteristics.card_types.contains(&CardType::Land)
+                        })
+                })
+                .collect(),
             TriggeredEffectObjectDecisionKind::ReturnAnotherControlledPermanentSharingEnteredCardTypes {
                 entered,
                 card_types,
@@ -17460,6 +17582,20 @@ impl Game {
             .into_iter()
             .map(DecisionOption::Object)
             .collect::<Vec<_>>();
+        if options.is_empty()
+            && matches!(
+                kind,
+                TriggeredEffectObjectDecisionKind::SacrificeControllerCreature
+                    | TriggeredEffectObjectDecisionKind::SacrificeCapturedPlayerCreature { .. }
+                    | TriggeredEffectObjectDecisionKind::SacrificeCapturedPlayerUntappedLand { .. }
+            )
+        {
+            // A mandatory sacrifice with no legal permanent is a normal
+            // no-op. Do not suspend the stack behind a zero-option policy
+            // prompt; the direct resolver records the ordinary ability
+            // terminal receipt without fabricating a selection.
+            return Ok(false);
+        }
         let (min_selections, max_selections) = match &kind {
             TriggeredEffectObjectDecisionKind::ReturnAnotherControlledPermanentSharingEnteredCardTypes { .. } => {
                 (0, u8::from(!options.is_empty()))
@@ -17475,6 +17611,7 @@ impl Game {
                 }
                 TriggeredEffectObjectDecisionKind::SacrificeControllerCreature
                 | TriggeredEffectObjectDecisionKind::SacrificeCapturedPlayerCreature { .. }
+                | TriggeredEffectObjectDecisionKind::SacrificeCapturedPlayerUntappedLand { .. }
                 | TriggeredEffectObjectDecisionKind::ReturnAnotherControlledPermanentSharingEnteredCardTypes { .. } => {
                     DecisionVisibility::Public
                 }
@@ -19823,6 +19960,11 @@ impl Game {
                     "upkeep-player sacrifice trigger was not materialized before resolution",
                 ));
             }
+            Effect::SacrificeEndStepPlayerUntappedLand => {
+                return Err(RulesError::IllegalAction(
+                    "end-step-player untapped-land sacrifice trigger was not materialized before resolution",
+                ));
+            }
             Effect::SacrificeCapturedPlayerCreature { player } => {
                 let candidate = self
                     .all_battlefield_cards()
@@ -19846,6 +19988,29 @@ impl Game {
                                 characteristics.card_types.contains(&CardType::Creature)
                             }))
                         .then_some(source)
+                    });
+                if let Some(permanent) = candidate {
+                    self.record_event(GameEvent::SacrificedByEffect {
+                        source,
+                        player: *player,
+                        permanent,
+                    });
+                    self.move_to_graveyard_or_remove_token(permanent)?;
+                }
+            }
+            Effect::SacrificeCapturedPlayerUntappedLand { player } => {
+                let candidate = self
+                    .all_battlefield_cards()
+                    .into_iter()
+                    .find(|candidate| {
+                        self.controller_of(*candidate)
+                            .is_ok_and(|candidate_controller| candidate_controller == *player)
+                            && !self.object(*candidate).is_ok_and(|object| object.tapped)
+                            && self
+                                .characteristics(*candidate)
+                                .is_ok_and(|characteristics| {
+                                    characteristics.card_types.contains(&CardType::Land)
+                                })
                     });
                 if let Some(permanent) = candidate {
                     self.record_event(GameEvent::SacrificedByEffect {
@@ -22224,6 +22389,9 @@ impl Game {
         if self.step == Step::Upkeep {
             self.enqueue_upkeep_triggers()?;
         }
+        if self.step == Step::End {
+            self.enqueue_end_step_triggers()?;
+        }
         if self.step == Step::FirstStrikeCombatDamage {
             self.resolve_combat_damage(true)?;
         }
@@ -23671,6 +23839,8 @@ impl Game {
                 effect,
                 Effect::SacrificeUpkeepPlayerCreature
                     | Effect::SacrificeCapturedPlayerCreature { .. }
+                    | Effect::SacrificeEndStepPlayerUntappedLand
+                    | Effect::SacrificeCapturedPlayerUntappedLand { .. }
             )
         }) {
             return Err(RulesError::IllegalAction(
@@ -23762,6 +23932,15 @@ impl Game {
         }
         if ability
             .effects
+            .iter()
+            .any(|effect| matches!(effect, Effect::SacrificeCapturedPlayerUntappedLand { .. }))
+        {
+            return Err(RulesError::IllegalAction(
+                "materialized end-step-player sacrifice effect escaped onto a triggered binding",
+            ));
+        }
+        if ability
+            .effects
             .contains(&Effect::SacrificeUpkeepPlayerCreature)
             && (ability.condition != TriggerCondition::BeginningOfAnyUpkeep
                 || !ability.targets.is_empty()
@@ -23769,6 +23948,17 @@ impl Game {
         {
             return Err(RulesError::IllegalAction(
                 "upkeep-player sacrifice requires one target-free any-upkeep trigger effect",
+            ));
+        }
+        if ability
+            .effects
+            .contains(&Effect::SacrificeEndStepPlayerUntappedLand)
+            && (ability.condition != TriggerCondition::BeginningOfAnyEndStep
+                || !ability.targets.is_empty()
+                || ability.effects.as_slice() != [Effect::SacrificeEndStepPlayerUntappedLand])
+        {
+            return Err(RulesError::IllegalAction(
+                "end-step-player untapped-land sacrifice requires one target-free any-end-step trigger effect",
             ));
         }
         if ability.condition == TriggerCondition::ControlledNonartifactPermanentEntersBattlefield
@@ -26152,6 +26342,49 @@ impl Game {
             ) {
                 return Err(RulesError::IllegalAction(
                     "any-upkeep trigger lacks its active-player upkeep boundary",
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// An `BeginningOfAnyEndStep` receipt is valid only immediately after that
+    /// end step's own marker. The active player is historical trigger payload;
+    /// recomputing it after priorities or a control change would let an
+    /// end-step sacrifice decision escape its event boundary.
+    fn validate_any_end_step_trigger_event_order(&self) -> Result<(), RulesError> {
+        for (stacked_index, event) in self.event_log.iter().enumerate() {
+            let GameEvent::TriggeredAbilityStacked {
+                source, ability, ..
+            } = event
+            else {
+                continue;
+            };
+            let Some(definition) = self.object(*source)?.definition else {
+                continue;
+            };
+            let is_any_end_step = self
+                .triggered_abilities
+                .get(definition)
+                .and_then(|abilities| abilities.get(ability))
+                .is_some_and(|binding| {
+                    binding.condition == TriggerCondition::BeginningOfAnyEndStep
+                });
+            if !is_any_end_step {
+                continue;
+            }
+            if !matches!(
+                self.event_log[..stacked_index].iter().rev().find(|prior| {
+                    matches!(prior, GameEvent::StepBegan { .. })
+                }),
+                Some(GameEvent::StepBegan {
+                    active_player,
+                    step: Step::End,
+                    ..
+                }) if active_player.0 < self.players.len()
+            ) {
+                return Err(RulesError::IllegalAction(
+                    "any-end-step trigger lacks its active-player end-step boundary",
                 ));
             }
         }
@@ -28832,6 +29065,30 @@ impl Game {
                             && matches!(
                                 top.effects.as_slice(),
                                 [Effect::SacrificeCapturedPlayerCreature {
+                                    player: stack_player,
+                                }] if stack_player == player
+                            ),
+                    ),
+                    TriggeredEffectObjectDecisionKind::SacrificeCapturedPlayerUntappedLand {
+                        player,
+                    } => (
+                        self.all_battlefield_cards()
+                            .into_iter()
+                            .filter(|card| {
+                                self.controller_of(*card)
+                                    .is_ok_and(|controller| controller == *player)
+                                    && !self.object(*card).is_ok_and(|object| object.tapped)
+                                    && self.characteristics(*card).is_ok_and(|characteristics| {
+                                        characteristics.card_types.contains(&CardType::Land)
+                                    })
+                            })
+                            .map(DecisionOption::Object)
+                            .collect::<Vec<_>>(),
+                        DecisionVisibility::Public,
+                        decision.player == *player
+                            && matches!(
+                                top.effects.as_slice(),
+                                [Effect::SacrificeCapturedPlayerUntappedLand {
                                     player: stack_player,
                                 }] if stack_player == player
                             ),

@@ -382,6 +382,10 @@ pub enum TriggerCondition {
     /// trigger event before priority, so an effect can refer to that player
     /// even though the trigger source may be controlled by another player.
     BeginningOfAnyUpkeep,
+    /// Any player's end step began. The active player is captured with the
+    /// trigger event before priority, so an effect can refer to that player
+    /// even though the trigger source may be controlled by another player.
+    BeginningOfAnyEndStep,
     /// The source's controller gained positive life. The trigger is queued
     /// at the life-gain receipt and may optionally pay its bound mana cost
     /// before it is put on the stack.
@@ -1811,6 +1815,17 @@ pub enum Effect {
     SacrificeCapturedPlayerCreature {
         player: PlayerId,
     },
+    /// An any-end-step trigger materializes this into
+    /// [`Self::SacrificeCapturedPlayerUntappedLand`] while the active end-step
+    /// player is known. It deliberately has no target: that player chooses
+    /// an untapped land at resolution through the public decision boundary.
+    SacrificeEndStepPlayerUntappedLand,
+    /// A materialized each-end-step sacrifice instruction. The player is
+    /// captured at the trigger event rather than inferred from the source's
+    /// current controller when the ability later resolves.
+    SacrificeCapturedPlayerUntappedLand {
+        player: PlayerId,
+    },
     /// Put a positive, already materialized number of cards from one target
     /// player's library into that player's graveyard.
     MillTargetPlayer {
@@ -2779,6 +2794,8 @@ impl Effect {
             | Self::SacrificeControllerCreature
             | Self::SacrificeUpkeepPlayerCreature
             | Self::SacrificeCapturedPlayerCreature { .. }
+            | Self::SacrificeEndStepPlayerUntappedLand
+            | Self::SacrificeCapturedPlayerUntappedLand { .. }
             | Self::DealDamageAfterOptionalManaPayment { .. }
             | Self::DealDamageToEachCreatureAndPlayer { .. }
             | Self::DealDamageToEachPlayer { .. }
@@ -3725,6 +3742,13 @@ pub enum TriggeredEffectObjectDecisionKind {
     /// (or submits no object when none are legal). This identity is stored in
     /// the continuation rather than read from a later active-player field.
     SacrificeCapturedPlayerCreature {
+        player: PlayerId,
+    },
+    /// The captured end-step player selects one currently controlled untapped
+    /// land (or submits no object when none are legal). This identity is
+    /// stored in the continuation rather than read from a later active-player
+    /// field.
+    SacrificeCapturedPlayerUntappedLand {
         player: PlayerId,
     },
     /// The source controller may choose one other currently controlled
