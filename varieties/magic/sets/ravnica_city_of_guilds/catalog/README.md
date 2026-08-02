@@ -193,9 +193,17 @@ Muddle the Mixture is positive-manifest as well: its typed instant/sorcery
 counterspell and hand-zone Transmute paths each have deterministic public
 scenario coverage and stack/zone receipts.
 
+Necroplasm is now a bounded trigger slice: its controller submits the order of
+its two simultaneous upkeep triggers, and the generic creature-only sweep
+samples the live `+1/+1` counter quantity only when it resolves. The public
+scenario keeps that policy decision and its resulting destruction receipts
+visible. It remains partial: a trigger whose source left before resolution
+does not yet use last-known counter information, so it is not in the positive
+full-fidelity manifest.
+
 The generic-keyword coverage batch for Conclave Phalanx, Golgari Grave-Troll,
-Necroplasm, Grave-Shell Scarab, Shambling Shell, and Autochthon Wurm follows
-the same fail-closed boundary. Each
+Grave-Shell Scarab, Shambling Shell, and Autochthon Wurm follows the same
+fail-closed boundary. Each
 definition records only its public identity, mana cost, color, type, base
 characteristics, and the engine's existing generic Dredge or Convoke hook. The
 public fixed scenarios exercise that generic hook and normal casting where it is
