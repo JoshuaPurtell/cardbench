@@ -71,7 +71,7 @@ explicitly scoped compatibility slices.
 RAV shown scenarios are fixture-driven from
 `sets/ravnica_city_of_guilds/scenarios/public/train_scenarios.toml`; each declares
 setup, actions, state assertions, event markers, and a fixed digest. The
-current corpus contains 170 scenarios and covers:
+current corpus contains 171 scenarios and covers:
 
 - casting to the stack and both-player priority passes (`Lightning Helix`);
 - colored-cost creature casting and permanent characteristics (`Watchwolf`);
@@ -84,6 +84,9 @@ current corpus contains 170 scenarios and covers:
 - full-fidelity typed basic-land lines and intrinsic mana receipts, including
   explicit basic-land activations during spell-cost payment with atomic
   rollback and ordered event receipts;
+- a full-fidelity dual land whose controller explicitly pays two life as a
+  replacement-style land-play choice to enter untapped, or declines and enters
+  tapped, with normal selected Black/Green mana afterwards (`Overgrown Tomb`);
 - a full-fidelity all-land-entry source-untap trigger and a stack-backed
   target-land untap activation (`Stone-Seeder Hierophant`), including explicit
   priority windows and untap receipts;

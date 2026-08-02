@@ -307,13 +307,18 @@ Oracle Magic rules coverage.
   changes do not. The resulting draw attempts use the ordinary spell-effect
   draw lifecycle and retain its empty-library handling.
 - A registered land-entry behavior names exactly one land definition and
-  currently represents only a mandatory tapped entry. Playing that land marks
-  it tapped before state-based actions and before any resulting ETB ability is
-  placed on the stack. It does not fold an ETB instruction into the land-play
-  transition: normal trigger placement, target legality, priority, and
-  resolution receipts remain required. Controller-relative trigger selection
-  must use controller-relative legality, so a `ControlledLand` target can
-  select the newly entered land itself but can never select an opponent's land.
+  represents either a mandatory tapped entry or one positive optional life
+  payment that permits an untapped entry. The latter choice is explicitly
+  submitted with the land play; an unqualified legacy land-play action cannot
+  silently choose it. A paid choice requires current life, records
+  `LandEntryLifePaid`, and that receipt must be immediately followed by the
+  exact card's ordinary battlefield move under a matching immutable binding.
+  A decline marks the land tapped. Neither branch creates a stack item or a
+  priority boundary. Normal trigger placement, target legality, priority, and
+  resolution receipts remain required after entry. Controller-relative trigger
+  selection must use controller-relative legality, so a `ControlledLand`
+  target can select the newly entered land itself but can never select an
+  opponent's land.
 - A `LandEntersBattlefield` or `ControlledLandEntersBattlefield` trigger binding
   is permitted only on a permanent source and uses the same checked
   effect/target shape as every other trigger. Every represented land entry

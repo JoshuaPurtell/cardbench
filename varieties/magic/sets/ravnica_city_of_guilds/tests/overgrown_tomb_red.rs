@@ -36,7 +36,10 @@ fn overgrown_tomb_requires_its_exact_dual_land_entry_and_mana_contract() {
     assert_eq!(definition.name, "Overgrown Tomb");
     assert_eq!(definition.card_types, BTreeSet::from([CardType::Land]));
     assert_eq!(definition.colors, BTreeSet::<Color>::new());
-    assert_eq!(definition.mana_colors, BTreeSet::from([Color::Black, Color::Green]));
+    assert_eq!(
+        definition.mana_colors,
+        BTreeSet::from([Color::Black, Color::Green])
+    );
     assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&definition.id));
     assert_eq!(
         executable_definition_id_for_collector(279),
@@ -81,7 +84,11 @@ fn overgrown_tomb_explicitly_pays_two_life_to_enter_untapped_or_declines_and_ent
         )
         .expect("untapped Tomb produces selected Green mana");
     assert_eq!(
-        paid_game.player(PlayerId(0)).expect("player").mana_pool.amount(Color::Green),
+        paid_game
+            .player(PlayerId(0))
+            .expect("player")
+            .mana_pool
+            .amount(Color::Green),
         1
     );
     paid_game
@@ -96,7 +103,12 @@ fn overgrown_tomb_explicitly_pays_two_life_to_enter_untapped_or_declines_and_ent
         .play_land_with_entry_life_payment(PlayerId(0), declined_tomb, false)
         .expect("controller may decline Tomb life payment");
     assert_eq!(declined_game.player(PlayerId(0)).expect("player").life, 20);
-    assert!(declined_game.object(declined_tomb).expect("Tomb persists").tapped);
+    assert!(
+        declined_game
+            .object(declined_tomb)
+            .expect("Tomb persists")
+            .tapped
+    );
     assert!(!declined_game.event_log.iter().any(|event| matches!(
         event,
         GameEvent::LandEntryLifePaid { card, .. } if *card == declined_tomb
