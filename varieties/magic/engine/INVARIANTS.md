@@ -239,6 +239,20 @@ Oracle Magic rules coverage.
   sacrifice triggers keep their stack object live while the relevant chooser
   submits a legal current hand or battlefield object; no deterministic fixture
   selection may move a card or permanent.
+- A `DealsCombatDamageToCreature` trigger is queued only after a positive
+  `DamageDealtToPermanent` combat receipt reaches a creature. Its materialized
+  effect carries the recipient's exact battlefield incarnation and has no
+  target slot: prevention or redirection creates no trigger for the original
+  recipient, while a later zone change makes the captured instruction a
+  harmless no-op rather than affecting a new object with the same stable id.
+- An `OpponentCardPutIntoGraveyard` trigger observes every ordinary,
+  incarnation-advancing non-token transition into a player's graveyard. It
+  compares that owner with each live observer's controller, so a discard,
+  mill, destroyed permanent, countered spell, or paid cost can qualify while
+  a card entering its own controller's graveyard cannot. The normal
+  `CardMoved` and `ObjectIncarnationAdvanced` receipts remain the public event
+  provenance; trigger placement remains deferred until the enclosing action
+  completes.
 - After every surviving player passes on a trigger with an optional mana cost,
   the trigger remains the top stack object and opens a no-priority decision for
   its controller. The view exposes the exact cost, current affordability, and
