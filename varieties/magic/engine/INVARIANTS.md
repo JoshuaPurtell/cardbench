@@ -366,6 +366,18 @@ Oracle Magic rules coverage.
   never a resolver closure. Optional-cost, color, partial-redirection, and
   arbitrary replacement-event composition remain separate bounded decision
   families until migrated to it.
+- `DecisionKind::ConditionalPrivateDiscard` retains one non-ability spell at
+  the stack top with exactly one live `Player` target and the one matching
+  `DrawTargetPlayerThenConditionalPrivateDiscard` instruction. That targeted
+  recipient, rather than the spell controller, receives three ordinary
+  spell-effect draws before the private decision opens. Its candidate set is
+  exactly that recipient's current owned hand, is visible only through that
+  recipient's `GameView`, and accepts only one current land card or two
+  distinct current hand cards. Foreign, stale, duplicate, non-land singleton,
+  wrong-zone, wrong-owner, and malformed answers are atomic. Completion emits
+  the ordinary discard and graveyard transitions before the source spell's
+  terminal resolution/zone receipts; candidate identities never enter the
+  public decision receipts.
 - Every represented trigger condition captures one source/controller/payload
   event and reaches a common active-player-first placement pipeline after its
   enclosing action. A target-bearing event stays outside the stack in its
