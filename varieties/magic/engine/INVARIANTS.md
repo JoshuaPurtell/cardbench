@@ -676,6 +676,15 @@ Oracle Magic rules coverage.
   `SourceCounterLifeLoss` provenance receipt immediately followed by the equal
   ordinary `LifeLost` mutation; an orphaned, invalid-kind, nonpositive, or
   mismatched pair fails the invariant audit.
+- A source-counter mana-value sweep is materialized before its activation costs
+  mutate state. Its source counter value must be a nonnegative, exact-incarnation
+  `SourceCounterValueMaterialized` receipt immediately before the matching
+  sacrifice-source activation; the live stack item then contains only that
+  numeric value, never a template that could reread a departed or re-entered
+  source. Resolution snapshots every nonland permanent with that current mana
+  value before destroying any of them, including zero-mana tokens, and an
+  orphaned receipt, a mismatched stack value, or an unmaterialized template
+  fails the invariant audit.
 - A registered quantity replacement has a catalogued permanent source, a
   multiplier of at least two, and is fixed before the game begins. When tokens
   are created or a represented counter is placed, only live battlefield
