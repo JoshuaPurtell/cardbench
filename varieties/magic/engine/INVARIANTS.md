@@ -1074,6 +1074,15 @@ Oracle Magic rules coverage.
   records `SacrificedAsAbilityCost` immediately followed by its graveyard move
   (or token-ceases receipt), before `AbilityActivated`; a rejected selection is
   an atomic no-op with no mana debit or cost receipt.
+- A target-free self-regeneration activation that consumes one controlled
+  creature has no target slot and never shields the sacrificed offering. Its
+  source identity and incarnation are captured at activation; only that same
+  current battlefield creature can receive `RegenerationShieldCreated` during
+  resolution. The event order is therefore one selected-creature
+  `SacrificedAsAbilityCost` and its zone receipt before `AbilityActivated`,
+  then ordinary priority receipts, then the source-to-source shield receipt and
+  `AbilityResolved`; if the source is no longer the captured creature, the
+  resolver creates no substitute shield.
 - A generalized activation-cost profile may further require that every bound
   land sacrifice currently has one exact `BasicLandType`. Registration rejects
   such a profile when its ability has no land-sacrifice slot; activation rejects
