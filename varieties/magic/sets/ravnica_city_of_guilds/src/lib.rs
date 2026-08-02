@@ -31,6 +31,7 @@ use cardbench_magic_engine::{
     LibrarySearchRequirement, LibrarySearchSelection, ManaAbilityBinding, ManaAbilityOutput,
     ManaBundle, ManaCost, PlayerId, ReplacementEffect, ReplacementEffectBinding, RulesError,
     StaticAttackRestriction, StaticAttackRestrictionBinding, StaticContinuousEffectBinding, Target,
+    StaticEntryRestriction, StaticEntryRestrictionBinding,
     TargetRequirement, TokenSpec, TriggerCondition, TriggeredAbility, TriggeredAbilityBinding,
     Zone,
 };
@@ -40,7 +41,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 136] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 137] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -178,6 +179,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 136] = [
     "RAV-CYCLOPEAN-SNARE",
     "RAV-GRIFTERS-BLADE",
     "RAV-SUPPRESSION-FIELD",
+    "RAV-LOXODON-GATEKEEPER",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -2112,6 +2114,28 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             ],
             power: None,
             toughness: None,
+            keywords: vec![],
+            effects: vec![],
+        },
+        // Full fidelity: this static entry replacement is checked at every
+        // ordinary opposing artifact, creature, or land battlefield entry.
+        CardDefinition {
+            id: "RAV-LOXODON-GATEKEEPER",
+            name: "Loxodon Gatekeeper",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(2, [Color::White, Color::White]),
+            colors: colors([Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "static-opponents-artifacts-creatures-lands-enter-tapped",
+            ],
+            power: Some(2),
+            toughness: Some(3),
             keywords: vec![],
             effects: vec![],
         },
@@ -5486,6 +5510,17 @@ pub fn rav_static_attack_restriction_bindings() -> Vec<StaticAttackRestrictionBi
     }]
 }
 
+/// Battlefield-only entry replacements supplied by RAV. Unlike ETB
+/// triggers, the engine applies these during the ordinary zone transition and
+/// emits source-incarnation receipt provenance when they change an entry.
+#[must_use]
+pub fn rav_static_entry_restriction_bindings() -> Vec<StaticEntryRestrictionBinding> {
+    vec![StaticEntryRestrictionBinding {
+        card_definition: "RAV-LOXODON-GATEKEEPER",
+        restriction: StaticEntryRestriction::OpponentsArtifactsCreaturesAndLandsEnterTapped,
+    }]
+}
+
 /// Target-free stack triggers bound to RAV permanents.
 #[must_use]
 #[allow(clippy::too_many_lines)] // Keep the declarative trigger registry centralized for audit review.
@@ -6595,6 +6630,7 @@ fn fresh_game() -> Result<Game, RulesError> {
         rav_static_continuous_effect_bindings(),
     )?;
     game.register_static_attack_restrictions(rav_static_attack_restriction_bindings())?;
+    game.register_static_entry_restriction_bindings(rav_static_entry_restriction_bindings())?;
     game.register_cost_reduction_bindings(rav_cost_reduction_bindings())?;
     game.register_activated_ability_cost_modifier_bindings(
         rav_activated_ability_cost_modifier_bindings(),

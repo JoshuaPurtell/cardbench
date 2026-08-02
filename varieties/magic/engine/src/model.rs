@@ -2576,6 +2576,25 @@ pub struct StaticAttackRestrictionBinding {
     pub restriction: StaticAttackRestriction,
 }
 
+/// A battlefield-only replacement-style rule that changes how eligible
+/// permanents enter. It is applied during the ordinary zone transition rather
+/// than becoming a delayed trigger or a post-entry continuous effect.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum StaticEntryRestriction {
+    /// Artifacts, creatures, and lands controlled by an opponent of the live
+    /// source enter the battlefield tapped.
+    OpponentsArtifactsCreaturesAndLandsEnterTapped,
+}
+
+/// Immutable expansion data for a static entry replacement. Sources are
+/// rechecked from the live battlefield at each entry; registration itself
+/// never mutates a permanent or produces a gameplay receipt.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct StaticEntryRestrictionBinding {
+    pub card_definition: &'static str,
+    pub restriction: StaticEntryRestriction,
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Zone {
     Library,
@@ -3195,6 +3214,16 @@ pub enum GameEvent {
     ObjectIncarnationAdvanced {
         object: ObjectId,
         incarnation: u64,
+    },
+    /// A live static entry restriction changed an ordinary battlefield entry
+    /// from untapped to tapped. The zone and incarnation receipts immediately
+    /// before this event remain the authoritative transition provenance.
+    PermanentEnteredTapped {
+        permanent: ObjectId,
+        permanent_incarnation: u64,
+        controller: PlayerId,
+        source: ObjectId,
+        source_incarnation: u64,
     },
     /// The named controller inspected these currently top library cards while
     /// a resolving instruction was suspended for a private choice. The cards'

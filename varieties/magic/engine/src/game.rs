@@ -21,9 +21,10 @@ use crate::{
     ManaPaymentSelection, ObjectId, PendingDecision, PlayerId, PlayerState, PolicyMoveKind,
     QuantityReplacementResolution, ReplacementChoice, ReplacementEffect, ReplacementEffectBinding,
     ReplacementEventKind, StackEffectResolution, StackObject, StackResolutionPlan,
-    StaticAttackRestriction, StaticAttackRestrictionBinding, StaticContinuousEffectBinding, Step,
-    TRANSMUTE_ABILITY_ID, Target, TargetRequirement, TokenSpec, TriggerCondition,
-    TriggerOrderEntry, TriggeredAbilityBinding, TriggeredEffectObjectDecisionKind, Zone,
+    StaticAttackRestriction, StaticAttackRestrictionBinding, StaticContinuousEffectBinding,
+    StaticEntryRestriction, StaticEntryRestrictionBinding, Step, TRANSMUTE_ABILITY_ID, Target,
+    TargetRequirement, TokenSpec, TriggerCondition, TriggerOrderEntry, TriggeredAbilityBinding,
+    TriggeredEffectObjectDecisionKind, Zone,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -668,6 +669,7 @@ pub struct Game {
     attachment_bindings: BTreeMap<&'static str, AttachmentBinding>,
     triggered_abilities: BTreeMap<&'static str, BTreeMap<&'static str, crate::TriggeredAbility>>,
     static_attack_restrictions: BTreeMap<&'static str, Vec<StaticAttackRestriction>>,
+    static_entry_restrictions: BTreeMap<&'static str, Vec<StaticEntryRestriction>>,
     static_continuous_effects: BTreeMap<&'static str, Vec<ContinuousChange>>,
     cost_reductions: BTreeMap<&'static str, CostReductionBinding>,
     activated_ability_cost_modifiers: BTreeMap<&'static str, Vec<ActivatedAbilityCostModifier>>,
@@ -931,6 +933,7 @@ impl Game {
             attachment_bindings: BTreeMap::new(),
             triggered_abilities: BTreeMap::new(),
             static_attack_restrictions: BTreeMap::new(),
+            static_entry_restrictions: BTreeMap::new(),
             static_continuous_effects: BTreeMap::new(),
             cost_reductions: BTreeMap::new(),
             activated_ability_cost_modifiers: BTreeMap::new(),
@@ -1494,6 +1497,42 @@ impl Game {
             if restrictions.contains(&binding.restriction) {
                 return Err(RulesError::IllegalAction(
                     "duplicate static attack-restriction binding",
+                ));
+            }
+            restrictions.push(binding.restriction);
+        }
+        self.validate_invariants()
+    }
+
+    /// Registers immutable, battlefield-only entry restrictions before the
+    /// game starts. Each source is evaluated at a later ordinary battlefield
+    /// entry, so normal source departure revokes it without a cleanup effect.
+    pub fn register_static_entry_restriction_bindings(
+        &mut self,
+        bindings: impl IntoIterator<Item = StaticEntryRestrictionBinding>,
+    ) -> Result<(), RulesError> {
+        if self.started {
+            return Err(RulesError::IllegalAction(
+                "static entry restrictions cannot be changed after the game starts",
+            ));
+        }
+        for binding in bindings {
+            let definition = self
+                .catalog
+                .get(binding.card_definition)
+                .ok_or(RulesError::UnknownDefinition(binding.card_definition))?;
+            if !definition.is_permanent() {
+                return Err(RulesError::IllegalAction(
+                    "a static entry restriction requires a permanent source",
+                ));
+            }
+            let restrictions = self
+                .static_entry_restrictions
+                .entry(binding.card_definition)
+                .or_default();
+            if restrictions.contains(&binding.restriction) {
+                return Err(RulesError::IllegalAction(
+                    "duplicate static entry restriction binding",
                 ));
             }
             restrictions.push(binding.restriction);
@@ -4293,6 +4332,57 @@ impl Game {
             }
         }
         Ok(false)
+    }
+
+    /// Applies the first stable-object-id-ordered live entry restriction that
+    /// changes this permanent's entry. The restriction has already affected
+    /// the permanent by the time its receipt is emitted, but no target, stack,
+    /// or priority boundary is introduced.
+    fn apply_static_entry_restriction(&mut self, permanent: ObjectId) -> Result<(), RulesError> {
+        self.require_zone(permanent, Zone::Battlefield)?;
+        let entrant_controller = self.controller_of(permanent)?;
+        let characteristics = self.characteristics(permanent)?;
+        if !characteristics.card_types.iter().any(|card_type| {
+            matches!(
+                card_type,
+                CardType::Artifact | CardType::Creature | CardType::Land
+            )
+        }) {
+            return Ok(());
+        }
+        let mut sources = self.all_battlefield_cards();
+        sources.sort_unstable();
+        let source = sources.into_iter().find(|source| {
+            self.controller_of(*source)
+                .is_ok_and(|controller| controller != entrant_controller)
+                && self
+                    .effective_definition_id(*source)
+                    .ok()
+                    .flatten()
+                    .and_then(|definition| self.static_entry_restrictions.get(definition))
+                    .is_some_and(|restrictions| {
+                        restrictions.contains(
+                            &StaticEntryRestriction::OpponentsArtifactsCreaturesAndLandsEnterTapped,
+                        )
+                    })
+        });
+        let Some(source) = source else {
+            return Ok(());
+        };
+        let source_incarnation = self.object(source)?.incarnation;
+        let permanent_incarnation = self.object(permanent)?.incarnation;
+        self.objects
+            .get_mut(&permanent)
+            .ok_or(RulesError::UnknownCard(permanent))?
+            .tapped = true;
+        self.record_event(GameEvent::PermanentEnteredTapped {
+            permanent,
+            permanent_incarnation,
+            controller: entrant_controller,
+            source,
+            source_incarnation,
+        });
+        Ok(())
     }
 
     /// Performs the turn-based action of declaring attackers in the current combat.
@@ -7439,6 +7529,7 @@ impl Game {
         }
         Self::validate_mana_ability_event_order(&self.event_log)?;
         Self::validate_object_incarnation_event_order(&self.event_log)?;
+        self.validate_static_entry_restriction_event_order()?;
         Self::validate_permanent_copy_event_order(&self.event_log)?;
         Self::validate_library_search_event_order(&self.event_log)?;
         Self::validate_attachment_event_order(&self.event_log)?;
@@ -8480,6 +8571,23 @@ impl Game {
             {
                 return Err(RulesError::IllegalAction(
                     "static attack-restriction binding has invalid source or duplicates",
+                ));
+            }
+        }
+        for (definition_id, restrictions) in &self.static_entry_restrictions {
+            let definition = self
+                .catalog
+                .get(definition_id)
+                .ok_or(RulesError::UnknownDefinition(definition_id))?;
+            if !definition.is_permanent()
+                || restrictions.is_empty()
+                || restrictions
+                    .iter()
+                    .enumerate()
+                    .any(|(index, restriction)| restrictions[..index].contains(restriction))
+            {
+                return Err(RulesError::IllegalAction(
+                    "static entry-restriction binding has invalid source or duplicates",
                 ));
             }
         }
@@ -15401,6 +15509,7 @@ impl Game {
             },
         );
         self.place_in_zone(controller, id, Zone::Battlefield)?;
+        self.apply_static_entry_restriction(id)?;
         Ok(id)
     }
 
@@ -15563,6 +15672,9 @@ impl Game {
                 object: card,
                 incarnation: self.object(card)?.incarnation,
             });
+        }
+        if zone == Zone::Battlefield {
+            self.apply_static_entry_restriction(card)?;
         }
         if zone == Zone::Graveyard && advanced_incarnation {
             self.enqueue_opponent_graveyard_triggers(destination_owner);
@@ -16606,6 +16718,94 @@ impl Game {
                 ));
             }
             last.insert(*object, *incarnation);
+        }
+        Ok(())
+    }
+
+    /// Every replacement-style tapped entry must name an ordinary battlefield
+    /// move and the exact live source incarnation that changed it. This audit
+    /// deliberately permits the source to leave later; its receipt captures a
+    /// completed entry transition rather than an ongoing effect.
+    fn validate_static_entry_restriction_event_order(&self) -> Result<(), RulesError> {
+        for (index, event) in self.event_log.iter().enumerate() {
+            let GameEvent::PermanentEnteredTapped {
+                permanent,
+                permanent_incarnation,
+                controller,
+                source,
+                source_incarnation,
+            } = event
+            else {
+                continue;
+            };
+            if permanent.0 == 0
+                || source.0 == 0
+                || permanent == source
+                || *permanent_incarnation == 0
+                || *source_incarnation == 0
+                || self.players.get(controller.0).is_none()
+            {
+                return Err(RulesError::IllegalAction(
+                    "tapped-entry receipt has invalid permanent or source provenance",
+                ));
+            }
+            let token_entry = matches!(
+                self.event_log.get(index + 1),
+                Some(GameEvent::TokenCreated { token, .. }) if token == permanent
+            );
+            if token_entry {
+                if *permanent_incarnation != 1 {
+                    return Err(RulesError::IllegalAction(
+                        "tapped token entry has an invalid initial incarnation",
+                    ));
+                }
+            } else {
+                let transition_index = index.checked_sub(1).ok_or(RulesError::IllegalAction(
+                    "tapped-entry receipt lacks its battlefield transition",
+                ))?;
+                let move_index = match self.event_log.get(transition_index) {
+                    Some(GameEvent::ObjectIncarnationAdvanced {
+                        object,
+                        incarnation,
+                    }) if object == permanent && incarnation == permanent_incarnation => {
+                        transition_index
+                            .checked_sub(1)
+                            .ok_or(RulesError::IllegalAction(
+                                "tapped-entry incarnation receipt lacks its battlefield move",
+                            ))?
+                    }
+                    _ => transition_index,
+                };
+                if !matches!(
+                    self.event_log.get(move_index),
+                    Some(GameEvent::CardMoved { card, to: Zone::Battlefield }) if card == permanent
+                ) {
+                    return Err(RulesError::IllegalAction(
+                        "tapped-entry receipt is not adjacent to its battlefield move",
+                    ));
+                }
+            }
+            let source_definition = self
+                .object(*source)
+                .ok()
+                .and_then(|object| object.definition)
+                .or_else(|| self.departed_card_definitions.get(source).copied())
+                .ok_or(RulesError::IllegalAction(
+                    "tapped-entry receipt names no known source definition",
+                ))?;
+            if !self
+                .static_entry_restrictions
+                .get(source_definition)
+                .is_some_and(|restrictions| {
+                    restrictions.contains(
+                        &StaticEntryRestriction::OpponentsArtifactsCreaturesAndLandsEnterTapped,
+                    )
+                })
+            {
+                return Err(RulesError::IllegalAction(
+                    "tapped-entry receipt source lacks the declared restriction",
+                ));
+            }
         }
         Ok(())
     }

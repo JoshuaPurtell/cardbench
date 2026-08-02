@@ -173,6 +173,18 @@ Oracle Magic rules coverage.
   produce a different color. A cast-payment basic-land request must name one
   such typed land and its intrinsic color; it cannot use an untyped land or
   produce a different color while paying a spell cost.
+- A registered static entry restriction names a permanent source, is immutable
+  before the game begins, and is rechecked from the battlefield at each
+  ordinary entry. Its first represented rule applies to opponents' artifacts,
+  creatures, and lands only; it never alters setup injection, a source's own
+  entry, an ally's entry, or an enchantment/instant/sorcery entry. A changed
+  non-token entry records `CardMoved(Battlefield) →
+  ObjectIncarnationAdvanced → PermanentEnteredTapped` with the exact source
+  incarnation; a changed token entry records `PermanentEnteredTapped →
+  TokenCreated` with incarnation one. The audit rejects absent transition
+  provenance, invalid source/controller identities, an unsupported source
+  binding, or a fabricated token incarnation. Source departure immediately
+  revokes the restriction without a delayed cleanup effect.
 - A registered land-entry behavior names exactly one land definition and
   currently represents only a mandatory tapped entry. Playing that land marks
   it tapped before state-based actions and before any resulting ETB ability is
