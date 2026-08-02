@@ -42,13 +42,14 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 175] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 176] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
     "RAV-PUTREFY",
+    "RAV-GLIMPSE-THE-UNTHINKABLE",
     "RAV-GAZE-OF-THE-GORGON",
     "RAV-DROOLING-GROODION",
     "RAV-GOLGARI-ROTWURM",
@@ -845,6 +846,24 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             toughness: None,
             keywords: vec![],
             effects: vec![Effect::DestroyTargetArtifactOrCreatureNoRegeneration],
+        },
+        // Full fidelity: the existing player-target and mill instruction
+        // handles both cast/resolution legality and one ordinary zone move
+        // receipt per card. No card-specific library path is required.
+        CardDefinition {
+            id: "RAV-GLIMPSE-THE-UNTHINKABLE",
+            name: "Glimpse the Unthinkable",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(0, [Color::Blue, Color::Black]),
+            colors: colors([Color::Blue, Color::Black]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Sorcery]),
+            is_basic_land: false,
+            supported_rules: &["full-rules-fidelity", "targeted-mill-ten"],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![Effect::MillTargetPlayer { count: 10 }],
         },
         // Full fidelity: the expansion-neutral delayed-action substrate
         // records exact block-incarnation history, waits until the current
