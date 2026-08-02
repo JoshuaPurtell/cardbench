@@ -7,8 +7,8 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardDefinition, CardType, Color, CombatBlock, Game, GameEvent, Keyword, ManaCost, PlayerId,
-    Step, Zone,
+    CardDefinition, CardType, Color, CombatBlock, DecisionKind, DecisionSelection, Game, GameEvent,
+    Keyword, ManaCost, PlayerId, Step, Zone,
 };
 
 const LAND: &str = "TEST-LAND";
@@ -147,6 +147,21 @@ fn advance_to_blockers(game: &mut Game, attacker: cardbench_magic_engine::Object
     assert_eq!(game.step, Step::DeclareBlockers);
 }
 
+fn submit_damage_order(game: &mut Game, blockers: Vec<cardbench_magic_engine::ObjectId>) {
+    let decision = game
+        .view_for_player(PlayerId(0))
+        .expect("attacker view")
+        .pending_decision
+        .expect("multi-block declaration opens a no-priority order decision");
+    assert_eq!(decision.kind, DecisionKind::CombatDamageOrder);
+    game.submit_decision(
+        PlayerId(0),
+        decision.id,
+        DecisionSelection::Objects(blockers),
+    )
+    .expect("attacker submits legal blocker order");
+}
+
 #[test]
 fn ordinary_defender_can_assign_two_blockers_to_one_attacker_atomically() {
     let mut game = Game::new(definitions(), 2).expect("game initializes");
@@ -188,10 +203,20 @@ fn ordinary_defender_can_assign_two_blockers_to_one_attacker_atomically() {
     );
     assert_eq!(
         game.event_log,
-        [GameEvent::BlockersDeclared {
-            player: PlayerId(1),
-            assignments: vec![(attacker, first_blocker), (attacker, second_blocker)],
-        }],
+        [
+            GameEvent::BlockersDeclared {
+                player: PlayerId(1),
+                assignments: vec![(attacker, first_blocker), (attacker, second_blocker)],
+            },
+            GameEvent::DecisionOpened {
+                decision: cardbench_magic_engine::DecisionId(1),
+                player: PlayerId(0),
+                kind: DecisionKind::CombatDamageOrder,
+                visibility: cardbench_magic_engine::DecisionVisibility::Public,
+                min_selections: 2,
+                max_selections: 2,
+            },
+        ],
         "successful multi-block declaration receipt"
     );
     game.validate_invariants()
@@ -229,6 +254,7 @@ fn every_live_blocker_assigns_combat_damage_after_a_multi_block_declaration() {
         ],
     )
     .expect("two blockers are retained for combat damage");
+    submit_damage_order(&mut game, vec![first_blocker, second_blocker]);
     let event_start = game.event_log.len();
     for _ in 0..2 {
         let player = game.priority;
@@ -286,6 +312,7 @@ fn trample_assigns_lethal_damage_through_each_ordered_blocker_before_excess() {
         ],
     )
     .expect("ordered blockers are legal");
+    submit_damage_order(&mut game, vec![first_blocker, second_blocker]);
     let event_start = game.event_log.len();
     for _ in 0..2 {
         let player = game.priority;

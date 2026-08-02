@@ -442,8 +442,12 @@ struct CombatState {
     landwalk_attackers: BTreeMap<ObjectId, BTreeSet<BasicLandType>>,
     /// Ordered blocker groups keyed by attacker. The vector order is the
     /// deterministic compatibility damage-assignment order until the policy
-    /// decision layer exposes the attacking player's CR 509.2 choice.
+    /// decision layer records the attacking player's CR 509.2 choice.
     blockers: BTreeMap<ObjectId, Vec<ObjectId>>,
+    /// Multi-block groups whose attacking controller has submitted the
+    /// required damage-assignment order. The order itself remains the vector
+    /// in `blockers`; this set is only no-priority decision provenance.
+    damage_ordered_attackers: BTreeSet<ObjectId>,
     /// A blocker that regenerated remains associated with its attacker (so
     /// that attacker stays blocked) but no longer assigns or receives combat
     /// damage. This preserves the difference between leaving combat and
@@ -1642,6 +1646,7 @@ impl Game {
                 controller: owner,
                 tapped: false,
                 damage: 0,
+                deathtouch_damage: false,
                 damage_shield: 0,
                 counters: BTreeMap::new(),
                 attached_to: None,
@@ -2881,7 +2886,8 @@ impl Game {
                     may_fail_to_find,
                     ..
                 } => Some((*source, *destination, *may_fail_to_find)),
-                DecisionContinuation::TriggeredEffectObject { .. } => None,
+                DecisionContinuation::TriggeredEffectObject { .. }
+                | DecisionContinuation::CombatDamageOrder { .. } => None,
             })
             .map(|(source, destination, may_fail_to_find)| {
                 self.decision_candidate_cards(
@@ -2949,7 +2955,8 @@ impl Game {
                 DecisionContinuation::TriggeredEffectObject {
                     source, ability, ..
                 } => Some((*source, *ability)),
-                DecisionContinuation::LibrarySearch { .. } => None,
+                DecisionContinuation::LibrarySearch { .. }
+                | DecisionContinuation::CombatDamageOrder { .. } => None,
             })
             .map(|(source, ability)| {
                 self.decision_candidate_cards(
@@ -4428,7 +4435,12 @@ impl Game {
                 .collect(),
         });
         self.consecutive_passes = 0;
-        self.priority = self.priority_after_resolution();
+        // CR 509.2: after all blocks are declared, the attacking player
+        // orders each multi-block group before either player receives
+        // priority. This is a no-priority decision, not a damage-step
+        // fixture; it determines the vector retained by `CombatState`.
+        let groups = self.combat_damage_order_groups()?;
+        self.open_next_combat_damage_order(self.active_player, groups)?;
         self.validate_invariants()
     }
 
@@ -5238,6 +5250,12 @@ impl Game {
                 kind,
                 selected.into_iter().next(),
             ),
+            DecisionContinuation::CombatDamageOrder {
+                attacker,
+                remaining,
+            } => {
+                self.resolve_combat_damage_order_decision(&decision, attacker, remaining, selected)
+            }
         }
     }
 
@@ -5262,6 +5280,118 @@ impl Game {
             }
         }
         Ok(selected)
+    }
+
+    /// Returns the still-unordered multi-block groups in a deterministic
+    /// attacker order. The blocker vectors themselves preserve the defender's
+    /// declaration only until the attacking controller replaces each one with
+    /// the CR 509.2 damage-assignment order.
+    fn combat_damage_order_groups(&self) -> Result<Vec<(ObjectId, Vec<ObjectId>)>, RulesError> {
+        let combat = self
+            .combat
+            .as_ref()
+            .ok_or(RulesError::IllegalAction("combat was not initialized"))?;
+        if self.step != Step::DeclareBlockers
+            || !combat.attackers_declared
+            || !combat.blockers_declared
+        {
+            return Err(RulesError::IllegalAction(
+                "combat damage order is not pending after blockers",
+            ));
+        }
+        Ok(combat
+            .blockers
+            .iter()
+            .filter(|(attacker, blockers)| {
+                blockers.len() > 1 && !combat.damage_ordered_attackers.contains(attacker)
+            })
+            .map(|(attacker, blockers)| (*attacker, blockers.clone()))
+            .collect())
+    }
+
+    /// Opens the next attacker-owned damage-order decision, or gives the
+    /// active player the normal post-declaration priority once every group is
+    /// ordered. Only the exact blocker identities may be selected, and the
+    /// fixed cardinality turns that selection vector into a permutation.
+    fn open_next_combat_damage_order(
+        &mut self,
+        player: PlayerId,
+        mut groups: Vec<(ObjectId, Vec<ObjectId>)>,
+    ) -> Result<(), RulesError> {
+        let Some((attacker, blockers)) = groups.first().cloned() else {
+            self.priority = self.priority_after_resolution();
+            self.consecutive_passes = 0;
+            return Ok(());
+        };
+        groups.remove(0);
+        let count = u8::try_from(blockers.len()).map_err(|_| {
+            RulesError::IllegalAction("combat damage-order group exceeds engine range")
+        })?;
+        self.open_pending_decision(
+            player,
+            DecisionVisibility::Public,
+            DecisionKind::CombatDamageOrder,
+            count,
+            count,
+            blockers.into_iter().map(DecisionOption::Object).collect(),
+            DecisionContinuation::CombatDamageOrder {
+                attacker,
+                remaining: groups,
+            },
+        )?;
+        Ok(())
+    }
+
+    /// Replaces exactly one declared multi-block vector with the attacker's
+    /// legal submitted permutation, then either opens the next group or
+    /// releases the ordinary post-block priority window.
+    fn resolve_combat_damage_order_decision(
+        &mut self,
+        decision: &PendingDecision,
+        attacker: ObjectId,
+        remaining: Vec<(ObjectId, Vec<ObjectId>)>,
+        selected: Vec<ObjectId>,
+    ) -> Result<(), RulesError> {
+        let groups = self.combat_damage_order_groups()?;
+        let Some((expected_attacker, expected_blockers)) = groups.first() else {
+            return Err(RulesError::IllegalAction(
+                "combat damage-order decision has no unordered blocker group",
+            ));
+        };
+        if *expected_attacker != attacker
+            || decision.kind != DecisionKind::CombatDamageOrder
+            || decision.visibility != DecisionVisibility::Public
+            || decision.player != self.active_player
+            || decision.options
+                != expected_blockers
+                    .iter()
+                    .copied()
+                    .map(DecisionOption::Object)
+                    .collect::<Vec<_>>()
+            || groups.get(1..) != Some(remaining.as_slice())
+        {
+            return Err(RulesError::IllegalAction(
+                "combat damage-order continuation no longer matches declared blockers",
+            ));
+        }
+
+        let combat = self
+            .combat
+            .as_mut()
+            .ok_or(RulesError::IllegalAction("combat was not initialized"))?;
+        combat.blockers.insert(attacker, selected.clone());
+        if !combat.damage_ordered_attackers.insert(attacker) {
+            return Err(RulesError::IllegalAction(
+                "combat damage order was already submitted for this attacker",
+            ));
+        }
+        self.complete_pending_decision(decision)?;
+        self.record_event(GameEvent::CombatDamageOrderChosen {
+            player: decision.player,
+            attacker,
+            blockers: selected,
+        });
+        self.open_next_combat_damage_order(decision.player, remaining)
     }
 
     #[allow(clippy::too_many_lines)] // The suspended selection and terminal stack lifecycle are one transaction.
@@ -5950,15 +6080,21 @@ impl Game {
                     continue;
                 }
                 let toughness = characteristics.toughness.unwrap_or(0);
-                let damage = self.object(card)?.damage;
+                let object = self.object(card)?;
+                let damage = object.damage;
+                let deathtouch_damage = object.deathtouch_damage;
                 let reason = if toughness <= 0 {
                     Some("creature has toughness zero or less")
-                } else if damage > 0 && damage >= toughness {
+                } else if damage > 0 && (damage >= toughness || deathtouch_damage) {
                     if self.use_regeneration_shield(card)? {
                         changed = true;
                         continue;
                     }
-                    Some("creature has lethal damage")
+                    Some(if deathtouch_damage {
+                        "creature was dealt damage by a source with deathtouch"
+                    } else {
+                        "creature has lethal damage"
+                    })
                 } else {
                     None
                 };
@@ -6563,6 +6699,7 @@ impl Game {
                         || object.entered_turn > self.turn
                         || object.controller_changed_turn > self.turn
                         || object.damage < 0
+                        || (object.deathtouch_damage && object.damage <= 0)
                         || object.damage_shield < 0
                         || (zone != Zone::Battlefield && !object.counters.is_empty())
                         || object
@@ -7536,6 +7673,24 @@ impl Game {
                         self.object(*blocker)?;
                     }
                 }
+            }
+            let multi_block_attackers = combat
+                .blockers
+                .iter()
+                .filter(|(_, assigned_blockers)| assigned_blockers.len() > 1)
+                .map(|(attacker, _)| *attacker)
+                .collect::<BTreeSet<_>>();
+            if !combat
+                .damage_ordered_attackers
+                .is_subset(&multi_block_attackers)
+                || (matches!(
+                    self.step,
+                    Step::FirstStrikeCombatDamage | Step::CombatDamage
+                ) && multi_block_attackers != combat.damage_ordered_attackers)
+            {
+                return Err(RulesError::IllegalAction(
+                    "combat damage-order provenance is incoherent",
+                ));
             }
             if !combat.removed_from_combat.is_subset(&blockers) {
                 return Err(RulesError::IllegalAction(
@@ -10436,10 +10591,15 @@ impl Game {
                 self.enqueue_damage_triggers(source, amount)?;
             }
             Target::Permanent(permanent) => {
+                let deathtouch_damage = self.source_has_deathtouch(source);
                 self.objects
                     .get_mut(&permanent)
                     .ok_or(RulesError::UnknownCard(permanent))?
                     .damage += amount;
+                self.objects
+                    .get_mut(&permanent)
+                    .ok_or(RulesError::UnknownCard(permanent))?
+                    .deathtouch_damage |= deathtouch_damage;
                 self.record_event(GameEvent::DamageDealtToPermanent {
                     source,
                     permanent,
@@ -10598,10 +10758,15 @@ impl Game {
         }
         let remaining = amount - prevented;
         if remaining > 0 {
+            let deathtouch_damage = self.source_has_deathtouch(source);
             self.objects
                 .get_mut(&permanent)
                 .ok_or(RulesError::UnknownCard(permanent))?
                 .damage += remaining;
+            self.objects
+                .get_mut(&permanent)
+                .ok_or(RulesError::UnknownCard(permanent))?
+                .deathtouch_damage |= deathtouch_damage;
             self.record_event(GameEvent::DamageDealtToPermanent {
                 source,
                 permanent,
@@ -10611,6 +10776,15 @@ impl Game {
             self.enqueue_received_damage_triggers(permanent, remaining)?;
         }
         Ok(())
+    }
+
+    /// A damage packet keeps the source's deathtouch quality at commit time.
+    /// That is enough for the current expansion-neutral direct-damage and
+    /// combat paths; a later source zone or keyword change cannot retroactively
+    /// alter an already marked packet.
+    fn source_has_deathtouch(&self, source: ObjectId) -> bool {
+        self.characteristics(source)
+            .is_ok_and(|characteristics| characteristics.keywords.contains(&Keyword::Deathtouch))
     }
 
     fn deal_damage_to_player(
@@ -12444,6 +12618,10 @@ impl Game {
                         .get_mut(&card)
                         .ok_or(RulesError::UnknownCard(card))?
                         .damage = 0;
+                    self.objects
+                        .get_mut(&card)
+                        .ok_or(RulesError::UnknownCard(card))?
+                        .deathtouch_damage = false;
                 }
                 let expired = self
                     .continuous_effects
@@ -12601,6 +12779,10 @@ impl Game {
                 .characteristics(attacker)?
                 .keywords
                 .contains(&Keyword::Trample);
+            let attacker_has_deathtouch = self
+                .characteristics(attacker)?
+                .keywords
+                .contains(&Keyword::Deathtouch);
             if let Some(declared_blockers) = combat.blockers.get(&attacker) {
                 let live_blockers = declared_blockers
                     .iter()
@@ -12632,7 +12814,14 @@ impl Game {
                                 .toughness
                                 .ok_or(RulesError::IllegalAction("blocker lacks toughness"))?;
                             let marked_damage = self.object(*blocker)?.damage;
-                            let lethal = blocker_toughness.saturating_sub(marked_damage).max(0);
+                            // CR 702.2c: one positive point from a source
+                            // with deathtouch is lethal damage for assignment,
+                            // independently of a blocker's printed toughness.
+                            let lethal = if attacker_has_deathtouch {
+                                1
+                            } else {
+                                blocker_toughness.saturating_sub(marked_damage).max(0)
+                            };
                             let assigned = remaining.min(lethal);
                             assignments.push((*blocker, assigned));
                             remaining -= assigned;
@@ -12707,6 +12896,7 @@ impl Game {
             combat.must_be_blocked_attackers.remove(&card);
             combat.landwalk_attackers.remove(&card);
             combat.blockers.remove(&card);
+            combat.damage_ordered_attackers.remove(&card);
         }
         if combat
             .blockers
@@ -12743,6 +12933,7 @@ impl Game {
                 .ok_or(RulesError::UnknownCard(target))?;
             object.tapped = true;
             object.damage = 0;
+            object.deathtouch_damage = false;
         }
         self.remove_from_combat(target);
         self.record_event(GameEvent::RegenerationShieldUsed { source, target });
@@ -12840,6 +13031,7 @@ impl Game {
                 controller,
                 tapped: false,
                 damage: 0,
+                deathtouch_damage: false,
                 damage_shield: 0,
                 counters: BTreeMap::new(),
                 attached_to: None,
@@ -12992,6 +13184,7 @@ impl Game {
                 .ok_or(RulesError::UnknownCard(card))?;
             battlefield_object.tapped = false;
             battlefield_object.damage = 0;
+            battlefield_object.deathtouch_damage = false;
             battlefield_object.damage_shield = 0;
             battlefield_object.attached_to = None;
             battlefield_object.attached_to_incarnation = None;
@@ -15937,6 +16130,39 @@ impl Game {
                     ));
                 }
             }
+            DecisionContinuation::CombatDamageOrder {
+                attacker,
+                remaining,
+            } => {
+                let groups = self.combat_damage_order_groups()?;
+                let Some((expected_attacker, expected_blockers)) = groups.first() else {
+                    return Err(RulesError::IllegalAction(
+                        "combat damage-order decision escaped its blocker group",
+                    ));
+                };
+                let expected_count = u8::try_from(expected_blockers.len()).map_err(|_| {
+                    RulesError::IllegalAction("combat damage-order group exceeds engine range")
+                })?;
+                if decision.kind != DecisionKind::CombatDamageOrder
+                    || decision.visibility != DecisionVisibility::Public
+                    || decision.player != self.active_player
+                    || !self.stack.is_empty()
+                    || expected_attacker != attacker
+                    || decision.options
+                        != expected_blockers
+                            .iter()
+                            .copied()
+                            .map(DecisionOption::Object)
+                            .collect::<Vec<_>>()
+                    || decision.min_selections != expected_count
+                    || decision.max_selections != expected_count
+                    || groups.get(1..) != Some(remaining.as_slice())
+                {
+                    return Err(RulesError::IllegalAction(
+                        "combat damage-order decision escaped its typed no-priority boundary",
+                    ));
+                }
+            }
         }
         Ok(())
     }
@@ -16056,6 +16282,7 @@ impl Game {
                 combat.must_be_blocked_attackers.clear();
                 combat.landwalk_attackers.clear();
                 combat.blockers.clear();
+                combat.damage_ordered_attackers.clear();
                 combat.removed_from_combat.clear();
                 combat.evasion_qualified_blockers.clear();
                 combat.fear_qualified_blockers.clear();

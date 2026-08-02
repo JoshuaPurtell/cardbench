@@ -8,8 +8,8 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardDefinition, CardType, Color, CombatBlock, DecisionKind, DecisionSelection, Game,
-    GameEvent, Keyword, ManaCost, PlayerId, Step, Zone,
+    CardDefinition, CardType, Color, CombatBlock, DecisionKind, DecisionSelection, Game, GameEvent,
+    Keyword, ManaCost, PlayerId, Step, Zone,
 };
 
 const LAND: &str = "TST-LAND";
@@ -165,7 +165,11 @@ fn submit_reverse_damage_order(game: &mut Game) {
     assert_eq!(decision.min_selections, 2);
     assert_eq!(decision.max_selections, 2);
     assert_eq!(decision.candidates.len(), 2);
-    let mut reversed = decision.candidates.into_iter().map(|card| card.id).collect::<Vec<_>>();
+    let mut reversed = decision
+        .candidates
+        .into_iter()
+        .map(|card| card.id)
+        .collect::<Vec<_>>();
     reversed.reverse();
     game.submit_decision(
         PlayerId(0),
@@ -178,7 +182,8 @@ fn submit_reverse_damage_order(game: &mut Game) {
 fn resolve_combat_damage(game: &mut Game) {
     for _ in 0..2 {
         let player = game.priority;
-        game.pass_priority(player).expect("advance to combat damage");
+        game.pass_priority(player)
+            .expect("advance to combat damage");
     }
 }
 

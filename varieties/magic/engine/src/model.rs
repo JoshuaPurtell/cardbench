@@ -1110,6 +1110,11 @@ pub enum Keyword {
     /// This creature assigns combat damage in both first-strike and normal
     /// combat-damage steps.
     DoubleStrike,
+    /// Any positive damage from this source is lethal to a creature for both
+    /// combat assignment and state-based actions. Marked-damage provenance is
+    /// retained separately, so a later keyword change cannot rewrite damage
+    /// that was already dealt.
+    Deathtouch,
     /// Damage dealt by this source cannot be prevented. This does not disable
     /// non-prevention replacement effects (for example, redirection).
     DamageCannotBePrevented,
@@ -2169,6 +2174,10 @@ pub struct CardObject {
     /// than a card's printed power/toughness so repeated legal effects never
     /// wrap or panic part way through stack resolution.
     pub damage: i32,
+    /// Whether this incarnation has received at least one positive point of
+    /// damage from a source with Deathtouch. It is separate from numeric
+    /// marked damage because CR 704.5h depends on source quality.
+    pub deathtouch_damage: bool,
     /// Temporary prevention shield units waiting to absorb damage.
     pub damage_shield: i32,
     pub counters: BTreeMap<CounterKind, i16>,
@@ -2510,6 +2519,9 @@ pub enum DecisionVisibility {
 pub enum DecisionKind {
     LibrarySearch,
     TriggeredEffectObject,
+    /// The attacking player orders one multi-block group after blockers are
+    /// declared and before either player receives priority.
+    CombatDamageOrder,
 }
 
 /// A concrete option retained in typed pending-decision state. This first
@@ -2555,6 +2567,13 @@ pub enum DecisionContinuation {
         controller: PlayerId,
         ability: &'static str,
         kind: TriggeredEffectObjectDecisionKind,
+    },
+    /// Continues CR 509.2 blocker ordering. Only one blocker group is exposed
+    /// at a time so the generic decision boundary still has one chooser and
+    /// one exact option set. `remaining` preserves the other groups.
+    CombatDamageOrder {
+        attacker: ObjectId,
+        remaining: Vec<(ObjectId, Vec<ObjectId>)>,
     },
 }
 
@@ -3363,6 +3382,14 @@ pub enum GameEvent {
     BlockersDeclared {
         player: PlayerId,
         assignments: Vec<(ObjectId, ObjectId)>,
+    },
+    /// The attacking player submitted the complete damage-assignment order
+    /// for one multi-block group. Unlike `DecisionCompleted`, this is public
+    /// combat information required to replay the later damage batch.
+    CombatDamageOrderChosen {
+        player: PlayerId,
+        attacker: ObjectId,
+        blockers: Vec<ObjectId>,
     },
     EngineWeaknessRevealed {
         player: PlayerId,
