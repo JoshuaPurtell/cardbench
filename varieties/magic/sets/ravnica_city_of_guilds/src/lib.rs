@@ -43,7 +43,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 242] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 243] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
@@ -108,6 +108,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 242] = [
     "RAV-HEX",
     "RAV-DARK-CONFIDANT",
     "RAV-EMPTY-THE-CATACOMBS",
+    "RAV-MAUSOLEUM-TURNKEY",
     "RAV-SHADOW-OF-DOUBT",
     "RAV-HELLDOZER",
     "RAV-GREATER-MOSSDOG",
@@ -2122,10 +2123,9 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 },
             ],
         },
-        // Bounded compatibility scope: the controller-graveyard creature
-        // target and the intervening “another creature card” condition use a
-        // normal ETB stack trigger. The printed optional decision remains
-        // outside the current policy interface.
+        // The controller submits the graveyard-card target while the trigger
+        // is placed on the stack, then accepts or declines its zero-mana
+        // optional resolution through the ordinary policy boundary.
         CardDefinition {
             id: "RAV-MAUSOLEUM-TURNKEY",
             name: "Mausoleum Turnkey",
@@ -2136,10 +2136,11 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             card_types: types([CardType::Creature]),
             is_basic_land: false,
             supported_rules: &[
+                "full-rules-fidelity",
                 "colored-cost-casting",
                 "base-characteristics",
                 "enter-battlefield-conditional-graveyard-return-to-hand",
-                "deterministic-etb-target-selection",
+                "policy-submitted-optional-etb-target-selection",
             ],
             power: Some(3),
             toughness: Some(2),
@@ -8312,7 +8313,7 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                 id: "conditional-graveyard-return",
                 condition: TriggerCondition::EntersBattlefield,
                 mana_cost: ManaCost::new(0),
-                optional: false,
+                optional: true,
                 targets: vec![
                     cardbench_magic_engine::TargetRequirement::CreatureCardInControllerGraveyard,
                 ],

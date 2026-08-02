@@ -10995,13 +10995,20 @@ player = 0
 kind = "pass"
 player = 1
 
+[[scenario.action]]
+kind = "resolve_optional_trigger"
+player = 0
+card = "turnkey"
+ability = "conditional-graveyard-return"
+pay = true
+
 [scenario.expected]
 zones = ["turnkey:battlefield", "target:hand", "other:graveyard"]
 stack_size = 0
 priority = 0
 mana = ["0:black:0"]
 event_markers = ["SpellResolved", "TriggeredAbilityStacked", "CardMoved", "AbilityResolved"]
-digest = "fnv1a64:00f0614dd9bee85a"
+digest = "fnv1a64:62ecf18957e84982"
 
 [[scenario]]
 id = "rav_empty_the_catacombs_all_player_graveyard_return"

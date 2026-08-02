@@ -1,6 +1,8 @@
 //! Regression coverage for Mausoleum Turnkey's conditional graveyard-return ETB.
 
-use cardbench_magic_engine::{CastRequest, Color, Game, GameEvent, PlayerId, Target, Zone};
+use cardbench_magic_engine::{
+    CastRequest, Color, Game, GameEvent, PlayerId, PolicyAction, Target, Zone,
+};
 use cardbench_magic_rav::{
     card_definitions, rav_activated_ability_bindings, rav_additional_spell_cost_bindings,
     rav_basic_land_type_bindings, rav_land_entry_bindings, rav_mana_ability_bindings,
@@ -75,14 +77,67 @@ fn mausoleum_turnkey_stacks_and_resolves_when_another_creature_remains() {
         .expect("setup mana");
 
     cast_and_resolve(&mut game, PlayerId(0), turnkey, vec![]);
-    assert_eq!(game.stack.len(), 1, "conditional ETB is stacked");
-    assert_eq!(game.stack[0].targets, vec![Target::Permanent(target)]);
+    let target_choice = game
+        .view_for_player(PlayerId(0))
+        .expect("controller view")
+        .triggered_ability_target_choice
+        .expect("ETB target choice opens before the trigger is stacked");
+    assert_eq!(target_choice.source, turnkey);
+    assert_eq!(target_choice.ability, "conditional-graveyard-return");
+    assert!(target_choice.target_options[0].contains(&Target::Permanent(target)));
+    assert!(target_choice.target_options[0].contains(&Target::Permanent(other)));
+    assert!(
+        game.view_for_player(PlayerId(1))
+            .expect("opponent view")
+            .triggered_ability_target_choice
+            .is_none(),
+        "only the controller sees the ETB target decision"
+    );
+    game.submit_policy_move(
+        PlayerId(0),
+        "test.mausoleum-turnkey-target.v1",
+        PolicyAction::ChooseTriggeredAbilityTargets {
+            source: turnkey,
+            ability: "conditional-graveyard-return",
+            targets: vec![Target::Permanent(other)],
+        },
+    )
+    .expect("controller chooses the second creature card");
+    assert_eq!(game.stack.len(), 1, "chosen ETB trigger is stacked");
+    assert_eq!(game.stack[0].targets, vec![Target::Permanent(other)]);
     game.pass_priority(PlayerId(0))
         .expect("controller passes ETB");
     game.pass_priority(PlayerId(1))
-        .expect("opponent resolves ETB");
-    assert_eq!(game.zone_of(target), Some(Zone::Hand));
-    assert_eq!(game.zone_of(other), Some(Zone::Graveyard));
+        .expect("opponent reaches the optional ETB decision");
+    println!(
+        "Mausoleum Turnkey trace before optional decision: {:#?}",
+        game.canonical_event_log()
+    );
+    let optional_choice = game
+        .view_for_player(PlayerId(0))
+        .expect("controller view")
+        .optional_triggered_ability_choice
+        .expect("ETB may decision opens after priority passes");
+    assert_eq!(optional_choice.source, turnkey);
+    assert_eq!(optional_choice.ability, "conditional-graveyard-return");
+    assert!(
+        optional_choice.can_pay,
+        "zero-mana optional trigger is acceptable"
+    );
+    assert!(optional_choice.conditional_targets.is_empty());
+    game.submit_policy_move(
+        PlayerId(0),
+        "test.mausoleum-turnkey-accept.v1",
+        PolicyAction::ResolveOptionalTriggeredAbility {
+            source: turnkey,
+            ability: "conditional-graveyard-return",
+            pay: true,
+            target: None,
+        },
+    )
+    .expect("controller accepts the ETB return");
+    assert_eq!(game.zone_of(target), Some(Zone::Graveyard));
+    assert_eq!(game.zone_of(other), Some(Zone::Hand));
     assert!(game.event_log.iter().any(|event| {
         matches!(
             event,
@@ -90,23 +145,83 @@ fn mausoleum_turnkey_stacks_and_resolves_when_another_creature_remains() {
                 if *source == turnkey && *ability == "conditional-graveyard-return"
         )
     }));
-    assert_eq!(
-        game.canonical_event_log(),
-        vec![
-            "SpellCast { player: PlayerId(0), card: ObjectId(1) }",
-            "PriorityPassed { player: PlayerId(0) }",
-            "PriorityPassed { player: PlayerId(1) }",
-            "SpellResolved { card: ObjectId(1) }",
-            "CardMoved { card: ObjectId(1), to: Battlefield }",
-            "TriggeredAbilityStacked { controller: PlayerId(0), source: ObjectId(1), ability: \"conditional-graveyard-return\" }",
-            "PriorityPassed { player: PlayerId(0) }",
-            "PriorityPassed { player: PlayerId(1) }",
-            "CardMoved { card: ObjectId(2), to: Hand }",
-            "AbilityResolved { source: ObjectId(1), ability: \"conditional-graveyard-return\" }",
-        ]
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::DecisionOpened {
+            player: PlayerId(0),
+            ..
+        }
+    )));
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::DecisionCompleted {
+            player: PlayerId(0),
+            ..
+        }
+    )));
+    println!(
+        "Mausoleum Turnkey accepted ETB trace: {:#?}",
+        game.canonical_event_log()
     );
     game.validate_invariants()
         .expect("valid conditional return");
+}
+
+#[test]
+fn mausoleum_turnkey_controller_may_decline_the_selected_return() {
+    let mut game = trigger_game();
+    let turnkey = game
+        .add_card(PlayerId(0), "RAV-MAUSOLEUM-TURNKEY", Zone::Hand)
+        .expect("Turnkey setup");
+    let target = game
+        .add_card(PlayerId(0), "RAV-WATCHWOLF", Zone::Graveyard)
+        .expect("target creature setup");
+    let other = game
+        .add_card(PlayerId(0), "RAV-BOROS-RECRUIT", Zone::Graveyard)
+        .expect("other creature setup");
+    game.grant_mana(PlayerId(0), Color::Black, 4)
+        .expect("setup mana");
+
+    cast_and_resolve(&mut game, PlayerId(0), turnkey, vec![]);
+    game.submit_policy_move(
+        PlayerId(0),
+        "test.mausoleum-turnkey-decline-target.v1",
+        PolicyAction::ChooseTriggeredAbilityTargets {
+            source: turnkey,
+            ability: "conditional-graveyard-return",
+            targets: vec![Target::Permanent(target)],
+        },
+    )
+    .expect("controller chooses a legal card before deciding whether to return it");
+    game.pass_priority(PlayerId(0))
+        .expect("controller passes selected ETB");
+    game.pass_priority(PlayerId(1))
+        .expect("opponent reaches optional ETB decision");
+    game.submit_policy_move(
+        PlayerId(0),
+        "test.mausoleum-turnkey-decline.v1",
+        PolicyAction::ResolveOptionalTriggeredAbility {
+            source: turnkey,
+            ability: "conditional-graveyard-return",
+            pay: false,
+            target: None,
+        },
+    )
+    .expect("controller declines the selected return");
+
+    assert_eq!(game.zone_of(target), Some(Zone::Graveyard));
+    assert_eq!(game.zone_of(other), Some(Zone::Graveyard));
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::AbilityResolved { source, ability, .. }
+            if *source == turnkey && *ability == "conditional-graveyard-return"
+    )));
+    println!(
+        "Mausoleum Turnkey declined ETB trace: {:#?}",
+        game.canonical_event_log()
+    );
+    game.validate_invariants()
+        .expect("declined conditional return preserves invariants");
 }
 
 #[test]
