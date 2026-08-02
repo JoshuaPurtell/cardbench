@@ -6148,7 +6148,7 @@ digest = "fnv1a64:0da656c902d520f9"
 [[scenario]]
 id = "rav_easy_blue_creature_chassis_wave_five"
 seed = 0
-description = "Cast Drake Familiar, Drift of Phantasms, Ethereal Usher, and Grozoth with exact blue costs, then verify base P/T. Drift's Defender and immediate Transmute compatibility are exercised separately; the other printed behaviors remain bounded."
+description = "Cast Drake Familiar, Drift of Phantasms, Ethereal Usher, and Grozoth with exact blue costs, then verify base P/T. Drake's target-bearing return behavior and Drift's Defender/Transmute behavior have separate focused contracts; the remaining bounded behaviors stay explicit."
 
 [[scenario.card]]
 label = "familiar"

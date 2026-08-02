@@ -438,6 +438,13 @@ Oracle Magic rules coverage.
   `TriggeredAbilityStacked`; rejected stale, wrong-controller, wrong-source,
   wrong-ability, wrong-cardinality, illegal, or distinctness-violating answers
   leave the pending decision, stack, zones, mana, and event log unchanged.
+- A targeted enchantment-return instruction may resolve only for the exact
+  current battlefield incarnation of a permanent with the `Enchantment` card
+  type. It performs one ordinary owner-indexed `Hand` transition, including
+  attachment cleanup, before its spell or ability terminal receipt. The target
+  controller is never substituted for the owner; a stale, departed, or
+  non-enchantment target yields the ordinary no-op/skipped-target resolution
+  path and cannot fabricate a hand move.
 - A target-pair instruction owns its ordered target slots as one stack effect:
   stack target count, target-incarnation provenance, and the registered target
   requirements must include both occurrences. Any relation between the pair is

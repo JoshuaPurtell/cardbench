@@ -49,8 +49,8 @@ a zone move. The fetched Aura's ordinary ETB trigger is queued only after the
 Mage trigger's terminal receipt. The opponent sees neither unselected Aura
 identities nor a private decision projection.
 
-The current catalog partition is 231 full / 26 partial / 34 catalog-only unique
-names (246 / 26 / 34 printings). The independently checked coverage-report
+The current catalog partition is 232 full / 25 partial / 34 catalog-only unique
+names (247 / 25 / 34 printings). The independently checked coverage-report
 binary emits the same partition.
 
 Bramble Elemental is full-fidelity through the expansion-neutral, current-
@@ -58,6 +58,12 @@ controller-scoped Aura-entry trigger condition. Its controller receives the
 ordinary optional stack decision, where accepting creates one typed Saproling
 and declining creates none; an opponent-controlled Aura cannot queue that
 trigger.
+
+Drake Familiar is a positive-manifest entry. Its Flying and target-bearing ETB
+use the ordinary public trigger-target decision: only a live enchantment may
+be selected, and its owner-indexed hand move occurs during the stack
+resolution before the ability receipt. A non-enchantment answer is an atomic
+rejection rather than a fallback return operation.
 
 Spawnbroker is a positive-manifest entry through the expansion-neutral paired-
 target control-exchange instruction. Its ETB target decision retains both
