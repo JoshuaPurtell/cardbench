@@ -43,7 +43,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 215] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 216] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
@@ -214,6 +214,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 215] = [
     "RAV-URSAPINE",
     "RAV-TRANSLUMINANT",
     "RAV-INFECTIOUS-HOST",
+    "RAV-CARRION-HOWLER",
     "RAV-TWILIGHT-DROVER",
     "RAV-ELVISH-SKYSWEEPER",
     "RAV-CONVOLUTE",
@@ -2994,8 +2995,9 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Flying],
             effects: vec![],
         },
-        // Full fidelity: double strike is enforced by the shared two-step
-        // combat damage state machine.
+        // Full fidelity: the source's controller pays one life as a bound
+        // activation cost, then the ordinary stack installs its temporary
+        // source-relative power/toughness modifier.
         CardDefinition {
             id: "RAV-CARRION-HOWLER",
             name: "Carrion Howler",
@@ -3009,11 +3011,11 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 "full-rules-fidelity",
                 "colored-cost-casting",
                 "base-characteristics",
-                "double-strike",
+                "life-paid-source-plus-two-minus-one",
             ],
             power: Some(2),
             toughness: Some(2),
-            keywords: vec![Keyword::DoubleStrike],
+            keywords: vec![],
             effects: vec![],
         },
         // Full fidelity: positive damage received creates a source-specific
@@ -6365,6 +6367,25 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
             },
         },
         ActivatedAbilityBinding {
+            card_definition: "RAV-CARRION-HOWLER",
+            ability: ActivatedAbility {
+                id: "pay-life-pump-plus-two-minus-one",
+                mana_cost: ManaCost::new(0),
+                tap_cost: false,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![],
+                effects: vec![Effect::ModifySourcePtUntilEndOfTurn {
+                    power: 2,
+                    toughness: -1,
+                }],
+            },
+        },
+        ActivatedAbilityBinding {
             card_definition: "RAV-UNDERCITY-SHADE",
             ability: ActivatedAbility {
                 id: "pump-plus-one-plus-one",
@@ -8513,6 +8534,14 @@ pub fn rav_activated_ability_cost_modifier_bindings() -> Vec<ActivatedAbilityCos
 #[must_use]
 pub fn rav_generalized_activated_ability_cost_bindings() -> Vec<ActivatedAbilityCostBinding> {
     vec![
+        ActivatedAbilityCostBinding {
+            card_definition: "RAV-CARRION-HOWLER",
+            ability_id: "pay-life-pump-plus-two-minus-one",
+            cost: GeneralizedActivatedAbilityCost {
+                life_payment: 1,
+                ..GeneralizedActivatedAbilityCost::default()
+            },
+        },
         ActivatedAbilityCostBinding {
             card_definition: "RAV-LEASHLING",
             ability_id: "hand-card-library-top-return-source",

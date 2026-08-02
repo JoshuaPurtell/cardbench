@@ -12180,3 +12180,42 @@ stack_size = 0
 priority = 0
 event_markers = ["SpellCast", "FirstNoncreatureSpellCastThisTurn", "TriggeredAbilityStacked", "SpellCountered", "AbilityResolved"]
 digest = "fnv1a64:1cf8fd71ab4c5550"
+
+[[scenario]]
+id = "rav_carrion_howler_life_paid_source_pump"
+seed = 79
+description = "Activate Carrion Howler through the public policy action, pay one life as its bound cost, resolve the stack object, and retain the exact temporary source modifier."
+
+[[scenario.card]]
+label = "howler"
+owner = 0
+definition = "RAV-CARRION-HOWLER"
+zone = "battlefield"
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "activate_ability"
+player = 0
+card = "howler"
+ability = "pay-life-pump-plus-two-minus-one"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+life = [19, 20]
+zones = ["howler:battlefield"]
+powers = ["howler:4"]
+toughnesses = ["howler:1"]
+stack_size = 0
+priority = 0
+event_markers = ["AbilityLifePaid", "AbilityActivated", "ContinuousEffectCreated", "AbilityResolved"]
+digest = "fnv1a64:37112b416ffd347a"
