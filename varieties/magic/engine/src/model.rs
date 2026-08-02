@@ -1277,11 +1277,6 @@ pub enum TargetRequirement {
     /// names the narrow RAV counterspell slice instead of claiming support for
     /// arbitrary abilities or every kind of spell target.
     InstantOrSorcerySpell,
-    /// Any represented spell card currently on the stack, including a
-    /// creature, artifact, enchantment, or nonpermanent spell. Abilities and
-    /// virtual spell-copy objects remain outside this physical-card target
-    /// family unless a dedicated effect opts into them.
-    Spell,
     /// Any noncreature spell currently on the stack, including represented
     /// permanent artifact and enchantment spells.
     NoncreatureSpell,

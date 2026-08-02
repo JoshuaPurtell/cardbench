@@ -15204,10 +15204,6 @@ impl Game {
                             || definition.card_types.contains(&CardType::Sorcery)
                     })
             }
-            (Target::Spell(card), TargetRequirement::Spell) => self
-                .stack
-                .iter()
-                .any(|stack_object| stack_object.card == card && stack_object.ability_id.is_none()),
             (Target::Spell(card), TargetRequirement::NoncreatureSpell) => {
                 self.stack
                     .iter()
