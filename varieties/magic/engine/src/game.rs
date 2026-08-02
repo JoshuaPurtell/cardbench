@@ -4761,9 +4761,9 @@ impl Game {
                 destination,
                 may_fail_to_find,
             } => self.resolve_library_search_decision(
-                decision,
+                &decision,
                 source,
-                requirement,
+                &requirement,
                 destination,
                 may_fail_to_find,
                 selected.into_iter().next(),
@@ -4774,7 +4774,7 @@ impl Game {
                 ability,
                 kind,
             } => self.resolve_triggered_effect_object_decision(
-                decision,
+                &decision,
                 source,
                 controller,
                 ability,
@@ -4810,9 +4810,9 @@ impl Game {
     #[allow(clippy::too_many_lines)] // The suspended selection and terminal stack lifecycle are one transaction.
     fn resolve_library_search_decision(
         &mut self,
-        decision: PendingDecision,
+        decision: &PendingDecision,
         source: ObjectId,
-        requirement: LibrarySearchRequirement,
+        requirement: &LibrarySearchRequirement,
         destination: LibrarySearchDestination,
         may_fail_to_find: bool,
         selected: Option<ObjectId>,
@@ -4831,7 +4831,7 @@ impl Game {
                         LibrarySearchSelection::PolicySubmitted {
                             may_fail_to_find: stack_may_fail,
                         },
-                }] if stack_requirement == &requirement
+                }] if stack_requirement == requirement
                     && *stack_destination == destination
                     && *stack_may_fail == may_fail_to_find
             );
@@ -4842,7 +4842,7 @@ impl Game {
             }
             (top.ability_id, top.chosen_x, top.source_incarnation)
         };
-        let expected_cards = self.library_search_candidates(player, &requirement, chosen_x)?;
+        let expected_cards = self.library_search_candidates(player, requirement, chosen_x)?;
         if decision.options
             != expected_cards
                 .iter()
@@ -4872,7 +4872,7 @@ impl Game {
         self.stack.pop().ok_or(RulesError::IllegalAction(
             "library search stack item disappeared before resolution",
         ))?;
-        self.complete_pending_decision(&decision)?;
+        self.complete_pending_decision(decision)?;
 
         let mut entered_permanent = None;
         if let Some(card) = selected {
@@ -4937,7 +4937,7 @@ impl Game {
 
     fn resolve_triggered_effect_object_decision(
         &mut self,
-        decision: PendingDecision,
+        decision: &PendingDecision,
         source: ObjectId,
         controller: PlayerId,
         ability: &'static str,
@@ -4959,7 +4959,7 @@ impl Game {
                     selections.push((player, card));
                 }
                 remaining_players.remove(0);
-                self.complete_pending_decision(&decision)?;
+                self.complete_pending_decision(decision)?;
                 if let Some(next_player) = remaining_players.first().copied() {
                     let options = self.players[next_player.0]
                         .hand
@@ -5006,7 +5006,7 @@ impl Game {
                 })?;
             }
             TriggeredEffectObjectDecisionKind::SacrificeControllerCreature => {
-                self.complete_pending_decision(&decision)?;
+                self.complete_pending_decision(decision)?;
                 self.finish_trigger_effect_object_choice(source, ability, |game| {
                     if let Some(permanent) = selected {
                         if game.zone_of(permanent) != Some(Zone::Battlefield)
@@ -5034,6 +5034,7 @@ impl Game {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)] // Typed scalar boundary keeps each continuation call explicit and auditable.
     fn open_pending_decision(
         &mut self,
         player: PlayerId,
@@ -14653,6 +14654,7 @@ impl Game {
     /// open/complete receipt lifecycle. Candidate identities remain only in
     /// private state and player-local views; the event log names just the
     /// decision identity and safe metadata.
+    #[allow(clippy::too_many_lines)] // One cross-continuation audit keeps the exclusive decision boundary reviewable.
     fn validate_pending_decision(&self) -> Result<(), RulesError> {
         let mut receipt_state = BTreeMap::<DecisionId, (PlayerId, DecisionKind, bool)>::new();
         for event in &self.event_log {
@@ -14843,7 +14845,7 @@ impl Game {
                         ),
                     ),
                 };
-                let expected_min = if expected_options.is_empty() { 0 } else { 1 };
+                let expected_min = u8::from(!expected_options.is_empty());
                 if decision.kind != DecisionKind::TriggeredEffectObject
                     || top.card != *source
                     || top.controller != *controller
