@@ -84,13 +84,16 @@ fn resolution_completes_when_its_draw_eliminates_its_controller() {
             format!("ObjectIncarnationAdvanced {{ object: {spell:?}, incarnation: 2 }}"),
             format!("PriorityPassed {{ player: {caster:?} }}"),
             format!("PriorityPassed {{ player: {responder:?} }}"),
+            format!("SpellResolved {{ card: {spell:?} }}"),
+            format!("CardMoved {{ card: {spell:?}, to: Graveyard }}"),
+            format!("ObjectIncarnationAdvanced {{ object: {spell:?}, incarnation: 3 }}"),
             format!(
                 "PlayerLost {{ player: {caster:?}, reason: \"attempted to draw from an empty library\" }}"
             ),
             format!("ObjectLeftGame {{ object: {spell:?}, owner: {caster:?} }}"),
             format!("GameEnded {{ winner: Some({responder:?}) }}"),
         ],
-        "source departure closes the cast lifecycle; no later SpellResolved or zone move names a removed object"
+        "the terminal stack lifecycle completes before the empty-library SBA removes its controller"
     );
     game.validate_invariants()
         .expect("the source-departure terminal lifecycle is auditable");

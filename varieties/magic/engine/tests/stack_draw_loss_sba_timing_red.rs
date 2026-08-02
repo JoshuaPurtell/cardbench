@@ -52,6 +52,11 @@ fn empty_library_draw_waits_for_the_full_spell_before_player_loss() {
     game.pass_priority(opponent)
         .expect("spell resolves through both instructions");
 
+    eprintln!(
+        "stack draw-loss SBA timing trace: {:?}",
+        game.canonical_event_log(),
+    );
+
     let resolved = game
         .event_log
         .iter()

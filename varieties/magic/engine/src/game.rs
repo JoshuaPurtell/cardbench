@@ -934,6 +934,12 @@ pub struct Game {
     /// dredge from becoming a free graveyard action and makes that compulsory
     /// decision visible to submitted policies.
     pending_draw_replacement: Option<PlayerId>,
+    /// A draw instruction found an empty library while a stack object was
+    /// resolving.  CR 704 checks that loss condition only after the complete
+    /// spell or ability finishes, so this private marker preserves the exact
+    /// player identity until the next SBA fixed point rather than eliminating
+    /// the player (and possibly its resolving source) mid-instruction.
+    pending_empty_library_draw_losses: BTreeSet<PlayerId>,
     pending_private_library_choice: Option<PendingPrivateLibraryChoice>,
     pending_private_opponent_library_exile_choice: Option<PendingPrivateOpponentLibraryExileChoice>,
     pending_decision: Option<PendingDecision>,
@@ -1182,6 +1188,7 @@ impl Game {
             terminal_event_emitted: false,
             combat: None,
             pending_draw_replacement: None,
+            pending_empty_library_draw_losses: BTreeSet::new(),
             pending_private_library_choice: None,
             pending_private_opponent_library_exile_choice: None,
             pending_decision: None,
@@ -7062,11 +7069,7 @@ impl Game {
     fn draw_card_from_spell_effect(&mut self, player: PlayerId) -> Result<(), RulesError> {
         self.player(player)?;
         let Some(card) = self.players[player.0].library.last().copied() else {
-            self.lose_player(player, "attempted to draw from an empty library");
-            self.normalize_priority_after_elimination()?;
-            // The enclosing stack resolver still owes its `AbilityResolved`
-            // or terminal source-lifecycle receipt. It records `GameEnded`
-            // only after that receipt so the terminal event stays last.
+            self.pending_empty_library_draw_losses.insert(player);
             return Ok(());
         };
         self.move_to_zone(card, Zone::Hand)?;
@@ -10779,16 +10782,33 @@ impl Game {
         self.shuffle_seed = seed;
     }
 
+    /// Consumes one player's pending loss conditions at the SBA boundary.
+    /// A failed draw has precedence in the receipt because it is the cause
+    /// retained from the just-completed stack instruction.
+    fn apply_player_loss_state_based_action(&mut self, player: PlayerId) -> bool {
+        let attempted_empty_library_draw = self.pending_empty_library_draw_losses.remove(&player);
+        if self.players[player.0].lost
+            || (!attempted_empty_library_draw && self.players[player.0].life > 0)
+        {
+            return false;
+        }
+        self.lose_player(
+            player,
+            if attempted_empty_library_draw {
+                "attempted to draw from an empty library"
+            } else {
+                "life total is zero or less"
+            },
+        );
+        true
+    }
+
     /// Applies state-based actions until the game reaches a fixed point.
     pub fn check_state_based_actions(&mut self) -> Result<(), RulesError> {
         loop {
             let mut changed = false;
             for player in 0..self.players.len() {
-                let player_id = PlayerId(player);
-                if !self.players[player].lost && self.players[player].life <= 0 {
-                    self.lose_player(player_id, "life total is zero or less");
-                    changed = true;
-                }
+                changed |= self.apply_player_loss_state_based_action(PlayerId(player));
             }
             for attachment in self.all_battlefield_cards() {
                 let Some(binding) = self.attachment_binding_for(attachment)? else {
@@ -10965,6 +10985,17 @@ impl Game {
         if !self.pending_land_entry_trigger_batches.is_empty() {
             return Err(RulesError::IllegalAction(
                 "pending land-entry trigger escaped its resolving stack object",
+            ));
+        }
+        if !self.pending_empty_library_draw_losses.is_empty()
+            && (self.stack.is_empty()
+                || self
+                    .pending_empty_library_draw_losses
+                    .iter()
+                    .any(|player| self.players.get(player.0).is_none_or(|state| state.lost)))
+        {
+            return Err(RulesError::IllegalAction(
+                "empty-library draw loss escaped its resolving stack object or SBA boundary",
             ));
         }
         Self::validate_mana_ability_event_order(&self.event_log)?;
@@ -15903,42 +15934,6 @@ impl Game {
         }
         for _ in 0..3 {
             self.draw_card_from_spell_effect(recipient)?;
-        }
-        if self.players[recipient.0].lost {
-            // A draw from an empty library can eliminate the targeted
-            // recipient in the middle of this one instruction. The player
-            // cannot receive a private choice after leaving the game, but the
-            // already-resolving spell must still complete its terminal stack
-            // lifecycle rather than rolling the whole priority transaction
-            // back. If the departing player owned the spell, CR 800 cleanup
-            // may already have removed that stack object; its ObjectLeftGame
-            // receipt is then its terminal lifecycle.
-            if self
-                .stack
-                .last()
-                .is_some_and(|current| current.card == source)
-            {
-                self.stack.pop().ok_or(RulesError::IllegalAction(
-                    "conditional private discard stack spell disappeared during recipient loss",
-                ))?;
-                if self.objects.contains_key(&source) {
-                    self.record_event(GameEvent::SpellResolved { card: source });
-                    self.move_to_spell_terminal_zone(source)?;
-                }
-            } else if self.objects.contains_key(&source) {
-                return Err(RulesError::IllegalAction(
-                    "recipient loss removed an unrelated conditional discard stack item",
-                ));
-            }
-            self.check_state_based_actions()?;
-            self.flush_pending_dies_triggers();
-            self.flush_pending_land_entry_triggers()?;
-            self.flush_pending_damage_triggers();
-            self.flush_pending_life_gain_triggers();
-            self.flush_pending_dies_triggers();
-            self.restore_priority_after_stack_resolution();
-            self.record_game_end_if_needed();
-            return Ok(true);
         }
         let options = self.players[recipient.0]
             .hand
@@ -28148,6 +28143,11 @@ impl Game {
                 "the draw replacement decision must resolve before priority actions",
             ));
         }
+        if !self.pending_empty_library_draw_losses.is_empty() {
+            return Err(RulesError::IllegalAction(
+                "an empty-library draw loss must reach its state-based action boundary before priority",
+            ));
+        }
         if self.pending_private_library_choice.is_some() {
             return Err(RulesError::IllegalAction(
                 "the private library choice must resolve before priority actions",
@@ -28213,6 +28213,7 @@ impl Game {
             && self.pending_private_library_choice.is_none()
             && self.pending_private_opponent_library_exile_choice.is_none()
             && self.pending_draw_replacement.is_none()
+            && self.pending_empty_library_draw_losses.is_empty()
         {
             self.priority = self.priority_after_resolution();
         }
