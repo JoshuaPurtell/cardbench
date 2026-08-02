@@ -1,5 +1,7 @@
 //! Contracts for the model-owned, per-occurrence stack-resolution plan.
 
+use std::collections::BTreeSet;
+
 use cardbench_magic_engine::{
     Effect, ObjectId, PlayerId, StackEffectResolution, StackObject, StackResolutionPlan, Target,
     TargetRequirement,
@@ -9,6 +11,7 @@ fn three_target_object(targets: Vec<Target>) -> StackObject {
     StackObject {
         card: ObjectId(7),
         source_incarnation: 1,
+        source_colors: BTreeSet::new(),
         controller: PlayerId(0),
         ability_id: None,
         targets,

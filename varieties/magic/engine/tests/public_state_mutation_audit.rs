@@ -111,6 +111,7 @@ fn mutation_audit_rejects_zone_and_stack_corruption() {
     zone_and_stack.stack.push(StackObject {
         card,
         source_incarnation: 1,
+        source_colors: BTreeSet::new(),
         controller: first,
         ability_id: None,
         targets: vec![Target::Player(second)],
@@ -134,6 +135,7 @@ fn mutation_audit_rejects_zone_and_stack_corruption() {
     fabricated_stack_target.stack.push(StackObject {
         card,
         source_incarnation: 1,
+        source_colors: BTreeSet::new(),
         controller: first,
         ability_id: None,
         targets: vec![Target::Player(second), Target::Player(first)],
@@ -156,6 +158,7 @@ fn mutation_audit_rejects_zone_and_stack_corruption() {
     unknown_stack_card.stack.push(StackObject {
         card: ObjectId(999),
         source_incarnation: 1,
+        source_colors: BTreeSet::new(),
         controller: first,
         ability_id: None,
         targets: vec![],

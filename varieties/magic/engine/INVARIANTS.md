@@ -112,7 +112,13 @@ Oracle Magic rules coverage.
   matching-color source is prevented through the same `DamagePrevented`
   receipt path unless the source has `DamageCannotBePrevented`; non-targeted
   damage batches therefore still honor protection even when no target slot
-  exists.
+  exists. A stack object retains the source colors of its originating
+  incarnation, so a source that leaves the battlefield and loses a temporary
+  color cannot evade protection during target revalidation or damage
+  prevention. Nonmatching-color and colorless sources remain unaffected. A
+  matching-color Aura becomes illegally attached when protection is gained,
+  then the ordinary SBA moves it to its owner's graveyard and expires every
+  attachment-linked continuous effect.
 - A bounded prospective damage event carries source incarnation, target
   incarnation (when the target is a permanent), affected player, remaining
   amount, and the exact replacement identities already used. For the initial

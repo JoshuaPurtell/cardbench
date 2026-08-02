@@ -62,6 +62,7 @@ fn failed_resolution_restores_the_final_pass_and_authoritative_stack() {
         StackObject {
             card: target,
             source_incarnation: 1,
+            source_colors: BTreeSet::new(),
             controller: responder,
             ability_id: None,
             targets: vec![],
@@ -75,6 +76,7 @@ fn failed_resolution_restores_the_final_pass_and_authoritative_stack() {
         StackObject {
             card: malformed,
             source_incarnation: 1,
+            source_colors: BTreeSet::new(),
             controller: caster,
             ability_id: None,
             targets: vec![Target::Spell(target)],

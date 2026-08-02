@@ -2413,6 +2413,13 @@ pub struct StackObject {
     /// must never treat a later incarnation with the same public id as its
     /// historical source for source-relative instructions.
     pub source_incarnation: u64,
+    /// Colors the source had when this spell or ability became a stack
+    /// object.  A source can leave the battlefield, which removes its
+    /// continuous characteristic effects, before target legality or damage
+    /// prevention is checked at resolution.  This retained last-known
+    /// information keeps source-color rules (including protection) tied to
+    /// the source incarnation that actually created the stack object.
+    pub source_colors: BTreeSet<Color>,
     pub controller: PlayerId,
     /// `None` denotes a spell; `Some` denotes a non-mana activated ability
     /// whose source is `card` and whose printed identity is the bound id.

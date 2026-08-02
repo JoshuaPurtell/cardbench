@@ -479,6 +479,7 @@ struct PendingLibrarySearchChoice {
 struct PendingTriggeredAbilityTargetChoice {
     source: ObjectId,
     source_incarnation: u64,
+    source_colors: BTreeSet<Color>,
     controller: PlayerId,
     ability: crate::TriggeredAbility,
     effects: Vec<Effect>,
@@ -488,6 +489,7 @@ struct PendingTriggeredAbilityTargetChoice {
 struct PendingOptionalTriggeredAbilityChoice {
     source: ObjectId,
     source_incarnation: u64,
+    source_colors: BTreeSet<Color>,
     controller: PlayerId,
     ability: crate::TriggeredAbility,
 }
@@ -538,6 +540,7 @@ enum TriggerEventPayload {
 struct PendingTriggeredAbilityEvent {
     source: ObjectId,
     source_incarnation: u64,
+    source_colors: BTreeSet<Color>,
     controller: PlayerId,
     ability: crate::TriggeredAbility,
     payload: TriggerEventPayload,
@@ -1783,6 +1786,10 @@ impl Game {
                 "source does not have the requested activated ability",
             ))?
             .clone();
+        // Preserve the ability source's current colors before any activation
+        // cost can move it away and remove its continuous effects.  Later
+        // protection checks must use this source-incarnation snapshot.
+        let source_colors = self.characteristics(activation.source)?.colors;
         if ability.sorcery_speed
             && (player != self.active_player || !self.step.is_main() || !self.stack.is_empty())
         {
@@ -2006,6 +2013,7 @@ impl Game {
         self.stack.push(StackObject {
             card: activation.source,
             source_incarnation: source.incarnation,
+            source_colors,
             controller: player,
             ability_id: Some(ability.id),
             targets: activation.targets,
@@ -2466,7 +2474,11 @@ impl Game {
                     .targets
                     .iter()
                     .map(|requirement| {
-                        self.legal_trigger_targets(choice.source, choice.controller, *requirement)
+                        self.legal_trigger_targets_for_colors(
+                            choice.controller,
+                            &choice.source_colors,
+                            *requirement,
+                        )
                     })
                     .collect(),
             });
@@ -2479,7 +2491,11 @@ impl Game {
                     &choice.ability,
                 )
                 .map_or_else(Vec::new, |requirement| {
-                    self.legal_trigger_targets(choice.source, choice.controller, requirement)
+                    self.legal_trigger_targets_for_colors(
+                        choice.controller,
+                        &choice.source_colors,
+                        requirement,
+                    )
                 });
                 let mut pool = self.players[choice.controller.0].mana_pool.clone();
                 OptionalTriggeredAbilityChoiceView {
@@ -3976,6 +3992,7 @@ impl Game {
         self.stack.push(StackObject {
             card: request.card,
             source_incarnation,
+            source_colors: definition.colors.clone(),
             controller: player,
             ability_id: None,
             targets: spell_targets,
@@ -5224,12 +5241,17 @@ impl Game {
                 .and_then(|definition| self.triggered_abilities.get(definition.id))
                 .and_then(|abilities| abilities.get(choice.ability.id));
             if choice.ability.targets.is_empty()
+                || choice.source_colors.contains(&Color::Colorless)
                 || registered != Some(&choice.ability)
                 || self.players.get(choice.controller.0).is_none()
                 || self.players[choice.controller.0].lost
                 || choice.ability.targets.iter().any(|requirement| {
-                    self.legal_trigger_targets(choice.source, choice.controller, *requirement)
-                        .is_empty()
+                    self.legal_trigger_targets_for_colors(
+                        choice.controller,
+                        &choice.source_colors,
+                        *requirement,
+                    )
+                    .is_empty()
                 })
                 || (index == 0 && self.consecutive_passes != 0)
                 || self.pending_draw_replacement.is_some()
@@ -5256,6 +5278,8 @@ impl Game {
             if top.card != choice.source
                 || top.controller != choice.controller
                 || top.ability_id != Some(choice.ability.id)
+                || top.source_incarnation != choice.source_incarnation
+                || top.source_colors != choice.source_colors
                 || !choice.ability.optional
                 || registered != Some(&choice.ability)
                 || self.players[choice.controller.0].lost
@@ -5686,6 +5710,11 @@ impl Game {
                     "stack object has no source incarnation provenance",
                 ));
             }
+            if stack_object.source_colors.contains(&Color::Colorless) {
+                return Err(RulesError::IllegalAction(
+                    "stack object source colors include the colorless mana kind",
+                ));
+            }
             if !is_ability && object.incarnation != stack_object.source_incarnation {
                 return Err(RulesError::IllegalAction(
                     "stack spell does not retain its current stack incarnation",
@@ -5715,6 +5744,11 @@ impl Game {
                 .ok_or(RulesError::IllegalAction(
                     "a stack object must be a non-token card with a catalog definition",
                 ))?;
+            if !is_ability && stack_object.source_colors != definition.colors {
+                return Err(RulesError::IllegalAction(
+                    "stack spell source colors do not match its printed characteristics",
+                ));
+            }
             if object.token.is_some() || (!is_ability && definition.is_land()) {
                 return Err(RulesError::IllegalAction(
                     "a token or land occupies the stack",
@@ -7162,6 +7196,7 @@ impl Game {
             self.pending_optional_trigger_choice = Some(PendingOptionalTriggeredAbilityChoice {
                 source: top.card,
                 source_incarnation: top.source_incarnation,
+                source_colors: top.source_colors.clone(),
                 controller: top.controller,
                 ability: ability.clone(),
             });
@@ -7198,11 +7233,11 @@ impl Game {
                 let occurrence = target_index;
                 target_index += 1;
                 self.stack_target_incarnation_matches(&stack_object, occurrence, target)
-                    && self.target_matches_for_source(
+                    && self.target_matches_for_colors(
                         stack_object.controller,
-                        stack_object.card,
                         target,
                         requirement,
+                        &stack_object.source_colors,
                     )
             })
             .map_err(|_| RulesError::IllegalAction("stack object has an invalid target count"))?;
@@ -7297,11 +7332,13 @@ impl Game {
                                 player,
                                 i32::from(*amount),
                             )?,
-                            Target::Permanent(permanent) => self.deal_damage_to_permanent(
-                                stack_object.card,
-                                permanent,
-                                i32::from(*amount),
-                            )?,
+                            Target::Permanent(permanent) => self
+                                .deal_damage_to_permanent_from_colors(
+                                    stack_object.card,
+                                    &stack_object.source_colors,
+                                    permanent,
+                                    i32::from(*amount),
+                                )?,
                             Target::Spell(card) => {
                                 return Err(RulesError::IllegalTarget(Target::Spell(card)));
                             }
@@ -7316,6 +7353,7 @@ impl Game {
                     self.resolve_effect(
                         stack_object.card,
                         stack_object.source_incarnation,
+                        &stack_object.source_colors,
                         stack_object.controller,
                         stack_object.chosen_x,
                         stack_object.mana_spent.as_deref(),
@@ -7336,11 +7374,11 @@ impl Game {
                                 "target-resolution plan named an untargeted effect",
                             ))?;
                     if self.stack_target_incarnation_matches(&stack_object, occurrence, target)
-                        && self.target_matches_for_source(
+                        && self.target_matches_for_colors(
                             stack_object.controller,
-                            stack_object.card,
                             target,
                             requirement,
+                            &stack_object.source_colors,
                         )
                     {
                         if let Effect::AttachSourceAndModifyTargetPt { power, toughness } = effect {
@@ -7380,6 +7418,7 @@ impl Game {
                             self.resolve_effect(
                                 stack_object.card,
                                 stack_object.source_incarnation,
+                                &stack_object.source_colors,
                                 stack_object.controller,
                                 stack_object.chosen_x,
                                 stack_object.mana_spent.as_deref(),
@@ -7767,6 +7806,7 @@ impl Game {
             let Some(definition) = self.object(source)?.definition else {
                 continue;
             };
+            let source_colors = self.characteristics(source)?.colors;
             let triggers = self
                 .triggered_abilities
                 .get(definition)
@@ -7785,6 +7825,7 @@ impl Game {
                     .push(PendingTriggeredAbilityEvent {
                         source,
                         source_incarnation: self.object(source)?.incarnation,
+                        source_colors: source_colors.clone(),
                         controller,
                         ability,
                         payload: TriggerEventPayload::ExactTargets(vec![Target::Spell(spell)]),
@@ -7861,9 +7902,14 @@ impl Game {
             Ok(object) => object.incarnation,
             Err(_) => return,
         };
+        let source_colors = match self.characteristics(source) {
+            Ok(characteristics) => characteristics.colors,
+            Err(_) => return,
+        };
         self.enqueue_triggers_for_source_at_incarnation(
             source,
             source_incarnation,
+            &source_colors,
             definition,
             controller,
             condition,
@@ -7878,6 +7924,7 @@ impl Game {
         &mut self,
         source: ObjectId,
         source_incarnation: u64,
+        source_colors: &BTreeSet<Color>,
         definition: &'static str,
         controller: PlayerId,
         condition: TriggerCondition,
@@ -7907,6 +7954,7 @@ impl Game {
                 .push(PendingTriggeredAbilityEvent {
                     source,
                     source_incarnation,
+                    source_colors: source_colors.clone(),
                     controller,
                     ability,
                     payload: TriggerEventPayload::None,
@@ -7963,11 +8011,11 @@ impl Game {
                         .iter()
                         .zip(&event.ability.targets)
                         .all(|(target, requirement)| {
-                            self.target_matches_for_source(
+                            self.target_matches_for_colors(
                                 event.controller,
-                                event.source,
                                 *target,
                                 *requirement,
+                                &event.source_colors,
                             )
                         })
                 {
@@ -7981,13 +8029,18 @@ impl Game {
             }
             if event.ability.targets.iter().all(|requirement| {
                 !self
-                    .legal_trigger_targets(event.source, event.controller, *requirement)
+                    .legal_trigger_targets_for_colors(
+                        event.controller,
+                        &event.source_colors,
+                        *requirement,
+                    )
                     .is_empty()
             }) {
                 self.pending_trigger_target_choices
                     .push(PendingTriggeredAbilityTargetChoice {
                         source: event.source,
                         source_incarnation: event.source_incarnation,
+                        source_colors: event.source_colors,
                         controller: event.controller,
                         ability: event.ability,
                         effects,
@@ -8035,6 +8088,7 @@ impl Game {
         self.stack.push(StackObject {
             card: event.source,
             source_incarnation: event.source_incarnation,
+            source_colors: event.source_colors.clone(),
             controller: event.controller,
             ability_id: Some(event.ability.id),
             targets,
@@ -8062,12 +8116,13 @@ impl Game {
         let controller = self.active_player;
         let sources = self.players[controller.0].battlefield.clone();
         for source in sources {
-            let (source_controller, source_is_token, source_incarnation) = {
+            let (source_controller, source_is_token, source_incarnation, source_colors) = {
                 let object = self.object(source)?;
                 (
                     object.controller,
                     object.token.is_some(),
                     object.incarnation,
+                    self.characteristics(source)?.colors,
                 )
             };
             if source_controller != controller || source_is_token {
@@ -8087,6 +8142,7 @@ impl Game {
                     .push(PendingTriggeredAbilityEvent {
                         source,
                         source_incarnation,
+                        source_colors: source_colors.clone(),
                         controller,
                         ability,
                         payload: TriggerEventPayload::None,
@@ -8159,10 +8215,10 @@ impl Game {
         Some(targets)
     }
 
-    fn legal_trigger_targets(
+    fn legal_trigger_targets_for_colors(
         &self,
-        source: ObjectId,
         controller: PlayerId,
+        source_colors: &BTreeSet<Color>,
         requirement: TargetRequirement,
     ) -> Vec<Target> {
         (0..self.players.len())
@@ -8171,7 +8227,7 @@ impl Game {
             .chain(self.objects.keys().copied().map(Target::Permanent))
             .chain(self.stack.iter().map(|item| Target::Spell(item.card)))
             .filter(|target| {
-                self.target_matches_for_source(controller, source, *target, requirement)
+                self.target_matches_for_colors(controller, *target, requirement, source_colors)
             })
             .collect()
     }
@@ -8202,11 +8258,11 @@ impl Game {
                     .iter()
                     .zip(&choice.ability.targets)
                     .any(|(target, requirement)| {
-                        !game.target_matches_for_source(
+                        !game.target_matches_for_colors(
                             choice.controller,
-                            choice.source,
                             *target,
                             *requirement,
+                            &choice.source_colors,
                         )
                     })
             {
@@ -8219,6 +8275,7 @@ impl Game {
             game.stack.push(StackObject {
                 card: choice.source,
                 source_incarnation: choice.source_incarnation,
+                source_colors: choice.source_colors,
                 controller: choice.controller,
                 ability_id: Some(choice.ability.id),
                 targets,
@@ -8277,11 +8334,11 @@ impl Game {
             match (pay, requirement, target) {
                 (false, _, None) | (true, None, None) => {}
                 (true, Some(requirement), Some(target))
-                    if game.target_matches_for_source(
+                    if game.target_matches_for_colors(
                         choice.controller,
-                        choice.source,
                         target,
                         requirement,
+                        &choice.source_colors,
                     ) => {}
                 _ => {
                     return Err(RulesError::IllegalAction(
@@ -8620,6 +8677,7 @@ impl Game {
         }
         let definition = self.card_definition(source)?.id;
         let controller = self.object(source)?.controller;
+        let source_colors = self.characteristics(source)?.colors;
         let triggers = self
             .triggered_abilities
             .get(definition)
@@ -8633,6 +8691,7 @@ impl Game {
                 .push(PendingTriggeredAbilityEvent {
                     source,
                     source_incarnation: self.object(source)?.incarnation,
+                    source_colors: source_colors.clone(),
                     controller,
                     ability,
                     payload: TriggerEventPayload::None,
@@ -8656,6 +8715,7 @@ impl Game {
         }
         let definition = self.card_definition(source)?.id;
         let controller = self.object(source)?.controller;
+        let source_colors = self.characteristics(source)?.colors;
         let triggers = self
             .triggered_abilities
             .get(definition)
@@ -8675,6 +8735,7 @@ impl Game {
                 .push(PendingTriggeredAbilityEvent {
                     source,
                     source_incarnation: self.object(source)?.incarnation,
+                    source_colors: source_colors.clone(),
                     controller,
                     ability,
                     payload: TriggerEventPayload::DamageAmount(damage_amount),
@@ -8698,6 +8759,7 @@ impl Game {
         }
         let definition = self.card_definition(recipient)?.id;
         let controller = self.object(recipient)?.controller;
+        let source_colors = self.characteristics(recipient)?.colors;
         let triggers = self
             .triggered_abilities
             .get(definition)
@@ -8717,6 +8779,7 @@ impl Game {
                 .push(PendingTriggeredAbilityEvent {
                     source: recipient,
                     source_incarnation: self.object(recipient)?.incarnation,
+                    source_colors: source_colors.clone(),
                     controller,
                     ability,
                     payload: TriggerEventPayload::DamageAmount(damage_amount),
@@ -8733,6 +8796,7 @@ impl Game {
         &mut self,
         source: ObjectId,
         source_incarnation: u64,
+        source_colors: &BTreeSet<Color>,
         definition: &'static str,
     ) {
         let controller = self
@@ -8742,6 +8806,7 @@ impl Game {
         self.enqueue_triggers_for_source_at_incarnation(
             source,
             source_incarnation,
+            source_colors,
             definition,
             controller,
             TriggerCondition::Dies,
@@ -8811,10 +8876,11 @@ impl Game {
                     definition,
                     object.controller,
                     object.incarnation,
+                    self.characteristics(source).ok()?.colors,
                 ))
             })
             .collect::<Vec<_>>();
-        for (source, definition, controller, source_incarnation) in sources {
+        for (source, definition, controller, source_incarnation, source_colors) in sources {
             let triggers = self
                 .triggered_abilities
                 .get(definition)
@@ -8828,6 +8894,7 @@ impl Game {
                     .push(PendingTriggeredAbilityEvent {
                         source,
                         source_incarnation,
+                        source_colors: source_colors.clone(),
                         controller,
                         ability,
                         payload: TriggerEventPayload::None,
@@ -8865,17 +8932,18 @@ impl Game {
         })
     }
 
-    fn target_prevents_damage_from_source(&self, source: ObjectId, target: ObjectId) -> bool {
-        let Ok(source_characteristics) = self.characteristics(source) else {
-            return false;
-        };
+    fn target_prevents_damage_from_colors(
+        &self,
+        target: ObjectId,
+        source_colors: &BTreeSet<Color>,
+    ) -> bool {
         self.characteristics(target).is_ok_and(|characteristics| {
             characteristics.keywords.iter().any(|keyword| {
                 matches!(
                     keyword,
                     Keyword::PreventDamageFromColor(color)
                         | Keyword::Protection(color)
-                        if source_characteristics.colors.contains(color)
+                        if source_colors.contains(color)
                 )
             })
         })
@@ -9253,6 +9321,17 @@ impl Game {
         permanent: ObjectId,
         amount: i32,
     ) -> Result<(), RulesError> {
+        let source_colors = self.characteristics(source)?.colors;
+        self.deal_damage_to_permanent_from_colors(source, &source_colors, permanent, amount)
+    }
+
+    fn deal_damage_to_permanent_from_colors(
+        &mut self,
+        source: ObjectId,
+        source_colors: &BTreeSet<Color>,
+        permanent: ObjectId,
+        amount: i32,
+    ) -> Result<(), RulesError> {
         // “Can't be prevented” excludes only prevention effects. A Razia-like
         // redirection is a non-prevention replacement, so it remains
         // applicable and may produce a new prospective damage recipient.
@@ -9279,7 +9358,12 @@ impl Game {
                         self.deal_damage_to_player(source, player, redirected)?;
                     }
                     Target::Permanent(target) => {
-                        self.deal_damage_to_permanent(source, target, redirected)?;
+                        self.deal_damage_to_permanent_from_colors(
+                            source,
+                            source_colors,
+                            target,
+                            redirected,
+                        )?;
                     }
                     Target::Spell(_) | Target::SacrificePermanent(_) => {
                         return Err(RulesError::IllegalTarget(destination));
@@ -9294,13 +9378,18 @@ impl Game {
                 if self.damage_redirections[index].remaining == 0 {
                     self.damage_redirections.remove(index);
                 }
-                return self.deal_damage_to_permanent(source, permanent, amount - redirected);
+                return self.deal_damage_to_permanent_from_colors(
+                    source,
+                    source_colors,
+                    permanent,
+                    amount - redirected,
+                );
             }
             self.damage_redirections.remove(index);
         }
         let (prevented, consumes_shield) = if self.damage_cannot_be_prevented(source) {
             (0, false)
-        } else if self.target_prevents_damage_from_source(source, permanent) {
+        } else if self.target_prevents_damage_from_colors(permanent, source_colors) {
             (amount, false)
         } else {
             let targeted =
@@ -9379,6 +9468,7 @@ impl Game {
         &mut self,
         source: ObjectId,
         source_incarnation: u64,
+        source_colors: &BTreeSet<Color>,
         controller: PlayerId,
         chosen_x: Option<u8>,
         mana_spent: Option<&[Color]>,
@@ -9393,7 +9483,12 @@ impl Game {
                     self.deal_damage_to_player(source, player, i32::from(*amount))?;
                 }
                 Target::Permanent(permanent) => {
-                    self.deal_damage_to_permanent(source, permanent, i32::from(*amount))?;
+                    self.deal_damage_to_permanent_from_colors(
+                        source,
+                        source_colors,
+                        permanent,
+                        i32::from(*amount),
+                    )?;
                 }
                 Target::Spell(card) => return Err(RulesError::IllegalTarget(Target::Spell(card))),
                 Target::SacrificePermanent(card) => {
@@ -9562,7 +9657,12 @@ impl Game {
                             self.deal_damage_to_player(source, player, amount)?;
                         }
                         Target::Permanent(permanent) => {
-                            self.deal_damage_to_permanent(source, permanent, amount)?;
+                            self.deal_damage_to_permanent_from_colors(
+                                source,
+                                source_colors,
+                                permanent,
+                                amount,
+                            )?;
                         }
                         Target::Spell(card) => {
                             return Err(RulesError::IllegalTarget(Target::Spell(card)));
@@ -9591,7 +9691,12 @@ impl Game {
                         self.deal_damage_to_player(source, player, i32::from(*amount))?;
                     }
                     Target::Permanent(permanent) => {
-                        self.deal_damage_to_permanent(source, permanent, i32::from(*amount))?;
+                        self.deal_damage_to_permanent_from_colors(
+                            source,
+                            source_colors,
+                            permanent,
+                            i32::from(*amount),
+                        )?;
                     }
                     Target::Spell(card) => {
                         return Err(RulesError::IllegalTarget(Target::Spell(card)));
@@ -9679,7 +9784,12 @@ impl Game {
                     })
                     .collect::<Vec<_>>();
                 for creature in creatures {
-                    self.deal_damage_to_permanent(source, creature, i32::from(*amount))?;
+                    self.deal_damage_to_permanent_from_colors(
+                        source,
+                        source_colors,
+                        creature,
+                        i32::from(*amount),
+                    )?;
                 }
                 for player in 0..self.players.len() {
                     if self.players[player].lost {
@@ -9710,7 +9820,12 @@ impl Game {
                     })
                     .collect::<Vec<_>>();
                 for creature in creatures {
-                    self.deal_damage_to_permanent(source, creature, i32::from(*amount))?;
+                    self.deal_damage_to_permanent_from_colors(
+                        source,
+                        source_colors,
+                        creature,
+                        i32::from(*amount),
+                    )?;
                 }
             }
             Effect::RadianceDealDamageToCreatures { amount } => {
@@ -9719,7 +9834,12 @@ impl Game {
                 // after the complete spell resolves, so every selected
                 // creature receives this effect's damage in the same batch.
                 for candidate in self.radiance_creatures_sharing_color(target)? {
-                    self.deal_damage_to_permanent(source, candidate, i32::from(*amount))?;
+                    self.deal_damage_to_permanent_from_colors(
+                        source,
+                        source_colors,
+                        candidate,
+                        i32::from(*amount),
+                    )?;
                 }
             }
             Effect::GainLifeController { amount } => {
@@ -11522,13 +11642,27 @@ impl Game {
         }
         let was_battlefield = self.zone_of(card) == Some(Zone::Battlefield);
         let battlefield_incarnation = self.object(card)?.incarnation;
+        let battlefield_colors = was_battlefield
+            .then(|| {
+                self.characteristics(card)
+                    .map(|characteristics| characteristics.colors)
+            })
+            .transpose()?;
         let definition = self.card_definition(card)?.id;
         if was_battlefield {
             self.enqueue_another_creature_dies_triggers(card)?;
         }
         self.move_to_zone(card, Zone::Graveyard)?;
         if was_battlefield {
-            self.enqueue_dies_triggers(card, battlefield_incarnation, definition);
+            let battlefield_colors = battlefield_colors.ok_or(RulesError::IllegalAction(
+                "battlefield departure lacks source-color provenance",
+            ))?;
+            self.enqueue_dies_triggers(
+                card,
+                battlefield_incarnation,
+                &battlefield_colors,
+                definition,
+            );
         }
         Ok(())
     }

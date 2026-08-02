@@ -41,6 +41,7 @@ fn invariant_audit_rejects_an_unsupported_instant_fabricated_onto_the_stack() {
     game.stack.push(StackObject {
         card: spell,
         source_incarnation: 1,
+        source_colors: BTreeSet::new(),
         controller,
         ability_id: None,
         targets: Vec::<Target>::new(),

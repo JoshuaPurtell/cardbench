@@ -54,6 +54,7 @@ fn invariant_audit_rejects_a_stack_spell_targeting_itself() {
         StackObject {
             card: lower,
             source_incarnation: 1,
+            source_colors: BTreeSet::new(),
             controller: second,
             ability_id: None,
             targets: vec![],
@@ -67,6 +68,7 @@ fn invariant_audit_rejects_a_stack_spell_targeting_itself() {
         StackObject {
             card: counter,
             source_incarnation: 1,
+            source_colors: BTreeSet::new(),
             controller: first,
             ability_id: None,
             targets: vec![Target::Spell(counter)],
