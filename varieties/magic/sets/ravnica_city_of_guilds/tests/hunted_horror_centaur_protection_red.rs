@@ -20,7 +20,9 @@ fn hunted_horror_creates_green_protection_from_black_centaurs() {
         &TokenSpec::hunted_centaur(),
         "the Centaurs must retain protection from black"
     );
-    assert!(token.keywords.contains(&Keyword::Protection(
-        cardbench_magic_engine::Color::Black
-    )));
+    assert!(
+        token
+            .keywords
+            .contains(&Keyword::Protection(cardbench_magic_engine::Color::Black))
+    );
 }

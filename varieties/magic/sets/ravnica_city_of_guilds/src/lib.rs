@@ -496,10 +496,10 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             }],
         },
         // Compatibility scope: normal colored-cost casting, base
+        // Compatibility scope: normal colored-cost casting, base
         // characteristics, Trample, and the targeted-opponent ETB token
-        // creation are represented. The green Centaurs' printed protection
-        // from black is deliberately omitted until a complete protection
-        // substrate (targeting, damage, blocking, and attachments) exists.
+        // creation are represented. The green Centaurs carry their typed
+        // protection from black through the shared protection substrate.
         CardDefinition {
             id: "RAV-HUNTED-HORROR",
             name: "Hunted Horror",
@@ -514,7 +514,7 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 "base-characteristics",
                 "trample",
                 "enter-battlefield-targeted-opponent-token-creation",
-                "centaur-protection-from-black-omitted",
+                "centaur-protection-from-black",
             ],
             power: Some(7),
             toughness: Some(7),
@@ -5402,7 +5402,7 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                 optional: false,
                 targets: vec![cardbench_magic_engine::TargetRequirement::Player],
                 effects: vec![Effect::CreateTokenForTargetPlayer {
-                    token: TokenSpec::green_centaur(),
+                    token: TokenSpec::hunted_centaur(),
                     count: 2,
                 }],
             },

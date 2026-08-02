@@ -1399,6 +1399,19 @@ impl TokenSpec {
     }
 
     #[must_use]
+    pub fn hunted_centaur() -> Self {
+        Self {
+            name: "Centaur",
+            colors: BTreeSet::from([Color::Green]),
+            card_types: BTreeSet::from([CardType::Creature]),
+            creature_subtypes: BTreeSet::from([CreatureSubtype::Centaur]),
+            keywords: vec![Keyword::Protection(Color::Black)],
+            power: 3,
+            toughness: 3,
+        }
+    }
+
+    #[must_use]
     pub fn blue_faerie() -> Self {
         Self {
             name: "Faerie",
