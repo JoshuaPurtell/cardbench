@@ -5,6 +5,8 @@ separates engine defects from policy/harness outcomes. Each open engine item is
 reproduced by `cargo run -p cardbench-magic-policies --bin rav-engine-audit`
 from `varieties/magic`; the audit exits nonzero while an item remains open.
 
+| `linked-exile-delayed-return-substrate-missing` | Engine object-identity / delayed-action gap — critical for Aura blink effects and any later linked exile | Open | Exact red command: `cargo test -p cardbench-magic-engine --test linked_exile_delayed_return_red -- --nocapture` from `varieties/magic`. The synthetic attached-Aura activation uses the existing creature-exile instruction; it moves the creature to `Exile` but SBA moves the now-unattached Aura to `Graveyard` (`left: Some(Graveyard)`, `right: Some(Exile)`). No typed linked group retains exact exiled incarnations, no delayed return is scheduled or consumed, and a later incarnation could not be safely distinguished. |
+
 ## Discovery batch 2026-07-30
 
 | ID | Classification | Status | Reproducible observation |
