@@ -181,6 +181,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-BATHE-IN-LIGHT",
             "RAV-LIGHT-OF-SANCTION",
             "RAV-FAITHS-FETTERS",
+            "RAV-STASIS-CELL",
             "RAV-CONCERTED-EFFORT",
             "RAV-CHANT-OF-VITU-GHAZI",
             "RAV-CENTAUR-SAFEGUARD",

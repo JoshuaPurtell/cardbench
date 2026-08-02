@@ -71,6 +71,10 @@ Oracle Magic rules coverage.
   linked effect. Equipment may be unattached; its attach activation may move
   it only between legal endpoint incarnations, expires only its prior linked
   effects, and leaves it on the battlefield when an endpoint becomes illegal.
+  A typed Aura activated attachment may likewise move only between legal
+  endpoint incarnations: ordinary Aura entry remains unattached-only, while a
+  successfully resolving reattachment expires exactly the old linked effects
+  before installing the new endpoint's effects and receipt.
   Every live attachment has exactly one permanent effect per declared change.
   `AuraAttached` and `EquipmentAttached` immediately follow the final linked
   effect receipt. A zero-change attachment instead emits
