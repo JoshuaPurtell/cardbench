@@ -3438,7 +3438,7 @@ digest = "fnv1a64:9eb118ca7ddf016e"
 [[scenario]]
 id = "rav_clutch_of_the_undercity_transmute"
 seed = 41
-description = "Use Clutch of the Undercity's scoped immediate Transmute activation; its separately exercised permanent-bounce front face is bounded by this no-response-window compatibility path."
+description = "Retain Clutch of the Undercity's historical immediate Transmute fixture for deterministic public parity; the direct Rust full-fidelity contract separately exercises the private stack search and response window."
 
 [[scenario.card]]
 label = "clutch"
@@ -11751,7 +11751,7 @@ digest = "fnv1a64:f9c31735aec5e2bc"
 [[scenario]]
 id = "rav_clutch_of_the_undercity_permanent_bounce"
 seed = 156
-description = "Cast Clutch of the Undercity at a permanent, move it to its owner's hand, then make the controller it had immediately before that move lose three life. Its immediate Transmute operation remains separately bounded."
+description = "Cast Clutch of the Undercity at a permanent, move it to its owner's hand, then make the controller it had immediately before that move lose three life. Its direct Rust full-fidelity contract separately exercises the private stack-backed Transmute path."
 
 [[scenario.card]]
 label = "clutch"

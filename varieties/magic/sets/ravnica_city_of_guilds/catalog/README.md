@@ -49,8 +49,8 @@ a zone move. The fetched Aura's ordinary ETB trigger is queued only after the
 Mage trigger's terminal receipt. The opponent sees neither unselected Aura
 identities nor a private decision projection.
 
-The current catalog partition is 238 full / 19 partial / 34 catalog-only unique
-names (253 / 19 / 34 printings). The independently checked coverage-report
+The current catalog partition is 240 full / 18 partial / 33 catalog-only unique
+names (255 / 18 / 33 printings). The independently checked coverage-report
 binary emits the same partition.
 
 Bramble Elemental is full-fidelity through the expansion-neutral, current-
@@ -316,15 +316,17 @@ objects, then runs state-based actions after its complete damage batch. Dimir
 Machinations, Shred Memory, and Perplex remain expressly transmute-only
 compatibility definitions: their hand-zone transmute activations are exercised
 in public scenarios, while each printed spell effect remains non-covered.
-Clutch of the Undercity separately executes its targeted permanent-bounce
-front face, snapshots the bounced permanent's last battlefield controller for
-the three-life loss, and retains its immediate hand-zone Transmute operation as
-an explicit bounded compatibility action.
+Clutch of the Undercity is a full-fidelity entry: its targeted permanent-bounce
+front face snapshots the bounced permanent's last battlefield controller for
+the three-life loss, and its direct Rust contract exercises the private,
+stack-backed Transmute search lifecycle. The retained public Transmute scenario
+is deliberately a frozen immediate-compatibility fixture because the declarative
+scenario format does not submit the private search decision.
 
-Brainspoil is a separate bounded slice: its typed front face destroys only a
+Brainspoil is also a full-fidelity entry: its typed front face destroys only a
 nonblack creature through the ordinary regenerable destruction lifecycle, and
-its immediate hand-zone Transmute operation remains explicitly outside the
-stack-backed fidelity boundary.
+its direct Rust contract exercises the same stack-backed private Transmute
+boundary.
 
 The creature-chassis batch for Coalhauler Swine, Bramble Elemental, Boros
 Swiftblade, and Loxodon
