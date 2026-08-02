@@ -366,12 +366,19 @@ creatures and tokens, then emits one source-controller `LifeGained` receipt.
 The focused trace pays with two Convoke creatures and verifies the count at
 resolution rather than at cast time.
 
-The first-range easy-creature wave adds Votary of the Conclave, Drake Familiar,
-Ethereal Usher, and Grozoth. Each supports normal colored-cost creature casting
-and base power/toughness. Every other printed keyword, activated ability,
-triggered ability, and hand-zone behavior is deliberately unsupported. Three deterministic public scenarios cover their
+The first-range easy-creature bounded wave includes Drake Familiar and Grozoth.
+Each supports normal colored-cost creature casting and base power/toughness;
+every other printed keyword, activated ability, triggered ability, and hand-zone
+behavior is deliberately unsupported. Their deterministic public scenarios cover
 exact colored-cost payments, stack resolution, zone movement, priority, and
 retained base P/T values only.
+
+Ethereal Usher is a full-fidelity entry: its typed Blue tap activation grants
+the selected creature temporary Unblockable through the ordinary stack and
+continuous-effect lifecycle, and its `{1}{U}{U}` Transmute is the existing
+stack-backed hand-zone ability with a controller-private library search. Focused
+Rust traces show both response windows, terminal receipts, rejected illegal
+blocks, and invariant validation.
 
 Sandsower has since graduated from that bounded wave: its full activation uses
 three policy-selected, distinct, untapped creatures its controller controls as
