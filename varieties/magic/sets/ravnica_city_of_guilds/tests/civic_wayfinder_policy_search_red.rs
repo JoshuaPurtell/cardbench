@@ -32,6 +32,7 @@ fn civic_wayfinder_requires_a_private_policy_submitted_basic_land_search() {
             selection: LibrarySearchSelection::PolicySubmitted {
                 may_fail_to_find: true,
             },
+            reveal_selected: true,
         }],
         "the controller must own the private optional search selection"
     );

@@ -9128,29 +9128,44 @@ impl Game {
         selected: Option<ObjectId>,
     ) -> Result<(), RulesError> {
         let player = decision.player;
-        let (ability, chosen_x, source_incarnation) = {
+        let (ability, chosen_x, source_incarnation, reveal_selected) = {
             let top = self.stack.last().ok_or(RulesError::IllegalAction(
                 "library search choice has no live stack item",
             ))?;
-            let matches_pending_search = matches!(
-                top.effects.as_slice(),
-                [Effect::SearchControllerLibrary {
-                    requirement: stack_requirement,
-                    destination: stack_destination,
-                    selection:
-                        LibrarySearchSelection::PolicySubmitted {
-                            may_fail_to_find: stack_may_fail,
-                        },
-                }] if stack_requirement == requirement
+            let reveal_selected = match top.effects.as_slice() {
+                [
+                    Effect::SearchControllerLibrary {
+                        requirement: stack_requirement,
+                        destination: stack_destination,
+                        selection:
+                            LibrarySearchSelection::PolicySubmitted {
+                                may_fail_to_find: stack_may_fail,
+                            },
+                        reveal_selected: stack_reveal_selected,
+                    },
+                ] if stack_requirement == requirement
                     && *stack_destination == destination
-                    && *stack_may_fail == may_fail_to_find
-            );
-            if top.card != source || top.controller != player || !matches_pending_search {
+                    && *stack_may_fail == may_fail_to_find =>
+                {
+                    *stack_reveal_selected
+                }
+                _ => {
+                    return Err(RulesError::IllegalAction(
+                        "library search choice no longer matches the live stack item",
+                    ));
+                }
+            };
+            if top.card != source || top.controller != player {
                 return Err(RulesError::IllegalAction(
                     "library search choice no longer matches the live stack item",
                 ));
             }
-            (top.ability_id, top.chosen_x, top.source_incarnation)
+            (
+                top.ability_id,
+                top.chosen_x,
+                top.source_incarnation,
+                reveal_selected,
+            )
         };
         let expected_cards = self.library_search_candidates(player, requirement, chosen_x)?;
         if decision.options
@@ -9186,7 +9201,7 @@ impl Game {
 
         let mut entered_permanent = None;
         if let Some(card) = selected {
-            if ability == Some(TRANSMUTE_ABILITY_ID) {
+            if reveal_selected || ability == Some(TRANSMUTE_ABILITY_ID) {
                 self.record_event(GameEvent::CardRevealed {
                     player,
                     card,
@@ -10205,6 +10220,7 @@ impl Game {
                 selection: LibrarySearchSelection::PolicySubmitted {
                     may_fail_to_find: true,
                 },
+                reveal_selected: false,
             }],
             chosen_x: None,
             chosen_color: None,
@@ -10316,6 +10332,7 @@ impl Game {
         requirement: &LibrarySearchRequirement,
         destination: LibrarySearchDestination,
         selection: LibrarySearchSelection,
+        reveal_selected: bool,
         chosen_x: Option<u8>,
     ) -> Result<(), RulesError> {
         let prevented = self.library_search_prevented_until == Some(self.turn);
@@ -10333,6 +10350,13 @@ impl Game {
             }
         };
         if let Some(card) = found {
+            if reveal_selected {
+                self.record_event(GameEvent::CardRevealed {
+                    player,
+                    card,
+                    definition: self.card_definition(card)?.id,
+                });
+            }
             match destination {
                 LibrarySearchDestination::Battlefield => {
                     self.move_to_zone(card, Zone::Battlefield)?;
@@ -11582,6 +11606,7 @@ impl Game {
                                 selection: LibrarySearchSelection::PolicySubmitted {
                                     may_fail_to_find: true,
                                 },
+                                reveal_selected: false,
                             }] if *value == definition.mana_cost.mana_value()
                         ),
                         0,
@@ -15084,6 +15109,7 @@ impl Game {
                         requirement,
                         destination,
                         selection: LibrarySearchSelection::PolicySubmitted { may_fail_to_find },
+                        ..
                     },
                 ] => (
                     top.card,
@@ -19285,6 +19311,7 @@ impl Game {
                 requirement,
                 destination,
                 selection,
+                reveal_selected,
             } => {
                 self.resolve_controller_library_search(
                     source,
@@ -19292,6 +19319,7 @@ impl Game {
                     requirement,
                     *destination,
                     *selection,
+                    *reveal_selected,
                     chosen_x,
                 )?;
             }
@@ -27023,6 +27051,7 @@ impl Game {
                         selection: LibrarySearchSelection::PolicySubmitted {
                             may_fail_to_find: stack_may_fail,
                         },
+                        ..
                     }] if stack_requirement == requirement
                         && stack_destination == destination
                         && stack_may_fail == may_fail_to_find

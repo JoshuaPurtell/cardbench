@@ -3885,7 +3885,7 @@ digest = "fnv1a64:10ab6a9c0b91ec2c"
 id = "rav_civic_wayfinder_etb_basic_land_search"
 seed = 155
 triggers = true
-description = "Cast Civic Wayfinder, resolve its stack-backed ETB trigger, and move the deterministic controller-owned basic-land selection to hand before the trigger's terminal receipt."
+description = "Cast Civic Wayfinder, resolve its stack-backed ETB trigger, and submit the controller-private basic-land selection; the selected land is revealed, moved to hand, then shuffled before the trigger's terminal receipt."
 
 [[scenario.card]]
 label = "wayfinder"
@@ -3931,12 +3931,17 @@ player = 0
 kind = "pass"
 player = 1
 
+[[scenario.action]]
+kind = "choose_library_search"
+player = 0
+found = "forest"
+
 [scenario.expected]
 zones = ["wayfinder:battlefield", "forest:hand", "opponent_island:library"]
 stack_size = 0
 priority = 0
-event_markers = ["TriggeredAbilityStacked", "LibrarySearchResolved", "LibraryShuffled", "AbilityResolved"]
-digest = "fnv1a64:d79347f0d71c8635"
+event_markers = ["TriggeredAbilityStacked", "DecisionOpened", "DecisionCompleted", "CardRevealed", "LibrarySearchResolved", "LibraryShuffled", "AbilityResolved"]
+digest = "fnv1a64:4ca320350bdb2847"
 
 [[scenario]]
 id = "rav_one_mana_creature_chassis"

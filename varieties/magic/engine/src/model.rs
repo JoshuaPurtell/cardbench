@@ -1975,14 +1975,17 @@ pub enum Effect {
     /// priority receipts.
     PreventLibrarySearchUntilEndOfTurn,
     /// Search the resolving controller's library for one card matching the
-    /// typed requirement, move the deterministic selected card to the stated
-    /// destination, then shuffle that controller's library. A policy may
-    /// later replace the deterministic selector without altering this stack
-    /// effect's lifecycle or receipts.
+    /// typed requirement, optionally reveal the policy-selected card, move it
+    /// to the stated destination, then shuffle that controller's library.
+    /// The reveal flag is data on the generic effect so a selected hidden card
+    /// never reaches a public zone or receipt accidentally.
     SearchControllerLibrary {
         requirement: LibrarySearchRequirement,
         destination: LibrarySearchDestination,
         selection: LibrarySearchSelection,
+        /// Emit `CardRevealed` immediately before moving a selected card.
+        /// A declined or failed search never fabricates a reveal receipt.
+        reveal_selected: bool,
     },
     /// Search the resolving controller's library for one qualifying instant,
     /// then cast the selected card immediately without paying its mana cost

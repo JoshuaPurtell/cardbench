@@ -141,6 +141,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 223] = [
     "RAV-DROMAD-PUREBRED",
     "RAV-CARVEN-CARYATID",
     "RAV-BRAMBLE-ELEMENTAL",
+    "RAV-CIVIC-WAYFINDER",
     "RAV-BIRDS-OF-PARADISE",
     "RAV-FIERY-CONCLUSION",
     "RAV-RIBBONS-OF-NIGHT",
@@ -1257,6 +1258,7 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 selection: LibrarySearchSelection::PolicySubmitted {
                     may_fail_to_find: true,
                 },
+                reveal_selected: false,
             }],
         },
         // Full fidelity: exact casting cost and controller-private selection
@@ -1290,6 +1292,7 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 selection: LibrarySearchSelection::PolicySubmitted {
                     may_fail_to_find: true,
                 },
+                reveal_selected: false,
             }],
         },
         // Compatibility scope: normal enchantment casting plus the
@@ -4937,10 +4940,9 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
-        // The ETB trigger uses the shared typed basic-land search and moves
-        // its deterministic controller-owned selection to hand. A policy
-        // still cannot choose among hidden library candidates, so this remains
-        // a bounded compatibility slice rather than a fidelity promotion.
+        // Full fidelity: the targetless ETB trigger opens the controller-only
+        // optional basic-land library selection on the ordinary trigger stack,
+        // publicly reveals a selected land, moves it to hand, then shuffles.
         CardDefinition {
             id: "RAV-CIVIC-WAYFINDER",
             name: "Civic Wayfinder",
@@ -4951,10 +4953,11 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             card_types: types([CardType::Creature]),
             is_basic_land: false,
             supported_rules: &[
+                "full-rules-fidelity",
                 "colored-cost-casting",
                 "base-characteristics",
-                "enter-the-battlefield-basic-land-search",
-                "deterministic-controller-library-search",
+                "enter-the-battlefield-private-basic-land-search",
+                "selected-basic-land-reveal",
             ],
             power: Some(2),
             toughness: Some(2),
@@ -7033,6 +7036,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                     ])),
                     destination: LibrarySearchDestination::BattlefieldTapped,
                     selection: LibrarySearchSelection::DeterministicFirstMatch,
+                    reveal_selected: false,
                 }],
             },
         },
@@ -8169,7 +8173,10 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                         BasicLandType::Forest,
                     ])),
                     destination: LibrarySearchDestination::Hand,
-                    selection: LibrarySearchSelection::DeterministicFirstMatch,
+                    selection: LibrarySearchSelection::PolicySubmitted {
+                        may_fail_to_find: true,
+                    },
+                    reveal_selected: true,
                 }],
             },
         },

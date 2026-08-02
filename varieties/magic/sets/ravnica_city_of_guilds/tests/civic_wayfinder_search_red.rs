@@ -1,7 +1,8 @@
 //! Red regression for Civic Wayfinder's omitted ETB land search.
 
 use cardbench_magic_engine::{
-    CastRequest, Color, Game, GameEvent, LibrarySearchDestination, PlayerId, Step, Zone,
+    CastRequest, Color, DecisionSelection, Game, GameEvent, LibrarySearchDestination, PlayerId,
+    PolicyAction, Step, Zone,
 };
 use cardbench_magic_rav::{
     card_definitions, rav_activated_ability_bindings, rav_additional_spell_cost_bindings,
@@ -17,7 +18,7 @@ fn civic_wayfinder_has_a_typed_etb_basic_land_search() {
     assert!(
         wayfinder
             .supported_rules
-            .contains(&"enter-the-battlefield-basic-land-search"),
+            .contains(&"enter-the-battlefield-private-basic-land-search"),
         "Civic Wayfinder must disclose its ETB basic-land search"
     );
 
@@ -58,7 +59,21 @@ fn civic_wayfinder_has_a_typed_etb_basic_land_search() {
     game.pass_priority(PlayerId(0))
         .expect("controller passes ETB trigger");
     game.pass_priority(PlayerId(1))
-        .expect("ETB trigger resolves");
+        .expect("ETB trigger opens controller search decision");
+    let decision = game
+        .view_for_player(PlayerId(0))
+        .expect("controller view")
+        .pending_decision
+        .expect("Wayfinder search decision opens");
+    game.submit_policy_move(
+        PlayerId(0),
+        "civic-wayfinder-compatibility.v1",
+        PolicyAction::SubmitDecision {
+            decision: decision.id,
+            selection: DecisionSelection::Objects(vec![forest]),
+        },
+    )
+    .expect("controller selects Forest");
 
     assert_eq!(game.zone_of(forest), Some(Zone::Hand));
     assert_eq!(game.zone_of(opponent_land), Some(Zone::Library));

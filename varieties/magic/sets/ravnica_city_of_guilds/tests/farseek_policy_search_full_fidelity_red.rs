@@ -47,6 +47,7 @@ fn farseek_requires_a_private_controller_selected_nonforest_land_search() {
             selection: LibrarySearchSelection::PolicySubmitted {
                 may_fail_to_find: true,
             },
+            reveal_selected: false,
         }]
     );
 

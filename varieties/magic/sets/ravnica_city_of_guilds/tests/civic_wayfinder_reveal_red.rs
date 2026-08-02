@@ -1,6 +1,8 @@
 //! Red regression for Civic Wayfinder's selected-land reveal receipt.
 
-use cardbench_magic_engine::{CastRequest, Color, Game, GameEvent, PlayerId, Step, Zone};
+use cardbench_magic_engine::{
+    CastRequest, Color, DecisionSelection, Game, GameEvent, PlayerId, PolicyAction, Step, Zone,
+};
 use cardbench_magic_rav::{
     card_definitions, rav_activated_ability_bindings, rav_additional_spell_cost_bindings,
     rav_basic_land_type_bindings, rav_mana_ability_bindings, rav_triggered_ability_bindings,
@@ -42,7 +44,21 @@ fn civic_wayfinder_reveals_the_land_selected_from_its_library() {
     game.pass_priority(PlayerId(0))
         .expect("controller passes ETB trigger");
     game.pass_priority(PlayerId(1))
-        .expect("ETB trigger resolves");
+        .expect("ETB trigger opens library choice");
+    let decision = game
+        .view_for_player(PlayerId(0))
+        .expect("controller view")
+        .pending_decision
+        .expect("Civic Wayfinder selection opens");
+    game.submit_policy_move(
+        PlayerId(0),
+        "civic-wayfinder-reveal-red.v1",
+        PolicyAction::SubmitDecision {
+            decision: decision.id,
+            selection: DecisionSelection::Objects(vec![forest]),
+        },
+    )
+    .expect("controller selects Forest");
 
     assert!(game.event_log.iter().any(|event| matches!(
         event,
