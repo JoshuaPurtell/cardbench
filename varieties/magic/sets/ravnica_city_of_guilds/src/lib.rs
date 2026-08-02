@@ -60,6 +60,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 195] = [
     "RAV-DARK-HEART-OF-THE-WOOD",
     "RAV-GOLGARI-ROTWURM",
     "RAV-GOLGARI-GERMINATION",
+    "RAV-NULLSTONE-GARGOYLE",
     "RAV-SCATTER-THE-SEEDS",
     "RAV-DOUBLING-SEASON",
     "RAV-GLARE-OF-SUBDUAL",
@@ -382,6 +383,30 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             power: None,
             toughness: None,
             keywords: vec![],
+            effects: vec![],
+        },
+        // Full fidelity: this global artifact trigger observes each player's
+        // independently tracked first noncreature spell in every turn, then
+        // retains that exact spell as the ordinary counter target.
+        CardDefinition {
+            id: "RAV-NULLSTONE-GARGOYLE",
+            name: "Nullstone Gargoyle",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::new(5),
+            colors: BTreeSet::new(),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Artifact, CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colorless-cost-casting",
+                "base-characteristics",
+                "flying",
+                "first-noncreature-spell-each-player-each-turn-counter",
+            ],
+            power: Some(4),
+            toughness: Some(5),
+            keywords: vec![Keyword::Flying],
             effects: vec![],
         },
         // Full fidelity: the complete target-free global-damage resolution.
@@ -7446,6 +7471,17 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                 optional: false,
                 targets: vec![cardbench_magic_engine::TargetRequirement::NoncreatureSpell],
                 effects: vec![Effect::SacrificeCreatureOrCounterTargetSpell],
+            },
+        },
+        TriggeredAbilityBinding {
+            card_definition: "RAV-NULLSTONE-GARGOYLE",
+            ability: TriggeredAbility {
+                id: "first-noncreature-spell-counter",
+                condition: TriggerCondition::FirstNoncreatureSpellCastEachTurn,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![cardbench_magic_engine::TargetRequirement::NoncreatureSpell],
+                effects: vec![Effect::CounterTargetNoncreatureSpell],
             },
         },
         TriggeredAbilityBinding {

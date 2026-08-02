@@ -403,6 +403,12 @@ pub enum TriggerCondition {
     /// A noncreature spell was cast by this permanent's controller. The
     /// triggering stack item retains that exact spell as its target.
     CastsNoncreatureSpell,
+    /// A player cast that player's first noncreature spell in the current
+    /// turn. The trigger retains the exact spell as its target. Unlike
+    /// `CastsNoncreatureSpell`, the triggering permanent need not share a
+    /// controller with the caster; the per-player first-cast provenance is
+    /// tracked by the turn state machine.
+    FirstNoncreatureSpellCastEachTurn,
 }
 
 /// A source-bound generic reduction applied while its permanent source is on
@@ -2204,6 +2210,10 @@ pub enum Effect {
     /// This remains distinct from the narrower instant/sorcery counter effect
     /// used by cards whose printed target restriction is narrower.
     CounterTargetSpell,
+    /// Counter one targeted noncreature spell. This has the same terminal
+    /// counter lifecycle as `CounterTargetSpell`, but keeps a triggered
+    /// ability's retained target requirement narrow and replay-auditable.
+    CounterTargetNoncreatureSpell,
     /// Counter one targeted physical spell, then mill that spell's controller
     /// by its mana value only when the resolving spell's explicit cast-payment
     /// receipt contains the named color.  The resolver snapshots the target
@@ -2521,6 +2531,7 @@ impl Effect {
             Self::CounterTargetSpell | Self::CounterTargetSpellUnlessControllerPays { .. } => {
                 Some(TargetRequirement::Spell)
             }
+            Self::CounterTargetNoncreatureSpell => Some(TargetRequirement::NoncreatureSpell),
             Self::CounterTargetPhysicalSpellThenMillItsControllerByManaValueIfManaColorSpent {
                 ..
             } => Some(TargetRequirement::PhysicalSpell),
@@ -4244,6 +4255,15 @@ pub enum GameEvent {
         color: Color,
     },
     SpellCast {
+        player: PlayerId,
+        card: ObjectId,
+    },
+    /// The named player has cast that player's first noncreature spell for
+    /// this exact turn. This is a turn-scoped provenance receipt rather than
+    /// an inference from stack position: countered spells still consume the
+    /// player's first-spell slot, and each player gets an independent slot.
+    FirstNoncreatureSpellCastThisTurn {
+        turn: u32,
         player: PlayerId,
         card: ObjectId,
     },

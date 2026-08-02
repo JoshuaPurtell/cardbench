@@ -45,5 +45,8 @@ fn nullstone_gargoyle_requires_first_noncreature_spell_each_turn_counter_trigger
         trigger.ability.targets,
         [TargetRequirement::NoncreatureSpell]
     );
-    assert_eq!(trigger.ability.effects, [Effect::CounterTargetSpell]);
+    assert_eq!(
+        trigger.ability.effects,
+        [Effect::CounterTargetNoncreatureSpell]
+    );
 }

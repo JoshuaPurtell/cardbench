@@ -812,6 +812,11 @@ pub struct Game {
     /// Physical instant/sorcery cards currently on the stack under an
     /// effect-created as-though-instant timing exception.
     spell_timing_exceptions: BTreeSet<ObjectId>,
+    /// Per-player cast provenance for the current turn. A noncreature spell
+    /// remains the player's first even if an effect counters it before it
+    /// resolves; the set is cleared only as the turn state machine enters a
+    /// new Untap step.
+    noncreature_spell_casters_this_turn: BTreeSet<PlayerId>,
     /// Live virtual spell copies keyed by their unique stack-only identity.
     /// This map is the ownership boundary that prevents a copy terminal path
     /// from moving the original physical card.
@@ -1079,6 +1084,7 @@ impl Game {
             graveyard_cast_permissions: BTreeMap::new(),
             effect_created_cast_permissions: BTreeMap::new(),
             spell_timing_exceptions: BTreeSet::new(),
+            noncreature_spell_casters_this_turn: BTreeSet::new(),
             virtual_spell_copies: BTreeMap::new(),
             exile_on_resolution: BTreeSet::new(),
             linked_exile_groups: BTreeMap::new(),
@@ -1543,6 +1549,7 @@ impl Game {
                         | TriggerCondition::Attacks
                         | TriggerCondition::Blocks
                         | TriggerCondition::CastsNoncreatureSpell
+                        | TriggerCondition::FirstNoncreatureSpellCastEachTurn
                 )
                 || binding.ability.targets
                     != binding
@@ -1903,6 +1910,7 @@ impl Game {
         self.priority = PlayerId(0);
         self.step = Step::Untap;
         self.turn = 1;
+        self.noncreature_spell_casters_this_turn.clear();
         self.consecutive_passes = 0;
         self.start_step()?;
         self.validate_invariants()
@@ -6281,7 +6289,13 @@ impl Game {
             incarnation: source_incarnation,
         });
         if !definition.card_types.contains(&CardType::Creature) {
-            self.enqueue_cast_noncreature_triggers(player, request.card)?;
+            let is_first_noncreature_spell_this_turn =
+                self.noncreature_spell_casters_this_turn.insert(player);
+            self.enqueue_cast_noncreature_triggers(
+                player,
+                request.card,
+                is_first_noncreature_spell_this_turn,
+            )?;
         }
         self.consecutive_passes = 0;
         // CR 601.2i / 117.3c: after completing a cast, the acting player
@@ -9590,6 +9604,7 @@ impl Game {
         self.validate_blocks_trigger_event_order()?;
         self.validate_linked_exile_state()?;
         Self::validate_spell_mana_payment_event_order(&self.event_log)?;
+        self.validate_first_noncreature_spell_cast_event_order()?;
         Self::validate_counter_unless_pays_payment_event_order(&self.event_log)?;
         self.validate_additional_spell_cost_event_order()?;
         self.validate_stack_terminal_event_order()?;
@@ -9966,6 +9981,7 @@ impl Game {
                             | TriggerCondition::Attacks
                             | TriggerCondition::Blocks
                             | TriggerCondition::CastsNoncreatureSpell
+                            | TriggerCondition::FirstNoncreatureSpellCastEachTurn
                     )
                     || ability.targets
                         != ability
@@ -12529,6 +12545,7 @@ impl Game {
                 | Effect::DestroyAllNonTokenCreatures
                 | Effect::CounterTargetInstantOrSorcerySpell
                 | Effect::CounterTargetSpell
+                | Effect::CounterTargetNoncreatureSpell
                 | Effect::CounterTargetPhysicalSpellThenMillItsControllerByManaValueIfManaColorSpent { .. }
                 | Effect::CounterTargetSpellUnlessControllerPays { .. }
                 | Effect::CopyTargetInstantOrSorcerySpell { .. }
@@ -14173,45 +14190,62 @@ impl Game {
         Ok(())
     }
 
-    /// A cast trigger retains the exact spell that caused it, rather than
-    /// choosing an arbitrary visible spell. The trigger is placed above that
-    /// spell after the `SpellCast` receipt and before its caster receives the
-    /// normal post-cast priority window.
+    /// A noncreature-spell cast trigger retains the exact spell that caused
+    /// it, rather than choosing an arbitrary visible spell. `Casts…` remains
+    /// source-controller scoped, while `First…` observes every player's
+    /// independently tracked first cast of the current turn. Either trigger
+    /// is placed above that spell before its caster receives the normal
+    /// post-cast priority window.
     fn enqueue_cast_noncreature_triggers(
         &mut self,
-        controller: PlayerId,
+        caster: PlayerId,
         spell: ObjectId,
+        is_first_noncreature_spell_this_turn: bool,
     ) -> Result<(), RulesError> {
-        let sources = self
-            .all_battlefield_cards()
-            .into_iter()
-            .filter(|source| self.controller_of(*source) == Ok(controller))
-            .collect::<Vec<_>>();
+        let sources = self.all_battlefield_cards();
+        let mut first_turn_provenance_recorded = false;
         for source in sources {
             let Some(definition) = self.effective_definition_id(source)? else {
                 continue;
             };
+            let source_controller = self.controller_of(source)?;
             let source_colors = self.characteristics(source)?.colors;
             let triggers = self
                 .triggered_abilities
                 .get(definition)
                 .into_iter()
                 .flat_map(|abilities| abilities.values())
-                .filter(|ability| ability.condition == TriggerCondition::CastsNoncreatureSpell)
+                .filter(|ability| {
+                    (ability.condition == TriggerCondition::CastsNoncreatureSpell
+                        && source_controller == caster)
+                        || (ability.condition
+                            == TriggerCondition::FirstNoncreatureSpellCastEachTurn
+                            && is_first_noncreature_spell_this_turn)
+                })
                 .cloned()
                 .collect::<Vec<_>>();
             for ability in triggers {
                 if ability.targets != [TargetRequirement::NoncreatureSpell] {
                     return Err(RulesError::IllegalAction(
-                        "a cast-noncreature trigger must retain one spell target",
+                        "a noncreature-spell cast trigger must retain one spell target",
                     ));
+                }
+                if ability.condition == TriggerCondition::FirstNoncreatureSpellCastEachTurn
+                    && !first_turn_provenance_recorded
+                {
+                    self.record_event(GameEvent::FirstNoncreatureSpellCastThisTurn {
+                        turn: self.turn,
+                        player: caster,
+                        card: spell,
+                    });
+                    first_turn_provenance_recorded = true;
                 }
                 self.pending_trigger_events
                     .push(PendingTriggeredAbilityEvent {
                         source,
                         source_incarnation: self.object(source)?.incarnation,
                         source_colors: source_colors.clone(),
-                        controller,
+                        controller: source_controller,
                         ability,
                         payload: TriggerEventPayload::ExactTargets(vec![Target::Spell(spell)]),
                     });
@@ -18100,7 +18134,9 @@ impl Game {
                     self.destroy_permanent(source, creature)?;
                 }
             }
-            Effect::CounterTargetInstantOrSorcerySpell | Effect::CounterTargetSpell => {
+            Effect::CounterTargetInstantOrSorcerySpell
+            | Effect::CounterTargetSpell
+            | Effect::CounterTargetNoncreatureSpell => {
                 let target = Self::target_spell(target)?;
                 self.counter_target_spell(source, target)?;
             }
@@ -19001,6 +19037,7 @@ impl Game {
         if self.step == Step::Untap {
             self.active_player = self.next_player(self.active_player);
             self.turn += 1;
+            self.noncreature_spell_casters_this_turn.clear();
             self.library_search_prevented_until = None;
         }
         self.priority = self.priority_after_resolution();
@@ -20314,6 +20351,16 @@ impl Game {
         {
             return Err(RulesError::IllegalAction(
                 "entered-permanent bounce effects require the controlled nonartifact entry trigger",
+            ));
+        }
+        if matches!(
+            ability.condition,
+            TriggerCondition::CastsNoncreatureSpell
+                | TriggerCondition::FirstNoncreatureSpellCastEachTurn
+        ) && ability.targets != [TargetRequirement::NoncreatureSpell]
+        {
+            return Err(RulesError::IllegalAction(
+                "a noncreature-spell cast trigger must retain one spell target",
             ));
         }
         if ability
@@ -21907,6 +21954,62 @@ impl Game {
                     "spell mana-payment receipt is not immediately followed by its spell cast",
                 ));
             }
+        }
+        Ok(())
+    }
+
+    /// Audits the turn-scoped first-noncreature-spell provenance used by
+    /// triggered abilities such as Nullstone Gargoyle. A countered spell still
+    /// owns the first-cast slot: only the next Untap transition clears it.
+    fn validate_first_noncreature_spell_cast_event_order(&self) -> Result<(), RulesError> {
+        let mut observed = BTreeSet::<(u32, PlayerId)>::new();
+        for (index, event) in self.event_log.iter().enumerate() {
+            let GameEvent::FirstNoncreatureSpellCastThisTurn { turn, player, card } = event else {
+                continue;
+            };
+            if *turn == 0
+                || *turn > self.turn
+                || self.players.get(player.0).is_none()
+                || card.0 == 0
+            {
+                return Err(RulesError::IllegalAction(
+                    "first-noncreature-spell receipt has invalid turn, player, or card provenance",
+                ));
+            }
+            if !observed.insert((*turn, *player)) {
+                return Err(RulesError::IllegalAction(
+                    "a player received more than one first-noncreature-spell receipt in one turn",
+                ));
+            }
+            if !matches!(
+                self.event_log.get(index.checked_sub(1).unwrap_or(usize::MAX)),
+                Some(GameEvent::ObjectIncarnationAdvanced { object, .. }) if object == card
+            ) || !matches!(
+                index.checked_sub(2).and_then(|prior| self.event_log.get(prior)),
+                Some(GameEvent::SpellCast { player: caster, card: spell })
+                    if caster == player && spell == card
+            ) {
+                return Err(RulesError::IllegalAction(
+                    "first-noncreature-spell receipt is not adjacent to its cast transition",
+                ));
+            }
+            if self
+                .definition_for_historical_spell_receipt(index, *card)?
+                .is_some_and(|definition| definition.card_types.contains(&CardType::Creature))
+            {
+                return Err(RulesError::IllegalAction(
+                    "a creature spell received first-noncreature-spell provenance",
+                ));
+            }
+        }
+        if self
+            .noncreature_spell_casters_this_turn
+            .iter()
+            .any(|player| self.players.get(player.0).is_none())
+        {
+            return Err(RulesError::IllegalAction(
+                "first-noncreature-spell turn state names an unknown player",
+            ));
         }
         Ok(())
     }
@@ -23842,6 +23945,7 @@ impl Game {
             self.priority = self.active_player;
             self.step = Step::Untap;
             self.turn += 1;
+            self.noncreature_spell_casters_this_turn.clear();
             self.combat = None;
             self.consecutive_passes = 0;
             return self.start_step();
