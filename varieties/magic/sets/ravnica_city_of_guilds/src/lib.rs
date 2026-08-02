@@ -133,6 +133,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 220] = [
     "RAV-SELESNYA-EVANGEL",
     "RAV-SELESNYA-GUILDMAGE",
     "RAV-GOLGARI-GUILDMAGE",
+    "RAV-DIMIR-GUILDMAGE",
     "RAV-LURKING-INFORMANT",
     "RAV-SANDSOWER",
     "RAV-DIVEBOMBER-GRIFFIN",
@@ -4461,11 +4462,9 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
-        // Bounded compatibility scope: either color pays each hybrid symbol,
-        // and the two target-player activations use the normal stack. The
-        // discard activation suspends for the target player's private card
-        // choice; unrelated hybrid and activation coverage still keeps this
-        // card out of the positive full-fidelity manifest.
+        // Full fidelity: either color pays each hybrid cast symbol. Both
+        // target-player activations are sorcery-speed stack abilities; the
+        // discard mode suspends for the targeted player's private card choice.
         CardDefinition {
             id: "RAV-DIMIR-GUILDMAGE",
             name: "Dimir Guildmage",
@@ -4489,10 +4488,11 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             card_types: types([CardType::Creature]),
             is_basic_land: false,
             supported_rules: &[
+                "full-rules-fidelity",
                 "hybrid-cost-casting",
                 "base-characteristics",
                 "sorcery-speed-target-player-draw",
-                "target-player-recipient-private-discard",
+                "sorcery-speed-target-player-recipient-private-discard",
             ],
             power: Some(2),
             toughness: Some(2),
@@ -7601,7 +7601,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 id: "target-player-discard",
                 mana_cost: ManaCost::with_colors(3, [Color::Black]),
                 tap_cost: false,
-                sorcery_speed: false,
+                sorcery_speed: true,
                 additional_tap_creatures: 0,
                 sacrifice_source: false,
                 sacrifice_creatures: 0,

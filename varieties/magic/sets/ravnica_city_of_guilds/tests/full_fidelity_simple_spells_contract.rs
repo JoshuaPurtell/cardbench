@@ -101,6 +101,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-SELESNYA-EVANGEL",
             "RAV-SELESNYA-GUILDMAGE",
             "RAV-GOLGARI-GUILDMAGE",
+            "RAV-DIMIR-GUILDMAGE",
             "RAV-LURKING-INFORMANT",
             "RAV-SANDSOWER",
             "RAV-DIVEBOMBER-GRIFFIN",

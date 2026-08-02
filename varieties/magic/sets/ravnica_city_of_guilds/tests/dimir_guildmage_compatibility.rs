@@ -59,7 +59,7 @@ fn dimir_guildmage_resolves_target_player_draw_then_recipient_private_discard() 
     game.pass_priority(PlayerId(1))
         .expect("target player resolves draw ability");
     game.activate_ability(controller, activation(guildmage, "target-player-discard"))
-        .expect("instant-speed discard activation");
+        .expect("setup main-phase discard activation");
     game.pass_priority(controller).expect("controller passes");
     game.pass_priority(PlayerId(1))
         .expect("target player opens private discard choice");

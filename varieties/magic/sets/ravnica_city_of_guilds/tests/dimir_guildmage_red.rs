@@ -41,5 +41,5 @@ fn dimir_guildmage_requires_its_hybrid_body_and_targeted_activated_pair() {
                 && binding.ability.id == "target-player-discard"
         })
         .expect("targeted discard must be bound");
-    assert!(!discard.ability.sorcery_speed);
+    assert!(discard.ability.sorcery_speed);
 }
