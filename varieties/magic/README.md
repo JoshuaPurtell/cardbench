@@ -97,6 +97,10 @@ current corpus contains 187 scenarios and covers:
   boundaries;
 - a stack-backed selected-creature sacrifice cost followed by typed basic-land
   search (`Perilous Forays`), including the same deferred land-entry boundary;
+- a controller-private, revealed up-to-three-creature search that shuffles the
+  remainder and restores the policy-submitted selection in exact library-top
+  order (`Congregation at Dawn`), without treating retained library cards as
+  zone changes;
 - a full-fidelity persistent Aura attachment and linked layer-seven modifier
   (`Moldervine Cloak`), including state-based cleanup when its creature leaves;
 - a full-fidelity negative persistent Aura modifier (`Clinging Darkness`),

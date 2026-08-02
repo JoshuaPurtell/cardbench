@@ -1073,7 +1073,7 @@ Oracle Magic rules coverage.
   granting general hidden-library access. A suspended typed library search
   similarly projects only its resolving controller's matching candidate
   identities; opponents receive no candidate list or selected-card identity
-  before the ordinary zone-move receipt. The exported canonical event log
+  before a public reveal or ordinary zone-move receipt. The exported canonical event log
   follows the same boundary: private inspection receipts contain public
   provenance/count metadata only, while a later public zone move or explicit
   reveal is the first receipt that can name a hidden card.
@@ -1552,7 +1552,14 @@ Oracle Magic rules coverage.
   controller `LibraryShuffled` receipt. The receipt auditor preserves each
   selected card's own `CardRevealed → CardMoved → ObjectIncarnationAdvanced`
   block, so one selected card's reveal cannot invalidate the prior selected
-  card's move in a batch replay.
+  card's move in a batch replay. `LibraryTop` is the narrow exception: it is
+  legal only for a revealed batch search. Its selected cards remain in the
+  library (no `CardMoved` or incarnation advance), are removed before the
+  unselected remainder is shuffled, and are restored in submitted
+  top-to-bottom order. Its exact public receipt sequence is
+  `CardRevealed ×N → LibrarySearchBatchResolved → LibraryShuffled →
+  LibrarySearchTopCardsPlaced`; the auditor rejects an unrevealed, duplicate,
+  missing, reordered, or orphaned ordered-top receipt.
 - `RevealTopLibraryCardsAndReorder` snapshots at most its positive requested
   top-card count in current top-to-bottom order, emits one public
   `CardRevealed` receipt for each snapshot member, then opens one public
