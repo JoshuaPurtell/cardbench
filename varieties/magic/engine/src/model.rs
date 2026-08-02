@@ -1689,6 +1689,15 @@ pub enum Effect {
     RevealTopLibraryCardsAndReorder {
         count: u8,
     },
+    /// Privately inspect the current top `count` cards of the resolving
+    /// controller's library. The controller chooses exactly one card for
+    /// hand, one of the remainder for the top when present, and orders every
+    /// other candidate on the bottom. The suspended stack item owns the
+    /// no-priority decision boundary and candidates never enter public
+    /// receipts.
+    LookAtTopCardsPutOneInHandOneOnTopRestOnBottom {
+        count: u8,
+    },
     /// Attach this resolving permanent spell to the target creature and apply
     /// the stated persistent layer-seven modifier while both objects remain
     /// on the battlefield. This is an attachment operation, not a temporary
@@ -2169,6 +2178,7 @@ impl Effect {
             | Self::SearchControllerLibrary { .. }
             | Self::SearchControllerLibraryMany { .. }
             | Self::RevealTopLibraryCardsAndReorder { .. }
+            | Self::LookAtTopCardsPutOneInHandOneOnTopRestOnBottom { .. }
             | Self::RevealTopCardPutIntoHandLoseLifeEqualToManaValue
             | Self::DealDamageToEachPlayerFromReceivedDamage
             | Self::MillSourceControllerFromSourceDamage
@@ -2813,6 +2823,10 @@ pub enum DecisionKind {
     /// A public top-library slice was revealed and must be placed back in one
     /// exact top-to-bottom order before the suspended stack item continues.
     LibraryReorder,
+    /// A private top-library snapshot must be partitioned into the one hand
+    /// card, optional top card, and ordered bottom remainder. This is not a
+    /// public reveal or a priority action.
+    LibraryTopPartition,
     TriggeredEffectObject,
     /// The attacking player orders one multi-block group after blockers are
     /// declared and before either player receives priority.
@@ -2872,6 +2886,14 @@ pub enum DecisionOption {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum DecisionSelection {
     Objects(Vec<ObjectId>),
+    /// One exhaustive partition of a private top-library snapshot. `bottom`
+    /// is ordered bottom-to-top, which lets the engine restore it without
+    /// exposing unseen identities in public receipts.
+    LibraryTopPartition {
+        hand: ObjectId,
+        top: Option<ObjectId>,
+        bottom: Vec<ObjectId>,
+    },
     Targets(Vec<Target>),
     TriggerOrder(Vec<TriggerOrderEntry>),
     Replacements(Vec<ReplacementChoice>),
@@ -2935,6 +2957,13 @@ pub enum DecisionContinuation {
         /// Captured current top cards in public top-to-bottom order. Exact
         /// candidates prevent a library mutation or a stale decision from
         /// rearranging a later library state.
+        cards: Vec<ObjectId>,
+    },
+    /// Resumes a private top-library partition. `cards` is the exact
+    /// top-to-bottom snapshot at the moment resolution suspended, preventing
+    /// a stale policy response from changing a later library state.
+    LibraryTopPartition {
+        source: ObjectId,
         cards: Vec<ObjectId>,
     },
     TriggeredEffectObject {
@@ -3540,6 +3569,14 @@ pub enum GameEvent {
     LibraryReordered {
         player: PlayerId,
         top_to_bottom: Vec<ObjectId>,
+    },
+    /// A private top-library partition was committed. Candidate and selected
+    /// identities deliberately remain absent; ordinary public zone moves are
+    /// still recorded for the card actually moved to hand.
+    PrivateLibraryTopPartitionResolved {
+        player: PlayerId,
+        source: ObjectId,
+        inspected: u8,
     },
     /// A resolving Aura-like permanent established its explicit attachment
     /// after entering the battlefield and after its final persistent layer

@@ -3142,6 +3142,7 @@ impl Game {
                 } => Some((*source, *destination, *may_fail_to_find)),
                 DecisionContinuation::LibrarySearchMany { .. }
                 | DecisionContinuation::LibraryReorder { .. }
+                | DecisionContinuation::LibraryTopPartition { .. }
                 | DecisionContinuation::TriggeredEffectObject { .. }
                 | DecisionContinuation::CombatDamageOrder { .. }
                 | DecisionContinuation::SpellCopyTargets { .. }
@@ -3198,6 +3199,7 @@ impl Game {
                 DecisionContinuation::LibrarySearch { .. }
                 | DecisionContinuation::LibrarySearchMany { .. }
                 | DecisionContinuation::LibraryReorder { .. }
+                | DecisionContinuation::LibraryTopPartition { .. }
                 | DecisionContinuation::TriggeredEffectObject { .. }
                 | DecisionContinuation::CombatDamageOrder { .. }
                 | DecisionContinuation::SpellCopyTargets { .. }
@@ -3241,6 +3243,7 @@ impl Game {
                 DecisionContinuation::LibrarySearch { .. }
                 | DecisionContinuation::LibrarySearchMany { .. }
                 | DecisionContinuation::LibraryReorder { .. }
+                | DecisionContinuation::LibraryTopPartition { .. }
                 | DecisionContinuation::CombatDamageOrder { .. }
                 | DecisionContinuation::SpellCopyTargets { .. }
                 | DecisionContinuation::TriggeredAbilityTargets { .. }
@@ -3294,6 +3297,7 @@ impl Game {
                 DecisionContinuation::LibrarySearch { .. }
                 | DecisionContinuation::LibrarySearchMany { .. }
                 | DecisionContinuation::LibraryReorder { .. }
+                | DecisionContinuation::LibraryTopPartition { .. }
                 | DecisionContinuation::TriggeredEffectObject { .. }
                 | DecisionContinuation::CombatDamageOrder { .. }
                 | DecisionContinuation::SpellCopyTargets { .. }
@@ -5707,6 +5711,13 @@ impl Game {
                 let selected = Self::validate_object_decision_selection(&decision, selection)?;
                 self.resolve_library_reorder_decision(&decision, source, &cards, selected)
             }
+            DecisionContinuation::LibraryTopPartition { source, cards } => {
+                let (hand, top, bottom) =
+                    Self::validate_library_top_partition_selection(&decision, selection)?;
+                self.resolve_library_top_partition_decision(
+                    &decision, source, &cards, hand, top, &bottom,
+                )
+            }
             DecisionContinuation::TriggeredEffectObject {
                 source,
                 controller,
@@ -5968,6 +5979,61 @@ impl Game {
             }
         }
         Ok(selected)
+    }
+
+    /// Validates one exhaustive partition of a private, fixed library slice.
+    /// The selected identities never reach the public event log; they remain
+    /// only in the decision response and the normal zone transition for hand.
+    fn validate_library_top_partition_selection(
+        decision: &PendingDecision,
+        selection: DecisionSelection,
+    ) -> Result<(ObjectId, Option<ObjectId>, Vec<ObjectId>), RulesError> {
+        let DecisionSelection::LibraryTopPartition { hand, top, bottom } = selection else {
+            return Err(RulesError::IllegalAction(
+                "this decision requires a private library top partition",
+            ));
+        };
+        let candidates = decision
+            .options
+            .iter()
+            .map(|option| match option {
+                DecisionOption::Object(card) => Ok(*card),
+                DecisionOption::Target(_)
+                | DecisionOption::TriggerOrder(_)
+                | DecisionOption::Replacement(_) => Err(RulesError::IllegalAction(
+                    "private library partition contains a non-card option",
+                )),
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        if candidates.is_empty() || !candidates.contains(&hand) {
+            return Err(RulesError::IllegalAction(
+                "private library partition hand card is not a candidate",
+            ));
+        }
+        let expected_top = candidates.len() > 1;
+        if expected_top != top.is_some()
+            || top.is_some_and(|card| card == hand || !candidates.contains(&card))
+        {
+            return Err(RulesError::IllegalAction(
+                "private library partition top card is invalid",
+            ));
+        }
+        let mut selected = vec![hand];
+        if let Some(card) = top {
+            selected.push(card);
+        }
+        selected.extend(bottom.iter().copied());
+        if selected.len() != candidates.len()
+            || selected
+                .iter()
+                .enumerate()
+                .any(|(index, card)| selected[..index].contains(card) || !candidates.contains(card))
+        {
+            return Err(RulesError::IllegalAction(
+                "private library partition must use each candidate exactly once",
+            ));
+        }
+        Ok((hand, top, bottom))
     }
 
     fn validate_trigger_order_decision_selection(
@@ -7058,6 +7124,98 @@ impl Game {
             self.record_event(GameEvent::SpellResolved { card: source });
             self.move_to_spell_terminal_zone(source)?;
         }
+        self.check_state_based_actions()?;
+        self.flush_pending_dies_triggers();
+        self.flush_pending_land_entry_triggers()?;
+        self.flush_pending_damage_triggers();
+        self.flush_pending_life_gain_triggers();
+        self.flush_pending_dies_triggers();
+        self.priority = self.priority_after_resolution();
+        Ok(())
+    }
+
+    /// Commits the one-hand/one-top/rest-bottom result of a controller-private
+    /// top-library decision. The partition is exhaustive and its snapshot is
+    /// rechecked before any zone movement, so a stale answer cannot reorder a
+    /// later library or leak identities into public receipts.
+    fn resolve_library_top_partition_decision(
+        &mut self,
+        decision: &PendingDecision,
+        source: ObjectId,
+        cards: &[ObjectId],
+        hand: ObjectId,
+        top: Option<ObjectId>,
+        bottom: &[ObjectId],
+    ) -> Result<(), RulesError> {
+        let player = decision.player;
+        let top_stack = self.stack.last().ok_or(RulesError::IllegalAction(
+            "private library partition has no live stack item",
+        ))?;
+        let matches_stack = matches!(
+            top_stack.effects.as_slice(),
+            [Effect::LookAtTopCardsPutOneInHandOneOnTopRestOnBottom { count }]
+                if usize::from(*count) >= cards.len()
+        );
+        let current = self.players[player.0]
+            .library
+            .iter()
+            .rev()
+            .take(cards.len())
+            .copied()
+            .collect::<Vec<_>>();
+        let expected_options = cards
+            .iter()
+            .copied()
+            .map(DecisionOption::Object)
+            .collect::<Vec<_>>();
+        let count = u8::try_from(cards.len()).map_err(|_| {
+            RulesError::IllegalAction("private library partition candidates exceed decision range")
+        })?;
+        if decision.kind != DecisionKind::LibraryTopPartition
+            || decision.visibility != DecisionVisibility::Private
+            || top_stack.card != source
+            || top_stack.controller != player
+            || top_stack.ability_id.is_some()
+            || !matches_stack
+            || current != cards
+            || decision.options != expected_options
+            || decision.min_selections != count
+            || decision.max_selections != count
+            || self.object(hand)?.owner != player
+            || top.is_some_and(|card| {
+                self.object(card)
+                    .map_or(true, |object| object.owner != player)
+            })
+            || bottom.iter().any(|card| {
+                self.object(*card)
+                    .map_or(true, |object| object.owner != player)
+            })
+        {
+            return Err(RulesError::IllegalAction(
+                "private library partition no longer matches the live stack spell",
+            ));
+        }
+        self.stack.pop().ok_or(RulesError::IllegalAction(
+            "private library partition stack spell disappeared before resolution",
+        ))?;
+        self.complete_pending_decision(decision)?;
+        self.move_to_zone(hand, Zone::Hand)?;
+        self.players[player.0]
+            .library
+            .retain(|card| !cards.contains(card));
+        for card in bottom.iter().rev() {
+            self.players[player.0].library.insert(0, *card);
+        }
+        if let Some(card) = top {
+            self.players[player.0].library.push(card);
+        }
+        self.record_event(GameEvent::PrivateLibraryTopPartitionResolved {
+            player,
+            source,
+            inspected: count,
+        });
+        self.record_event(GameEvent::SpellResolved { card: source });
+        self.move_to_spell_terminal_zone(source)?;
         self.check_state_based_actions()?;
         self.flush_pending_dies_triggers();
         self.flush_pending_land_entry_triggers()?;
@@ -10198,6 +10356,21 @@ impl Game {
                 "a private-library choice spell must contain exactly one effect",
             ));
         }
+        let private_library_partition_effects = definition
+            .effects
+            .iter()
+            .filter(|effect| {
+                matches!(
+                    effect,
+                    Effect::LookAtTopCardsPutOneInHandOneOnTopRestOnBottom { .. }
+                )
+            })
+            .count();
+        if private_library_partition_effects > 0 && definition.effects.len() != 1 {
+            return Err(RulesError::IllegalAction(
+                "a private-library partition spell must contain exactly one effect",
+            ));
+        }
         let policy_submitted_library_searches = definition
             .effects
             .iter()
@@ -10245,6 +10418,14 @@ impl Game {
             ) {
                 return Err(RulesError::IllegalAction(
                     "private-library choice must inspect cards for a positive life payment",
+                ));
+            }
+            if matches!(
+                effect,
+                Effect::LookAtTopCardsPutOneInHandOneOnTopRestOnBottom { count: 0 }
+            ) {
+                return Err(RulesError::IllegalAction(
+                    "private-library partition must inspect at least one card",
                 ));
             }
             if matches!(effect, Effect::DiscardTargetPlayer { count: 0 }) {
@@ -10322,6 +10503,7 @@ impl Game {
                 | Effect::SearchControllerLibrary { .. }
                 | Effect::SearchControllerLibraryMany { .. }
                 | Effect::RevealTopLibraryCardsAndReorder { .. }
+                | Effect::LookAtTopCardsPutOneInHandOneOnTopRestOnBottom { .. }
                 | Effect::AttachSourceAndModifyTargetPt { .. }
                 | Effect::RevealTopCardPutIntoHandLoseLifeEqualToManaValue
                 | Effect::GainLifeControllerFromSourceDamage
@@ -10469,6 +10651,9 @@ impl Game {
             return Ok(());
         }
         if self.suspend_top_stack_item_for_library_reorder_choice()? {
+            return Ok(());
+        }
+        if self.suspend_top_stack_item_for_library_top_partition_choice()? {
             return Ok(());
         }
         if self.suspend_top_stack_item_for_library_search_choice()? {
@@ -11459,6 +11644,65 @@ impl Game {
             card_count,
             cards.iter().copied().map(DecisionOption::Object).collect(),
             DecisionContinuation::LibraryReorder { source, cards },
+        )?;
+        Ok(true)
+    }
+
+    /// Opens a generic private top-library partition decision for a resolving
+    /// spell. It deliberately uses the shared id-bearing decision state, not
+    /// an effect-specific pending marker, and writes only safe metadata to the
+    /// public receipt stream.
+    fn suspend_top_stack_item_for_library_top_partition_choice(
+        &mut self,
+    ) -> Result<bool, RulesError> {
+        if self.pending_decision.is_some()
+            || self.pending_private_library_choice.is_some()
+            || self.pending_private_opponent_library_exile_choice.is_some()
+        {
+            return Err(RulesError::IllegalAction(
+                "a second library choice attempted to open during resolution",
+            ));
+        }
+        let Some(top) = self.stack.last() else {
+            return Ok(false);
+        };
+        let (source, controller, count) = match (top.ability_id, top.effects.as_slice()) {
+            (None, [Effect::LookAtTopCardsPutOneInHandOneOnTopRestOnBottom { count }]) => {
+                (top.card, top.controller, *count)
+            }
+            (_, [Effect::LookAtTopCardsPutOneInHandOneOnTopRestOnBottom { .. }]) => {
+                return Err(RulesError::IllegalAction(
+                    "private library partition effect is unsupported on an ability",
+                ));
+            }
+            _ => return Ok(false),
+        };
+        if count == 0 {
+            return Err(RulesError::IllegalAction(
+                "private library partition must inspect at least one card",
+            ));
+        }
+        let cards = self.players[controller.0]
+            .library
+            .iter()
+            .rev()
+            .take(usize::from(count))
+            .copied()
+            .collect::<Vec<_>>();
+        if cards.is_empty() {
+            return Ok(false);
+        }
+        let card_count = u8::try_from(cards.len()).map_err(|_| {
+            RulesError::IllegalAction("private library partition candidates exceed decision range")
+        })?;
+        self.open_pending_decision(
+            controller,
+            DecisionVisibility::Private,
+            DecisionKind::LibraryTopPartition,
+            card_count,
+            card_count,
+            cards.iter().copied().map(DecisionOption::Object).collect(),
+            DecisionContinuation::LibraryTopPartition { source, cards },
         )?;
         Ok(true)
     }
@@ -15068,6 +15312,11 @@ impl Game {
             Effect::LookAtTopCardsChooseForLifeOrGraveyard { .. } => {
                 return Err(RulesError::IllegalAction(
                     "private-library choice effect bypassed its resolution boundary",
+                ));
+            }
+            Effect::LookAtTopCardsPutOneInHandOneOnTopRestOnBottom { .. } => {
+                return Err(RulesError::IllegalAction(
+                    "private-library partition effect bypassed its resolution boundary",
                 ));
             }
             Effect::LookAtTopCardsOfTargetOpponentExileOne { .. } => {
@@ -19963,6 +20212,55 @@ impl Game {
                 {
                     return Err(RulesError::IllegalAction(
                         "library reorder decision escaped its revealed-card boundary",
+                    ));
+                }
+            }
+            DecisionContinuation::LibraryTopPartition { source, cards } => {
+                let top = self.stack.last().ok_or(RulesError::IllegalAction(
+                    "private library partition decision escaped its stack item",
+                ))?;
+                let current = self.players[decision.player.0]
+                    .library
+                    .iter()
+                    .rev()
+                    .take(cards.len())
+                    .copied()
+                    .collect::<Vec<_>>();
+                let expected_count = u8::try_from(cards.len()).map_err(|_| {
+                    RulesError::IllegalAction(
+                        "private library partition candidates exceed decision range",
+                    )
+                })?;
+                if cards.is_empty()
+                    || decision.kind != DecisionKind::LibraryTopPartition
+                    || decision.visibility != DecisionVisibility::Private
+                    || top.card != *source
+                    || top.controller != decision.player
+                    || top.ability_id.is_some()
+                    || !matches!(
+                        top.effects.as_slice(),
+                        [Effect::LookAtTopCardsPutOneInHandOneOnTopRestOnBottom { count }]
+                            if usize::from(*count) >= cards.len()
+                    )
+                    || current != *cards
+                    || cards.iter().enumerate().any(|(index, card)| {
+                        cards[index + 1..].contains(card)
+                            || self.zone_of(*card) != Some(Zone::Library)
+                            || self
+                                .object(*card)
+                                .map_or(true, |object| object.owner != decision.player)
+                    })
+                    || decision.options
+                        != cards
+                            .iter()
+                            .copied()
+                            .map(DecisionOption::Object)
+                            .collect::<Vec<_>>()
+                    || decision.min_selections != expected_count
+                    || decision.max_selections != expected_count
+                {
+                    return Err(RulesError::IllegalAction(
+                        "private library partition violates its source, stack, and candidate boundary",
                     ));
                 }
             }

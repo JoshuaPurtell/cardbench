@@ -17,8 +17,10 @@ fn telling_time_requires_a_private_top_library_partition_effect() {
         definition.card_types,
         [CardType::Instant].into_iter().collect()
     );
-    assert!(definition
-        .supported_rules
-        .contains(&"private-top-library-hand-top-bottom-partition"));
+    assert!(
+        definition
+            .supported_rules
+            .contains(&"private-top-library-hand-top-bottom-partition")
+    );
     assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&definition.id));
 }

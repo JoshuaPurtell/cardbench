@@ -124,6 +124,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-FLOW-OF-IDEAS",
             "RAV-DREAM-LEASH",
             "RAV-REMAND",
+            "RAV-TELLING-TIME",
             "RAV-MARK-OF-EVICTION",
             "RAV-VEDALKEN-ENTRANCER",
             "RAV-TIDEWATER-MINION",
@@ -160,6 +161,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-FLICKERFORM",
             "RAV-SUPPRESSION-FIELD",
             "RAV-LOXODON-GATEKEEPER",
+            "RAV-THREE-DREAMS",
         ]
     );
     let definitions = card_definitions();

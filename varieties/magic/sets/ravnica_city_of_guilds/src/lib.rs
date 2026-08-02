@@ -40,7 +40,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 149] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 150] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -152,6 +152,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 149] = [
     "RAV-FLOW-OF-IDEAS",
     "RAV-DREAM-LEASH",
     "RAV-REMAND",
+    "RAV-TELLING-TIME",
     "RAV-MARK-OF-EVICTION",
     "RAV-VEDALKEN-ENTRANCER",
     "RAV-TIDEWATER-MINION",
@@ -3284,6 +3285,28 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             toughness: None,
             keywords: vec![],
             effects: vec![Effect::CounterTargetSpell, Effect::DrawController],
+        },
+        // Full fidelity: the controller alone receives the exact top-three
+        // snapshot once the stack spell resolves, then submits an exhaustive
+        // private hand/top/bottom partition through the shared decision
+        // continuation. No priority window or public candidate receipt opens.
+        CardDefinition {
+            id: "RAV-TELLING-TIME",
+            name: "Telling Time",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(1, [Color::Blue]),
+            colors: colors([Color::Blue]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Instant]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "private-top-library-hand-top-bottom-partition",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![Effect::LookAtTopCardsPutOneInHandOneOnTopRestOnBottom { count: 3 }],
         },
         // Full fidelity: the Aura attaches only to a creature, then its
         // active-controller upkeep trigger reads that exact live attachment
