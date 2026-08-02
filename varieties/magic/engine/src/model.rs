@@ -75,6 +75,28 @@ pub enum LibrarySearchRequirement {
     /// rather than a display-name predicate, and supplies Transmute's shared
     /// library-search boundary.
     ManaValueExactly(u8),
+    /// A card whose type line contains every requested card type. This is a
+    /// typed catalog predicate: it never infers card identity from display
+    /// text, and it can represent an expansion-neutral "creature card",
+    /// "enchantment card", or combined-type library search.
+    CardTypes(BTreeSet<CardType>),
+}
+
+/// The quantity a policy-submitted library search may choose.  Exact searches
+/// retain their required cardinality when enough matching cards exist;
+/// otherwise they resolve as a legal failure to find rather than exposing a
+/// malformed decision whose minimum exceeds its option set.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum LibrarySearchCardinality {
+    /// Select any number of matching cards through the stated inclusive upper
+    /// bound. This models effects such as "up to two" without treating an
+    /// empty selection as an error.
+    ZeroOrMore { maximum: u8 },
+    /// Select exactly this many cards when possible. A policy-submitted
+    /// search with `may_fail_to_find` may instead select fewer cards from a
+    /// hidden library; otherwise an insufficient candidate set is an ordinary
+    /// legal failure-to-find boundary.
+    Exactly(u8),
 }
 
 /// Stable identity for the rules-defined hand-zone Transmute activated
@@ -1562,6 +1584,25 @@ pub enum Effect {
         destination: LibrarySearchDestination,
         selection: LibrarySearchSelection,
     },
+    /// Search the resolving controller's library for a policy-selected batch
+    /// of cards matching one typed requirement.  The decision's cardinality,
+    /// privacy, reveal state, destination, and following shuffle are owned by
+    /// the effect rather than a card-specific resolver.
+    SearchControllerLibraryMany {
+        requirement: LibrarySearchRequirement,
+        destination: LibrarySearchDestination,
+        cardinality: LibrarySearchCardinality,
+        selection: LibrarySearchSelection,
+        /// A selected card becomes public before its ordinary zone move only
+        /// when this flag is true. Private searches retain no reveal receipt.
+        reveal_selected: bool,
+    },
+    /// Reveal the current top `count` cards of the resolving controller's
+    /// library, suspend for a public ordered choice, then return the exact
+    /// same cards to that library in the submitted top-to-bottom order.
+    RevealTopLibraryCardsAndReorder {
+        count: u8,
+    },
     /// Attach this resolving permanent spell to the target creature and apply
     /// the stated persistent layer-seven modifier while both objects remain
     /// on the battlefield. This is an attachment operation, not a temporary
@@ -1884,6 +1925,10 @@ impl Effect {
                     requirement: LibrarySearchRequirement::CreatureWithManaValueAtMostChosenX,
                     ..
                 }
+                | Self::SearchControllerLibraryMany {
+                    requirement: LibrarySearchRequirement::CreatureWithManaValueAtMostChosenX,
+                    ..
+                }
         )
     }
 
@@ -1983,6 +2028,8 @@ impl Effect {
             | Self::DrawController
             | Self::PreventLibrarySearchUntilEndOfTurn
             | Self::SearchControllerLibrary { .. }
+            | Self::SearchControllerLibraryMany { .. }
+            | Self::RevealTopLibraryCardsAndReorder { .. }
             | Self::RevealTopCardPutIntoHandLoseLifeEqualToManaValue
             | Self::DealDamageToEachPlayerFromReceivedDamage
             | Self::AddManaController { .. }
@@ -2593,6 +2640,9 @@ pub enum DecisionVisibility {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DecisionKind {
     LibrarySearch,
+    /// A public top-library slice was revealed and must be placed back in one
+    /// exact top-to-bottom order before the suspended stack item continues.
+    LibraryReorder,
     TriggeredEffectObject,
     /// The attacking player orders one multi-block group after blockers are
     /// declared and before either player receives priority.
@@ -2665,6 +2715,21 @@ pub enum DecisionContinuation {
         requirement: LibrarySearchRequirement,
         destination: LibrarySearchDestination,
         may_fail_to_find: bool,
+    },
+    LibrarySearchMany {
+        source: ObjectId,
+        requirement: LibrarySearchRequirement,
+        destination: LibrarySearchDestination,
+        cardinality: LibrarySearchCardinality,
+        may_fail_to_find: bool,
+        reveal_selected: bool,
+    },
+    LibraryReorder {
+        source: ObjectId,
+        /// Captured current top cards in public top-to-bottom order. Exact
+        /// candidates prevent a library mutation or a stale decision from
+        /// rearranging a later library state.
+        cards: Vec<ObjectId>,
     },
     TriggeredEffectObject {
         source: ObjectId,
@@ -3177,6 +3242,23 @@ pub enum GameEvent {
         source: ObjectId,
         found: Option<ObjectId>,
         destination: LibrarySearchDestination,
+    },
+    /// One policy-submitted multi-card library search completed.  `found`
+    /// retains the policy's selected order so replay can prove both the
+    /// selected set and every following ordinary zone move without exposing
+    /// candidates that were not selected.
+    LibrarySearchBatchResolved {
+        player: PlayerId,
+        source: ObjectId,
+        found: Vec<ObjectId>,
+        destination: LibrarySearchDestination,
+    },
+    /// A public top-library decision established the exact new top-to-bottom
+    /// order of the revealed cards.  The cards themselves were already made
+    /// public through preceding `CardRevealed` receipts.
+    LibraryReordered {
+        player: PlayerId,
+        top_to_bottom: Vec<ObjectId>,
     },
     /// A resolving Aura-like permanent established its explicit attachment
     /// after entering the battlefield and after its persistent layer effect

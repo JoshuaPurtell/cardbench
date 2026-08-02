@@ -9,9 +9,9 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardDefinition, CardType, CastRequest, Color, DecisionKind, DecisionSelection, Effect,
-    Game, GameEvent, LibrarySearchCardinality, LibrarySearchDestination,
-    LibrarySearchRequirement, LibrarySearchSelection, ManaCost, PlayerId, Zone,
+    CardDefinition, CardType, CastRequest, Color, DecisionKind, DecisionSelection, Effect, Game,
+    GameEvent, LibrarySearchCardinality, LibrarySearchDestination, LibrarySearchRequirement,
+    LibrarySearchSelection, ManaCost, PlayerId, Zone,
 };
 
 const MULTI_SEARCH: &str = "TST-MULTI-SEARCH";
@@ -44,7 +44,7 @@ fn game() -> Game {
         [
             definition(
                 MULTI_SEARCH,
-                BTreeSet::from([CardType::Sorcery]),
+                BTreeSet::from([CardType::Instant]),
                 vec![Effect::SearchControllerLibraryMany {
                     requirement: LibrarySearchRequirement::CardTypes(BTreeSet::from([
                         CardType::Creature,
@@ -113,27 +113,42 @@ fn private_multi_search_accepts_zero_or_more_typed_cards_and_shuffles_atomically
     pass_pair(&mut game);
 
     let controller = game.view_for_player(PlayerId(0)).expect("controller view");
-    let decision = controller.pending_decision.expect("private search decision opens");
+    let decision = controller
+        .pending_decision
+        .expect("private search decision opens");
     assert_eq!(decision.kind, DecisionKind::LibrarySearch);
     assert_eq!(decision.min_selections, 0);
     assert_eq!(decision.max_selections, 2);
     assert_eq!(decision.candidates.len(), 3);
-    assert!(!decision.candidates.iter().any(|card| card.id == noncreature));
-    assert!(game
-        .view_for_player(PlayerId(1))
-        .expect("opponent view")
-        .pending_decision
-        .is_none(), "private candidates cannot project to the opponent");
+    assert!(
+        !decision
+            .candidates
+            .iter()
+            .any(|card| card.id == noncreature)
+    );
+    assert!(
+        game.view_for_player(PlayerId(1))
+            .expect("opponent view")
+            .pending_decision
+            .is_none(),
+        "private candidates cannot project to the opponent"
+    );
 
     let before = game.canonical_event_log();
-    assert!(game
-        .submit_decision(
+    assert!(
+        game.submit_decision(
             PlayerId(0),
             decision.id,
             DecisionSelection::Objects(vec![creature_a, creature_b, creature_c]),
         )
-        .is_err(), "a zero-or-more maximum must reject an oversized selection");
-    assert_eq!(game.canonical_event_log(), before, "rejected selection is atomic");
+        .is_err(),
+        "a zero-or-more maximum must reject an oversized selection"
+    );
+    assert_eq!(
+        game.canonical_event_log(),
+        before,
+        "rejected selection is atomic"
+    );
 
     game.submit_decision(
         PlayerId(0),
@@ -146,10 +161,13 @@ fn private_multi_search_accepts_zero_or_more_typed_cards_and_shuffles_atomically
     assert_eq!(game.zone_of(creature_c), Some(Zone::Hand));
     assert_eq!(game.zone_of(creature_b), Some(Zone::Library));
     assert_eq!(game.zone_of(noncreature), Some(Zone::Library));
-    assert!(!game.event_log.iter().any(|event| {
-        matches!(event, GameEvent::CardRevealed { card, .. }
+    assert!(
+        !game.event_log.iter().any(|event| {
+            matches!(event, GameEvent::CardRevealed { card, .. }
             if *card == creature_a || *card == creature_c)
-    }), "private search must not silently reveal its selected cards");
+        }),
+        "private search must not silently reveal its selected cards"
+    );
     assert!(game.event_log.windows(2).any(|events| matches!(
         events,
         [
@@ -191,15 +209,25 @@ fn revealed_top_cards_are_public_and_policy_ordered_before_the_stack_continues()
     assert_eq!(decision.min_selections, 3);
     assert_eq!(decision.max_selections, 3);
     assert_eq!(
-        decision.candidates.iter().map(|card| card.id).collect::<Vec<_>>(),
+        decision
+            .candidates
+            .iter()
+            .map(|card| card.id)
+            .collect::<Vec<_>>(),
         vec![third_top, second_top, first_top],
         "options are exposed top-to-bottom"
     );
     let opponent = game.view_for_player(PlayerId(1)).expect("opponent view");
-    assert_eq!(opponent.pending_decision, Some(decision.clone()),
-        "a revealed reorder must project its public option set to every player");
     assert_eq!(
-        game.event_log.iter().filter(|event| matches!(event, GameEvent::CardRevealed { .. })).count(),
+        opponent.pending_decision,
+        Some(decision.clone()),
+        "a revealed reorder must project its public option set to every player"
+    );
+    assert_eq!(
+        game.event_log
+            .iter()
+            .filter(|event| matches!(event, GameEvent::CardRevealed { .. }))
+            .count(),
         3,
         "each looked-at card is revealed before the public decision opens"
     );
@@ -215,13 +243,16 @@ fn revealed_top_cards_are_public_and_policy_ordered_before_the_stack_continues()
         vec![bottom, second_top, third_top, first_top],
         "the last library slot is the top card after the ordered selection"
     );
-    assert!(game.event_log.windows(2).any(|events| matches!(
-        events,
-        [
-            GameEvent::LibraryReordered { player: PlayerId(0), top_to_bottom },
-            GameEvent::SpellResolved { card },
-        ] if top_to_bottom == &vec![first_top, third_top, second_top] && *card == spell
-    )), "the ordering receipt must be complete before terminal spell resolution");
+    assert!(
+        game.event_log.windows(2).any(|events| matches!(
+            events,
+            [
+                GameEvent::LibraryReordered { player: PlayerId(0), top_to_bottom },
+                GameEvent::SpellResolved { card },
+            ] if top_to_bottom == &vec![first_top, third_top, second_top] && *card == spell
+        )),
+        "the ordering receipt must be complete before terminal spell resolution"
+    );
     game.validate_invariants()
         .expect("public reorder preserves state-machine invariants");
 }

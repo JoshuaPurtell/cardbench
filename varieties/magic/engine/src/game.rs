@@ -15,12 +15,12 @@ use crate::{
     DecisionKind, DecisionOption, DecisionSelection, DecisionVisibility, DeckList, DelayedAction,
     DelayedActionId, DelayedActionKind, DelayedActionTiming, Duration, Effect, GameEvent,
     GeneralizedAbilityActivation, GeneralizedActivatedAbilityCost, Keyword, LandEntryBinding,
-    LibrarySearchDestination, LibrarySearchRequirement, LibrarySearchSelection, LinkedExileGroup,
-    LinkedExileGroupId, LinkedExileMember, LinkedExileMemberRole, ManaAbilityActivation,
-    ManaAbilityBinding, ManaAbilityOutput, ManaCost, ManaPaymentSelection, ObjectId,
-    PendingDecision, PlayerId, PlayerState, PolicyMoveKind, ReplacementEffect,
-    ReplacementEffectBinding, ReplacementEventKind, StackEffectResolution, StackObject,
-    StackResolutionPlan, StaticAttackRestriction, StaticAttackRestrictionBinding,
+    LibrarySearchCardinality, LibrarySearchDestination, LibrarySearchRequirement,
+    LibrarySearchSelection, LinkedExileGroup, LinkedExileGroupId, LinkedExileMember,
+    LinkedExileMemberRole, ManaAbilityActivation, ManaAbilityBinding, ManaAbilityOutput, ManaCost,
+    ManaPaymentSelection, ObjectId, PendingDecision, PlayerId, PlayerState, PolicyMoveKind,
+    ReplacementEffect, ReplacementEffectBinding, ReplacementEventKind, StackEffectResolution,
+    StackObject, StackResolutionPlan, StaticAttackRestriction, StaticAttackRestrictionBinding,
     StaticContinuousEffectBinding, Step, TRANSMUTE_ABILITY_ID, Target, TargetRequirement,
     TokenSpec, TriggerCondition, TriggerOrderEntry, TriggeredAbilityBinding,
     TriggeredEffectObjectDecisionKind, Zone,
@@ -2936,7 +2936,9 @@ impl Game {
         let pending_decision = self
             .pending_decision
             .as_ref()
-            .filter(|decision| decision.player == player)
+            .filter(|decision| {
+                decision.player == player || decision.visibility == DecisionVisibility::Public
+            })
             .map(|decision| {
                 self.decision_candidate_cards(decision)
                     .map(|candidates| PendingDecisionView {
@@ -2962,7 +2964,9 @@ impl Game {
                     may_fail_to_find,
                     ..
                 } => Some((*source, *destination, *may_fail_to_find)),
-                DecisionContinuation::TriggeredEffectObject { .. }
+                DecisionContinuation::LibrarySearchMany { .. }
+                | DecisionContinuation::LibraryReorder { .. }
+                | DecisionContinuation::TriggeredEffectObject { .. }
                 | DecisionContinuation::CombatDamageOrder { .. }
                 | DecisionContinuation::SpellCopyTargets { .. }
                 | DecisionContinuation::TriggeredAbilityOrder { .. } => None,
@@ -3034,6 +3038,8 @@ impl Game {
                     source, ability, ..
                 } => Some((*source, *ability)),
                 DecisionContinuation::LibrarySearch { .. }
+                | DecisionContinuation::LibrarySearchMany { .. }
+                | DecisionContinuation::LibraryReorder { .. }
                 | DecisionContinuation::CombatDamageOrder { .. }
                 | DecisionContinuation::SpellCopyTargets { .. }
                 | DecisionContinuation::TriggeredAbilityOrder { .. } => None,
@@ -5356,6 +5362,30 @@ impl Game {
                     selected.into_iter().next(),
                 )
             }
+            DecisionContinuation::LibrarySearchMany {
+                source,
+                requirement,
+                destination,
+                cardinality,
+                may_fail_to_find,
+                reveal_selected,
+            } => {
+                let selected = Self::validate_object_decision_selection(&decision, selection)?;
+                self.resolve_library_search_many_decision(
+                    &decision,
+                    source,
+                    &requirement,
+                    destination,
+                    cardinality,
+                    may_fail_to_find,
+                    reveal_selected,
+                    selected,
+                )
+            }
+            DecisionContinuation::LibraryReorder { source, cards } => {
+                let selected = Self::validate_object_decision_selection(&decision, selection)?;
+                self.resolve_library_reorder_decision(&decision, source, &cards, selected)
+            }
             DecisionContinuation::TriggeredEffectObject {
                 source,
                 controller,
@@ -5961,6 +5991,247 @@ impl Game {
         Ok(())
     }
 
+    /// Computes the exact public decision bounds for a multi-card search.
+    /// An exact hidden-zone search with too few candidates is a legal failed
+    /// search, represented as a zero-card decision rather than an invalid
+    /// minimum larger than the live option set.
+    fn library_search_cardinality_bounds(
+        cardinality: LibrarySearchCardinality,
+        candidate_count: usize,
+        may_fail_to_find: bool,
+    ) -> Result<(u8, u8), RulesError> {
+        let available = u8::try_from(candidate_count).map_err(|_| {
+            RulesError::IllegalAction("library search candidates exceed decision range")
+        })?;
+        match cardinality {
+            LibrarySearchCardinality::ZeroOrMore { maximum } => Ok((0, maximum.min(available))),
+            LibrarySearchCardinality::Exactly(count) if available < count => Ok((0, 0)),
+            LibrarySearchCardinality::Exactly(count) if may_fail_to_find => Ok((0, count)),
+            LibrarySearchCardinality::Exactly(count) => Ok((count, count)),
+        }
+    }
+
+    #[allow(clippy::too_many_arguments, clippy::too_many_lines)] // The effect-owned search contract is intentionally explicit.
+    fn resolve_library_search_many_decision(
+        &mut self,
+        decision: &PendingDecision,
+        source: ObjectId,
+        requirement: &LibrarySearchRequirement,
+        destination: LibrarySearchDestination,
+        cardinality: LibrarySearchCardinality,
+        may_fail_to_find: bool,
+        reveal_selected: bool,
+        selected: Vec<ObjectId>,
+    ) -> Result<(), RulesError> {
+        let player = decision.player;
+        let (ability, chosen_x, source_incarnation) = {
+            let top = self.stack.last().ok_or(RulesError::IllegalAction(
+                "multi-card library search choice has no live stack item",
+            ))?;
+            let matches_pending_search = matches!(
+                top.effects.as_slice(),
+                [Effect::SearchControllerLibraryMany {
+                    requirement: stack_requirement,
+                    destination: stack_destination,
+                    cardinality: stack_cardinality,
+                    selection: LibrarySearchSelection::PolicySubmitted {
+                        may_fail_to_find: stack_may_fail,
+                    },
+                    reveal_selected: stack_reveal,
+                }] if stack_requirement == requirement
+                    && *stack_destination == destination
+                    && *stack_cardinality == cardinality
+                    && *stack_may_fail == may_fail_to_find
+                    && *stack_reveal == reveal_selected
+            );
+            if top.card != source || top.controller != player || !matches_pending_search {
+                return Err(RulesError::IllegalAction(
+                    "multi-card library search choice no longer matches the live stack item",
+                ));
+            }
+            (top.ability_id, top.chosen_x, top.source_incarnation)
+        };
+        let candidates = self.library_search_candidates(player, requirement, chosen_x)?;
+        let expected_options = candidates
+            .iter()
+            .copied()
+            .map(DecisionOption::Object)
+            .collect::<Vec<_>>();
+        let (expected_min, expected_max) = Self::library_search_cardinality_bounds(
+            cardinality,
+            candidates.len(),
+            may_fail_to_find,
+        )?;
+        if decision.kind != DecisionKind::LibrarySearch
+            || decision.visibility != DecisionVisibility::Private
+            || decision.options != expected_options
+            || decision.min_selections != expected_min
+            || decision.max_selections != expected_max
+            || selected.iter().any(|card| !candidates.contains(card))
+        {
+            return Err(RulesError::IllegalAction(
+                "multi-card library search candidates changed before selection",
+            ));
+        }
+
+        self.stack.pop().ok_or(RulesError::IllegalAction(
+            "multi-card library search stack item disappeared before resolution",
+        ))?;
+        self.complete_pending_decision(decision)?;
+
+        let mut entered_permanents = Vec::new();
+        for card in &selected {
+            if reveal_selected {
+                self.record_event(GameEvent::CardRevealed {
+                    player,
+                    card: *card,
+                    definition: self.card_definition(*card)?.id,
+                });
+            }
+            match destination {
+                LibrarySearchDestination::Battlefield
+                | LibrarySearchDestination::BattlefieldTapped => {
+                    self.move_to_zone(*card, Zone::Battlefield)?;
+                    if destination == LibrarySearchDestination::BattlefieldTapped {
+                        self.objects
+                            .get_mut(card)
+                            .ok_or(RulesError::UnknownCard(*card))?
+                            .tapped = true;
+                    }
+                    let object = self.object(*card)?;
+                    let definition =
+                        self.effective_definition_id(*card)?
+                            .ok_or(RulesError::IllegalAction(
+                                "a token cannot be selected from a library",
+                            ))?;
+                    entered_permanents.push((*card, definition, object.controller));
+                }
+                LibrarySearchDestination::Hand => self.move_to_zone(*card, Zone::Hand)?,
+            }
+        }
+        self.record_event(GameEvent::LibrarySearchBatchResolved {
+            player,
+            source,
+            found: selected,
+            destination,
+        });
+        self.shuffle_library(player);
+        let cards = u16::try_from(self.players[player.0].library.len()).unwrap_or(u16::MAX);
+        self.record_event(GameEvent::LibraryShuffled { player, cards });
+
+        if let Some(ability) = ability {
+            self.record_event(GameEvent::AbilityResolved {
+                source,
+                source_incarnation,
+                ability,
+            });
+        } else {
+            self.record_event(GameEvent::SpellResolved { card: source });
+            self.move_to_spell_terminal_zone(source)?;
+        }
+        self.check_state_based_actions()?;
+        self.flush_pending_dies_triggers();
+        for (card, definition, controller) in entered_permanents {
+            if self.zone_of(card) == Some(Zone::Battlefield) {
+                self.enqueue_enter_triggers(card, definition, controller);
+                if self.card_definition(card)?.is_land() {
+                    self.queue_land_entry_trigger_batch(controller)?;
+                }
+            }
+        }
+        self.flush_pending_land_entry_triggers()?;
+        self.flush_pending_damage_triggers();
+        self.flush_pending_life_gain_triggers();
+        self.flush_pending_dies_triggers();
+        self.priority = self.priority_after_resolution();
+        Ok(())
+    }
+
+    fn resolve_library_reorder_decision(
+        &mut self,
+        decision: &PendingDecision,
+        source: ObjectId,
+        cards: &[ObjectId],
+        selected: Vec<ObjectId>,
+    ) -> Result<(), RulesError> {
+        let player = decision.player;
+        let (ability, source_incarnation) = {
+            let top = self.stack.last().ok_or(RulesError::IllegalAction(
+                "library reorder choice has no live stack item",
+            ))?;
+            let matches_pending_reorder = matches!(
+                top.effects.as_slice(),
+                [Effect::RevealTopLibraryCardsAndReorder { count }]
+                    if usize::from(*count) >= cards.len()
+            );
+            if top.card != source || top.controller != player || !matches_pending_reorder {
+                return Err(RulesError::IllegalAction(
+                    "library reorder choice no longer matches the live stack item",
+                ));
+            }
+            (top.ability_id, top.source_incarnation)
+        };
+        let current = self.players[player.0]
+            .library
+            .iter()
+            .rev()
+            .take(cards.len())
+            .copied()
+            .collect::<Vec<_>>();
+        let expected_options = cards
+            .iter()
+            .copied()
+            .map(DecisionOption::Object)
+            .collect::<Vec<_>>();
+        let count = u8::try_from(cards.len()).map_err(|_| {
+            RulesError::IllegalAction("library reorder candidates exceed decision range")
+        })?;
+        if decision.kind != DecisionKind::LibraryReorder
+            || decision.visibility != DecisionVisibility::Public
+            || current != cards
+            || decision.options != expected_options
+            || decision.min_selections != count
+            || decision.max_selections != count
+            || selected.len() != cards.len()
+        {
+            return Err(RulesError::IllegalAction(
+                "library reorder candidates changed before ordered selection",
+            ));
+        }
+        self.stack.pop().ok_or(RulesError::IllegalAction(
+            "library reorder stack item disappeared before resolution",
+        ))?;
+        self.complete_pending_decision(decision)?;
+        self.players[player.0]
+            .library
+            .retain(|card| !cards.contains(card));
+        self.players[player.0]
+            .library
+            .extend(selected.iter().rev().copied());
+        self.record_event(GameEvent::LibraryReordered {
+            player,
+            top_to_bottom: selected,
+        });
+        if let Some(ability) = ability {
+            self.record_event(GameEvent::AbilityResolved {
+                source,
+                source_incarnation,
+                ability,
+            });
+        } else {
+            self.record_event(GameEvent::SpellResolved { card: source });
+            self.move_to_spell_terminal_zone(source)?;
+        }
+        self.check_state_based_actions()?;
+        self.flush_pending_dies_triggers();
+        self.flush_pending_land_entry_triggers()?;
+        self.flush_pending_damage_triggers();
+        self.flush_pending_life_gain_triggers();
+        self.flush_pending_dies_triggers();
+        self.priority = self.priority_after_resolution();
+        Ok(())
+    }
+
     fn resolve_triggered_effect_object_decision(
         &mut self,
         decision: &PendingDecision,
@@ -6395,6 +6666,79 @@ impl Game {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)] // Direct prevented/deterministic branch mirrors the decision-owned transition.
+    fn resolve_controller_library_search_many(
+        &mut self,
+        source: ObjectId,
+        player: PlayerId,
+        requirement: &LibrarySearchRequirement,
+        destination: LibrarySearchDestination,
+        cardinality: LibrarySearchCardinality,
+        selection: LibrarySearchSelection,
+        reveal_selected: bool,
+        chosen_x: Option<u8>,
+    ) -> Result<(), RulesError> {
+        let prevented = self.library_search_prevented_until == Some(self.turn);
+        let candidates = (!prevented)
+            .then(|| self.library_search_candidates(player, requirement, chosen_x))
+            .transpose()?
+            .unwrap_or_default();
+        let (_, maximum) = Self::library_search_cardinality_bounds(
+            cardinality,
+            candidates.len(),
+            matches!(
+                selection,
+                LibrarySearchSelection::PolicySubmitted {
+                    may_fail_to_find: true
+                }
+            ),
+        )?;
+        let selected = match selection {
+            LibrarySearchSelection::DeterministicFirstMatch => candidates
+                .into_iter()
+                .take(usize::from(maximum))
+                .collect::<Vec<_>>(),
+            LibrarySearchSelection::PolicySubmitted { .. } if prevented => Vec::new(),
+            LibrarySearchSelection::PolicySubmitted { .. } => {
+                return Err(RulesError::IllegalAction(
+                    "policy-submitted multi-card library search reached resolution without a selection",
+                ));
+            }
+        };
+        for card in &selected {
+            if reveal_selected {
+                self.record_event(GameEvent::CardRevealed {
+                    player,
+                    card: *card,
+                    definition: self.card_definition(*card)?.id,
+                });
+            }
+            match destination {
+                LibrarySearchDestination::Battlefield
+                | LibrarySearchDestination::BattlefieldTapped => {
+                    self.move_to_zone(*card, Zone::Battlefield)?;
+                    if destination == LibrarySearchDestination::BattlefieldTapped {
+                        self.objects
+                            .get_mut(card)
+                            .ok_or(RulesError::UnknownCard(*card))?
+                            .tapped = true;
+                    }
+                }
+                LibrarySearchDestination::Hand => self.move_to_zone(*card, Zone::Hand)?,
+            }
+        }
+        self.record_event(GameEvent::LibrarySearchBatchResolved {
+            player,
+            source,
+            found: selected,
+            destination,
+        });
+        self.shuffle_library(player);
+        let cards = u16::try_from(self.players[player.0].library.len()).unwrap_or(u16::MAX);
+        self.record_event(GameEvent::LibraryShuffled { player, cards });
+        Ok(())
+    }
+
     fn library_search_candidates(
         &self,
         player: PlayerId,
@@ -6434,6 +6778,9 @@ impl Game {
             }
             LibrarySearchRequirement::ManaValueExactly(mana_value) => {
                 Ok(definition.mana_cost.mana_value() == *mana_value)
+            }
+            LibrarySearchRequirement::CardTypes(types) => {
+                Ok(!types.is_empty() && types.is_subset(&definition.card_types))
             }
         }
     }
@@ -8956,6 +9303,30 @@ impl Game {
                     "library search must name at least one allowed land type",
                 ));
             }
+            if matches!(
+                effect,
+                Effect::SearchControllerLibraryMany {
+                    requirement: LibrarySearchRequirement::BasicLandTypes(types),
+                    ..
+                } if types.is_empty()
+            ) || matches!(
+                effect,
+                Effect::SearchControllerLibraryMany {
+                    requirement: LibrarySearchRequirement::CardTypes(types),
+                    ..
+                } if types.is_empty()
+            ) || matches!(
+                effect,
+                Effect::SearchControllerLibraryMany {
+                    cardinality: LibrarySearchCardinality::ZeroOrMore { maximum: 0 }
+                        | LibrarySearchCardinality::Exactly(0),
+                    ..
+                } | Effect::RevealTopLibraryCardsAndReorder { count: 0 }
+            ) {
+                return Err(RulesError::IllegalAction(
+                    "typed library search or reorder must request a positive card count",
+                ));
+            }
             let amount = match effect {
                 Effect::DealDamage { amount, .. }
                 | Effect::LoseLifeTarget { amount }
@@ -8987,6 +9358,8 @@ impl Game {
                 | Effect::DrawTargetPlayer
                 | Effect::PreventLibrarySearchUntilEndOfTurn
                 | Effect::SearchControllerLibrary { .. }
+                | Effect::SearchControllerLibraryMany { .. }
+                | Effect::RevealTopLibraryCardsAndReorder { .. }
                 | Effect::AttachSourceAndModifyTargetPt { .. }
                 | Effect::RevealTopCardPutIntoHandLoseLifeEqualToManaValue
                 | Effect::GainLifeControllerFromSourceDamage
@@ -9119,6 +9492,12 @@ impl Game {
             return Ok(());
         }
         if self.suspend_top_stack_item_for_spell_copy_target_choice()? {
+            return Ok(());
+        }
+        if self.suspend_top_stack_item_for_multi_library_search_choice()? {
+            return Ok(());
+        }
+        if self.suspend_top_stack_item_for_library_reorder_choice()? {
             return Ok(());
         }
         if self.suspend_top_stack_item_for_library_search_choice()? {
@@ -9708,6 +10087,134 @@ impl Game {
                 destination,
                 may_fail_to_find,
             },
+        )?;
+        Ok(true)
+    }
+
+    /// Opens the private id-bearing continuation for a policy-submitted batch
+    /// library search.  The stack item remains live while the controller
+    /// selects an ordered subset, so no priority action can interleave with
+    /// the hidden-information choice.
+    fn suspend_top_stack_item_for_multi_library_search_choice(
+        &mut self,
+    ) -> Result<bool, RulesError> {
+        if self.pending_decision.is_some()
+            || self.pending_private_library_choice.is_some()
+            || self.pending_private_opponent_library_exile_choice.is_some()
+        {
+            return Err(RulesError::IllegalAction(
+                "a second hidden-library choice attempted to open during resolution",
+            ));
+        }
+        if self.library_search_prevented_until == Some(self.turn) {
+            return Ok(false);
+        }
+        let Some(top) = self.stack.last() else {
+            return Ok(false);
+        };
+        let (
+            source,
+            controller,
+            requirement,
+            destination,
+            cardinality,
+            may_fail_to_find,
+            reveal_selected,
+            chosen_x,
+        ) = match top.effects.as_slice() {
+            [
+                Effect::SearchControllerLibraryMany {
+                    requirement,
+                    destination,
+                    cardinality,
+                    selection: LibrarySearchSelection::PolicySubmitted { may_fail_to_find },
+                    reveal_selected,
+                },
+            ] => (
+                top.card,
+                top.controller,
+                requirement.clone(),
+                *destination,
+                *cardinality,
+                *may_fail_to_find,
+                *reveal_selected,
+                top.chosen_x,
+            ),
+            _ => return Ok(false),
+        };
+        let cards = self.library_search_candidates(controller, &requirement, chosen_x)?;
+        let (min_selections, max_selections) =
+            Self::library_search_cardinality_bounds(cardinality, cards.len(), may_fail_to_find)?;
+        self.open_pending_decision(
+            controller,
+            DecisionVisibility::Private,
+            DecisionKind::LibrarySearch,
+            min_selections,
+            max_selections,
+            cards.into_iter().map(DecisionOption::Object).collect(),
+            DecisionContinuation::LibrarySearchMany {
+                source,
+                requirement,
+                destination,
+                cardinality,
+                may_fail_to_find,
+                reveal_selected,
+            },
+        )?;
+        Ok(true)
+    }
+
+    /// Reveals a bounded top-library slice before opening one public ordered
+    /// decision.  The selected permutation is the new top-to-bottom order;
+    /// no zone transition or shuffle occurs while that decision is pending.
+    fn suspend_top_stack_item_for_library_reorder_choice(&mut self) -> Result<bool, RulesError> {
+        if self.pending_decision.is_some()
+            || self.pending_private_library_choice.is_some()
+            || self.pending_private_opponent_library_exile_choice.is_some()
+        {
+            return Err(RulesError::IllegalAction(
+                "a second library choice attempted to open during resolution",
+            ));
+        }
+        let Some(top) = self.stack.last() else {
+            return Ok(false);
+        };
+        let (source, controller, count) = match top.effects.as_slice() {
+            [Effect::RevealTopLibraryCardsAndReorder { count }] => {
+                (top.card, top.controller, *count)
+            }
+            _ => return Ok(false),
+        };
+        if count == 0 {
+            return Err(RulesError::IllegalAction(
+                "library reorder must reveal at least one card",
+            ));
+        }
+        let cards = self.players[controller.0]
+            .library
+            .iter()
+            .rev()
+            .take(usize::from(count))
+            .copied()
+            .collect::<Vec<_>>();
+        for card in &cards {
+            self.record_event(GameEvent::CardRevealed {
+                player: controller,
+                card: *card,
+                definition: self.card_definition(*card)?.id,
+            });
+        }
+        let card_count = u8::try_from(cards.len()).map_err(|_| {
+            RulesError::IllegalAction("library reorder candidates exceed decision range")
+        })?;
+        self.open_pending_decision(
+            controller,
+            DecisionVisibility::Public,
+            DecisionKind::LibraryReorder,
+            card_count,
+            card_count,
+            cards.iter().copied().map(DecisionOption::Object).collect(),
+            DecisionContinuation::LibraryReorder { source, cards },
         )?;
         Ok(true)
     }
@@ -12193,6 +12700,29 @@ impl Game {
                     *selection,
                     chosen_x,
                 )?;
+            }
+            Effect::SearchControllerLibraryMany {
+                requirement,
+                destination,
+                cardinality,
+                selection,
+                reveal_selected,
+            } => {
+                self.resolve_controller_library_search_many(
+                    source,
+                    controller,
+                    requirement,
+                    *destination,
+                    *cardinality,
+                    *selection,
+                    *reveal_selected,
+                    chosen_x,
+                )?;
+            }
+            Effect::RevealTopLibraryCardsAndReorder { .. } => {
+                return Err(RulesError::IllegalAction(
+                    "library reorder effect bypassed its public decision boundary",
+                ));
             }
             Effect::AttachSourceAndModifyTargetPt { .. } | Effect::AttachSourceToTarget { .. } => {
                 return Err(RulesError::IllegalAction(
@@ -14805,6 +15335,7 @@ impl Game {
     /// a card) and immediately-following shuffle receipt. This makes the
     /// hidden-zone selection observable without exposing every library card
     /// to an opponent or allowing a later event to impersonate the search.
+    #[allow(clippy::too_many_lines)] // One receipt-order audit keeps singleton, batch, and reorder search provenance together.
     fn validate_library_search_event_order(events: &[GameEvent]) -> Result<(), RulesError> {
         for (index, event) in events.iter().enumerate() {
             let GameEvent::LibrarySearchResolved {
@@ -14850,6 +15381,88 @@ impl Game {
             ) {
                 return Err(RulesError::IllegalAction(
                     "library-search receipt lacks its immediate controller shuffle",
+                ));
+            }
+        }
+        for (index, event) in events.iter().enumerate() {
+            let GameEvent::LibrarySearchBatchResolved {
+                player,
+                found,
+                destination,
+                ..
+            } = event
+            else {
+                continue;
+            };
+            if found
+                .iter()
+                .enumerate()
+                .any(|(position, card)| found[position + 1..].contains(card))
+            {
+                return Err(RulesError::IllegalAction(
+                    "multi-card library-search receipt contains a duplicate selection",
+                ));
+            }
+            let expected_zone = match destination {
+                LibrarySearchDestination::Battlefield
+                | LibrarySearchDestination::BattlefieldTapped => Zone::Battlefield,
+                LibrarySearchDestination::Hand => Zone::Hand,
+            };
+            let mut cursor = index;
+            for card in found.iter().rev() {
+                let preceding = cursor.checked_sub(1).ok_or(RulesError::IllegalAction(
+                    "multi-card library-search receipt lacks selected-card movement",
+                ))?;
+                let move_index = match events.get(preceding) {
+                    Some(GameEvent::ObjectIncarnationAdvanced { object, .. }) if object == card => {
+                        preceding.checked_sub(1).ok_or(RulesError::IllegalAction(
+                            "multi-card library-search incarnation lacks selected-card movement",
+                        ))?
+                    }
+                    _ => preceding,
+                };
+                if !matches!(
+                    events.get(move_index),
+                    Some(GameEvent::CardMoved { card: moved, to })
+                        if moved == card && *to == expected_zone
+                ) {
+                    return Err(RulesError::IllegalAction(
+                        "multi-card library-search receipt lacks ordered selected-card movement",
+                    ));
+                }
+                cursor = move_index;
+            }
+            if !matches!(
+                events.get(index + 1),
+                Some(GameEvent::LibraryShuffled { player: shuffled, .. }) if shuffled == player
+            ) {
+                return Err(RulesError::IllegalAction(
+                    "multi-card library-search receipt lacks its immediate controller shuffle",
+                ));
+            }
+        }
+        for (index, event) in events.iter().enumerate() {
+            let GameEvent::LibraryReordered {
+                player,
+                top_to_bottom,
+            } = event
+            else {
+                continue;
+            };
+            if top_to_bottom.is_empty()
+                || top_to_bottom
+                    .iter()
+                    .enumerate()
+                    .any(|(position, card)| top_to_bottom[position + 1..].contains(card))
+                || top_to_bottom.iter().any(|card| {
+                    !events[..index].iter().any(|prior| {
+                        matches!(prior, GameEvent::CardRevealed { player: revealed, card: revealed_card, .. }
+                            if revealed == player && revealed_card == card)
+                    })
+                })
+            {
+                return Err(RulesError::IllegalAction(
+                    "library reorder receipt lacks a unique prior public reveal",
                 ));
             }
         }
@@ -17203,6 +17816,95 @@ impl Game {
                 {
                     return Err(RulesError::IllegalAction(
                         "library-search decision escaped its typed continuation boundary",
+                    ));
+                }
+            }
+            DecisionContinuation::LibrarySearchMany {
+                source,
+                requirement,
+                destination,
+                cardinality,
+                may_fail_to_find,
+                reveal_selected,
+            } => {
+                let top = self.stack.last().ok_or(RulesError::IllegalAction(
+                    "multi-card library-search decision escaped its stack item",
+                ))?;
+                let matches_stack = matches!(
+                    top.effects.as_slice(),
+                    [Effect::SearchControllerLibraryMany {
+                        requirement: stack_requirement,
+                        destination: stack_destination,
+                        cardinality: stack_cardinality,
+                        selection: LibrarySearchSelection::PolicySubmitted {
+                            may_fail_to_find: stack_may_fail,
+                        },
+                        reveal_selected: stack_reveal,
+                    }] if stack_requirement == requirement
+                        && stack_destination == destination
+                        && stack_cardinality == cardinality
+                        && stack_may_fail == may_fail_to_find
+                        && stack_reveal == reveal_selected
+                );
+                let expected_options = self
+                    .library_search_candidates(decision.player, requirement, top.chosen_x)?
+                    .into_iter()
+                    .map(DecisionOption::Object)
+                    .collect::<Vec<_>>();
+                let (expected_min, expected_max) = Self::library_search_cardinality_bounds(
+                    *cardinality,
+                    expected_options.len(),
+                    *may_fail_to_find,
+                )?;
+                if decision.kind != DecisionKind::LibrarySearch
+                    || decision.visibility != DecisionVisibility::Private
+                    || top.card != *source
+                    || top.controller != decision.player
+                    || !matches_stack
+                    || decision.options != expected_options
+                    || decision.min_selections != expected_min
+                    || decision.max_selections != expected_max
+                {
+                    return Err(RulesError::IllegalAction(
+                        "multi-card library-search decision escaped its typed continuation boundary",
+                    ));
+                }
+            }
+            DecisionContinuation::LibraryReorder { source, cards } => {
+                let top = self.stack.last().ok_or(RulesError::IllegalAction(
+                    "library reorder decision escaped its stack item",
+                ))?;
+                let current = self.players[decision.player.0]
+                    .library
+                    .iter()
+                    .rev()
+                    .take(cards.len())
+                    .copied()
+                    .collect::<Vec<_>>();
+                let expected_count = u8::try_from(cards.len()).map_err(|_| {
+                    RulesError::IllegalAction("library reorder candidates exceed decision range")
+                })?;
+                if decision.kind != DecisionKind::LibraryReorder
+                    || decision.visibility != DecisionVisibility::Public
+                    || top.card != *source
+                    || top.controller != decision.player
+                    || !matches!(
+                        top.effects.as_slice(),
+                        [Effect::RevealTopLibraryCardsAndReorder { count }]
+                            if usize::from(*count) >= cards.len()
+                    )
+                    || current != *cards
+                    || decision.options
+                        != cards
+                            .iter()
+                            .copied()
+                            .map(DecisionOption::Object)
+                            .collect::<Vec<_>>()
+                    || decision.min_selections != expected_count
+                    || decision.max_selections != expected_count
+                {
+                    return Err(RulesError::IllegalAction(
+                        "library reorder decision escaped its revealed-card boundary",
                     ));
                 }
             }
