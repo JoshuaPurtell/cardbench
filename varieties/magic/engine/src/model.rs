@@ -3895,13 +3895,15 @@ pub enum DecisionContinuation {
         used: Vec<ReplacementChoice>,
         resolution: QuantityReplacementResolution,
     },
-    /// Resumes the bounded one-target direct-damage replacement chain. The
+    /// Resumes one exact target-damage instruction's replacement chain. The
     /// candidate identity is shared with quantity replacement decisions, but
     /// the committed event still has its existing source-aware damage
     /// receipts. `used` retains the exact replacement identities already
     /// applied to this prospective event, so redirected damage cannot reuse a
     /// shield or redirection from an earlier incarnation.
     DamageReplacement {
+        source_stack_item: StackObjectId,
+        effect_index: usize,
         source: ObjectId,
         source_incarnation: u64,
         controller: PlayerId,

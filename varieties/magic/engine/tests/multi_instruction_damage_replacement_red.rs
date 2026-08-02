@@ -6,8 +6,8 @@ use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
     AbilityActivation, ActivatedAbility, ActivatedAbilityBinding, CardDefinition, CardType,
-    CastRequest, Color, DecisionKind, Effect, Game, ManaCost, PlayerId, Target, TargetRequirement,
-    Zone,
+    CastRequest, Color, DamageReplacementChoice, DecisionKind, DecisionSelection, Effect, Game,
+    GameEvent, ManaCost, PlayerId, ReplacementChoice, Target, TargetRequirement, Zone,
 };
 
 const REDIRECTOR: &str = "TST-MULTI-DAMAGE-REDIRECTOR";
@@ -169,4 +169,60 @@ fn a_middle_damage_instruction_opens_the_affected_players_replacement_decision()
     assert_eq!(game.player(caster).expect("caster exists").life, 21);
     game.validate_invariants()
         .expect("the paused replacement boundary is state-machine valid");
+
+    let redirect = decision
+        .replacement_candidates
+        .iter()
+        .copied()
+        .find(|choice| {
+            matches!(
+                choice,
+                ReplacementChoice::Damage(DamageReplacementChoice::Redirect { .. })
+            )
+        })
+        .expect("redirection is one public affected-player option");
+    game.submit_decision(
+        caster,
+        decision.id,
+        DecisionSelection::Replacements(vec![redirect]),
+    )
+    .expect("affected player selects redirection");
+
+    assert_eq!(game.player(caster).expect("caster exists").life, 23);
+    assert_eq!(game.player(opponent).expect("opponent exists").life, 18);
+    assert_eq!(
+        game.stack.len(),
+        0,
+        "the remaining spell suffix resolves once"
+    );
+    let events = &game.event_log;
+    let prefix = events
+        .iter()
+        .position(|event| {
+            matches!(event, GameEvent::LifeGained { player, amount } if *player == caster && *amount == 1)
+        })
+        .expect("prefix life receipt");
+    let redirected = events
+        .iter()
+        .position(
+            |event| matches!(event, GameEvent::DamageRedirected { source, .. } if *source == spell),
+        )
+        .expect("selected damage redirection receipt");
+    let suffix = events
+        .iter()
+        .position(|event| {
+            matches!(event, GameEvent::LifeGained { player, amount } if *player == caster && *amount == 2)
+        })
+        .expect("suffix life receipt");
+    let resolved = events
+        .iter()
+        .position(|event| matches!(event, GameEvent::SpellResolved { card } if *card == spell))
+        .expect("one terminal spell receipt");
+    assert!(prefix < redirected && redirected < suffix && suffix < resolved);
+    eprintln!(
+        "multi-instruction damage replacement green trace: {:?}",
+        game.canonical_event_log()
+    );
+    game.validate_invariants()
+        .expect("the resumed replacement suffix is state-machine valid");
 }

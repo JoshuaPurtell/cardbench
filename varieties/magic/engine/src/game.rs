@@ -824,10 +824,9 @@ struct GlobalCombatDamagePrevention {
     expires_turn: u32,
 }
 
-/// A deliberately narrow resumable damage-resolution continuation.  It is
-/// opened only for a single targeted `DealDamage` instant/sorcery with two or
-/// more live applicable replacements. The top stack item remains in place;
-/// there is no priority until the affected player selects one legal effect.
+/// One prospective targeted damage packet paused on an exact stack
+/// instruction. The immutable stack item remains live while the affected
+/// player selects one replacement; a later resolver resumes only its suffix.
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct PendingDamageReplacementChoice {
     source: ObjectId,
@@ -7641,6 +7640,8 @@ impl Game {
                 )
             }
             DecisionContinuation::DamageReplacement {
+                source_stack_item,
+                effect_index,
                 source,
                 source_incarnation,
                 controller,
@@ -7654,6 +7655,8 @@ impl Game {
                 let selected = Self::validate_replacement_decision_selection(&decision, selection)?;
                 self.resolve_damage_replacement_decision(
                     &decision,
+                    source_stack_item,
+                    effect_index,
                     source,
                     source_incarnation,
                     controller,
@@ -11433,6 +11436,10 @@ impl Game {
                                 | DecisionContinuation::TargetPlayerManaColor {
                                     effect_index,
                                     ..
+                                }
+                                | DecisionContinuation::DamageReplacement {
+                                    effect_index,
+                                    ..
                                 },
                             ..
                         }),
@@ -15201,6 +15208,14 @@ impl Game {
             {
                 return Ok(());
             }
+            if effect_index > next_effect_index
+                && self.suspend_resolving_stack_instruction_for_damage_replacement_choice(
+                    &stack_object,
+                    effect_index,
+                )?
+            {
+                return Ok(());
+            }
             match target_resolution {
                 StackEffectResolution::Untargeted => {
                     if let Effect::DealDamageAfterOptionalManaPayment { amount, .. } = effect {
@@ -15668,6 +15683,38 @@ impl Game {
         Ok(false)
     }
 
+    /// Reinstates an in-progress stack object only long enough to ask the
+    /// affected player how to order concurrent replacements for its current
+    /// targeted damage instruction. Earlier effects have committed; a later
+    /// suffix remains untouched until the prospective damage event finishes.
+    fn suspend_resolving_stack_instruction_for_damage_replacement_choice(
+        &mut self,
+        stack_object: &StackObject,
+        effect_index: usize,
+    ) -> Result<bool, RulesError> {
+        if effect_index == 0 || effect_index >= stack_object.effects.len() {
+            return Err(RulesError::IllegalAction(
+                "resumable damage replacement instruction cursor is outside a stack suffix",
+            ));
+        }
+        self.stack.push(stack_object.clone());
+        self.stack_effect_cursors
+            .insert(stack_object.id, effect_index);
+        if self.suspend_top_stack_item_for_damage_replacement_choice()? {
+            return Ok(true);
+        }
+        let restored = self.stack.pop().ok_or(RulesError::IllegalAction(
+            "resumable damage replacement instruction stack item disappeared",
+        ))?;
+        self.stack_effect_cursors.remove(&stack_object.id);
+        if restored.id != stack_object.id {
+            return Err(RulesError::IllegalAction(
+                "resumable damage replacement instruction stack identity changed",
+            ));
+        }
+        Ok(false)
+    }
+
     /// Opens an affected-player replacement decision for the next unresolved
     /// token-creation or counter-placement instruction. The immutable stack
     /// item remains live while the player selects an ordering, then resumes
@@ -15976,36 +16023,34 @@ impl Game {
                 "a second typed decision attempted to open during damage replacement resolution",
             ));
         }
-        let Some(top) = self.stack.last() else {
+        let Some(top) = self.stack.last().cloned() else {
             return Ok(false);
         };
-        let (source, source_incarnation, controller, target, amount, requirement) = match (
-            top.ability_id,
-            top.targets.as_slice(),
-            top.effects.as_slice(),
-        ) {
-            (
-                None,
-                [target],
-                [
-                    Effect::DealDamage {
-                        amount,
-                        target: requirement,
-                    },
-                ],
-            ) => (
-                top.card,
-                top.source_incarnation,
-                top.controller,
-                *target,
-                i32::from(*amount),
-                *requirement,
-            ),
-            _ => return Ok(false),
+        if top.ability_id.is_some() {
+            return Ok(false);
+        }
+        let effect_index = self.stack_effect_cursor(&top)?;
+        let target_offset = Self::effect_target_offset(&top.effects, effect_index);
+        let (
+            Some(Effect::DealDamage {
+                amount,
+                target: requirement,
+            }),
+            Some(target),
+        ) = (
+            top.effects.get(effect_index),
+            top.targets.get(target_offset).copied(),
+        )
+        else {
+            return Ok(false);
         };
+        let source = top.card;
+        let source_incarnation = top.source_incarnation;
+        let controller = top.controller;
+        let amount = i32::from(*amount);
         if amount <= 0
-            || !self.stack_target_incarnation_matches(top, 0, target)
-            || !self.target_matches_for_source(controller, source, target, requirement)
+            || !self.stack_target_incarnation_matches(&top, target_offset, target)
+            || !self.target_matches_for_source(controller, source, target, *requirement)
         {
             // The ordinary resolver owns malformed/illegal target handling.
             return Ok(false);
@@ -16015,24 +16060,30 @@ impl Game {
             return Ok(false);
         }
         let affected_player = self.affected_player_for_damage_target(target)?;
-        self.open_damage_replacement_decision(PendingDamageReplacementChoice {
-            source,
-            source_incarnation,
-            controller,
-            affected_player,
-            original_target: target,
-            target,
-            target_incarnation: self.damage_target_incarnation(target)?,
-            amount,
-            used: Vec::new(),
-            deferred_packets: Vec::new(),
-        })?;
+        self.open_damage_replacement_decision(
+            PendingDamageReplacementChoice {
+                source,
+                source_incarnation,
+                controller,
+                affected_player,
+                original_target: target,
+                target,
+                target_incarnation: self.damage_target_incarnation(target)?,
+                amount,
+                used: Vec::new(),
+                deferred_packets: Vec::new(),
+            },
+            top.id,
+            effect_index,
+        )?;
         Ok(true)
     }
 
     fn open_damage_replacement_decision(
         &mut self,
         pending: PendingDamageReplacementChoice,
+        source_stack_item: StackObjectId,
+        effect_index: usize,
     ) -> Result<(), RulesError> {
         let choices = self.damage_replacement_candidates(
             pending.source,
@@ -16056,6 +16107,8 @@ impl Game {
                 .map(|choice| DecisionOption::Replacement(ReplacementChoice::Damage(choice)))
                 .collect(),
             DecisionContinuation::DamageReplacement {
+                source_stack_item,
+                effect_index,
                 source: pending.source,
                 source_incarnation: pending.source_incarnation,
                 controller: pending.controller,
@@ -18028,6 +18081,8 @@ impl Game {
     fn resolve_damage_replacement_decision(
         &mut self,
         decision: &PendingDecision,
+        source_stack_item: StackObjectId,
+        effect_index: usize,
         source: ObjectId,
         source_incarnation: u64,
         controller: PlayerId,
@@ -18050,10 +18105,27 @@ impl Game {
             .copied()
             .map(|choice| DecisionOption::Replacement(ReplacementChoice::Damage(choice)))
             .collect::<Vec<_>>();
+        let top = self.stack.last().ok_or(RulesError::IllegalAction(
+            "damage replacement decision escaped its stack spell",
+        ))?;
+        let target_offset = Self::effect_target_offset(&top.effects, effect_index);
+        let stack_shape_matches = matches!(
+            top.effects.get(effect_index),
+            Some(Effect::DealDamage { amount: stack_amount, .. }) if *stack_amount > 0
+        );
         if decision.kind != DecisionKind::Replacement
             || decision.visibility != DecisionVisibility::Public
             || decision.player != self.affected_player_for_damage_target(target)?
             || target_incarnation != self.damage_target_incarnation(target)?
+            || top.id != source_stack_item
+            || top.card != source
+            || top.source_incarnation != source_incarnation
+            || top.controller != controller
+            || top.ability_id.is_some()
+            || self.stack_effect_cursor(top)? != effect_index
+            || !stack_shape_matches
+            || top.targets.get(target_offset) != Some(&original_target)
+            || !self.stack_target_incarnation_matches(top, target_offset, original_target)
             || candidates.len() < 2
             || decision.options != expected_options
         {
@@ -18078,13 +18150,15 @@ impl Game {
             // A subsequent concurrent choice needs a fresh monotonic id, so
             // close the selected decision before opening the next one.
             self.complete_pending_decision(decision)?;
-            self.open_damage_replacement_decision(next)
+            self.open_damage_replacement_decision(next, source_stack_item, effect_index)
         } else {
             // Preserve the causal adjacency of the damage replacement and its
             // resulting prevent/redirect/commit receipts. The generic decision
             // still closes before the suspended spell lifecycle.
             self.complete_pending_decision(decision)?;
             self.finish_suspended_damage_replacement_spell(
+                source_stack_item,
+                effect_index,
                 source,
                 source_incarnation,
                 original_target,
@@ -18184,29 +18258,56 @@ impl Game {
         Ok(())
     }
 
-    /// Finishes the one-effect instant/sorcery retained by the bounded
-    /// replacement decision. The direct-damage instruction has already
-    /// committed (or been fully prevented), so this records only the normal
-    /// spell terminal lifecycle and its post-resolution trigger/SBA boundary.
+    /// Finishes one exact replacement-resolved damage instruction. A later
+    /// suffix is resumed through the ordinary resolver; only a final damage
+    /// instruction performs terminal spell lifecycle work here.
     fn finish_suspended_damage_replacement_spell(
         &mut self,
+        source_stack_item: StackObjectId,
+        effect_index: usize,
         source: ObjectId,
         source_incarnation: u64,
         original_target: Target,
     ) -> Result<(), RulesError> {
-        let stack_object = self.stack.pop().ok_or(RulesError::IllegalAction(
+        let stack_object = self.stack.last().cloned().ok_or(RulesError::IllegalAction(
             "damage replacement decision escaped its stack spell",
         ))?;
-        if stack_object.card != source
+        let target_offset = Self::effect_target_offset(&stack_object.effects, effect_index);
+        if stack_object.id != source_stack_item
+            || stack_object.card != source
             || stack_object.source_incarnation != source_incarnation
             || stack_object.ability_id.is_some()
-            || stack_object.targets.as_slice() != [original_target]
-            || !matches!(stack_object.effects.as_slice(), [Effect::DealDamage { .. }])
+            || self.stack_effect_cursor(&stack_object)? != effect_index
+            || stack_object.targets.get(target_offset) != Some(&original_target)
+            || !self.stack_target_incarnation_matches(&stack_object, target_offset, original_target)
+            || !matches!(
+                stack_object.effects.get(effect_index),
+                Some(Effect::DealDamage { .. })
+            )
         {
             return Err(RulesError::IllegalAction(
                 "damage replacement continuation has an invalid stack shape",
             ));
         }
+        let next_effect_index = effect_index
+            .checked_add(1)
+            .ok_or(RulesError::IllegalAction(
+                "stack instruction cursor overflowed",
+            ))?;
+        if next_effect_index < stack_object.effects.len() {
+            self.stack_effect_cursors
+                .insert(stack_object.id, next_effect_index);
+            return self.resolve_top_of_stack();
+        }
+        let terminal = self.stack.pop().ok_or(RulesError::IllegalAction(
+            "damage replacement terminal stack item disappeared",
+        ))?;
+        if terminal.id != stack_object.id {
+            return Err(RulesError::IllegalAction(
+                "damage replacement terminal stack identity changed",
+            ));
+        }
+        self.stack_effect_cursors.remove(&stack_object.id);
         self.record_event(GameEvent::SpellResolved { card: source });
         self.move_to_spell_terminal_zone(source)?;
         self.check_state_based_actions()?;
@@ -30269,6 +30370,8 @@ impl Game {
                 }
             }
             DecisionContinuation::DamageReplacement {
+                source_stack_item,
+                effect_index,
                 source,
                 source_incarnation,
                 controller,
@@ -30307,19 +30410,22 @@ impl Game {
                             .enumerate()
                             .any(|(index, choice)| packet.used[index + 1..].contains(choice))
                 });
+                let target_offset = Self::effect_target_offset(&top.effects, *effect_index);
                 let stack_shape_matches = matches!(
-                    top.effects.as_slice(),
-                    [Effect::DealDamage { amount: stack_amount, .. }] if *stack_amount > 0
+                    top.effects.get(*effect_index),
+                    Some(Effect::DealDamage { amount: stack_amount, .. }) if *stack_amount > 0
                 );
                 if decision.kind != DecisionKind::Replacement
                     || decision.visibility != DecisionVisibility::Public
+                    || top.id != *source_stack_item
                     || top.card != *source
                     || top.source_incarnation != *source_incarnation
                     || top.controller != *controller
                     || top.ability_id.is_some()
-                    || top.targets.as_slice() != [*original_target]
+                    || self.stack_effect_cursor(top).ok() != Some(*effect_index)
+                    || top.targets.get(target_offset) != Some(original_target)
                     || !stack_shape_matches
-                    || !self.stack_target_incarnation_matches(top, 0, *original_target)
+                    || !self.stack_target_incarnation_matches(top, target_offset, *original_target)
                     || *amount <= 0
                     || *target_incarnation != self.damage_target_incarnation(*target)?
                     || self.affected_player_for_damage_target(*target)? != decision.player

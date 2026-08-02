@@ -253,21 +253,24 @@ Oracle Magic rules coverage.
   attachment-linked continuous effect.
 - A bounded prospective damage event carries source incarnation, target
   incarnation (when the target is a permanent), affected player, remaining
-  amount, and the exact replacement identities already used. For the initial
-  one-effect targeted instant/sorcery slice, the engine gathers live
-  target-shields, permanent shields/protection, and bounded redirections
-  before it records any damage. Two or more candidates open the same public,
-  id-bearing `DecisionKind::Replacement` boundary used by quantity
-  replacement; its options are `ReplacementChoice::Damage` values visible
-  only to the affected player. The submitted identity must still be live, is
-  applied once, and applicability is recomputed. The stack spell remains live
-  while this decision is pending. The legacy `ChooseDamageReplacement` action
-  is only a checked compatibility shim over that exact current `DecisionId`;
-  new policies use `SubmitDecision`. Its public `DamageReplacementApplied`
-  receipt precedes the authoritative `DamagePrevented`, `DamageRedirected`, or
+  amount, and the exact replacement identities already used. For any exact
+  targeted `DealDamage` instruction of a represented instant/sorcery, the
+  engine gathers live target-shields, permanent shields/protection, and
+  bounded redirections before it records any damage. Two or more candidates
+  open the same public, id-bearing `DecisionKind::Replacement` boundary used
+  by quantity replacement; its options are `ReplacementChoice::Damage` values
+  visible only to the affected player. The continuation captures the immutable
+  stack item, current effect index, and target occurrence, so a
+  prefix/damage/suffix spell cannot fall through to deterministic direct
+  damage. The submitted identity must still be live, is applied once, and
+  applicability is recomputed. The stack spell remains live while this
+  decision is pending. The legacy `ChooseDamageReplacement` action is only a
+  checked compatibility shim over that exact current `DecisionId`; new
+  policies use `SubmitDecision`. Its public `DamageReplacementApplied` receipt
+  precedes the authoritative `DamagePrevented`, `DamageRedirected`, or
   committed `DamageDealt*` receipt, and only committed positive damage queues
-  damage triggers. The generic decision closes after that causal damage batch
-  and before the suspended spell's terminal lifecycle.
+  damage triggers. The generic decision closes after that causal damage batch,
+  then resumes only the unresolved suffix or terminal lifecycle.
 - A registered damage-amount replacement has a catalogued permanent source and
   is fixed before the game begins. Every live source applies once to a
   prospective player or permanent packet and retains its source incarnation in
@@ -309,16 +312,17 @@ Oracle Magic rules coverage.
   receives a new target and is then reconsidered against that recipient's
   applicable replacements; one source-bound replacement identity cannot
   apply twice to the same prospective event.
-- The current decision continuation is intentionally narrow: it supports one
-  targeted direct-damage instant/sorcery and bounded redirections that may
-  split the pending event. A partial redirect commits its new-recipient packet
-  first and retains the protected remainder as a deterministic deferred packet
-  inside the same no-priority stack continuation. Every deferred packet has a
-  positive amount, a live matching target incarnation, a valid affected
-  player, and unique prior replacement identities before it can be resumed;
-  replacements are re-evaluated at each recipient. Multi-instruction stack
-  continuations, optional replacements, and a fully general replacement-event
-  algebra remain explicit engine gaps rather than deterministic claims.
+- The current decision continuation is intentionally narrow: it supports a
+  targeted direct-damage instant/sorcery instruction and bounded redirections
+  that may split the pending event. A partial redirect commits its
+  new-recipient packet first and retains the protected remainder as a
+  deterministic deferred packet inside the same no-priority stack
+  continuation. Every deferred packet has a positive amount, a live matching
+  target incarnation, a valid affected player, and unique prior replacement
+  identities before it can be resumed; replacements are re-evaluated at each
+  recipient. Optional replacements, activated-ability damage instructions,
+  and a fully general replacement-event algebra remain explicit engine gaps
+  rather than deterministic claims.
 - A dynamic creature-count life-gain effect snapshots all current battlefield
   creatures at resolution, including tokens and opposing creatures, converts
   the count into a bounded receipt, and queues life-gain triggers only for the
