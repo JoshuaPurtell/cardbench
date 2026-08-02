@@ -3952,6 +3952,11 @@ pub enum DecisionContinuation {
     /// cannot satisfy a stale answer merely by retaining its stable id.
     TargetPlayerPrivateDiscard {
         source_stack_item: StackObjectId,
+        /// Index of the exact discard instruction that opened this private
+        /// boundary.  A stack item can carry earlier committed effects and a
+        /// later unresolved suffix, so the immutable whole-effect list alone
+        /// is not enough provenance.
+        effect_index: usize,
         source: ObjectId,
         source_incarnation: u64,
         controller: PlayerId,

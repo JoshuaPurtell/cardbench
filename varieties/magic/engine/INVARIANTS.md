@@ -846,10 +846,15 @@ Oracle Magic rules coverage.
   a public `DecisionKind::Replacement` boundary for the affected player. The
   immutable stack effect list and target occurrences remain the cast-time
   provenance source; a private nonzero `StackObjectId → effect_index` cursor
-  is valid only for that live top stack item and matching
-  `QuantityReplacement` continuation. It executes the already-resolved prefix
-  exactly once, holds priority closed while the current replacement is chosen,
-  and resumes only the unresolved suffix. The submitted option is revalidated,
+  is valid only for that live top stack item and its matching
+  `QuantityReplacement` or `TargetPlayerPrivateDiscard` continuation. It
+  executes the already-resolved prefix exactly once, holds priority closed
+  while the current replacement or recipient-private discard is chosen, and
+  resumes only the unresolved suffix. A targeted-discard continuation binds
+  its cursor to the corresponding target occurrence, gives only that target
+  the current-hand candidates, revalidates their exact incarnations, commits
+  the selected discards before resuming, and cannot expose or deterministically
+  select a hidden card for the resolving player. The submitted option is revalidated,
   applied once, and candidates are recomputed; a fresh monotonic decision id
   opens only while two or more choices remain, while one remaining candidate
   applies without a prompt. `DecisionCompleted`/`DecisionOpened` and a

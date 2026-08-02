@@ -906,9 +906,10 @@ pub struct Game {
     objects: BTreeMap<ObjectId, CardObject>,
     pub stack: Vec<StackObject>,
     /// The next unresolved instruction for a stack item paused at a
-    /// no-priority replacement decision. The stack object retains its full,
-    /// immutable cast-time effect list for provenance auditing; this cursor
-    /// resumes the suffix without replaying an already replaced event.
+    /// no-priority replacement or recipient-private discard decision. The
+    /// stack object retains its full, immutable cast-time effect list for
+    /// provenance auditing; this cursor resumes the suffix without replaying
+    /// an already completed instruction.
     stack_effect_cursors: BTreeMap<StackObjectId, usize>,
     pub continuous_effects: Vec<ContinuousEffect>,
     pub active_player: PlayerId,
@@ -7705,6 +7706,7 @@ impl Game {
             }
             DecisionContinuation::TargetPlayerPrivateDiscard {
                 source_stack_item,
+                effect_index,
                 source,
                 source_incarnation,
                 controller,
@@ -7717,6 +7719,7 @@ impl Game {
                 self.resolve_target_player_private_discard_decision(
                     &decision,
                     source_stack_item,
+                    effect_index,
                     source,
                     source_incarnation,
                     controller,
@@ -8401,8 +8404,8 @@ impl Game {
 
     /// Suspends one exact targeted-discard stack item so its target, never
     /// the resolving controller, privately chooses the cards to discard.
-    /// This is shared by spells and activated abilities with a single typed
-    /// `DiscardTargetPlayer` instruction.
+    /// This is shared by spells and activated abilities with a typed
+    /// `DiscardTargetPlayer` instruction at their current resolution cursor.
     fn suspend_top_stack_item_for_target_player_private_discard_choice(
         &mut self,
     ) -> Result<bool, RulesError> {
@@ -8417,9 +8420,12 @@ impl Game {
         let Some(top) = self.stack.last().cloned() else {
             return Ok(false);
         };
-        let ([Effect::DiscardTargetPlayer { count }], [Target::Player(recipient)]) =
-            (top.effects.as_slice(), top.targets.as_slice())
-        else {
+        let effect_index = self.stack_effect_cursor(&top)?;
+        let target_offset = Self::effect_target_offset(&top.effects, effect_index);
+        let (Some(Effect::DiscardTargetPlayer { count }), Some(Target::Player(recipient))) = (
+            top.effects.get(effect_index),
+            top.targets.get(target_offset).copied(),
+        ) else {
             return Ok(false);
         };
         if *count == 0 {
@@ -8429,17 +8435,17 @@ impl Game {
         }
         // Let the ordinary all-targets-illegal resolution path counter an
         // illegal target; a hidden hand decision must never open for it.
-        if !self.stack_target_incarnation_matches(&top, 0, Target::Player(*recipient))
+        if !self.stack_target_incarnation_matches(&top, target_offset, Target::Player(recipient))
             || !self.target_matches_for_colors(
                 top.controller,
-                Target::Player(*recipient),
+                Target::Player(recipient),
                 TargetRequirement::Player,
                 &top.source_colors,
             )
         {
             return Ok(false);
         }
-        let hand_snapshot = self.recipient_hand_snapshot(*recipient)?;
+        let hand_snapshot = self.recipient_hand_snapshot(recipient)?;
         let required = usize::from(*count).min(hand_snapshot.len());
         if required == 0 {
             // No legal object choice exists. The ordinary resolver records
@@ -8451,7 +8457,7 @@ impl Game {
             RulesError::IllegalAction("recipient private discard selection exceeds engine range")
         })?;
         self.open_pending_decision(
-            *recipient,
+            recipient,
             DecisionVisibility::Private,
             DecisionKind::ConditionalPrivateDiscard,
             required,
@@ -8462,11 +8468,12 @@ impl Game {
                 .collect(),
             DecisionContinuation::TargetPlayerPrivateDiscard {
                 source_stack_item: top.id,
+                effect_index,
                 source: top.card,
                 source_incarnation: top.source_incarnation,
                 controller: top.controller,
                 ability: top.ability_id,
-                recipient: *recipient,
+                recipient,
                 count: *count,
                 hand_snapshot,
             },
@@ -8482,6 +8489,7 @@ impl Game {
         &mut self,
         decision: &PendingDecision,
         source_stack_item: StackObjectId,
+        effect_index: usize,
         source: ObjectId,
         source_incarnation: u64,
         controller: PlayerId,
@@ -8496,6 +8504,7 @@ impl Game {
         ))?;
         let current_snapshot = self.recipient_hand_snapshot(recipient)?;
         let required = usize::from(count).min(hand_snapshot.len());
+        let target_offset = Self::effect_target_offset(&top.effects, effect_index);
         let expected_options = hand_snapshot
             .iter()
             .map(|snapshot| DecisionOption::Object(snapshot.card))
@@ -8521,9 +8530,14 @@ impl Game {
             || top.source_incarnation != source_incarnation
             || top.controller != controller
             || top.ability_id != ability
-            || top.targets.as_slice() != [Target::Player(recipient)]
-            || top.effects.as_slice() != [Effect::DiscardTargetPlayer { count }]
-            || !self.stack_target_incarnation_matches(&top, 0, Target::Player(recipient))
+            || self.stack_effect_cursor(&top)? != effect_index
+            || top.effects.get(effect_index) != Some(&Effect::DiscardTargetPlayer { count })
+            || top.targets.get(target_offset) != Some(&Target::Player(recipient))
+            || !self.stack_target_incarnation_matches(
+                &top,
+                target_offset,
+                Target::Player(recipient),
+            )
             || !self.target_matches_for_colors(
                 controller,
                 Target::Player(recipient),
@@ -8541,9 +8555,6 @@ impl Game {
             ));
         }
 
-        self.stack.pop().ok_or(RulesError::IllegalAction(
-            "recipient private discard stack item disappeared before resolution",
-        ))?;
         self.complete_pending_decision(decision)?;
         for card in selected {
             self.record_event(GameEvent::CardDiscarded {
@@ -8552,12 +8563,31 @@ impl Game {
             });
             self.move_to_zone(card, Zone::Graveyard)?;
         }
+        let next_effect_index = effect_index
+            .checked_add(1)
+            .ok_or(RulesError::IllegalAction(
+                "stack instruction cursor overflowed",
+            ))?;
+        if next_effect_index < top.effects.len() {
+            self.stack_effect_cursors.insert(top.id, next_effect_index);
+            return self.resolve_top_of_stack();
+        }
+        let terminal = self.stack.pop().ok_or(RulesError::IllegalAction(
+            "recipient private discard stack item disappeared before resolution",
+        ))?;
+        if terminal.id != top.id {
+            return Err(RulesError::IllegalAction(
+                "recipient private discard terminal stack identity changed",
+            ));
+        }
+        self.stack_effect_cursors.remove(&top.id);
         self.finish_resolved_private_discard_stack_item(&top)
     }
 
     /// Finishes the normal terminal lifecycle after a private discard has
-    /// committed its ordinary card moves. The suspended instruction was the
-    /// sole effect, so only stack lifecycle, SBAs, and trigger flushing remain.
+    /// committed its ordinary card moves. The discard may be the sole effect
+    /// or the final instruction in a resumed stack suffix, so only terminal
+    /// stack lifecycle, SBAs, and trigger flushing remain.
     fn finish_resolved_private_discard_stack_item(
         &mut self,
         stack_object: &StackObject,
@@ -11370,7 +11400,8 @@ impl Game {
                         Some(stack_object),
                         Some(PendingDecision {
                             continuation:
-                                DecisionContinuation::QuantityReplacement {
+                                DecisionContinuation::QuantityReplacement { effect_index, .. }
+                                | DecisionContinuation::TargetPlayerPrivateDiscard {
                                     effect_index,
                                     ..
                                 },
@@ -11380,7 +11411,7 @@ impl Game {
                 )
         }) {
             return Err(RulesError::IllegalAction(
-                "resumable stack instruction cursor escaped its quantity decision",
+                "resumable stack instruction cursor escaped its matching decision",
             ));
         }
         if !self.pending_empty_library_draw_losses.is_empty()
@@ -13584,9 +13615,10 @@ impl Game {
 
     /// Returns the next unresolved instruction for one live stack item.
     ///
-    /// A cursor exists only while a no-priority quantity-replacement choice
-    /// has already completed an earlier instruction in the same item. The
-    /// immutable stack effects remain the cast-time source of truth.
+    /// A cursor exists only while a no-priority quantity-replacement or
+    /// recipient-private-discard choice has already completed an earlier
+    /// instruction in the same item. The immutable stack effects remain the
+    /// cast-time source of truth.
     fn stack_effect_cursor(&self, stack_object: &StackObject) -> Result<usize, RulesError> {
         let cursor = self
             .stack_effect_cursors
@@ -15114,6 +15146,15 @@ impl Game {
             {
                 return Ok(());
             }
+            if effect_index > next_effect_index
+                && self
+                    .suspend_resolving_stack_instruction_for_target_player_private_discard_choice(
+                        &stack_object,
+                        effect_index,
+                    )?
+            {
+                return Ok(());
+            }
             match target_resolution {
                 StackEffectResolution::Untargeted => {
                     if let Effect::DealDamageAfterOptionalManaPayment { amount, .. } = effect {
@@ -15491,6 +15532,38 @@ impl Game {
         if restored.id != stack_object.id {
             return Err(RulesError::IllegalAction(
                 "resumable quantity instruction stack identity changed",
+            ));
+        }
+        Ok(false)
+    }
+
+    /// Reinstates an in-progress stack object only long enough to ask its
+    /// current targeted-discard recipient for a private hand choice. Earlier
+    /// instructions have already committed; resolving the remaining suffix
+    /// must never fall through to the deterministic direct-effect path.
+    fn suspend_resolving_stack_instruction_for_target_player_private_discard_choice(
+        &mut self,
+        stack_object: &StackObject,
+        effect_index: usize,
+    ) -> Result<bool, RulesError> {
+        if effect_index == 0 || effect_index >= stack_object.effects.len() {
+            return Err(RulesError::IllegalAction(
+                "resumable targeted-discard instruction cursor is outside a stack suffix",
+            ));
+        }
+        self.stack.push(stack_object.clone());
+        self.stack_effect_cursors
+            .insert(stack_object.id, effect_index);
+        if self.suspend_top_stack_item_for_target_player_private_discard_choice()? {
+            return Ok(true);
+        }
+        let restored = self.stack.pop().ok_or(RulesError::IllegalAction(
+            "resumable targeted-discard instruction stack item disappeared",
+        ))?;
+        self.stack_effect_cursors.remove(&stack_object.id);
+        if restored.id != stack_object.id {
+            return Err(RulesError::IllegalAction(
+                "resumable targeted-discard instruction stack identity changed",
             ));
         }
         Ok(false)
@@ -30253,6 +30326,7 @@ impl Game {
             }
             DecisionContinuation::TargetPlayerPrivateDiscard {
                 source_stack_item,
+                effect_index,
                 source,
                 source_incarnation,
                 controller,
@@ -30265,6 +30339,7 @@ impl Game {
                     "recipient private discard decision escaped its stack item",
                 ))?;
                 let current_snapshot = self.recipient_hand_snapshot(*recipient)?;
+                let target_offset = Self::effect_target_offset(&top.effects, *effect_index);
                 let required = usize::from(*count).min(hand_snapshot.len());
                 let required = u8::try_from(required).map_err(|_| {
                     RulesError::IllegalAction(
@@ -30291,9 +30366,15 @@ impl Game {
                     || top.source_incarnation != *source_incarnation
                     || top.controller != *controller
                     || top.ability_id != *ability
-                    || top.targets.as_slice() != [Target::Player(*recipient)]
-                    || top.effects.as_slice() != [Effect::DiscardTargetPlayer { count: *count }]
-                    || !self.stack_target_incarnation_matches(top, 0, Target::Player(*recipient))
+                    || self.stack_effect_cursor(top).ok() != Some(*effect_index)
+                    || top.effects.get(*effect_index)
+                        != Some(&Effect::DiscardTargetPlayer { count: *count })
+                    || top.targets.get(target_offset) != Some(&Target::Player(*recipient))
+                    || !self.stack_target_incarnation_matches(
+                        top,
+                        target_offset,
+                        Target::Player(*recipient),
+                    )
                     || !self.target_matches_for_colors(
                         *controller,
                         Target::Player(*recipient),

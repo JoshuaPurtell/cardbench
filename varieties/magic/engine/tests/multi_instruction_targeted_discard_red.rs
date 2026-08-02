@@ -5,8 +5,8 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardDefinition, CardType, CastRequest, Color, DecisionKind, Effect, Game, ManaCost, PlayerId,
-    Target, Zone,
+    CardDefinition, CardType, CastRequest, Color, DecisionKind, DecisionSelection, Effect, Game,
+    GameEvent, ManaCost, PlayerId, Target, Zone,
 };
 
 const SPELL: &str = "TST-MULTI-INSTRUCTION-TARGETED-DISCARD";
@@ -32,6 +32,7 @@ fn definition(id: &'static str, effects: Vec<Effect>) -> CardDefinition {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // The event-lifecycle assertions document one stack boundary.
 fn targeted_player_chooses_hidden_discard_during_a_middle_stack_instruction() {
     let caster = PlayerId(0);
     let recipient = PlayerId(1);
@@ -92,9 +93,81 @@ fn targeted_player_chooses_hidden_discard_during_a_middle_stack_instruction() {
     assert_eq!(decision.candidates.len(), 2);
     assert!(decision.candidates.iter().any(|card| card.id == first));
     assert!(decision.candidates.iter().any(|card| card.id == second));
-    assert_eq!(game.stack.len(), 1, "the spell remains live during the choice");
+    assert!(
+        game.view_for_player(caster)
+            .expect("caster receives a policy view")
+            .pending_decision
+            .is_none(),
+        "the resolving player cannot inspect the recipient's private hand choice"
+    );
+    assert_eq!(
+        game.stack.len(),
+        1,
+        "the spell remains live during the choice"
+    );
     assert_eq!(game.player(caster).expect("caster exists").life, 21);
-    assert_eq!(game.player(recipient).expect("recipient exists").hand.len(), 2);
+    assert_eq!(
+        game.player(recipient).expect("recipient exists").hand.len(),
+        2
+    );
     game.validate_invariants()
         .expect("the private decision boundary remains state-machine valid");
+
+    game.submit_decision(
+        recipient,
+        decision.id,
+        DecisionSelection::Objects(vec![second]),
+    )
+    .expect("recipient selects the second private hand card");
+
+    assert_eq!(
+        game.stack.len(),
+        0,
+        "the resumed suffix resolves to completion"
+    );
+    assert_eq!(game.player(caster).expect("caster exists").life, 23);
+    assert_eq!(game.zone_of(first), Some(Zone::Hand));
+    assert_eq!(game.zone_of(second), Some(Zone::Graveyard));
+    let events = &game.event_log;
+    eprintln!(
+        "multi-instruction targeted-discard green trace: {:?}",
+        game.canonical_event_log()
+    );
+    let prefix_life = events
+        .iter()
+        .position(|event| {
+            matches!(
+                event,
+                GameEvent::LifeGained { player, amount, .. }
+                    if *player == caster && *amount == 1
+            )
+        })
+        .expect("prefix life gain is recorded before the private choice");
+    let discarded = events
+        .iter()
+        .position(|event| {
+            matches!(
+                event,
+                GameEvent::CardDiscarded { player, card }
+                    if *player == recipient && *card == second
+            )
+        })
+        .expect("the selected card is discarded after the decision");
+    let suffix_life = events
+        .iter()
+        .position(|event| {
+            matches!(
+                event,
+                GameEvent::LifeGained { player, amount, .. }
+                    if *player == caster && *amount == 2
+            )
+        })
+        .expect("suffix life gain is recorded after the selected discard");
+    let resolved = events
+        .iter()
+        .position(|event| matches!(event, GameEvent::SpellResolved { card } if *card == spell))
+        .expect("spell gets one terminal resolution receipt");
+    assert!(prefix_life < discarded && discarded < suffix_life && suffix_life < resolved);
+    game.validate_invariants()
+        .expect("the resumed private-discard suffix remains state-machine valid");
 }
