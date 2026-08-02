@@ -5,7 +5,7 @@ use cardbench_magic_rav::RAV_FULL_FIDELITY_DEFINITION_IDS;
 /// must contain both without silently retaining the preceding cardinality.
 #[test]
 fn germination_then_cloudstone_manifest_has_both_promotions() {
-    assert_eq!(RAV_FULL_FIDELITY_DEFINITION_IDS.len(), 195);
+    assert_eq!(RAV_FULL_FIDELITY_DEFINITION_IDS.len(), 209);
     assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&"RAV-GOLGARI-GERMINATION"));
     assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&"RAV-CLOUDSTONE-CURIO"));
 }
