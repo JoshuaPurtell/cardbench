@@ -1455,10 +1455,11 @@ Oracle Magic rules coverage.
   simultaneous delayed action ordering, and broader blink/zone-replacement
   interactions remain separate coverage work.
 - Static continuous bindings are immutable expansion data, never timestamped
-  runtime effects. Each registered binding names one creature definition and
-  one supported static change. It applies only while an object with that
-  definition is on the battlefield, creates no synthetic event receipt, and
-  is reevaluated from live battlefield state whenever characteristics are read.
+  runtime effects. Each registered binding names one supported static change
+  and a creature or other compatible permanent definition. It applies only
+  while an object with that definition is on the battlefield, creates no
+  synthetic event receipt, and is reevaluated from live battlefield state
+  whenever characteristics are read.
   A controller-scoped `other creature` binding applies only to a creature with
   the same controller that is distinct from its source; it therefore neither
   buffs the source nor leaks to an opponent's battlefield. Multiple legal
@@ -1481,7 +1482,27 @@ Oracle Magic rules coverage.
   registration is rejected atomically. A binding supplies public information
   only while at least one permanent using its effective definition is actually
   on the battlefield; copies therefore use their copied definition, while a
-  departed source leaves no persistent or mutable reveal record behind.
+  departed source leaves no persistent or mutable reveal record behind. The
+  binding scope is explicit: `EveryPlayer` projects every nonempty library
+  top, while `SourceController` projects only the current controller's
+  nonempty library top and follows live control changes. Both views are
+  derived directly from owner-indexed library order; no historical top or
+  hidden opponent identity may be cached.
+- A controller-top creature color static layer reads that same controller's
+  live current library top only when evaluating characteristics. It grants its
+  layer-seven modifier only to controlled creatures that share at least one
+  color with that top card, and only if the top card is a creature card. An
+  empty library, a noncreature or colorless top card, a source departure, a
+  control change, or any nonoverlapping color set immediately removes the
+  contribution without an expiry receipt or an opponent-library probe.
+- `PutTopCardOfControllerLibraryOnBottom` is a reorder of one live
+  owner-indexed library, not a zone change: it takes the vector top and inserts
+  that exact object at its bottom without changing its incarnation. A nonempty
+  resolution records `LibraryTopMovedToBottom { player, card }`; it must name
+  that player's current or subsequently `ObjectLeftGame`-proven card and be
+  followed by its enclosing spell or ability resolution before another
+  priority, step, or game-end boundary. An empty library is a legal no-op and
+  produces no receipt.
 - State-based actions run to a fixed point after relevant changes. The current
   slice moves creatures with zero-or-less toughness or lethal marked damage,
   and marks players with zero-or-less life as lost. Each action emits an
