@@ -274,16 +274,28 @@ Oracle Magic rules coverage.
   untyped land or produce a different color while paying a spell cost.
 - A registered static entry restriction names a permanent source, is immutable
   before the game begins, and is rechecked from the battlefield at each
-  ordinary entry. Its first represented rule applies to opponents' artifacts,
-  creatures, and lands only; it never alters setup injection, a source's own
-  entry, an ally's entry, or an enchantment/instant/sorcery entry. A changed
-  non-token entry records `CardMoved(Battlefield) →
+  ordinary entry. The represented rules apply either to opponents' artifacts,
+  creatures, and lands or to the source's own artifact/creature/land entry;
+  neither alters setup injection, an ally's entry, or an
+  enchantment/instant/sorcery entry. A changed non-token entry records `CardMoved(Battlefield) →
   ObjectIncarnationAdvanced → PermanentEnteredTapped` with the exact source
   incarnation; a changed token entry records `PermanentEnteredTapped →
   TokenCreated` with incarnation one. The audit rejects absent transition
   provenance, invalid source/controller identities, an unsupported source
-  binding, or a fabricated token incarnation. Source departure immediately
+  binding, or a fabricated token incarnation. A source-relative entry receipt
+  has identical permanent and source identities and must name the dedicated
+  source-entry binding; all other tapped-entry receipts must name an opposing
+  live restriction source. Source departure immediately
   revokes the restriction without a delayed cleanup effect.
+- A definition-bound mana ability may require a registered source sacrifice as
+  a physical cost. The policy submits every selected output color bundle
+  explicitly; it must contain only offered colored mana and exactly the
+  declared positive total. The engine preflights the entire bundle and mana
+  cost before mutation, then records `SacrificedAsManaAbilityCost` followed
+  immediately by the ordinary graveyard transition and incarnation receipt
+  before producing mana. The source's normal leaves-the-battlefield triggers
+  are then queued and resolve through the ordinary stack/priority lifecycle;
+  source sacrifice never turns a mana ability itself into a stack object.
 - A stack instruction that draws for each controlled registered basic-land type
   snapshots the resolving controller's live count once at that instruction's
   resolution boundary. Only the exact registered type contributes; lands an
