@@ -6,6 +6,7 @@ use cardbench_magic_engine::{
 use cardbench_magic_rav::card_definitions;
 
 #[test]
+#[allow(clippy::too_many_lines)] // Two public sequential graveyard choices form one stack transcript.
 fn empty_the_catacombs_waits_for_each_players_public_graveyard_choice() {
     let mut game = Game::new(card_definitions(), 2).expect("RAV fixture constructs");
     let spell = game

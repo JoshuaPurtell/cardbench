@@ -25,6 +25,7 @@ fn resolve_top(game: &mut Game) {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // One public cast, entry, activation, and regeneration transcript.
 fn golgari_grave_troll_enters_with_graveyard_counters_and_regenerates() {
     let definition = card_definitions()
         .into_iter()
