@@ -182,6 +182,10 @@ captured before the tapped battlefield move, shuffle, and terminal resolution.
 The public scenario and focused Rust contracts retain that private decision
 boundary without copying card rules text.
 
+Dizzy Spell is also positive-manifest: its target-creature layer-seven
+modifier and hand-zone Transmute search are both represented by typed effects,
+public scenarios, and invariant-checked event traces.
+
 The generic-keyword coverage batch for Conclave Phalanx, Golgari Grave-Troll,
 Necroplasm, Grave-Shell Scarab, Shambling Shell, and Autochthon Wurm follows
 the same fail-closed boundary. Each
