@@ -43,7 +43,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 216] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 217] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
@@ -215,6 +215,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 216] = [
     "RAV-TRANSLUMINANT",
     "RAV-INFECTIOUS-HOST",
     "RAV-CARRION-HOWLER",
+    "RAV-MORTIPEDE",
     "RAV-TWILIGHT-DROVER",
     "RAV-ELVISH-SKYSWEEPER",
     "RAV-CONVOLUTE",
@@ -3940,17 +3941,28 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             1,
             2,
         ),
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed activated combat behavior is
-        // deliberately omitted from this compatibility slice.
-        bounded_creature_chassis(
-            "RAV-MORTIPEDE",
-            "Mortipede",
-            ManaCost::with_colors(3, [Color::Black]),
-            colors([Color::Black]),
-            4,
-            1,
-        ),
+        // Full fidelity: its green activation uses the ordinary stack to
+        // grant the source a temporary must-be-blocked combat keyword.
+        CardDefinition {
+            id: "RAV-MORTIPEDE",
+            name: "Mortipede",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(3, [Color::Black]),
+            colors: colors([Color::Black]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "activated-green-must-be-blocked",
+            ],
+            power: Some(4),
+            toughness: Some(1),
+            keywords: vec![],
+            effects: vec![],
+        },
         // Full printed behavior: this creature's explicit generic cost plus
         // source and other-creature tap costs are paid before its stack-backed
         // Saproling creation resolves.
@@ -6363,6 +6375,24 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 effects: vec![Effect::ModifyTargetPtUntilEndOfTurn {
                     power: -2,
                     toughness: -2,
+                }],
+            },
+        },
+        ActivatedAbilityBinding {
+            card_definition: "RAV-MORTIPEDE",
+            ability: ActivatedAbility {
+                id: "green-must-be-blocked",
+                mana_cost: ManaCost::with_colors(2, [Color::Green]),
+                tap_cost: false,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![],
+                effects: vec![Effect::AddSourceKeywordUntilEndOfTurn {
+                    keyword: Keyword::MustBeBlockedIfAble,
                 }],
             },
         },

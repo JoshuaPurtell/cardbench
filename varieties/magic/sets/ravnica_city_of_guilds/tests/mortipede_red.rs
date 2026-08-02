@@ -34,8 +34,14 @@ fn mortipede_requires_its_green_must_block_activation_for_full_fidelity() {
         .into_iter()
         .find(|definition| definition.id == "RAV-MORTIPEDE")
         .expect("Mortipede definition exists");
-    assert_eq!(mortipede.mana_cost, ManaCost::with_colors(3, [Color::Black]));
-    assert_eq!(mortipede.card_types, [CardType::Creature].into_iter().collect());
+    assert_eq!(
+        mortipede.mana_cost,
+        ManaCost::with_colors(3, [Color::Black])
+    );
+    assert_eq!(
+        mortipede.card_types,
+        [CardType::Creature].into_iter().collect()
+    );
     assert_eq!((mortipede.power, mortipede.toughness), (Some(4), Some(1)));
     assert!(mortipede.keywords.is_empty());
     assert!(
@@ -70,11 +76,19 @@ fn mortipede_activation_uses_the_stack_then_rejects_an_empty_legal_block_step() 
     let blocker = game
         .put_on_battlefield(PlayerId(1), "RAV-WATCHWOLF")
         .expect("opponent has one legal blocker");
+    let forests = (0..3)
+        .map(|_| {
+            game.put_on_battlefield(PlayerId(0), "RAV-FOREST")
+                .expect("Forest starts on the battlefield")
+        })
+        .collect::<Vec<_>>();
     game.set_entered_turn_for_setup(mortipede, 0)
         .expect("Mortipede was controlled before this turn");
-    game.grant_mana(PlayerId(0), Color::Green, 3)
-        .expect("setup funds the green activation");
     game.begin_game().expect("game begins");
+    for forest in forests {
+        game.activate_mana_ability(PlayerId(0), forest, Color::Green)
+            .expect("Forest funds Mortipede activation");
+    }
     game.clear_event_log();
 
     game.activate_ability(

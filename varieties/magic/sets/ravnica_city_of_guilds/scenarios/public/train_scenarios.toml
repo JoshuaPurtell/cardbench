@@ -12219,3 +12219,138 @@ stack_size = 0
 priority = 0
 event_markers = ["AbilityLifePaid", "AbilityActivated", "ContinuousEffectCreated", "AbilityResolved"]
 digest = "fnv1a64:37112b416ffd347a"
+
+[[scenario]]
+id = "rav_mortipede_green_must_block"
+seed = 96
+description = "Activate Mortipede through the public policy action, pay its typed green mana cost, resolve the temporary must-block keyword, and declare the only legal blocker against it."
+
+[[scenario.card]]
+label = "mortipede"
+owner = 0
+definition = "RAV-MORTIPEDE"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.card]]
+label = "blocker"
+owner = 1
+definition = "RAV-WATCHWOLF"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.card]]
+label = "forest1"
+owner = 0
+definition = "RAV-FOREST"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "forest2"
+owner = 0
+definition = "RAV-FOREST"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "forest3"
+owner = 0
+definition = "RAV-FOREST"
+zone = "battlefield"
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "forest1"
+color = "green"
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "forest2"
+color = "green"
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "forest3"
+color = "green"
+
+[[scenario.action]]
+kind = "activate_ability"
+player = 0
+card = "mortipede"
+ability = "green-must-be-blocked"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "declare_attackers"
+player = 0
+attackers = ["mortipede"]
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "declare_blockers"
+player = 1
+attackers = ["mortipede:blocker"]
+
+[scenario.expected]
+life = [20, 20]
+zones = ["mortipede:battlefield", "blocker:battlefield", "forest1:battlefield", "forest2:battlefield", "forest3:battlefield"]
+powers = ["mortipede:4", "blocker:3"]
+toughnesses = ["mortipede:1", "blocker:3"]
+tapped = ["mortipede:true", "blocker:false", "forest1:true", "forest2:true", "forest3:true"]
+mana = ["0:green:0"]
+stack_size = 0
+priority = 0
+event_markers = ["AbilityManaPaid", "AbilityActivated", "ContinuousEffectCreated", "AbilityResolved", "AttackersDeclared", "BlockersDeclared"]
+digest = "fnv1a64:229accaf4fa98e67"
