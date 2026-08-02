@@ -61,9 +61,12 @@ Oracle Magic rules coverage.
   returned card uses its ordinary owner-hand zone transition. The group remains
   live only while that source incarnation is on the battlefield or an
   already-stacked return instruction still names it. A hand card leaving its
-  captured exile incarnation is removed from the group; source departure
-  without such a pending return emits `LinkedHandExileExpired` and cannot
-  leave unreachable private state. `HandExiledWithSource`,
+  captured exile incarnation is removed from the group; ordinary source
+  departure without such a pending return emits `LinkedHandExileExpired` and
+  cannot leave unreachable private state. CR 800.4a owner departure always
+  emits that expiry before removing the source, even when a return instruction
+  was pending: that same transition removes the departing owner's stack
+  object, so it can no longer authorize a return. `HandExiledWithSource`,
   `LinkedHandExileReturned`, and expiry receipts name nonempty, unique public
   object identities while ordinary zone/incarnation receipts remain the
   authoritative transition sequence.
