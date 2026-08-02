@@ -2902,6 +2902,16 @@ pub struct StaticContinuousEffectBinding {
     pub change: ContinuousChange,
 }
 
+/// Immutable expansion data for a battlefield-only static effect that makes
+/// every player's current top library card public information. The binding
+/// itself carries no card identities: [`GameView`] derives the current cards
+/// from the ordinary owner-indexed library zones whenever at least one live
+/// source is present.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct StaticLibraryTopRevealBinding {
+    pub card_definition: &'static str,
+}
+
 /// A battlefield-only rule that restricts combat declarations without changing
 /// a permanent's characteristics. These bindings are immutable expansion data,
 /// rechecked from the live battlefield before attacker state is mutated.

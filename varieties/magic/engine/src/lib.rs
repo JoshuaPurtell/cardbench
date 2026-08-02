@@ -12,7 +12,8 @@ mod model;
 pub use game::{
     CardView, CastRequest, ConvokeContribution, ConvokePayment, DamageReplacementChoiceView, Game,
     GameView, LibrarySearchChoiceView, PendingDecisionView, PolicyAction, PrivateLibraryChoiceView,
-    RulesError, TransmuteSearchView, TriggeredAbilityEffectObjectChoiceView,
+    RevealedLibraryTopView, RulesError, TransmuteSearchView,
+    TriggeredAbilityEffectObjectChoiceView,
 };
 pub use model::{
     AbilityActivation, AbilityCostPayment, ActivatedAbility, ActivatedAbilityBinding,
@@ -38,7 +39,7 @@ pub use model::{
     ResolutionPaymentManaAbility, SharedKeywordFamily, StackEffectResolution, StackObject,
     StackResolutionPlan, StackTargetArityError, StaticAttackRestriction,
     StaticAttackRestrictionBinding, StaticContinuousEffectBinding, StaticEntryRestriction,
-    StaticEntryRestrictionBinding, Step, TRANSMUTE_ABILITY_ID, Target, TargetRequirement,
-    TokenSpec, TriggerCondition, TriggerOrderEntry, TriggeredAbility, TriggeredAbilityBinding,
-    TriggeredEffectObjectDecisionKind, Zone,
+    StaticEntryRestrictionBinding, StaticLibraryTopRevealBinding, Step, TRANSMUTE_ABILITY_ID,
+    Target, TargetRequirement, TokenSpec, TriggerCondition, TriggerOrderEntry, TriggeredAbility,
+    TriggeredAbilityBinding, TriggeredEffectObjectDecisionKind, Zone,
 };

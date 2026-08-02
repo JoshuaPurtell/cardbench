@@ -18,7 +18,8 @@ use crate::{
     rav_additional_spell_cost_bindings, rav_basic_land_type_bindings, rav_cost_reduction_bindings,
     rav_damage_replacement_effect_bindings, rav_mana_ability_bindings,
     rav_replacement_effect_bindings, rav_static_attack_restriction_bindings,
-    rav_static_continuous_effect_bindings, rav_triggered_ability_bindings, set_root,
+    rav_static_continuous_effect_bindings, rav_static_library_top_reveal_bindings,
+    rav_triggered_ability_bindings, set_root,
 };
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -97,6 +98,9 @@ struct ExpectedState {
     token_count: Option<usize>,
     mana: Vec<String>,
     mana_receipts: Vec<String>,
+    /// Public top-library identities, encoded as `library_owner:card_label`.
+    /// Every seated policy view must receive the exact same projection.
+    revealed_library_tops: Vec<String>,
     stack_size: Option<usize>,
     priority: Option<usize>,
     event_markers: Vec<String>,
@@ -326,6 +330,9 @@ fn set_expected_field(
         "mana_receipts" => {
             scenario.expected.mana_receipts = parse_string_array(value, line_number)?;
         }
+        "revealed_library_tops" => {
+            scenario.expected.revealed_library_tops = parse_string_array(value, line_number)?;
+        }
         "stack_size" => scenario.expected.stack_size = Some(parse_number(value, line_number)?),
         "priority" => scenario.expected.priority = Some(parse_number(value, line_number)?),
         "event_markers" => {
@@ -340,7 +347,7 @@ fn set_expected_field(
     Ok(())
 }
 
-#[allow(clippy::too_many_lines)] // One explicit fixture-to-engine setup preserves auditable registrations.
+#[allow(clippy::too_many_lines)] // One fixture execution keeps all bindings and assertions auditable.
 fn execute_scenario(specification: &ScenarioSpec) -> Result<ScenarioResult, String> {
     let mut game = if specification.triggers {
         Game::new_with_all_bindings_triggers_static_continuous_effects_and_land_entries(
@@ -366,6 +373,8 @@ fn execute_scenario(specification: &ScenarioSpec) -> Result<ScenarioResult, Stri
         )
     }
     .map_err(rules_error)?;
+    game.register_static_library_top_reveal_bindings(rav_static_library_top_reveal_bindings())
+        .map_err(rules_error)?;
     game.register_static_attack_restrictions(rav_static_attack_restriction_bindings())
         .map_err(rules_error)?;
     game.register_attachment_bindings(crate::rav_attachment_bindings())
@@ -975,6 +984,37 @@ fn assert_expected_state(
                 "{}: mana assertion `{expected}` expected {amount}, got {actual}",
                 specification.id
             ));
+        }
+    }
+    if !specification.expected.revealed_library_tops.is_empty() {
+        let expected = specification
+            .expected
+            .revealed_library_tops
+            .iter()
+            .map(|entry| {
+                let (owner, label) = split_pair(entry, "revealed library-top assertion")?;
+                Ok((
+                    checked_player(owner.parse::<usize>().map_err(|error| {
+                        format!("invalid revealed library owner in `{entry}`: {error}")
+                    })?)?,
+                    lookup(labels, label)?,
+                ))
+            })
+            .collect::<Result<Vec<_>, String>>()?;
+        for viewer in &game.players {
+            let actual = game
+                .view_for_player(viewer.id)
+                .map_err(rules_error)?
+                .revealed_library_tops
+                .into_iter()
+                .map(|top| (top.owner, top.card.id))
+                .collect::<Vec<_>>();
+            if actual != expected {
+                return Err(format!(
+                    "{}: viewer {} expected public library tops {expected:?}, got {actual:?}",
+                    specification.id, viewer.id.0
+                ));
+            }
         }
     }
     if let Some(expected_stack_size) = specification.expected.stack_size

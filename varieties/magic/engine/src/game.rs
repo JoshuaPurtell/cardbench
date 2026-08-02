@@ -23,9 +23,10 @@ use crate::{
     QuantityReplacementResolution, ReplacementChoice, ReplacementEffect, ReplacementEffectBinding,
     ReplacementEventKind, ResolutionPaymentManaAbility, StackEffectResolution, StackObject,
     StackResolutionPlan, StaticAttackRestriction, StaticAttackRestrictionBinding,
-    StaticContinuousEffectBinding, StaticEntryRestriction, StaticEntryRestrictionBinding, Step,
-    TRANSMUTE_ABILITY_ID, Target, TargetRequirement, TokenSpec, TriggerCondition,
-    TriggerOrderEntry, TriggeredAbilityBinding, TriggeredEffectObjectDecisionKind, Zone,
+    StaticContinuousEffectBinding, StaticEntryRestriction, StaticEntryRestrictionBinding,
+    StaticLibraryTopRevealBinding, Step, TRANSMUTE_ABILITY_ID, Target, TargetRequirement,
+    TokenSpec, TriggerCondition, TriggerOrderEntry, TriggeredAbilityBinding,
+    TriggeredEffectObjectDecisionKind, Zone,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -292,7 +293,8 @@ impl PolicyAction {
     }
 }
 
-/// A deterministic policy-facing view. It excludes the opponent's hand and library.
+/// A deterministic policy-facing view. It excludes hidden cards in the
+/// opponent's hand and library, apart from explicit public-reveal effects.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CardView {
     pub id: ObjectId,
@@ -305,6 +307,16 @@ pub struct CardView {
     pub basic_land_type: Option<BasicLandType>,
     pub card_types: BTreeSet<CardType>,
     pub can_attack: bool,
+}
+
+/// A card currently revealed at the top of one player's library by a live
+/// public static effect. `owner` identifies the library rather than the card's
+/// current controller, so an ordinary control-changing effect cannot make a
+/// revealed card appear to belong to the wrong hidden zone.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RevealedLibraryTopView {
+    pub owner: PlayerId,
+    pub card: CardView,
 }
 
 /// Controller-only legal search choices for one transmute card in hand.
@@ -429,6 +441,11 @@ pub struct GameView {
     pub mana_pool: crate::ManaPool,
     pub lands_played: u8,
     pub hand: Vec<CardView>,
+    /// Every currently nonempty library top made public by a live
+    /// battlefield-only effect. This is absent entirely when no registered
+    /// reveal source is live, so policies never receive an ordinary hidden
+    /// library identity.
+    pub revealed_library_tops: Vec<RevealedLibraryTopView>,
     /// True only for the active player while a draw must be taken or replaced.
     pub draw_replacement_pending: bool,
     /// Controller-visible, currently legal dredge choices for that pending draw.
@@ -704,6 +721,7 @@ pub struct Game {
     static_attack_restrictions: BTreeMap<&'static str, Vec<StaticAttackRestriction>>,
     static_entry_restrictions: BTreeMap<&'static str, Vec<StaticEntryRestriction>>,
     static_continuous_effects: BTreeMap<&'static str, Vec<ContinuousChange>>,
+    static_library_top_reveals: BTreeSet<&'static str>,
     cost_reductions: BTreeMap<&'static str, CostReductionBinding>,
     activated_ability_cost_modifiers: BTreeMap<&'static str, Vec<ActivatedAbilityCostModifier>>,
     generalized_activated_ability_costs:
@@ -971,6 +989,7 @@ impl Game {
             static_attack_restrictions: BTreeMap::new(),
             static_entry_restrictions: BTreeMap::new(),
             static_continuous_effects: BTreeMap::new(),
+            static_library_top_reveals: BTreeSet::new(),
             cost_reductions: BTreeMap::new(),
             activated_ability_cost_modifiers: BTreeMap::new(),
             generalized_activated_ability_costs: BTreeMap::new(),
@@ -1686,6 +1705,42 @@ impl Game {
             changes.push(binding.change);
         }
         Ok(())
+    }
+
+    /// Registers immutable battlefield-only effects that reveal the current
+    /// top card of each player's library. The visibility is calculated from
+    /// live sources rather than written to card objects, so an ordinary draw,
+    /// shuffle, zone move, copy, or source departure cannot strand hidden-card
+    /// information in mutable game state.
+    pub fn register_static_library_top_reveal_bindings(
+        &mut self,
+        bindings: impl IntoIterator<Item = StaticLibraryTopRevealBinding>,
+    ) -> Result<(), RulesError> {
+        if self.started {
+            return Err(RulesError::IllegalAction(
+                "static library-reveal bindings cannot be changed after the game starts",
+            ));
+        }
+        for binding in bindings {
+            let definition = self
+                .catalog
+                .get(binding.card_definition)
+                .ok_or(RulesError::UnknownDefinition(binding.card_definition))?;
+            if !definition.is_permanent() {
+                return Err(RulesError::IllegalAction(
+                    "a static library-reveal binding requires a permanent source",
+                ));
+            }
+            if !self
+                .static_library_top_reveals
+                .insert(binding.card_definition)
+            {
+                return Err(RulesError::IllegalAction(
+                    "duplicate static library-reveal binding",
+                ));
+            }
+        }
+        self.validate_invariants()
     }
 
     /// Starts a prepared game at the real first-turn boundary. Deck loading,
@@ -3164,6 +3219,38 @@ impl Game {
         self.event_log.push(event);
     }
 
+    /// Projects exactly the currently top card of each nonempty library when
+    /// a registered reveal source is live. It deliberately has no cache: the
+    /// final element of the owner-indexed library vector is the sole visible
+    /// identity, so every ordinary library transition is reflected on the
+    /// next policy view without an event-log-only side channel.
+    fn revealed_library_tops(&self) -> Result<Vec<RevealedLibraryTopView>, RulesError> {
+        let reveal_is_active =
+            self.all_battlefield_cards()
+                .into_iter()
+                .try_fold(false, |active, source| {
+                    if active {
+                        return Ok(true);
+                    }
+                    Ok(self
+                        .effective_definition_id(source)?
+                        .is_some_and(|definition| {
+                            self.static_library_top_reveals.contains(definition)
+                        }))
+                })?;
+        if !reveal_is_active {
+            return Ok(Vec::new());
+        }
+        self.players
+            .iter()
+            .filter_map(|player| player.library.last().map(|card| (player.id, *card)))
+            .map(|(owner, card)| {
+                self.card_view(card)
+                    .map(|card| RevealedLibraryTopView { owner, card })
+            })
+            .collect()
+    }
+
     /// Produces the information a deterministic policy may use to propose one move.
     #[allow(clippy::too_many_lines)] // One projection keeps visibility limits auditable.
     pub fn view_for_player(&self, player: PlayerId) -> Result<GameView, RulesError> {
@@ -3173,6 +3260,7 @@ impl Game {
             .iter()
             .map(|card| self.card_view(*card))
             .collect::<Result<Vec<_>, _>>()?;
+        let revealed_library_tops = self.revealed_library_tops()?;
         let mut transmute_searches = Vec::new();
         for card in &state.hand {
             let definition = self.card_definition(*card)?;
@@ -3510,6 +3598,7 @@ impl Game {
             mana_pool: state.mana_pool.clone(),
             lands_played: state.lands_played,
             hand,
+            revealed_library_tops,
             draw_replacement_pending,
             dredge_candidates,
             private_library_choice,
@@ -9679,6 +9768,17 @@ impl Game {
             {
                 return Err(RulesError::IllegalAction(
                     "static continuous-effect binding has duplicate changes",
+                ));
+            }
+        }
+        for definition_id in &self.static_library_top_reveals {
+            let definition = self
+                .catalog
+                .get(definition_id)
+                .ok_or(RulesError::UnknownDefinition(definition_id))?;
+            if !definition.is_permanent() {
+                return Err(RulesError::IllegalAction(
+                    "static library-reveal binding has invalid source definition",
                 ));
             }
         }

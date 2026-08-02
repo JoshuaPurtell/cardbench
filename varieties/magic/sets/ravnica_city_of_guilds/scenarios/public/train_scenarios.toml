@@ -11610,3 +11610,116 @@ priority = 0
 mana = ["0:red:0"]
 event_markers = ["SpellCast", "AttachmentEstablishedWithoutContinuousEffect", "AbilityActivated", "DamageDealtToPlayer", "AbilityResolved"]
 digest = "fnv1a64:61db41ce6d78089e"
+
+[[scenario]]
+id = "rav_wizened_snitches_public_library_tops"
+seed = 171
+description = "Cast Wizened Snitches, then expose exactly the current top card of each nonempty library to both policy views while preserving ordinary stack and zone receipts."
+
+[[scenario.card]]
+label = "snitches"
+owner = 0
+definition = "RAV-WIZENED-SNITCHES"
+zone = "hand"
+
+[[scenario.card]]
+label = "own_top"
+owner = 0
+definition = "RAV-WATCHWOLF"
+zone = "library"
+
+[[scenario.card]]
+label = "opponent_top"
+owner = 1
+definition = "RAV-CHAR"
+zone = "library"
+
+[[scenario.card]]
+label = "island1"
+owner = 0
+definition = "RAV-ISLAND"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "island2"
+owner = 0
+definition = "RAV-ISLAND"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "island3"
+owner = 0
+definition = "RAV-ISLAND"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "island4"
+owner = 0
+definition = "RAV-ISLAND"
+zone = "battlefield"
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "island1"
+color = "blue"
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "island2"
+color = "blue"
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "island3"
+color = "blue"
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "island4"
+color = "blue"
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "snitches"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["snitches:battlefield", "own_top:library", "opponent_top:library", "island1:battlefield", "island2:battlefield", "island3:battlefield", "island4:battlefield"]
+revealed_library_tops = ["0:own_top", "1:opponent_top"]
+mana = ["0:blue:0"]
+stack_size = 0
+priority = 0
+event_markers = ["SpellCast", "SpellResolved", "CardMoved"]
+digest = "fnv1a64:f8f065ddc2b243ec"

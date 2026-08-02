@@ -32,8 +32,9 @@ use cardbench_magic_engine::{
     LibrarySearchSelection, ManaAbilityBinding, ManaAbilityOutput, ManaBundle, ManaCost, PlayerId,
     ReplacementEffect, ReplacementEffectBinding, RulesError, SharedKeywordFamily,
     StaticAttackRestriction, StaticAttackRestrictionBinding, StaticContinuousEffectBinding,
-    StaticEntryRestriction, StaticEntryRestrictionBinding, Target, TargetRequirement, TokenSpec,
-    TriggerCondition, TriggeredAbility, TriggeredAbilityBinding, Zone,
+    StaticEntryRestriction, StaticEntryRestrictionBinding, StaticLibraryTopRevealBinding, Target,
+    TargetRequirement, TokenSpec, TriggerCondition, TriggeredAbility, TriggeredAbilityBinding,
+    Zone,
 };
 
 pub const SET_CODE: &str = "RAV";
@@ -214,6 +215,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 172] = [
     "RAV-THREE-DREAMS",
     "RAV-CONCLAVES-BLESSING",
     "RAV-ZEPHYR-SPIRIT",
+    "RAV-WIZENED-SNITCHES",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -3453,6 +3455,31 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Flying],
             effects: vec![],
         },
+        // Full fidelity: this battlefield-only static rule exposes precisely
+        // the current top card of each nonempty library to every policy view.
+        // It is derived from live sources and owner-indexed zone state rather
+        // than cached hidden-card identities, so ordinary library changes and
+        // source departure update visibility immediately.
+        CardDefinition {
+            id: "RAV-WIZENED-SNITCHES",
+            name: "Wizened Snitches",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(3, [Color::Blue]),
+            colors: colors([Color::Blue]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "global-static-top-library-visibility",
+            ],
+            power: Some(1),
+            toughness: Some(3),
+            keywords: vec![],
+            effects: vec![],
+        },
         // Full fidelity: the targeted player draws before a recipient-private
         // no-priority decision chooses either one land or two cards to
         // discard. The stack object retains the player target throughout, so
@@ -6416,6 +6443,16 @@ pub fn rav_static_continuous_effect_bindings() -> Vec<StaticContinuousEffectBind
     ]
 }
 
+/// Battlefield-only public-information bindings supplied by RAV. These do
+/// not create a stack object or cache a reveal receipt: a live source makes
+/// each current library top visible in every policy projection.
+#[must_use]
+pub fn rav_static_library_top_reveal_bindings() -> Vec<StaticLibraryTopRevealBinding> {
+    vec![StaticLibraryTopRevealBinding {
+        card_definition: "RAV-WIZENED-SNITCHES",
+    }]
+}
+
 /// Battlefield-only static attack restrictions supplied by the RAV set.
 /// These bindings are checked before attacker state changes and never create a
 /// stack object or synthetic event receipt.
@@ -7678,6 +7715,7 @@ fn fresh_game() -> Result<Game, RulesError> {
         rav_activated_ability_bindings(),
         rav_static_continuous_effect_bindings(),
     )?;
+    game.register_static_library_top_reveal_bindings(rav_static_library_top_reveal_bindings())?;
     game.register_static_attack_restrictions(rav_static_attack_restriction_bindings())?;
     game.register_attachment_bindings(rav_attachment_bindings())?;
     game.register_static_entry_restriction_bindings(rav_static_entry_restriction_bindings())?;
