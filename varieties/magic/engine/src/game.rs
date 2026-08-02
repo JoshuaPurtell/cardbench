@@ -3,17 +3,19 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 
 use crate::{
-    AbilityActivation, ActivatedAbility, ActivatedAbilityBinding, ActivatedManaAbility,
-    AdditionalSpellCost, AdditionalSpellCostBinding, BasicLandType, BasicLandTypeBinding,
-    CardDefinition, CardObject, CardType, CastPaymentManaAbility, Characteristics, Color,
-    CombatBlock, ContinuousChange, ContinuousEffect, CostReductionBinding, CounterKind,
-    CreatureSubtype, DeckList, Duration, Effect, GameEvent, Keyword, LandEntryBinding,
-    LibrarySearchDestination, LibrarySearchRequirement, LibrarySearchSelection,
-    ManaAbilityActivation, ManaAbilityBinding, ManaAbilityOutput, ManaCost, ManaPaymentSelection,
-    ObjectId, PlayerId, PlayerState, PolicyMoveKind, ReplacementEffect, ReplacementEffectBinding,
-    ReplacementEventKind, StackEffectResolution, StackObject, StackResolutionPlan,
-    StaticAttackRestriction, StaticAttackRestrictionBinding, StaticContinuousEffectBinding, Step,
-    Target, TargetRequirement, TokenSpec, TriggerCondition, TriggeredAbilityBinding, Zone,
+    AbilityActivation, ActivatedAbility, ActivatedAbilityBinding, ActivatedAbilityCostAdjustment,
+    ActivatedAbilityCostContext, ActivatedAbilityCostModifier, ActivatedAbilityCostModifierBinding,
+    ActivatedAbilityKind, ActivatedManaAbility, AdditionalSpellCost, AdditionalSpellCostBinding,
+    BasicLandType, BasicLandTypeBinding, CardDefinition, CardObject, CardType,
+    CastPaymentManaAbility, Characteristics, Color, CombatBlock, ContinuousChange,
+    ContinuousEffect, CostReductionBinding, CounterKind, CreatureSubtype, DeckList, Duration,
+    Effect, GameEvent, Keyword, LandEntryBinding, LibrarySearchDestination,
+    LibrarySearchRequirement, LibrarySearchSelection, ManaAbilityActivation, ManaAbilityBinding,
+    ManaAbilityOutput, ManaCost, ManaPaymentSelection, ObjectId, PlayerId, PlayerState,
+    PolicyMoveKind, ReplacementEffect, ReplacementEffectBinding, ReplacementEventKind,
+    StackEffectResolution, StackObject, StackResolutionPlan, StaticAttackRestriction,
+    StaticAttackRestrictionBinding, StaticContinuousEffectBinding, Step, Target, TargetRequirement,
+    TokenSpec, TriggerCondition, TriggeredAbilityBinding, Zone,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -547,6 +549,7 @@ pub struct Game {
     static_attack_restrictions: BTreeMap<&'static str, Vec<StaticAttackRestriction>>,
     static_continuous_effects: BTreeMap<&'static str, Vec<ContinuousChange>>,
     cost_reductions: BTreeMap<&'static str, CostReductionBinding>,
+    activated_ability_cost_modifiers: BTreeMap<&'static str, Vec<ActivatedAbilityCostModifier>>,
     replacement_effects: BTreeMap<&'static str, Vec<ReplacementEffect>>,
     basic_land_types: BTreeMap<&'static str, BasicLandType>,
     land_entry_behaviors: BTreeMap<&'static str, LandEntryBinding>,
@@ -785,6 +788,7 @@ impl Game {
             static_attack_restrictions: BTreeMap::new(),
             static_continuous_effects: BTreeMap::new(),
             cost_reductions: BTreeMap::new(),
+            activated_ability_cost_modifiers: BTreeMap::new(),
             replacement_effects: BTreeMap::new(),
             basic_land_types,
             land_entry_behaviors: BTreeMap::new(),
@@ -909,6 +913,44 @@ impl Game {
                     "duplicate cost-reduction binding for card definition",
                 ));
             }
+        }
+        self.validate_invariants()
+    }
+
+    /// Registers immutable, battlefield-scoped activated-cost modifiers before
+    /// a game begins.  A binding names expansion data, while each individual
+    /// permanent is discovered from the live battlefield when an ability is
+    /// activated; ordinary source departure therefore revokes its adjustment
+    /// without a card-specific cleanup hook.
+    pub fn register_activated_ability_cost_modifier_bindings(
+        &mut self,
+        bindings: impl IntoIterator<Item = ActivatedAbilityCostModifierBinding>,
+    ) -> Result<(), RulesError> {
+        if self.started {
+            return Err(RulesError::IllegalAction(
+                "activated-cost modifier bindings cannot be changed after the game starts",
+            ));
+        }
+        for binding in bindings {
+            let definition = self
+                .catalog
+                .get(binding.source_definition)
+                .ok_or(RulesError::UnknownDefinition(binding.source_definition))?;
+            if !definition.is_permanent() || binding.modifier.generic_amount() == 0 {
+                return Err(RulesError::IllegalAction(
+                    "an activated-cost modifier requires a permanent source and positive amount",
+                ));
+            }
+            let modifiers = self
+                .activated_ability_cost_modifiers
+                .entry(binding.source_definition)
+                .or_default();
+            if modifiers.contains(&binding.modifier) {
+                return Err(RulesError::IllegalAction(
+                    "duplicate activated-cost modifier binding",
+                ));
+            }
+            modifiers.push(binding.modifier);
         }
         self.validate_invariants()
     }

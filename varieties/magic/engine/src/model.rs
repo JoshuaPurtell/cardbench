@@ -383,6 +383,92 @@ impl CounterKind {
     }
 }
 
+/// Whether an activated-cost calculation is for a mana ability or an ordinary
+/// stack-using activated ability.
+///
+/// This is deliberately part of the cost context instead of an inference from
+/// a card definition: a permanent may expose both kinds of activated ability.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ActivatedAbilityKind {
+    Mana,
+    NonMana,
+}
+
+/// A source-bound generic adjustment to an activated ability's mana cost.
+///
+/// The initial substrate is intentionally limited to generic-symbol changes;
+/// colored and hybrid requirements remain part of the base cost and can never
+/// be removed by this binding.  Later expansions can add more adjustment
+/// variants without teaching the engine about card names.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ActivatedAbilityCostModifier {
+    IncreaseGeneric { amount: u8, nonmana_only: bool },
+    ReduceGeneric { amount: u8, nonmana_only: bool },
+}
+
+impl ActivatedAbilityCostModifier {
+    #[must_use]
+    pub const fn generic_amount(self) -> u8 {
+        match self {
+            Self::IncreaseGeneric { amount, .. } | Self::ReduceGeneric { amount, .. } => amount,
+        }
+    }
+
+    #[must_use]
+    pub const fn applies_to(self, kind: ActivatedAbilityKind) -> bool {
+        match self {
+            Self::IncreaseGeneric { nonmana_only, .. }
+            | Self::ReduceGeneric { nonmana_only, .. } => {
+                !nonmana_only || matches!(kind, ActivatedAbilityKind::NonMana)
+            }
+        }
+    }
+}
+
+/// Immutable expansion data that makes one live permanent modify activation
+/// costs while it remains on the battlefield.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ActivatedAbilityCostModifierBinding {
+    pub source_definition: &'static str,
+    pub modifier: ActivatedAbilityCostModifier,
+}
+
+/// One live source contribution captured while calculating an activated
+/// ability's mana cost.  The incarnation prevents a departed/re-entered
+/// physical card from being conflated with the source that actually taxed or
+/// reduced the activation.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ActivatedAbilityCostAdjustment {
+    pub source: ObjectId,
+    pub source_incarnation: u64,
+    pub generic_amount: u8,
+}
+
+/// The typed, auditable input and result of one activated-cost calculation.
+///
+/// `payment_selection` is optional because the legacy activation API has a
+/// deterministic compatibility payment path.  New callers may provide an
+/// explicit selection through the dedicated activation method; either form
+/// still uses the same effective cost and transactional preflight.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ActivatedAbilityCostContext {
+    pub acting_player: PlayerId,
+    pub source: ObjectId,
+    pub source_incarnation: u64,
+    pub ability_id: &'static str,
+    pub kind: ActivatedAbilityKind,
+    pub base_mana_cost: ManaCost,
+    pub increases: Vec<ActivatedAbilityCostAdjustment>,
+    pub reductions: Vec<ActivatedAbilityCostAdjustment>,
+    pub additional_tap_creatures: u8,
+    pub sacrifice_source: bool,
+    pub sacrifice_creatures: u8,
+    pub sacrifice_lands: u8,
+    pub discard_cards: u8,
+    pub payment_selection: Option<ManaPaymentSelection>,
+    pub effective_mana_cost: ManaCost,
+}
+
 /// A replacement event quantity that can be modified by a live permanent.
 ///
 /// The event kind is deliberately semantic instead of card-named. Future sets
@@ -2545,6 +2631,14 @@ pub enum GameEvent {
         source: ObjectId,
         ability: &'static str,
         mana_cost: ManaCost,
+    },
+    /// A live source changed the generic portion of an activated ability's
+    /// mana cost.  This receipt is emitted immediately before the matching
+    /// mana-payment receipt (when one remains) and preserves enough context
+    /// for replay to audit the printed cost, live modifier sources, and final
+    /// payable cost without inspecting private engine bindings.
+    ActivatedAbilityCostCalculated {
+        context: ActivatedAbilityCostContext,
     },
     /// A controlled creature was selected and tapped as an explicit
     /// additional cost for a non-mana activated ability.
