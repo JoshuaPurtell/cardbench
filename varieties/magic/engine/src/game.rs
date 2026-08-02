@@ -6368,7 +6368,8 @@ impl Game {
                             && stack_token == token
                 ) || matches!(
                     (stack_object.effects.as_slice(), stack_object.targets.as_slice()),
-                    ([Effect::CreateTokenForTargetPlayer { token: stack_token, count }], [Target::Player(target)])
+                    ([Effect::CreateTokenForTargetPlayer { token: stack_token, count }
+                        | Effect::CreateTokenForTargetOpponent { token: stack_token, count }], [Target::Player(target)])
                         if target == player
                             && token_count == Some(*count)
                             && stack_token == token
@@ -10643,6 +10644,7 @@ impl Game {
                 Effect::AddManaController { amount, .. } => i16::from(*amount),
                 Effect::CreateToken { .. }
                 | Effect::CreateTokenForTargetPlayer { .. }
+                | Effect::CreateTokenForTargetOpponent { .. }
                 | Effect::AttachSourceToTarget { .. }
                 | Effect::GainControlTargetUntilEndOfTurn
                 | Effect::AddPlusOneCounterToSource
@@ -11213,6 +11215,7 @@ impl Game {
     /// creation or counter-placement stack item. The generic chain retains
     /// the stack item while the player selects an ordering, then recomputes
     /// live source incarnations after every application.
+    #[allow(clippy::too_many_lines)] // The exhaustive stack-shape matcher remains one auditable replacement boundary.
     fn suspend_top_stack_item_for_quantity_replacement_choice(
         &mut self,
     ) -> Result<bool, RulesError> {
@@ -11238,15 +11241,20 @@ impl Game {
                     token: token.clone(),
                 },
             )),
-            ([Effect::CreateTokenForTargetPlayer { token, count }], [Target::Player(player)])
-                if *count > 0
-                    && self.stack_target_incarnation_matches(top, 0, Target::Player(*player))
-                    && self.target_matches_for_colors(
-                        controller,
-                        Target::Player(*player),
-                        TargetRequirement::Player,
-                        &source_colors,
-                    ) =>
+            (
+                [
+                    Effect::CreateTokenForTargetPlayer { token, count }
+                    | Effect::CreateTokenForTargetOpponent { token, count },
+                ],
+                [Target::Player(player)],
+            ) if *count > 0
+                && self.stack_target_incarnation_matches(top, 0, Target::Player(*player))
+                && self.target_matches_for_colors(
+                    controller,
+                    Target::Player(*player),
+                    TargetRequirement::Player,
+                    &source_colors,
+                ) =>
             {
                 Some((
                     *player,
@@ -14736,7 +14744,8 @@ impl Game {
             Effect::CreateToken { token, count } => {
                 self.create_tokens(controller, token, *count)?;
             }
-            Effect::CreateTokenForTargetPlayer { token, count } => {
+            Effect::CreateTokenForTargetPlayer { token, count }
+            | Effect::CreateTokenForTargetOpponent { token, count } => {
                 let target_player = match target {
                     Some(Target::Player(player)) if !self.players[player.0].lost => player,
                     Some(other) => return Err(RulesError::IllegalTarget(other)),
@@ -20931,7 +20940,8 @@ impl Game {
                                 if top.controller == *player && i16::from(*count) == *original_amount
                         ) || matches!(
                             (top.effects.as_slice(), top.targets.as_slice()),
-                            ([Effect::CreateTokenForTargetPlayer { count, .. }], [Target::Player(target)])
+                            ([Effect::CreateTokenForTargetPlayer { count, .. }
+                                | Effect::CreateTokenForTargetOpponent { count, .. }], [Target::Player(target)])
                                 if target == player && i16::from(*count) == *original_amount
                         )
                     }

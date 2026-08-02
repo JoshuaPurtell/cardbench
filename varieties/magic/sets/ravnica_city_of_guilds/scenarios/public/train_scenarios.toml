@@ -4,6 +4,113 @@ visibility = "shown"
 format = "ravnica-block"
 
 [[scenario]]
+id = "rav_hunted_phantasm_policy_target_goblins"
+seed = 163
+triggers = true
+description = "Cast Hunted Phantasm, submit its mandatory opponent target through the policy decision boundary, and resolve exactly five typed Goblins for that chosen opponent."
+
+[[scenario.card]]
+label = "phantasm"
+owner = 0
+definition = "RAV-HUNTED-PHANTASM"
+zone = "hand"
+
+[[scenario.card]]
+label = "island1"
+owner = 0
+definition = "RAV-ISLAND"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "island2"
+owner = 0
+definition = "RAV-ISLAND"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "island3"
+owner = 0
+definition = "RAV-ISLAND"
+zone = "battlefield"
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "island1"
+color = "blue"
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "island2"
+color = "blue"
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "island3"
+color = "blue"
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "phantasm"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "choose_trigger_targets"
+player = 0
+card = "phantasm"
+ability = "etb-opponent-goblins"
+target = "player:1"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["phantasm:battlefield", "island1:battlefield", "island2:battlefield", "island3:battlefield"]
+powers = ["phantasm:4"]
+toughnesses = ["phantasm:6"]
+token_count = 5
+mana = ["0:blue:0"]
+stack_size = 0
+priority = 0
+event_markers = ["SpellCast", "DecisionOpened", "DecisionCompleted", "TriggeredAbilityStacked", "TokenCreated", "AbilityResolved", "SpellResolved"]
+digest = "fnv1a64:1dcc9deafeb1b9a5"
+
+[[scenario]]
 id = "rav_wave_three_green_creature_chassis"
 seed = 0
 description = "Cast five green creature chassis with exact colored costs and verify their bounded base P/T only. Their printed triggers and activations are deliberately omitted."
@@ -4718,7 +4825,7 @@ digest = "fnv1a64:10ab6a9c0b91ec2c"
 [[scenario]]
 id = "rav_easy_blue_phantasm_drake_chassis"
 seed = 0
-description = "Cast Hunted Phantasm and Tattered Drake with exact blue costs, then verify only their base P/T. Hunted Phantasm's Unblockable and deterministic opponent Goblin-token ETB slice and Tattered Drake's Flying declaration are exercised separately; Drake's regeneration remains unsupported."
+description = "Cast Hunted Phantasm and Tattered Drake with exact blue costs, then verify only their base P/T. Hunted Phantasm's Unblockable and policy-selected opponent Goblin-token ETB slice and Tattered Drake's Flying declaration are exercised separately; Drake's regeneration remains unsupported."
 
 [[scenario.card]]
 label = "phantasm"

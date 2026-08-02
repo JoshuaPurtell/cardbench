@@ -40,7 +40,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 160] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 161] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -89,6 +89,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 160] = [
     "RAV-CONCLAVE-EQUENAUT",
     "RAV-SNAPPING-DRAKE",
     "RAV-TATTERED-DRAKE",
+    "RAV-HUNTED-PHANTASM",
     "RAV-GOLIATH-SPIDER",
     "RAV-COURIER-HAWK",
     "RAV-SKYKNIGHT-LEGIONNAIRE",
@@ -3630,12 +3631,11 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             5,
             5,
         ),
-        // Compatibility scope: normal colored-cost creature casting, base
-        // characteristics, unblockability, and the stack-backed targeted ETB
-        // token trigger are represented. The shared trigger substrate selects
-        // the first legal opponent deterministically; policy-submitted target
-        // selection remains an explicit engine limitation, so this is not a
-        // full-fidelity manifest entry.
+        // Full fidelity: normal colored-cost creature casting, base
+        // characteristics, unblockability, and its stack-backed targeted ETB
+        // token trigger are represented. The shared trigger substrate exposes
+        // the target choice only to the ability controller before the trigger
+        // enters the stack.
         CardDefinition {
             id: "RAV-HUNTED-PHANTASM",
             name: "Hunted Phantasm",
@@ -3646,11 +3646,12 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             card_types: types([CardType::Creature]),
             is_basic_land: false,
             supported_rules: &[
+                "full-rules-fidelity",
                 "colored-cost-casting",
                 "base-characteristics",
                 "cannot-be-blocked",
                 "enter-battlefield-targeted-opponent-goblin-token-creation",
-                "deterministic-opponent-target-selection",
+                "policy-submitted-trigger-target",
             ],
             power: Some(4),
             toughness: Some(6),
@@ -6351,8 +6352,8 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                 condition: TriggerCondition::EntersBattlefield,
                 mana_cost: ManaCost::new(0),
                 optional: false,
-                targets: vec![cardbench_magic_engine::TargetRequirement::Player],
-                effects: vec![Effect::CreateTokenForTargetPlayer {
+                targets: vec![cardbench_magic_engine::TargetRequirement::Opponent],
+                effects: vec![Effect::CreateTokenForTargetOpponent {
                     token: TokenSpec::red_goblin(),
                     count: 5,
                 }],

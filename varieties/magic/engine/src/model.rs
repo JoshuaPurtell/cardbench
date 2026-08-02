@@ -1773,6 +1773,13 @@ pub enum Effect {
         token: TokenSpec,
         count: u8,
     },
+    /// Create tokens under one targeted opponent.  This distinct target shape
+    /// retains the controller-relative restriction through stack placement and
+    /// resolution instead of relying on a card-specific target filter.
+    CreateTokenForTargetOpponent {
+        token: TokenSpec,
+        count: u8,
+    },
     /// First half of Razia's two-target replacement effect. The following
     /// targeted effect supplies the alternate damage recipient.
     BeginDamageRedirection {
@@ -2168,6 +2175,7 @@ impl Effect {
             | Self::DiscardTargetPlayer { .. }
             | Self::MillTargetPlayer { .. }
             | Self::MillTargetPlayerFromSourceDamage => Some(TargetRequirement::Player),
+            Self::CreateTokenForTargetOpponent { .. } => Some(TargetRequirement::Opponent),
             Self::LookAtTopCardsOfTargetOpponentExileOne { .. } => {
                 Some(TargetRequirement::Opponent)
             }
