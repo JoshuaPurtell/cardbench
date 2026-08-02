@@ -19,6 +19,7 @@ use cardbench_magic_engine::{
 const OPTIONAL_TRIGGER_SOURCE: &str = "TST-OPTIONAL-TRIGGER-QUANTITY-SOURCE";
 const DOUBLER: &str = "TST-OPTIONAL-TRIGGER-QUANTITY-DOUBLER";
 const TRIPLER: &str = "TST-OPTIONAL-TRIGGER-QUANTITY-TRIPLER";
+const FOREST: &str = "TST-OPTIONAL-TRIGGER-QUANTITY-FOREST";
 const ABILITY: &str = "optional-upkeep-token-and-life";
 
 fn permanent(id: &'static str, card_type: CardType) -> CardDefinition {
@@ -35,6 +36,24 @@ fn permanent(id: &'static str, card_type: CardType) -> CardDefinition {
         supported_rules: &["optional-trigger-quantity-resume-red"],
         power: is_creature.then_some(1),
         toughness: is_creature.then_some(1),
+        keywords: vec![],
+        effects: vec![],
+    }
+}
+
+fn forest() -> CardDefinition {
+    CardDefinition {
+        id: FOREST,
+        name: FOREST,
+        set_code: "TST",
+        mana_cost: ManaCost::new(0),
+        colors: BTreeSet::new(),
+        mana_colors: BTreeSet::from([Color::Green]),
+        card_types: BTreeSet::from([CardType::Land]),
+        is_basic_land: true,
+        supported_rules: &["optional-trigger-quantity-resume-red"],
+        power: None,
+        toughness: None,
         keywords: vec![],
         effects: vec![],
     }
@@ -58,7 +77,7 @@ fn accepted_optional_trigger_does_not_reopen_after_middle_quantity_replacement()
         ability: TriggeredAbility {
             id: ABILITY,
             condition: TriggerCondition::BeginningOfUpkeep,
-            mana_cost: ManaCost::new(0),
+            mana_cost: ManaCost::new(1),
             optional: true,
             targets: vec![],
             effects: vec![
@@ -76,6 +95,7 @@ fn accepted_optional_trigger_does_not_reopen_after_middle_quantity_replacement()
             permanent(OPTIONAL_TRIGGER_SOURCE, CardType::Creature),
             permanent(DOUBLER, CardType::Enchantment),
             permanent(TRIPLER, CardType::Enchantment),
+            forest(),
         ],
         2,
         [],
@@ -103,7 +123,12 @@ fn accepted_optional_trigger_does_not_reopen_after_middle_quantity_replacement()
         .expect("doubler begins on the battlefield");
     game.put_on_battlefield(controller, TRIPLER)
         .expect("tripler begins on the battlefield");
+    let forest = game
+        .put_on_battlefield(controller, FOREST)
+        .expect("mana source begins on the battlefield");
     game.begin_game().expect("the game begins at upkeep");
+    game.activate_mana_ability(controller, forest, Color::Green)
+        .expect("one generic-compatible mana is added before the trigger resolves");
 
     pass_pair(&mut game);
     let optional = game
@@ -113,7 +138,10 @@ fn accepted_optional_trigger_does_not_reopen_after_middle_quantity_replacement()
         .expect("optional trigger reaches its one payment decision");
     assert_eq!(optional.source, source);
     assert_eq!(optional.ability, ABILITY);
-    assert!(optional.can_pay, "zero-cost optional trigger can be accepted");
+    assert!(
+        optional.can_pay,
+        "optional trigger can pay its one mana cost"
+    );
 
     game.submit_policy_move(
         controller,
@@ -172,15 +200,18 @@ fn accepted_optional_trigger_does_not_reopen_after_middle_quantity_replacement()
         "an accepted optional trigger must not reopen its payment choice after a later replacement pause"
     );
     assert!(view.pending_decision.is_none());
-    assert!(game.stack.is_empty(), "the resumed trigger resolves exactly once");
+    assert!(
+        game.stack.is_empty(),
+        "the resumed trigger resolves exactly once"
+    );
     assert_eq!(game.player(controller).expect("controller exists").life, 23);
     assert_eq!(
         game.player(controller)
             .expect("controller exists")
             .battlefield
             .len(),
-        9,
-        "source plus two multipliers plus six replaced tokens remain"
+        10,
+        "source, two multipliers, mana source, and six replaced tokens remain"
     );
     assert_eq!(
         game.event_log
@@ -195,6 +226,20 @@ fn accepted_optional_trigger_does_not_reopen_after_middle_quantity_replacement()
             .count(),
         1,
         "the trigger has one terminal resolution receipt"
+    );
+    assert_eq!(
+        game.event_log
+            .iter()
+            .filter(|event| {
+                matches!(
+                    event,
+                    GameEvent::AbilityManaPaid { source: paid, ability, .. }
+                        if *paid == source && *ability == ABILITY
+                )
+            })
+            .count(),
+        1,
+        "resuming an accepted optional trigger never charges its mana cost twice"
     );
     game.validate_invariants()
         .expect("completed optional trigger remains state-machine valid");

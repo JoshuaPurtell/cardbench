@@ -14659,6 +14659,12 @@ impl Game {
     ) -> Result<(), RulesError> {
         if optional_decision.is_none()
             && let Some(top) = self.stack.last()
+            // A nonzero cursor means this exact stack item has already
+            // passed its optional-trigger payment boundary and is resuming a
+            // later instruction after a no-priority replacement choice.
+            // Reopening the prompt would make the policy pay/decline twice
+            // and strand the cursor outside its replacement continuation.
+            && self.stack_effect_cursor(top)? == 0
             && let Some(ability_id) = top.ability_id
             && let Some(ability) = self
                 .triggered_abilities
@@ -14821,19 +14827,28 @@ impl Game {
                 .and_then(|abilities| abilities.get(ability_id))
         {
             let should_pay = if ability.optional {
-                optional_decision
-                    .as_ref()
-                    .map(|decision| decision.0)
-                    .ok_or(RulesError::IllegalAction(
-                        "optional triggered cost resolved without a policy decision",
-                    ))?
+                if next_effect_index > 0 {
+                    // A cursor can only be installed after the initial
+                    // resolution call accepted the optional trigger and
+                    // completed an earlier instruction.  Its suffix keeps
+                    // that historical payment result; it must neither reopen
+                    // the choice nor charge the mana cost twice.
+                    true
+                } else {
+                    optional_decision
+                        .as_ref()
+                        .map(|decision| decision.0)
+                        .ok_or(RulesError::IllegalAction(
+                            "optional triggered cost resolved without a policy decision",
+                        ))?
+                }
             } else {
                 true
             };
             if !should_pay {
                 trigger_payment_paid = false;
             }
-            if should_pay && ability.mana_cost.mana_value() > 0 {
+            if should_pay && next_effect_index == 0 && ability.mana_cost.mana_value() > 0 {
                 let mut paid_pool = self.players[stack_object.controller.0].mana_pool.clone();
                 paid_pool
                     .pay(&ability.mana_cost)

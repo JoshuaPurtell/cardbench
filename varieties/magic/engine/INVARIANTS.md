@@ -843,7 +843,12 @@ Oracle Magic rules coverage.
   the replay audit still requires a finite same-event chain ending in exactly
   the resulting `TokenCreated` batch or `CounterPlaced` receipt. Direct
   non-suspended helper paths use the same live candidate/application logic in
-  stable order.
+  stable order. If that cursor resumes an optional triggered ability, it is
+  proof that the initial optional decision was already accepted and its prefix
+  resolved: only an untouched cursor-zero stack item may open the optional
+  accept/decline boundary or charge its resolution-time mana cost. A resumed
+  suffix must preserve that accepted decision, never reopen or repay it, and
+  emit the one ordinary terminal ability receipt.
 - A `DistinctCreature` target slot must name a creature permanent and may not
   reuse any other distinct-creature occurrence in the same spell. The cast
   validator and the stack-provenance audit both reject a duplicate before any
