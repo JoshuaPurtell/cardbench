@@ -7,7 +7,10 @@ use cardbench_magic_engine::{
 };
 use cardbench_magic_rav::{RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions};
 
-fn request(card: cardbench_magic_engine::ObjectId, target: Option<cardbench_magic_engine::ObjectId>) -> CastRequest {
+fn request(
+    card: cardbench_magic_engine::ObjectId,
+    target: Option<cardbench_magic_engine::ObjectId>,
+) -> CastRequest {
     CastRequest {
         card,
         targets: target.into_iter().map(Target::Permanent).collect(),
@@ -33,12 +36,17 @@ fn conclaves_blessing_has_its_exact_convoke_dynamic_aura_contract() {
         ManaCost::with_colors(3, [Color::White])
     );
     assert_eq!(definition.colors, BTreeSet::from([Color::White]));
-    assert_eq!(definition.card_types, BTreeSet::from([CardType::Enchantment]));
+    assert_eq!(
+        definition.card_types,
+        BTreeSet::from([CardType::Enchantment])
+    );
     assert!(definition.keywords.contains(&Keyword::Convoke));
     assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&definition.id));
-    assert!(definition
-        .supported_rules
-        .contains(&"aura-convoke-dynamic-other-controller-creature-toughness"));
+    assert!(
+        definition
+            .supported_rules
+            .contains(&"aura-convoke-dynamic-other-controller-creature-toughness")
+    );
 }
 
 #[test]

@@ -40,7 +40,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 152] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 153] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -193,6 +193,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 152] = [
     "RAV-SUPPRESSION-FIELD",
     "RAV-LOXODON-GATEKEEPER",
     "RAV-THREE-DREAMS",
+    "RAV-CONCLAVES-BLESSING",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -2233,6 +2234,35 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                     may_fail_to_find: false,
                 },
                 reveal_selected: true,
+            }],
+        },
+        // Full fidelity: Convoke remains part of ordinary casting while the
+        // attached layer-seven effect recalculates from the enchanted
+        // creature controller's other current creatures.
+        CardDefinition {
+            id: "RAV-CONCLAVES-BLESSING",
+            name: "Conclave's Blessing",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(3, [Color::White]),
+            colors: colors([Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Enchantment]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "aura-convoke-dynamic-other-controller-creature-toughness",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![Keyword::Convoke],
+            effects: vec![Effect::AttachSourceToTarget {
+                target: TargetRequirement::Creature,
+                changes: vec![
+                    ContinuousChange::ModifyPowerToughnessForEachOtherCreatureControlledByTarget {
+                        power_per_creature: 0,
+                        toughness_per_creature: 2,
+                    },
+                ],
             }],
         },
         // Full fidelity: ordinary Aura attachment preserves the exact source
