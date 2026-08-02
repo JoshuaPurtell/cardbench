@@ -10,8 +10,10 @@ fn grayscaled_gharial_requires_islandwalk_for_full_fidelity() {
         .find(|definition| definition.id == "RAV-GRAYSCALED-GHARIAL")
         .expect("Grayscaled Gharial definition exists");
 
-    assert!(definition
-        .keywords
-        .contains(&Keyword::Landwalk(BasicLandType::Island)));
+    assert!(
+        definition
+            .keywords
+            .contains(&Keyword::Landwalk(BasicLandType::Island))
+    );
     assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&definition.id));
 }
