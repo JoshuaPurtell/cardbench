@@ -722,14 +722,19 @@ Oracle Magic rules coverage.
   orphaned receipt, a mismatched stack value, or an unmaterialized template
   fails the invariant audit.
 - A target-free beginning-of-upkeep source-counter creature sweep is distinct
-  from that sacrifice-cost materialization: after an exact
-  `TriggeredAbilityOrder` decision it reads only the source's still-live,
-  exact battlefield incarnation at resolution. The counter kind must be valid,
-  the sampled quantity nonnegative, and the complete creature recipient set is
-  snapshotted before any destruction. A departed or re-entered source is an
-  auditable no-op in this bounded substrate; it may never donate a later
-  incarnation's counters to an old stack object. Exact last-known counter
-  values for departed sources remain an explicit fidelity gap.
+  from sacrifice-cost materialization: after an exact
+  `TriggeredAbilityOrder` decision it reads the source's current counter total
+  while that exact battlefield incarnation remains live, preserving the effect
+  of an earlier simultaneous counter trigger. If that source departs while the
+  sweep remains pending, the departure boundary replaces only the matching
+  stack template with an immutable nonnegative mana value and emits a
+  `SourceCounterValueMaterialized` receipt immediately before the source's
+  normal `CardMoved`/incarnation-advance pair. The audit binds each receipt to
+  its registered upkeep trigger, counter kind, source incarnation, and any
+  still-live materialized stack object; orphaned or mismatched materialization
+  fails. Resolution snapshots the complete creature recipient set before any
+  destruction, and a later re-entry cannot donate a new counter total to the
+  old stack object.
 - A registered quantity replacement has a catalogued permanent source, a
   multiplier of at least two, and is fixed before the game begins. When tokens
   are created or a represented counter is placed, only live battlefield
