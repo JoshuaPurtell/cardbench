@@ -49,8 +49,8 @@ a zone move. The fetched Aura's ordinary ETB trigger is queued only after the
 Mage trigger's terminal receipt. The opponent sees neither unselected Aura
 identities nor a private decision projection.
 
-The current catalog partition is 216 full / 40 partial / 35 catalog-only unique
-names (231 / 40 / 35 printings). The independently checked coverage-report
+The current catalog partition is 217 full / 39 partial / 35 catalog-only unique
+names (232 / 39 / 35 printings). The independently checked coverage-report
 binary emits the same partition.
 
 `RAV_FULL_FIDELITY_DEFINITION_IDS` is a deliberately small positive manifest,
@@ -303,8 +303,15 @@ before the stack object, and applies the exact temporary source modifier only
 on normal ability resolution. The shown scenario records the entire lifecycle
 and the focused contract ends with the state-machine invariant audit.
 
+Mortipede is a positive-manifest entry. Its zero-target `{2}{G}` activation
+uses the ordinary ability stack to grant its source the temporary
+`MustBeBlockedIfAble` keyword. The shown scenario proves both the resulting
+combat constraint and a legal blocker assignment; the focused contract also
+proves that an empty assignment is rejected atomically when a legal blocker is
+available.
+
 The second creature-chassis batch adds Elvish Skysweeper, Frenzied Goblin,
-Greater Forgeling, Lore Broker, Mortipede, Selesnya Evangel, and Selesnya
+Greater Forgeling, Lore Broker, Selesnya Evangel, and Selesnya
 Sagittars. These definitions likewise
 record only public identity, mana cost, color, creature type, and base
 power/toughness. Their card-specific activated, triggered, evasion, token, and

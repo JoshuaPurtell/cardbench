@@ -184,6 +184,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-TRANSLUMINANT",
             "RAV-INFECTIOUS-HOST",
             "RAV-CARRION-HOWLER",
+            "RAV-MORTIPEDE",
             "RAV-TWILIGHT-DROVER",
             "RAV-ELVISH-SKYSWEEPER",
             "RAV-CONVOLUTE",
