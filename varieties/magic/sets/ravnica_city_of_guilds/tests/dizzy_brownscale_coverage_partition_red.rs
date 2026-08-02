@@ -1,6 +1,8 @@
 use std::collections::BTreeSet;
 
-use cardbench_magic_rav::{CardSemanticStatus, RAV_FULL_FIDELITY_DEFINITION_IDS, rav_main_set_catalog};
+use cardbench_magic_rav::{
+    CardSemanticStatus, RAV_FULL_FIDELITY_DEFINITION_IDS, rav_main_set_catalog,
+};
 
 #[test]
 fn post_promotion_partition_matches_the_catalog() {
@@ -11,7 +13,10 @@ fn post_promotion_partition_matches_the_catalog() {
         .into_iter()
         .filter_map(|card| match card.semantic_status {
             CardSemanticStatus::ExecutableCompatibilitySlice { definition_id }
-                if !full_ids.contains(definition_id) => Some(card.name),
+                if !full_ids.contains(definition_id) =>
+            {
+                Some(card.name)
+            }
             _ => None,
         })
         .collect::<BTreeSet<_>>();

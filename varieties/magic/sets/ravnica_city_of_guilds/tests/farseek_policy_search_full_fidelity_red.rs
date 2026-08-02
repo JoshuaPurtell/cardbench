@@ -16,10 +16,17 @@ fn farseek_requires_a_private_controller_selected_nonforest_land_search() {
         .into_iter()
         .find(|definition| definition.id == "RAV-FARSEEK")
         .expect("Farseek definition exists");
-    assert_eq!(definition.mana_cost, ManaCost::with_colors(1, [Color::Green]));
+    assert_eq!(
+        definition.mana_cost,
+        ManaCost::with_colors(1, [Color::Green])
+    );
     assert_eq!(definition.card_types, [CardType::Sorcery].into());
     assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&definition.id));
-    assert!(definition.supported_rules.contains(&"private-library-selection"));
+    assert!(
+        definition
+            .supported_rules
+            .contains(&"private-library-selection")
+    );
     assert_eq!(
         executable_definition_id_for_collector(163),
         Ok("RAV-FARSEEK")
@@ -43,8 +50,9 @@ fn farseek_requires_a_private_controller_selected_nonforest_land_search() {
         }]
     );
 
-    let mut game = Game::new_with_basic_land_types(card_definitions(), 2, rav_basic_land_type_bindings())
-        .expect("RAV game with basic land types builds");
+    let mut game =
+        Game::new_with_basic_land_types(card_definitions(), 2, rav_basic_land_type_bindings())
+            .expect("RAV game with basic land types builds");
     let farseek = game
         .add_card(PlayerId(0), definition.id, Zone::Hand)
         .expect("Farseek setup");
@@ -90,11 +98,12 @@ fn farseek_requires_a_private_controller_selected_nonforest_land_search() {
             .collect::<Vec<_>>(),
         vec![plains, island]
     );
-    assert!(game
-        .view_for_player(PlayerId(1))
-        .expect("opponent view")
-        .pending_decision
-        .is_none());
+    assert!(
+        game.view_for_player(PlayerId(1))
+            .expect("opponent view")
+            .pending_decision
+            .is_none()
+    );
     game.submit_policy_move(
         PlayerId(0),
         "test.farseek.private-search.v1",
@@ -129,5 +138,8 @@ fn farseek_requires_a_private_controller_selected_nonforest_land_search() {
     )));
     game.validate_invariants()
         .expect("Farseek private selection preserves all game invariants");
-    println!("farseek_private_search_event_log={:#?}", game.canonical_event_log());
+    println!(
+        "farseek_private_search_event_log={:#?}",
+        game.canonical_event_log()
+    );
 }
