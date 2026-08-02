@@ -381,6 +381,8 @@ fn execute_scenario(specification: &ScenarioSpec) -> Result<ScenarioResult, Stri
         .map_err(rules_error)?;
     game.register_static_entry_restriction_bindings(crate::rav_static_entry_restriction_bindings())
         .map_err(rules_error)?;
+    game.register_mana_ability_cost_bindings(crate::rav_mana_ability_cost_bindings())
+        .map_err(rules_error)?;
     game.register_cost_reduction_bindings(rav_cost_reduction_bindings())
         .map_err(rules_error)?;
     game.register_activated_ability_cost_modifier_bindings(

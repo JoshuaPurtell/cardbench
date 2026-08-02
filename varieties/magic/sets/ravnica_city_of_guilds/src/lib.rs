@@ -29,12 +29,12 @@ use cardbench_magic_engine::{
     ConvokeContribution, ConvokePayment, CostReductionBinding, DamageReplacementEffect,
     DamageReplacementEffectBinding, DeckEntry, DeckList, DeckRules, Effect, Game, HybridManaSymbol,
     Keyword, LandEntryBinding, LibrarySearchDestination, LibrarySearchRequirement,
-    LibrarySearchSelection, ManaAbilityBinding, ManaAbilityOutput, ManaBundle, ManaCost, PlayerId,
-    ReplacementEffect, ReplacementEffectBinding, RulesError, SharedKeywordFamily,
-    StaticAttackRestriction, StaticAttackRestrictionBinding, StaticContinuousEffectBinding,
-    StaticEntryRestriction, StaticEntryRestrictionBinding, StaticLibraryTopRevealBinding, Target,
-    TargetRequirement, TokenSpec, TriggerCondition, TriggeredAbility, TriggeredAbilityBinding,
-    Zone,
+    LibrarySearchSelection, ManaAbilityBinding, ManaAbilityCostBinding, ManaAbilityOutput,
+    ManaBundle, ManaCost, PlayerId, ReplacementEffect, ReplacementEffectBinding, RulesError,
+    SharedKeywordFamily, StaticAttackRestriction, StaticAttackRestrictionBinding,
+    StaticContinuousEffectBinding, StaticEntryRestriction, StaticEntryRestrictionBinding,
+    StaticLibraryTopRevealBinding, Target, TargetRequirement, TokenSpec, TriggerCondition,
+    TriggeredAbility, TriggeredAbilityBinding, Zone,
 };
 
 pub const SET_CODE: &str = "RAV";
@@ -215,6 +215,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 181] = [
     "RAV-CHANT-OF-VITU-GHAZI",
     "RAV-CENTAUR-SAFEGUARD",
     "RAV-CYCLOPEAN-SNARE",
+    "RAV-TERRARION",
     "RAV-GRIFTERS-BLADE",
     "RAV-FESTIVAL-OF-THE-GUILDPACT",
     "RAV-FLICKERFORM",
@@ -3278,6 +3279,31 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
+        // Full fidelity: this artifact uses one source-relative entry
+        // replacement, then a paid mana activation whose two colored units
+        // are explicitly selected by the policy. Its graveyard trigger stays
+        // separate from the mana ability and preserves normal priority.
+        CardDefinition {
+            id: "RAV-TERRARION",
+            name: "Terrarion",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::new(1),
+            colors: BTreeSet::new(),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Artifact]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colorless-artifact-casting",
+                "self-enters-tapped",
+                "paid-tap-sacrifice-source-selected-two-colored-mana",
+                "battlefield-graveyard-triggered-draw",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![],
+        },
         // Full fidelity: this Equipment costs `{3}`, has Flash, attaches to
         // one controlled creature through its ordinary target-bearing ETB
         // trigger when possible, and retains its separate sorcery-speed
@@ -5393,6 +5419,7 @@ pub fn card_definitions() -> Vec<CardDefinition> {
 /// receipts, priority retention, payment-context activation during a spell
 /// cast, and the fact that a mana ability does not use the stack.
 #[must_use]
+#[allow(clippy::too_many_lines)] // Set-owned mana bindings remain one auditable registry.
 pub fn rav_mana_ability_bindings() -> Vec<ManaAbilityBinding> {
     vec![
         ManaAbilityBinding {
@@ -5439,6 +5466,21 @@ pub fn rav_mana_ability_bindings() -> Vec<ManaAbilityBinding> {
                 controller_damage: None,
             },
         },
+        ManaAbilityBinding {
+            card_definition: "RAV-TERRARION",
+            ability: ActivatedManaAbility {
+                id: "sacrifice-add-two-chosen-mana",
+                tap_cost: true,
+                output: ManaAbilityOutput::PaidChoiceBundle {
+                    mana_cost: ManaCost::new(2),
+                    colors: colors(Color::ALL),
+                    amount: 2,
+                },
+                amount: 0,
+                life_payment: None,
+                controller_damage: None,
+            },
+        },
         signet_binding(
             "RAV-BOROS-SIGNET",
             "boros-signet-wr",
@@ -5480,6 +5522,17 @@ pub fn rav_mana_ability_bindings() -> Vec<ManaAbilityBinding> {
             [Color::Green, Color::White],
         ),
     ]
+}
+
+/// Physical costs for bound RAV mana abilities. This is separate from output
+/// bindings so a source sacrifice remains a reusable engine cost.
+#[must_use]
+pub fn rav_mana_ability_cost_bindings() -> Vec<ManaAbilityCostBinding> {
+    vec![ManaAbilityCostBinding {
+        card_definition: "RAV-TERRARION",
+        ability_id: "sacrifice-add-two-chosen-mana",
+        sacrifice_source: true,
+    }]
 }
 
 /// RAV lands that enter tapped. Their return instruction is represented below
@@ -6772,10 +6825,16 @@ pub fn rav_static_attack_restriction_bindings() -> Vec<StaticAttackRestrictionBi
 /// emits source-incarnation receipt provenance when they change an entry.
 #[must_use]
 pub fn rav_static_entry_restriction_bindings() -> Vec<StaticEntryRestrictionBinding> {
-    vec![StaticEntryRestrictionBinding {
-        card_definition: "RAV-LOXODON-GATEKEEPER",
-        restriction: StaticEntryRestriction::OpponentsArtifactsCreaturesAndLandsEnterTapped,
-    }]
+    vec![
+        StaticEntryRestrictionBinding {
+            card_definition: "RAV-LOXODON-GATEKEEPER",
+            restriction: StaticEntryRestriction::OpponentsArtifactsCreaturesAndLandsEnterTapped,
+        },
+        StaticEntryRestrictionBinding {
+            card_definition: "RAV-TERRARION",
+            restriction: StaticEntryRestriction::SourceEntersTapped,
+        },
+    ]
 }
 
 /// Target-free stack triggers bound to RAV permanents.
@@ -6783,6 +6842,17 @@ pub fn rav_static_entry_restriction_bindings() -> Vec<StaticEntryRestrictionBind
 #[allow(clippy::too_many_lines)] // Keep the declarative trigger registry centralized for audit review.
 pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
     vec![
+        TriggeredAbilityBinding {
+            card_definition: "RAV-TERRARION",
+            ability: TriggeredAbility {
+                id: "graveyard-draw",
+                condition: TriggerCondition::Dies,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![Effect::DrawController],
+            },
+        },
         TriggeredAbilityBinding {
             card_definition: "RAV-AURATOUCHED-MAGE",
             ability: TriggeredAbility {
@@ -8022,6 +8092,7 @@ fn fresh_game() -> Result<Game, RulesError> {
     game.register_static_attack_restrictions(rav_static_attack_restriction_bindings())?;
     game.register_attachment_bindings(rav_attachment_bindings())?;
     game.register_static_entry_restriction_bindings(rav_static_entry_restriction_bindings())?;
+    game.register_mana_ability_cost_bindings(rav_mana_ability_cost_bindings())?;
     game.register_cost_reduction_bindings(rav_cost_reduction_bindings())?;
     game.register_activated_ability_cost_modifier_bindings(
         rav_activated_ability_cost_modifier_bindings(),

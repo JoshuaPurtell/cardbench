@@ -19,15 +19,16 @@ use crate::{
     GeneralizedAbilityActivation, GeneralizedActivatedAbilityCost, Keyword, LandEntryBinding,
     LibrarySearchCardinality, LibrarySearchDestination, LibrarySearchRequirement,
     LibrarySearchSelection, LinkedExileGroup, LinkedExileGroupId, LinkedExileMember,
-    LinkedExileMemberRole, ManaAbilityActivation, ManaAbilityBinding, ManaAbilityOutput, ManaCost,
-    ManaPaymentSelection, ObjectId, PendingDecision, PlayerId, PlayerState, PolicyMoveKind,
-    QuantityReplacementResolution, ReplacementChoice, ReplacementEffect, ReplacementEffectBinding,
-    ReplacementEventKind, ResolutionPaymentManaAbility, StackEffectResolution, StackObject,
-    StackResolutionPlan, StaticAttackRestriction, StaticAttackRestrictionBinding,
-    StaticContinuousEffectBinding, StaticEntryRestriction, StaticEntryRestrictionBinding,
-    StaticLibraryTopRevealBinding, Step, TRANSMUTE_ABILITY_ID, Target, TargetRequirement,
-    TokenSpec, TriggerCondition, TriggerOrderEntry, TriggeredAbilityBinding,
-    TriggeredEffectObjectDecisionKind, Zone,
+    LinkedExileMemberRole, ManaAbilityActivation, ManaAbilityBinding,
+    ManaAbilityBundleChoiceActivation, ManaAbilityCostBinding, ManaAbilityOutput, ManaBundle,
+    ManaCost, ManaPaymentSelection, ObjectId, PendingDecision, PlayerId, PlayerState,
+    PolicyMoveKind, QuantityReplacementResolution, ReplacementChoice, ReplacementEffect,
+    ReplacementEffectBinding, ReplacementEventKind, ResolutionPaymentManaAbility,
+    StackEffectResolution, StackObject, StackResolutionPlan, StaticAttackRestriction,
+    StaticAttackRestrictionBinding, StaticContinuousEffectBinding, StaticEntryRestriction,
+    StaticEntryRestrictionBinding, StaticLibraryTopRevealBinding, Step, TRANSMUTE_ABILITY_ID,
+    Target, TargetRequirement, TokenSpec, TriggerCondition, TriggerOrderEntry,
+    TriggeredAbilityBinding, TriggeredEffectObjectDecisionKind, Zone,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -239,6 +240,12 @@ pub enum PolicyAction {
     ActivateBoundManaAbility {
         activation: ManaAbilityActivation,
     },
+    /// Activates a bound mana ability whose output contains a policy-selected
+    /// multi-color bundle. Like every mana ability, it never creates a stack
+    /// object or a priority pass.
+    ActivateBoundManaAbilityWithBundleChoice {
+        activation: ManaAbilityBundleChoiceActivation,
+    },
     /// Activates a definition-bound non-mana ability. Unlike mana abilities,
     /// the activation becomes a stack object and opens a normal response
     /// window for every surviving player.
@@ -285,7 +292,10 @@ impl PolicyAction {
             Self::PassPriority => PolicyMoveKind::PassPriority,
             Self::PlayLand { .. } => PolicyMoveKind::PlayLand,
             Self::ActivateManaAbility { .. } => PolicyMoveKind::ActivateManaAbility,
-            Self::ActivateBoundManaAbility { .. } => PolicyMoveKind::ActivateBoundManaAbility,
+            Self::ActivateBoundManaAbility { .. }
+            | Self::ActivateBoundManaAbilityWithBundleChoice { .. } => {
+                PolicyMoveKind::ActivateBoundManaAbility
+            }
             Self::ActivateAbility { .. } => PolicyMoveKind::ActivateAbility,
             Self::DeclareAttackers { .. } => PolicyMoveKind::DeclareAttackers,
             Self::DeclareBlockers { .. } => PolicyMoveKind::DeclareBlockers,
@@ -735,6 +745,7 @@ struct PendingDamageReplacementChoice {
 pub struct Game {
     catalog: BTreeMap<&'static str, CardDefinition>,
     mana_abilities: BTreeMap<&'static str, BTreeMap<&'static str, ActivatedManaAbility>>,
+    mana_ability_costs: BTreeMap<(&'static str, &'static str), ManaAbilityCostBinding>,
     activated_abilities: BTreeMap<&'static str, BTreeMap<&'static str, ActivatedAbility>>,
     attachment_bindings: BTreeMap<&'static str, AttachmentBinding>,
     triggered_abilities: BTreeMap<&'static str, BTreeMap<&'static str, crate::TriggeredAbility>>,
@@ -1003,6 +1014,7 @@ impl Game {
         let game = Self {
             catalog,
             mana_abilities,
+            mana_ability_costs: BTreeMap::new(),
             activated_abilities: BTreeMap::new(),
             attachment_bindings: BTreeMap::new(),
             triggered_abilities: BTreeMap::new(),
@@ -1685,6 +1697,51 @@ impl Game {
         self.validate_invariants()
     }
 
+    /// Registers immutable source-sacrifice costs for definition-bound mana
+    /// abilities before play begins. Output selection remains on the ordinary
+    /// mana-ability request; this registry owns only physical cost provenance.
+    pub fn register_mana_ability_cost_bindings(
+        &mut self,
+        bindings: impl IntoIterator<Item = ManaAbilityCostBinding>,
+    ) -> Result<(), RulesError> {
+        if self.started {
+            return Err(RulesError::IllegalAction(
+                "mana ability costs cannot be changed after the game starts",
+            ));
+        }
+        for binding in bindings {
+            if !binding.sacrifice_source {
+                return Err(RulesError::IllegalAction(
+                    "mana ability cost binding must contain a physical source cost",
+                ));
+            }
+            let definition = self
+                .catalog
+                .get(binding.card_definition)
+                .ok_or(RulesError::UnknownDefinition(binding.card_definition))?;
+            if !definition.is_permanent()
+                || !self
+                    .mana_abilities
+                    .get(binding.card_definition)
+                    .is_some_and(|abilities| abilities.contains_key(binding.ability_id))
+            {
+                return Err(RulesError::IllegalAction(
+                    "mana ability cost binding lacks a permanent bound mana ability",
+                ));
+            }
+            if self
+                .mana_ability_costs
+                .insert((binding.card_definition, binding.ability_id), binding)
+                .is_some()
+            {
+                return Err(RulesError::IllegalAction(
+                    "duplicate mana ability cost binding",
+                ));
+            }
+        }
+        self.validate_invariants()
+    }
+
     fn register_static_continuous_effects(
         &mut self,
         bindings: impl IntoIterator<Item = StaticContinuousEffectBinding>,
@@ -2348,9 +2405,35 @@ impl Game {
     ) -> Result<(), RulesError> {
         self.atomic_transition(|game| {
             game.require_priority(player)?;
-            game.activate_bound_mana_ability_impl(player, activation, None)?;
+            game.activate_bound_mana_ability_impl(player, activation, None, None)?;
             game.consecutive_passes = 0;
             game.priority = player;
+            game.flush_pending_dies_triggers();
+            game.check_state_based_actions()?;
+            Ok(())
+        })
+    }
+
+    /// Activates a bound mana ability that requires one explicit multi-color
+    /// output allocation. The chosen bundle is part of the policy move and is
+    /// fully validated before any cost payment or zone transition occurs.
+    #[allow(clippy::needless_pass_by_value)] // The policy request crosses the atomic transition boundary.
+    pub fn activate_bound_mana_ability_with_bundle_choice(
+        &mut self,
+        player: PlayerId,
+        activation: ManaAbilityBundleChoiceActivation,
+    ) -> Result<(), RulesError> {
+        self.atomic_transition(|game| {
+            game.require_priority(player)?;
+            game.activate_bound_mana_ability_impl(
+                player,
+                activation.activation,
+                Some(&activation.chosen_bundle),
+                None,
+            )?;
+            game.consecutive_passes = 0;
+            game.priority = player;
+            game.flush_pending_dies_triggers();
             game.check_state_based_actions()?;
             Ok(())
         })
@@ -2876,6 +2959,7 @@ impl Game {
         &mut self,
         player: PlayerId,
         activation: ManaAbilityActivation,
+        chosen_bundle: Option<&ManaBundle>,
         payment_spell: Option<ObjectId>,
     ) -> Result<(), RulesError> {
         self.require_zone(activation.source, Zone::Battlefield)?;
@@ -2899,7 +2983,8 @@ impl Game {
             ))?
             .clone();
         let base_mana_cost = match &ability.output {
-            ManaAbilityOutput::PaidBundle { mana_cost, .. } => mana_cost.clone(),
+            ManaAbilityOutput::PaidBundle { mana_cost, .. }
+            | ManaAbilityOutput::PaidChoiceBundle { mana_cost, .. } => mana_cost.clone(),
             ManaAbilityOutput::Fixed(_)
             | ManaAbilityOutput::Choice(_)
             | ManaAbilityOutput::Bundle(_) => ManaCost::new(0),
@@ -2924,7 +3009,7 @@ impl Game {
             .map_err(RulesError::Mana)?;
         let paid_bundle = match &ability.output {
             ManaAbilityOutput::PaidBundle { bundle, .. } => {
-                if activation.chosen_color.is_some() {
+                if activation.chosen_color.is_some() || chosen_bundle.is_some() {
                     return Err(RulesError::IllegalAction(
                         "fixed mana bundle ability does not accept a color choice",
                     ));
@@ -2942,13 +3027,51 @@ impl Game {
                     mana_pool_after_payment.clone(),
                 ))
             }
+            ManaAbilityOutput::PaidChoiceBundle { colors, amount, .. } => {
+                if activation.chosen_color.is_some() {
+                    return Err(RulesError::IllegalAction(
+                        "selected mana bundle ability does not accept a one-color choice",
+                    ));
+                }
+                let bundle = chosen_bundle.cloned().ok_or(RulesError::IllegalAction(
+                    "selected mana bundle ability requires an explicit bundle choice",
+                ))?;
+                let total = bundle.iter().try_fold(0_u8, |total, (color, quantity)| {
+                    if !colors.contains(&color) || quantity == 0 {
+                        return Err(RulesError::IllegalAction(
+                            "selected mana bundle contains an unsupported color or zero amount",
+                        ));
+                    }
+                    total.checked_add(quantity).ok_or(RulesError::IllegalAction(
+                        "selected mana bundle amount overflowed",
+                    ))
+                })?;
+                if total != *amount {
+                    return Err(RulesError::IllegalAction(
+                        "selected mana bundle amount does not match its ability",
+                    ));
+                }
+                if bundle
+                    .iter()
+                    .any(|(color, quantity)| !mana_pool_after_payment.can_add(color, quantity))
+                {
+                    return Err(RulesError::IllegalAction(
+                        "mana pool cannot hold the produced mana",
+                    ));
+                }
+                Some((
+                    cost_context.effective_mana_cost.clone(),
+                    bundle,
+                    mana_pool_after_payment.clone(),
+                ))
+            }
             ManaAbilityOutput::Fixed(_)
             | ManaAbilityOutput::Choice(_)
             | ManaAbilityOutput::Bundle(_) => None,
         };
         let free_bundle = match &ability.output {
             ManaAbilityOutput::Bundle(bundle) => {
-                if activation.chosen_color.is_some() {
+                if activation.chosen_color.is_some() || chosen_bundle.is_some() {
                     return Err(RulesError::IllegalAction(
                         "fixed mana bundle ability does not accept a color choice",
                     ));
@@ -2965,8 +3088,16 @@ impl Game {
             }
             ManaAbilityOutput::Fixed(_)
             | ManaAbilityOutput::Choice(_)
-            | ManaAbilityOutput::PaidBundle { .. } => None,
+            | ManaAbilityOutput::PaidBundle { .. }
+            | ManaAbilityOutput::PaidChoiceBundle { .. } => None,
         };
+        if !matches!(&ability.output, ManaAbilityOutput::PaidChoiceBundle { .. })
+            && chosen_bundle.is_some()
+        {
+            return Err(RulesError::IllegalAction(
+                "this mana ability does not accept a selected mana bundle",
+            ));
+        }
         let color = if paid_bundle.is_none() && free_bundle.is_none() {
             Some(Self::resolve_mana_ability_color(
                 &ability.output,
@@ -2975,6 +3106,10 @@ impl Game {
         } else {
             None
         };
+        let sacrifice_source = self
+            .mana_ability_costs
+            .get(&(definition, ability.id))
+            .is_some_and(|binding| binding.sacrifice_source);
         if ability.tap_cost {
             if source.tapped {
                 return Err(RulesError::IllegalAction(
@@ -3023,6 +3158,14 @@ impl Game {
                 .get_mut(&activation.source)
                 .ok_or(RulesError::UnknownCard(activation.source))?
                 .tapped = true;
+        }
+        if sacrifice_source {
+            self.record_event(GameEvent::SacrificedAsManaAbilityCost {
+                player,
+                source: activation.source,
+                ability: ability.id,
+            });
+            self.move_to_graveyard_or_remove_token(activation.source)?;
         }
         if let Some(life_payment) = ability.life_payment {
             self.players[player.0].life -= i64::from(life_payment);
@@ -3740,6 +3883,9 @@ impl Game {
             }
             PolicyAction::ActivateBoundManaAbility { activation } => {
                 self.activate_bound_mana_ability(player, activation)?;
+            }
+            PolicyAction::ActivateBoundManaAbilityWithBundleChoice { activation } => {
+                self.activate_bound_mana_ability_with_bundle_choice(player, activation)?;
             }
             PolicyAction::ActivateAbility { activation } => {
                 self.activate_ability(player, activation)?;
@@ -5174,18 +5320,21 @@ impl Game {
         let mut sources = self.all_battlefield_cards();
         sources.sort_unstable();
         let source = sources.into_iter().find(|source| {
-            self.controller_of(*source)
-                .is_ok_and(|controller| controller != entrant_controller)
-                && self
-                    .effective_definition_id(*source)
-                    .ok()
-                    .flatten()
-                    .and_then(|definition| self.static_entry_restrictions.get(definition))
-                    .is_some_and(|restrictions| {
-                        restrictions.contains(
-                            &StaticEntryRestriction::OpponentsArtifactsCreaturesAndLandsEnterTapped,
-                        )
-                    })
+            self.effective_definition_id(*source)
+                .ok()
+                .flatten()
+                .and_then(|definition| self.static_entry_restrictions.get(definition))
+                .is_some_and(|restrictions| {
+                    (*source == permanent
+                        && restrictions.contains(&StaticEntryRestriction::SourceEntersTapped))
+                        || (*source != permanent
+                            && self
+                                .controller_of(*source)
+                                .is_ok_and(|controller| controller != entrant_controller)
+                            && restrictions.contains(
+                                &StaticEntryRestriction::OpponentsArtifactsCreaturesAndLandsEnterTapped,
+                            ))
+                })
         });
         let Some(source) = source else {
             return Ok(());
@@ -5767,7 +5916,20 @@ impl Game {
         for activation in &request.payment_mana_abilities {
             match activation {
                 CastPaymentManaAbility::Bound(activation) => {
-                    self.activate_bound_mana_ability_impl(player, *activation, Some(request.card))?;
+                    self.activate_bound_mana_ability_impl(
+                        player,
+                        *activation,
+                        None,
+                        Some(request.card),
+                    )?;
+                }
+                CastPaymentManaAbility::BoundWithBundleChoice(activation) => {
+                    self.activate_bound_mana_ability_impl(
+                        player,
+                        activation.activation,
+                        Some(&activation.chosen_bundle),
+                        Some(request.card),
+                    )?;
                 }
                 CastPaymentManaAbility::BasicLand(activation) => {
                     self.activate_cast_payment_basic_land_mana_ability(
@@ -6696,7 +6858,7 @@ impl Game {
             for activation in mana_abilities {
                 match activation {
                     ResolutionPaymentManaAbility::Bound(activation) => {
-                        self.activate_bound_mana_ability_impl(player, activation, None)?;
+                        self.activate_bound_mana_ability_impl(player, activation, None, None)?;
                     }
                     ResolutionPaymentManaAbility::IntrinsicLand(activation) => {
                         self.activate_intrinsic_mana_ability_impl(
@@ -9013,6 +9175,7 @@ impl Game {
             ));
         }
         Self::validate_mana_ability_event_order(&self.event_log)?;
+        self.validate_mana_ability_sacrifice_cost_event_order()?;
         Self::validate_object_incarnation_event_order(&self.event_log)?;
         self.validate_static_entry_restriction_event_order()?;
         Self::validate_permanent_copy_event_order(&self.event_log)?;
@@ -9308,6 +9471,24 @@ impl Game {
             {
                 return Err(RulesError::IllegalAction(
                     "land-entry binding has invalid definition or behavior",
+                ));
+            }
+        }
+        for ((definition_id, ability_id), binding) in &self.mana_ability_costs {
+            if binding.card_definition != *definition_id
+                || binding.ability_id != *ability_id
+                || !binding.sacrifice_source
+                || !self
+                    .catalog
+                    .get(definition_id)
+                    .is_some_and(CardDefinition::is_permanent)
+                || !self
+                    .mana_abilities
+                    .get(definition_id)
+                    .is_some_and(|abilities| abilities.contains_key(ability_id))
+            {
+                return Err(RulesError::IllegalAction(
+                    "mana ability cost binding has invalid source or ability provenance",
                 ));
             }
         }
@@ -19073,6 +19254,29 @@ impl Game {
                 ));
             }
         }
+        if let ManaAbilityOutput::PaidChoiceBundle {
+            mana_cost,
+            colors,
+            amount,
+        } = &ability.output
+        {
+            Self::validate_mana_cost(mana_cost)?;
+            if ability.amount != 0 {
+                return Err(RulesError::IllegalAction(
+                    "paid selected mana bundle ability must use its output amount",
+                ));
+            }
+            if mana_cost.mana_value() == 0 || colors.is_empty() || *amount == 0 {
+                return Err(RulesError::IllegalAction(
+                    "paid selected mana bundle ability has an invalid cost or output",
+                ));
+            }
+            if colors.contains(&Color::Colorless) {
+                return Err(RulesError::IllegalAction(
+                    "selected mana bundle may not offer colorless as a color choice",
+                ));
+            }
+        }
         if ability.life_payment == Some(0) {
             return Err(RulesError::IllegalAction(
                 "mana ability life payment must be positive when present",
@@ -20108,7 +20312,6 @@ impl Game {
             };
             if permanent.0 == 0
                 || source.0 == 0
-                || permanent == source
                 || *permanent_incarnation == 0
                 || *source_incarnation == 0
                 || self.players.get(controller.0).is_none()
@@ -20161,15 +20364,17 @@ impl Game {
                 .ok_or(RulesError::IllegalAction(
                     "tapped-entry receipt names no known source definition",
                 ))?;
-            if !self
-                .static_entry_restrictions
-                .get(source_definition)
-                .is_some_and(|restrictions| {
+            let source_restrictions = self.static_entry_restrictions.get(source_definition);
+            let is_self_entry = permanent == source;
+            if !source_restrictions.is_some_and(|restrictions| {
+                if is_self_entry {
+                    restrictions.contains(&StaticEntryRestriction::SourceEntersTapped)
+                } else {
                     restrictions.contains(
                         &StaticEntryRestriction::OpponentsArtifactsCreaturesAndLandsEnterTapped,
                     )
-                })
-            {
+                }
+            }) {
                 return Err(RulesError::IllegalAction(
                     "tapped-entry receipt source lacks the declared restriction",
                 ));
@@ -20581,6 +20786,48 @@ impl Game {
                     ));
                 }
                 output_index += 1;
+            }
+        }
+        Ok(())
+    }
+
+    /// A bound mana-ability source sacrifice is a physical activation cost:
+    /// it must name an immutable registered cost profile and immediately move
+    /// that exact source to its graveyard before the mana output receipt.
+    fn validate_mana_ability_sacrifice_cost_event_order(&self) -> Result<(), RulesError> {
+        for (index, event) in self.event_log.iter().enumerate() {
+            let GameEvent::SacrificedAsManaAbilityCost {
+                source, ability, ..
+            } = event
+            else {
+                continue;
+            };
+            if source.0 == 0
+                || !matches!(
+                    self.event_log.get(index + 1),
+                    Some(GameEvent::CardMoved { card, to: Zone::Graveyard }) if card == source
+                )
+            {
+                return Err(RulesError::IllegalAction(
+                    "mana-ability sacrifice receipt lacks an immediate graveyard move",
+                ));
+            }
+            let definition = self
+                .object(*source)
+                .ok()
+                .and_then(|object| object.definition)
+                .or_else(|| self.departed_card_definitions.get(source).copied())
+                .ok_or(RulesError::IllegalAction(
+                    "mana-ability sacrifice receipt source lacks a definition",
+                ))?;
+            if !self
+                .mana_ability_costs
+                .get(&(definition, *ability))
+                .is_some_and(|binding| binding.sacrifice_source)
+            {
+                return Err(RulesError::IllegalAction(
+                    "mana-ability sacrifice receipt does not match a cost binding",
+                ));
             }
         }
         Ok(())
@@ -22295,11 +22542,11 @@ impl Game {
                     RulesError::IllegalAction("mana ability requires one supported color choice"),
                 )
             }
-            ManaAbilityOutput::Bundle(_) | ManaAbilityOutput::PaidBundle { .. } => {
-                Err(RulesError::IllegalAction(
-                    "fixed mana bundle ability does not resolve to one color",
-                ))
-            }
+            ManaAbilityOutput::Bundle(_)
+            | ManaAbilityOutput::PaidBundle { .. }
+            | ManaAbilityOutput::PaidChoiceBundle { .. } => Err(RulesError::IllegalAction(
+                "fixed mana bundle ability does not resolve to one color",
+            )),
         }
     }
 

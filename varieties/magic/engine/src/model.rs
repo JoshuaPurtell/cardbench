@@ -217,6 +217,16 @@ pub enum ManaAbilityOutput {
         mana_cost: ManaCost,
         bundle: ManaBundle,
     },
+    /// Pays the named cost, then adds the policy-submitted bundle. The
+    /// selection must contain exactly `amount` mana among the listed colors;
+    /// repeated colors are represented by one bundle entry with a larger
+    /// amount. This keeps multi-mana color allocation explicit rather than
+    /// silently choosing a deterministic combination for the policy.
+    PaidChoiceBundle {
+        mana_cost: ManaCost,
+        colors: BTreeSet<Color>,
+        amount: u8,
+    },
 }
 
 /// An expansion-neutral activated mana ability bound to a card definition.
@@ -253,6 +263,19 @@ pub struct ActivatedManaAbility {
 pub struct ManaAbilityBinding {
     pub card_definition: &'static str,
     pub ability: ActivatedManaAbility,
+}
+
+/// Immutable nonmana costs for one definition-bound mana ability.
+///
+/// Mana outputs and their mana-payment costs stay in [`ActivatedManaAbility`],
+/// while this companion binding records physical permanent costs. Keeping the
+/// latter separate makes a source sacrifice reusable for fixed, chosen, and
+/// bundle-producing mana abilities without card-name rules branches.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ManaAbilityCostBinding {
+    pub card_definition: &'static str,
+    pub ability_id: &'static str,
+    pub sacrifice_source: bool,
 }
 
 /// A non-mana activated ability bound to one expansion card definition.
@@ -803,6 +826,14 @@ pub struct ManaAbilityActivation {
     pub chosen_color: Option<Color>,
 }
 
+/// A policy-submitted colored bundle for a bound mana ability whose output
+/// exposes more than one independently selected mana unit.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ManaAbilityBundleChoiceActivation {
+    pub activation: ManaAbilityActivation,
+    pub chosen_bundle: ManaBundle,
+}
+
 /// A player's explicit request to use a typed basic land's intrinsic mana
 /// ability while paying one spell cost.
 ///
@@ -820,9 +851,13 @@ pub struct BasicLandManaAbilityActivation {
 ///
 /// Each request is intentionally explicit: the engine never selects a mana
 /// source or color on the policy's behalf.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum CastPaymentManaAbility {
     Bound(ManaAbilityActivation),
+    /// A selected-bundle mana ability used inside one spell-cost transaction.
+    /// It remains non-stack and is subject to the same atomic cast rollback as
+    /// every other ordered payment activation.
+    BoundWithBundleChoice(ManaAbilityBundleChoiceActivation),
     BasicLand(BasicLandManaAbilityActivation),
 }
 
@@ -2994,6 +3029,10 @@ pub enum StaticEntryRestriction {
     /// Artifacts, creatures, and lands controlled by an opponent of the live
     /// source enter the battlefield tapped.
     OpponentsArtifactsCreaturesAndLandsEnterTapped,
+    /// The source itself enters the battlefield tapped. This replacement is
+    /// source-relative but is applied during the same ordinary entry boundary
+    /// as all other static entry restrictions.
+    SourceEntersTapped,
 }
 
 /// Immutable expansion data for a static entry replacement. Sources are
@@ -3888,6 +3927,14 @@ pub enum GameEvent {
         bundle: ManaBundle,
         tapped: bool,
         life_payment: Option<u8>,
+    },
+    /// A source permanent is sacrificed as a nonmana cost of a bound mana
+    /// ability. The ordinary graveyard transition follows immediately and
+    /// still permits its normal leaves-the-battlefield trigger lifecycle.
+    SacrificedAsManaAbilityCost {
+        player: PlayerId,
+        source: ObjectId,
+        ability: &'static str,
     },
     /// Mana spent as an activation cost for a bound paid-bundle ability.
     ManaAbilityManaPaid {
