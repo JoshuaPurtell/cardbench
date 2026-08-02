@@ -720,7 +720,6 @@ struct LinkedHandExileMember {
 /// former permanent's cards.
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct LinkedHandExileGroup {
-    controller: PlayerId,
     source: ObjectId,
     source_incarnation: u64,
     members: Vec<LinkedHandExileMember>,
@@ -5167,18 +5166,15 @@ impl Game {
                 self.linked_hand_exile_groups
                     .entry(key)
                     .or_insert_with(|| LinkedHandExileGroup {
-                        controller,
                         source,
                         source_incarnation,
                         members: Vec::new(),
                     });
-            if group.controller != controller
-                || group.members.iter().any(|existing| {
-                    members
-                        .iter()
-                        .any(|member| member.object == existing.object)
-                })
-            {
+            if group.members.iter().any(|existing| {
+                members
+                    .iter()
+                    .any(|member| member.object == existing.object)
+            }) {
                 return Err(RulesError::IllegalAction(
                     "linked hand exile group has conflicting source provenance",
                 ));
@@ -5207,10 +5203,7 @@ impl Game {
         let Some(group) = self.linked_hand_exile_groups.remove(&key) else {
             return Ok(());
         };
-        if group.controller != controller
-            || group.source != source
-            || group.source_incarnation != source_incarnation
-        {
+        if group.source != source || group.source_incarnation != source_incarnation {
             return Err(RulesError::IllegalAction(
                 "linked hand exile return lost source provenance",
             ));
@@ -5220,11 +5213,6 @@ impl Game {
             if self.zone_of(member.object) == Some(Zone::Exile)
                 && self.object_has_incarnation(member.object, member.exile_incarnation)
             {
-                if self.object(member.object)?.owner != controller {
-                    return Err(RulesError::IllegalAction(
-                        "linked hand exile member has the wrong owner",
-                    ));
-                }
                 self.move_to_zone(member.object, Zone::Hand)?;
                 returned.push(member.object);
             }
@@ -5262,6 +5250,7 @@ impl Game {
         &mut self,
         source: ObjectId,
         source_incarnation: u64,
+        controller: PlayerId,
     ) {
         let has_pending_return = self.stack.iter().any(|stack_object| {
             stack_object.card == source
@@ -5278,7 +5267,7 @@ impl Game {
             return;
         };
         self.record_event(GameEvent::LinkedHandExileExpired {
-            controller: group.controller,
+            controller,
             source,
             source_incarnation,
             cards: group
@@ -20746,11 +20735,15 @@ impl Game {
         Ok(())
     }
 
+    #[allow(clippy::too_many_lines)] // Zone moves centralize the replay-visible lifecycle.
     fn move_to_zone(&mut self, card: ObjectId, zone: Zone) -> Result<(), RulesError> {
         let object = self.object(card)?.clone();
         let previous_zone = self.zone_of(card);
         let left_battlefield =
             previous_zone == Some(Zone::Battlefield) && zone != Zone::Battlefield;
+        let battlefield_controller = left_battlefield
+            .then(|| self.controller_of(card))
+            .transpose()?;
         if previous_zone == Some(Zone::Exile) && zone != Zone::Exile {
             self.unlink_hand_exile_member_before_zone_departure(card, object.incarnation);
         }
@@ -20855,7 +20848,13 @@ impl Game {
                 card,
                 control_before_expiration,
             );
-            self.expire_unreturnable_linked_hand_exile_groups(card, object.incarnation);
+            self.expire_unreturnable_linked_hand_exile_groups(
+                card,
+                object.incarnation,
+                battlefield_controller.ok_or(RulesError::IllegalAction(
+                    "departing hand-exile source lacks battlefield controller",
+                ))?,
+            );
         }
         Ok(())
     }
@@ -22447,7 +22446,6 @@ impl Game {
                 || *source_incarnation == 0
                 || *source != group.source
                 || *source_incarnation != group.source_incarnation
-                || self.players.get(group.controller.0).is_none()
                 || group.members.is_empty()
                 || (!live_source && !pending_return)
                 || group.members.iter().any(|member| {
@@ -22456,9 +22454,6 @@ impl Game {
                         || self.zone_of(member.object) != Some(Zone::Exile)
                         || !self.object_has_incarnation(member.object, member.exile_incarnation)
                         || self.object(member.object).is_err()
-                        || self
-                            .object(member.object)
-                            .is_ok_and(|object| object.owner != group.controller)
                         || !members.insert(member.object)
                 })
             {

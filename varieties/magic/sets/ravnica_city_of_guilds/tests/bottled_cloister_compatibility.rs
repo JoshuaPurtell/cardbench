@@ -265,3 +265,61 @@ fn cloister_departure_expires_an_unreturnable_private_hand_group() {
     game.validate_invariants()
         .expect("departed source leaves no unreachable private group");
 }
+
+#[test]
+fn cloister_control_change_preserves_prior_owner_hand_returns_and_new_controller_draw() {
+    let mut game = rav_game();
+    let cloister = game
+        .put_on_battlefield(PlayerId(0), "RAV-BOTTLED-CLOISTER")
+        .expect("Cloister begins on battlefield");
+    game.add_card(PlayerId(0), "RAV-GLASS-GOLEM", Zone::Hand)
+        .expect("controller hand card enters setup");
+    let leash = game
+        .add_card(PlayerId(1), "RAV-DREAM-LEASH", Zone::Hand)
+        .expect("effect-created Aura enters setup");
+    add_library_buffers(&mut game);
+
+    game.begin_game().expect("game begins");
+    pass_pair(&mut game);
+    advance_to_upkeep(&mut game, 2, PlayerId(1));
+    let prior_controller_cards = game
+        .player(PlayerId(0))
+        .expect("former controller exists")
+        .hand
+        .clone();
+    pass_pair(&mut game);
+    assert!(
+        prior_controller_cards
+            .iter()
+            .all(|card| game.zone_of(*card) == Some(Zone::Exile))
+    );
+
+    // This is the engine's public effect-created Aura-entry primitive; it
+    // installs Dream Leash's ordinary layer-two control effect without using
+    // a post-start setup mutator.
+    game.enter_attachment_without_cast(leash, cloister)
+        .expect("Dream Leash changes control of Cloister");
+    assert_eq!(game.controller_of(cloister), Ok(PlayerId(1)));
+
+    advance_to_upkeep(&mut game, 4, PlayerId(1));
+    pass_pair(&mut game);
+
+    println!(
+        "Bottled Cloister control-change trace: {:#?}",
+        game.canonical_event_log()
+    );
+    assert!(
+        prior_controller_cards
+            .iter()
+            .all(|card| game.zone_of(*card) == Some(Zone::Hand))
+    );
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::LinkedHandExileReturned { controller, source, cards, .. }
+            if *controller == PlayerId(1)
+                && *source == cloister
+                && prior_controller_cards.iter().all(|card| cards.contains(card))
+    )));
+    game.validate_invariants()
+        .expect("control-changed source preserves linked hand provenance");
+}
