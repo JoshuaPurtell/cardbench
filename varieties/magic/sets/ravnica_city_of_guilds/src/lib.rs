@@ -43,7 +43,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 204] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 205] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
@@ -100,6 +100,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 204] = [
     "RAV-HELLDOZER",
     "RAV-GREATER-MOSSDOG",
     "RAV-STINKWEED-IMP",
+    "RAV-GOLGARI-THUG",
     "RAV-BOROS-SIGNET",
     "RAV-DIMIR-SIGNET",
     "RAV-GOLGARI-SIGNET",
@@ -1053,9 +1054,9 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Dredge(2)],
             effects: vec![],
         },
-        // Compatibility scope: normal creature casting, base characteristics,
-        // and the engine's existing Dredge replacement. Its separate graveyard
-        // trigger is intentionally unsupported.
+        // Full fidelity: the shared Dredge replacement and a stack-backed
+        // death trigger whose selected controller-graveyard creature card is
+        // placed on the top of its owner's library.
         CardDefinition {
             id: "RAV-GOLGARI-THUG",
             name: "Golgari Thug",
@@ -1065,7 +1066,12 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Creature]),
             is_basic_land: false,
-            supported_rules: &["dredge", "base-characteristics"],
+            supported_rules: &[
+                "full-rules-fidelity",
+                "dredge",
+                "base-characteristics",
+                "dies-target-creature-card-owner-library-top",
+            ],
             power: Some(1),
             toughness: Some(1),
             keywords: vec![Keyword::Dredge(4)],
@@ -7657,6 +7663,17 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                 optional: false,
                 targets: vec![],
                 effects: vec![Effect::DestroyCombatDamagedCreature],
+            },
+        },
+        TriggeredAbilityBinding {
+            card_definition: "RAV-GOLGARI-THUG",
+            ability: TriggeredAbility {
+                id: "dies-target-creature-card-owner-library-top",
+                condition: TriggerCondition::Dies,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![TargetRequirement::CreatureCardInControllerGraveyard],
+                effects: vec![Effect::PutTargetCreatureCardInControllerGraveyardOnOwnersLibraryTop],
             },
         },
         TriggeredAbilityBinding {

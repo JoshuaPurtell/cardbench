@@ -2412,6 +2412,10 @@ pub enum Effect {
     /// uses the ordinary owner-preserving zone lifecycle rather than a
     /// controller-relative library mutation.
     PutTargetCreatureOnOwnersLibraryTop,
+    /// Put a targeted creature card from the resolving controller's
+    /// graveyard on top of its owner's library. The target remains tied to
+    /// its exact graveyard incarnation while the stack item waits.
+    PutTargetCreatureCardInControllerGraveyardOnOwnersLibraryTop,
     /// Put one targeted public graveyard card on the bottom of its owner's
     /// library. The target retains its exact graveyard incarnation while the
     /// stack item waits to resolve.
@@ -2600,7 +2604,8 @@ impl Effect {
                 Some(TargetRequirement::EnchantmentCardInControllerGraveyard)
             }
             Self::ReturnTargetCreatureCardToHandIfAnotherInControllerGraveyard
-            | Self::ReturnTargetCreatureCardToBattlefieldWithCounterIfManaColorSpent { .. } => {
+            | Self::ReturnTargetCreatureCardToBattlefieldWithCounterIfManaColorSpent { .. }
+            | Self::PutTargetCreatureCardInControllerGraveyardOnOwnersLibraryTop => {
                 Some(TargetRequirement::CreatureCardInControllerGraveyard)
             }
             Self::ReturnControlledCreatureToHand => Some(TargetRequirement::ControlledCreature),

@@ -5,13 +5,13 @@
 //! contains no upstream card prose or hidden fixture data.
 
 use cardbench_magic_engine::{
-    CastRequest, Color, Game, GameEvent, PlayerId, PolicyAction, Step, Target, TargetRequirement,
-    TriggerCondition, Zone,
+    CastRequest, Color, Effect, Game, GameEvent, PlayerId, PolicyAction, Step, Target,
+    TargetRequirement, TriggerCondition, Zone,
 };
 use cardbench_magic_rav::{
     RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, rav_activated_ability_bindings,
-    rav_additional_spell_cost_bindings, rav_basic_land_type_bindings,
-    rav_mana_ability_bindings, rav_triggered_ability_bindings,
+    rav_additional_spell_cost_bindings, rav_basic_land_type_bindings, rav_mana_ability_bindings,
+    rav_triggered_ability_bindings,
 };
 
 fn advance_to_precombat_main(game: &mut Game) {
@@ -54,9 +54,15 @@ fn golgari_thug_death_trigger_is_ability_complete() {
         .into_iter()
         .find(|binding| binding.card_definition == definition.id)
         .expect("Golgari Thug death trigger binding exists");
-    assert_eq!(binding.ability.id, "dies-target-creature-card-owner-library-top");
+    assert_eq!(
+        binding.ability.id,
+        "dies-target-creature-card-owner-library-top"
+    );
     assert_eq!(binding.ability.condition, TriggerCondition::Dies);
-    assert_eq!(binding.ability.targets, [TargetRequirement::CreatureCardInControllerGraveyard]);
+    assert_eq!(
+        binding.ability.targets,
+        [TargetRequirement::CreatureCardInControllerGraveyard]
+    );
     assert_eq!(binding.ability.effects.len(), 1);
 
     let mut game = Game::new_with_all_bindings_and_triggers(
@@ -108,7 +114,10 @@ fn golgari_thug_death_trigger_is_ability_complete() {
         .triggered_ability_target_choice
         .expect("death trigger requires controller target choice");
     assert_eq!(choice.source, thug);
-    assert_eq!(choice.ability, "dies-target-creature-card-owner-library-top");
+    assert_eq!(
+        choice.ability,
+        "dies-target-creature-card-owner-library-top"
+    );
     assert_eq!(
         choice.target_options,
         vec![vec![Target::Permanent(thug), Target::Permanent(target)]],
@@ -125,12 +134,22 @@ fn golgari_thug_death_trigger_is_ability_complete() {
     )
     .expect("controller selects the non-source creature card");
     let trigger = game.stack.last().expect("targeted death trigger stacks");
+    assert_eq!(
+        trigger.effects,
+        vec![Effect::PutTargetCreatureCardInControllerGraveyardOnOwnersLibraryTop]
+    );
     assert_eq!(trigger.targets, vec![Target::Permanent(target)]);
     resolve_top(&mut game);
-    println!("Golgari Thug full-fidelity trace: {:?}", game.canonical_event_log());
+    println!(
+        "Golgari Thug full-fidelity trace: {:?}",
+        game.canonical_event_log()
+    );
     assert_eq!(game.zone_of(thug), Some(Zone::Graveyard));
     assert_eq!(game.zone_of(target), Some(Zone::Library));
-    assert_eq!(game.players[PlayerId(0).0].library, vec![library_bottom, target]);
+    assert_eq!(
+        game.players[PlayerId(0).0].library,
+        vec![library_bottom, target]
+    );
     assert!(game.event_log.iter().any(|event| matches!(
         event,
         GameEvent::CardMoved { card, to: Zone::Library } if *card == target

@@ -69,6 +69,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-HELLDOZER",
             "RAV-GREATER-MOSSDOG",
             "RAV-STINKWEED-IMP",
+            "RAV-GOLGARI-THUG",
             "RAV-BOROS-SIGNET",
             "RAV-DIMIR-SIGNET",
             "RAV-GOLGARI-SIGNET",

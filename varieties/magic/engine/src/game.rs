@@ -13349,6 +13349,7 @@ impl Game {
                 | Effect::ReturnTargetCreatureCardToBattlefieldWithCounterIfManaColorSpent {
                     ..
                 }
+                | Effect::PutTargetCreatureCardInControllerGraveyardOnOwnersLibraryTop
                 | Effect::ReturnOneCreatureCardFromEachGraveyardToHand
                 | Effect::ReturnUpToThreeControllerGraveyardLandCardsToHand
                 | Effect::ReturnAnotherControlledPermanentSharingEnteredCardTypes
@@ -19730,6 +19731,21 @@ impl Game {
                 // library representation keeps the draw top at the end, so
                 // this ordinary transition produces the required top card
                 // while expiring layers, attachments, and stale identities.
+                self.move_to_zone(target, Zone::Library)?;
+            }
+            Effect::PutTargetCreatureCardInControllerGraveyardOnOwnersLibraryTop => {
+                let target = Self::target_permanent(target)?;
+                if !self.target_matches_for_controller(
+                    controller,
+                    Target::Permanent(target),
+                    TargetRequirement::CreatureCardInControllerGraveyard,
+                ) {
+                    return Err(RulesError::IllegalTarget(Target::Permanent(target)));
+                }
+                // Library order is owner-scoped and its final element is the
+                // draw top, so the ordinary zone mover preserves both the
+                // target's exact lifecycle and the required owner-library
+                // destination.
                 self.move_to_zone(target, Zone::Library)?;
             }
             Effect::PutTargetGraveyardCardOnOwnersLibraryBottom => {
