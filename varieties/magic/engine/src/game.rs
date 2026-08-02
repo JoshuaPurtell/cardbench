@@ -17,19 +17,19 @@ use crate::{
     DecisionContinuation, DecisionId, DecisionKind, DecisionOption, DecisionSelection,
     DecisionVisibility, DeckList, DelayedAction, DelayedActionId, DelayedActionKind,
     DelayedActionTiming, Duration, Effect, GameEvent, GeneralizedAbilityActivation,
-    GeneralizedActivatedAbilityCost, GraveyardCreatureCardSnapshot, HandCardSnapshot, Keyword,
-    LandEntryBinding, Layer, LibrarySearchCardinality, LibrarySearchDestination,
-    LibrarySearchRequirement, LibrarySearchSelection, LinkedExileGroup, LinkedExileGroupId,
-    LinkedExileMember, LinkedExileMemberRole, ManaAbilityActivation, ManaAbilityBinding,
-    ManaAbilityBundleChoiceActivation, ManaAbilityCostBinding, ManaAbilityOutput, ManaBundle,
-    ManaCost, ManaPaymentSelection, ObjectId, PendingDecision, PlayerId, PlayerState,
-    PolicyMoveKind, QuantityReplacementResolution, ReplacementChoice, ReplacementEffect,
-    ReplacementEffectBinding, ReplacementEventKind, ResolutionPaymentManaAbility,
-    StackEffectResolution, StackObject, StackObjectId, StackResolutionPlan,
-    StaticAttackRestriction, StaticAttackRestrictionBinding, StaticContinuousEffectBinding,
-    StaticEntryRestriction, StaticEntryRestrictionBinding, StaticLibraryTopRevealBinding,
-    StaticLibraryTopRevealScope, Step, TRANSMUTE_ABILITY_ID, Target, TargetRequirement, TokenSpec,
-    TriggerCondition, TriggerOrderEntry, TriggeredAbilityBinding,
+    GeneralizedActivatedAbilityCost, GraveyardCreatureCardSnapshot, GraveyardLandCardSnapshot,
+    HandCardSnapshot, Keyword, LandEntryBinding, Layer, LibrarySearchCardinality,
+    LibrarySearchDestination, LibrarySearchRequirement, LibrarySearchSelection, LinkedExileGroup,
+    LinkedExileGroupId, LinkedExileMember, LinkedExileMemberRole, ManaAbilityActivation,
+    ManaAbilityBinding, ManaAbilityBundleChoiceActivation, ManaAbilityCostBinding,
+    ManaAbilityOutput, ManaBundle, ManaCost, ManaPaymentSelection, ObjectId, PendingDecision,
+    PlayerId, PlayerState, PolicyMoveKind, QuantityReplacementResolution, ReplacementChoice,
+    ReplacementEffect, ReplacementEffectBinding, ReplacementEventKind,
+    ResolutionPaymentManaAbility, StackEffectResolution, StackObject, StackObjectId,
+    StackResolutionPlan, StaticAttackRestriction, StaticAttackRestrictionBinding,
+    StaticContinuousEffectBinding, StaticEntryRestriction, StaticEntryRestrictionBinding,
+    StaticLibraryTopRevealBinding, StaticLibraryTopRevealScope, Step, TRANSMUTE_ABILITY_ID, Target,
+    TargetRequirement, TokenSpec, TriggerCondition, TriggerOrderEntry, TriggeredAbilityBinding,
     TriggeredEffectObjectDecisionKind, Zone,
 };
 
@@ -3873,6 +3873,9 @@ impl Game {
                 | DecisionContinuation::TargetPlayerManaColor { .. }
                 | DecisionContinuation::TargetPlayerLibraryTopMayGraveyard { .. }
                 | DecisionContinuation::ReturnOneCreatureCardFromEachGraveyardToHand { .. }
+                | DecisionContinuation::ReturnUpToThreeControllerGraveyardLandCardsToHand {
+                    ..
+                }
                 | DecisionContinuation::RetargetActivatedAbility { .. } => None,
             })
             .map(|(source, destination, may_fail_to_find)| {
@@ -3938,6 +3941,9 @@ impl Game {
                 | DecisionContinuation::TargetPlayerManaColor { .. }
                 | DecisionContinuation::TargetPlayerLibraryTopMayGraveyard { .. }
                 | DecisionContinuation::ReturnOneCreatureCardFromEachGraveyardToHand { .. }
+                | DecisionContinuation::ReturnUpToThreeControllerGraveyardLandCardsToHand {
+                    ..
+                }
                 | DecisionContinuation::RetargetActivatedAbility { .. } => None,
             });
         let optional_triggered_ability_choice = self
@@ -3991,6 +3997,9 @@ impl Game {
                 | DecisionContinuation::TargetPlayerManaColor { .. }
                 | DecisionContinuation::TargetPlayerLibraryTopMayGraveyard { .. }
                 | DecisionContinuation::ReturnOneCreatureCardFromEachGraveyardToHand { .. }
+                | DecisionContinuation::ReturnUpToThreeControllerGraveyardLandCardsToHand {
+                    ..
+                }
                 | DecisionContinuation::RetargetActivatedAbility { .. } => None,
             })
             .map(|(source, ability)| {
@@ -4073,6 +4082,9 @@ impl Game {
                 | DecisionContinuation::TargetPlayerManaColor { .. }
                 | DecisionContinuation::TargetPlayerLibraryTopMayGraveyard { .. }
                 | DecisionContinuation::ReturnOneCreatureCardFromEachGraveyardToHand { .. }
+                | DecisionContinuation::ReturnUpToThreeControllerGraveyardLandCardsToHand {
+                    ..
+                }
                 | DecisionContinuation::RetargetActivatedAbility { .. } => None,
             });
         let mut opponent_life = Vec::new();
@@ -7813,6 +7825,22 @@ impl Game {
                     selected_now.into_iter().next(),
                 )
             }
+            DecisionContinuation::ReturnUpToThreeControllerGraveyardLandCardsToHand {
+                source_stack_item,
+                source,
+                source_incarnation,
+                controller,
+            } => {
+                let selected_now = Self::validate_object_decision_selection(&decision, selection)?;
+                self.resolve_public_graveyard_land_return_decision(
+                    &decision,
+                    source_stack_item,
+                    source,
+                    source_incarnation,
+                    controller,
+                    selected_now,
+                )
+            }
             DecisionContinuation::RetargetActivatedAbility {
                 source_stack_item,
                 controller,
@@ -8093,6 +8121,148 @@ impl Game {
         if stack_object.id != source_stack_item {
             return Err(RulesError::IllegalAction(
                 "public graveyard choice changed stack identity before resolution",
+            ));
+        }
+        for snapshot in selected {
+            self.move_to_zone(snapshot.card, Zone::Hand)?;
+        }
+        self.record_event(GameEvent::SpellResolved { card: source });
+        self.move_to_spell_terminal_zone(source)?;
+        self.check_state_based_actions()?;
+        self.flush_pending_dies_triggers();
+        self.flush_pending_land_entry_triggers()?;
+        self.flush_pending_damage_triggers();
+        self.flush_pending_life_gain_triggers();
+        self.flush_pending_dies_triggers();
+        self.priority = self.priority_after_resolution();
+        Ok(())
+    }
+
+    /// Commits the resolving controller's explicit zero-through-three land
+    /// card choice.  It rechecks every public candidate and exact incarnation
+    /// before the spell's terminal zone transition, so a stale response can
+    /// never resolve against a different graveyard object.
+    #[allow(clippy::too_many_arguments)] // The continuation carries the full no-priority stack provenance.
+    fn resolve_public_graveyard_land_return_decision(
+        &mut self,
+        decision: &PendingDecision,
+        source_stack_item: StackObjectId,
+        source: ObjectId,
+        source_incarnation: u64,
+        controller: PlayerId,
+        selected_now: Vec<ObjectId>,
+    ) -> Result<(), RulesError> {
+        let candidates = self.graveyard_land_card_candidates(controller)?;
+        let expected_options = candidates
+            .iter()
+            .copied()
+            .map(DecisionOption::Object)
+            .collect::<Vec<_>>();
+        let maximum = u8::try_from(candidates.len().min(3)).expect("three fits in u8");
+        if decision.kind != DecisionKind::PublicGraveyardLandReturn
+            || decision.visibility != DecisionVisibility::Public
+            || decision.player != controller
+            || decision.options != expected_options
+            || decision.min_selections != 0
+            || decision.max_selections != maximum
+            || selected_now.len() > usize::from(maximum)
+            || selected_now.iter().any(|card| !candidates.contains(card))
+        {
+            return Err(RulesError::IllegalAction(
+                "public graveyard land choice no longer matches its controller or candidates",
+            ));
+        }
+        let selected = selected_now
+            .into_iter()
+            .map(|card| {
+                Ok(GraveyardLandCardSnapshot {
+                    card,
+                    incarnation: self.object(card)?.incarnation,
+                })
+            })
+            .collect::<Result<Vec<_>, RulesError>>()?;
+        self.complete_pending_decision(decision)?;
+        self.finish_public_graveyard_land_return_spell(
+            source_stack_item,
+            source,
+            source_incarnation,
+            controller,
+            &selected,
+        )
+    }
+
+    /// Lists the resolving controller's current public graveyard land-card
+    /// choices in deterministic zone order. The order is presentation only;
+    /// the policy's submitted object identities determine what returns.
+    fn graveyard_land_card_candidates(
+        &self,
+        player: PlayerId,
+    ) -> Result<Vec<ObjectId>, RulesError> {
+        let state = self.player(player)?;
+        if state.lost {
+            return Ok(Vec::new());
+        }
+        Ok(state
+            .graveyard
+            .iter()
+            .copied()
+            .filter(|card| {
+                self.zone_of(*card) == Some(Zone::Graveyard)
+                    && self
+                        .object(*card)
+                        .is_ok_and(|object| object.owner == player)
+                    && self
+                        .card_definition(*card)
+                        .is_ok_and(CardDefinition::is_land)
+            })
+            .collect())
+    }
+
+    /// Commits the exact public land-card identities selected while the spell
+    /// was suspended, then performs the ordinary spell terminal lifecycle.
+    fn finish_public_graveyard_land_return_spell(
+        &mut self,
+        source_stack_item: StackObjectId,
+        source: ObjectId,
+        source_incarnation: u64,
+        controller: PlayerId,
+        selected: &[GraveyardLandCardSnapshot],
+    ) -> Result<(), RulesError> {
+        let top = self.stack.last().ok_or(RulesError::IllegalAction(
+            "public graveyard land choice escaped its stack spell",
+        ))?;
+        if top.id != source_stack_item
+            || top.card != source
+            || top.source_incarnation != source_incarnation
+            || top.controller != controller
+            || top.ability_id.is_some()
+            || !top.targets.is_empty()
+            || top.effects.as_slice() != [Effect::ReturnUpToThreeControllerGraveyardLandCardsToHand]
+            || selected.len() > 3
+            || selected.iter().enumerate().any(|(index, snapshot)| {
+                snapshot.incarnation == 0
+                    || selected[index + 1..]
+                        .iter()
+                        .any(|other| other.card == snapshot.card)
+                    || self.zone_of(snapshot.card) != Some(Zone::Graveyard)
+                    || self.object(snapshot.card).map_or(true, |object| {
+                        object.owner != controller || object.incarnation != snapshot.incarnation
+                    })
+                    || self
+                        .card_definition(snapshot.card)
+                        .map_or(true, |definition| !definition.is_land())
+            })
+        {
+            return Err(RulesError::IllegalAction(
+                "public graveyard land choices no longer match the suspended stack spell",
+            ));
+        }
+        let stack_object = self.stack.pop().ok_or(RulesError::IllegalAction(
+            "public graveyard land choice stack spell disappeared before resolution",
+        ))?;
+        if stack_object.id != source_stack_item {
+            return Err(RulesError::IllegalAction(
+                "public graveyard land choice changed stack identity before resolution",
             ));
         }
         for snapshot in selected {
@@ -15113,6 +15283,9 @@ impl Game {
         if self.suspend_top_stack_item_for_public_graveyard_creature_return_choice()? {
             return Ok(());
         }
+        if self.suspend_top_stack_item_for_public_graveyard_land_return_choice()? {
+            return Ok(());
+        }
         if self.suspend_top_spell_for_private_library_choice()? {
             return Ok(());
         }
@@ -16538,6 +16711,52 @@ impl Game {
             remaining_players,
             Vec::new(),
         )
+    }
+
+    /// Suspends the target-free land-recursion spell at the controller's
+    /// public zero-through-three selection boundary.  An empty candidate set
+    /// has no decision to make and falls through to the ordinary no-op
+    /// resolver, preserving the spell's regular terminal lifecycle.
+    fn suspend_top_stack_item_for_public_graveyard_land_return_choice(
+        &mut self,
+    ) -> Result<bool, RulesError> {
+        if self.pending_decision.is_some()
+            || self.pending_private_library_choice.is_some()
+            || self.pending_private_opponent_library_exile_choice.is_some()
+        {
+            return Err(RulesError::IllegalAction(
+                "a public graveyard land choice attempted to overlap another decision",
+            ));
+        }
+        let Some(top) = self.stack.last() else {
+            return Ok(false);
+        };
+        if top.ability_id.is_some()
+            || !top.targets.is_empty()
+            || top.effects.as_slice() != [Effect::ReturnUpToThreeControllerGraveyardLandCardsToHand]
+        {
+            return Ok(false);
+        }
+        let candidates = self.graveyard_land_card_candidates(top.controller)?;
+        if candidates.is_empty() {
+            return Ok(false);
+        }
+        let maximum = u8::try_from(candidates.len().min(3)).expect("three fits in u8");
+        self.open_pending_decision(
+            top.controller,
+            DecisionVisibility::Public,
+            DecisionKind::PublicGraveyardLandReturn,
+            0,
+            maximum,
+            candidates.into_iter().map(DecisionOption::Object).collect(),
+            DecisionContinuation::ReturnUpToThreeControllerGraveyardLandCardsToHand {
+                source_stack_item: top.id,
+                source: top.card,
+                source_incarnation: top.source_incarnation,
+                controller: top.controller,
+            },
+        )?;
+        Ok(true)
     }
 
     /// Opens a private no-priority choice for the controller to select or
@@ -30841,6 +31060,42 @@ impl Game {
                 {
                     return Err(RulesError::IllegalAction(
                         "public graveyard decision violates its stack and selection provenance",
+                    ));
+                }
+            }
+            DecisionContinuation::ReturnUpToThreeControllerGraveyardLandCardsToHand {
+                source_stack_item,
+                source,
+                source_incarnation,
+                controller,
+            } => {
+                let top = self.stack.last().ok_or(RulesError::IllegalAction(
+                    "public graveyard land choice escaped its stack spell",
+                ))?;
+                let candidates = self.graveyard_land_card_candidates(*controller)?;
+                let expected_options = candidates
+                    .iter()
+                    .copied()
+                    .map(DecisionOption::Object)
+                    .collect::<Vec<_>>();
+                let maximum = u8::try_from(candidates.len().min(3)).expect("three fits in u8");
+                if decision.kind != DecisionKind::PublicGraveyardLandReturn
+                    || decision.visibility != DecisionVisibility::Public
+                    || decision.player != *controller
+                    || top.id != *source_stack_item
+                    || top.card != *source
+                    || top.source_incarnation != *source_incarnation
+                    || top.controller != *controller
+                    || top.ability_id.is_some()
+                    || !top.targets.is_empty()
+                    || top.effects.as_slice()
+                        != [Effect::ReturnUpToThreeControllerGraveyardLandCardsToHand]
+                    || decision.options != expected_options
+                    || decision.min_selections != 0
+                    || decision.max_selections != maximum
+                {
+                    return Err(RulesError::IllegalAction(
+                        "public graveyard land decision violates its stack and selection provenance",
                     ));
                 }
             }

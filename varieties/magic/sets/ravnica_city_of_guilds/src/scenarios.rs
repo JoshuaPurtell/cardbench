@@ -899,6 +899,38 @@ fn execute_action(
             )
             .map_err(rules_error)
         }
+        "choose_public_graveyard_land" => {
+            let decision = game
+                .view_for_player(player)
+                .map_err(rules_error)?
+                .pending_decision
+                .ok_or_else(|| "no public graveyard land decision is pending".to_owned())?;
+            if decision.kind != DecisionKind::PublicGraveyardLandReturn {
+                return Err("pending decision is not a public graveyard land choice".to_owned());
+            }
+            let selected = if action.targets.is_empty() {
+                (!action.found.is_empty())
+                    .then(|| lookup(labels, &action.found))
+                    .transpose()?
+                    .into_iter()
+                    .collect()
+            } else {
+                action
+                    .targets
+                    .iter()
+                    .map(|label| lookup(labels, label))
+                    .collect::<Result<Vec<_>, _>>()?
+            };
+            game.submit_policy_move(
+                player,
+                "rav-scenario.choose-public-graveyard-land.v1",
+                PolicyAction::SubmitDecision {
+                    decision: decision.id,
+                    selection: DecisionSelection::Objects(selected),
+                },
+            )
+            .map_err(rules_error)
+        }
         "choose_private_discard" => {
             let decision = game
                 .view_for_player(player)

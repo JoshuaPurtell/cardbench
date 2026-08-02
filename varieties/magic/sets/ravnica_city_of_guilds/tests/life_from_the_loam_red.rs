@@ -1,10 +1,12 @@
-//! Red regression for Life from the Loam's land-card recursion slice.
+//! Full-fidelity regression for Life from the Loam's land-card recursion.
 
-use cardbench_magic_engine::{CardType, Color, Game, Keyword, ManaCost, PlayerId, Zone};
+use cardbench_magic_engine::{
+    CardType, Color, DecisionSelection, Game, Keyword, ManaCost, PlayerId, PolicyAction, Zone,
+};
 use cardbench_magic_rav::{RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions};
 
 #[test]
-fn life_from_the_loam_has_dredge_and_bounded_land_recursion() {
+fn life_from_the_loam_has_dredge_and_policy_submitted_land_recursion() {
     let definition = card_definitions()
         .into_iter()
         .find(|definition| definition.id == "RAV-LIFE-FROM-THE-LOAM")
@@ -25,9 +27,11 @@ fn life_from_the_loam_has_dredge_and_bounded_land_recursion() {
             .contains(&"return-up-to-three-land-cards-from-graveyard")
     );
     assert!(
-        !RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&definition.id),
-        "public-zone target selection remains deterministic until a policy supplies it"
+        definition
+            .supported_rules
+            .contains(&"policy-submitted-public-graveyard-land-selection")
     );
+    assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&definition.id));
 }
 
 #[test]
@@ -62,6 +66,20 @@ fn life_from_the_loam_returns_only_its_controllers_land_cards_to_hand() {
     .expect("Life from the Loam casts");
     game.pass_priority(PlayerId(0)).expect("caster passes");
     game.pass_priority(PlayerId(1)).expect("opponent passes");
+    let decision = game
+        .view_for_player(PlayerId(0))
+        .expect("controller view")
+        .pending_decision
+        .expect("land recursion opens a public controller choice");
+    game.submit_policy_move(
+        PlayerId(0),
+        "life-from-the-loam-full-fidelity-test.v1",
+        PolicyAction::SubmitDecision {
+            decision: decision.id,
+            selection: DecisionSelection::Objects(own_lands.to_vec()),
+        },
+    )
+    .expect("controller returns all three legal lands");
 
     assert!(
         own_lands

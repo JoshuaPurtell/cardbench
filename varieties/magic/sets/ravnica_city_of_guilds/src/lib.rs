@@ -43,11 +43,12 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 244] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 245] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
     "RAV-LIGHTNING-HELIX",
+    "RAV-LIFE-FROM-THE-LOAM",
     "RAV-SEARING-MEDITATION",
     "RAV-BLOCKBUSTER",
     "RAV-PEREGRINE-MASK",
@@ -1199,10 +1200,9 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Dredge(3)],
             effects: vec![],
         },
-        // Compatibility scope: ordinary sorcery casting, Dredge 3, and a
-        // deterministic public-zone return of up to three land cards owned by
-        // the caster. The printed card calls for a choice, so it remains out
-        // of the full-fidelity manifest until that choice is policy-submitted.
+        // Full fidelity: its Dredge replacement and controller-submitted
+        // public selection return exactly zero through three graveyard land
+        // cards through the ordinary suspended spell lifecycle.
         CardDefinition {
             id: "RAV-LIFE-FROM-THE-LOAM",
             name: "Life from the Loam",
@@ -1213,9 +1213,10 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             card_types: types([CardType::Sorcery]),
             is_basic_land: false,
             supported_rules: &[
+                "full-rules-fidelity",
                 "dredge",
                 "return-up-to-three-land-cards-from-graveyard",
-                "deterministic-public-zone-selection",
+                "policy-submitted-public-graveyard-land-selection",
             ],
             power: None,
             toughness: None,

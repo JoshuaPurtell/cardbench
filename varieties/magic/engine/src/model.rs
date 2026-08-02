@@ -2486,8 +2486,8 @@ pub enum Effect {
     ReturnOneCreatureCardFromEachGraveyardToHand,
     /// Select up to three land cards from the resolving controller's graveyard
     /// before any of them move, then return those cards to that player's hand.
-    /// The initial public slice uses deterministic public-zone selection until
-    /// a policy can submit the up-to-three choice.
+    /// The public-zone selection suspends the stack item until that controller
+    /// submits its exact zero-through-three-card choice.
     ReturnUpToThreeControllerGraveyardLandCardsToHand,
     /// Suspend this spell's resolution while its controller privately chooses
     /// zero or more of the top cards of their library. Each selected card
@@ -3660,6 +3660,10 @@ pub enum DecisionKind {
     /// stack. The selection is public, but it is still a no-priority rules
     /// decision rather than an engine-owned insertion-order fallback.
     PublicGraveyardCreatureReturn,
+    /// The controller of a resolving spell selects zero through three of
+    /// their own land cards from their public graveyard. The one response is
+    /// held against the exact stack item and each selected card incarnation.
+    PublicGraveyardLandReturn,
     /// The controller of a resolving effect selects one different legal
     /// replacement target for an exact single-target activated stack item.
     RetargetActivatedAbility,
@@ -4005,6 +4009,16 @@ pub enum DecisionContinuation {
         remaining_players: Vec<PlayerId>,
         selected: Vec<GraveyardCreatureCardSnapshot>,
     },
+    /// A target-free spell waits for its controller to select zero through
+    /// three land cards from their public graveyard. The selected identities
+    /// retain their exact incarnations, so a stale response cannot move a
+    /// later graveyard incarnation with the same stable object id.
+    ReturnUpToThreeControllerGraveyardLandCardsToHand {
+        source_stack_item: StackObjectId,
+        source: ObjectId,
+        source_incarnation: u64,
+        controller: PlayerId,
+    },
     /// Resumes a resolving spell after its controller chooses a different
     /// legal target for one lower single-target activated ability. The source
     /// stack identity is retained separately from the physical card so a
@@ -4035,6 +4049,15 @@ pub struct HandCardSnapshot {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct GraveyardCreatureCardSnapshot {
     pub player: PlayerId,
+    pub card: ObjectId,
+    pub incarnation: u64,
+}
+
+/// One land-card selection from the resolving controller's public graveyard.
+/// This exists only for the no-priority resolution boundary; exact
+/// incarnation provenance rejects a stale selection after a zone round trip.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct GraveyardLandCardSnapshot {
     pub card: ObjectId,
     pub incarnation: u64,
 }

@@ -11497,7 +11497,7 @@ digest = "fnv1a64:fad519a3389dd62d"
 [[scenario]]
 id = "rav_life_from_the_loam_land_recursion"
 seed = 151
-description = "Resolve Life from the Loam's bounded controller-graveyard land recursion while retaining its Dredge 3 characteristic."
+description = "Resolve Life from the Loam's Dredge 3 and policy-submitted public choice of up to three controller-graveyard lands."
 
 [[scenario.card]]
 label = "loam"
@@ -11541,13 +11541,18 @@ player = 0
 kind = "pass"
 player = 1
 
+[[scenario.action]]
+kind = "choose_public_graveyard_land"
+player = 0
+targets = ["forest", "mountain", "island"]
+
 [scenario.expected]
 zones = ["loam:graveyard", "forest:hand", "mountain:hand", "island:hand"]
 stack_size = 0
 priority = 0
 mana = ["0:green:0"]
-event_markers = ["SpellCast", "CardMoved", "SpellResolved"]
-digest = "fnv1a64:064d63ec916d9f38"
+event_markers = ["SpellCast", "DecisionOpened", "DecisionCompleted", "CardMoved", "SpellResolved"]
+digest = "fnv1a64:42a8af0f01df3d6e"
 
 [[scenario]]
 id = "rav_farseek_typed_land_search"
