@@ -113,13 +113,29 @@ Oracle Magic rules coverage.
   receipt path unless the source has `DamageCannotBePrevented`; non-targeted
   damage batches therefore still honor protection even when no target slot
   exists.
-- Damage replacement ordering is source-authoritative: when a source has
-  `Keyword::DamageCannotBePrevented`, no damage-redirection destination or
-  prevention shield may consume that damage, and no `DamageRedirected` or
-  `DamagePrevented` receipt may be emitted for it. Otherwise a live
-  redirection is considered before targeted prevention, and the redirected
-  portion is recursively processed at its legal destination with the same
-  source identity.
+- A bounded prospective damage event carries source incarnation, target
+  incarnation (when the target is a permanent), affected player, remaining
+  amount, and the exact replacement identities already used. For the initial
+  one-effect targeted instant/sorcery slice, the engine gathers live
+  target-shields, permanent shields/protection, and full-event redirections
+  before it records any damage. Two or more candidates open a no-priority
+  decision visible only to the affected player; the submitted identity must
+  still be live, is applied once, and applicability is recomputed. The stack
+  spell remains live while this decision is pending. Its public
+  `DamageReplacementApplied` receipt precedes the authoritative
+  `DamagePrevented`, `DamageRedirected`, or committed `DamageDealt*` receipt,
+  and only committed positive damage queues damage triggers.
+- `Keyword::DamageCannotBePrevented` excludes prevention only. It bypasses
+  target shields, permanent shields, protection, and color-based prevention,
+  but does not bypass a non-prevention damage redirection. A redirected event
+  receives a new target and is then reconsidered against that recipient's
+  applicable replacements; one source-bound replacement identity cannot
+  apply twice to the same prospective event.
+- The current decision continuation is intentionally narrow: it supports one
+  targeted direct-damage instant/sorcery and redirections large enough to
+  replace the entire remaining event. Partial redirection, multi-instruction
+  stack continuations, optional replacements, and arbitrary replacement
+  ordering remain explicit engine gaps rather than deterministic claims.
 - A dynamic creature-count life-gain effect snapshots all current battlefield
   creatures at resolution, including tokens and opposing creatures, converts
   the count into a bounded receipt, and queues life-gain triggers only for the
