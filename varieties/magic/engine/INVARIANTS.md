@@ -274,6 +274,20 @@ Oracle Magic rules coverage.
   and no other pending decision family may coexist. Compatibility actions for
   older policies dispatch through the same continuation but new policies must
   use the id-bearing generic action.
+- `DecisionKind::CounterUnlessPaysMana` keeps its counterspell at the stack
+  top and captures that stack object's source/incarnation/controller together
+  with the lower target spell's identity/incarnation and controller. Only the
+  lower spell's living controller may submit either an explicit decline with
+  no mana data or `DecisionSelection::CounterUnlessPaysMana { pay: true, .. }`
+  with every selected generic/hybrid color and every intervening mana ability
+  listed in order. Each listed ability and the final selected spend are one
+  atomic no-priority payment transaction: failure leaves mana, tap state,
+  stack, pending decision, and receipts unchanged. A successful payment emits
+  `CounterUnlessPaysManaPaid` immediately before the matching
+  `DecisionCompleted`; it has one color per declared mana symbol. Declining
+  emits no payment receipt and counters only the captured lower spell. Neither
+  path permits an automatic payment, an automatic decline, a self-target, an
+  ability-stack target, or a target at or above the counterspell.
 - This first unified-decision migration covers policy-submitted one-card
   library searches, trigger target selection and triggered discard/sacrifice
   object choices, multi-block combat order, spell-copy targets, concurrent
