@@ -50,8 +50,8 @@ different eligible Aura or decline a successful search in this slice. That
 choice fidelity remains unsupported, so Auratouched Mage is not in
 `RAV_FULL_FIDELITY_DEFINITION_IDS`.
 
-After the Glare of Subdual promotion, the catalog partition is 168 full / 56 partial /
-67 catalog-only unique names (183 / 56 / 67 printings). The independently
+After the Ethereal Usher promotion, the catalog partition is 171 full / 54 partial /
+66 catalog-only unique names (186 / 54 / 66 printings). The independently
 checked coverage-report binary emits the same partition.
 
 `RAV_FULL_FIDELITY_DEFINITION_IDS` is a deliberately small positive manifest,
