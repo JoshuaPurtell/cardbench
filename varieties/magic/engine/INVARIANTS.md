@@ -968,8 +968,11 @@ Oracle Magic rules coverage.
   boundary with a positive inspected-card count and positive per-card life
   payment. Its stack spell remains live and is the current top item while the
   controller alone sees the exact current top-card snapshot through
-  `GameView`; opponents see no candidate identities. The snapshot must still
-  be exactly the controller-owned current library top sequence, priority must
+  `GameView`; opponents see no candidate identities. The opening
+  `CardsLookedAt` receipt records only the viewer, current stack source and
+  incarnation, and inspected count—never hidden card identities—and must
+  exactly agree with the live private snapshot. The snapshot must still be
+  exactly the controller-owned current library top sequence, priority must
   stay with that controller with zero passes, and no draw replacement may
   coexist. A submitted selection is unique and a subset of that snapshot,
   checks the controller's life before mutation, then atomically records
@@ -1070,7 +1073,10 @@ Oracle Magic rules coverage.
   granting general hidden-library access. A suspended typed library search
   similarly projects only its resolving controller's matching candidate
   identities; opponents receive no candidate list or selected-card identity
-  before the ordinary zone-move receipt.
+  before the ordinary zone-move receipt. The exported canonical event log
+  follows the same boundary: private inspection receipts contain public
+  provenance/count metadata only, while a later public zone move or explicit
+  reveal is the first receipt that can name a hidden card.
 - While a draw replacement is pending, `GameView` projects only the deciding
   player's legal owned-graveyard dredge candidates. A policy can take the
   normal draw or choose one of those candidates; it cannot name a hidden or
