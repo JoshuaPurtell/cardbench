@@ -49,8 +49,8 @@ a zone move. The fetched Aura's ordinary ETB trigger is queued only after the
 Mage trigger's terminal receipt. The opponent sees neither unselected Aura
 identities nor a private decision projection.
 
-The current catalog partition is 242 full / 16 partial / 33 catalog-only unique
-names (257 / 16 / 33 printings). The independently checked coverage-report
+The current catalog partition is 243 full / 15 partial / 33 catalog-only unique
+names (258 / 15 / 33 printings). The independently checked coverage-report
 binary emits the same partition.
 
 Empty the Catacombs is a positive-manifest entry. After both players pass on
@@ -60,6 +60,14 @@ surface. The engine retains the source stack object and every selected card's
 incarnation through the serial choices, revalidates each selection, then moves
 the selected cards to their owners' hands before the normal spell terminal
 receipts. This is a policy decision rather than deterministic graveyard order.
+
+Mausoleum Turnkey is a positive-manifest entry. Its intervening-condition ETB
+keeps the current public target-selection decision outside the stack until its
+controller selects one creature card, then stacks the ability. After ordinary
+priority passes, that controller explicitly accepts or declines the zero-cost
+return; a decline leaves the selected card in the graveyard. Target and
+condition revalidation remain normal stack-resolution rules rather than a
+deterministic fixture shortcut.
 
 Bramble Elemental is full-fidelity through the expansion-neutral, current-
 controller-scoped Aura-entry trigger condition. Its controller receives the

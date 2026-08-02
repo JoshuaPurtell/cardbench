@@ -10941,7 +10941,7 @@ digest = "fnv1a64:2ffd72de9b45e5b9"
 [[scenario]]
 id = "rav_mausoleum_turnkey_conditional_graveyard_return"
 seed = 146
-description = "Cast Mausoleum Turnkey with two controller-owned creature cards in the graveyard, stack its conditional ETB ability, and return exactly one after priority passes."
+description = "Cast Mausoleum Turnkey with two controller-owned creature cards in the graveyard, submit the ETB target, then accept its optional return after priority passes."
 triggers = true
 
 [[scenario.card]]

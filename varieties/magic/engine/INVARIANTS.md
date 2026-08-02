@@ -560,7 +560,11 @@ Oracle Magic rules coverage.
   later events cannot overtake that pending placement. Dynamic damage-trigger
   instructions use the captured positive amount, not a later damage
   accumulator. A targetless optional trigger opens the same accept/decline
-  boundary even with a zero mana cost. The represented one-effect all-player-
+  boundary even with a zero mana cost. A target-bearing optional trigger first
+  completes its public target-selection boundary before it is stacked, then
+  opens the same controller-only accept/decline boundary after ordinary
+  priority passes; declining preserves the already selected target without
+  applying its instruction. The represented one-effect all-player-
   discard and controller-creature-sacrifice triggers keep their stack object
   live while the relevant chooser submits a legal current hand or battlefield
   object; no deterministic fixture selection may move a card or permanent.
