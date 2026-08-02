@@ -4472,12 +4472,17 @@ pub enum GameEvent {
         card: ObjectId,
         amount: u8,
     },
-    /// The named controller inspected these currently top library cards while
-    /// a resolving instruction was suspended for a private choice. The cards'
-    /// identities are not exposed through an opponent `GameView`.
+    /// The named controller privately inspected up to `count` top-library
+    /// cards while a resolving instruction was suspended for a choice.  The
+    /// receipt intentionally retains only public stack provenance and the
+    /// inspected cardinality: exposing stable card identities here would leak
+    /// cards that remain in a hidden library or hand through the canonical
+    /// event transcript.
     CardsLookedAt {
         viewer: PlayerId,
-        cards: Vec<ObjectId>,
+        source: ObjectId,
+        source_incarnation: u64,
+        count: u8,
     },
     /// A resolving ability opened a private inspection of a target opponent's
     /// library. Candidate identities deliberately stay out of the canonical

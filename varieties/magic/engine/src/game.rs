@@ -11849,6 +11849,18 @@ impl Game {
                 || self.consecutive_passes != 0
                 || self.players[choice.controller.0].lost
                 || choice.cards != expected_cards
+                || !matches!(
+                    self.event_log.last(),
+                    Some(GameEvent::CardsLookedAt {
+                        viewer,
+                        source,
+                        source_incarnation,
+                        count: inspected,
+                    }) if *viewer == choice.controller
+                        && *source == choice.spell
+                        && *source_incarnation == top.source_incarnation
+                        && usize::from(*inspected) == choice.cards.len()
+                )
                 || choice.cards.iter().any(|card| {
                     self.zone_of(*card) != Some(Zone::Library)
                         || self
@@ -17363,7 +17375,11 @@ impl Game {
             .collect::<Vec<_>>();
         self.record_event(GameEvent::CardsLookedAt {
             viewer: controller,
-            cards: cards.clone(),
+            source: spell,
+            source_incarnation: self.object(spell)?.incarnation,
+            count: u8::try_from(cards.len()).map_err(|_| {
+                RulesError::IllegalAction("private library inspection count exceeds event range")
+            })?,
         });
         self.pending_private_library_choice = Some(PendingPrivateLibraryChoice {
             spell,

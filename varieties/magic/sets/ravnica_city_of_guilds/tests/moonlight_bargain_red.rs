@@ -101,7 +101,7 @@ fn moonlight_bargain_uses_a_private_no_priority_resolution_choice() {
     let looked_at = game
         .event_log
         .iter()
-        .position(|event| matches!(event, GameEvent::CardsLookedAt { viewer, cards } if *viewer == PlayerId(0) && cards == &vec![library[4], library[3], library[2], library[1], library[0]]))
+        .position(|event| matches!(event, GameEvent::CardsLookedAt { viewer, source, count, .. } if *viewer == PlayerId(0) && *source == bargain && *count == 5))
         .expect("private inspection receipt");
     let life_paid = game
         .event_log

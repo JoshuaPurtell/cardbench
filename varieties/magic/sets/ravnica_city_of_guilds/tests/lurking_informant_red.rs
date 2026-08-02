@@ -150,10 +150,12 @@ fn lurking_informant_keeps_a_private_exact_top_snapshot_until_its_controller_mil
         "the targeted player does not receive the controller's private snapshot"
     );
     assert!(game.stack.last().is_some_and(|item| item.card == informant));
-    assert!(!game.event_log.iter().any(|event| matches!(
-        event,
-        GameEvent::CardsLookedAt { cards, .. } if cards.contains(&top)
-    )));
+    assert!(
+        !game
+            .event_log
+            .iter()
+            .any(|event| matches!(event, GameEvent::CardsLookedAt { .. }))
+    );
 
     game.submit_decision(
         PlayerId(0),

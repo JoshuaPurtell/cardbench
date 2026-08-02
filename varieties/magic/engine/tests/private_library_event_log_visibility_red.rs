@@ -75,7 +75,9 @@ fn private_library_look_does_not_publish_hidden_card_ids_in_canonical_log() {
         "the opponent policy view must not receive private candidates"
     );
     assert!(
-        !canonical_log.iter().any(|event| event.contains(&format!("{hidden:?}"))),
+        !canonical_log
+            .iter()
+            .any(|event| event.contains(&format!("{hidden:?}"))),
         "the public canonical event log must not reveal a private library card identity"
     );
     game.validate_invariants()
