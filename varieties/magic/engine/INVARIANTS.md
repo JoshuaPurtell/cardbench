@@ -269,6 +269,17 @@ Oracle Magic rules coverage.
 - A stack object has a unique card and a valid controller. Resolving or
   countering it removes it from the stack before it receives its resulting zone
   move.
+- A `PhysicalSpell` target names a lower, non-ability, non-copy stack card.
+  It is intentionally unavailable to stack-only virtual copies, whose
+  identity has no physical object or terminal zone. A
+  `CounterTargetPhysicalSpellThenMillItsControllerByManaValueIfManaColorSpent`
+  instruction snapshots that target's controller and printed mana value while
+  it is still a physical stack object; it records `SpellCountered`, performs
+  the target's ordinary terminal zone move, and only then may move up to that
+  many cards from the captured controller's library. The mill gate reads only
+  the resolving source's captured explicit mana-payment receipt, never the
+  mutable mana pool or the departed target. A nonmatching receipt still
+  counters and terminally moves the target but emits no mill moves.
 - A bound triggered ability has a synthetic stack identity that is not a card
   object or zone member. Its private metadata and public stack item must agree
   on source, controller, and ability, carry no spell targets/effects/payment,
