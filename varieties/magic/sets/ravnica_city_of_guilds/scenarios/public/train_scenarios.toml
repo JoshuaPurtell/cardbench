@@ -9229,7 +9229,7 @@ digest = "fnv1a64:1dcdb2289fdaa917"
 [[scenario]]
 id = "rav_dimir_infiltrator_unblockable_transmute_compatibility"
 seed = 126
-description = "Use Dimir Infiltrator's supported immediate hand-zone Transmute path, then reject a later block against its static unblockability."
+description = "Retain Dimir Infiltrator's historical immediate Transmute fixture for deterministic public parity, then reject a later block against static Unblockable. Its direct Rust full-fidelity contract separately exercises the private stack search."
 
 [[scenario.card]]
 label = "infiltrator_in_hand"

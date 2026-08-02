@@ -49,8 +49,8 @@ a zone move. The fetched Aura's ordinary ETB trigger is queued only after the
 Mage trigger's terminal receipt. The opponent sees neither unselected Aura
 identities nor a private decision projection.
 
-The current catalog partition is 240 full / 18 partial / 33 catalog-only unique
-names (255 / 18 / 33 printings). The independently checked coverage-report
+The current catalog partition is 241 full / 17 partial / 33 catalog-only unique
+names (256 / 17 / 33 printings). The independently checked coverage-report
 binary emits the same partition.
 
 Bramble Elemental is full-fidelity through the expansion-neutral, current-
@@ -503,6 +503,13 @@ continuous-effect lifecycle, and its `{1}{U}{U}` Transmute is the existing
 stack-backed hand-zone ability with a controller-private library search. Focused
 Rust traces show both response windows, terminal receipts, rejected illegal
 blocks, and invariant validation.
+
+Dimir Infiltrator is a full-fidelity entry: normal colored casting, its base
+characteristics, static Unblockable, and its `{1}{U}{B}` Transmute all use
+existing expansion-neutral rules. The frozen public scenario retains the
+historic immediate search fixture for deterministic parity; its direct Rust
+contract proves the real private, stack-backed search and the opponent's lack
+of a decision projection.
 
 Sandsower has since graduated from that bounded wave: its full activation uses
 three policy-selected, distinct, untapped creatures its controller controls as
