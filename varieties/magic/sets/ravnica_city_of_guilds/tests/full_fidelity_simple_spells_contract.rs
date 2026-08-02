@@ -86,6 +86,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-VIASHINO-FANGTAIL",
             "RAV-BOROS-GUILDMAGE",
             "RAV-WOJEK-EMBERMAGE",
+            "RAV-WOJEK-APOTHECARY",
             "RAV-THUNDERSONG-TRUMPETER",
             "RAV-SABERTOOTH-ALLEY-CAT",
             "RAV-FLAME-KIN-ZEALOT",
@@ -145,6 +146,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-SHAMBLING-SHELL",
             "RAV-DOWSING-SHAMAN",
             "RAV-IVY-DANCER",
+            "RAV-GRAYSCALED-GHARIAL",
             "RAV-SEED-SPARK",
             "RAV-LEAVE-NO-TRACE",
             "RAV-HUNTED-LAMMASU",
@@ -167,6 +169,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-SUPPRESSION-FIELD",
             "RAV-LOXODON-GATEKEEPER",
             "RAV-THREE-DREAMS",
+            "RAV-CONCLAVES-BLESSING",
         ]
     );
     let definitions = card_definitions();

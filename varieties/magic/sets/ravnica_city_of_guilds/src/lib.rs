@@ -174,6 +174,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 156] = [
     "RAV-SHAMBLING-SHELL",
     "RAV-DOWSING-SHAMAN",
     "RAV-IVY-DANCER",
+    "RAV-GRAYSCALED-GHARIAL",
     "RAV-SEED-SPARK",
     "RAV-LEAVE-NO-TRACE",
     "RAV-HUNTED-LAMMASU",
@@ -3023,17 +3024,28 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed evasion keyword is deliberately
-        // omitted from this compatibility slice.
-        bounded_creature_chassis(
-            "RAV-GRAYSCALED-GHARIAL",
-            "Grayscaled Gharial",
-            ManaCost::with_colors(0, [Color::Blue]),
-            colors([Color::Blue]),
-            1,
-            1,
-        ),
+        // Full fidelity: its static typed landwalk is captured during attacker
+        // declaration and rechecked against the fixed defender for blockers.
+        CardDefinition {
+            id: "RAV-GRAYSCALED-GHARIAL",
+            name: "Grayscaled Gharial",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(0, [Color::Blue]),
+            colors: colors([Color::Blue]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "islandwalk",
+            ],
+            power: Some(1),
+            toughness: Some(1),
+            keywords: vec![Keyword::Landwalk(BasicLandType::Island)],
+            effects: vec![],
+        },
         // Full fidelity: the typed {1}{R} self-pump uses the shared activated
         // ability stack and layer-7 temporary effect.
         CardDefinition {

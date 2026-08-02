@@ -1,4 +1,4 @@
-//! Public contract for the second bounded RAV creature-chassis batch.
+//! Public contract for the remaining bounded RAV creature-chassis batch.
 //!
 //! These compatibility definitions deliberately expose normal casting and base
 //! characteristics only. No printed activated, triggered, evasion, token, or
@@ -14,14 +14,6 @@ use cardbench_magic_rav::{card_definitions, run_all_scenarios};
 fn second_creature_chassis_batch_is_exactly_bounded_to_public_base_facts() {
     let definitions = card_definitions();
     let expected = [
-        (
-            "RAV-GRAYSCALED-GHARIAL",
-            "Grayscaled Gharial",
-            ManaCost::with_colors(0, [Color::Blue]),
-            BTreeSet::from([Color::Blue]),
-            1,
-            1,
-        ),
         (
             "RAV-LORE-BROKER",
             "Lore Broker",
