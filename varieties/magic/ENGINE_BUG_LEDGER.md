@@ -1,6 +1,6 @@
 # Magic engine bug ledger
 
-| `rav-scenario-count-stale-after-zephyr-spirit` | RAV integration contract drift — Zephyr Spirit adds a public blocking-trigger scenario while the deterministic library assertion still expected 164 scenarios | Open; red discovery | Exact command: `cargo test -p cardbench-magic-rav --lib representative_rav_scenarios_are_deterministic --quiet`; failure was `assertion left == right` with `left: 165`, `right: 164` at `sets/ravnica_city_of_guilds/src/lib.rs:7524`. |
+| `rav-scenario-count-stale-after-zephyr-spirit` | RAV integration contract drift — Zephyr Spirit adds a public blocking-trigger scenario while the deterministic library assertion still expected 164 scenarios | Fixed; red `e80ee5c6` | Exact failure was `assertion left == right` with `left: 165`, `right: 164`. The deterministic library contract now expects 165, matching the public Zephyr Spirit scenario and parity corpus. |
 
 | `zephyr-spirit-blocks-trigger-missing` | RAV Blue/core combat-trigger gap — Zephyr Spirit remains a base chassis because the trigger pipeline has no source-relative `Blocks` event to return its exact source incarnation to its owner’s hand | Open; red discovery | Exact red command: `cargo test -p cardbench-magic-rav --test zephyr_spirit_red -- --nocapture`. The green repair must enqueue only the declared blocking creature's trigger after legal blockers are committed, preserve priority/stack order, and reuse the source-incarnation hand-return instruction so source departure/reentry cannot move a later object. |
 
