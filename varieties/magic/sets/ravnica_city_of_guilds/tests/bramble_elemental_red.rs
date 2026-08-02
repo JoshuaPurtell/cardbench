@@ -2,7 +2,7 @@
 
 use std::collections::BTreeSet;
 
-use cardbench_magic_engine::{CardType, Color, ManaCost};
+use cardbench_magic_engine::{CardType, Color, ManaCost, TriggerCondition};
 use cardbench_magic_rav::{
     RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, rav_triggered_ability_bindings,
 };
@@ -27,7 +27,14 @@ fn bramble_elemental_requires_an_optional_controlled_aura_entry_trigger() {
         .into_iter()
         .find(|binding| binding.card_definition == "RAV-BRAMBLE-ELEMENTAL")
         .expect("Bramble Elemental controlled-Aura trigger binding exists");
-    assert_eq!(trigger.ability.id, "controlled-aura-enters-create-saproling");
+    assert_eq!(
+        trigger.ability.id,
+        "controlled-aura-enters-create-saproling"
+    );
+    assert_eq!(
+        trigger.ability.condition,
+        TriggerCondition::ControlledAuraEntersBattlefield
+    );
     assert!(trigger.ability.optional);
     assert!(trigger.ability.targets.is_empty());
     assert!(

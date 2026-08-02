@@ -356,6 +356,10 @@ pub enum TriggerCondition {
     /// card types are captured with the trigger event, because it can leave
     /// the battlefield before its observed trigger resolves.
     ControlledNonartifactPermanentEntersBattlefield,
+    /// An Aura entered the battlefield under the source controller's
+    /// control. The observer is independent from the entering Aura, so its
+    /// source/controller are sampled while both permanents are live.
+    ControlledAuraEntersBattlefield,
     /// A land entered the battlefield through a represented normal zone
     /// transition. Unlike `EntersBattlefield`, this condition observes every
     /// qualifying land entry rather than only the permanent that entered.

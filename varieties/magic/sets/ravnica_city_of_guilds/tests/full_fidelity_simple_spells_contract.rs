@@ -106,6 +106,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-DIVEBOMBER-GRIFFIN",
             "RAV-DROMAD-PUREBRED",
             "RAV-CARVEN-CARYATID",
+            "RAV-BRAMBLE-ELEMENTAL",
             "RAV-BIRDS-OF-PARADISE",
             "RAV-FIERY-CONCLUSION",
             "RAV-RIBBONS-OF-NIGHT",

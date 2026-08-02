@@ -1583,6 +1583,7 @@ impl Game {
                     binding.ability.condition,
                     TriggerCondition::EntersBattlefield
                         | TriggerCondition::ControlledNonartifactPermanentEntersBattlefield
+                        | TriggerCondition::ControlledAuraEntersBattlefield
                         | TriggerCondition::LandEntersBattlefield
                         | TriggerCondition::ControlledLandEntersBattlefield
                         | TriggerCondition::BeginningOfUpkeep
@@ -11229,6 +11230,7 @@ impl Game {
                         ability.condition,
                         TriggerCondition::EntersBattlefield
                             | TriggerCondition::ControlledNonartifactPermanentEntersBattlefield
+                            | TriggerCondition::ControlledAuraEntersBattlefield
                             | TriggerCondition::LandEntersBattlefield
                             | TriggerCondition::ControlledLandEntersBattlefield
                             | TriggerCondition::BeginningOfUpkeep
@@ -15791,7 +15793,46 @@ impl Game {
             }
         }
         self.enqueue_controlled_nonartifact_permanent_entry_triggers(source, controller)?;
+        self.enqueue_controlled_aura_entry_triggers(source, controller)?;
         self.flush_pending_trigger_events()
+    }
+
+    /// Captures every live permanent controlled by the entering Aura's
+    /// controller that observes this exact Aura-entry event. This remains
+    /// separate from generic enchantment entry: only registered typed Aura
+    /// bindings qualify, and an opposing controller's Aura cannot cause a
+    /// controller-scoped observer to trigger.
+    fn enqueue_controlled_aura_entry_triggers(
+        &mut self,
+        entering: ObjectId,
+        entering_controller: PlayerId,
+    ) -> Result<(), RulesError> {
+        if self.zone_of(entering) != Some(Zone::Battlefield)
+            || self.controller_of(entering)? != entering_controller
+            || !self.is_aura_like(entering)?
+        {
+            return Ok(());
+        }
+        let observers = self
+            .all_battlefield_cards()
+            .into_iter()
+            .filter_map(|source| {
+                if self.controller_of(source).ok()? != entering_controller {
+                    return None;
+                }
+                let definition = self.effective_definition_id(source).ok()??;
+                Some((source, definition))
+            })
+            .collect::<Vec<_>>();
+        for (source, definition) in observers {
+            self.enqueue_triggers_for_source(
+                source,
+                definition,
+                entering_controller,
+                TriggerCondition::ControlledAuraEntersBattlefield,
+            );
+        }
+        Ok(())
     }
 
     /// Captures each live observer of a nonartifact permanent entering under
@@ -22525,6 +22566,18 @@ impl Game {
         {
             return Err(RulesError::IllegalAction(
                 "entered-permanent bounce effects require the controlled nonartifact entry trigger",
+            ));
+        }
+        if ability.condition == TriggerCondition::ControlledAuraEntersBattlefield
+            && (!ability.optional
+                || !ability.targets.is_empty()
+                || !matches!(
+                    ability.effects.as_slice(),
+                    [Effect::CreateToken { count: 1, .. }]
+                ))
+        {
+            return Err(RulesError::IllegalAction(
+                "controlled Aura-entry trigger requires one optional target-free token effect",
             ));
         }
         if ability.condition == TriggerCondition::GraveyardToHand

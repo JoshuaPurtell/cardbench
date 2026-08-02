@@ -137,6 +137,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 218] = [
     "RAV-DIVEBOMBER-GRIFFIN",
     "RAV-DROMAD-PUREBRED",
     "RAV-CARVEN-CARYATID",
+    "RAV-BRAMBLE-ELEMENTAL",
     "RAV-BIRDS-OF-PARADISE",
     "RAV-FIERY-CONCLUSION",
     "RAV-RIBBONS-OF-NIGHT",
@@ -3260,8 +3261,9 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 keyword: Keyword::CannotBlock,
             }],
         },
-        // Full printed behavior: static Defender and the bound stack-backed
-        // enter-the-battlefield draw trigger.
+        // Full printed behavior: a targetless controller-scoped Aura-entry
+        // may trigger that makes exactly one typed Saproling through the
+        // ordinary trigger stack and optional-policy decision boundary.
         CardDefinition {
             id: "RAV-BRAMBLE-ELEMENTAL",
             name: "Bramble Elemental",
@@ -3271,7 +3273,12 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Creature]),
             is_basic_land: false,
-            supported_rules: &["colored-cost-casting", "base-characteristics"],
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "may-create-saproling-when-controlled-aura-enters",
+            ],
             power: Some(4),
             toughness: Some(4),
             keywords: vec![],
@@ -8217,6 +8224,20 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                 optional: false,
                 targets: vec![],
                 effects: vec![Effect::DrawController],
+            },
+        },
+        TriggeredAbilityBinding {
+            card_definition: "RAV-BRAMBLE-ELEMENTAL",
+            ability: TriggeredAbility {
+                id: "controlled-aura-enters-create-saproling",
+                condition: TriggerCondition::ControlledAuraEntersBattlefield,
+                mana_cost: ManaCost::new(0),
+                optional: true,
+                targets: vec![],
+                effects: vec![Effect::CreateToken {
+                    token: TokenSpec::saproling(),
+                    count: 1,
+                }],
             },
         },
         TriggeredAbilityBinding {
