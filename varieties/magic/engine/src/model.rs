@@ -983,7 +983,8 @@ pub enum Keyword {
     /// This creature assigns combat damage in both first-strike and normal
     /// combat-damage steps.
     DoubleStrike,
-    /// Damage dealt by this source ignores prevention and redirection effects.
+    /// Damage dealt by this source cannot be prevented. This does not disable
+    /// non-prevention replacement effects (for example, redirection).
     DamageCannotBePrevented,
     /// Damage dealt by a source of the named color is prevented when it would
     /// be dealt to this permanent.

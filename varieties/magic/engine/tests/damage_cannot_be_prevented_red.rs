@@ -1,4 +1,5 @@
-//! Red regression: damage that cannot be prevented also bypasses redirection.
+//! Red regression: "can't be prevented" does not disable non-prevention
+//! replacement effects such as damage redirection.
 
 use std::collections::BTreeSet;
 
@@ -74,7 +75,7 @@ fn pass_pair(game: &mut Game) {
 }
 
 #[test]
-fn damage_cannot_be_prevented_bypasses_damage_redirection() {
+fn damage_cannot_be_prevented_retains_damage_redirection() {
     let caster = PlayerId(0);
     let opponent = PlayerId(1);
     let mut game = Game::new_with_all_bindings(
@@ -151,20 +152,20 @@ fn damage_cannot_be_prevented_bypasses_damage_redirection() {
     );
     assert_eq!(
         game.object(target).expect("target remains alive").damage,
-        2,
-        "damage that cannot be prevented must not be redirected away"
+        0,
+        "damage that cannot be prevented still permits non-prevention redirection"
     );
     assert_eq!(
         game.player(opponent).expect("opponent exists").life,
-        20,
-        "the redirection destination must not receive unpreventable damage"
+        18,
+        "the redirection destination must receive the redirected damage"
     );
     assert!(
-        !game
+        game
             .canonical_event_log()
             .iter()
             .any(|event| event.contains("DamageRedirected")),
-        "unpreventable damage must bypass the redirection receipt"
+        "non-prevention redirection must remain visible in the event log"
     );
     game.validate_invariants()
         .expect("replacement precedence leaves a valid game state");
