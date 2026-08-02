@@ -11253,6 +11253,114 @@ event_markers = ["AbilityManaPaid", "AbilityActivated", "CardDestroyed", "Counte
 digest = "fnv1a64:322d196306fb9445"
 
 [[scenario]]
+id = "rav_primordial_sage_creature_cast_optional_draw"
+seed = 186
+triggers = true
+description = "Cast a creature under Primordial Sage, resolve its optional draw trigger above that creature spell, then resolve the creature."
+
+[[scenario.card]]
+label = "sage"
+owner = 0
+definition = "RAV-PRIMORDIAL-SAGE"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.card]]
+label = "watchwolf"
+owner = 0
+definition = "RAV-WATCHWOLF"
+zone = "hand"
+
+[[scenario.card]]
+label = "drawn_forest"
+owner = 0
+definition = "RAV-FOREST"
+zone = "library"
+
+[[scenario.card]]
+label = "forest"
+owner = 0
+definition = "RAV-FOREST"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.card]]
+label = "plains"
+owner = 0
+definition = "RAV-PLAINS"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.action]]
+kind = "begin_game"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "forest"
+color = "green"
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "plains"
+color = "white"
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "watchwolf"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "resolve_optional_trigger"
+player = 0
+card = "sage"
+ability = "controller-creature-spell-cast-may-draw"
+pay = true
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["sage:battlefield", "watchwolf:battlefield", "drawn_forest:hand", "forest:battlefield", "plains:battlefield"]
+powers = ["sage:4", "watchwolf:3"]
+toughnesses = ["sage:5", "watchwolf:3"]
+mana = ["0:green:0", "0:white:0"]
+stack_size = 0
+priority = 0
+event_markers = ["SpellCast", "TriggeredAbilityStacked", "CardMoved", "AbilityResolved", "SpellResolved"]
+digest = "fnv1a64:fad519a3389dd62d"
+
+[[scenario]]
 id = "rav_life_from_the_loam_land_recursion"
 seed = 151
 description = "Resolve Life from the Loam's bounded controller-graveyard land recursion while retaining its Dredge 3 characteristic."

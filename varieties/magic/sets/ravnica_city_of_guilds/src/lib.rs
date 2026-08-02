@@ -43,7 +43,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 230] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 231] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
@@ -225,6 +225,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 230] = [
     "RAV-MORTIPEDE",
     "RAV-SELESNYA-SAGITTARS",
     "RAV-AUTOCHTHON-WURM",
+    "RAV-PRIMORDIAL-SAGE",
     "RAV-TWILIGHT-DROVER",
     "RAV-TROPHY-HUNTER",
     "RAV-ELVISH-SKYSWEEPER",
@@ -5229,17 +5230,29 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed creature-cast trigger is deliberately
-        // omitted from this compatibility slice.
-        bounded_creature_chassis(
-            "RAV-PRIMORDIAL-SAGE",
-            "Primordial Sage",
-            ManaCost::with_colors(4, [Color::Green, Color::Green]),
-            colors([Color::Green]),
-            4,
-            5,
-        ),
+        // Full fidelity: a creature spell cast by this source's controller
+        // creates its ordinary optional draw trigger above that spell, with
+        // the public decision occurring only after both players pass.
+        CardDefinition {
+            id: "RAV-PRIMORDIAL-SAGE",
+            name: "Primordial Sage",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(4, [Color::Green, Color::Green]),
+            colors: colors([Color::Green]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "controller-casts-creature-spell-may-draw",
+            ],
+            power: Some(4),
+            toughness: Some(5),
+            keywords: vec![],
+            effects: vec![],
+        },
         // Full fidelity: the source's dies trigger creates one typed white
         // Spirit token with Flying through the ordinary trigger stack.
         CardDefinition {
@@ -8207,6 +8220,17 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
             },
         },
         TriggeredAbilityBinding {
+            card_definition: "RAV-PRIMORDIAL-SAGE",
+            ability: TriggeredAbility {
+                id: "controller-creature-spell-cast-may-draw",
+                condition: TriggerCondition::CastsCreatureSpell,
+                mana_cost: ManaCost::new(0),
+                optional: true,
+                targets: vec![],
+                effects: vec![Effect::DrawController],
+            },
+        },
+        TriggeredAbilityBinding {
             card_definition: "RAV-NULLSTONE-GARGOYLE",
             ability: TriggeredAbility {
                 id: "first-noncreature-spell-counter",
@@ -9678,7 +9702,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 185);
+        assert_eq!(first.len(), 186);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

@@ -433,6 +433,10 @@ pub enum TriggerCondition {
     /// A noncreature spell was cast by this permanent's controller. The
     /// triggering stack item retains that exact spell as its target.
     CastsNoncreatureSpell,
+    /// A creature spell was cast by this permanent's controller. This
+    /// condition has no implicit spell target; any printed targets are
+    /// supplied by the ordinary triggered-ability choice boundary.
+    CastsCreatureSpell,
     /// A player cast that player's first noncreature spell in the current
     /// turn. The trigger retains the exact spell as its target. Unlike
     /// `CastsNoncreatureSpell`, the triggering permanent need not share a

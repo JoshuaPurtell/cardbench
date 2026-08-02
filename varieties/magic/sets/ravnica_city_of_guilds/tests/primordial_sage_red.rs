@@ -1,6 +1,9 @@
 //! Red discovery regression for a controller-scoped creature-spell cast trigger.
 
-use cardbench_magic_engine::{CastRequest, Color, Game, GameEvent, PlayerId, PolicyAction, Zone};
+use cardbench_magic_engine::{
+    CastRequest, Color, Game, GameEvent, ObjectId, PlayerId, PolicyAction, Target,
+    TriggerCondition, Zone,
+};
 use cardbench_magic_rav::{
     RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, rav_activated_ability_bindings,
     rav_additional_spell_cost_bindings, rav_basic_land_type_bindings, rav_mana_ability_bindings,
@@ -28,7 +31,7 @@ fn advance_to_first_main(game: &mut Game) {
     }
 }
 
-fn prepare_controller_creature_cast(game: &mut Game) -> (u64, u64, u64, u64) {
+fn prepare_controller_creature_cast(game: &mut Game) -> (ObjectId, ObjectId, ObjectId) {
     let sage = game
         .put_on_battlefield(PlayerId(0), "RAV-PRIMORDIAL-SAGE")
         .expect("Sage begins on battlefield");
@@ -50,7 +53,7 @@ fn prepare_controller_creature_cast(game: &mut Game) -> (u64, u64, u64, u64) {
     game.activate_mana_ability(PlayerId(0), plains, Color::White)
         .expect("Plains produces white mana");
     game.clear_event_log();
-    (sage.0, creature.0, drawn_card.0, forest.0)
+    (sage, creature, drawn_card)
 }
 
 #[test]
@@ -72,6 +75,7 @@ fn primordial_sage_requires_controller_creature_cast_optional_draw_contract() {
         rav_triggered_ability_bindings().into_iter().any(|binding| {
             binding.card_definition == "RAV-PRIMORDIAL-SAGE"
                 && binding.ability.id == "controller-creature-spell-cast-may-draw"
+                && binding.ability.condition == TriggerCondition::CastsCreatureSpell
                 && binding.ability.optional
         }),
         "Sage requires an optional stack trigger rather than a deterministic draw"
@@ -81,10 +85,7 @@ fn primordial_sage_requires_controller_creature_cast_optional_draw_contract() {
 #[test]
 fn primordial_sage_accepted_draw_resolves_above_creature_spell() {
     let mut game = game_with_rav_bindings();
-    let (sage, creature, drawn_card, _) = prepare_controller_creature_cast(&mut game);
-    let sage = cardbench_magic_engine::ObjectId(sage);
-    let creature = cardbench_magic_engine::ObjectId(creature);
-    let drawn_card = cardbench_magic_engine::ObjectId(drawn_card);
+    let (sage, creature, drawn_card) = prepare_controller_creature_cast(&mut game);
     game.cast_spell(
         PlayerId(0),
         CastRequest {
@@ -137,7 +138,7 @@ fn primordial_sage_accepted_draw_resolves_above_creature_spell() {
 }
 
 #[test]
-fn primordial_sage_ignores_opponent_creature_spell_and_decline_draw_is_visible() {
+fn primordial_sage_ignores_opponent_creature_spell() {
     let mut game = game_with_rav_bindings();
     let sage = game
         .put_on_battlefield(PlayerId(1), "RAV-PRIMORDIAL-SAGE")
@@ -174,4 +175,147 @@ fn primordial_sage_ignores_opponent_creature_spell_and_decline_draw_is_visible()
     )));
     game.validate_invariants()
         .expect("opponent-scoped non-trigger preserves invariants");
+}
+
+#[test]
+fn primordial_sage_decline_leaves_the_library_card_in_place() {
+    let mut game = game_with_rav_bindings();
+    let (sage, creature, drawn_card) = prepare_controller_creature_cast(&mut game);
+    game.cast_spell(
+        PlayerId(0),
+        CastRequest {
+            card: creature,
+            targets: vec![],
+            convoke: vec![],
+            payment_mana_abilities: vec![],
+        },
+    )
+    .expect("controller casts a creature spell");
+    game.pass_priority(PlayerId(0))
+        .expect("caster passes the trigger");
+    game.pass_priority(PlayerId(1))
+        .expect("trigger reaches its optional choice");
+    game.submit_policy_move(
+        PlayerId(0),
+        "primordial-sage-test.v1",
+        PolicyAction::ResolveOptionalTriggeredAbility {
+            source: sage,
+            ability: "controller-creature-spell-cast-may-draw",
+            pay: false,
+            target: None,
+        },
+    )
+    .expect("controller declines the optional draw");
+    assert_eq!(game.zone_of(drawn_card), Some(Zone::Library));
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::AbilityResolved { source, ability, .. }
+            if *source == sage && *ability == "controller-creature-spell-cast-may-draw"
+    )));
+    game.pass_priority(PlayerId(0))
+        .expect("caster passes creature spell");
+    game.pass_priority(PlayerId(1))
+        .expect("creature spell resolves");
+    game.validate_invariants()
+        .expect("declined Sage trigger preserves invariants");
+}
+
+#[test]
+fn primordial_sage_trigger_draws_after_its_source_leaves_before_resolution() {
+    let mut game = game_with_rav_bindings();
+    let putrefy = game
+        .add_card(PlayerId(1), "RAV-PUTREFY", Zone::Hand)
+        .expect("response begins in hand");
+    let first_forest = game
+        .put_on_battlefield(PlayerId(1), "RAV-FOREST")
+        .expect("first response Forest begins on battlefield");
+    let second_forest = game
+        .put_on_battlefield(PlayerId(1), "RAV-FOREST")
+        .expect("second response Forest begins on battlefield");
+    let swamp = game
+        .put_on_battlefield(PlayerId(1), "RAV-SWAMP")
+        .expect("response Swamp begins on battlefield");
+    let (sage, creature, drawn_card) = prepare_controller_creature_cast(&mut game);
+    game.cast_spell(
+        PlayerId(0),
+        CastRequest {
+            card: creature,
+            targets: vec![],
+            convoke: vec![],
+            payment_mana_abilities: vec![],
+        },
+    )
+    .expect("controller casts a creature spell");
+    game.pass_priority(PlayerId(0))
+        .expect("caster passes the trigger to player one");
+    for (land, color) in [
+        (first_forest, Color::Green),
+        (second_forest, Color::Green),
+        (swamp, Color::Black),
+    ] {
+        game.activate_mana_ability(PlayerId(1), land, color)
+            .expect("response land produces payment mana");
+    }
+    game.cast_spell(
+        PlayerId(1),
+        CastRequest {
+            card: putrefy,
+            targets: vec![Target::Permanent(sage)],
+            convoke: vec![],
+            payment_mana_abilities: vec![],
+        },
+    )
+    .expect("player one responds by destroying the trigger source");
+    let first = game.priority;
+    game.pass_priority(first)
+        .expect("response caster passes its spell");
+    let second = game.priority;
+    game.pass_priority(second).expect("response spell resolves");
+    assert_eq!(game.zone_of(sage), Some(Zone::Graveyard));
+    assert_eq!(
+        game.stack.len(),
+        2,
+        "the source-less Sage trigger remains above the creature spell"
+    );
+    let first = game.priority;
+    game.pass_priority(first)
+        .expect("first pass reaches the source-less trigger");
+    let second = game.priority;
+    game.pass_priority(second)
+        .expect("source-less trigger reaches the controller choice");
+    game.submit_policy_move(
+        PlayerId(0),
+        "primordial-sage-test.v1",
+        PolicyAction::ResolveOptionalTriggeredAbility {
+            source: sage,
+            ability: "controller-creature-spell-cast-may-draw",
+            pay: true,
+            target: None,
+        },
+    )
+    .expect("trigger remains independently resolvable");
+    assert_eq!(game.zone_of(drawn_card), Some(Zone::Hand));
+    let spell_cast = game
+        .event_log
+        .iter()
+        .position(|event| matches!(event, GameEvent::SpellCast { card, .. } if *card == creature))
+        .expect("creature cast receipt exists");
+    let trigger_stacked = game
+        .event_log
+        .iter()
+        .position(|event| {
+            matches!(
+                event,
+                GameEvent::TriggeredAbilityStacked { source, ability, .. }
+                    if *source == sage && *ability == "controller-creature-spell-cast-may-draw"
+            )
+        })
+        .expect("Sage trigger receipt exists");
+    assert!(spell_cast < trigger_stacked);
+    println!(
+        "primordial_sage_departed_source_event_log={:?}",
+        game.canonical_event_log()
+    );
+    game.validate_invariants()
+        .expect("source-less Sage trigger preserves invariants");
 }

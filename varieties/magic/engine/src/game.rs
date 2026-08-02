@@ -1621,6 +1621,7 @@ impl Game {
                         | TriggerCondition::Attacks
                         | TriggerCondition::Blocks
                         | TriggerCondition::CastsNoncreatureSpell
+                        | TriggerCondition::CastsCreatureSpell
                         | TriggerCondition::FirstNoncreatureSpellCastEachTurn
                 )
                 || binding.ability.targets
@@ -6792,7 +6793,9 @@ impl Game {
             object: request.card,
             incarnation: source_incarnation,
         });
-        if !definition.card_types.contains(&CardType::Creature) {
+        if definition.card_types.contains(&CardType::Creature) {
+            self.enqueue_cast_creature_triggers(player)?;
+        } else {
             let is_first_noncreature_spell_this_turn =
                 self.noncreature_spell_casters_this_turn.insert(player);
             self.enqueue_cast_noncreature_triggers(
@@ -11388,6 +11391,7 @@ impl Game {
                             | TriggerCondition::Attacks
                             | TriggerCondition::Blocks
                             | TriggerCondition::CastsNoncreatureSpell
+                            | TriggerCondition::CastsCreatureSpell
                             | TriggerCondition::FirstNoncreatureSpellCastEachTurn
                     )
                     || ability.targets
@@ -16380,6 +16384,29 @@ impl Game {
         }
         self.flush_pending_trigger_events()?;
         Ok(())
+    }
+
+    /// Queues every controller-scoped creature-spell cast trigger after the
+    /// cast receipt and before post-cast priority. The creature spell remains
+    /// below each resulting trigger, preserving ordinary response and
+    /// optional-resolution windows without a card-specific resolver.
+    fn enqueue_cast_creature_triggers(&mut self, caster: PlayerId) -> Result<(), RulesError> {
+        let sources = self.all_battlefield_cards();
+        for source in sources {
+            let Some(definition) = self.effective_definition_id(source)? else {
+                continue;
+            };
+            let controller = self.controller_of(source)?;
+            if controller == caster {
+                self.enqueue_triggers_for_source(
+                    source,
+                    definition,
+                    controller,
+                    TriggerCondition::CastsCreatureSpell,
+                );
+            }
+        }
+        self.flush_pending_trigger_events()
     }
 
     /// Stacks every represented land-entry trigger on a live permanent. A
