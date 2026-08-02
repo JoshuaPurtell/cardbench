@@ -1355,6 +1355,7 @@ impl Game {
                         | TriggerCondition::DealsCombatDamageToCreature
                         | TriggerCondition::ReceivesDamage
                         | TriggerCondition::Dies
+                        | TriggerCondition::AnotherCreatureLeavesBattlefield
                         | TriggerCondition::AnotherCreatureDies
                         | TriggerCondition::OpponentCardPutIntoGraveyard
                         | TriggerCondition::Attacks
@@ -8438,6 +8439,7 @@ impl Game {
                             | TriggerCondition::DealsCombatDamageToCreature
                             | TriggerCondition::ReceivesDamage
                             | TriggerCondition::Dies
+                            | TriggerCondition::AnotherCreatureLeavesBattlefield
                             | TriggerCondition::AnotherCreatureDies
                             | TriggerCondition::OpponentCardPutIntoGraveyard
                             | TriggerCondition::Attacks
@@ -13260,6 +13262,79 @@ impl Game {
         Ok(())
     }
 
+    /// Captures every battlefield permanent with an "another creature leaves
+    /// the battlefield" trigger before the departing object changes zones.
+    /// The source incarnation and colors are sampled while the source still
+    /// exists, and the departing object is excluded from its own observers.
+    fn enqueue_another_creature_leaves_battlefield_triggers(
+        &mut self,
+        leaving_creature: ObjectId,
+    ) -> Result<(), RulesError> {
+        if self.zone_of(leaving_creature) != Some(Zone::Battlefield)
+            || !self
+                .characteristics(leaving_creature)?
+                .card_types
+                .contains(&CardType::Creature)
+        {
+            return Ok(());
+        }
+        let observers = self
+            .all_battlefield_cards()
+            .into_iter()
+            .filter(|source| *source != leaving_creature)
+            .filter_map(|source| {
+                let object = self.object(source).ok()?;
+                if object.token.is_some() {
+                    return None;
+                }
+                let definition = self.card_definition(source).ok()?;
+                let observes = self
+                    .triggered_abilities
+                    .get(definition.id)
+                    .into_iter()
+                    .flat_map(|abilities| abilities.values())
+                    .any(|ability| {
+                        ability.condition == TriggerCondition::AnotherCreatureLeavesBattlefield
+                    });
+                if !observes {
+                    return None;
+                }
+                let source_colors = self.characteristics(source).ok()?.colors;
+                Some((
+                    source,
+                    definition.id,
+                    object.controller,
+                    object.incarnation,
+                    source_colors,
+                ))
+            })
+            .collect::<Vec<_>>();
+        for (source, definition, controller, source_incarnation, source_colors) in observers {
+            let triggers = self
+                .triggered_abilities
+                .get(definition)
+                .into_iter()
+                .flat_map(|abilities| abilities.values())
+                .filter(|ability| {
+                    ability.condition == TriggerCondition::AnotherCreatureLeavesBattlefield
+                })
+                .cloned()
+                .collect::<Vec<_>>();
+            for ability in triggers {
+                self.pending_trigger_events
+                    .push(PendingTriggeredAbilityEvent {
+                        source,
+                        source_incarnation,
+                        source_colors: source_colors.clone(),
+                        controller,
+                        ability,
+                        payload: TriggerEventPayload::None,
+                    });
+            }
+        }
+        Ok(())
+    }
+
     /// Captures every live permanent that observes a card entering an
     /// opponent's graveyard. This is deliberately a zone-transition observer,
     /// not a battlefield-death observer: its caller receives every ordinary
@@ -16672,6 +16747,7 @@ impl Game {
             let expired_copy = self.object(card)?.copied_permanent.clone();
             let token_incarnation = self.object(card)?.incarnation;
             if was_battlefield {
+                self.enqueue_another_creature_leaves_battlefield_triggers(card)?;
                 self.enqueue_another_creature_dies_triggers(card)?;
             }
             self.remove_from_all_zones(card);
@@ -16764,6 +16840,9 @@ impl Game {
         let previous_zone = self.zone_of(card);
         let left_battlefield =
             previous_zone == Some(Zone::Battlefield) && zone != Zone::Battlefield;
+        if left_battlefield {
+            self.enqueue_another_creature_leaves_battlefield_triggers(card)?;
+        }
         // Layer-two state has to be sampled before this object advances its
         // incarnation. Once the source has left, `effect_is_active` correctly
         // hides the expired effect; using that post-departure projection would

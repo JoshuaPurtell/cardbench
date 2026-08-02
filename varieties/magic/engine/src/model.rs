@@ -329,6 +329,10 @@ pub enum TriggerCondition {
     ReceivesDamage,
     /// The source changed from the battlefield to its graveyard.
     Dies,
+    /// A different creature left the battlefield through any represented zone
+    /// transition. Unlike `AnotherCreatureDies`, this also observes bounce,
+    /// exile, and other non-graveyard departures.
+    AnotherCreatureLeavesBattlefield,
     /// A different creature was put into a graveyard from the battlefield.
     /// The source is captured before the state-based-action batch removes
     /// either object, so simultaneous deaths retain their normal historical
