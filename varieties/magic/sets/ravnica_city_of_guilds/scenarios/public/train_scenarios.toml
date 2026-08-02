@@ -4991,7 +4991,7 @@ digest = "fnv1a64:10ab6a9c0b91ec2c"
 id = "rav_easy_blue_late_creature_chassis"
 seed = 0
 triggers = true
-description = "Cast Vedalken Dismisser, select an opposing creature for its entry trigger, then cast Zephyr Spirit and verify the Dismisser target is on its owner's library top. Zephyr Spirit's printed blocking trigger remains omitted."
+description = "Cast Vedalken Dismisser, select an opposing creature for its entry trigger, then cast Zephyr Spirit and verify the Dismisser target is on its owner's library top. Zephyr Spirit's blocking trigger has dedicated stack coverage."
 
 [[scenario.card]]
 label = "dismisser"

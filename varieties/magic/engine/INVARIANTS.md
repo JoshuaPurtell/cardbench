@@ -371,6 +371,15 @@ Oracle Magic rules coverage.
   discard and controller-creature-sacrifice triggers keep their stack object
   live while the relevant chooser submits a legal current hand or battlefield
   object; no deterministic fixture selection may move a card or permanent.
+- A `Blocks` trigger is observed only for a creature that was successfully
+  committed as a legal blocker. It waits until the defender's complete
+  declaration and every required attacker damage-order decision have finished,
+  then stacks before ordinary post-block priority. Replay requires its source
+  in the immediately preceding `BlockersDeclared` assignment and rejects a
+  trigger for an attacker, unrelated creature, rejected attempted block, or a
+  prior combat step. Its source-relative effect retains the ordinary exact
+  source-incarnation boundary, so a response that moves the blocker cannot
+  cause an old trigger to move a later object sharing its stable ID.
 - A target-free token-producing ETB trigger from an Aura is not an inline
   spell effect: its source must first enter the battlefield, establish every
   legal attachment-linked continuous change, and emit the corresponding
