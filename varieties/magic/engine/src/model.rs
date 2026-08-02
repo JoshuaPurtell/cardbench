@@ -2255,6 +2255,21 @@ pub enum Effect {
     /// instruction resolves. The candidate set is snapshotted before the
     /// first destroy instruction so zone changes cannot shrink the sweep.
     DestroyAllNonTokenCreatures,
+    /// An activated ability snapshots the count of this named counter on its
+    /// source before any activation cost can move that source away. The
+    /// resulting stack object contains only the materialized variant below;
+    /// this template must never resolve by reading a departed or later source
+    /// incarnation.
+    DestroyAllNonlandPermanentsWithManaValueEqualToSourceCounters {
+        counter: CounterKind,
+    },
+    /// Internal stack-only form produced from
+    /// [`Self::DestroyAllNonlandPermanentsWithManaValueEqualToSourceCounters`]
+    /// at activation. It snapshots every live matching nonland permanent
+    /// before the first destruction zone change.
+    DestroyAllNonlandPermanentsWithManaValue {
+        mana_value: i16,
+    },
     /// Counter one targeted instant or sorcery spell. This is intentionally a
     /// semantic effect rather than a copied card-text string.
     CounterTargetInstantOrSorcerySpell,
@@ -2673,6 +2688,8 @@ impl Effect {
             | Self::ReplaceControllerLandsBasicLandTypeUntilEndOfTurn { .. }
             | Self::AddChosenColorProtectionToControllerCreaturesUntilEndOfTurn
             | Self::DestroyAllNonTokenCreatures
+            | Self::DestroyAllNonlandPermanentsWithManaValueEqualToSourceCounters { .. }
+            | Self::DestroyAllNonlandPermanentsWithManaValue { .. }
             | Self::DestroyCombatDamagedCreature
             | Self::DestroyCapturedCreature { .. }
             | Self::DestroyCapturedCombatParticipants { .. }
@@ -4133,6 +4150,17 @@ pub enum GameEvent {
     CardDestroyed {
         source: ObjectId,
         card: ObjectId,
+    },
+    /// An activated ability sampled one nonnegative counter total from its
+    /// exact live source incarnation before costs. This is public stack
+    /// provenance for source-sacrifice effects whose resolved instruction
+    /// must not inspect a departed or re-entered source.
+    SourceCounterValueMaterialized {
+        source: ObjectId,
+        source_incarnation: u64,
+        ability: &'static str,
+        counter: CounterKind,
+        amount: i16,
     },
     /// A resolving spell or ability placed a persistent, positive counter on
     /// a battlefield permanent. Counters clear when that permanent leaves the

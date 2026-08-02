@@ -32,6 +32,9 @@ use crate::{
     TriggeredEffectObjectDecisionKind, Zone,
 };
 
+type SourceCounterMaterialization = (CounterKind, i16);
+type MaterializedActivatedEffects = (Vec<Effect>, Vec<SourceCounterMaterialization>);
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum RulesError {
     UnknownPlayer(PlayerId),
@@ -2686,6 +2689,13 @@ impl Game {
             .get(&(definition_id, ability.id))
             .cloned()
             .unwrap_or_default();
+        // Snapshot every source-counter-dependent instruction before any
+        // cost can sacrifice, bounce, or otherwise zone-change the source.
+        // The stack must carry the resulting numeric value; it may never ask
+        // a departed object (or a later incarnation sharing its ObjectId) for
+        // counters during resolution.
+        let (materialized_effects, source_counter_values) =
+            Self::materialize_activated_ability_effects(&source, &ability.effects)?;
         // Preserve the ability source's current colors before any activation
         // cost can move it away and remove its continuous effects.  Later
         // protection checks must use this source-incarnation snapshot.
@@ -2938,6 +2948,15 @@ impl Game {
                 ));
             }
         }
+        for (counter, amount) in source_counter_values {
+            self.record_event(GameEvent::SourceCounterValueMaterialized {
+                source: activation.source,
+                source_incarnation: source.incarnation,
+                ability: ability.id,
+                counter,
+                amount,
+            });
+        }
         self.players[player.0].mana_pool = paid_pool;
         self.record_activated_ability_cost_context_if_provenanced(cost_context.clone());
         if cost_context.effective_mana_cost.mana_value() > 0 {
@@ -3057,8 +3076,7 @@ impl Game {
                 permanent: *permanent,
             });
         }
-        let effects = ability
-            .effects
+        let effects = materialized_effects
             .into_iter()
             .map(|effect| match effect {
                 Effect::ReplaceControllerLandsWithChosenBasicLandTypeUntilEndOfTurn => {
@@ -3098,6 +3116,42 @@ impl Game {
         self.consecutive_passes = 0;
         self.priority = player;
         Ok(())
+    }
+
+    /// Converts source-counter effect templates into immutable stack values
+    /// while the ability source is still its exact pre-cost battlefield
+    /// incarnation.  Returning the typed receipts separately keeps the
+    /// event-log audit independent from the mutable source object.
+    fn materialize_activated_ability_effects(
+        source: &CardObject,
+        effects: &[Effect],
+    ) -> Result<MaterializedActivatedEffects, RulesError> {
+        let mut source_counter_values = Vec::new();
+        let effects = effects
+            .iter()
+            .cloned()
+            .map(|effect| match effect {
+                Effect::DestroyAllNonlandPermanentsWithManaValueEqualToSourceCounters {
+                    counter,
+                } => {
+                    if !counter.is_valid() {
+                        return Err(RulesError::IllegalAction(
+                            "source-counter sweep requires a valid counter kind",
+                        ));
+                    }
+                    let amount = source.counters.get(&counter).copied().unwrap_or(0);
+                    if amount < 0 {
+                        return Err(RulesError::IllegalAction(
+                            "source-counter sweep cannot materialize a negative counter quantity",
+                        ));
+                    }
+                    source_counter_values.push((counter, amount));
+                    Ok(Effect::DestroyAllNonlandPermanentsWithManaValue { mana_value: amount })
+                }
+                effect => Ok(effect),
+            })
+            .collect::<Result<Vec<_>, RulesError>>()?;
+        Ok((effects, source_counter_values))
     }
 
     /// Applies an already-authorized definition-bound mana ability. Public
@@ -6583,16 +6637,27 @@ impl Game {
             let Target::Permanent(card) = target else {
                 return Err(RulesError::IllegalTarget(target));
             };
-            let mana_value = if self.object(card)?.token.is_some() {
-                0
-            } else {
-                self.card_definition(card)?.mana_cost.mana_value()
-            };
-            if mana_value > x_value {
+            if self.permanent_mana_value(card)? > i16::from(x_value) {
                 return Err(RulesError::IllegalTarget(target));
             }
         }
         Ok(())
+    }
+
+    /// Returns the current permanent's copied mana value. A token (including
+    /// a nontoken card currently copying token values) has mana value zero;
+    /// a copied card reads the copy's printed cost rather than the physical
+    /// object's original definition. Keeping this fact here makes global
+    /// mana-value sweeps and chosen-X target checks share one rule boundary.
+    fn permanent_mana_value(&self, card: ObjectId) -> Result<i16, RulesError> {
+        match self.copiable_values(card)? {
+            CopiableValues::CardDefinition(definition) => self
+                .catalog
+                .get(definition)
+                .map(|definition| i16::from(definition.mana_cost.mana_value()))
+                .ok_or(RulesError::UnknownDefinition(definition)),
+            CopiableValues::Token(_) => Ok(0),
+        }
     }
 
     pub fn pass_priority(&mut self, player: PlayerId) -> Result<(), RulesError> {
@@ -10129,6 +10194,7 @@ impl Game {
         self.validate_ability_additional_tap_cost_event_order()?;
         Self::validate_counter_lifecycle_events(&self.event_log)?;
         self.validate_counter_removal_receipt_accounting()?;
+        self.validate_source_counter_sweep_materialization_event_order()?;
         Self::validate_source_counter_life_loss_event_order(&self.event_log)?;
         self.validate_replacement_effect_events()?;
         self.validate_damage_amount_replacement_events()?;
@@ -10951,6 +11017,26 @@ impl Game {
                                 && *entered_incarnation > 0
                                 && !card_types.is_empty()
                         )
+                    } else if effects.iter().any(|effect| {
+                        matches!(
+                            effect,
+                            Effect::DestroyAllNonlandPermanentsWithManaValueEqualToSourceCounters { .. }
+                        )
+                    }) {
+                        effects.len() == stack_object.effects.len()
+                            && effects.iter().zip(&stack_object.effects).all(
+                                |(bound, actual)| match (bound, actual) {
+                                    (
+                                        Effect::DestroyAllNonlandPermanentsWithManaValueEqualToSourceCounters {
+                                            counter,
+                                        },
+                                        Effect::DestroyAllNonlandPermanentsWithManaValue {
+                                            mana_value,
+                                        },
+                                    ) => counter.is_valid() && *mana_value >= 0,
+                                    _ => bound == actual,
+                                },
+                            )
                     } else {
                         *effects == stack_object.effects
                     };
@@ -12887,6 +12973,24 @@ impl Game {
                     "materialized target-player mana effect escaped into a card definition",
                 ));
             }
+            if matches!(
+                effect,
+                Effect::DestroyAllNonlandPermanentsWithManaValue { .. }
+            ) {
+                return Err(RulesError::IllegalAction(
+                    "materialized source-counter sweep escaped into a card definition",
+                ));
+            }
+            if let Effect::DestroyAllNonlandPermanentsWithManaValueEqualToSourceCounters {
+                counter,
+            } = effect
+            {
+                if !counter.is_valid() {
+                    return Err(RulesError::IllegalAction(
+                        "source-counter sweep requires a valid counter kind",
+                    ));
+                }
+            }
             if let Effect::GrantActivatedAbilityToControllerCreaturesUntilEndOfTurn { ability } =
                 effect
             {
@@ -13104,6 +13208,10 @@ impl Game {
                 | Effect::RadianceAddKeywordUntilEndOfTurn { .. }
                 | Effect::RadianceDestroyEnchantments
                 | Effect::DestroyAllNonTokenCreatures
+                | Effect::DestroyAllNonlandPermanentsWithManaValueEqualToSourceCounters {
+                    ..
+                }
+                | Effect::DestroyAllNonlandPermanentsWithManaValue { .. }
                 | Effect::CounterTargetInstantOrSorcerySpell
                 | Effect::CounterTargetSpell
                 | Effect::CounterTargetNoncreatureSpell
@@ -18982,6 +19090,33 @@ impl Game {
                     self.destroy_permanent(source, creature)?;
                 }
             }
+            Effect::DestroyAllNonlandPermanentsWithManaValueEqualToSourceCounters { .. } => {
+                return Err(RulesError::IllegalAction(
+                    "unmaterialized source-counter sweep reached resolution",
+                ));
+            }
+            Effect::DestroyAllNonlandPermanentsWithManaValue { mana_value } => {
+                if *mana_value < 0 {
+                    return Err(RulesError::IllegalAction(
+                        "materialized nonland sweep has a negative mana value",
+                    ));
+                }
+                // Snapshot the complete recipient set before moving any
+                // permanent. A first destruction must not alter the remaining
+                // sweep by changing source types, control, or zone identity.
+                let mut permanents = Vec::new();
+                for candidate in self.all_battlefield_cards() {
+                    let characteristics = self.characteristics(candidate)?;
+                    if !characteristics.card_types.contains(&CardType::Land)
+                        && self.permanent_mana_value(candidate)? == *mana_value
+                    {
+                        permanents.push(candidate);
+                    }
+                }
+                for permanent in permanents {
+                    self.destroy_permanent(source, permanent)?;
+                }
+            }
             Effect::CounterTargetInstantOrSorcerySpell
             | Effect::CounterTargetSpell
             | Effect::CounterTargetNoncreatureSpell => {
@@ -21157,6 +21292,17 @@ impl Game {
                 "combat-damage provenance destruction requires a triggered ability",
             ));
         }
+        if ability.effects.iter().any(|effect| {
+            matches!(
+                effect,
+                Effect::DestroyAllNonlandPermanentsWithManaValueEqualToSourceCounters { .. }
+            )
+        }) && !ability.sacrifice_source
+        {
+            return Err(RulesError::IllegalAction(
+                "source-counter mana-value sweep requires a source-sacrifice activation",
+            ));
+        }
         Self::validate_cast_effects_for_ability(&ability.effects)
     }
 
@@ -21316,6 +21462,24 @@ impl Game {
                 return Err(RulesError::IllegalAction(
                     "materialized target-player mana effect escaped onto an ability binding",
                 ));
+            }
+            if matches!(
+                effect,
+                Effect::DestroyAllNonlandPermanentsWithManaValue { .. }
+            ) {
+                return Err(RulesError::IllegalAction(
+                    "materialized source-counter sweep escaped onto an ability binding",
+                ));
+            }
+            if let Effect::DestroyAllNonlandPermanentsWithManaValueEqualToSourceCounters {
+                counter,
+            } = effect
+            {
+                if !counter.is_valid() {
+                    return Err(RulesError::IllegalAction(
+                        "source-counter sweep requires a valid counter kind",
+                    ));
+                }
             }
             if matches!(
                 effect,
@@ -24245,6 +24409,139 @@ impl Game {
                     }
                 }
                 _ => {}
+            }
+        }
+        Ok(())
+    }
+
+    /// A source-counter mana-value sweep records the sampled nonnegative
+    /// amount before its activation cost, then carries exactly that amount on
+    /// its one live stack ability. The template is deliberately constrained
+    /// to source-sacrifice activations, so one source incarnation cannot
+    /// create ambiguous concurrent snapshots.
+    #[allow(clippy::too_many_lines)] // One receipt audit ties source snapshots to their stack materialization.
+    fn validate_source_counter_sweep_materialization_event_order(&self) -> Result<(), RulesError> {
+        let mut consumed = BTreeSet::new();
+        for (activation_index, event) in self.event_log.iter().enumerate() {
+            let GameEvent::AbilityActivated {
+                source,
+                source_incarnation,
+                definition,
+                ability,
+                ..
+            } = event
+            else {
+                continue;
+            };
+            if *ability == TRANSMUTE_ABILITY_ID
+                && self
+                    .catalog
+                    .get(definition)
+                    .is_some_and(|card| card.transmute_cost().is_some())
+            {
+                continue;
+            }
+            let binding = self
+                .activated_ability_for_definition(definition, ability)
+                .ok_or(RulesError::IllegalAction(
+                    "source-counter sweep activation names an unbound ability",
+                ))?;
+            let expected_counters = binding
+                .effects
+                .iter()
+                .filter_map(|effect| match effect {
+                    Effect::DestroyAllNonlandPermanentsWithManaValueEqualToSourceCounters {
+                        counter,
+                    } => Some(*counter),
+                    _ => None,
+                })
+                .collect::<Vec<_>>();
+            if expected_counters.is_empty() {
+                continue;
+            }
+            if !binding.sacrifice_source {
+                return Err(RulesError::IllegalAction(
+                    "source-counter sweep binding does not sacrifice its source",
+                ));
+            }
+            let mut receipts = Vec::new();
+            for index in (0..activation_index).rev() {
+                match &self.event_log[index] {
+                    GameEvent::SourceCounterValueMaterialized {
+                        source: receipt_source,
+                        source_incarnation: receipt_incarnation,
+                        ability: receipt_ability,
+                        counter,
+                        amount,
+                    } if receipt_source == source
+                        && receipt_incarnation == source_incarnation
+                        && receipt_ability == ability =>
+                    {
+                        receipts.push((index, *counter, *amount));
+                    }
+                    GameEvent::AbilityActivated { .. }
+                    | GameEvent::TriggeredAbilityStacked { .. }
+                    | GameEvent::SpellCast { .. }
+                    | GameEvent::AbilityResolved { .. }
+                    | GameEvent::AbilityCounteredByRules { .. }
+                    | GameEvent::SpellResolved { .. }
+                    | GameEvent::PriorityPassed { .. } => break,
+                    _ => {}
+                }
+            }
+            receipts.reverse();
+            if receipts.len() != expected_counters.len()
+                || receipts.iter().zip(&expected_counters).any(
+                    |((_, counter, amount), expected)| {
+                        counter != expected || !counter.is_valid() || *amount < 0
+                    },
+                )
+            {
+                return Err(RulesError::IllegalAction(
+                    "source-counter sweep lacks exact pre-cost materialization receipts",
+                ));
+            }
+            consumed.extend(receipts.iter().map(|(index, _, _)| *index));
+            let live = self
+                .stack
+                .iter()
+                .filter(|item| {
+                    item.card == *source
+                        && item.source_incarnation == *source_incarnation
+                        && item.ability_id == Some(*ability)
+                })
+                .collect::<Vec<_>>();
+            if live.len() > 1
+                || live.first().is_some_and(|item| {
+                    let materialized = item
+                        .effects
+                        .iter()
+                        .filter_map(|effect| match effect {
+                            Effect::DestroyAllNonlandPermanentsWithManaValue { mana_value } => {
+                                Some(*mana_value)
+                            }
+                            _ => None,
+                        })
+                        .collect::<Vec<_>>();
+                    materialized.len() != receipts.len()
+                        || materialized
+                            .iter()
+                            .zip(&receipts)
+                            .any(|(mana_value, (_, _, amount))| mana_value != amount)
+                })
+            {
+                return Err(RulesError::IllegalAction(
+                    "live source-counter sweep stack value lacks matching pre-cost provenance",
+                ));
+            }
+        }
+        for (index, event) in self.event_log.iter().enumerate() {
+            if matches!(event, GameEvent::SourceCounterValueMaterialized { .. })
+                && !consumed.contains(&index)
+            {
+                return Err(RulesError::IllegalAction(
+                    "source-counter sweep materialization receipt lacks an activation",
+                ));
             }
         }
         Ok(())

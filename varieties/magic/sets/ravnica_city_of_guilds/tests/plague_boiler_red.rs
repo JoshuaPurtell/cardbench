@@ -55,12 +55,16 @@ fn plague_boiler_requires_its_exact_counter_and_sacrifice_contract() {
         RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&boiler.id),
         "Plague Boiler is full only when both its upkeep and exact last-known counter sweep are represented"
     );
-    assert!(boiler
-        .supported_rules
-        .contains(&"upkeep-add-plague-counter"));
-    assert!(boiler
-        .supported_rules
-        .contains(&"activated-sacrifice-sweep-nonlands-by-plague-counters"));
+    assert!(
+        boiler
+            .supported_rules
+            .contains(&"upkeep-add-plague-counter")
+    );
+    assert!(
+        boiler
+            .supported_rules
+            .contains(&"activated-sacrifice-sweep-nonlands-by-plague-counters")
+    );
 
     let upkeep = rav_triggered_ability_bindings()
         .into_iter()
@@ -81,12 +85,22 @@ fn plague_boiler_requires_its_exact_counter_and_sacrifice_contract() {
         .find(|binding| binding.card_definition == boiler.id)
         .expect("Plague Boiler sacrifice ability exists")
         .ability;
-    assert_eq!(activation.id, "one-sacrifice-sweep-nonlands-by-plague-counters");
+    assert_eq!(
+        activation.id,
+        "one-sacrifice-sweep-nonlands-by-plague-counters"
+    );
     assert_eq!(activation.mana_cost, ManaCost::new(1));
     assert!(activation.sacrifice_source);
     assert!(!activation.tap_cost);
     assert!(activation.targets.is_empty());
-    assert_eq!(activation.effects.len(), 1);
+    assert_eq!(
+        activation.effects,
+        [
+            Effect::DestroyAllNonlandPermanentsWithManaValueEqualToSourceCounters {
+                counter: CounterKind::Named("plague"),
+            }
+        ]
+    );
 }
 
 #[test]
@@ -133,6 +147,23 @@ fn plague_boiler_retains_its_upkeep_counter_across_the_sacrifice_cost() {
     )
     .expect("Boiler pays one and is sacrificed before its ability resolves");
     assert_eq!(game.zone_of(boiler), Some(Zone::Graveyard));
+    assert!(matches!(
+        game.stack.last().map(|item| item.effects.as_slice()),
+        Some([Effect::DestroyAllNonlandPermanentsWithManaValue { mana_value: 1 }])
+    ));
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::SourceCounterValueMaterialized {
+            source,
+            ability,
+            counter,
+            amount,
+            ..
+        } if *source == boiler
+            && *ability == "one-sacrifice-sweep-nonlands-by-plague-counters"
+            && *counter == CounterKind::Named("plague")
+            && *amount == 1
+    )));
     pass_pair(&mut game);
 
     println!("Plague Boiler trace: {:#?}", game.canonical_event_log());
@@ -151,4 +182,45 @@ fn plague_boiler_retains_its_upkeep_counter_across_the_sacrifice_cost() {
     )));
     game.validate_invariants()
         .expect("counter last-known information and the sweep preserve invariants");
+}
+
+#[test]
+fn plague_boiler_failed_cost_does_not_leak_a_counter_snapshot_or_sacrifice() {
+    let mut game = game();
+    let boiler = game
+        .put_on_battlefield(PlayerId(0), "RAV-PLAGUE-BOILER")
+        .expect("Plague Boiler starts on battlefield");
+    game.begin_game().expect("game begins at first upkeep");
+    pass_pair(&mut game);
+    game.clear_event_log();
+
+    let error = game
+        .activate_ability(
+            PlayerId(0),
+            AbilityActivation {
+                source: boiler,
+                ability_id: "one-sacrifice-sweep-nonlands-by-plague-counters",
+                sacrifice_sources: vec![boiler],
+                additional_tap_creatures: vec![],
+                discard_cards: vec![],
+                targets: vec![],
+            },
+        )
+        .expect_err("missing generic mana rejects the complete activation");
+    assert!(format!("{error}").contains("missing generic mana"));
+    assert_eq!(game.zone_of(boiler), Some(Zone::Battlefield));
+    assert_eq!(
+        game.object(boiler)
+            .expect("Boiler remains live")
+            .counters
+            .get(&CounterKind::Named("plague")),
+        Some(&1)
+    );
+    assert!(game.stack.is_empty());
+    assert!(
+        game.event_log.is_empty(),
+        "atomic rejection rolls back receipts"
+    );
+    game.validate_invariants()
+        .expect("rejected source-counter sweep remains invariant-valid");
 }

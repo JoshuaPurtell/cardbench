@@ -232,6 +232,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 199] = [
     "RAV-BOTTLED-CLOISTER",
     "RAV-CYCLOPEAN-SNARE",
     "RAV-CLOUDSTONE-CURIO",
+    "RAV-PLAGUE-BOILER",
     "RAV-TERRARION",
     "RAV-GRIFTERS-BLADE",
     "RAV-PARIAHS-SHIELD",
@@ -3505,6 +3506,31 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
+        // Full fidelity: the mandatory upkeep trigger places one named
+        // plague counter while the artifact is live. Its `{1}, sacrifice`
+        // activation snapshots that exact counter total before its cost
+        // clears counters at zone change, then sweeps the complete set of
+        // nonland permanents at that mana value.
+        CardDefinition {
+            id: "RAV-PLAGUE-BOILER",
+            name: "Plague Boiler",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::new(1),
+            colors: BTreeSet::new(),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Artifact]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colorless-artifact-casting",
+                "upkeep-add-plague-counter",
+                "activated-sacrifice-sweep-nonlands-by-plague-counters",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![],
+        },
         // Full fidelity: this colorless artifact costs `{2}` and carries one
         // ordinary stack-backed `{3}, {T}` activation. At resolution it taps
         // one creature, then returns this exact permanent incarnation to its
@@ -6548,6 +6574,26 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
             },
         },
         ActivatedAbilityBinding {
+            card_definition: "RAV-PLAGUE-BOILER",
+            ability: ActivatedAbility {
+                id: "one-sacrifice-sweep-nonlands-by-plague-counters",
+                mana_cost: ManaCost::new(1),
+                tap_cost: false,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: true,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![],
+                effects: vec![
+                    Effect::DestroyAllNonlandPermanentsWithManaValueEqualToSourceCounters {
+                        counter: CounterKind::Named("plague"),
+                    },
+                ],
+            },
+        },
+        ActivatedAbilityBinding {
             card_definition: "RAV-JUNKTROLLER",
             ability: ActivatedAbility {
                 id: "tap-target-graveyard-card-to-owners-library-bottom",
@@ -7593,6 +7639,20 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                 optional: true,
                 targets: vec![],
                 effects: vec![Effect::ReturnAnotherControlledPermanentSharingEnteredCardTypes],
+            },
+        },
+        TriggeredAbilityBinding {
+            card_definition: "RAV-PLAGUE-BOILER",
+            ability: TriggeredAbility {
+                id: "upkeep-add-plague-counter",
+                condition: TriggerCondition::BeginningOfUpkeep,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![Effect::AddCountersToSource {
+                    counter: CounterKind::Named("plague"),
+                    amount: 1,
+                }],
             },
         },
         TriggeredAbilityBinding {
