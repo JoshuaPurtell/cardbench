@@ -465,8 +465,96 @@ pub struct ActivatedAbilityCostContext {
     pub sacrifice_creatures: u8,
     pub sacrifice_lands: u8,
     pub discard_cards: u8,
+    /// The policy-selected value of a bound activated ability's `{X}` cost.
+    /// `base_mana_cost` already includes this amount because generic cost
+    /// modifiers operate on the actual payable total.  Retaining it
+    /// separately makes the printed-cost provenance auditable.
+    pub chosen_x: Option<u8>,
     pub payment_selection: Option<ManaPaymentSelection>,
     pub effective_mana_cost: ManaCost,
+}
+
+/// Which permanent supplies one named-counter removal in an activated cost.
+///
+/// The source-relative form handles costs such as "remove a charge counter
+/// from this" without allowing the policy to substitute another object.  The
+/// selected form is intentionally controller-relative and receives its exact
+/// public battlefield object through [`AbilityCostPayment`].
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ActivatedCounterCostTarget {
+    Source,
+    SelectedControlledPermanent,
+}
+
+/// One positive named-counter removal required to activate an ability.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ActivatedCounterCost {
+    pub target: ActivatedCounterCostTarget,
+    pub counter: CounterKind,
+    pub amount: i16,
+}
+
+/// Expansion-owned, opt-in cost data layered on top of a compact
+/// [`ActivatedAbility`] binding.
+///
+/// Existing ability bindings retain their original shape.  An expansion that
+/// needs richer costs registers this immutable profile before the game starts,
+/// keeping card data separate from policy-supplied concrete objects.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct GeneralizedActivatedAbilityCost {
+    /// Positive life paid as a cost. Zero means this profile has no life cost.
+    pub life_payment: u8,
+    /// Ordered named-counter removals.  Every entry receives one aligned
+    /// object choice in [`AbilityCostPayment::counter_sources`], including a
+    /// source-relative entry (which must name the ability source).
+    pub counter_removals: Vec<ActivatedCounterCost>,
+    /// Return the ability source to its owner's hand as part of the cost.
+    pub return_source_to_hand: bool,
+    /// Number of additional controlled battlefield permanents that must be
+    /// selected and returned to their owners' hands as part of the cost.
+    pub return_controlled_permanents: u8,
+    /// Whether this ability has one player-chosen nonnegative `{X}` generic
+    /// symbol in addition to its bound printed mana cost.
+    pub has_x_cost: bool,
+}
+
+impl GeneralizedActivatedAbilityCost {
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.life_payment == 0
+            && self.counter_removals.is_empty()
+            && !self.return_source_to_hand
+            && self.return_controlled_permanents == 0
+            && !self.has_x_cost
+    }
+}
+
+/// Connects an immutable generalized cost profile to one existing activated
+/// ability. The tuple is unique within a game catalog.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ActivatedAbilityCostBinding {
+    pub card_definition: &'static str,
+    pub ability_id: &'static str,
+    pub cost: GeneralizedActivatedAbilityCost,
+}
+
+/// Concrete, policy-submitted selections required by an activated ability's
+/// generalized cost profile.  These are supplied at the normal priority
+/// action, rather than through a new pending-decision state, because paying an
+/// activation cost is one atomic player action rather than a resolution-time
+/// no-priority continuation.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct AbilityCostPayment {
+    pub counter_sources: Vec<ObjectId>,
+    pub return_permanents: Vec<ObjectId>,
+    pub chosen_x: Option<u8>,
+}
+
+/// A normal ability activation plus its typed generalized-cost selections.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct GeneralizedAbilityActivation {
+    pub activation: AbilityActivation,
+    pub cost_payment: AbilityCostPayment,
 }
 
 /// A replacement event quantity that can be modified by a live permanent.
@@ -2981,6 +3069,41 @@ pub enum GameEvent {
         source: ObjectId,
         ability: &'static str,
         mana_cost: ManaCost,
+    },
+    /// A positive life payment made while activating a stack-using ability.
+    /// This is distinct from effect loss of life and from mana-ability life
+    /// costs, so replay can preserve the complete activated-cost transaction.
+    AbilityLifePaid {
+        player: PlayerId,
+        source: ObjectId,
+        ability: &'static str,
+        amount: u8,
+    },
+    /// A typed counter was selected and removed as an activation cost. The
+    /// ordinary `CounterRemoved` receipt immediately follows this provenance
+    /// receipt and carries the authoritative state mutation.
+    CounterRemovedAsAbilityCost {
+        player: PlayerId,
+        source: ObjectId,
+        card: ObjectId,
+        counter: CounterKind,
+        amount: i16,
+    },
+    /// A selected permanent returned to its owner's hand as an activation
+    /// cost. The matching zone-change receipt immediately follows.
+    ReturnedAsAbilityCost {
+        player: PlayerId,
+        source: ObjectId,
+        permanent: ObjectId,
+    },
+    /// The policy chose this nonnegative value for one activated ability's
+    /// additional generic `{X}` cost. It remains attached to the stack item
+    /// as immutable activation provenance.
+    AbilityXCostChosen {
+        player: PlayerId,
+        source: ObjectId,
+        ability: &'static str,
+        x: u8,
     },
     /// A live source changed the generic portion of an activated ability's
     /// mana cost.  This receipt is emitted immediately before the matching

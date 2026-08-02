@@ -5,10 +5,9 @@ use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
     AbilityActivation, AbilityCostPayment, ActivatedAbility, ActivatedAbilityBinding,
-    ActivatedAbilityCostBinding, ActivatedCounterCost, ActivatedCounterCostTarget,
-    CardDefinition, CardType, Color, CounterKind, Effect, Game, GameEvent,
-    GeneralizedActivatedAbilityCost, GeneralizedAbilityActivation, ManaCost, ObjectId, PlayerId,
-    Target, Zone,
+    ActivatedAbilityCostBinding, ActivatedCounterCost, ActivatedCounterCostTarget, CardDefinition,
+    CardType, Color, CounterKind, Effect, Game, GameEvent, GeneralizedAbilityActivation,
+    GeneralizedActivatedAbilityCost, ManaCost, ObjectId, PlayerId, Target, Zone,
 };
 
 const SOURCE: &str = "TST-GENERALIZED-COST-SOURCE";
@@ -55,7 +54,11 @@ fn ability(
 
 fn fixture() -> Game {
     let mut game = Game::new_with_all_bindings(
-        [creature(SOURCE), creature(COUNTER_BEARER), creature(RETURNED)],
+        [
+            creature(SOURCE),
+            creature(COUNTER_BEARER),
+            creature(RETURNED),
+        ],
         2,
         [],
         [],
@@ -63,18 +66,30 @@ fn fixture() -> Game {
         [
             ActivatedAbilityBinding {
                 card_definition: SOURCE,
-                ability: ability(
-                    "seed-charge",
-                    vec![cardbench_magic_engine::TargetRequirement::Permanent],
-                    vec![Effect::AddCountersToTarget {
+                ability: ActivatedAbility {
+                    id: "seed-charge",
+                    mana_cost: ManaCost::new(0),
+                    tap_cost: false,
+                    sorcery_speed: false,
+                    additional_tap_creatures: 0,
+                    sacrifice_source: false,
+                    sacrifice_creatures: 0,
+                    sacrifice_lands: 0,
+                    discard_cards: 0,
+                    targets: vec![cardbench_magic_engine::TargetRequirement::Permanent],
+                    effects: vec![Effect::AddCountersToTarget {
                         counter: CounterKind::Charge,
                         amount: 2,
                     }],
-                ),
+                },
             },
             ActivatedAbilityBinding {
                 card_definition: SOURCE,
-                ability: ability("pay-everything", vec![], vec![Effect::GainLifeController { amount: 1 }]),
+                ability: ability(
+                    "pay-everything",
+                    vec![],
+                    vec![Effect::GainLifeController { amount: 1 }],
+                ),
             },
         ],
     )
@@ -100,9 +115,11 @@ fn fixture() -> Game {
 
 fn pass_pair(game: &mut Game) {
     let first = game.priority;
-    game.pass_priority(first).expect("first priority pass succeeds");
+    game.pass_priority(first)
+        .expect("first priority pass succeeds");
     let second = game.priority;
-    game.pass_priority(second).expect("second priority pass resolves the stack");
+    game.pass_priority(second)
+        .expect("second priority pass resolves the stack");
 }
 
 fn activate_seed(game: &mut Game, source: ObjectId, target: ObjectId) {
@@ -133,10 +150,10 @@ fn generalized_costs_are_policy_selected_atomic_and_provenanced() {
     let returned = game
         .put_on_battlefield(PlayerId(0), RETURNED)
         .expect("returned permanent starts on battlefield");
-    game.grant_mana(PlayerId(0), Color::Blue, 4)
-        .expect("four mana funds {1}+X");
     game.begin_game().expect("fixture begins");
     activate_seed(&mut game, source, bearer);
+    game.add_mana_from_action(PlayerId(0), Color::Blue, 4)
+        .expect("four mana funds {1}+X");
     game.clear_event_log();
 
     game.activate_ability_with_generalized_costs(
@@ -161,12 +178,14 @@ fn generalized_costs_are_policy_selected_atomic_and_provenanced() {
 
     assert_eq!(game.player(PlayerId(0)).expect("player exists").life, 18);
     assert_eq!(game.zone_of(returned), Some(Zone::Hand));
-    assert!(game
-        .object(bearer)
-        .expect("counter bearer remains live")
-        .counters
-        .is_empty());
-    assert!(game.event_log.windows(6).any(|events| matches!(
+    assert!(
+        game.object(bearer)
+            .expect("counter bearer remains live")
+            .counters
+            .is_empty()
+    );
+    eprintln!("generalized_cost_events={:?}", game.canonical_event_log());
+    assert!(game.event_log.windows(9).any(|events| matches!(
         events,
         [
             GameEvent::AbilityManaPaid { player: PlayerId(0), source: paid_source, ability: "pay-everything", mana_cost },
@@ -174,13 +193,20 @@ fn generalized_costs_are_policy_selected_atomic_and_provenanced() {
             GameEvent::CounterRemovedAsAbilityCost { player: PlayerId(0), source: counter_source, card, counter: CounterKind::Charge, amount: 2 },
             GameEvent::CounterRemoved { source: removal_source, card: removed_card, counter: CounterKind::Charge, amount: 2 },
             GameEvent::ReturnedAsAbilityCost { player: PlayerId(0), source: returned_source, permanent },
+            GameEvent::CardMoved { card: moved_return, to: Zone::Hand },
+            GameEvent::ObjectIncarnationAdvanced { object: returned_object, .. },
             GameEvent::AbilityXCostChosen { player: PlayerId(0), source: x_source, ability: "pay-everything", x: 3 },
+            GameEvent::AbilityActivated { player: PlayerId(0), source: activated_source, ability: "pay-everything", .. },
         ] if *paid_source == source && *life_source == source && *counter_source == source
             && *removal_source == source && *card == bearer && *removed_card == bearer
-            && *returned_source == source && *permanent == returned && *x_source == source
+            && *returned_source == source && *permanent == returned && *moved_return == returned
+            && *returned_object == returned && *x_source == source && *activated_source == source
             && *mana_cost == ManaCost::new(4)
     )));
-    assert_eq!(game.stack.last().expect("ability is stacked").chosen_x, Some(3));
+    assert_eq!(
+        game.stack.last().expect("ability is stacked").chosen_x,
+        Some(3)
+    );
     game.validate_invariants()
         .expect("cost transaction preserves engine invariants");
 }
@@ -197,10 +223,10 @@ fn failed_generalized_cost_payment_rolls_back_every_prior_component() {
     let returned = game
         .put_on_battlefield(PlayerId(0), RETURNED)
         .expect("returned permanent starts on battlefield");
-    game.grant_mana(PlayerId(0), Color::Blue, 4)
-        .expect("setup mana is available");
     game.begin_game().expect("fixture begins");
     activate_seed(&mut game, source, bearer);
+    game.add_mana_from_action(PlayerId(0), Color::Blue, 4)
+        .expect("setup mana is available");
     game.clear_event_log();
 
     let result = game.activate_ability_with_generalized_costs(

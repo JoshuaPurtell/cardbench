@@ -3,19 +3,21 @@ use std::error::Error;
 use std::fmt::{Display, Formatter};
 
 use crate::{
-    AbilityActivation, ActivatedAbility, ActivatedAbilityBinding, ActivatedAbilityCostAdjustment,
-    ActivatedAbilityCostContext, ActivatedAbilityCostModifier, ActivatedAbilityCostModifierBinding,
-    ActivatedAbilityKind, ActivatedManaAbility, AdditionalSpellCost, AdditionalSpellCostBinding,
-    BasicLandType, BasicLandTypeBinding, CardDefinition, CardObject, CardType,
-    CastPaymentManaAbility, Characteristics, Color, CombatBlock, ContinuousChange,
+    AbilityActivation, AbilityCostPayment, ActivatedAbility, ActivatedAbilityBinding,
+    ActivatedAbilityCostAdjustment, ActivatedAbilityCostBinding, ActivatedAbilityCostContext,
+    ActivatedAbilityCostModifier, ActivatedAbilityCostModifierBinding, ActivatedAbilityKind,
+    ActivatedCounterCostTarget, ActivatedManaAbility, AdditionalSpellCost,
+    AdditionalSpellCostBinding, BasicLandType, BasicLandTypeBinding, CardDefinition, CardObject,
+    CardType, CastPaymentManaAbility, Characteristics, Color, CombatBlock, ContinuousChange,
     ContinuousEffect, CopiableValues, CopiedPermanent, CostReductionBinding, CounterKind,
     CreatureSubtype, DamageReplacementChoice, DecisionContinuation, DecisionId, DecisionKind,
     DecisionOption, DecisionSelection, DecisionVisibility, DeckList, DelayedAction,
-    DelayedActionId, DelayedActionKind, DelayedActionTiming, Duration, Effect, GameEvent, Keyword,
-    LandEntryBinding, LibrarySearchDestination, LibrarySearchRequirement, LibrarySearchSelection,
-    LinkedExileGroup, LinkedExileGroupId, LinkedExileMember, LinkedExileMemberRole,
-    ManaAbilityActivation, ManaAbilityBinding, ManaAbilityOutput, ManaCost, ManaPaymentSelection,
-    ObjectId, PendingDecision, PlayerId, PlayerState, PolicyMoveKind, ReplacementEffect,
+    DelayedActionId, DelayedActionKind, DelayedActionTiming, Duration, Effect, GameEvent,
+    GeneralizedAbilityActivation, GeneralizedActivatedAbilityCost, Keyword, LandEntryBinding,
+    LibrarySearchDestination, LibrarySearchRequirement, LibrarySearchSelection, LinkedExileGroup,
+    LinkedExileGroupId, LinkedExileMember, LinkedExileMemberRole, ManaAbilityActivation,
+    ManaAbilityBinding, ManaAbilityOutput, ManaCost, ManaPaymentSelection, ObjectId,
+    PendingDecision, PlayerId, PlayerState, PolicyMoveKind, ReplacementEffect,
     ReplacementEffectBinding, ReplacementEventKind, StackEffectResolution, StackObject,
     StackResolutionPlan, StaticAttackRestriction, StaticAttackRestrictionBinding,
     StaticContinuousEffectBinding, Step, Target, TargetRequirement, TokenSpec, TriggerCondition,
@@ -598,6 +600,8 @@ pub struct Game {
     static_continuous_effects: BTreeMap<&'static str, Vec<ContinuousChange>>,
     cost_reductions: BTreeMap<&'static str, CostReductionBinding>,
     activated_ability_cost_modifiers: BTreeMap<&'static str, Vec<ActivatedAbilityCostModifier>>,
+    generalized_activated_ability_costs:
+        BTreeMap<(&'static str, &'static str), GeneralizedActivatedAbilityCost>,
     replacement_effects: BTreeMap<&'static str, Vec<ReplacementEffect>>,
     basic_land_types: BTreeMap<&'static str, BasicLandType>,
     land_entry_behaviors: BTreeMap<&'static str, LandEntryBinding>,
@@ -848,6 +852,7 @@ impl Game {
             static_continuous_effects: BTreeMap::new(),
             cost_reductions: BTreeMap::new(),
             activated_ability_cost_modifiers: BTreeMap::new(),
+            generalized_activated_ability_costs: BTreeMap::new(),
             replacement_effects: BTreeMap::new(),
             basic_land_types,
             land_entry_behaviors: BTreeMap::new(),
@@ -1020,6 +1025,53 @@ impl Game {
                 ));
             }
             modifiers.push(binding.modifier);
+        }
+        self.validate_invariants()
+    }
+
+    /// Registers opt-in composable costs for already-bound nonmana activated
+    /// abilities.  Bindings are immutable expansion data and must be supplied
+    /// before the game begins; each concrete object/counter selection remains
+    /// a policy action at activation time.
+    pub fn register_generalized_activated_ability_cost_bindings(
+        &mut self,
+        bindings: impl IntoIterator<Item = ActivatedAbilityCostBinding>,
+    ) -> Result<(), RulesError> {
+        if self.started {
+            return Err(RulesError::IllegalAction(
+                "generalized activated-cost bindings cannot be changed after the game starts",
+            ));
+        }
+        for binding in bindings {
+            let definition = self
+                .catalog
+                .get(binding.card_definition)
+                .ok_or(RulesError::UnknownDefinition(binding.card_definition))?;
+            if !definition.is_permanent() {
+                return Err(RulesError::IllegalAction(
+                    "a generalized activated cost requires a permanent ability source",
+                ));
+            }
+            if binding.ability_id.is_empty()
+                || !self
+                    .activated_abilities
+                    .get(binding.card_definition)
+                    .is_some_and(|abilities| abilities.contains_key(binding.ability_id))
+            {
+                return Err(RulesError::IllegalAction(
+                    "a generalized activated cost must name an existing ability binding",
+                ));
+            }
+            Self::validate_generalized_activated_ability_cost(&binding.cost)?;
+            if self
+                .generalized_activated_ability_costs
+                .insert((binding.card_definition, binding.ability_id), binding.cost)
+                .is_some()
+            {
+                return Err(RulesError::IllegalAction(
+                    "duplicate generalized activated-cost binding",
+                ));
+            }
         }
         self.validate_invariants()
     }
@@ -1831,9 +1883,14 @@ impl Game {
         player: PlayerId,
         activation: AbilityActivation,
     ) -> Result<(), RulesError> {
+        let cost_payment = AbilityCostPayment {
+            counter_sources: vec![],
+            return_permanents: vec![],
+            chosen_x: None,
+        };
         self.atomic_transition(|game| {
             game.require_priority(player)?;
-            game.activate_ability_impl(player, activation, None)?;
+            game.activate_ability_impl(player, activation, None, &cost_payment)?;
             game.flush_pending_dies_triggers();
             game.check_state_based_actions()?;
             game.validate_invariants()
@@ -1853,9 +1910,39 @@ impl Game {
         activation: AbilityActivation,
         selection: ManaPaymentSelection,
     ) -> Result<(), RulesError> {
+        let cost_payment = AbilityCostPayment {
+            counter_sources: vec![],
+            return_permanents: vec![],
+            chosen_x: None,
+        };
         self.atomic_transition(|game| {
             game.require_priority(player)?;
-            game.activate_ability_impl(player, activation, Some(&selection))?;
+            game.activate_ability_impl(player, activation, Some(&selection), &cost_payment)?;
+            game.flush_pending_dies_triggers();
+            game.check_state_based_actions()?;
+            game.validate_invariants()
+        })
+    }
+
+    /// Activates a bound nonmana ability while paying an immutable registered
+    /// generalized cost profile.  The concrete counter and return selections
+    /// are submitted by the policy in the same priority action; an invalid
+    /// later component rolls every preceding mana, life, counter, and zone
+    /// mutation back through the enclosing transaction.
+    #[allow(clippy::needless_pass_by_value)] // Owned request crosses the atomic state boundary.
+    pub fn activate_ability_with_generalized_costs(
+        &mut self,
+        player: PlayerId,
+        activation: GeneralizedAbilityActivation,
+    ) -> Result<(), RulesError> {
+        self.atomic_transition(|game| {
+            game.require_priority(player)?;
+            game.activate_ability_impl(
+                player,
+                activation.activation,
+                None,
+                &activation.cost_payment,
+            )?;
             game.flush_pending_dies_triggers();
             game.check_state_based_actions()?;
             game.validate_invariants()
@@ -1868,6 +1955,7 @@ impl Game {
         player: PlayerId,
         activation: AbilityActivation,
         mana_payment_selection: Option<&ManaPaymentSelection>,
+        generalized_cost_payment: &AbilityCostPayment,
     ) -> Result<(), RulesError> {
         self.require_zone(activation.source, Zone::Battlefield)?;
         let source = self.object(activation.source)?.clone();
@@ -1894,6 +1982,11 @@ impl Game {
                 "source does not have the requested activated ability",
             ))?
             .clone();
+        let generalized_cost = self
+            .generalized_activated_ability_costs
+            .get(&(definition_id, ability.id))
+            .cloned()
+            .unwrap_or_default();
         // Preserve the ability source's current colors before any activation
         // cost can move it away and remove its continuous effects.  Later
         // protection checks must use this source-incarnation snapshot.
@@ -2022,17 +2115,44 @@ impl Game {
                 ));
             }
         }
+        let counter_payments = self.validate_generalized_activated_cost_payment(
+            player,
+            activation.source,
+            &generalized_cost,
+            generalized_cost_payment,
+            &activation.sacrifice_sources,
+        )?;
+        let mut base_mana_cost = ability.mana_cost.clone();
+        if let Some(x_value) = generalized_cost_payment.chosen_x {
+            if !generalized_cost.has_x_cost {
+                return Err(RulesError::IllegalAction(
+                    "chosen X is not legal for this activated ability",
+                ));
+            }
+            base_mana_cost.generic =
+                base_mana_cost
+                    .generic
+                    .checked_add(x_value)
+                    .ok_or(RulesError::IllegalAction(
+                        "chosen X overflows activated ability generic cost",
+                    ))?;
+        } else if generalized_cost.has_x_cost {
+            return Err(RulesError::IllegalAction(
+                "this activated ability requires an explicit chosen X value",
+            ));
+        }
         let cost_context = self.calculate_activated_ability_cost(
             player,
             activation.source,
             ability.id,
             ActivatedAbilityKind::NonMana,
-            &ability.mana_cost,
+            &base_mana_cost,
             ability.additional_tap_creatures,
             ability.sacrifice_source,
             ability.sacrifice_creatures,
             ability.sacrifice_lands,
             ability.discard_cards,
+            generalized_cost_payment.chosen_x,
             mana_payment_selection.cloned(),
         )?;
         let mut paid_pool = self.players[player.0].mana_pool.clone();
@@ -2069,6 +2189,50 @@ impl Game {
                 source: activation.source,
                 ability: ability.id,
                 mana_cost: cost_context.effective_mana_cost,
+            });
+        }
+        if generalized_cost.life_payment > 0 {
+            let player_state = self
+                .players
+                .get_mut(player.0)
+                .ok_or(RulesError::UnknownPlayer(player))?;
+            player_state.life = player_state
+                .life
+                .checked_sub(i64::from(generalized_cost.life_payment))
+                .ok_or(RulesError::IllegalAction(
+                    "ability life payment underflowed",
+                ))?;
+            self.record_event(GameEvent::AbilityLifePaid {
+                player,
+                source: activation.source,
+                ability: ability.id,
+                amount: generalized_cost.life_payment,
+            });
+        }
+        for (card, counter, amount) in counter_payments {
+            self.record_event(GameEvent::CounterRemovedAsAbilityCost {
+                player,
+                source: activation.source,
+                card,
+                counter,
+                amount,
+            });
+            self.remove_counter(activation.source, card, counter, amount)?;
+        }
+        for permanent in &generalized_cost_payment.return_permanents {
+            self.record_event(GameEvent::ReturnedAsAbilityCost {
+                player,
+                source: activation.source,
+                permanent: *permanent,
+            });
+            self.move_to_zone(*permanent, Zone::Hand)?;
+        }
+        if let Some(x_value) = generalized_cost_payment.chosen_x {
+            self.record_event(GameEvent::AbilityXCostChosen {
+                player,
+                source: activation.source,
+                ability: ability.id,
+                x: x_value,
             });
         }
         for card in &activation.discard_cards {
@@ -2126,7 +2290,7 @@ impl Game {
             targets: activation.targets,
             target_incarnations,
             effects: ability.effects,
-            chosen_x: None,
+            chosen_x: generalized_cost_payment.chosen_x,
             mana_spent: None,
             convoke_symbols: 0,
             generic_cost_reduction: 0,
@@ -2191,6 +2355,7 @@ impl Game {
             0,
             0,
             0,
+            None,
             None,
         )?;
         let mut mana_pool_after_payment = self.players[player.0].mana_pool.clone();
@@ -5495,6 +5660,7 @@ impl Game {
         self.validate_stack_terminal_event_order()?;
         self.validate_ability_event_order()?;
         self.validate_activated_ability_cost_event_order()?;
+        self.validate_generalized_activated_cost_event_order()?;
         let outstanding_private_opponent_library_choices =
             Self::validate_private_opponent_library_choice_event_order(&self.event_log)?;
         self.validate_ability_sacrifice_cost_event_order()?;
@@ -6219,6 +6385,16 @@ impl Game {
                         "stack ability does not match its bound definition",
                     ));
                 }
+                let has_x_cost = activated.is_some_and(|ability| {
+                    self.generalized_activated_ability_costs
+                        .get(&(definition.id, ability.id))
+                        .is_some_and(|cost| cost.has_x_cost)
+                });
+                if has_x_cost != stack_object.chosen_x.is_some() {
+                    return Err(RulesError::IllegalAction(
+                        "stack ability lacks or fabricates its selected X value",
+                    ));
+                }
             }
             if !is_ability
                 && definition
@@ -6232,11 +6408,6 @@ impl Game {
                 ));
             }
             let requires_chosen_x = definition.effects.iter().any(Effect::requires_chosen_x);
-            if is_ability && stack_object.chosen_x.is_some() {
-                return Err(RulesError::IllegalAction(
-                    "a stack ability cannot retain a spell chosen-X value",
-                ));
-            }
             if !is_ability && requires_chosen_x != stack_object.chosen_x.is_some() {
                 return Err(RulesError::IllegalAction(
                     "a chosen-X stack spell lacks or fabricates its selected value",
@@ -6247,7 +6418,7 @@ impl Game {
                     "a chosen-X stack spell lacks an explicit payment receipt",
                 ));
             }
-            if let Some(chosen_x) = stack_object.chosen_x {
+            if !is_ability && let Some(chosen_x) = stack_object.chosen_x {
                 let total_symbols = usize::from(definition.mana_cost.mana_value())
                     .checked_add(usize::from(chosen_x))
                     .ok_or(RulesError::IllegalAction(
@@ -7041,6 +7212,140 @@ impl Game {
             .fold(0_u8, u8::saturating_add)
     }
 
+    /// Validates the concrete object selections for one opt-in generalized
+    /// activated cost before any component mutates state.  Counter totals are
+    /// accumulated by `(permanent, kind)` first, so two declared removals can
+    /// never each observe the same counter balance and overspend it.
+    #[allow(clippy::too_many_lines)] // Cross-component payment preflight is one atomic validation boundary.
+    fn validate_generalized_activated_cost_payment(
+        &self,
+        player: PlayerId,
+        source: ObjectId,
+        cost: &GeneralizedActivatedAbilityCost,
+        payment: &AbilityCostPayment,
+        sacrifice_sources: &[ObjectId],
+    ) -> Result<Vec<(ObjectId, CounterKind, i16)>, RulesError> {
+        if cost.is_empty() {
+            if payment != &AbilityCostPayment::default() {
+                return Err(RulesError::IllegalAction(
+                    "an ability without a generalized cost cannot receive generalized selections",
+                ));
+            }
+            return Ok(vec![]);
+        }
+        if cost.life_payment > 0
+            && self
+                .players
+                .get(player.0)
+                .ok_or(RulesError::UnknownPlayer(player))?
+                .life
+                < i64::from(cost.life_payment)
+        {
+            return Err(RulesError::IllegalAction(
+                "cannot pay more life than the controller has",
+            ));
+        }
+        if payment.counter_sources.len() != cost.counter_removals.len() {
+            return Err(RulesError::IllegalAction(
+                "activated counter-cost selection count does not match its binding",
+            ));
+        }
+        let mut counter_totals = BTreeMap::<(ObjectId, CounterKind), i16>::new();
+        let mut counter_payments = Vec::with_capacity(cost.counter_removals.len());
+        for (counter_cost, card) in cost.counter_removals.iter().zip(&payment.counter_sources) {
+            if !counter_cost.counter.is_valid() || counter_cost.amount <= 0 {
+                return Err(RulesError::IllegalAction(
+                    "activated counter cost has an invalid kind or nonpositive amount",
+                ));
+            }
+            match counter_cost.target {
+                ActivatedCounterCostTarget::Source if *card != source => {
+                    return Err(RulesError::IllegalAction(
+                        "a source counter cost must select the ability source",
+                    ));
+                }
+                ActivatedCounterCostTarget::Source => {}
+                ActivatedCounterCostTarget::SelectedControlledPermanent => {
+                    self.require_zone(*card, Zone::Battlefield)?;
+                    if self.controller_of(*card)? != player {
+                        return Err(RulesError::IllegalAction(
+                            "an activated counter cost can select only a controlled permanent",
+                        ));
+                    }
+                }
+            }
+            self.require_zone(*card, Zone::Battlefield)?;
+            let total = counter_totals
+                .entry((*card, counter_cost.counter))
+                .or_default();
+            *total = total
+                .checked_add(counter_cost.amount)
+                .ok_or(RulesError::IllegalAction(
+                    "activated counter cost exceeds supported range",
+                ))?;
+            counter_payments.push((*card, counter_cost.counter, counter_cost.amount));
+        }
+        for ((card, counter), amount) in &counter_totals {
+            if self
+                .object(*card)?
+                .counters
+                .get(counter)
+                .copied()
+                .unwrap_or_default()
+                < *amount
+            {
+                return Err(RulesError::IllegalAction(
+                    "activated counter cost requires sufficient counters",
+                ));
+            }
+        }
+
+        let expected_returns = usize::from(cost.return_source_to_hand)
+            .checked_add(usize::from(cost.return_controlled_permanents))
+            .ok_or(RulesError::IllegalAction(
+                "activated return-cost selection exceeds engine range",
+            ))?;
+        if payment.return_permanents.len() != expected_returns {
+            return Err(RulesError::IllegalAction(
+                "activated return-cost selection count does not match its binding",
+            ));
+        }
+        let mut returned = BTreeSet::new();
+        for (index, permanent) in payment.return_permanents.iter().enumerate() {
+            if !returned.insert(*permanent) {
+                return Err(RulesError::IllegalAction(
+                    "an activated return cost cannot select the same permanent twice",
+                ));
+            }
+            if cost.return_source_to_hand && index == 0 {
+                if *permanent != source {
+                    return Err(RulesError::IllegalAction(
+                        "the source return-cost selection must name the ability source",
+                    ));
+                }
+            } else {
+                if *permanent == source {
+                    return Err(RulesError::IllegalAction(
+                        "an additional return cost cannot name the ability source",
+                    ));
+                }
+                self.require_zone(*permanent, Zone::Battlefield)?;
+                if self.controller_of(*permanent)? != player {
+                    return Err(RulesError::IllegalAction(
+                        "an activated return cost can select only a controlled permanent",
+                    ));
+                }
+            }
+            self.require_zone(*permanent, Zone::Battlefield)?;
+            if sacrifice_sources.contains(permanent) {
+                return Err(RulesError::IllegalAction(
+                    "one permanent cannot be both sacrificed and returned as one activation cost",
+                ));
+            }
+        }
+        Ok(counter_payments)
+    }
+
     /// Calculates the mana portion of one activated ability's total cost
     /// before any nonmana cost can mutate state.  The first RAV-sufficient
     /// boundary changes only generic symbols: all applicable increases are
@@ -7059,6 +7364,7 @@ impl Game {
         sacrifice_creatures: u8,
         sacrifice_lands: u8,
         discard_cards: u8,
+        chosen_x: Option<u8>,
         payment_selection: Option<ManaPaymentSelection>,
     ) -> Result<ActivatedAbilityCostContext, RulesError> {
         let source_object = self.object(source)?;
@@ -7132,6 +7438,7 @@ impl Game {
             sacrifice_creatures,
             sacrifice_lands,
             discard_cards,
+            chosen_x,
             payment_selection,
             effective_mana_cost,
         })
@@ -12530,6 +12837,24 @@ impl Game {
         Self::validate_cast_effects_for_ability(&ability.effects)
     }
 
+    fn validate_generalized_activated_ability_cost(
+        cost: &GeneralizedActivatedAbilityCost,
+    ) -> Result<(), RulesError> {
+        if cost.is_empty() {
+            return Err(RulesError::IllegalAction(
+                "a generalized activated-cost binding must contain a cost component",
+            ));
+        }
+        for counter_cost in &cost.counter_removals {
+            if !counter_cost.counter.is_valid() || counter_cost.amount <= 0 {
+                return Err(RulesError::IllegalAction(
+                    "a generalized activated counter cost must have a valid positive kind and amount",
+                ));
+            }
+        }
+        Ok(())
+    }
+
     fn validate_cast_effects_for_ability(effects: &[Effect]) -> Result<(), RulesError> {
         let private_opponent_library_choice_effects = effects
             .iter()
@@ -13597,6 +13922,172 @@ impl Game {
     /// Validates the public provenance emitted by the calculated activated
     /// cost pipeline.  The binding registry is immutable after setup, but the
     /// contributing permanents are intentionally historical here: a legal
+    /// Every generalized-cost receipt belongs to the contiguous activation
+    /// transaction immediately preceding one `AbilityActivated` receipt.
+    /// This audit deliberately checks receipt cardinality and immediate state
+    /// transitions separately from live counter/zone invariants: a replay
+    /// must not claim a life, counter, return, or X payment that the bound
+    /// profile did not require, nor omit one the profile requires.
+    #[allow(clippy::too_many_lines)] // One receipt scan preserves whole activation transaction provenance.
+    fn validate_generalized_activated_cost_event_order(&self) -> Result<(), RulesError> {
+        for (activation_index, event) in self.event_log.iter().enumerate() {
+            let GameEvent::AbilityActivated {
+                player,
+                source,
+                definition,
+                ability,
+                ..
+            } = event
+            else {
+                continue;
+            };
+            let profile = self
+                .generalized_activated_ability_costs
+                .get(&(*definition, *ability))
+                .cloned()
+                .unwrap_or_default();
+            let mut life_payments = Vec::new();
+            let mut counter_payments = Vec::new();
+            let mut return_payments = Vec::new();
+            let mut x_payments = Vec::new();
+            let mut index = activation_index;
+            while let Some(previous) = index.checked_sub(1) {
+                let prior = &self.event_log[previous];
+                if matches!(
+                    prior,
+                    GameEvent::AbilityActivated { .. }
+                        | GameEvent::SpellCast { .. }
+                        | GameEvent::TriggeredAbilityStacked { .. }
+                        | GameEvent::AbilityResolved { .. }
+                        | GameEvent::SpellResolved { .. }
+                        | GameEvent::PriorityPassed { .. }
+                ) {
+                    break;
+                }
+                match prior {
+                    GameEvent::AbilityLifePaid {
+                        player: receipt_player,
+                        source: receipt_source,
+                        ability: receipt_ability,
+                        amount,
+                    } if receipt_player == player
+                        && receipt_source == source
+                        && receipt_ability == ability =>
+                    {
+                        life_payments.push(*amount);
+                    }
+                    GameEvent::CounterRemovedAsAbilityCost {
+                        player: receipt_player,
+                        source: receipt_source,
+                        card,
+                        counter,
+                        amount,
+                    } if receipt_player == player && receipt_source == source => {
+                        if !matches!(
+                            self.event_log.get(previous + 1),
+                            Some(GameEvent::CounterRemoved {
+                                source: mutation_source,
+                                card: mutation_card,
+                                counter: mutation_counter,
+                                amount: mutation_amount,
+                            }) if mutation_source == source
+                                && mutation_card == card
+                                && mutation_counter == counter
+                                && mutation_amount == amount
+                        ) {
+                            return Err(RulesError::IllegalAction(
+                                "activated counter-cost receipt lacks its immediate counter removal",
+                            ));
+                        }
+                        counter_payments.push((*card, *counter, *amount));
+                    }
+                    GameEvent::ReturnedAsAbilityCost {
+                        player: receipt_player,
+                        source: receipt_source,
+                        permanent,
+                    } if receipt_player == player && receipt_source == source => {
+                        if !matches!(
+                            self.event_log.get(previous + 1),
+                            Some(GameEvent::CardMoved {
+                                card,
+                                to: Zone::Hand,
+                            }) if card == permanent
+                        ) {
+                            return Err(RulesError::IllegalAction(
+                                "activated return-cost receipt lacks its immediate hand move",
+                            ));
+                        }
+                        return_payments.push(*permanent);
+                    }
+                    GameEvent::AbilityXCostChosen {
+                        player: receipt_player,
+                        source: receipt_source,
+                        ability: receipt_ability,
+                        x,
+                    } if receipt_player == player
+                        && receipt_source == source
+                        && receipt_ability == ability =>
+                    {
+                        x_payments.push(*x);
+                    }
+                    _ => {}
+                }
+                index = previous;
+            }
+            life_payments.reverse();
+            counter_payments.reverse();
+            return_payments.reverse();
+            x_payments.reverse();
+            let expected_life = (profile.life_payment > 0).then_some(profile.life_payment);
+            if life_payments.as_slice() != expected_life.as_slice() {
+                return Err(RulesError::IllegalAction(
+                    "activated life-payment receipts do not match their bound cost",
+                ));
+            }
+            if counter_payments.len() != profile.counter_removals.len()
+                || counter_payments.iter().zip(&profile.counter_removals).any(
+                    |((_, counter, amount), bound)| {
+                        *counter != bound.counter || *amount != bound.amount
+                    },
+                )
+            {
+                return Err(RulesError::IllegalAction(
+                    "activated counter-cost receipts do not match their bound cost",
+                ));
+            }
+            let expected_return_count = usize::from(profile.return_source_to_hand)
+                + usize::from(profile.return_controlled_permanents);
+            if return_payments.len() != expected_return_count
+                || return_payments
+                    .iter()
+                    .copied()
+                    .collect::<BTreeSet<_>>()
+                    .len()
+                    != return_payments.len()
+            {
+                return Err(RulesError::IllegalAction(
+                    "activated return-cost receipts do not match their bound cost",
+                ));
+            }
+            if profile.return_source_to_hand && return_payments.first() != Some(source) {
+                return Err(RulesError::IllegalAction(
+                    "activated return-cost receipts omit the required source",
+                ));
+            }
+            if profile.has_x_cost != (x_payments.len() == 1) {
+                return Err(RulesError::IllegalAction(
+                    "activated chosen-X receipts do not match their bound cost",
+                ));
+            }
+            if x_payments.len() > 1 {
+                return Err(RulesError::IllegalAction(
+                    "an activated ability recorded more than one chosen-X receipt",
+                ));
+            }
+        }
+        Ok(())
+    }
+
     /// activation may sacrifice its source or a modifier after the total has
     /// already been calculated and paid.
     #[allow(clippy::too_many_lines)] // One receipt audit preserves total-cost provenance in one ordered scan.
@@ -13636,7 +14127,29 @@ impl Game {
                 .ok_or(RulesError::IllegalAction(
                     "activated-cost receipt names an unbound ability",
                 ))?;
-            if ability.mana_cost != context.base_mana_cost
+            let generalized_cost = self
+                .generalized_activated_ability_costs
+                .get(&(definition.id, context.ability_id))
+                .cloned()
+                .unwrap_or_default();
+            let mut expected_base_mana_cost = ability.mana_cost.clone();
+            match (generalized_cost.has_x_cost, context.chosen_x) {
+                (true, Some(x_value)) => {
+                    expected_base_mana_cost.generic = expected_base_mana_cost
+                        .generic
+                        .checked_add(x_value)
+                        .ok_or(RulesError::IllegalAction(
+                            "activated-cost receipt chosen X overflows printed generic cost",
+                        ))?;
+                }
+                (true, None) | (false, Some(_)) => {
+                    return Err(RulesError::IllegalAction(
+                        "activated-cost receipt has an invalid chosen-X provenance",
+                    ));
+                }
+                (false, None) => {}
+            }
+            if expected_base_mana_cost != context.base_mana_cost
                 || ability.additional_tap_creatures != context.additional_tap_creatures
                 || ability.sacrifice_source != context.sacrifice_source
                 || ability.sacrifice_creatures != context.sacrifice_creatures
