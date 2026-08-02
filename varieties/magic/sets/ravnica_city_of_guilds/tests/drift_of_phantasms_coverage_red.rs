@@ -1,18 +1,11 @@
-//! Ignored full-fidelity boundary probe for Drift of Phantasms.
-//!
-//! The represented Defender and immediate hand-zone Transmute slices are useful
-//! compatibility coverage, but real Transmute is an activated ability with a
-//! response window. The shared substrate resolves it immediately, so this
-//! positive-manifest assertion must remain red until stack-backed activated
-//! abilities exist.
+//! Red regression for Drift of Phantasms' complete static and Transmute slice.
 
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{CardType, Color, Keyword, ManaCost};
-use cardbench_magic_rav::card_definitions;
+use cardbench_magic_rav::{RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions};
 
 #[test]
-#[ignore = "Transmute is immediate rather than stack-backed, so full fidelity is not yet valid"]
 fn drift_of_phantasms_requires_stack_backed_transmute_for_full_fidelity() {
     let drift = card_definitions()
         .into_iter()
@@ -29,9 +22,10 @@ fn drift_of_phantasms_requires_stack_backed_transmute_for_full_fidelity() {
         drift.keywords,
         vec![
             Keyword::Defender,
+            Keyword::Flying,
             Keyword::Transmute(ManaCost::with_colors(1, [Color::Blue, Color::Blue])),
         ],
-        "Defender and Transmute already have shared engine support"
+        "Defender, Flying, and Transmute have shared engine support"
     );
     assert_eq!(drift.effects, Vec::new());
     assert_eq!(
@@ -41,8 +35,10 @@ fn drift_of_phantasms_requires_stack_backed_transmute_for_full_fidelity() {
             "colored-cost-casting",
             "base-characteristics",
             "defender",
+            "flying",
             "transmute",
         ],
         "there is no remaining printed behavior to keep this definition bounded"
     );
+    assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&drift.id));
 }
