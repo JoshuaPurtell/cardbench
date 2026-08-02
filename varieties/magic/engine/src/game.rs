@@ -2112,7 +2112,7 @@ impl Game {
                 return Err(RulesError::IllegalTarget(Target::Permanent(target)));
             }
             game.move_to_zone(attachment, Zone::Battlefield)?;
-            game.attach_with_binding(attachment, target, &binding)?;
+            game.attach_with_binding(attachment, target, &binding, false)?;
             game.check_state_based_actions()?;
             Ok(())
         })
@@ -4530,14 +4530,17 @@ impl Game {
     }
 
     /// Completes a typed attachment after its source has entered the
-    /// battlefield (Aura) or after its attach ability resolves (Equipment).
-    /// The stack still owns target ordering and resolution-time legality; this
-    /// helper owns the durable endpoint, linked effects, and replay receipt.
+    /// battlefield or after an attach ability resolves. The stack still owns
+    /// target ordering and resolution-time legality; this helper owns the
+    /// durable endpoint, linked effects, and replay receipt. Ordinary Aura
+    /// entry is not a reattachment, while an Aura's own activated ability may
+    /// explicitly transfer it to a new legal target.
     fn attach_with_binding(
         &mut self,
         attachment: ObjectId,
         target: ObjectId,
         binding: &AttachmentBinding,
+        allow_reattachment: bool,
     ) -> Result<(), RulesError> {
         self.require_zone(attachment, Zone::Battlefield)?;
         if !self.target_matches_for_source(
@@ -4553,12 +4556,12 @@ impl Game {
         let previous = self.object(attachment)?.attached_to;
         let previous_incarnation = self.object(attachment)?.attached_to_incarnation;
         match (binding.kind, previous, previous_incarnation) {
-            (AttachmentKind::Aura, Some(_), _) => {
+            (AttachmentKind::Aura, Some(_), _) if !allow_reattachment => {
                 return Err(RulesError::IllegalAction(
                     "an Aura cannot be attached while already attached",
                 ));
             }
-            (AttachmentKind::Equipment, Some(previous), Some(previous_incarnation)) => {
+            (_, Some(previous), Some(previous_incarnation)) => {
                 self.remove_attachment_continuous_effects(
                     attachment,
                     attachment_incarnation,
@@ -4567,7 +4570,7 @@ impl Game {
                     &binding.changes,
                 )?;
             }
-            (AttachmentKind::Equipment, Some(_), None) => {
+            (_, Some(_), None) => {
                 return Err(RulesError::IllegalAction(
                     "an attachment lacks target-incarnation provenance",
                 ));
@@ -5055,7 +5058,7 @@ impl Game {
                         Target::Permanent(primary),
                         binding.target,
                     ) {
-                        self.attach_with_binding(aura.object, primary, &binding)?;
+                        self.attach_with_binding(aura.object, primary, &binding, false)?;
                     }
                 }
             }
@@ -8801,7 +8804,7 @@ impl Game {
                 ));
             }
             self.move_to_zone(aura, Zone::Battlefield)?;
-            self.attach_with_binding(aura, source, &binding)?;
+            self.attach_with_binding(aura, source, &binding, false)?;
             // The enclosing stack object remains in the middle of resolving,
             // so queue the fetched Aura's ETB trigger now and let the normal
             // post-resolution flush place it only after this ability's own
@@ -12396,22 +12399,19 @@ impl Game {
                         "attachment effect source lacks a typed attachment binding",
                     ),
                 )?;
-                if binding.kind != AttachmentKind::Equipment
-                    || binding.target != requirement
-                    || binding.changes != changes
-                {
+                if binding.target != requirement || binding.changes != changes {
                     return Err(RulesError::IllegalAction(
-                        "activated attachment effect does not match its Equipment binding",
+                        "activated attachment effect does not match its attachment binding",
                     ));
                 }
                 // An activated ability can resolve after its source leaves,
                 // but cannot attach a later incarnation or create a durable
-                // effect from a departed Equipment source.
+                // effect from a departed attachment source.
                 if self.zone_of(stack_object.card) == Some(Zone::Battlefield)
                     && self
                         .object_has_incarnation(stack_object.card, stack_object.source_incarnation)
                 {
-                    self.attach_with_binding(stack_object.card, target, &binding)?;
+                    self.attach_with_binding(stack_object.card, target, &binding, true)?;
                 }
             }
             if ability == TRANSMUTE_ABILITY_ID {
@@ -12492,7 +12492,7 @@ impl Game {
                         "permanent attachment effect does not match its Aura binding",
                     ));
                 }
-                self.attach_with_binding(stack_object.card, target, &binding)?;
+                self.attach_with_binding(stack_object.card, target, &binding, false)?;
             }
         } else if pending_attachment.is_some() {
             return Err(RulesError::IllegalAction(
