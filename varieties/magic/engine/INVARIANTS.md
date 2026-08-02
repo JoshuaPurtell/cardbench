@@ -643,6 +643,10 @@ Oracle Magic rules coverage.
   rechecks the same count while resolving. If only its target remains, the
   ability resolves without a zone move rather than returning an ineligible
   card or fabricating a new target.
+  A legal owner-library-top instruction instead moves that same exact target
+  through the ordinary owner-indexed library transition; it cannot target an
+  opponent-owned graveyard card, a noncreature card, or a later incarnation,
+  and its `CardMoved { to: Library }` receipt precedes terminal resolution.
 - An `EnchantmentCardInControllerGraveyard` target names only an enchantment
   card owned by the resolving controller and currently in that player's
   graveyard. Target validation occurs before an activation spends mana or pays

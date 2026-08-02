@@ -1,7 +1,7 @@
 //! Red coverage probe for Stinkweed Imp's shared Flying rule.
 //!
-//! The damage-triggered destruction behavior remains deliberately outside this
-//! bounded slice; this probe requests only the static evasion keyword.
+//! The independent full-fidelity trigger contract covers the combat-damage
+//! behavior; this regression keeps the static evasion characteristics covered.
 
 use std::collections::BTreeSet;
 
@@ -24,7 +24,12 @@ fn stinkweed_imp_exposes_its_supported_flying_compatibility_slice() {
     assert!(imp.effects.is_empty());
     assert_eq!(
         imp.supported_rules,
-        ["dredge", "base-characteristics", "flying"],
-        "the damage-triggered destruction behavior remains intentionally bounded"
+        [
+            "full-rules-fidelity",
+            "dredge",
+            "base-characteristics",
+            "flying",
+            "combat-damage-destroy-recipient",
+        ]
     );
 }

@@ -1378,7 +1378,7 @@ digest = "fnv1a64:cbf29ce484222325"
 [[scenario]]
 id = "rav_golgari_thug_dredge_and_cast"
 seed = 0
-description = "Replace a draw with Golgari Thug's supported dredge value, then cast the returned 1/1 creature. Its separate graveyard trigger is outside this compatibility slice."
+description = "Replace a draw with Golgari Thug's supported dredge value, then cast the returned 1/1 creature. Its full death-trigger target choice is covered by a separate focused contract."
 
 [[scenario.card]]
 label = "thug"
@@ -1447,7 +1447,7 @@ digest = "fnv1a64:12a0ef76674d7c5f"
 [[scenario]]
 id = "rav_stinkweed_imp_dredge_and_cast"
 seed = 0
-description = "Replace a draw with Stinkweed Imp's supported dredge value, then cast the returned 1/2 creature. Its Flying is supported; its damage-triggered behavior remains unsupported."
+description = "Replace a draw with Stinkweed Imp's supported dredge value, then cast the returned 1/2 creature. Its Flying and combat-damage trigger are covered by separate focused contracts."
 
 [[scenario.card]]
 label = "imp"
@@ -8612,7 +8612,7 @@ digest = "fnv1a64:1dcdb2289fdaa917"
 [[scenario]]
 id = "rav_stinkweed_imp_flying_compatibility"
 seed = 46
-description = "Declare Stinkweed Imp as a Flying attacker, then reject a ground creature's block declaration; its damage-triggered destruction behavior remains unsupported."
+description = "Declare Stinkweed Imp as a Flying attacker, then reject a ground creature's block declaration; its combat-damage trigger is covered separately."
 
 [[scenario.card]]
 label = "imp"
