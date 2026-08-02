@@ -49,8 +49,8 @@ a zone move. The fetched Aura's ordinary ETB trigger is queued only after the
 Mage trigger's terminal receipt. The opponent sees neither unselected Aura
 identities nor a private decision projection.
 
-The current catalog partition is 222 full / 34 partial / 35 catalog-only unique
-names (237 / 34 / 35 printings). The independently checked coverage-report
+The current catalog partition is 223 full / 33 partial / 35 catalog-only unique
+names (238 / 33 / 35 printings). The independently checked coverage-report
 binary emits the same partition.
 
 Bramble Elemental is full-fidelity through the expansion-neutral, current-
@@ -147,12 +147,15 @@ controlled-creature sacrifice bound as an explicit, transactional cast cost;
 its public trace records the cost departure before the targeted spell enters the
 stack. Ribbons of Night now requires an explicit generic/hybrid mana selection,
 stores its ordered paid-color receipt on the stack object, and tests both its
-Blue-draw and non-Blue paths. Dryad's Caress still lacks a graveyard-return
-operation. Muddle the Mixture and Dizzy Spell retain their correctly tested effect
-and Transmute compatibility slices, but Transmute is executed immediately in this
-engine rather than as a stack object, so normal response behavior is absent. Their
-deterministic public scenarios assert receipts only for the represented slices.
-These are explicit coverage gaps, not no-op fallbacks or full-fidelity claims.
+Blue-draw and non-Blue paths. Dryad's Caress is now a positive-manifest entry:
+at resolution it counts only creature cards in its controller's graveyard for
+life, then returns its typed creature-card target to hand; public evidence
+excludes a noncreature graveyard card from that count. Muddle the Mixture and
+Dizzy Spell retain their correctly tested effect and Transmute compatibility
+slices, but Transmute is executed immediately in this engine rather than as a
+stack object, so normal response behavior is absent. Their deterministic public
+scenarios assert receipts only for the represented slices. These are explicit
+coverage gaps, not no-op fallbacks or full-fidelity claims.
 
 Infectious Host is a positive-manifest entry. Its controller submits the
 target player for the dies trigger through a public target-bearing decision;
