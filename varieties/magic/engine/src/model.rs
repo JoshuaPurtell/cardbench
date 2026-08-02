@@ -1365,6 +1365,11 @@ pub enum Target {
     /// from the request before the spell is placed on the stack and it never
     /// occupies a `StackObject` target slot.
     SacrificePermanent(ObjectId),
+    /// A controller-submitted basic-land type choice carried by an activated
+    /// ability request. It is deliberately not a stack target: the engine
+    /// materializes the selected type into the stack effect before target
+    /// provenance is recorded.
+    BasicLandType(BasicLandType),
 }
 
 /// A semantic additional cost bound by an expansion to a spell definition.
@@ -1950,6 +1955,17 @@ pub enum Effect {
     AddKeywordToControllerCreaturesUntilEndOfTurn {
         keyword: Keyword,
     },
+    /// Template for an activated ability whose controller chooses one of the
+    /// five basic land types as it is activated. The request choice is
+    /// materialized into the typed variant below before it reaches the stack.
+    ReplaceControllerLandsWithChosenBasicLandTypeUntilEndOfTurn,
+    /// Runtime materialization of
+    /// [`Self::ReplaceControllerLandsWithChosenBasicLandTypeUntilEndOfTurn`].
+    /// It is not valid as printed card-effect data: the selected type must
+    /// originate in the activation request and remain auditable on the stack.
+    ReplaceControllerLandsBasicLandTypeUntilEndOfTurn {
+        land_type: BasicLandType,
+    },
     /// Grant temporary protection from the explicit card color selected while
     /// this spell was cast to every creature its controller controls when it
     /// resolves. The choice is retained on the stack rather than inferred
@@ -2184,6 +2200,17 @@ impl Effect {
         )
     }
 
+    /// Whether an activated ability must carry one explicit basic-land-type
+    /// choice in its activation request. The choice is never inferred from a
+    /// mana color or a permanent's printed type line.
+    #[must_use]
+    pub const fn requires_chosen_basic_land_type(&self) -> bool {
+        matches!(
+            self,
+            Self::ReplaceControllerLandsWithChosenBasicLandTypeUntilEndOfTurn
+        )
+    }
+
     #[must_use]
     #[allow(clippy::too_many_lines)] // One exhaustive semantic-to-target map keeps stack planning reviewable.
     pub const fn target_requirement(&self) -> Option<TargetRequirement> {
@@ -2325,6 +2352,8 @@ impl Effect {
             | Self::UntapSource
             | Self::ModifyControllerCreaturesPtUntilEndOfTurn { .. }
             | Self::AddKeywordToControllerCreaturesUntilEndOfTurn { .. }
+            | Self::ReplaceControllerLandsWithChosenBasicLandTypeUntilEndOfTurn
+            | Self::ReplaceControllerLandsBasicLandTypeUntilEndOfTurn { .. }
             | Self::AddChosenColorProtectionToControllerCreaturesUntilEndOfTurn
             | Self::DestroyAllNonTokenCreatures
             | Self::DestroyCombatDamagedCreature
@@ -2630,6 +2659,11 @@ pub struct Characteristics {
     /// type line. Card definitions do not yet model subtypes, so the initial
     /// nonempty values originate from token specifications.
     pub creature_subtypes: BTreeSet<CreatureSubtype>,
+    /// The current basic-land subtype represented by this permanent. A
+    /// registered basic land begins with this value; timestamped layer-four
+    /// effects may replace it through the current turn. It is separate from
+    /// deck-construction basicness and from a card's display name.
+    pub basic_land_type: Option<BasicLandType>,
     /// Derived layer-seven values.  Printed values and individual modifiers
     /// remain `i16`, while the evaluated result is widened for safe repeated
     /// continuous-effect application.
@@ -2662,6 +2696,10 @@ pub enum ContinuousChange {
     /// control effect must not bake in the controller that happened to cast
     /// it, and it expires with the source's ordinary battlefield lifecycle.
     ChangeControllerToSourceController,
+    /// Replace the affected permanent's basic-land subtype in layer four.
+    /// The derived type grants the corresponding intrinsic one-color mana
+    /// ability through the engine's existing typed-land activation path.
+    ReplaceBasicLandType(BasicLandType),
     AddCardType(CardType),
     AddColor(Color),
     /// Replace the affected permanent's complete color set in layer five.
@@ -2717,7 +2755,7 @@ impl ContinuousChange {
     pub const fn layer(&self) -> Layer {
         match self {
             Self::ChangeController(_) | Self::ChangeControllerToSourceController => Layer::Control,
-            Self::AddCardType(_) => Layer::Type,
+            Self::ReplaceBasicLandType(_) | Self::AddCardType(_) => Layer::Type,
             Self::AddColor(_) | Self::ReplaceColorsWith(_) => Layer::Color,
             Self::AddKeyword(_)
             | Self::RemoveKeyword(_)

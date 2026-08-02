@@ -61,6 +61,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-CONCLAVE-EQUENAUT",
             "RAV-SNAPPING-DRAKE",
             "RAV-TATTERED-DRAKE",
+            "RAV-TERRAFORMER",
             "RAV-CERULEAN-SPHINX",
             "RAV-HUNTED-PHANTASM",
             "RAV-GOLIATH-SPIDER",

@@ -2159,18 +2159,24 @@ impl Game {
             ));
         }
         let definition = self.card_definition(land)?;
-        if !definition.is_land() || !definition.mana_colors.contains(&color) {
+        if !definition.is_land() {
             return Err(RulesError::IllegalAction(
-                "that land cannot produce the requested color",
+                "that permanent cannot produce mana as a land",
             ));
         }
-        if self
-            .basic_land_type(land)?
-            .is_some_and(|land_type| land_type.intrinsic_mana_color() != color)
-        {
-            return Err(RulesError::IllegalAction(
-                "that basic land type cannot produce the requested color",
-            ));
+        match self.basic_land_type(land)? {
+            Some(land_type) if land_type.intrinsic_mana_color() == color => {}
+            Some(_) => {
+                return Err(RulesError::IllegalAction(
+                    "that basic land type cannot produce the requested color",
+                ));
+            }
+            None if definition.mana_colors.contains(&color) => {}
+            None => {
+                return Err(RulesError::IllegalAction(
+                    "that land cannot produce the requested color",
+                ));
+            }
         }
         if !self.players[player.0].mana_pool.can_add(color, 1) {
             return Err(RulesError::IllegalAction(
@@ -2384,12 +2390,46 @@ impl Game {
                 "this activated ability is allowed only during your main phase with an empty stack",
             ));
         }
-        if activation.targets.len() != ability.targets.len() {
+        let basic_land_type_choice_count = ability
+            .effects
+            .iter()
+            .filter(|effect| effect.requires_chosen_basic_land_type())
+            .count();
+        if basic_land_type_choice_count > 1 {
+            return Err(RulesError::IllegalAction(
+                "an activated ability cannot require more than one basic-land-type choice",
+            ));
+        }
+        let (targets, chosen_basic_land_type) = if basic_land_type_choice_count == 1 {
+            let (choice, targets) =
+                activation
+                    .targets
+                    .split_last()
+                    .ok_or(RulesError::IllegalAction(
+                        "this activated ability requires one basic-land-type choice",
+                    ))?;
+            let Target::BasicLandType(land_type) = choice else {
+                return Err(RulesError::IllegalTarget(*choice));
+            };
+            (targets.to_vec(), Some(*land_type))
+        } else {
+            if activation
+                .targets
+                .iter()
+                .any(|target| matches!(target, Target::BasicLandType(_)))
+            {
+                return Err(RulesError::IllegalAction(
+                    "this activated ability does not take a basic-land-type choice",
+                ));
+            }
+            (activation.targets, None)
+        };
+        if targets.len() != ability.targets.len() {
             return Err(RulesError::IllegalAction(
                 "activated ability target count does not match its definition",
             ));
         }
-        for (target, requirement) in activation.targets.iter().zip(&ability.targets) {
+        for (target, requirement) in targets.iter().zip(&ability.targets) {
             if !Self::target_shape_matches(*target, *requirement)
                 || !self.target_matches_for_source(player, activation.source, *target, *requirement)
             {
@@ -2669,16 +2709,29 @@ impl Game {
                 permanent: *permanent,
             });
         }
-        let target_incarnations = self.target_incarnations(&activation.targets);
+        let effects = ability
+            .effects
+            .into_iter()
+            .map(|effect| match effect {
+                Effect::ReplaceControllerLandsWithChosenBasicLandTypeUntilEndOfTurn => {
+                    Effect::ReplaceControllerLandsBasicLandTypeUntilEndOfTurn {
+                        land_type: chosen_basic_land_type
+                            .expect("validated basic-land-type ability retains its selected type"),
+                    }
+                }
+                effect => effect,
+            })
+            .collect();
+        let target_incarnations = self.target_incarnations(&targets);
         self.stack.push(StackObject {
             card: activation.source,
             source_incarnation: source.incarnation,
             source_colors,
             controller: player,
             ability_id: Some(ability.id),
-            targets: activation.targets,
+            targets,
             target_incarnations,
-            effects: ability.effects,
+            effects,
             chosen_x: generalized_cost_payment.chosen_x,
             chosen_color: None,
             mana_spent,
@@ -2956,10 +3009,7 @@ impl Game {
 
     /// Returns the registered typed basic-land type line for a card object.
     pub fn basic_land_type(&self, card: ObjectId) -> Result<Option<BasicLandType>, RulesError> {
-        self.object(card)?;
-        Ok(self
-            .effective_definition_id(card)?
-            .and_then(|definition| self.basic_land_types.get(definition).copied()))
+        Ok(self.characteristics(card)?.basic_land_type)
     }
 
     fn player_controls_basic_land_type(&self, player: PlayerId, land_type: BasicLandType) -> bool {
@@ -3590,6 +3640,7 @@ impl Game {
                 colors: token.colors,
                 card_types: token.card_types,
                 creature_subtypes: token.creature_subtypes,
+                basic_land_type: None,
                 power: Some(i32::from(token.power)),
                 toughness: Some(i32::from(token.toughness)),
                 keywords: token.keywords,
@@ -3603,6 +3654,7 @@ impl Game {
                     colors: definition.colors.clone(),
                     card_types: definition.card_types.clone(),
                     creature_subtypes: BTreeSet::new(),
+                    basic_land_type: self.basic_land_types.get(definition_id).copied(),
                     power: definition.power.map(i32::from),
                     toughness: definition.toughness.map(i32::from),
                     keywords: definition.keywords.clone(),
@@ -3639,6 +3691,9 @@ impl Game {
         effects.sort_by_key(|effect| (effect.change.layer(), effect.timestamp));
         for effect in effects {
             match &effect.change {
+                ContinuousChange::ReplaceBasicLandType(land_type) => {
+                    characteristics.basic_land_type = Some(*land_type);
+                }
                 ContinuousChange::AddCardType(card_type) => {
                     characteristics.card_types.insert(card_type.clone());
                 }
@@ -3877,6 +3932,7 @@ impl Game {
     /// Installs an effect while a spell is resolving. The resolver performs
     /// state-based actions only after the whole spell has resolved, so this
     /// internal primitive intentionally omits the public transition boundary.
+    #[allow(clippy::too_many_lines)] // Centralized layer-installation validation remains auditable.
     fn install_continuous_effect(
         &mut self,
         source: ObjectId,
@@ -3893,6 +3949,16 @@ impl Game {
         ) {
             return Err(RulesError::IllegalAction(
                 "continuous effects may not add the colorless mana kind as a card color",
+            ));
+        }
+        if matches!(change, ContinuousChange::ReplaceBasicLandType(_))
+            && !self
+                .characteristics(target)?
+                .card_types
+                .contains(&CardType::Land)
+        {
+            return Err(RulesError::IllegalAction(
+                "a basic-land type effect requires a land target",
             ));
         }
         if matches!(
@@ -8917,7 +8983,23 @@ impl Game {
                         .ok_or(RulesError::IllegalAction(
                             "stack ability is not bound to its source definition",
                         ))?;
-                    let effects_match = if matches!(
+                    let effects_match = if effects
+                        .iter()
+                        .any(Effect::requires_chosen_basic_land_type)
+                    {
+                        effects.len() == stack_object.effects.len()
+                            && effects.iter().zip(&stack_object.effects).all(
+                                |(bound, actual)| {
+                                    matches!(
+                                        (bound, actual),
+                                        (
+                                            Effect::ReplaceControllerLandsWithChosenBasicLandTypeUntilEndOfTurn,
+                                            Effect::ReplaceControllerLandsBasicLandTypeUntilEndOfTurn { .. }
+                                        )
+                                    ) || bound == actual
+                                },
+                            )
+                    } else if matches!(
                         trigger_condition,
                         Some(TriggerCondition::DealsDamage | TriggerCondition::ReceivesDamage)
                     ) {
@@ -10853,6 +10935,8 @@ impl Game {
                 | Effect::RegenerateTargetCreature
                 | Effect::RegenerateSource
                 | Effect::AddKeywordToControllerCreaturesUntilEndOfTurn { .. }
+                | Effect::ReplaceControllerLandsWithChosenBasicLandTypeUntilEndOfTurn
+                | Effect::ReplaceControllerLandsBasicLandTypeUntilEndOfTurn { .. }
                 | Effect::AddChosenColorProtectionToControllerCreaturesUntilEndOfTurn
                 | Effect::ReplaceTargetCreatureColorsWithChosenColorUntilEndOfTurn
                 | Effect::DestroyTargetLand
@@ -11140,6 +11224,11 @@ impl Game {
                             Target::SacrificePermanent(card) => {
                                 return Err(RulesError::IllegalTarget(Target::SacrificePermanent(
                                     card,
+                                )));
+                            }
+                            Target::BasicLandType(land_type) => {
+                                return Err(RulesError::IllegalTarget(Target::BasicLandType(
+                                    land_type,
                                 )));
                             }
                         }
@@ -13824,6 +13913,9 @@ impl Game {
             Target::SacrificePermanent(card) => {
                 return Err(RulesError::IllegalTarget(Target::SacrificePermanent(card)));
             }
+            Target::BasicLandType(land_type) => {
+                return Err(RulesError::IllegalTarget(Target::BasicLandType(land_type)));
+            }
         }
         Ok(candidates)
     }
@@ -13875,6 +13967,9 @@ impl Game {
             Target::SacrificePermanent(card) => {
                 Err(RulesError::IllegalTarget(Target::SacrificePermanent(card)))
             }
+            Target::BasicLandType(land_type) => {
+                Err(RulesError::IllegalTarget(Target::BasicLandType(land_type)))
+            }
         }
     }
 
@@ -13885,6 +13980,9 @@ impl Game {
             Target::Spell(card) => Err(RulesError::IllegalTarget(Target::Spell(card))),
             Target::SacrificePermanent(card) => {
                 Err(RulesError::IllegalTarget(Target::SacrificePermanent(card)))
+            }
+            Target::BasicLandType(land_type) => {
+                Err(RulesError::IllegalTarget(Target::BasicLandType(land_type)))
             }
         }
     }
@@ -14118,6 +14216,9 @@ impl Game {
             Target::Spell(card) => return Err(RulesError::IllegalTarget(Target::Spell(card))),
             Target::SacrificePermanent(card) => {
                 return Err(RulesError::IllegalTarget(Target::SacrificePermanent(card)));
+            }
+            Target::BasicLandType(land_type) => {
+                return Err(RulesError::IllegalTarget(Target::BasicLandType(land_type)));
             }
         }
         Ok(())
@@ -14372,7 +14473,7 @@ impl Game {
                             redirected,
                         )?;
                     }
-                    Target::Spell(_) | Target::SacrificePermanent(_) => {
+                    Target::Spell(_) | Target::SacrificePermanent(_) | Target::BasicLandType(_) => {
                         return Err(RulesError::IllegalTarget(destination));
                     }
                 }
@@ -14528,6 +14629,9 @@ impl Game {
                 Target::SacrificePermanent(card) => {
                     return Err(RulesError::IllegalTarget(Target::SacrificePermanent(card)));
                 }
+                Target::BasicLandType(land_type) => {
+                    return Err(RulesError::IllegalTarget(Target::BasicLandType(land_type)));
+                }
             },
             Effect::GainControlTargetUntilEndOfTurn => {
                 let target = Self::target_permanent(target)?;
@@ -14538,6 +14642,31 @@ impl Game {
                     ContinuousChange::ChangeController(controller),
                     Duration::EndOfTurn(self.turn),
                 )?;
+            }
+            Effect::ReplaceControllerLandsWithChosenBasicLandTypeUntilEndOfTurn => {
+                return Err(RulesError::IllegalAction(
+                    "unmaterialized basic-land-type choice reached resolution",
+                ));
+            }
+            Effect::ReplaceControllerLandsBasicLandTypeUntilEndOfTurn { land_type } => {
+                let lands = self
+                    .all_battlefield_cards()
+                    .into_iter()
+                    .filter(|candidate| {
+                        self.controller_of(*candidate) == Ok(controller)
+                            && self.characteristics(*candidate).is_ok_and(|characteristics| {
+                                characteristics.card_types.contains(&CardType::Land)
+                            })
+                    })
+                    .collect::<Vec<_>>();
+                for land in lands {
+                    self.install_continuous_effect(
+                        source,
+                        land,
+                        ContinuousChange::ReplaceBasicLandType(*land_type),
+                        Duration::EndOfTurn(self.turn),
+                    )?;
+                }
             }
             Effect::LoseLifeTarget { amount } => {
                 let player =
@@ -14737,6 +14866,11 @@ impl Game {
                                 card,
                             )));
                         }
+                        Target::BasicLandType(land_type) => {
+                            return Err(RulesError::IllegalTarget(Target::BasicLandType(
+                                land_type,
+                            )));
+                        }
                     }
                 }
             }
@@ -14768,6 +14902,9 @@ impl Game {
                     }
                     Target::SacrificePermanent(card) => {
                         return Err(RulesError::IllegalTarget(Target::SacrificePermanent(card)));
+                    }
+                    Target::BasicLandType(land_type) => {
+                        return Err(RulesError::IllegalTarget(Target::BasicLandType(land_type)));
                     }
                 }
             }
@@ -16152,6 +16289,9 @@ impl Game {
             Some(Target::SacrificePermanent(card)) => {
                 Err(RulesError::IllegalTarget(Target::SacrificePermanent(card)))
             }
+            Some(Target::BasicLandType(land_type)) => {
+                Err(RulesError::IllegalTarget(Target::BasicLandType(land_type)))
+            }
             None => Err(RulesError::IllegalAction("missing permanent target")),
         }
     }
@@ -16194,6 +16334,9 @@ impl Game {
             Some(Target::SacrificePermanent(card)) => {
                 Err(RulesError::IllegalTarget(Target::SacrificePermanent(card)))
             }
+            Some(Target::BasicLandType(land_type)) => {
+                Err(RulesError::IllegalTarget(Target::BasicLandType(land_type)))
+            }
             None => Err(RulesError::IllegalAction("missing spell target")),
         }
     }
@@ -16210,7 +16353,7 @@ impl Game {
                 | Target::SacrificePermanent(card) => {
                     self.object(*card).ok().map(|object| object.incarnation)
                 }
-                Target::Player(_) => None,
+                Target::Player(_) | Target::BasicLandType(_) => None,
             })
             .collect()
     }
@@ -16238,7 +16381,7 @@ impl Game {
                 self.object(card)
                     .is_ok_and(|object| object.incarnation == expected)
             }
-            Target::Player(_) => true,
+            Target::Player(_) | Target::BasicLandType(_) => true,
         }
     }
 
@@ -16492,7 +16635,10 @@ impl Game {
             Target::Permanent(card) => {
                 self.permanent_has_protection_from_colors(card, source_colors)
             }
-            Target::Player(_) | Target::Spell(_) | Target::SacrificePermanent(_) => false,
+            Target::Player(_)
+            | Target::Spell(_)
+            | Target::SacrificePermanent(_)
+            | Target::BasicLandType(_) => false,
         }
     }
 
@@ -17735,6 +17881,17 @@ impl Game {
         if ability
             .effects
             .iter()
+            .filter(|effect| effect.requires_chosen_basic_land_type())
+            .count()
+            > 1
+        {
+            return Err(RulesError::IllegalAction(
+                "an activated ability cannot require more than one basic-land-type choice",
+            ));
+        }
+        if ability
+            .effects
+            .iter()
             .any(|effect| matches!(effect, Effect::DestroyCombatDamagedCreature))
         {
             return Err(RulesError::IllegalAction(
@@ -17781,6 +17938,15 @@ impl Game {
                 "combat-damage provenance destruction has the wrong trigger condition",
             ));
         }
+        if ability
+            .effects
+            .iter()
+            .any(Effect::requires_chosen_basic_land_type)
+        {
+            return Err(RulesError::IllegalAction(
+                "basic-land-type choices are valid only on activated abilities",
+            ));
+        }
         Self::validate_cast_effects_for_ability(&ability.effects)
     }
 
@@ -17818,6 +17984,14 @@ impl Game {
             ));
         }
         for effect in effects {
+            if matches!(
+                effect,
+                Effect::ReplaceControllerLandsBasicLandTypeUntilEndOfTurn { .. }
+            ) {
+                return Err(RulesError::IllegalAction(
+                    "materialized basic-land-type effect escaped onto an ability binding",
+                ));
+            }
             if matches!(effect, Effect::DestroyCapturedCreature { .. }) {
                 return Err(RulesError::IllegalAction(
                     "materialized event-provenance effect escaped onto an ability binding",

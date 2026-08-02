@@ -13,24 +13,14 @@ use cardbench_magic_rav::{card_definitions, run_all_scenarios};
 #[allow(clippy::too_many_lines)] // Declarative public fact table stays together for auditability.
 fn easy_creature_wave_two_is_exactly_bounded_to_public_base_facts() {
     let definitions = card_definitions();
-    let expected = [
-        (
-            "RAV-TERRAFORMER",
-            "Terraformer",
-            ManaCost::with_colors(2, [Color::Blue]),
-            BTreeSet::from([Color::Blue]),
-            2,
-            2,
-        ),
-        (
-            "RAV-ROOFSTALKER-WIGHT",
-            "Roofstalker Wight",
-            ManaCost::with_colors(1, [Color::Blue]),
-            BTreeSet::from([Color::Blue]),
-            2,
-            1,
-        ),
-    ];
+    let expected = [(
+        "RAV-ROOFSTALKER-WIGHT",
+        "Roofstalker Wight",
+        ManaCost::with_colors(1, [Color::Blue]),
+        BTreeSet::from([Color::Blue]),
+        2,
+        1,
+    )];
 
     for (id, name, mana_cost, colors, power, toughness) in expected {
         let definition = definitions

@@ -41,7 +41,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 164] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 165] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -90,6 +90,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 164] = [
     "RAV-CONCLAVE-EQUENAUT",
     "RAV-SNAPPING-DRAKE",
     "RAV-TATTERED-DRAKE",
+    "RAV-TERRAFORMER",
     "RAV-CERULEAN-SPHINX",
     "RAV-HUNTED-PHANTASM",
     "RAV-GOLIATH-SPIDER",
@@ -3955,17 +3956,29 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Flying],
             effects: vec![],
         },
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed land-type activation is deliberately
-        // omitted from this compatibility slice.
-        bounded_creature_chassis(
-            "RAV-TERRAFORMER",
-            "Terraformer",
-            ManaCost::with_colors(2, [Color::Blue]),
-            colors([Color::Blue]),
-            2,
-            2,
-        ),
+        // Full fidelity: a controller-selected basic land type is retained
+        // through the stack and temporarily replaces every controlled land's
+        // typed intrinsic mana ability in layer four.
+        CardDefinition {
+            id: "RAV-TERRAFORMER",
+            name: "Terraformer",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(2, [Color::Blue]),
+            colors: colors([Color::Blue]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "controller-lands-chosen-basic-land-type-until-end-of-turn",
+            ],
+            power: Some(2),
+            toughness: Some(2),
+            keywords: vec![],
+            effects: vec![],
+        },
         // Compatibility scope: normal colored-cost creature casting and base
         // characteristics only. Its printed temporary evasion activation is
         // deliberately omitted from this compatibility slice.
@@ -6025,6 +6038,22 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 effects: vec![Effect::RemoveSourceKeywordUntilEndOfTurn {
                     keyword: Keyword::Defender,
                 }],
+            },
+        },
+        ActivatedAbilityBinding {
+            card_definition: "RAV-TERRAFORMER",
+            ability: ActivatedAbility {
+                id: "choose-controller-land-basic-type",
+                mana_cost: ManaCost::with_colors(1, []),
+                tap_cost: false,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![],
+                effects: vec![Effect::ReplaceControllerLandsWithChosenBasicLandTypeUntilEndOfTurn],
             },
         },
         ActivatedAbilityBinding {
