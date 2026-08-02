@@ -18442,6 +18442,11 @@ impl Game {
                     "combat-only replacement reached the ordinary damage pipeline",
                 ));
             }
+            DamageReplacementChoice::CombatDamagePrevention { .. } => {
+                return Err(RulesError::IllegalAction(
+                    "combat-only prevention reached the ordinary damage pipeline",
+                ));
+            }
             DamageReplacementChoice::Redirect {
                 id,
                 source: redirect_source,
@@ -18813,6 +18818,93 @@ impl Game {
             })
     }
 
+    /// Lists the exact live all-combat-damage prevention records that can
+    /// replace this source's prospective combat packet. A target-specific
+    /// record retains the protected creature's incarnation; a global record
+    /// deliberately survives the source permanent's departure. Both are
+    /// represented by the record id, rather than merely their source, so two
+    /// independently-created effects cannot be conflated at the affected
+    /// player's ordering decision.
+    fn combat_damage_prevention_candidates(
+        &self,
+        source: ObjectId,
+        used: &[DamageReplacementChoice],
+    ) -> Vec<DamageReplacementChoice> {
+        if self.damage_cannot_be_prevented(source) {
+            return Vec::new();
+        }
+        let mut candidates = self
+            .combat_damage_preventions
+            .iter()
+            .filter(|prevention| {
+                prevention.creature == source
+                    && prevention.expires_turn >= self.turn
+                    && self.zone_of(source) == Some(Zone::Battlefield)
+                    && self.object_has_incarnation(source, prevention.creature_incarnation)
+            })
+            .map(
+                |prevention| DamageReplacementChoice::CombatDamagePrevention {
+                    id: prevention.id,
+                    source: prevention.source,
+                },
+            )
+            .filter(|choice| !used.contains(choice))
+            .collect::<Vec<_>>();
+        candidates.extend(
+            self.global_combat_damage_preventions
+                .iter()
+                .filter(|prevention| prevention.expires_turn >= self.turn)
+                .map(
+                    |prevention| DamageReplacementChoice::CombatDamagePrevention {
+                        id: prevention.id,
+                        source: prevention.source,
+                    },
+                )
+                .filter(|choice| !used.contains(choice)),
+        );
+        candidates
+    }
+
+    /// Revalidates one selected all-combat-damage prevention identity and
+    /// returns its historical source for the authoritative prevention receipt.
+    /// The record, not a current battlefield object, is the source of truth:
+    /// global effects and a resolved spell's target-specific effect may remain
+    /// live after their creating card has left the battlefield.
+    fn combat_damage_prevention_source_for_choice(
+        &self,
+        source: ObjectId,
+        choice: DamageReplacementChoice,
+    ) -> Option<ObjectId> {
+        let DamageReplacementChoice::CombatDamagePrevention {
+            id,
+            source: prevention_source,
+        } = choice
+        else {
+            return None;
+        };
+        self.combat_damage_preventions
+            .iter()
+            .find(|prevention| {
+                prevention.id == id
+                    && prevention.source == prevention_source
+                    && prevention.creature == source
+                    && prevention.expires_turn >= self.turn
+                    && self.zone_of(source) == Some(Zone::Battlefield)
+                    && self.object_has_incarnation(source, prevention.creature_incarnation)
+            })
+            .map(|prevention| prevention.source)
+            .or_else(|| {
+                self.global_combat_damage_preventions
+                    .iter()
+                    .find(|prevention| {
+                        prevention.id == id
+                            && prevention.source == prevention_source
+                            && prevention.expires_turn >= self.turn
+                    })
+                    .map(|prevention| prevention.source)
+            })
+    }
+
     /// Applies every live source-bound amount replacement once in stable
     /// battlefield order for a direct or combat packet that does not suspend
     /// at the targeted-spell replacement-decision boundary. Those effects are
@@ -18953,6 +19045,7 @@ impl Game {
     ) -> Result<Vec<DamageReplacementChoice>, RulesError> {
         let mut candidates =
             self.damage_replacement_candidates(source, Target::Player(player), amount, used)?;
+        candidates.extend(self.combat_damage_prevention_candidates(source, used));
         if amount > 0
             && self.zone_of(source) == Some(Zone::Battlefield)
             && self
@@ -19055,18 +19148,60 @@ impl Game {
         Ok(())
     }
 
+    /// Applies one selected target-specific or global all-combat-damage
+    /// prevention record. The record is persistent through the turn, but its
+    /// identity is marked used for this prospective packet so a replacement
+    /// loop cannot select it twice before the zeroed packet ends.
+    fn apply_combat_damage_prevention_replacement(
+        &mut self,
+        pending: &mut PendingDamageReplacementChoice,
+        replacement: DamageReplacementChoice,
+    ) -> Result<(), RulesError> {
+        let candidates = self.combat_damage_replacement_candidates(
+            pending.source,
+            pending.affected_player,
+            pending.amount,
+            &pending.used,
+        )?;
+        if !candidates.contains(&replacement) {
+            return Err(RulesError::IllegalAction(
+                "selected combat prevention replacement is no longer applicable",
+            ));
+        }
+        let prevented_by = self
+            .combat_damage_prevention_source_for_choice(pending.source, replacement)
+            .ok_or(RulesError::IllegalAction(
+                "selected combat prevention record disappeared before selection",
+            ))?;
+        self.record_event(GameEvent::DamageReplacementApplied {
+            affected_player: pending.affected_player,
+            target: Target::Player(pending.affected_player),
+            replacement,
+        });
+        self.record_event(GameEvent::CombatDamagePrevented {
+            source: pending.source,
+            prevented_by,
+            target: Target::Player(pending.affected_player),
+            amount: pending.amount,
+        });
+        pending.used.push(replacement);
+        pending.amount = 0;
+        Ok(())
+    }
+
     fn apply_combat_damage_replacement(
         &mut self,
         pending: &mut PendingDamageReplacementChoice,
         replacement: DamageReplacementChoice,
     ) -> Result<(), RulesError> {
-        if matches!(
-            replacement,
-            DamageReplacementChoice::CombatDamageMillAndCounters { .. }
-        ) {
-            self.apply_combat_damage_mill_and_counters_replacement(pending, replacement)
-        } else {
-            self.apply_damage_replacement(pending, replacement)
+        match replacement {
+            DamageReplacementChoice::CombatDamageMillAndCounters { .. } => {
+                self.apply_combat_damage_mill_and_counters_replacement(pending, replacement)
+            }
+            DamageReplacementChoice::CombatDamagePrevention { .. } => {
+                self.apply_combat_damage_prevention_replacement(pending, replacement)
+            }
+            _ => self.apply_damage_replacement(pending, replacement),
         }
     }
 
@@ -19130,7 +19265,7 @@ impl Game {
         amount: i32,
         remaining_player_damage: &[(ObjectId, PlayerId, i32)],
     ) -> Result<bool, RulesError> {
-        if amount <= 0 || self.combat_damage_prevented_by(source).is_some() {
+        if amount <= 0 {
             return Ok(false);
         }
         let source_incarnation = self.object(source)?.incarnation;

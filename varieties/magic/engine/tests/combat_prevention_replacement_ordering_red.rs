@@ -4,8 +4,9 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardDefinition, CardType, CastRequest, DamageReplacementEffect, DamageReplacementEffectBinding,
-    DecisionKind, Effect, Game, ManaCost, PlayerId, Step, Target, Zone,
+    CardDefinition, CardType, CastRequest, DamageReplacementChoice, DamageReplacementEffect,
+    DamageReplacementEffectBinding, DecisionKind, DecisionSelection, Effect, Game, GameEvent,
+    ManaCost, PlayerId, ReplacementChoice, Step, Target, Zone,
 };
 
 const REPLACER: &str = "COMBAT-PREVENTION-ORDERING-REPLACER";
@@ -145,4 +146,53 @@ fn affected_player_orders_combat_prevention_and_source_replacement() {
         4,
         "no replacement may commit before the affected player chooses",
     );
+    let prevention_choice = decision
+        .replacement_candidates
+        .iter()
+        .find_map(|choice| match choice {
+            ReplacementChoice::Damage(
+                choice @ DamageReplacementChoice::CombatDamagePrevention { .. },
+            ) => Some(*choice),
+            _ => None,
+        })
+        .expect("the affected player can choose the combat prevention record");
+    game.submit_decision(
+        affected_player,
+        decision.id,
+        DecisionSelection::Replacements(vec![ReplacementChoice::Damage(prevention_choice)]),
+    )
+    .expect("affected player chooses prevention before the source replacement");
+    assert_eq!(
+        game.player(affected_player)
+            .expect("affected player remains live")
+            .library
+            .len(),
+        4,
+        "chosen all-combat prevention stops the packet before it mills cards",
+    );
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::DamageReplacementApplied {
+            replacement: DamageReplacementChoice::CombatDamagePrevention { .. },
+            ..
+        }
+    )));
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::CombatDamagePrevented {
+            source,
+            prevented_by,
+            target: Target::Player(player),
+            amount: 4,
+        } if *source == attacker && *prevented_by == prevention && *player == affected_player
+    )));
+    assert!(
+        !game.event_log.iter().any(|event| matches!(
+            event,
+            GameEvent::CombatDamageReplacedWithMillAndCounters { source, .. } if *source == attacker
+        )),
+        "the unselected source replacement must not produce its mill/counter consequence",
+    );
+    game.validate_invariants()
+        .expect("combat prevention ordering preserves the state-machine invariants");
 }

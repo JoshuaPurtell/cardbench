@@ -817,10 +817,11 @@ pub struct DamageReplacementEffectBinding {
 /// One currently applicable way to replace a prospective damage event.
 ///
 /// This intentionally names only the bounded damage replacement substrate:
-/// source-bound amount changes, target-specific shields, permanent-local
-/// shields/protection, and the existing redirection effect. The identity is
-/// fully serializable and is revalidated when the affected player submits it,
-/// so a policy cannot apply a stale or fabricated replacement.
+/// source-bound amount changes, combat prevention, target-specific shields,
+/// permanent-local shields/protection, and the existing redirection effect.
+/// The identity is fully serializable and is revalidated when the affected
+/// player submits it, so a policy cannot apply a stale or fabricated
+/// replacement.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DamageReplacementChoice {
     /// Apply a source-bound global damage-amount replacement. The exact live
@@ -839,6 +840,11 @@ pub enum DamageReplacementChoice {
         source: ObjectId,
         source_incarnation: u64,
     },
+    /// Apply one exact target-specific or global all-combat-damage prevention
+    /// record to this source's current combat packet. The prevention source
+    /// can have left the battlefield because the record is independent after
+    /// resolution; `id` remains the unique, revalidated record identity.
+    CombatDamagePrevention { id: u64, source: ObjectId },
     /// Redirect all of the bounded prospective event from `protected` to the
     /// already-selected destination.
     Redirect {
