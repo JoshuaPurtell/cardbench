@@ -5,8 +5,8 @@
 //! by Consult's discard mode.
 
 use cardbench_magic_engine::{
-    CastRequest, Color, DecisionKind, DecisionSelection, Game, PlayerId, PolicyAction, Step,
-    Target, Zone,
+    CastRequest, Color, DecisionId, DecisionKind, DecisionSelection, Game, PlayerId, PolicyAction,
+    RulesError, Step, Target, Zone,
 };
 use cardbench_magic_rav::card_definitions;
 
@@ -97,6 +97,30 @@ fn consult_target_privately_chooses_non_oldest_hand_cards_to_discard() {
             .is_none(),
         "the caster must not see the recipient's private hand candidates"
     );
+    let before_events = game.event_log.clone();
+    let before_hand = game.players[1].hand.clone();
+    assert_eq!(
+        game.submit_decision(
+            PlayerId(0),
+            choice.id,
+            DecisionSelection::Objects(vec![selected_one, selected_two]),
+        ),
+        Err(RulesError::IllegalAction(
+            "only the decision player may submit this decision"
+        ))
+    );
+    assert_eq!(game.event_log, before_events);
+    assert_eq!(game.players[1].hand, before_hand);
+    assert_eq!(
+        game.submit_decision(
+            PlayerId(1),
+            DecisionId(choice.id.0 + 1),
+            DecisionSelection::Objects(vec![selected_one, selected_two]),
+        ),
+        Err(RulesError::IllegalAction("stale or unknown decision id"))
+    );
+    assert_eq!(game.event_log, before_events);
+    assert_eq!(game.players[1].hand, before_hand);
     game.submit_decision(
         PlayerId(1),
         choice.id,
