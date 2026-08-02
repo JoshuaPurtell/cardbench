@@ -1696,10 +1696,15 @@ Oracle Magic rules coverage.
   `AbilityActivated` records its effective definition at activation, so a
   later source or target zone change cannot make a historical copied ability
   fail replay validation against its resumed printed definition.
-- Continuous effects are applied in the implemented layer order (1, 2, 4--7), then
-  timestamp order within a layer. End-of-turn effects expire during cleanup;
-  marked damage clears there. An effect removed because its source or target
-  leaves the battlefield emits an explicit expiration lifecycle receipt.
+- Continuous effects are applied in the implemented layer order (1, 2, 4--7).
+  Timestamped type/color effects are evaluated before every static layer-six
+  or layer-seven binding, so a static creature/color predicate observes the
+  already-derived layer-four/five characteristics. Static bindings then run
+  before timestamped ability/P/T effects, preserving the bounded substrate's
+  existing same-layer precedence; timestamped effects remain timestamp-ordered
+  within each phase. End-of-turn effects expire during cleanup; marked damage
+  clears there. An effect removed because its source or target leaves the
+  battlefield emits an explicit expiration lifecycle receipt.
 - A layer-five `ReplaceColorsWith` effect clears the currently derived color
   set and installs exactly one colored card color at its timestamp. It is not
   an additive grant, so a multicolor target is exactly the selected color
