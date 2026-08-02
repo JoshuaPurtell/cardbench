@@ -1,8 +1,4 @@
-//! Bounded public contract for Woebringer Demon's shared Flying rule.
-//!
-//! The printed upkeep sacrifice behavior remains intentionally outside this
-//! slice; these tests prove the executable creature chassis and static evasion
-//! boundary only.
+//! Full-fidelity public contract for Woebringer Demon.
 
 use std::collections::BTreeSet;
 
@@ -13,7 +9,7 @@ use cardbench_magic_engine::{
 use cardbench_magic_rav::{RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, run_all_scenarios};
 
 #[test]
-fn woebringer_demon_definition_is_explicit_about_the_omitted_upkeep_trigger() {
+fn woebringer_demon_definition_declares_flying_and_each_upkeep_sacrifice() {
     let demon = card_definitions()
         .into_iter()
         .find(|definition| definition.id == "RAV-WOEBRINGER-DEMON")
@@ -31,9 +27,15 @@ fn woebringer_demon_definition_is_explicit_about_the_omitted_upkeep_trigger() {
     assert!(demon.effects.is_empty());
     assert_eq!(
         demon.supported_rules,
-        ["colored-cost-casting", "base-characteristics", "flying"]
+        [
+            "full-rules-fidelity",
+            "colored-cost-casting",
+            "base-characteristics",
+            "flying",
+            "each-upkeep-active-player-sacrifice-creature",
+        ]
     );
-    assert!(!RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&demon.id));
+    assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&demon.id));
 }
 
 #[test]

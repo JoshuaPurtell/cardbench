@@ -683,6 +683,10 @@ enum TriggerEventPayload {
     /// The triggering event has no dynamic payload. Its bound effects are
     /// copied unchanged when the ability is placed on the stack.
     None,
+    /// The player whose upkeep began. The player is sampled at the upkeep
+    /// boundary before any trigger is stacked, preserving an each-upkeep
+    /// instruction if the source later changes controller or leaves play.
+    UpkeepPlayer(PlayerId),
     /// Damage has already happened. Dynamic damage-trigger effects must use
     /// this captured amount instead of inspecting a later game state.
     DamageAmount(i16),
@@ -1603,6 +1607,7 @@ impl Game {
                         | TriggerCondition::ControlledLandEntersBattlefield
                         | TriggerCondition::BeginningOfUpkeep
                         | TriggerCondition::BeginningOfOpponentsUpkeep
+                        | TriggerCondition::BeginningOfAnyUpkeep
                         | TriggerCondition::LifeGained
                         | TriggerCondition::DealsDamage
                         | TriggerCondition::DealsCombatDamageToCreature
@@ -10010,6 +10015,38 @@ impl Game {
                     Ok(())
                 })?;
             }
+            TriggeredEffectObjectDecisionKind::SacrificeCapturedPlayerCreature {
+                player: captured_player,
+            } => {
+                if player != *captured_player {
+                    return Err(RulesError::IllegalAction(
+                        "upkeep sacrifice choice player does not match the captured upkeep player",
+                    ));
+                }
+                self.complete_pending_decision(decision)?;
+                self.finish_trigger_effect_object_choice(source, ability, |game| {
+                    if let Some(permanent) = selected {
+                        if game.zone_of(permanent) != Some(Zone::Battlefield)
+                            || game.controller_of(permanent)? != *captured_player
+                            || !game
+                                .characteristics(permanent)?
+                                .card_types
+                                .contains(&CardType::Creature)
+                        {
+                            return Err(RulesError::IllegalAction(
+                                "chosen sacrifice permanent is no longer controlled by the captured upkeep player",
+                            ));
+                        }
+                        game.record_event(GameEvent::SacrificedByEffect {
+                            source,
+                            player: *captured_player,
+                            permanent,
+                        });
+                        game.move_to_graveyard_or_remove_token(permanent)?;
+                    }
+                    Ok(())
+                })?;
+            }
             TriggeredEffectObjectDecisionKind::ReturnAnotherControlledPermanentSharingEnteredCardTypes {
                 entered,
                 entered_incarnation,
@@ -11278,6 +11315,7 @@ impl Game {
                             | TriggerCondition::ControlledLandEntersBattlefield
                             | TriggerCondition::BeginningOfUpkeep
                             | TriggerCondition::BeginningOfOpponentsUpkeep
+                            | TriggerCondition::BeginningOfAnyUpkeep
                             | TriggerCondition::LifeGained
                             | TriggerCondition::DealsDamage
                             | TriggerCondition::DealsCombatDamageToCreature
@@ -11740,6 +11778,15 @@ impl Game {
                             ) if entered.0 > 0
                                 && *entered_incarnation > 0
                                 && !card_types.is_empty()
+                        )
+                    } else if trigger_condition == Some(TriggerCondition::BeginningOfAnyUpkeep)
+                    {
+                        matches!(
+                            (effects.as_slice(), stack_object.effects.as_slice()),
+                            (
+                                [Effect::SacrificeUpkeepPlayerCreature],
+                                [Effect::SacrificeCapturedPlayerCreature { player }]
+                            ) if player.0 < self.players.len()
                         )
                     } else if trigger_condition == Some(TriggerCondition::EntersBattlefield)
                         && effects.as_slice()
@@ -13930,6 +13977,8 @@ impl Game {
                 | Effect::DiscardOneCardEachPlayer
                 | Effect::DiscardTargetPlayer { .. }
                 | Effect::SacrificeControllerCreature
+                | Effect::SacrificeUpkeepPlayerCreature
+                | Effect::SacrificeCapturedPlayerCreature { .. }
                 | Effect::CompleteDamageRedirection
                 | Effect::DrawControllerIfManaColorSpent { .. }
                 | Effect::ModifyAllCreaturesPtUntilEndOfTurnIfManaColorSpent { .. }
@@ -16243,7 +16292,8 @@ impl Game {
                 | TriggerEventPayload::DamageAmountAndSourceController { .. }
                 | TriggerEventPayload::CombatDamageRecipient { .. }
                 | TriggerEventPayload::EnteredPermanent { .. }
-                | TriggerEventPayload::ConvokeContributors(_) => None,
+                | TriggerEventPayload::ConvokeContributors(_)
+                | TriggerEventPayload::UpkeepPlayer(_) => None,
             };
             if let Some(targets) = exact_targets {
                 if targets.len() == event.ability.targets.len()
@@ -16411,6 +16461,10 @@ impl Game {
                 ) => Effect::AddPlusOneCountersToCapturedConvokeCreatures {
                     creatures: creatures.clone(),
                 },
+                (
+                    Effect::SacrificeUpkeepPlayerCreature,
+                    TriggerEventPayload::UpkeepPlayer(player),
+                ) => Effect::SacrificeCapturedPlayerCreature { player: *player },
                 (effect, _) => effect,
             })
             .collect()
@@ -16486,7 +16540,7 @@ impl Game {
                         ability.condition,
                         TriggerCondition::BeginningOfOpponentsUpkeep
                             if source_controller != active_player
-                    )
+                    ) || matches!(ability.condition, TriggerCondition::BeginningOfAnyUpkeep)
                 })
                 .cloned()
                 .collect::<Vec<_>>();
@@ -16498,7 +16552,7 @@ impl Game {
                         source_colors: source_colors.clone(),
                         controller: source_controller,
                         ability,
-                        payload: TriggerEventPayload::None,
+                        payload: TriggerEventPayload::UpkeepPlayer(active_player),
                     });
             }
         }
@@ -16939,6 +16993,11 @@ impl Game {
             [Effect::SacrificeControllerCreature] => {
                 TriggeredEffectObjectDecisionKind::SacrificeControllerCreature
             }
+            [Effect::SacrificeCapturedPlayerCreature { player }] => {
+                TriggeredEffectObjectDecisionKind::SacrificeCapturedPlayerCreature {
+                    player: *player,
+                }
+            }
             [Effect::ReturnAnotherControlledPermanentSharingCardTypes {
                 entered,
                 entered_incarnation,
@@ -16958,12 +17017,14 @@ impl Game {
             ))?,
             TriggeredEffectObjectDecisionKind::SacrificeControllerCreature
             | TriggeredEffectObjectDecisionKind::ReturnAnotherControlledPermanentSharingEnteredCardTypes { .. } => top.controller,
+            TriggeredEffectObjectDecisionKind::SacrificeCapturedPlayerCreature { player } => *player,
         };
         let candidates = match &kind {
             TriggeredEffectObjectDecisionKind::DiscardEachPlayer { .. } => {
                 self.players[chooser.0].hand.clone()
             }
-            TriggeredEffectObjectDecisionKind::SacrificeControllerCreature => self
+            TriggeredEffectObjectDecisionKind::SacrificeControllerCreature
+            | TriggeredEffectObjectDecisionKind::SacrificeCapturedPlayerCreature { .. } => self
                 .all_battlefield_cards()
                 .into_iter()
                 .filter(|card| {
@@ -16998,6 +17059,7 @@ impl Game {
                     DecisionVisibility::Private
                 }
                 TriggeredEffectObjectDecisionKind::SacrificeControllerCreature
+                | TriggeredEffectObjectDecisionKind::SacrificeCapturedPlayerCreature { .. }
                 | TriggeredEffectObjectDecisionKind::ReturnAnotherControlledPermanentSharingEnteredCardTypes { .. } => {
                     DecisionVisibility::Public
                 }
@@ -18974,6 +19036,44 @@ impl Game {
                     self.record_event(GameEvent::SacrificedByEffect {
                         source,
                         player: controller,
+                        permanent,
+                    });
+                    self.move_to_graveyard_or_remove_token(permanent)?;
+                }
+            }
+            Effect::SacrificeUpkeepPlayerCreature => {
+                return Err(RulesError::IllegalAction(
+                    "upkeep-player sacrifice trigger was not materialized before resolution",
+                ));
+            }
+            Effect::SacrificeCapturedPlayerCreature { player } => {
+                let candidate = self
+                    .all_battlefield_cards()
+                    .into_iter()
+                    .filter(|candidate| *candidate != source)
+                    .find(|candidate| {
+                        self.controller_of(*candidate)
+                            .is_ok_and(|candidate_controller| candidate_controller == *player)
+                            && self
+                                .characteristics(*candidate)
+                                .is_ok_and(|characteristics| {
+                                    characteristics.card_types.contains(&CardType::Creature)
+                                })
+                    })
+                    .or_else(|| {
+                        (self.zone_of(source) == Some(Zone::Battlefield)
+                            && self
+                                .controller_of(source)
+                                .is_ok_and(|source_controller| source_controller == *player)
+                            && self.characteristics(source).is_ok_and(|characteristics| {
+                                characteristics.card_types.contains(&CardType::Creature)
+                            }))
+                        .then_some(source)
+                    });
+                if let Some(permanent) = candidate {
+                    self.record_event(GameEvent::SacrificedByEffect {
+                        source,
+                        player: *player,
                         permanent,
                     });
                     self.move_to_graveyard_or_remove_token(permanent)?;
@@ -22716,6 +22816,17 @@ impl Game {
         if ability.effects.iter().any(|effect| {
             matches!(
                 effect,
+                Effect::SacrificeUpkeepPlayerCreature
+                    | Effect::SacrificeCapturedPlayerCreature { .. }
+            )
+        }) {
+            return Err(RulesError::IllegalAction(
+                "upkeep-player sacrifice effects require an any-upkeep trigger",
+            ));
+        }
+        if ability.effects.iter().any(|effect| {
+            matches!(
+                effect,
                 Effect::DestroyAllNonlandPermanentsWithManaValueEqualToSourceCounters { .. }
             )
         }) && !ability.sacrifice_source
@@ -22785,6 +22896,26 @@ impl Game {
         }) {
             return Err(RulesError::IllegalAction(
                 "materialized Convoke-contributor effect escaped onto a triggered binding",
+            ));
+        }
+        if ability
+            .effects
+            .iter()
+            .any(|effect| matches!(effect, Effect::SacrificeCapturedPlayerCreature { .. }))
+        {
+            return Err(RulesError::IllegalAction(
+                "materialized upkeep-player sacrifice effect escaped onto a triggered binding",
+            ));
+        }
+        if ability
+            .effects
+            .contains(&Effect::SacrificeUpkeepPlayerCreature)
+            && (ability.condition != TriggerCondition::BeginningOfAnyUpkeep
+                || !ability.targets.is_empty()
+                || ability.effects.as_slice() != [Effect::SacrificeUpkeepPlayerCreature])
+        {
+            return Err(RulesError::IllegalAction(
+                "upkeep-player sacrifice requires one target-free any-upkeep trigger effect",
             ));
         }
         if ability.condition == TriggerCondition::ControlledNonartifactPermanentEntersBattlefield
@@ -27780,6 +27911,29 @@ impl Game {
                             top.effects.as_slice(),
                             [Effect::SacrificeControllerCreature]
                         ),
+                    ),
+                    TriggeredEffectObjectDecisionKind::SacrificeCapturedPlayerCreature {
+                        player,
+                    } => (
+                        self.all_battlefield_cards()
+                            .into_iter()
+                            .filter(|card| {
+                                self.controller_of(*card)
+                                    .is_ok_and(|controller| controller == *player)
+                                    && self.characteristics(*card).is_ok_and(|characteristics| {
+                                        characteristics.card_types.contains(&CardType::Creature)
+                                    })
+                            })
+                            .map(DecisionOption::Object)
+                            .collect::<Vec<_>>(),
+                        DecisionVisibility::Public,
+                        decision.player == *player
+                            && matches!(
+                                top.effects.as_slice(),
+                                [Effect::SacrificeCapturedPlayerCreature {
+                                    player: stack_player,
+                                }] if stack_player == player
+                            ),
                     ),
                     TriggeredEffectObjectDecisionKind::ReturnAnotherControlledPermanentSharingEnteredCardTypes {
                         entered,

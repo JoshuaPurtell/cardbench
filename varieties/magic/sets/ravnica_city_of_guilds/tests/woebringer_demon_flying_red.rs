@@ -1,7 +1,4 @@
-//! Red coverage probe for Woebringer Demon's shared Flying rule.
-//!
-//! The upkeep sacrifice behavior remains deliberately outside this bounded
-//! slice; this probe requests only the static evasion keyword.
+//! Static-characteristic regression for full Woebringer Demon coverage.
 
 use std::collections::BTreeSet;
 
@@ -9,7 +6,7 @@ use cardbench_magic_engine::{CardType, Color, Keyword, ManaCost};
 use cardbench_magic_rav::card_definitions;
 
 #[test]
-fn woebringer_demon_exposes_its_supported_flying_compatibility_slice() {
+fn woebringer_demon_retains_flying_alongside_its_upkeep_trigger() {
     let demon = card_definitions()
         .into_iter()
         .find(|definition| definition.id == "RAV-WOEBRINGER-DEMON")
@@ -27,7 +24,12 @@ fn woebringer_demon_exposes_its_supported_flying_compatibility_slice() {
     assert!(demon.effects.is_empty());
     assert_eq!(
         demon.supported_rules,
-        ["colored-cost-casting", "base-characteristics", "flying"],
-        "the upkeep sacrifice behavior remains intentionally bounded"
+        [
+            "full-rules-fidelity",
+            "colored-cost-casting",
+            "base-characteristics",
+            "flying",
+            "each-upkeep-active-player-sacrifice-creature",
+        ]
     );
 }

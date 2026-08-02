@@ -267,6 +267,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 225] = [
     "RAV-AURATOUCHED-MAGE",
     "RAV-THREE-DREAMS",
     "RAV-CONCLAVES-BLESSING",
+    "RAV-WOEBRINGER-DEMON",
     "RAV-ZEPHYR-SPIRIT",
     "RAV-WIZENED-SNITCHES",
 ];
@@ -4986,9 +4987,9 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
-        // Compatibility scope: normal colored-cost creature casting, base
-        // characteristics, and static Flying. Its upkeep sacrifice behavior
-        // is deliberately unsupported.
+        // Full fidelity: normal colored-cost creature casting, base
+        // characteristics, Flying, and the stack-backed beginning-of-each-
+        // upkeep active-player creature sacrifice decision.
         CardDefinition {
             id: "RAV-WOEBRINGER-DEMON",
             name: "Woebringer Demon",
@@ -4998,7 +4999,13 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Creature]),
             is_basic_land: false,
-            supported_rules: &["colored-cost-casting", "base-characteristics", "flying"],
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "flying",
+                "each-upkeep-active-player-sacrifice-creature",
+            ],
             power: Some(4),
             toughness: Some(4),
             keywords: vec![Keyword::Flying],
@@ -8232,6 +8239,17 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
             },
         },
         TriggeredAbilityBinding {
+            card_definition: "RAV-WOEBRINGER-DEMON",
+            ability: TriggeredAbility {
+                id: "each-upkeep-active-player-sacrifice-creature",
+                condition: TriggerCondition::BeginningOfAnyUpkeep,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![Effect::SacrificeUpkeepPlayerCreature],
+            },
+        },
+        TriggeredAbilityBinding {
             card_definition: "RAV-SEARING-MEDITATION",
             ability: TriggeredAbility {
                 id: "life-gain-deal-two",
@@ -9559,7 +9577,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 182);
+        assert_eq!(first.len(), 183);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

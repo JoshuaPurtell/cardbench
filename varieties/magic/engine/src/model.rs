@@ -378,6 +378,10 @@ pub enum TriggerCondition {
     /// controlled by a nonactive player must be able to trigger before that
     /// opponent receives the upkeep's first priority.
     BeginningOfOpponentsUpkeep,
+    /// Any player's upkeep began. The active player is captured with the
+    /// trigger event before priority, so an effect can refer to that player
+    /// even though the trigger source may be controlled by another player.
+    BeginningOfAnyUpkeep,
     /// The source's controller gained positive life. The trigger is queued
     /// at the life-gain receipt and may optionally pay its bound mana cost
     /// before it is put on the stack.
@@ -1769,6 +1773,17 @@ pub enum Effect {
     /// The controller selects the permanent at the trigger-resolution
     /// decision boundary.
     SacrificeControllerCreature,
+    /// An any-upkeep trigger materializes this into
+    /// [`Self::SacrificeCapturedPlayerCreature`] while the active upkeep
+    /// player is known. It deliberately has no target: that player chooses a
+    /// creature at resolution through the ordinary public decision boundary.
+    SacrificeUpkeepPlayerCreature,
+    /// A materialized each-upkeep sacrifice instruction. The player is
+    /// captured at the trigger event rather than inferred from the source's
+    /// current controller when the ability later resolves.
+    SacrificeCapturedPlayerCreature {
+        player: PlayerId,
+    },
     /// Put a positive, already materialized number of cards from one target
     /// player's library into that player's graveyard.
     MillTargetPlayer {
@@ -2727,6 +2742,8 @@ impl Effect {
             | Self::LoseLifeEachOpponentEqualToControlledCreatures
             | Self::DiscardOneCardEachPlayer
             | Self::SacrificeControllerCreature
+            | Self::SacrificeUpkeepPlayerCreature
+            | Self::SacrificeCapturedPlayerCreature { .. }
             | Self::DealDamageAfterOptionalManaPayment { .. }
             | Self::DealDamageToEachCreatureAndPlayer { .. }
             | Self::DealDamageToEachPlayer { .. }
@@ -3655,6 +3672,12 @@ pub enum TriggeredEffectObjectDecisionKind {
         selected: Vec<(PlayerId, ObjectId)>,
     },
     SacrificeControllerCreature,
+    /// The captured upkeep player selects one currently controlled creature
+    /// (or submits no object when none are legal). This identity is stored in
+    /// the continuation rather than read from a later active-player field.
+    SacrificeCapturedPlayerCreature {
+        player: PlayerId,
+    },
     /// The source controller may choose one other currently controlled
     /// permanent that shares at least one card type with the nonartifact
     /// permanent that caused this trigger. The entering object's identity

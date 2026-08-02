@@ -3,12 +3,11 @@
 //! These compatibility definitions deliberately expose normal casting and base
 //! characteristics only. Goblin Fire Fiend, Thoughtpicker Witch, and
 //! Vindictive Mob are separately audited by their full-fidelity contracts and
-//! are excluded from the bounded matrix below. Woebringer Demon separately
-//! exposes its static Flying compatibility slice.
+//! are excluded from the bounded matrix below. Woebringer Demon is separately
+//! promoted by its explicit each-upkeep sacrifice contract.
 
 use std::collections::BTreeSet;
 
-use cardbench_magic_engine::{CardType, Color, ManaCost};
 use cardbench_magic_rav::{card_definitions, run_all_scenarios};
 
 #[test]
@@ -43,25 +42,6 @@ fn fourth_creature_chassis_batch_is_exactly_bounded_to_public_base_facts() {
             "dies-deal-two-to-controller"
         ]
     );
-
-    let demon = definitions
-        .iter()
-        .find(|definition| definition.id == "RAV-WOEBRINGER-DEMON")
-        .expect("Woebringer Demon remains in the fourth chassis wave");
-    assert_eq!(demon.name, "Woebringer Demon");
-    assert_eq!(
-        demon.mana_cost,
-        ManaCost::with_colors(3, [Color::Black, Color::Black])
-    );
-    assert_eq!(demon.colors, BTreeSet::from([Color::Black]));
-    assert_eq!(demon.card_types, BTreeSet::from([CardType::Creature]));
-    assert_eq!((demon.power, demon.toughness), (Some(4), Some(4)));
-    assert_eq!(demon.keywords, [cardbench_magic_engine::Keyword::Flying]);
-    assert_eq!(
-        demon.supported_rules,
-        ["colored-cost-casting", "base-characteristics", "flying"]
-    );
-    assert!(demon.effects.is_empty());
 }
 
 #[test]

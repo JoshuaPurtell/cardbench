@@ -5317,7 +5317,7 @@ digest = "fnv1a64:6e6bce9c7bf182e5"
 [[scenario]]
 id = "rav_demon_witch_creature_chassis"
 seed = 0
-description = "Cast Woebringer Demon and Thoughtpicker Witch with exact black costs, then verify only base P/T. Woebringer Demon's Flying declaration is exercised separately; its upkeep sacrifice and the Witch's sacrifice-library behavior remain unsupported."
+description = "Cast Woebringer Demon and Thoughtpicker Witch with exact black costs, then verify only base P/T. Woebringer Demon's Flying and upkeep sacrifice are exercised separately; the Witch's sacrifice-library behavior remains unsupported."
 
 [[scenario.card]]
 label = "demon"
@@ -6956,6 +6956,50 @@ event_absent = ["BlockersDeclared"]
 digest = "fnv1a64:1dcdb2289fdaa917"
 
 [[scenario]]
+id = "rav_woebringer_demon_each_upkeep_sacrifice"
+seed = 91
+description = "Resolve Woebringer Demon's beginning-of-upkeep trigger through the public sacrifice choice owned by the active upkeep player."
+triggers = true
+
+[[scenario.card]]
+label = "demon"
+owner = 0
+definition = "RAV-WOEBRINGER-DEMON"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "sacrifice"
+owner = 0
+definition = "RAV-WATCHWOLF"
+zone = "battlefield"
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "choose_trigger_effect_object"
+player = 0
+card = "demon"
+ability = "each-upkeep-active-player-sacrifice-creature"
+found = "sacrifice"
+
+[scenario.expected]
+zones = ["demon:battlefield", "sacrifice:graveyard"]
+stack_size = 0
+priority = 0
+event_markers = ["TriggeredAbilityStacked", "DecisionOpened", "DecisionCompleted", "SacrificedByEffect", "AbilityResolved"]
+digest = "fnv1a64:3ac950bce107c09d"
+
+[[scenario]]
 id = "rav_hunted_horror_centaur_compatibility"
 seed = 59
 description = "Cast Hunted Horror and resolve its ETB trigger for exactly two 3/3 green Centaurs under one opponent's control; their printed protection from black remains explicitly unsupported."
@@ -8558,7 +8602,7 @@ digest = "fnv1a64:1dcdb2289fdaa917"
 [[scenario]]
 id = "rav_woebringer_demon_flying_compatibility"
 seed = 47
-description = "Declare Woebringer Demon as a Flying attacker, then reject a ground creature's block declaration; its upkeep sacrifice behavior remains unsupported."
+description = "Declare Woebringer Demon as a Flying attacker, then reject a ground creature's block declaration; its separate public trace exercises the upkeep sacrifice trigger."
 
 [[scenario.card]]
 label = "demon"
