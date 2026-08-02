@@ -957,6 +957,11 @@ pub struct Game {
     pending_private_library_choice: Option<PendingPrivateLibraryChoice>,
     pending_private_opponent_library_exile_choice: Option<PendingPrivateOpponentLibraryExileChoice>,
     pending_decision: Option<PendingDecision>,
+    /// The player who held priority immediately before an APNAP trigger
+    /// placement batch suspended for a controller-owned no-priority decision.
+    /// It survives a chain of order/target selections and is restored only
+    /// after that entire placement batch has put every trigger on the stack.
+    trigger_placement_resume_priority: Option<PlayerId>,
     /// The exact event payload for an open `TriggeredAbilityOrder` decision.
     /// It is kept outside the public decision projection so only public source
     /// identities, not materialized effects, cross the policy boundary.
@@ -1208,6 +1213,7 @@ impl Game {
             pending_private_library_choice: None,
             pending_private_opponent_library_exile_choice: None,
             pending_decision: None,
+            trigger_placement_resume_priority: None,
             pending_trigger_order_group: None,
             pending_optional_trigger_choice: None,
             library_search_prevented_until: None,
@@ -10561,6 +10567,14 @@ impl Game {
             .next_decision_id
             .checked_add(1)
             .ok_or(RulesError::IllegalAction("decision id space exhausted"))?;
+        if matches!(
+            continuation,
+            DecisionContinuation::TriggeredAbilityOrder { .. }
+                | DecisionContinuation::TriggeredAbilityTargets { .. }
+        ) && self.trigger_placement_resume_priority.is_none()
+        {
+            self.trigger_placement_resume_priority = Some(self.priority);
+        }
         let decision = PendingDecision {
             id,
             player,
@@ -10583,6 +10597,24 @@ impl Game {
         self.priority = player;
         self.consecutive_passes = 0;
         Ok(id)
+    }
+
+    /// Completes APNAP trigger placement without turning a controller's
+    /// mandatory order/target choice into a priority action. The saved holder
+    /// is restored only after the last placement has either stacked or been
+    /// discarded for lack of legal targets.
+    fn restore_priority_after_trigger_placement(&mut self) {
+        if self.pending_decision.is_some() || !self.pending_trigger_placements.is_empty() {
+            return;
+        }
+        if let Some(player) = self.trigger_placement_resume_priority.take() {
+            self.priority = if self.players[player.0].lost {
+                self.next_player(player)
+            } else {
+                player
+            };
+            self.consecutive_passes = 0;
+        }
     }
 
     fn complete_pending_decision(&mut self, decision: &PendingDecision) -> Result<(), RulesError> {
@@ -11404,6 +11436,24 @@ impl Game {
         if !self.pending_trigger_events.is_empty() {
             return Err(RulesError::IllegalAction(
                 "pending trigger event escaped its enclosing rules action",
+            ));
+        }
+        let trigger_placement_decision = matches!(
+            self.pending_decision
+                .as_ref()
+                .map(|decision| &decision.continuation),
+            Some(
+                DecisionContinuation::TriggeredAbilityOrder { .. }
+                    | DecisionContinuation::TriggeredAbilityTargets { .. }
+            )
+        );
+        if self
+            .trigger_placement_resume_priority
+            .is_some_and(|player| self.players.get(player.0).is_none_or(|state| state.lost))
+            || trigger_placement_decision != self.trigger_placement_resume_priority.is_some()
+        {
+            return Err(RulesError::IllegalAction(
+                "trigger-placement priority provenance escaped its no-priority decision boundary",
             ));
         }
         if !self.pending_trigger_placements.is_empty()
@@ -17613,6 +17663,7 @@ impl Game {
             // The represented trigger has no legal target at its trigger
             // placement boundary, so it cannot become a legal stack object.
         }
+        self.restore_priority_after_trigger_placement();
         Ok(())
     }
 

@@ -22,9 +22,11 @@ fn definition(
         set_code: "TST",
         mana_cost: ManaCost::new(0),
         colors: BTreeSet::new(),
-        mana_colors: (id == LAND)
-            .then(|| BTreeSet::from([Color::Green]))
-            .unwrap_or_default(),
+        mana_colors: if id == LAND {
+            BTreeSet::from([Color::Green])
+        } else {
+            BTreeSet::new()
+        },
         card_types,
         is_basic_land: id == LAND,
         supported_rules: &["synthetic-trigger-order-priority-handoff"],
