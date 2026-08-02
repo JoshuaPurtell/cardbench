@@ -41,7 +41,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 143] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 144] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -185,6 +185,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 143] = [
     "RAV-FLICKERFORM",
     "RAV-SUPPRESSION-FIELD",
     "RAV-LOXODON-GATEKEEPER",
+    "RAV-THREE-DREAMS",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -2123,6 +2124,38 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 Effect::AddControllerDamageShieldEqualToChosenXUntilEndOfTurn,
                 Effect::DrawController,
             ],
+        },
+        // Full fidelity: this private selected batch filters Aura semantics,
+        // permits zero through three choices with distinct printed names,
+        // reveals each answer, moves it to hand, then shuffles immediately.
+        CardDefinition {
+            id: "RAV-THREE-DREAMS",
+            name: "Three Dreams",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(4, [Color::White]),
+            colors: colors([Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Sorcery]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "private-up-to-three-distinct-name-aura-search-reveal-hand-shuffle",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![Effect::SearchControllerLibraryMany {
+                requirement: LibrarySearchRequirement::Aura,
+                destination: LibrarySearchDestination::Hand,
+                cardinality:
+                    cardbench_magic_engine::LibrarySearchCardinality::ZeroOrMoreDistinctNames {
+                        maximum: 3,
+                    },
+                selection: LibrarySearchSelection::PolicySubmitted {
+                    may_fail_to_find: false,
+                },
+                reveal_selected: true,
+            }],
         },
         // Full fidelity: ordinary Aura attachment preserves the exact source
         // and target incarnations used by Flickerform's stack-backed blink.

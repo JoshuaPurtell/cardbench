@@ -41,9 +41,11 @@ fn three_dreams_has_its_exact_private_distinct_aura_search_contract() {
     assert_eq!(definition.card_types, BTreeSet::from([CardType::Sorcery]));
     assert_eq!((definition.power, definition.toughness), (None, None));
     assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&definition.id));
-    assert!(definition
-        .supported_rules
-        .contains(&"private-up-to-three-distinct-name-aura-search-reveal-hand-shuffle"));
+    assert!(
+        definition
+            .supported_rules
+            .contains(&"private-up-to-three-distinct-name-aura-search-reveal-hand-shuffle")
+    );
 }
 
 #[test]
@@ -81,11 +83,12 @@ fn three_dreams_reveals_up_to_three_differently_named_auras_then_shuffles() {
     assert_eq!(decision.min_selections, 0);
     assert_eq!(decision.max_selections, 3);
     assert_eq!(decision.candidates.len(), 4);
-    assert!(game
-        .view_for_player(PlayerId(1))
-        .expect("opponent view")
-        .pending_decision
-        .is_none());
+    assert!(
+        game.view_for_player(PlayerId(1))
+            .expect("opponent view")
+            .pending_decision
+            .is_none()
+    );
     assert!(!decision.candidates.iter().any(|card| card.id == non_aura));
 
     game.submit_decision(
@@ -150,22 +153,24 @@ fn three_dreams_rejects_same_name_selection_without_mutating_the_pending_search(
         .pending_decision
         .expect("private Aura search decision opens");
     let events_before = game.canonical_event_log();
-    assert!(game
-        .submit_decision(
+    assert!(
+        game.submit_decision(
             PlayerId(0),
             decision.id,
             DecisionSelection::Objects(vec![first_cloak, second_cloak]),
         )
-        .is_err());
+        .is_err()
+    );
     assert_eq!(game.canonical_event_log(), events_before);
     assert_eq!(game.zone_of(first_cloak), Some(Zone::Library));
     assert_eq!(game.zone_of(second_cloak), Some(Zone::Library));
     assert_eq!(game.zone_of(flickerform), Some(Zone::Library));
-    assert!(game
-        .view_for_player(PlayerId(0))
-        .expect("controller view after rejected answer")
-        .pending_decision
-        .is_some());
+    assert!(
+        game.view_for_player(PlayerId(0))
+            .expect("controller view after rejected answer")
+            .pending_decision
+            .is_some()
+    );
     game.validate_invariants()
         .expect("rejected same-name answer is atomic");
 }
