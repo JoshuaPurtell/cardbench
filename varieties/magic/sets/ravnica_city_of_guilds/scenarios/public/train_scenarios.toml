@@ -12444,3 +12444,107 @@ stack_size = 0
 priority = 0
 event_markers = ["AttackersDeclared", "AbilityActivated", "DamageDealtToPermanent", "AbilityResolved"]
 digest = "fnv1a64:e423632d2abc667b"
+
+[[scenario]]
+id = "rav_autochthon_wurm_multi_block_trample"
+seed = 98
+description = "Declare Autochthon Wurm, submit the attacking player's order for two blockers, then assign lethal damage in that order and seven excess Trample damage to the defender."
+
+[[scenario.card]]
+label = "wurm"
+owner = 0
+definition = "RAV-AUTOCHTHON-WURM"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.card]]
+label = "first_blocker"
+owner = 1
+definition = "RAV-BIRDS-OF-PARADISE"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.card]]
+label = "second_blocker"
+owner = 1
+definition = "RAV-CAREGIVER"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "declare_attackers"
+player = 0
+attackers = ["wurm"]
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "declare_blockers"
+player = 1
+attackers = ["wurm:first_blocker", "wurm:second_blocker"]
+
+[[scenario.action]]
+kind = "order_combat_damage"
+player = 0
+ordered_blockers = ["first_blocker", "second_blocker"]
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+life = [20, 13]
+zones = ["wurm:battlefield", "first_blocker:graveyard", "second_blocker:graveyard"]
+powers = ["wurm:9"]
+toughnesses = ["wurm:14"]
+tapped = ["wurm:true"]
+stack_size = 0
+priority = 0
+event_markers = ["AttackersDeclared", "BlockersDeclared", "DecisionOpened", "CombatDamageOrderChosen", "DamageDealtToPermanent", "DamageDealtToPlayer", "StateBasedAction"]
+digest = "fnv1a64:7aa8298b399408df"

@@ -88,6 +88,9 @@ struct ActionSpec {
     /// and retains it on the stack for resolution-time target legality.
     chosen_x: Option<u8>,
     attackers: Vec<String>,
+    /// Explicit attacking-controller ordering of one multi-block group. This
+    /// is a public no-priority decision distinct from blocker declaration.
+    ordered_blockers: Vec<String>,
     /// Explicit controller ordering for a simultaneous triggered-ability
     /// group. Entries use `source_label:ability_id`, keeping the public
     /// policy decision boundary visible in the fixture rather than relying on
@@ -321,6 +324,9 @@ fn set_action_field(
         "mana_spend" => action.mana_spend = parse_string_array(value, line_number)?,
         "chosen_x" => action.chosen_x = Some(parse_number(value, line_number)?),
         "attackers" => action.attackers = parse_string_array(value, line_number)?,
+        "ordered_blockers" => {
+            action.ordered_blockers = parse_string_array(value, line_number)?;
+        }
         "trigger_order" => action.trigger_order = parse_string_array(value, line_number)?,
         "discard_cards" => action.discard_cards = parse_string_array(value, line_number)?,
         "ability" => action.ability = parse_string(value, line_number)?,
@@ -617,6 +623,30 @@ fn execute_action(
                 .collect::<Result<Vec<_>, String>>()?;
             game.declare_blockers(player, &assignments)
                 .map_err(rules_error)
+        }
+        "order_combat_damage" => {
+            let decision = game
+                .view_for_player(player)
+                .map_err(rules_error)?
+                .pending_decision
+                .ok_or_else(|| "no combat damage-order decision is pending".to_owned())?;
+            if decision.kind != DecisionKind::CombatDamageOrder {
+                return Err("pending decision is not a combat damage-order choice".to_owned());
+            }
+            let blockers = action
+                .ordered_blockers
+                .iter()
+                .map(|label| lookup(labels, label))
+                .collect::<Result<Vec<_>, _>>()?;
+            game.submit_policy_move(
+                player,
+                "rav-scenario.order-combat-damage.v1",
+                PolicyAction::SubmitDecision {
+                    decision: decision.id,
+                    selection: DecisionSelection::Objects(blockers),
+                },
+            )
+            .map_err(rules_error)
         }
         "draw" => {
             let dredge = (!action.dredge.is_empty())

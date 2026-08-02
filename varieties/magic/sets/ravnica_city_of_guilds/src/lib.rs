@@ -219,6 +219,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 220] = [
     "RAV-CARRION-HOWLER",
     "RAV-MORTIPEDE",
     "RAV-SELESNYA-SAGITTARS",
+    "RAV-AUTOCHTHON-WURM",
     "RAV-TWILIGHT-DROVER",
     "RAV-ELVISH-SKYSWEEPER",
     "RAV-CONVOLUTE",
@@ -2266,9 +2267,9 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Convoke, Keyword::Vigilance],
             effects: vec![],
         },
-        // Compatibility scope: normal creature casting, base characteristics,
-        // Convoke payment, and the printed Trample keyword. Multi-block
-        // damage assignment remains an explicit engine limitation.
+        // Full printed behavior: Convoke cost payment and the source's
+        // Trample keyword use the shared multi-block damage-order decision
+        // and combat-damage substrate.
         CardDefinition {
             id: "RAV-AUTOCHTHON-WURM",
             name: "Autochthon Wurm",
@@ -2287,7 +2288,13 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Creature]),
             is_basic_land: false,
-            supported_rules: &["convoke", "base-characteristics", "trample"],
+            supported_rules: &[
+                "full-rules-fidelity",
+                "convoke",
+                "base-characteristics",
+                "trample",
+                "multi-block-trample-combat-damage",
+            ],
             power: Some(9),
             toughness: Some(14),
             keywords: vec![Keyword::Convoke, Keyword::Trample],
