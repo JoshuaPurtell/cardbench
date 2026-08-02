@@ -42,13 +42,14 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 178] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 179] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
     "RAV-BLOCKBUSTER",
+    "RAV-PEREGRINE-MASK",
     "RAV-PUTREFY",
     "RAV-GLIMPSE-THE-UNTHINKABLE",
     "RAV-GAZE-OF-THE-GORGON",
@@ -845,6 +846,26 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 "full-rules-fidelity",
                 "colorless-artifact-casting",
                 "tap-global-creature-and-player-damage",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![],
+        },
+        CardDefinition {
+            id: "RAV-PEREGRINE-MASK",
+            name: "Peregrine Mask",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::new(1),
+            colors: BTreeSet::new(),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Artifact]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colorless-equipment-casting",
+                "equipment-defender-flying-first-strike",
+                "sorcery-speed-equip-two",
             ],
             power: None,
             toughness: None,
@@ -5912,6 +5933,25 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
             },
         },
         ActivatedAbilityBinding {
+            card_definition: "RAV-PEREGRINE-MASK",
+            ability: ActivatedAbility {
+                id: "equip-defender-flying-first-strike",
+                mana_cost: ManaCost::new(2),
+                tap_cost: false,
+                sorcery_speed: true,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![TargetRequirement::ControlledCreature],
+                effects: vec![Effect::AttachSourceToTarget {
+                    target: TargetRequirement::ControlledCreature,
+                    changes: peregrine_mask_attachment_changes(),
+                }],
+            },
+        },
+        ActivatedAbilityBinding {
             card_definition: "RAV-NULLMAGE-SHEPHERD",
             ability: ActivatedAbility {
                 id: "destroy-artifact-or-enchantment",
@@ -6525,6 +6565,14 @@ fn grifters_blade_attachment_changes() -> Vec<ContinuousChange> {
     }]
 }
 
+fn peregrine_mask_attachment_changes() -> Vec<ContinuousChange> {
+    vec![
+        ContinuousChange::AddKeyword(Keyword::Defender),
+        ContinuousChange::AddKeyword(Keyword::Flying),
+        ContinuousChange::AddKeyword(Keyword::FirstStrike),
+    ]
+}
+
 /// Explicit persistent-attachment metadata for the RAV Equipment slice.
 ///
 /// The activated ability above owns target ordering and stack resolution;
@@ -6538,6 +6586,13 @@ pub fn rav_attachment_bindings() -> Vec<AttachmentBinding> {
             kind: AttachmentKind::Equipment,
             target: TargetRequirement::ControlledCreature,
             changes: grifters_blade_attachment_changes(),
+            granted_activated_abilities: vec![],
+        },
+        AttachmentBinding {
+            card_definition: "RAV-PEREGRINE-MASK",
+            kind: AttachmentKind::Equipment,
+            target: TargetRequirement::ControlledCreature,
+            changes: peregrine_mask_attachment_changes(),
             granted_activated_abilities: vec![],
         },
         AttachmentBinding {
