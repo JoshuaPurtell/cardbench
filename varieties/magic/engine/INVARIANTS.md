@@ -28,9 +28,11 @@ Oracle Magic rules coverage.
 - Every object exists in exactly one player zone or exactly once as the card of
   a stack object. An object cannot be in two zones, or on both the stack and in
   a zone.
-- A card in a library, hand, graveyard, or exile is in its owner's zone. A
-  permanent is in its controller's battlefield. Every non-token definition is
-  present in the game catalog.
+- Every player zone, including the battlefield vector, is ownership-indexed.
+  A card in a library, hand, battlefield, graveyard, or exile is therefore in
+  its owner's vector; `Game::controller_of` derives battlefield control from
+  active layer-two effects. A control effect never masquerades as a zone move,
+  and every non-token definition is present in the game catalog.
 - A targeted exile instruction may move only a currently legal battlefield
   creature, records the ordinary `CardMoved { to: Exile }` receipt, and runs
   zone-departure cleanup for the object and any continuous effects involving
@@ -84,9 +86,9 @@ Oracle Magic rules coverage.
   advance has exactly one public `ObjectIncarnationAdvanced` receipt directly
   after the associated `CardMoved` or `SpellCast` receipt; receipt values are
   strictly increasing per object. Object turn metadata cannot be from a
-  future turn, marked damage cannot be negative, and a card outside the
-  battlefield retains its owner's controller in the current no-control-change
-  rules slice.
+  future turn, marked damage cannot be negative, and a card object's base
+  controller always remains its owner. Only `Game::controller_of` may expose a
+  different live battlefield controller.
 - A regeneration shield is private, source-identified replacement state for a
   current battlefield creature. Shield creation records
   `RegenerationShieldCreated { source, target }`; the next modeled destroy or
@@ -898,7 +900,7 @@ Oracle Magic rules coverage.
   `AbilityActivated` records its effective definition at activation, so a
   later source or target zone change cannot make a historical copied ability
   fail replay validation against its resumed printed definition.
-- Continuous effects are applied in the implemented layer order (4--7), then
+- Continuous effects are applied in the implemented layer order (1, 2, 4--7), then
   timestamp order within a layer. End-of-turn effects expire during cleanup;
   marked damage clears there. An effect removed because its source or target
   leaves the battlefield emits an explicit expiration lifecycle receipt.
@@ -908,6 +910,21 @@ Oracle Magic rules coverage.
   battlefield endpoint; an end-of-turn effect belongs to the current turn
   only and may retain its historical source after a spell has left the stack.
   In either duration, it cannot apply to a target that has left and returned.
+- A layer-two `ChangeController` effect names one living player and one live
+  battlefield permanent. Active effects apply in timestamp order, so the most
+  recent applicable effect determines `Game::controller_of`; its source and
+  target incarnations prevent a previous object from retaining control after a
+  zone change. Installation records `ContinuousEffectCreated` then, when the
+  derived controller actually changes, `ControllerChanged`. Expiration or a
+  source departure records the ordinary expiration receipt before an audited
+  controller-reversion receipt. The base controller is never mutated.
+- A permanent records the turn of its most recent controller change. Attacking
+  and tap-symbol ability checks use that provenance—not merely battlefield
+  entry—so a creature stolen this turn is summoning sick for its new controller
+  unless it has Haste. Controller-relative target checks, views, untap,
+  combat, triggers, cost reductions, replacement effects, and attachment
+  legality query the same derived controller. Leaving the battlefield always
+  uses the owner destination, even when another player controlled it.
 - An Aura-like modifier is established only while its resolving permanent is
   entering the battlefield against one legal creature target. The resulting
   `AuraAttached` receipt immediately follows its matching permanent
