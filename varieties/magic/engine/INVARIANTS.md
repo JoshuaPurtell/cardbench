@@ -481,6 +481,20 @@ Oracle Magic rules coverage.
   and no other pending decision family may coexist. Compatibility actions for
   older policies dispatch through the same continuation but new policies must
   use the id-bearing generic action.
+- `DecisionKind::PublicGraveyardCreatureReturn` retains one exact target-free
+  spell stack object while its affected living players choose serially from
+  their own public graveyards. Only a player with one or more current creature
+  cards receives a required one-card choice; a player with no candidate is
+  skipped without a fabricated prompt. The continuation records the stack
+  object/source incarnation, the ordered remaining-player suffix, and every
+  earlier selected card's owner and incarnation. Before terminal resolution,
+  the invariant rederives the current chooser's legal options and validates
+  the full stack shape, public visibility, zero-pass boundary, unique living
+  player queue, and every stored selected snapshot. Completion revalidates
+  every selected card in its owner's graveyard before moving them all to hand,
+  then records the ordinary spell terminal lifecycle. No priority window,
+  insertion-order fallback, or stale same-`ObjectId` graveyard incarnation can
+  change a player's required choice.
 - `DecisionKind::CounterUnlessPaysMana` keeps its counterspell at the stack
   top and captures that stack object's source/incarnation/controller together
   with the lower target spell's identity/incarnation and controller. Only the

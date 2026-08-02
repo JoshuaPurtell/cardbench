@@ -11006,7 +11006,7 @@ digest = "fnv1a64:00f0614dd9bee85a"
 [[scenario]]
 id = "rav_empty_the_catacombs_all_player_graveyard_return"
 seed = 147
-description = "Resolve Empty the Catacombs and snapshot one creature card from each player's public graveyard before returning both to hand."
+description = "Resolve Empty the Catacombs through serial policy-submitted public graveyard creature choices, then return both selected cards to hand."
 
 [[scenario.card]]
 label = "catacombs"
