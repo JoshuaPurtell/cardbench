@@ -42,7 +42,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 179] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 180] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
@@ -50,6 +50,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 179] = [
     "RAV-SEARING-MEDITATION",
     "RAV-BLOCKBUSTER",
     "RAV-PEREGRINE-MASK",
+    "RAV-VOYAGER-STAFF",
     "RAV-PUTREFY",
     "RAV-GLIMPSE-THE-UNTHINKABLE",
     "RAV-GAZE-OF-THE-GORGON",
@@ -866,6 +867,29 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 "colorless-equipment-casting",
                 "equipment-defender-flying-first-strike",
                 "sorcery-speed-equip-two",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![],
+        },
+        // Full fidelity: this low-cost artifact uses a source-independent
+        // targeted linked-exile activation. Sacrificing the source is an
+        // ordinary cost; the target's exact exile incarnation returns under
+        // its owner at the next end step through the shared delayed action.
+        CardDefinition {
+            id: "RAV-VOYAGER-STAFF",
+            name: "Voyager Staff",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::new(1),
+            colors: BTreeSet::new(),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Artifact]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colorless-artifact-casting",
+                "sacrifice-linked-exile-target-creature-until-end-step",
             ],
             power: None,
             toughness: None,
@@ -5949,6 +5973,22 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                     target: TargetRequirement::ControlledCreature,
                     changes: peregrine_mask_attachment_changes(),
                 }],
+            },
+        },
+        ActivatedAbilityBinding {
+            card_definition: "RAV-VOYAGER-STAFF",
+            ability: ActivatedAbility {
+                id: "sacrifice-linked-exile-target-creature-until-end-step",
+                mana_cost: ManaCost::new(2),
+                tap_cost: false,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: true,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![TargetRequirement::Creature],
+                effects: vec![Effect::ExileTargetCreatureUntilEndStep],
             },
         },
         ActivatedAbilityBinding {
