@@ -96,6 +96,7 @@ fn loxodon_gatekeeper_requires_a_live_opponent_entry_restriction() {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // One end-to-end entry-replacement trace exercises every covered card type.
 fn loxodon_gatekeeper_taps_an_opponents_creature_on_ordinary_stack_entry() {
     let mut game = gatekeeper_game();
     let gatekeeper = game

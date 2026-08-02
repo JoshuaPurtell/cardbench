@@ -158,6 +158,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-BLAZING-ARCHON",
             "RAV-CAREGIVER",
             "RAV-BOROS-FURY-SHIELD",
+            "RAV-BATHE-IN-LIGHT",
             "RAV-LIGHT-OF-SANCTION",
             "RAV-FAITHS-FETTERS",
             "RAV-CHANT-OF-VITU-GHAZI",

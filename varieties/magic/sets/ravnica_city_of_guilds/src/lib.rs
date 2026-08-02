@@ -40,7 +40,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 157] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 158] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -186,6 +186,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 157] = [
     "RAV-BLAZING-ARCHON",
     "RAV-CAREGIVER",
     "RAV-BOROS-FURY-SHIELD",
+    "RAV-BATHE-IN-LIGHT",
     "RAV-LIGHT-OF-SANCTION",
     "RAV-FAITHS-FETTERS",
     "RAV-CHANT-OF-VITU-GHAZI",
@@ -2117,6 +2118,28 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             effects: vec![Effect::PreventTargetCreatureCombatDamageUntilEndOfTurn {
                 damage_target_controller_equal_to_power_if_mana_color_spent: Some(Color::Red),
             }],
+        },
+        // Full fidelity: casting supplies an explicit five-color choice that
+        // is retained on the stack. Resolution snapshots the caster's current
+        // creatures and grants each the corresponding temporary protection.
+        CardDefinition {
+            id: "RAV-BATHE-IN-LIGHT",
+            name: "Bathe in Light",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(1, [Color::White]),
+            colors: colors([Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Instant]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "chosen-color-controller-creature-protection",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![Effect::AddChosenColorProtectionToControllerCreaturesUntilEndOfTurn],
         },
         // Full fidelity: the static controller-relative prevention is bound
         // through derived creature characteristics and is live only while
