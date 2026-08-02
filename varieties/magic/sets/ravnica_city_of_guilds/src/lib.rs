@@ -170,6 +170,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 159] = [
     "RAV-CLINGING-DARKNESS",
     "RAV-URSAPINE",
     "RAV-TRANSLUMINANT",
+    "RAV-TWILIGHT-DROVER",
     "RAV-ELVISH-SKYSWEEPER",
     "RAV-CONVOLUTE",
     "RAV-SHAMBLING-SHELL",
@@ -4245,6 +4246,30 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
+        // Full fidelity: any other creature's battlefield departure queues a
+        // target-free optional trigger, while the stack-backed activation
+        // creates one typed white Flying Spirit token.
+        CardDefinition {
+            id: "RAV-TWILIGHT-DROVER",
+            name: "Twilight Drover",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(2, [Color::White]),
+            colors: colors([Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "another-creature-leaves-battlefield-plus-one-counter",
+                "activated-create-flying-spirit",
+            ],
+            power: Some(1),
+            toughness: Some(1),
+            keywords: vec![],
+            effects: vec![],
+        },
         // Compatibility scope: normal colored-cost creature casting and base
         // characteristics only. Its printed flying-creature interaction is
         // deliberately omitted from this compatibility slice.
@@ -5222,6 +5247,25 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 effects: vec![Effect::ModifyTargetPtUntilEndOfTurn {
                     power: 1,
                     toughness: 1,
+                }],
+            },
+        },
+        ActivatedAbilityBinding {
+            card_definition: "RAV-TWILIGHT-DROVER",
+            ability: ActivatedAbility {
+                id: "create-flying-spirit",
+                mana_cost: ManaCost::with_colors(2, [Color::White]),
+                tap_cost: false,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![],
+                effects: vec![Effect::CreateToken {
+                    token: TokenSpec::white_spirit(),
+                    count: 1,
                 }],
             },
         },
@@ -6362,6 +6406,17 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                     token: TokenSpec::white_spirit(),
                     count: 1,
                 }],
+            },
+        },
+        TriggeredAbilityBinding {
+            card_definition: "RAV-TWILIGHT-DROVER",
+            ability: TriggeredAbility {
+                id: "another-creature-leaves-plus-one-counter",
+                condition: TriggerCondition::AnotherCreatureLeavesBattlefield,
+                mana_cost: ManaCost::new(0),
+                optional: true,
+                targets: vec![],
+                effects: vec![Effect::AddPlusOneCounterToSource],
             },
         },
         TriggeredAbilityBinding {
