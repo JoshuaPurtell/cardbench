@@ -43,7 +43,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 198] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 199] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
@@ -229,6 +229,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 198] = [
     "RAV-CHANT-OF-VITU-GHAZI",
     "RAV-CENTAUR-SAFEGUARD",
     "RAV-BLOODLETTER-QUILL",
+    "RAV-BOTTLED-CLOISTER",
     "RAV-CYCLOPEAN-SNARE",
     "RAV-CLOUDSTONE-CURIO",
     "RAV-TERRARION",
@@ -3331,6 +3332,32 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             ],
             power: Some(3),
             toughness: Some(1),
+            keywords: vec![],
+            effects: vec![],
+        },
+        // Full fidelity: this artifact preserves the source incarnation that
+        // exiles its controller's private hand during each opponent upkeep,
+        // then returns only that exact group before drawing at its own
+        // controller's upkeep. Ordinary source departure clears an
+        // unreachable group without permitting a later incarnation to claim
+        // former cards.
+        CardDefinition {
+            id: "RAV-BOTTLED-CLOISTER",
+            name: "Bottled Cloister",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::new(4),
+            colors: BTreeSet::new(),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Artifact]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colorless-artifact-casting",
+                "opponent-upkeep-linked-hand-exile",
+                "controller-upkeep-linked-hand-return-then-draw",
+            ],
+            power: None,
+            toughness: None,
             keywords: vec![],
             effects: vec![],
         },
@@ -7444,6 +7471,31 @@ pub fn rav_static_entry_restriction_bindings() -> Vec<StaticEntryRestrictionBind
 #[allow(clippy::too_many_lines)] // Keep the declarative trigger registry centralized for audit review.
 pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
     vec![
+        TriggeredAbilityBinding {
+            card_definition: "RAV-BOTTLED-CLOISTER",
+            ability: TriggeredAbility {
+                id: "opponent-upkeep-exile-controller-hand-linked",
+                condition: TriggerCondition::BeginningOfOpponentsUpkeep,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![Effect::ExileControllerHandLinkedToSource],
+            },
+        },
+        TriggeredAbilityBinding {
+            card_definition: "RAV-BOTTLED-CLOISTER",
+            ability: TriggeredAbility {
+                id: "controller-upkeep-return-linked-hand-then-draw",
+                condition: TriggerCondition::BeginningOfUpkeep,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![
+                    Effect::ReturnLinkedHandExileToControllerHand,
+                    Effect::DrawController,
+                ],
+            },
+        },
         TriggeredAbilityBinding {
             card_definition: "RAV-CLOUDSTONE-CURIO",
             ability: TriggeredAbility {

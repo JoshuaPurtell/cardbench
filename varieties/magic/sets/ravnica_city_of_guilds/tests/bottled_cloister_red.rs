@@ -19,10 +19,14 @@ fn bottled_cloister_requires_opponent_upkeep_hand_exile_and_controller_return_dr
     assert!(cloister.colors.is_empty());
     assert!(cloister.mana_colors.is_empty());
     assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&cloister.id));
-    assert!(cloister
-        .supported_rules
-        .contains(&"opponent-upkeep-linked-hand-exile"));
-    assert!(cloister
-        .supported_rules
-        .contains(&"controller-upkeep-linked-hand-return-then-draw"));
+    assert!(
+        cloister
+            .supported_rules
+            .contains(&"opponent-upkeep-linked-hand-exile")
+    );
+    assert!(
+        cloister
+            .supported_rules
+            .contains(&"controller-upkeep-linked-hand-return-then-draw")
+    );
 }

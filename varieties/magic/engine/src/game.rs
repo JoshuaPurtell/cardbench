@@ -702,6 +702,27 @@ struct PendingTriggeredAbilityEvent {
     payload: TriggerEventPayload,
 }
 
+/// One card's exact exile incarnation retained by a source-relative hand
+/// exile effect. Unlike a delayed exile group, this state is keyed directly
+/// by its permanent source and is consumed by a future triggered ability.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct LinkedHandExileMember {
+    object: ObjectId,
+    exile_incarnation: u64,
+}
+
+/// Private-zone provenance for cards a permanent exiled from its controller's
+/// hand. The source's ordinary zone lifecycle decides whether the group can
+/// remain useful; object identity prevents a later re-entry from claiming a
+/// former permanent's cards.
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct LinkedHandExileGroup {
+    controller: PlayerId,
+    source: ObjectId,
+    source_incarnation: u64,
+    members: Vec<LinkedHandExileMember>,
+}
+
 /// A queued APNAP controller group. A singleton is stacked directly; a group
 /// with two or more members opens one explicit ordering decision before any
 /// of its entries can reach the stack.
@@ -826,6 +847,10 @@ pub struct Game {
     /// This is typed, clonable state; no resolver closure escapes onto the
     /// game state machine.
     linked_exile_groups: BTreeMap<LinkedExileGroupId, LinkedExileGroup>,
+    /// Exact-source groups created by reusable hand-exile effects. A key is
+    /// `(source, source_incarnation)` so an ordinary leave/re-enter boundary
+    /// cannot merge separate cards' private exile state.
+    linked_hand_exile_groups: BTreeMap<(ObjectId, u64), LinkedHandExileGroup>,
     delayed_actions: Vec<DelayedAction>,
     next_linked_exile_group_id: u64,
     next_delayed_action_id: u64,
@@ -1088,6 +1113,7 @@ impl Game {
             virtual_spell_copies: BTreeMap::new(),
             exile_on_resolution: BTreeSet::new(),
             linked_exile_groups: BTreeMap::new(),
+            linked_hand_exile_groups: BTreeMap::new(),
             delayed_actions: Vec::new(),
             next_linked_exile_group_id: 1,
             next_delayed_action_id: 1,
@@ -1537,6 +1563,7 @@ impl Game {
                         | TriggerCondition::LandEntersBattlefield
                         | TriggerCondition::ControlledLandEntersBattlefield
                         | TriggerCondition::BeginningOfUpkeep
+                        | TriggerCondition::BeginningOfOpponentsUpkeep
                         | TriggerCondition::LifeGained
                         | TriggerCondition::DealsDamage
                         | TriggerCondition::DealsCombatDamageToCreature
@@ -5000,6 +5027,174 @@ impl Game {
             return Ok(());
         }
         self.move_to_zone(target, Zone::Hand)
+    }
+
+    /// Exiles the resolving controller's current hand and, while the exact
+    /// source permanent still exists, links its post-exile object
+    /// incarnations to that source. The effect itself does not require a live
+    /// source: an ability already on the stack resolves independently, but a
+    /// departed source cannot establish a future upkeep return path.
+    fn exile_controller_hand_linked_to_source(
+        &mut self,
+        source: ObjectId,
+        source_incarnation: u64,
+        controller: PlayerId,
+    ) -> Result<(), RulesError> {
+        if source.0 == 0 || source_incarnation == 0 || self.players[controller.0].lost {
+            return Err(RulesError::IllegalAction(
+                "linked hand exile has invalid source or controller provenance",
+            ));
+        }
+        let cards = self.players[controller.0].hand.clone();
+        if cards.is_empty() {
+            return Ok(());
+        }
+
+        let mut members = Vec::with_capacity(cards.len());
+        for card in cards {
+            if self.zone_of(card) != Some(Zone::Hand) || self.object(card)?.owner != controller {
+                return Err(RulesError::IllegalAction(
+                    "linked hand exile selected a card outside its controller hand",
+                ));
+            }
+            self.move_to_zone(card, Zone::Exile)?;
+            members.push(LinkedHandExileMember {
+                object: card,
+                exile_incarnation: self.object(card)?.incarnation,
+            });
+        }
+        let cards = members
+            .iter()
+            .map(|member| member.object)
+            .collect::<Vec<_>>();
+        if self.zone_of(source) == Some(Zone::Battlefield)
+            && self.object_has_incarnation(source, source_incarnation)
+        {
+            let key = (source, source_incarnation);
+            let group =
+                self.linked_hand_exile_groups
+                    .entry(key)
+                    .or_insert_with(|| LinkedHandExileGroup {
+                        controller,
+                        source,
+                        source_incarnation,
+                        members: Vec::new(),
+                    });
+            if group.controller != controller
+                || group.members.iter().any(|existing| {
+                    members
+                        .iter()
+                        .any(|member| member.object == existing.object)
+                })
+            {
+                return Err(RulesError::IllegalAction(
+                    "linked hand exile group has conflicting source provenance",
+                ));
+            }
+            group.members.extend(members);
+        }
+        self.record_event(GameEvent::HandExiledWithSource {
+            controller,
+            source,
+            source_incarnation,
+            cards,
+        });
+        Ok(())
+    }
+
+    /// Returns cards which remain in the exact exile incarnation captured by
+    /// this source. Removing the group before ordinary zone transitions keeps
+    /// its membership invariant valid throughout the move sequence.
+    fn return_linked_hand_exile_to_controller_hand(
+        &mut self,
+        source: ObjectId,
+        source_incarnation: u64,
+        controller: PlayerId,
+    ) -> Result<(), RulesError> {
+        let key = (source, source_incarnation);
+        let Some(group) = self.linked_hand_exile_groups.remove(&key) else {
+            return Ok(());
+        };
+        if group.controller != controller
+            || group.source != source
+            || group.source_incarnation != source_incarnation
+        {
+            return Err(RulesError::IllegalAction(
+                "linked hand exile return lost source provenance",
+            ));
+        }
+        let mut returned = Vec::new();
+        for member in group.members {
+            if self.zone_of(member.object) == Some(Zone::Exile)
+                && self.object_has_incarnation(member.object, member.exile_incarnation)
+            {
+                if self.object(member.object)?.owner != controller {
+                    return Err(RulesError::IllegalAction(
+                        "linked hand exile member has the wrong owner",
+                    ));
+                }
+                self.move_to_zone(member.object, Zone::Hand)?;
+                returned.push(member.object);
+            }
+        }
+        self.record_event(GameEvent::LinkedHandExileReturned {
+            controller,
+            source,
+            source_incarnation,
+            cards: returned,
+        });
+        Ok(())
+    }
+
+    /// Removes a card from any source-linked hand exile group as it leaves
+    /// its captured exile incarnation. An ordinary card cannot belong to two
+    /// groups; empty groups are no longer useful and are discarded.
+    fn unlink_hand_exile_member_before_zone_departure(
+        &mut self,
+        card: ObjectId,
+        exile_incarnation: u64,
+    ) {
+        self.linked_hand_exile_groups.retain(|_, group| {
+            group.members.retain(|member| {
+                !(member.object == card && member.exile_incarnation == exile_incarnation)
+            });
+            !group.members.is_empty()
+        });
+    }
+
+    /// Drops a private hand-exile group only after its source leaves and no
+    /// already-stacked return instruction still names the departed exact
+    /// source incarnation. The exiled cards stay in exile; this only removes
+    /// stale engine provenance that can no longer authorize a return.
+    fn expire_unreturnable_linked_hand_exile_groups(
+        &mut self,
+        source: ObjectId,
+        source_incarnation: u64,
+    ) {
+        let has_pending_return = self.stack.iter().any(|stack_object| {
+            stack_object.card == source
+                && stack_object.source_incarnation == source_incarnation
+                && stack_object
+                    .effects
+                    .contains(&Effect::ReturnLinkedHandExileToControllerHand)
+        });
+        if has_pending_return {
+            return;
+        }
+        let key = (source, source_incarnation);
+        let Some(group) = self.linked_hand_exile_groups.remove(&key) else {
+            return;
+        };
+        self.record_event(GameEvent::LinkedHandExileExpired {
+            controller: group.controller,
+            source,
+            source_incarnation,
+            cards: group
+                .members
+                .into_iter()
+                .map(|member| member.object)
+                .collect(),
+        });
     }
 
     /// Captures an Aura-relative linked-exile group. The source-relative
@@ -9699,6 +9894,8 @@ impl Game {
         Self::validate_trigger_order_event_order(&self.event_log)?;
         self.validate_blocks_trigger_event_order()?;
         self.validate_linked_exile_state()?;
+        self.validate_linked_hand_exile_state()?;
+        self.validate_linked_hand_exile_event_shape()?;
         Self::validate_spell_mana_payment_event_order(&self.event_log)?;
         self.validate_first_noncreature_spell_cast_event_order()?;
         Self::validate_counter_unless_pays_payment_event_order(&self.event_log)?;
@@ -10086,6 +10283,7 @@ impl Game {
                             | TriggerCondition::LandEntersBattlefield
                             | TriggerCondition::ControlledLandEntersBattlefield
                             | TriggerCondition::BeginningOfUpkeep
+                            | TriggerCondition::BeginningOfOpponentsUpkeep
                             | TriggerCondition::LifeGained
                             | TriggerCondition::DealsDamage
                             | TriggerCondition::DealsCombatDamageToCreature
@@ -12603,6 +12801,8 @@ impl Game {
                 | Effect::DrawControllerIfManaColorSpent { .. }
                 | Effect::ModifyAllCreaturesPtUntilEndOfTurnIfManaColorSpent { .. }
                 | Effect::DrawController
+                | Effect::ExileControllerHandLinkedToSource
+                | Effect::ReturnLinkedHandExileToControllerHand
                 | Effect::DrawControllerForEachControlledBasicLandType { .. }
                 | Effect::DrawTargetPlayer
                 | Effect::DrawTargetPlayerThenConditionalPrivateDiscard
@@ -14892,17 +15092,14 @@ impl Game {
         self.consecutive_passes = 0;
     }
 
-    /// Stacks each permanent controlled by the active player whose ability
-    /// triggers at the beginning of upkeep.  This runs after the public
-    /// `StepBegan` receipt and before either player receives priority, which
-    /// preserves the mandatory trigger window at the state-machine boundary.
+    /// Stacks each battlefield permanent whose registered upkeep condition
+    /// matches the active player. This runs after the public `StepBegan`
+    /// receipt and before either player receives priority, which preserves
+    /// both controller-upkeep and opponent-upkeep trigger windows at the
+    /// state-machine boundary.
     fn enqueue_upkeep_triggers(&mut self) -> Result<(), RulesError> {
-        let controller = self.active_player;
-        let sources = self
-            .all_battlefield_cards()
-            .into_iter()
-            .filter(|source| self.controller_of(*source) == Ok(controller))
-            .collect::<Vec<_>>();
+        let active_player = self.active_player;
+        let sources = self.all_battlefield_cards().into_iter().collect::<Vec<_>>();
         for source in sources {
             let (source_controller, source_is_token, source_incarnation, source_colors) = {
                 let object = self.object(source)?;
@@ -14913,7 +15110,7 @@ impl Game {
                     self.characteristics(source)?.colors,
                 )
             };
-            if source_controller != controller || source_is_token {
+            if source_is_token {
                 continue;
             }
             let definition = self.card_definition(source)?.id;
@@ -14922,7 +15119,17 @@ impl Game {
                 .get(definition)
                 .into_iter()
                 .flat_map(|abilities| abilities.values())
-                .filter(|ability| ability.condition == TriggerCondition::BeginningOfUpkeep)
+                .filter(|ability| {
+                    matches!(
+                        ability.condition,
+                        TriggerCondition::BeginningOfUpkeep
+                            if source_controller == active_player
+                    ) || matches!(
+                        ability.condition,
+                        TriggerCondition::BeginningOfOpponentsUpkeep
+                            if source_controller != active_player
+                    )
+                })
                 .cloned()
                 .collect::<Vec<_>>();
             for ability in triggers {
@@ -14931,7 +15138,7 @@ impl Game {
                         source,
                         source_incarnation,
                         source_colors: source_colors.clone(),
-                        controller,
+                        controller: source_controller,
                         ability,
                         payload: TriggerEventPayload::None,
                     });
@@ -17572,6 +17779,20 @@ impl Game {
             Effect::DrawController => {
                 self.draw_card_from_spell_effect(controller)?;
             }
+            Effect::ExileControllerHandLinkedToSource => {
+                self.exile_controller_hand_linked_to_source(
+                    source,
+                    source_incarnation,
+                    controller,
+                )?;
+            }
+            Effect::ReturnLinkedHandExileToControllerHand => {
+                self.return_linked_hand_exile_to_controller_hand(
+                    source,
+                    source_incarnation,
+                    controller,
+                )?;
+            }
             Effect::DrawControllerForEachControlledBasicLandType { land_type } => {
                 let draw_count = self.controlled_basic_land_type_count(controller, *land_type);
                 for _ in 0..draw_count {
@@ -20087,6 +20308,9 @@ impl Game {
         let previous_zone = self.zone_of(card);
         let left_battlefield =
             previous_zone == Some(Zone::Battlefield) && zone != Zone::Battlefield;
+        if previous_zone == Some(Zone::Exile) && zone != Zone::Exile {
+            self.unlink_hand_exile_member_before_zone_departure(card, object.incarnation);
+        }
         if left_battlefield {
             self.enqueue_another_creature_leaves_battlefield_triggers(card)?;
         }
@@ -20188,6 +20412,7 @@ impl Game {
                 card,
                 control_before_expiration,
             );
+            self.expire_unreturnable_linked_hand_exile_groups(card, object.incarnation);
         }
         Ok(())
     }
@@ -21649,6 +21874,93 @@ impl Game {
             return Err(RulesError::IllegalAction(
                 "delayed action references a missing linked-exile group",
             ));
+        }
+        Ok(())
+    }
+
+    /// Audits source-relative private hand-exile groups independently of the
+    /// card that created them. The group is live only while its exact source
+    /// incarnation remains on the battlefield or an already-stacked return
+    /// instruction can still consume it.
+    fn validate_linked_hand_exile_state(&self) -> Result<(), RulesError> {
+        let mut members = BTreeSet::new();
+        for ((source, source_incarnation), group) in &self.linked_hand_exile_groups {
+            let pending_return = self.stack.iter().any(|stack_object| {
+                stack_object.card == *source
+                    && stack_object.source_incarnation == *source_incarnation
+                    && stack_object
+                        .effects
+                        .contains(&Effect::ReturnLinkedHandExileToControllerHand)
+            });
+            let live_source = self.zone_of(*source) == Some(Zone::Battlefield)
+                && self.object_has_incarnation(*source, *source_incarnation);
+            if source.0 == 0
+                || *source_incarnation == 0
+                || *source != group.source
+                || *source_incarnation != group.source_incarnation
+                || self.players.get(group.controller.0).is_none()
+                || group.members.is_empty()
+                || (!live_source && !pending_return)
+                || group.members.iter().any(|member| {
+                    member.object.0 == 0
+                        || member.exile_incarnation == 0
+                        || self.zone_of(member.object) != Some(Zone::Exile)
+                        || !self.object_has_incarnation(member.object, member.exile_incarnation)
+                        || self.object(member.object).is_err()
+                        || self
+                            .object(member.object)
+                            .is_ok_and(|object| object.owner != group.controller)
+                        || !members.insert(member.object)
+                })
+            {
+                return Err(RulesError::IllegalAction(
+                    "linked hand exile state has invalid source or member provenance",
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// Every public source-hand lifecycle receipt names a nonempty, unique
+    /// card set and a plausible source/controller identity. Zone and
+    /// incarnation receipts remain the authoritative detailed transition
+    /// record, so this audit deliberately avoids revealing hand contents.
+    fn validate_linked_hand_exile_event_shape(&self) -> Result<(), RulesError> {
+        for event in &self.event_log {
+            let (GameEvent::HandExiledWithSource {
+                controller,
+                source,
+                source_incarnation,
+                cards,
+            }
+            | GameEvent::LinkedHandExileReturned {
+                controller,
+                source,
+                source_incarnation,
+                cards,
+            }
+            | GameEvent::LinkedHandExileExpired {
+                controller,
+                source,
+                source_incarnation,
+                cards,
+            }) = event
+            else {
+                continue;
+            };
+            let mut unique = BTreeSet::new();
+            if source.0 == 0
+                || *source_incarnation == 0
+                || self.players.get(controller.0).is_none()
+                || cards.is_empty()
+                || cards
+                    .iter()
+                    .any(|card| card.0 == 0 || !unique.insert(*card))
+            {
+                return Err(RulesError::IllegalAction(
+                    "linked hand exile event has invalid public provenance",
+                ));
+            }
         }
         Ok(())
     }

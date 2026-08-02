@@ -356,6 +356,11 @@ pub enum TriggerCondition {
     /// eligible; the resulting abilities are put on the stack before either
     /// player receives that upkeep's first priority.
     BeginningOfUpkeep,
+    /// An upkeep began for a player other than the source's controller. This
+    /// remains distinct from [`Self::BeginningOfUpkeep`] because a permanent
+    /// controlled by a nonactive player must be able to trigger before that
+    /// opponent receives the upkeep's first priority.
+    BeginningOfOpponentsUpkeep,
     /// The source's controller gained positive life. The trigger is queued
     /// at the life-gain receipt and may optionally pay its bound mana cost
     /// before it is put on the stack.
@@ -1859,6 +1864,15 @@ pub enum Effect {
     /// intentionally a stack-only operation so public live-game setup cannot
     /// inject cards into a hand after the game has begun.
     DrawController,
+    /// Move every card currently in the resolving controller's hand to exile
+    /// and retain an exact source-incarnation link for a later return effect.
+    /// The cards' identities stay out of opponent policy views; public zone
+    /// receipts and the source-lifecycle receipts remain the audit truth.
+    ExileControllerHandLinkedToSource,
+    /// Return the still-exiled cards linked to this exact source incarnation
+    /// to their owners' hands. This is deliberately separate from drawing so
+    /// a card can compose its return and draw instructions in printed order.
+    ReturnLinkedHandExileToControllerHand,
     /// Replace the one target of the targeted activated ability during this
     /// effect's resolution. The resolving controller supplies one different
     /// legal target at the typed no-priority decision boundary; a following
@@ -2580,6 +2594,8 @@ impl Effect {
             | Self::GainLifeForEachCreature
             | Self::GainLifeControllerFromSourceDamage
             | Self::DrawController
+            | Self::ExileControllerHandLinkedToSource
+            | Self::ReturnLinkedHandExileToControllerHand
             | Self::DrawControllerForEachControlledBasicLandType { .. }
             | Self::PreventLibrarySearchUntilEndOfTurn
             | Self::SearchControllerLibrary { .. }
@@ -3952,6 +3968,33 @@ pub enum GameEvent {
     CardMoved {
         card: ObjectId,
         to: Zone,
+    },
+    /// A resolving source-relative effect exiled the listed current hand
+    /// cards. The cards' exact exile incarnations are retained privately by
+    /// the engine; ordinary `CardMoved` receipts carry the public zone truth.
+    HandExiledWithSource {
+        controller: PlayerId,
+        source: ObjectId,
+        source_incarnation: u64,
+        cards: Vec<ObjectId>,
+    },
+    /// A resolving source-relative return recovered only cards that still
+    /// match their tracked exile incarnations, before any following draw
+    /// instruction on the same stack object resolves.
+    LinkedHandExileReturned {
+        controller: PlayerId,
+        source: ObjectId,
+        source_incarnation: u64,
+        cards: Vec<ObjectId>,
+    },
+    /// A source left the battlefield with no pending ability that could
+    /// return its tracked hand-exile cards. The cards remain in exile; this
+    /// receipt records disposal of now-unreachable private provenance.
+    LinkedHandExileExpired {
+        controller: PlayerId,
+        source: ObjectId,
+        source_incarnation: u64,
+        cards: Vec<ObjectId>,
     },
     /// A physical card moved to a new zone (including the stack) and became a
     /// new rules object.  The stable id remains public; this receipt carries
