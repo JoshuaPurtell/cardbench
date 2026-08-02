@@ -377,7 +377,11 @@ Oracle Magic rules coverage.
   wrong-zone, wrong-owner, and malformed answers are atomic. Completion emits
   the ordinary discard and graveyard transitions before the source spell's
   terminal resolution/zone receipts; candidate identities never enter the
-  public decision receipts.
+  public decision receipts. If the recipient leaves the game during its
+  mandatory draws, no decision opens: the still-live source completes its
+  terminal stack/zone lifecycle before the terminal game receipt, while a
+  source already removed by player-departure cleanup retains only its ordinary
+  `ObjectLeftGame` terminal provenance.
 - Every represented trigger condition captures one source/controller/payload
   event and reaches a common active-player-first placement pipeline after its
   enclosing action. A target-bearing event stays outside the stack in its
