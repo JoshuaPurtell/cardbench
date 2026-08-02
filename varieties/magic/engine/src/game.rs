@@ -3578,7 +3578,6 @@ impl Game {
             return Ok(false);
         }
         for source in self.all_battlefield_cards() {
-            let object = self.object(source)?;
             if self.controller_of(source)? != defending_player {
                 continue;
             }
@@ -6830,7 +6829,6 @@ impl Game {
         self.all_battlefield_cards()
             .into_iter()
             .filter_map(|source| {
-                let object = self.object(source).ok()?;
                 if self.controller_of(source) != Ok(player) {
                     return None;
                 }
