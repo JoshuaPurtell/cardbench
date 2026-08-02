@@ -49,8 +49,8 @@ a zone move. The fetched Aura's ordinary ETB trigger is queued only after the
 Mage trigger's terminal receipt. The opponent sees neither unselected Aura
 identities nor a private decision projection.
 
-The current catalog partition is 229 full / 28 partial / 34 catalog-only unique
-names (244 / 28 / 34 printings). The independently checked coverage-report
+The current catalog partition is 230 full / 27 partial / 34 catalog-only unique
+names (245 / 27 / 34 printings). The independently checked coverage-report
 binary emits the same partition.
 
 Bramble Elemental is full-fidelity through the expansion-neutral, current-
@@ -519,6 +519,14 @@ that only a land entering under the source controller queues its ordinary
 counter trigger; the two players receive the normal response window before the
 source's one `+1/+1` counter receipt. The focused negative contract separately
 checks that an opponent's land entry creates neither a trigger nor a counter.
+
+Trophy Hunter is a positive-manifest entry. Its green activation accepts only a
+live Flying creature through the shared typed target boundary, then resolves
+the normal destruction lifecycle before placing its `+1/+1` counter on the
+still-live source. The shown trace records the payment, stack placement,
+priority window, target destruction, counter, and terminal ability receipt;
+the focused negative regression proves a non-Flying target preserves both mana
+and the event log atomically.
 
 Carven Caryatid's full trigger binding is published through
 `rav_triggered_ability_bindings`; its focused traces cover both the ordinary
