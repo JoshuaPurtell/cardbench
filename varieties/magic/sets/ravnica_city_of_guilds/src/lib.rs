@@ -40,7 +40,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 151] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 152] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -182,6 +182,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 151] = [
     "RAV-BLAZING-ARCHON",
     "RAV-CAREGIVER",
     "RAV-BOROS-FURY-SHIELD",
+    "RAV-LIGHT-OF-SANCTION",
     "RAV-FAITHS-FETTERS",
     "RAV-CHANT-OF-VITU-GHAZI",
     "RAV-CENTAUR-SAFEGUARD",
@@ -2108,6 +2109,28 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             effects: vec![Effect::PreventTargetCreatureCombatDamageUntilEndOfTurn {
                 damage_target_controller_equal_to_power_if_mana_color_spent: Some(Color::Red),
             }],
+        },
+        // Full fidelity: the static controller-relative prevention is bound
+        // through derived creature characteristics and is live only while
+        // this enchantment remains on the battlefield.
+        CardDefinition {
+            id: "RAV-LIGHT-OF-SANCTION",
+            name: "Light of Sanction",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(1, [Color::White, Color::White]),
+            colors: colors([Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Enchantment]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "static-prevent-friendly-source-damage",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![],
         },
         CardDefinition {
             id: "RAV-FAITHS-FETTERS",
@@ -5811,6 +5834,12 @@ pub fn rav_static_continuous_effect_bindings() -> Vec<StaticContinuousEffectBind
             card_definition: "RAV-GATE-HOUND",
             change: cardbench_magic_engine::ContinuousChange::ControlledCreaturesAddKeywordIfSourceEnchanted(
                 Keyword::Vigilance,
+            ),
+        },
+        StaticContinuousEffectBinding {
+            card_definition: "RAV-LIGHT-OF-SANCTION",
+            change: cardbench_magic_engine::ContinuousChange::ControlledCreaturesAddKeyword(
+                Keyword::PreventDamageFromControlledSources,
             ),
         },
     ]
