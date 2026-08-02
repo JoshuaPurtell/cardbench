@@ -74,8 +74,8 @@ fn add_library(game: &mut Game, player: PlayerId) {
     }
 }
 
-fn advance_to_declare_attackers(game: &mut Game) {
-    while game.turn != 3 || game.step != Step::DeclareAttackers {
+fn advance_to_declare_attackers(game: &mut Game, turn: u32) {
+    while game.turn != turn || game.step != Step::DeclareAttackers {
         if game
             .view_for_player(game.next_policy_player())
             .expect("public view")
@@ -108,7 +108,8 @@ fn advance_to_declare_attackers(game: &mut Game) {
             }
             _ => {
                 let player = game.priority;
-                game.pass_priority(player).expect("priority pass advances step");
+                game.pass_priority(player)
+                    .expect("priority pass advances step");
             }
         }
     }
@@ -131,7 +132,7 @@ fn mutual_lethal_combat_preserves_declared_block_history_through_sbas() {
         .put_on_battlefield(PlayerId(1), BLOCKER)
         .expect("blocker enters");
     game.begin_game().expect("game begins");
-    advance_to_declare_attackers(&mut game);
+    advance_to_declare_attackers(&mut game, 3);
     game.clear_event_log();
 
     submit(
@@ -186,4 +187,60 @@ fn mutual_lethal_combat_preserves_declared_block_history_through_sbas() {
     );
     game.validate_invariants()
         .expect("historical block provenance remains valid after both combatants leave");
+}
+
+#[test]
+fn mutual_lethal_removes_a_departed_blocker_marker_when_its_attacker_leaves() {
+    // Player-zero's blocker is processed by the SBA batch before player-one's
+    // attacker. The first departure records a removed-blocker marker; when the
+    // attacker then leaves, its live blocker group and that marker must clear
+    // together without discarding immutable block history.
+    let mut game = Game::new(definitions(), 2).expect("game initializes");
+    add_library(&mut game, PlayerId(0));
+    add_library(&mut game, PlayerId(1));
+    let blocker = game
+        .put_on_battlefield(PlayerId(0), BLOCKER)
+        .expect("blocker enters");
+    let attacker = game
+        .put_on_battlefield(PlayerId(1), ATTACKER)
+        .expect("attacker enters");
+    game.begin_game().expect("game begins");
+    advance_to_declare_attackers(&mut game, 2);
+    assert_eq!(game.active_player, PlayerId(1));
+    game.clear_event_log();
+
+    submit(
+        &mut game,
+        PlayerId(1),
+        PolicyAction::DeclareAttackers {
+            attackers: vec![attacker],
+        },
+    )
+    .expect("attacker declaration is accepted");
+    for player in [PlayerId(1), PlayerId(0)] {
+        submit(&mut game, player, PolicyAction::PassPriority)
+            .expect("priority reaches blocker declaration");
+    }
+    assert_eq!(game.step, Step::DeclareBlockers);
+    submit(
+        &mut game,
+        PlayerId(0),
+        PolicyAction::DeclareBlockers {
+            assignments: vec![CombatBlock { attacker, blocker }],
+        },
+    )
+    .expect("blocker declaration is accepted");
+
+    for player in [PlayerId(1), PlayerId(0)] {
+        submit(&mut game, player, PolicyAction::PassPriority).unwrap_or_else(|error| {
+            panic!(
+                "mutual lethal must not retain an orphaned departed-blocker marker; error={error}; events={:#?}",
+                game.event_log
+            )
+        });
+    }
+    assert_eq!(game.zone_of(attacker), Some(Zone::Graveyard));
+    assert_eq!(game.zone_of(blocker), Some(Zone::Graveyard));
+    game.validate_invariants()
+        .expect("opposite-seat mutual lethal keeps combat membership coherent");
 }

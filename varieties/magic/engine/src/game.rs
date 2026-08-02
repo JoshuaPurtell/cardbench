@@ -11965,6 +11965,19 @@ impl Game {
                     "undeclared combat retained attacker keyword provenance",
                 ));
             }
+            if !combat.blockers_declared
+                && (!combat.blockers.is_empty()
+                    || !combat.block_history.is_empty()
+                    || !combat.damage_ordered_attackers.is_empty()
+                    || !combat.removed_from_combat.is_empty()
+                    || !combat.evasion_qualified_blockers.is_empty()
+                    || !combat.fear_qualified_blockers.is_empty()
+                    || !combat.black_evasion_qualified_blockers.is_empty())
+            {
+                return Err(RulesError::IllegalAction(
+                    "undeclared blockers retained block-history provenance",
+                ));
+            }
             if matches!(
                 self.step,
                 Step::FirstStrikeCombatDamage | Step::CombatDamage
@@ -20416,9 +20429,9 @@ impl Game {
         self.shuffle_seed = self.shuffle_seed.wrapping_add(1);
     }
 
-    /// Removes a regenerated permanent from combat while retaining the fact
-    /// that its attacker was blocked. A nontrample attacker must not become
-    /// unblocked merely because its blocker regenerated.
+    /// Removes a permanent from the live combat membership while retaining a
+    /// legal block's exact declaration history. A departed blocker keeps its
+    /// attacker blocked; a departed attacker removes its live blocker group.
     fn remove_from_combat(&mut self, card: ObjectId) {
         let Some(combat) = self.combat.as_mut() else {
             return;
@@ -20434,7 +20447,14 @@ impl Game {
             combat.trampling_attackers.remove(&card);
             combat.must_be_blocked_attackers.remove(&card);
             combat.landwalk_attackers.remove(&card);
-            combat.blockers.remove(&card);
+            if let Some(former_blockers) = combat.blockers.remove(&card) {
+                for blocker in former_blockers {
+                    // A removed attacker has no live blocker group. Keeping
+                    // its departed-blocker markers would violate the same
+                    // membership invariant that prevents forged combat state.
+                    combat.removed_from_combat.remove(&blocker);
+                }
+            }
             combat.damage_ordered_attackers.remove(&card);
         }
         if combat
@@ -20749,6 +20769,12 @@ impl Game {
         }
         if left_battlefield {
             self.enqueue_another_creature_leaves_battlefield_triggers(card)?;
+            // Live combat membership is zone-relative. Preserve the immutable
+            // exact-incarnation block history for delayed effects, but remove
+            // an ordinary battlefield departure before it gains a new zone
+            // incarnation so a mutual-lethal SBA batch cannot leave a stale
+            // assignment that rolls back the enclosing state-machine pass.
+            self.remove_from_combat(card);
         }
         // Layer-two state has to be sampled before this object advances its
         // incarnation. Once the source has left, `effect_is_active` correctly
