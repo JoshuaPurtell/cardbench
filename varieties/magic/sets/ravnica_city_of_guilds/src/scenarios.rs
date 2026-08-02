@@ -340,6 +340,7 @@ fn set_expected_field(
     Ok(())
 }
 
+#[allow(clippy::too_many_lines)] // One explicit fixture-to-engine setup preserves auditable registrations.
 fn execute_scenario(specification: &ScenarioSpec) -> Result<ScenarioResult, String> {
     let mut game = if specification.triggers {
         Game::new_with_all_bindings_triggers_static_continuous_effects_and_land_entries(
