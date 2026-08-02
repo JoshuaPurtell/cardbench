@@ -9773,14 +9773,14 @@ impl Game {
                     "stack controller does not match its card object",
                 ));
             }
-            if is_ability
-                && self.zone_of(stack_object.card) == Some(Zone::Battlefield)
-                && self.controller_of(stack_object.card)? != stack_object.controller
-            {
-                return Err(RulesError::IllegalAction(
-                    "a battlefield ability source must remain controlled by its activator",
-                ));
-            }
+            // An activated ability's controller is captured when it is put on
+            // the stack.  A later layer-two control effect on the live source
+            // does not change (or invalidate) that historical stack object;
+            // its effects still use `stack_object.controller` at resolution.
+            // This is deliberately unlike a spell card, whose controller is
+            // fixed only while the same card incarnation remains on the
+            // stack.  An ability source may also leave the battlefield after
+            // activation, so there is no live-controller equality to audit.
             let definition = if is_virtual_copy {
                 self.card_definition(stack_object.card)?
             } else {

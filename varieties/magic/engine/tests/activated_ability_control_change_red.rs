@@ -46,6 +46,7 @@ fn pass_once(game: &mut Game) {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // The full response/stack lifecycle is the regression boundary.
 fn activated_ability_resolves_for_original_activator_after_source_is_stolen() {
     let mut game = Game::new_with_all_bindings(
         [
@@ -117,7 +118,8 @@ fn activated_ability_resolves_for_original_activator_after_source_is_stolen() {
     pass_once(&mut game);
 
     assert_eq!(
-        game.controller_of(pinger).expect("pinger remains on battlefield"),
+        game.controller_of(pinger)
+            .expect("pinger remains on battlefield"),
         PlayerId(1),
         "the response changes control of the pinger before its older ability resolves"
     );
