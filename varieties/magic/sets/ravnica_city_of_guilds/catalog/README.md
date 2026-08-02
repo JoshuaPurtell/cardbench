@@ -49,8 +49,8 @@ a zone move. The fetched Aura's ordinary ETB trigger is queued only after the
 Mage trigger's terminal receipt. The opponent sees neither unselected Aura
 identities nor a private decision projection.
 
-The current catalog partition is 219 full / 37 partial / 35 catalog-only unique
-names (234 / 37 / 35 printings). The independently checked coverage-report
+The current catalog partition is 220 full / 36 partial / 35 catalog-only unique
+names (235 / 36 / 35 printings). The independently checked coverage-report
 binary emits the same partition.
 
 Bramble Elemental is full-fidelity through the expansion-neutral, current-
@@ -120,8 +120,10 @@ and each created token's count, color, card type, typed creature subtype, and
 base power/toughness are all represented and covered by a direct Rust contract
 and fixed public trace. Guardian of Vitu-Ghazi is also in the positive manifest:
 its Convoke payment, base characteristics, and vigilance declaration exception
-are covered by direct Rust contracts and fixed public traces. Siege Wurm remains
-bounded because trample combat-damage assignment is not executable.
+are covered by direct Rust contracts and fixed public traces. Siege Wurm is also
+in the positive manifest: its direct contract pays five generic and two Green
+Convoke contributions, then verifies a legal Trample combat packet through a
+RAV Watchwolf with the resulting permanent and player damage receipts.
 
 Greater Mossdog is also in the positive manifest. On 2026-07-30, a live
 public Scryfall API lookup for its RAV collector `#169` verified the encoded
@@ -175,9 +177,9 @@ on contributors still represented by that incarnation when the trigger
 resolves. Conclave Phalanx likewise records its controller-white-creature life
 ETB using the shared resolution-time count. Their focused traces cover
 `ConvokeUsed`, spell resolution, trigger stacking, contributor-only
-`CounterPlaced`, and `LifeGained` receipts. Siege Wurm and Autochthon Wurm
-remain compatibility-bounded because controller-chosen arbitrary trample
-allocation is not yet represented.
+`CounterPlaced`, and `LifeGained` receipts. Siege Wurm now has its own complete
+Convoke-and-Trample contract; Autochthon Wurm remains compatibility-bounded
+because its additional non-printed engine dependencies are not yet represented.
 Golgari Brownscale, Golgari Grave-Troll, Stinkweed Imp, and Golgari Thug instead
 are positive-manifest
 cards. Brownscale's Dredge replacement retains its exact prior graveyard
