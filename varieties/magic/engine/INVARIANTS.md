@@ -266,6 +266,18 @@ Oracle Magic rules coverage.
   preceding replacement identity. Direct and combat paths use the same source
   discovery; the initial registered operation is integer halving, so stable
   application of multiple identical sources cannot change its result.
+- A registered source-bound combat replacement may replace that source's
+  positive combat-damage packet to a player with immediate non-damage
+  consequences. `CombatDamageReplacedWithMillAndCounters` records the exact
+  source incarnation, damaged player, and replaced positive amount; it must
+  be followed by the matching source `+1/+1` counter placement and no
+  intervening ordinary player-damage receipt from that source to that player.
+  Any resulting library moves retain their ordinary `CardMoved` and
+  incarnation receipts. This currently supplies a deterministic
+  single-replacement compatibility path only. If it competes with another
+  applicable combat-damage replacement, the affected-player ordering choice
+  is deliberately not fabricated; that broader replacement-order boundary is
+  tracked as an open engine weakness.
 - `Keyword::DamageCannotBePrevented` excludes prevention only. It bypasses
   target shields, permanent shields, protection, and color-based prevention,
   but does not bypass a non-prevention damage redirection. A redirected event
