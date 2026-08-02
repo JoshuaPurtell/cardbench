@@ -2813,6 +2813,22 @@ pub enum DecisionContinuation {
         used: Vec<ReplacementChoice>,
         resolution: QuantityReplacementResolution,
     },
+    /// Resumes the bounded one-target direct-damage replacement chain. The
+    /// candidate identity is shared with quantity replacement decisions, but
+    /// the committed event still has its existing source-aware damage
+    /// receipts. `used` retains the exact replacement identities already
+    /// applied to this prospective event, so redirected damage cannot reuse a
+    /// shield or redirection from an earlier incarnation.
+    DamageReplacement {
+        source: ObjectId,
+        source_incarnation: u64,
+        controller: PlayerId,
+        original_target: Target,
+        target: Target,
+        target_incarnation: Option<u64>,
+        amount: i32,
+        used: Vec<DamageReplacementChoice>,
+    },
 }
 
 /// One serializable, no-priority decision boundary. Candidate options remain

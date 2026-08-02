@@ -744,7 +744,6 @@ pub struct Game {
     pending_trigger_order_group: Option<Vec<PendingTriggeredAbilityEvent>>,
     pending_trigger_target_choices: Vec<PendingTriggeredAbilityTargetChoice>,
     pending_optional_trigger_choice: Option<PendingOptionalTriggeredAbilityChoice>,
-    pending_damage_replacement_choice: Option<PendingDamageReplacementChoice>,
     /// A resolving rule may prevent every represented library search until the
     /// current turn ends. It is deliberately a turn number, rather than a
     /// boolean, so invariant checks detect an expired marker crossing a turn
@@ -981,7 +980,6 @@ impl Game {
             pending_trigger_order_group: None,
             pending_trigger_target_choices: Vec::new(),
             pending_optional_trigger_choice: None,
-            pending_damage_replacement_choice: None,
             library_search_prevented_until: None,
             pending_trigger_events: Vec::new(),
             pending_trigger_placements: Vec::new(),
@@ -3020,7 +3018,8 @@ impl Game {
                 | DecisionContinuation::CombatDamageOrder { .. }
                 | DecisionContinuation::SpellCopyTargets { .. }
                 | DecisionContinuation::TriggeredAbilityOrder { .. }
-                | DecisionContinuation::QuantityReplacement { .. } => None,
+                | DecisionContinuation::QuantityReplacement { .. }
+                | DecisionContinuation::DamageReplacement { .. } => None,
             })
             .map(|(source, destination, may_fail_to_find)| {
                 self.decision_candidate_cards(
@@ -3094,7 +3093,8 @@ impl Game {
                 | DecisionContinuation::CombatDamageOrder { .. }
                 | DecisionContinuation::SpellCopyTargets { .. }
                 | DecisionContinuation::TriggeredAbilityOrder { .. }
-                | DecisionContinuation::QuantityReplacement { .. } => None,
+                | DecisionContinuation::QuantityReplacement { .. }
+                | DecisionContinuation::DamageReplacement { .. } => None,
             })
             .map(|(source, ability)| {
                 self.decision_candidate_cards(
@@ -3109,26 +3109,44 @@ impl Game {
                 })
             })
             .transpose()?;
+        // Retain the legacy projection for older policies, but derive it from
+        // the one generic id-bearing decision instead of a parallel private
+        // continuation. New policies submit `DecisionSelection::Replacements`.
         let damage_replacement_choice = self
-            .pending_damage_replacement_choice
+            .pending_decision
             .as_ref()
-            .filter(|choice| choice.affected_player == player)
-            .map(|choice| {
-                Ok(DamageReplacementChoiceView {
-                    source: choice.source,
-                    source_incarnation: choice.source_incarnation,
-                    target: choice.target,
-                    target_incarnation: choice.target_incarnation,
-                    amount: choice.amount,
-                    replacements: self.damage_replacement_candidates(
-                        choice.source,
-                        choice.target,
-                        choice.amount,
-                        &choice.used,
-                    )?,
-                })
-            })
-            .transpose()?;
+            .filter(|decision| decision.player == player)
+            .and_then(|decision| match &decision.continuation {
+                DecisionContinuation::DamageReplacement {
+                    source,
+                    source_incarnation,
+                    target,
+                    target_incarnation,
+                    amount,
+                    ..
+                } => Some(DamageReplacementChoiceView {
+                    source: *source,
+                    source_incarnation: *source_incarnation,
+                    target: *target,
+                    target_incarnation: *target_incarnation,
+                    amount: *amount,
+                    replacements: Self::decision_replacement_candidates(decision)
+                        .into_iter()
+                        .filter_map(|choice| match choice {
+                            ReplacementChoice::Damage(choice) => Some(choice),
+                            ReplacementChoice::Quantity { .. } => None,
+                        })
+                        .collect(),
+                }),
+                DecisionContinuation::LibrarySearch { .. }
+                | DecisionContinuation::LibrarySearchMany { .. }
+                | DecisionContinuation::LibraryReorder { .. }
+                | DecisionContinuation::TriggeredEffectObject { .. }
+                | DecisionContinuation::CombatDamageOrder { .. }
+                | DecisionContinuation::SpellCopyTargets { .. }
+                | DecisionContinuation::TriggeredAbilityOrder { .. }
+                | DecisionContinuation::QuantityReplacement { .. } => None,
+            });
         let mut opponent_life = Vec::new();
         let mut opponent_battlefield = Vec::new();
         for opponent in self.players.iter().filter(|candidate| {
@@ -4973,11 +4991,6 @@ impl Game {
                 "optional trigger payment must resolve before priority can pass",
             ));
         }
-        if self.pending_damage_replacement_choice.is_some() {
-            return Err(RulesError::IllegalAction(
-                "damage replacement choice must resolve before priority can pass",
-            ));
-        }
         if self.step == Step::DeclareAttackers
             && self
                 .combat
@@ -5517,6 +5530,30 @@ impl Game {
                     amount,
                     used,
                     resolution,
+                    selected,
+                )
+            }
+            DecisionContinuation::DamageReplacement {
+                source,
+                source_incarnation,
+                controller,
+                original_target,
+                target,
+                target_incarnation,
+                amount,
+                used,
+            } => {
+                let selected = Self::validate_replacement_decision_selection(&decision, selection)?;
+                self.resolve_damage_replacement_decision(
+                    &decision,
+                    source,
+                    source_incarnation,
+                    controller,
+                    original_target,
+                    target,
+                    target_incarnation,
+                    amount,
+                    used,
                     selected,
                 )
             }
@@ -7510,54 +7547,6 @@ impl Game {
             {
                 return Err(RulesError::IllegalAction(
                     "optional trigger choice escaped its no-priority resolution boundary",
-                ));
-            }
-        }
-        if let Some(choice) = &self.pending_damage_replacement_choice {
-            let top = self.stack.last().ok_or(RulesError::IllegalAction(
-                "damage replacement choice escaped its stack spell",
-            ))?;
-            let stack_shape_matches = matches!(
-                top.effects.as_slice(),
-                [Effect::DealDamage { amount, .. }] if *amount > 0
-            );
-            let target_is_current =
-                self.damage_target_incarnation(choice.target)? == choice.target_incarnation;
-            let candidates = self.damage_replacement_candidates(
-                choice.source,
-                choice.target,
-                choice.amount,
-                &choice.used,
-            )?;
-            let used_are_unique = !choice
-                .used
-                .iter()
-                .enumerate()
-                .any(|(index, effect)| choice.used[index + 1..].contains(effect));
-            if top.card != choice.source
-                || top.source_incarnation != choice.source_incarnation
-                || top.controller != choice.controller
-                || top.ability_id.is_some()
-                || top.targets.as_slice() != [choice.original_target]
-                || !stack_shape_matches
-                || !self.stack_target_incarnation_matches(top, 0, choice.original_target)
-                || choice.amount <= 0
-                || !target_is_current
-                || self.affected_player_for_damage_target(choice.target)? != choice.affected_player
-                || candidates.len() < 2
-                || !used_are_unique
-                || self.priority != choice.affected_player
-                || self.consecutive_passes != 0
-                || self.players[choice.affected_player.0].lost
-                || self.pending_draw_replacement.is_some()
-                || self.pending_private_library_choice.is_some()
-                || self.pending_private_opponent_library_exile_choice.is_some()
-                || self.pending_decision.is_some()
-                || !self.pending_trigger_target_choices.is_empty()
-                || self.pending_optional_trigger_choice.is_some()
-            {
-                return Err(RulesError::IllegalAction(
-                    "damage replacement choice escaped its no-priority resolution boundary",
                 ));
             }
         }
@@ -10397,15 +10386,14 @@ impl Game {
         Ok(())
     }
 
-    /// Opens the bounded no-priority damage-replacement boundary. This first
-    /// slice intentionally supports only one targeted direct-damage spell;
-    /// complex multi-instruction and partial-redirection continuations remain
-    /// on the existing deterministic path until they receive their own red
-    /// regression and resumable stack representation.
+    /// Opens one bounded prospective-damage continuation through the shared
+    /// id-bearing replacement decision state. This first slice intentionally
+    /// supports only one targeted direct-damage spell; complex multi-
+    /// instruction and partial-redirection continuations remain explicit.
     fn suspend_top_stack_item_for_damage_replacement_choice(&mut self) -> Result<bool, RulesError> {
-        if self.pending_damage_replacement_choice.is_some() {
+        if self.pending_decision.is_some() {
             return Err(RulesError::IllegalAction(
-                "a second damage replacement choice attempted to open during resolution",
+                "a second typed decision attempted to open during damage replacement resolution",
             ));
         }
         let Some(top) = self.stack.last() else {
@@ -10447,7 +10435,7 @@ impl Game {
             return Ok(false);
         }
         let affected_player = self.affected_player_for_damage_target(target)?;
-        self.pending_damage_replacement_choice = Some(PendingDamageReplacementChoice {
+        self.open_damage_replacement_decision(PendingDamageReplacementChoice {
             source,
             source_incarnation,
             controller,
@@ -10457,10 +10445,47 @@ impl Game {
             target_incarnation: self.damage_target_incarnation(target)?,
             amount,
             used: Vec::new(),
-        });
-        self.priority = affected_player;
-        self.consecutive_passes = 0;
+        })?;
         Ok(true)
+    }
+
+    fn open_damage_replacement_decision(
+        &mut self,
+        pending: PendingDamageReplacementChoice,
+    ) -> Result<(), RulesError> {
+        let choices = self.damage_replacement_candidates(
+            pending.source,
+            pending.target,
+            pending.amount,
+            &pending.used,
+        )?;
+        if choices.len() < 2 {
+            return Err(RulesError::IllegalAction(
+                "damage replacement decision requires concurrent choices",
+            ));
+        }
+        self.open_pending_decision(
+            pending.affected_player,
+            DecisionVisibility::Public,
+            DecisionKind::Replacement,
+            1,
+            1,
+            choices
+                .into_iter()
+                .map(|choice| DecisionOption::Replacement(ReplacementChoice::Damage(choice)))
+                .collect(),
+            DecisionContinuation::DamageReplacement {
+                source: pending.source,
+                source_incarnation: pending.source_incarnation,
+                controller: pending.controller,
+                original_target: pending.original_target,
+                target: pending.target,
+                target_incarnation: pending.target_incarnation,
+                amount: pending.amount,
+                used: pending.used,
+            },
+        )?;
+        Ok(())
     }
 
     /// Opens the generic no-priority target-selection boundary for a resolving
@@ -11574,9 +11599,10 @@ impl Game {
         })
     }
 
-    /// Resolves one affected-player replacement choice. The selected effect is
-    /// applied exactly once, then applicability is recomputed against the
-    /// transformed prospective event before damage is committed.
+    /// Compatibility shim for policies that still submit the pre-unification
+    /// damage action. The identity fields are checked against the active
+    /// generic continuation, then the action dispatches through its monotonic
+    /// `DecisionId` just like every other replacement selection.
     fn choose_damage_replacement(
         &mut self,
         player: PlayerId,
@@ -11585,54 +11611,100 @@ impl Game {
         target: Target,
         replacement: DamageReplacementChoice,
     ) -> Result<(), RulesError> {
-        self.atomic_transition(|game| {
-            let mut pending =
-                game.pending_damage_replacement_choice
-                    .take()
-                    .ok_or(RulesError::IllegalAction(
-                        "no prospective damage event is awaiting replacement selection",
-                    ))?;
-            if player != pending.affected_player
-                || source != pending.source
-                || source_incarnation != pending.source_incarnation
-                || target != pending.target
-            {
-                return Err(RulesError::IllegalAction(
-                    "submitted damage replacement identity does not match the pending event",
-                ));
-            }
-            if pending.target_incarnation != game.damage_target_incarnation(pending.target)? {
-                return Err(RulesError::IllegalAction(
-                    "prospective damage target changed incarnation before replacement selection",
-                ));
-            }
-            let candidates = game.damage_replacement_candidates(
-                pending.source,
-                pending.target,
-                pending.amount,
-                &pending.used,
-            )?;
-            if candidates.len() < 2 || !candidates.contains(&replacement) {
-                return Err(RulesError::IllegalAction(
-                    "submitted damage replacement is not one of the live choice options",
-                ));
-            }
-            game.apply_damage_replacement(&mut pending, replacement)?;
-            let original_target = pending.original_target;
-            match game.advance_damage_replacement_pipeline(pending)? {
-                Some(next) => {
-                    game.priority = next.affected_player;
-                    game.consecutive_passes = 0;
-                    game.pending_damage_replacement_choice = Some(next);
-                }
-                None => game.finish_suspended_damage_replacement_spell(
-                    source,
-                    source_incarnation,
-                    original_target,
-                )?,
-            }
-            Ok(())
-        })
+        let decision = self
+            .pending_decision
+            .as_ref()
+            .ok_or(RulesError::IllegalAction(
+                "no prospective damage event is awaiting replacement selection",
+            ))?;
+        let matches_legacy_identity = matches!(
+            decision.continuation,
+            DecisionContinuation::DamageReplacement {
+                source: pending_source,
+                source_incarnation: pending_incarnation,
+                target: pending_target,
+                ..
+            } if decision.player == player
+                && pending_source == source
+                && pending_incarnation == source_incarnation
+                && pending_target == target
+        );
+        if !matches_legacy_identity {
+            return Err(RulesError::IllegalAction(
+                "submitted damage replacement identity does not match the pending event",
+            ));
+        }
+        self.submit_decision(
+            player,
+            decision.id,
+            DecisionSelection::Replacements(vec![ReplacementChoice::Damage(replacement)]),
+        )
+    }
+
+    #[allow(clippy::too_many_arguments)] // The continuation intentionally stores every prospective-event fact.
+    fn resolve_damage_replacement_decision(
+        &mut self,
+        decision: &PendingDecision,
+        source: ObjectId,
+        source_incarnation: u64,
+        controller: PlayerId,
+        original_target: Target,
+        target: Target,
+        target_incarnation: Option<u64>,
+        amount: i32,
+        used: Vec<DamageReplacementChoice>,
+        selected: ReplacementChoice,
+    ) -> Result<(), RulesError> {
+        let ReplacementChoice::Damage(replacement) = selected else {
+            return Err(RulesError::IllegalAction(
+                "damage replacement decision selected a quantity replacement identity",
+            ));
+        };
+        let candidates = self.damage_replacement_candidates(source, target, amount, &used)?;
+        let expected_options = candidates
+            .iter()
+            .copied()
+            .map(|choice| DecisionOption::Replacement(ReplacementChoice::Damage(choice)))
+            .collect::<Vec<_>>();
+        if decision.kind != DecisionKind::Replacement
+            || decision.visibility != DecisionVisibility::Public
+            || decision.player != self.affected_player_for_damage_target(target)?
+            || target_incarnation != self.damage_target_incarnation(target)?
+            || candidates.len() < 2
+            || decision.options != expected_options
+        {
+            return Err(RulesError::IllegalAction(
+                "damage replacement decision no longer matches its prospective event",
+            ));
+        }
+        let mut pending = PendingDamageReplacementChoice {
+            source,
+            source_incarnation,
+            controller,
+            affected_player: decision.player,
+            original_target,
+            target,
+            target_incarnation,
+            amount,
+            used,
+        };
+        self.apply_damage_replacement(&mut pending, replacement)?;
+        if let Some(next) = self.advance_damage_replacement_pipeline(pending)? {
+            // A subsequent concurrent choice needs a fresh monotonic id, so
+            // close the selected decision before opening the next one.
+            self.complete_pending_decision(decision)?;
+            self.open_damage_replacement_decision(next)
+        } else {
+            // Preserve the causal adjacency of the damage replacement and its
+            // resulting prevent/redirect/commit receipts. The generic decision
+            // still closes before the suspended spell lifecycle.
+            self.complete_pending_decision(decision)?;
+            self.finish_suspended_damage_replacement_spell(
+                source,
+                source_incarnation,
+                original_target,
+            )
+        }
     }
 
     /// Finishes the one-effect instant/sorcery retained by the bounded
@@ -18126,11 +18198,6 @@ impl Game {
                 "optional trigger payment must resolve before priority actions",
             ));
         }
-        if self.pending_damage_replacement_choice.is_some() {
-            return Err(RulesError::IllegalAction(
-                "damage replacement choice must resolve before priority actions",
-            ));
-        }
         if self.players[player.0].lost {
             return Err(RulesError::IllegalAction("an eliminated player cannot act"));
         }
@@ -18245,9 +18312,6 @@ impl Game {
         }
         if let Some(choice) = &self.pending_optional_trigger_choice {
             return choice.controller;
-        }
-        if let Some(choice) = &self.pending_damage_replacement_choice {
-            return choice.affected_player;
         }
         match (&self.combat, self.step) {
             (Some(combat), Step::DeclareAttackers)
@@ -18390,7 +18454,6 @@ impl Game {
             || self.pending_private_opponent_library_exile_choice.is_some()
             || !self.pending_trigger_target_choices.is_empty()
             || self.pending_optional_trigger_choice.is_some()
-            || self.pending_damage_replacement_choice.is_some()
             || decision
                 .options
                 .iter()
@@ -18828,6 +18891,57 @@ impl Game {
                 {
                     return Err(RulesError::IllegalAction(
                         "quantity replacement decision violates its prospective-event boundary",
+                    ));
+                }
+            }
+            DecisionContinuation::DamageReplacement {
+                source,
+                source_incarnation,
+                controller,
+                original_target,
+                target,
+                target_incarnation,
+                amount,
+                used,
+            } => {
+                let top = self.stack.last().ok_or(RulesError::IllegalAction(
+                    "damage replacement decision escaped its stack spell",
+                ))?;
+                let choices =
+                    self.damage_replacement_candidates(*source, *target, *amount, used)?;
+                let expected_options = choices
+                    .iter()
+                    .copied()
+                    .map(|choice| DecisionOption::Replacement(ReplacementChoice::Damage(choice)))
+                    .collect::<Vec<_>>();
+                let used_are_unique = !used
+                    .iter()
+                    .enumerate()
+                    .any(|(index, choice)| used[index + 1..].contains(choice));
+                let stack_shape_matches = matches!(
+                    top.effects.as_slice(),
+                    [Effect::DealDamage { amount: stack_amount, .. }] if *stack_amount > 0
+                );
+                if decision.kind != DecisionKind::Replacement
+                    || decision.visibility != DecisionVisibility::Public
+                    || top.card != *source
+                    || top.source_incarnation != *source_incarnation
+                    || top.controller != *controller
+                    || top.ability_id.is_some()
+                    || top.targets.as_slice() != [*original_target]
+                    || !stack_shape_matches
+                    || !self.stack_target_incarnation_matches(top, 0, *original_target)
+                    || *amount <= 0
+                    || *target_incarnation != self.damage_target_incarnation(*target)?
+                    || self.affected_player_for_damage_target(*target)? != decision.player
+                    || !used_are_unique
+                    || choices.len() < 2
+                    || decision.options != expected_options
+                    || decision.min_selections != 1
+                    || decision.max_selections != 1
+                {
+                    return Err(RulesError::IllegalAction(
+                        "damage replacement decision violates its prospective-event boundary",
                     ));
                 }
             }

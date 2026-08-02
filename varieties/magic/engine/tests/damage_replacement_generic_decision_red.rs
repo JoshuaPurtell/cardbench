@@ -45,6 +45,7 @@ fn pass_pair(game: &mut Game) {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // The fixture and its public replacement trace are intentionally co-located.
 fn damage_prevention_and_redirection_use_the_generic_replacement_decision() {
     let caster = PlayerId(0);
     let opponent = PlayerId(1);
@@ -169,7 +170,10 @@ fn damage_prevention_and_redirection_use_the_generic_replacement_decision() {
     )
     .expect("affected player selects the redirection through the generic action");
 
-    eprintln!("generic damage replacement trace: {:?}", game.canonical_event_log());
+    eprintln!(
+        "generic damage replacement trace: {:?}",
+        game.canonical_event_log()
+    );
     assert_eq!(game.player(opponent).expect("opponent").life, 18);
     assert!(game.event_log.iter().any(|event| matches!(
         event,
