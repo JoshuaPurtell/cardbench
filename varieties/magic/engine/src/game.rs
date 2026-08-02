@@ -29019,6 +29019,28 @@ impl Game {
             })
     }
 
+    /// Revokes object-keyed cast permissions before CR 800.4a removes the
+    /// physical object itself. Normal zone movement clears these maps as part
+    /// of an incarnation transition; owner departure has no destination zone,
+    /// so it needs this explicit lifecycle boundary instead.
+    fn revoke_cast_permissions_for_departing_object(&mut self, card: ObjectId) {
+        if self.graveyard_cast_permissions.remove(&card).is_some() {
+            self.record_event(GameEvent::GraveyardCastPermissionExpired { card });
+        }
+        if let Some(permission) = self.effect_created_cast_permissions.remove(&card) {
+            self.record_event(GameEvent::CastPermissionExpired {
+                card,
+                from: match permission.zone {
+                    CastPermissionZone::Graveyard => Zone::Graveyard,
+                    CastPermissionZone::Exile => Zone::Exile,
+                    CastPermissionZone::Library => Zone::Library,
+                },
+            });
+        }
+        self.spell_timing_exceptions.remove(&card);
+        self.exile_on_resolution.remove(&card);
+    }
+
     fn effect_is_active(&self, effect: &ContinuousEffect) -> bool {
         if !self.object_has_incarnation(effect.target, effect.target_incarnation) {
             return false;
@@ -29112,6 +29134,7 @@ impl Game {
             if let Some(definition) = definition {
                 self.departed_card_definitions.insert(object, definition);
             }
+            self.revoke_cast_permissions_for_departing_object(object);
             if self.zone_of(object) == Some(Zone::Battlefield) {
                 // CR 800.4a removes owned objects directly instead of giving
                 // them an ordinary destination zone.  They still leave any
