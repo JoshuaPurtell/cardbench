@@ -11,6 +11,7 @@ use cardbench_magic_rav::{
 };
 
 #[test]
+#[allow(clippy::too_many_lines)] // Private search, reveal, entry, and shuffle form one transcript.
 fn farseek_requires_a_private_controller_selected_nonforest_land_search() {
     let definition = card_definitions()
         .into_iter()

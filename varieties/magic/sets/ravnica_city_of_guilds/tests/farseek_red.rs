@@ -100,6 +100,7 @@ fn farseek_returns_only_a_controller_owned_nonforest_typed_land_tapped() {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // Spell, land entry, and delayed trigger ordering form one transcript.
 fn farseek_land_entry_waits_for_its_spell_to_finish_before_triggering() {
     let mut game = Game::new_with_all_bindings_triggers_static_continuous_effects_and_land_entries(
         card_definitions(),

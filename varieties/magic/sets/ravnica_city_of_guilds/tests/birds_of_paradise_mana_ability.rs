@@ -159,6 +159,7 @@ fn birds_direct_mana_ability_accepts_each_explicit_color_and_rejects_summoning_s
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // Cast payment and intrinsic-mana event ordering are one transcript.
 fn birds_cast_payment_keeps_receipts_ordered_and_resolves_only_the_spell_on_the_stack() {
     let mut game = rav_game();
     let birds = game

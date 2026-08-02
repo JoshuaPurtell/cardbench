@@ -567,6 +567,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // The complete public scenario receipt matrix is intentionally atomic.
 fn full_fidelity_card_scenarios_emit_their_complete_effect_receipts() {
     let results = run_all_scenarios().expect("public RAV scenarios run");
     let scenarios: &[(&str, &[&str])] = &[

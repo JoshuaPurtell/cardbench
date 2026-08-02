@@ -47,7 +47,7 @@ fn overgrown_tomb_requires_its_exact_dual_land_entry_and_mana_contract() {
     );
     assert!(rav_land_entry_bindings().iter().any(|binding| {
         binding.card_definition == definition.id
-            && binding.enters_tapped == false
+            && !binding.enters_tapped
             && binding.optional_life_payment == Some(2)
     }));
     assert!(rav_mana_ability_bindings().iter().any(|binding| {

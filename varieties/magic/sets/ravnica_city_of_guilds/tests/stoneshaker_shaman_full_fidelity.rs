@@ -73,6 +73,7 @@ fn advance_to_end_step(game: &mut Game, player: PlayerId) {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // Sequential captured end-step choices form one transcript.
 fn stoneshaker_shaman_captures_each_end_step_player_and_offers_only_untapped_lands() {
     let mut game = game();
     let shaman = game

@@ -62,6 +62,7 @@ fn advance_without_attackers_until(game: &mut Game, target_turn: u32, target_pla
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // Turn-local spell-slot and countering branches form one transcript.
 fn first_noncreature_spell_is_countered_once_per_player_per_turn() {
     let mut game = game_with_rav_triggers();
     let gargoyle = game

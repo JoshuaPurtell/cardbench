@@ -34,6 +34,7 @@ fn pay_green(game: &mut Game) -> ObjectId {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // Target rejection, destruction, and counter provenance form one transcript.
 fn trophy_hunter_requires_flying_destruction_then_source_counter() {
     let definition = card_definitions()
         .into_iter()

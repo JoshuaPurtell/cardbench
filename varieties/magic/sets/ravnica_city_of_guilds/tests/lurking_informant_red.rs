@@ -92,6 +92,7 @@ fn pass_pair(game: &mut Game) {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // Private snapshot, opponent pass, and mill decisions form one transcript.
 fn lurking_informant_keeps_a_private_exact_top_snapshot_until_its_controller_mills() {
     let mut game = game();
     let informant = game

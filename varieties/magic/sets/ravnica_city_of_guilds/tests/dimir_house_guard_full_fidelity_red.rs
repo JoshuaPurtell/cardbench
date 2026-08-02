@@ -21,6 +21,7 @@ fn game_with_rav_bindings() -> Game {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // Regeneration activation and damage replacement form one transcript.
 fn dimir_house_guard_sacrifices_a_controlled_creature_for_a_regeneration_shield() {
     let definition = card_definitions()
         .into_iter()

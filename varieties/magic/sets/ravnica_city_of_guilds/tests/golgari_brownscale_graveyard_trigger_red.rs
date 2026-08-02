@@ -1,6 +1,6 @@
 //! Red-to-green full-fidelity contract for Golgari Brownscale.
 //!
-//! This uses only CardBench semantic operations: a Dredge replacement moves
+//! This uses only `CardBench` semantic operations: a Dredge replacement moves
 //! the source from its graveyard to hand, then a source-bound trigger gains
 //! its controller life after the replacement has completed.
 

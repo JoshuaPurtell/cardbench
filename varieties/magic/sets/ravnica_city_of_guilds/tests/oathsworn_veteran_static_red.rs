@@ -24,6 +24,7 @@ fn game_with_static_bindings() -> Game {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // Two static source lifecycles are checked as one layer transcript.
 fn oathsworn_giant_and_veteran_armorer_require_complete_other_creature_static_effects() {
     let definitions = card_definitions();
     let oathsworn = definitions

@@ -29,6 +29,7 @@ fn resolve_top(game: &mut Game) {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // Nontoken, token, and opponent-death branches form one transcript.
 fn controlled_nontoken_death_creates_one_saproling_but_token_and_opponent_deaths_do_not() {
     let mut game = game_with_rav_bindings();
     let germination = game

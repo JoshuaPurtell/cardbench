@@ -39,6 +39,7 @@ fn advance_to_precombat_main(game: &mut Game) {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // Target choice, trigger stack, and bounce receipts are one transcript.
 fn drake_familiar_returns_only_a_legal_enchantment_through_the_trigger_stack() {
     let mut game = game();
     let drake = game
