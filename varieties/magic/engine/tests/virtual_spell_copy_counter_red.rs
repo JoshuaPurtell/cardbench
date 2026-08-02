@@ -6,8 +6,8 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardDefinition, CardType, CastRequest, Color, Effect, Game, ManaCost, PlayerId, Target,
-    TargetRequirement, Zone,
+    CardDefinition, CardType, CastRequest, Color, Effect, Game, GameEvent, ManaCost, PlayerId,
+    Target, TargetRequirement, Zone,
 };
 
 const PING: &str = "TST-VIRTUAL-COUNTER-PING";
@@ -94,7 +94,7 @@ fn counterspell_can_counter_a_virtual_spell_copy_without_a_zone_move() {
         .iter()
         .rev()
         .find_map(|event| match event {
-            cardbench_magic_engine::GameEvent::SpellCopied { copy, .. } => Some(*copy),
+            GameEvent::SpellCopied { copy, .. } => Some(*copy),
             _ => None,
         })
         .expect("copy receipt identifies the virtual stack spell");
@@ -107,9 +107,21 @@ fn counterspell_can_counter_a_virtual_spell_copy_without_a_zone_move() {
     .expect("counter may target a virtual spell copy");
     resolve_top(&mut game);
 
-    assert_eq!(game.zone_of(virtual_copy), None, "countered copy stays zoneless");
+    assert_eq!(
+        game.zone_of(virtual_copy),
+        None,
+        "countered copy stays zoneless"
+    );
     assert_eq!(game.zone_of(counter), Some(Zone::Graveyard));
     assert_eq!(game.stack.len(), 1, "only the physical original remains");
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::SpellCopyCountered {
+            copy,
+            original,
+            source,
+        } if *copy == virtual_copy && *original == ping && *source == counter
+    )));
     game.validate_invariants()
         .expect("copy countering has an auditable terminal lifecycle");
 }

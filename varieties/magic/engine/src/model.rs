@@ -4148,6 +4148,14 @@ pub enum GameEvent {
         copy: ObjectId,
         original: ObjectId,
     },
+    /// A resolving spell or ability countered a virtual copy. The copy has no
+    /// card-zone terminal move, so this remains distinct from
+    /// [`Self::SpellCountered`] and carries its immutable original provenance.
+    SpellCopyCountered {
+        copy: ObjectId,
+        original: ObjectId,
+        source: ObjectId,
+    },
     /// A player left a continuing multiplayer game while controlling this
     /// stack-only spell copy. Copies have no owner-zone transition, so this
     /// distinct terminal receipt prevents the departed controller from being

@@ -9874,9 +9874,9 @@ impl Game {
                 }
                 if let Target::Spell(card) = target {
                     let target_definition = self
-                        .object(*card)
+                        .card_definition(*card)
                         .ok()
-                        .and_then(CardObject::effective_definition)
+                        .map(|definition| definition.id)
                         .or_else(|| self.departed_card_definitions.get(card).copied())
                         .and_then(|definition| self.catalog.get(definition));
                     let target_type_matches =
@@ -11989,17 +11989,7 @@ impl Game {
                                     ))?;
                                 if !paid {
                                     let target = Self::target_spell(Some(target))?;
-                                    let position = self
-                                        .stack
-                                        .iter()
-                                        .position(|candidate| candidate.card == target)
-                                        .ok_or(RulesError::IllegalTarget(Target::Spell(target)))?;
-                                    self.stack.remove(position);
-                                    self.record_event(GameEvent::SpellCountered {
-                                        card: target,
-                                        source: stack_object.card,
-                                    });
-                                    self.move_to_spell_terminal_zone(target)?;
+                                    self.counter_target_spell(stack_object.card, target)?;
                                 }
                                 continue;
                             }
@@ -16806,35 +16796,9 @@ impl Game {
                     self.destroy_permanent(source, creature)?;
                 }
             }
-            Effect::CounterTargetInstantOrSorcerySpell => {
+            Effect::CounterTargetInstantOrSorcerySpell | Effect::CounterTargetSpell => {
                 let target = Self::target_spell(target)?;
-                let position = self
-                    .stack
-                    .iter()
-                    .position(|stack_object| stack_object.card == target)
-                    .ok_or(RulesError::IllegalTarget(Target::Spell(target)))?;
-                self.stack.remove(position);
-                self.record_event(GameEvent::SpellCountered {
-                    card: target,
-                    source,
-                });
-                self.move_to_spell_terminal_zone(target)?;
-            }
-            Effect::CounterTargetSpell => {
-                let target = Self::target_spell(target)?;
-                let position = self
-                    .stack
-                    .iter()
-                    .position(|stack_object| {
-                        stack_object.card == target && stack_object.ability_id.is_none()
-                    })
-                    .ok_or(RulesError::IllegalTarget(Target::Spell(target)))?;
-                self.stack.remove(position);
-                self.record_event(GameEvent::SpellCountered {
-                    card: target,
-                    source,
-                });
-                self.move_to_spell_terminal_zone(target)?;
+                self.counter_target_spell(source, target)?;
             }
             Effect::CounterTargetPhysicalSpellThenMillItsControllerByManaValueIfManaColorSpent {
                 color,
@@ -16912,17 +16876,7 @@ impl Game {
                     });
                     self.move_to_graveyard_or_remove_token(permanent)?;
                 } else {
-                    let position = self
-                        .stack
-                        .iter()
-                        .position(|stack_object| stack_object.card == target)
-                        .ok_or(RulesError::IllegalTarget(Target::Spell(target)))?;
-                    self.stack.remove(position);
-                    self.record_event(GameEvent::SpellCountered {
-                        card: target,
-                        source,
-                    });
-                    self.move_to_spell_terminal_zone(target)?;
+                    self.counter_target_spell(source, target)?;
                 }
             }
             Effect::GrantGraveyardCastPermissionUntilEndOfTurn => {
@@ -18310,6 +18264,43 @@ impl Game {
                     "battlefield departure lacks controller provenance",
                 ))?,
             );
+        }
+        Ok(())
+    }
+
+    /// Counters one lower non-ability spell from the stack. A virtual spell
+    /// copy has no card object or zone membership, so its terminal lifecycle
+    /// is recorded separately instead of delegating to a zone transition.
+    fn counter_target_spell(
+        &mut self,
+        source: ObjectId,
+        target: ObjectId,
+    ) -> Result<(), RulesError> {
+        if source == target {
+            return Err(RulesError::IllegalAction(
+                "a resolving spell cannot counter itself",
+            ));
+        }
+        let position = self
+            .stack
+            .iter()
+            .position(|stack_object| {
+                stack_object.card == target && stack_object.ability_id.is_none()
+            })
+            .ok_or(RulesError::IllegalTarget(Target::Spell(target)))?;
+        self.stack.remove(position);
+        if let Some(copy) = self.virtual_spell_copies.remove(&target) {
+            self.record_event(GameEvent::SpellCopyCountered {
+                copy: target,
+                original: copy.original,
+                source,
+            });
+        } else {
+            self.record_event(GameEvent::SpellCountered {
+                card: target,
+                source,
+            });
+            self.move_to_spell_terminal_zone(target)?;
         }
         Ok(())
     }
@@ -20497,6 +20488,23 @@ impl Game {
                     if *expected_original != *original || *terminated {
                         return Err(RulesError::IllegalAction(
                             "spell-copy terminal receipt conflicts with copy provenance",
+                        ));
+                    }
+                    *terminated = true;
+                }
+                GameEvent::SpellCopyCountered {
+                    copy,
+                    original,
+                    source,
+                } => {
+                    let Some((expected_original, _, terminated)) = copies.get_mut(copy) else {
+                        return Err(RulesError::IllegalAction(
+                            "effect-countered spell-copy receipt lacks a copy receipt",
+                        ));
+                    };
+                    if *expected_original != *original || *source == *copy || *terminated {
+                        return Err(RulesError::IllegalAction(
+                            "effect-countered spell-copy receipt conflicts with copy provenance",
                         ));
                     }
                     *terminated = true;
