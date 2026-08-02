@@ -136,7 +136,12 @@ fn rav_shock_lands_pay_two_life_to_enter_untapped_or_decline_and_enter_tapped() 
             .play_land_with_entry_life_payment(PlayerId(0), declined_land, false)
             .unwrap_or_else(|_| panic!("controller declines {} entry payment", land.name));
         assert_eq!(declined_game.player(PlayerId(0)).expect("player").life, 20);
-        assert!(declined_game.object(declined_land).expect("land persists").tapped);
+        assert!(
+            declined_game
+                .object(declined_land)
+                .expect("land persists")
+                .tapped
+        );
         assert!(!declined_game.event_log.iter().any(|event| matches!(
             event,
             GameEvent::LandEntryLifePaid { card, .. } if *card == declined_land

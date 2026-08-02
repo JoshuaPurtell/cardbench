@@ -42,7 +42,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 188] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 190] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
@@ -70,6 +70,9 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 188] = [
     "RAV-WATCHWOLF",
     "RAV-GLASS-GOLEM",
     "RAV-OVERGROWN-TOMB",
+    "RAV-SACRED-FOUNDRY",
+    "RAV-TEMPLE-GARDEN",
+    "RAV-WATERY-GRAVE",
     "RAV-JUNKTROLLER",
     "RAV-LEASHLING",
     "RAV-CROWN-OF-CONVERGENCE",
@@ -5505,6 +5508,21 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
+        shock_land_definition(
+            "RAV-SACRED-FOUNDRY",
+            "Sacred Foundry",
+            [Color::White, Color::Red],
+        ),
+        shock_land_definition(
+            "RAV-TEMPLE-GARDEN",
+            "Temple Garden",
+            [Color::Green, Color::White],
+        ),
+        shock_land_definition(
+            "RAV-WATERY-GRAVE",
+            "Watery Grave",
+            [Color::Blue, Color::Black],
+        ),
         // Full fidelity: the land has its colorless mana ability and its
         // stack-backed, targeted Double Strike grant. Both use the shared
         // mana and continuous-effect substrates.
@@ -5654,6 +5672,21 @@ pub fn rav_mana_ability_bindings() -> Vec<ManaAbilityBinding> {
                 controller_damage: None,
             },
         },
+        shock_land_mana_binding(
+            "RAV-SACRED-FOUNDRY",
+            "produce-white-or-red",
+            [Color::White, Color::Red],
+        ),
+        shock_land_mana_binding(
+            "RAV-TEMPLE-GARDEN",
+            "produce-green-or-white",
+            [Color::Green, Color::White],
+        ),
+        shock_land_mana_binding(
+            "RAV-WATERY-GRAVE",
+            "produce-blue-or-black",
+            [Color::Blue, Color::Black],
+        ),
         signet_binding(
             "RAV-BOROS-SIGNET",
             "boros-signet-wr",
@@ -5730,6 +5763,19 @@ pub fn rav_land_entry_bindings() -> Vec<LandEntryBinding> {
         enters_tapped: false,
         optional_life_payment: Some(2),
     }))
+    .chain(
+        [
+            "RAV-SACRED-FOUNDRY",
+            "RAV-TEMPLE-GARDEN",
+            "RAV-WATERY-GRAVE",
+        ]
+        .into_iter()
+        .map(|card_definition| LandEntryBinding {
+            card_definition,
+            enters_tapped: false,
+            optional_life_payment: Some(2),
+        }),
+    )
     .collect()
 }
 
@@ -7784,6 +7830,24 @@ fn signet_binding(
     }
 }
 
+fn shock_land_mana_binding(
+    card_definition: &'static str,
+    id: &'static str,
+    mana_colors: [Color; 2],
+) -> ManaAbilityBinding {
+    ManaAbilityBinding {
+        card_definition,
+        ability: ActivatedManaAbility {
+            id,
+            tap_cost: true,
+            output: ManaAbilityOutput::Choice(colors(mana_colors)),
+            amount: 1,
+            life_payment: None,
+            controller_damage: None,
+        },
+    }
+}
+
 fn guild_bounce_land_binding(
     card_definition: &'static str,
     id: &'static str,
@@ -8489,6 +8553,35 @@ fn guild_bounce_land(id: &'static str, name: &'static str) -> CardDefinition {
             "etb-return-controlled-land",
             "free-two-color-mana-bundle",
             "deterministic-etb-target-selection",
+        ],
+        power: None,
+        toughness: None,
+        keywords: vec![],
+        effects: vec![],
+    }
+}
+
+/// CardBench-authored full-fidelity definition for a RAV typed dual shock
+/// land. Its explicit life-payment entry replacement and color-choice mana
+/// ability are provided by the shared, auditable bindings.
+fn shock_land_definition(
+    id: &'static str,
+    name: &'static str,
+    mana_colors: [Color; 2],
+) -> CardDefinition {
+    CardDefinition {
+        id,
+        name,
+        set_code: SET_CODE,
+        mana_cost: ManaCost::new(0),
+        colors: BTreeSet::new(),
+        mana_colors: BTreeSet::from(mana_colors),
+        card_types: types([CardType::Land]),
+        is_basic_land: false,
+        supported_rules: &[
+            "full-rules-fidelity",
+            "optional-two-life-untapped-entry",
+            "chosen-dual-color-mana-ability",
         ],
         power: None,
         toughness: None,
