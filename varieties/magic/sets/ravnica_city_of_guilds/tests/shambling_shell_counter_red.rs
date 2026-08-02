@@ -1,7 +1,8 @@
 //! Red discovery regression for Shambling Shell's source-sacrifice counter.
 
 use cardbench_magic_engine::{
-    AbilityActivation, Effect, Game, GameEvent, PlayerId, Target, TargetRequirement, Zone,
+    AbilityActivation, CounterKind, Effect, Game, GameEvent, PlayerId, Target, TargetRequirement,
+    Zone,
 };
 use cardbench_magic_rav::{
     card_definitions, rav_activated_ability_bindings, rav_additional_spell_cost_bindings,
@@ -61,7 +62,13 @@ fn shambling_shell_requires_source_sacrifice_target_counter_activation() {
     game.pass_priority(second)
         .expect("second priority pass resolves");
     println!("shambling_shell_event_log={:?}", game.canonical_event_log());
-    assert_eq!(game.object(target).unwrap().counters.get("+1/+1"), Some(&1));
+    assert_eq!(
+        game.object(target)
+            .unwrap()
+            .counters
+            .get(&CounterKind::PlusOnePlusOne),
+        Some(&1)
+    );
     assert_eq!(
         (
             game.characteristics(target).unwrap().power,
@@ -71,7 +78,12 @@ fn shambling_shell_requires_source_sacrifice_target_counter_activation() {
     );
     assert!(game.event_log.iter().any(|event| matches!(
         event,
-        GameEvent::CounterPlaced { source, card, counter: "+1/+1", amount: 1 }
+        GameEvent::CounterPlaced {
+            source,
+            card,
+            counter: CounterKind::PlusOnePlusOne,
+            amount: 1,
+        }
             if *source == shell && *card == target
     )));
     game.validate_invariants()

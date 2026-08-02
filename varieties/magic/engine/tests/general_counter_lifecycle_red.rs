@@ -10,7 +10,7 @@ use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
     AbilityActivation, ActivatedAbility, ActivatedAbilityBinding, CardDefinition, CardType,
-    Effect, Game, GameEvent, ManaCost, PlayerId,
+    CounterKind, Effect, Game, GameEvent, ManaCost, PlayerId,
 };
 
 const COUNTER_ENGINE: &str = "TST-COUNTER-ENGINE";
@@ -94,13 +94,18 @@ fn a_battlefield_artifact_can_receive_persistent_counter_state() {
         game.object(artifact)
             .expect("artifact remains live")
             .counters
-            .get("+1/+1"),
+            .get(&CounterKind::PlusOnePlusOne),
         Some(&1),
         "a battlefield permanent counter must not depend on creature type",
     );
     assert!(game.event_log.iter().any(|event| matches!(
         event,
-        GameEvent::CounterPlaced { card, counter: "+1/+1", amount: 1, .. }
+        GameEvent::CounterPlaced {
+            card,
+            counter: CounterKind::PlusOnePlusOne,
+            amount: 1,
+            ..
+        }
             if *card == artifact
     )));
     game.validate_invariants()

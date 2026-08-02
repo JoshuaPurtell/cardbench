@@ -6,14 +6,14 @@ use crate::{
     AbilityActivation, ActivatedAbility, ActivatedAbilityBinding, ActivatedManaAbility,
     AdditionalSpellCost, AdditionalSpellCostBinding, BasicLandType, BasicLandTypeBinding,
     CardDefinition, CardObject, CardType, CastPaymentManaAbility, Characteristics, Color,
-    CombatBlock, ContinuousChange, ContinuousEffect, CostReductionBinding, CreatureSubtype,
-    DeckList, Duration, Effect, GameEvent, Keyword, LandEntryBinding, LibrarySearchDestination,
-    LibrarySearchRequirement, LibrarySearchSelection, ManaAbilityActivation, ManaAbilityBinding,
-    ManaAbilityOutput, ManaCost, ManaPaymentSelection, ObjectId, PlayerId, PlayerState,
-    PolicyMoveKind, ReplacementEffect, ReplacementEffectBinding, ReplacementEventKind,
-    StackEffectResolution, StackObject, StackResolutionPlan, StaticAttackRestriction,
-    StaticAttackRestrictionBinding, StaticContinuousEffectBinding, Step, Target, TargetRequirement,
-    TokenSpec, TriggerCondition, TriggeredAbilityBinding, Zone,
+    CombatBlock, ContinuousChange, ContinuousEffect, CostReductionBinding, CounterKind,
+    CreatureSubtype, DeckList, Duration, Effect, GameEvent, Keyword, LandEntryBinding,
+    LibrarySearchDestination, LibrarySearchRequirement, LibrarySearchSelection,
+    ManaAbilityActivation, ManaAbilityBinding, ManaAbilityOutput, ManaCost, ManaPaymentSelection,
+    ObjectId, PlayerId, PlayerState, PolicyMoveKind, ReplacementEffect, ReplacementEffectBinding,
+    ReplacementEventKind, StackEffectResolution, StackObject, StackResolutionPlan,
+    StaticAttackRestriction, StaticAttackRestrictionBinding, StaticContinuousEffectBinding, Step,
+    Target, TargetRequirement, TokenSpec, TriggerCondition, TriggeredAbilityBinding, Zone,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -2574,17 +2574,25 @@ impl Game {
                 }
             }
         }
-        // The represented +1/+1 counters are layer-seven characteristic
-        // modifiers. They apply after base values and timestamped continuous
-        // changes, and they exist only while their object remains on the
-        // battlefield.
-        let plus_one = object.counters.get("+1/+1").copied().unwrap_or_default();
+        // Only the two P/T counter kinds modify characteristics. Every other
+        // typed named counter is still real permanent state, but it carries
+        // no implicit characteristic rule in this bounded substrate.
+        let plus_one = object
+            .counters
+            .get(&CounterKind::PlusOnePlusOne)
+            .copied()
+            .unwrap_or_default();
+        let minus_one = object
+            .counters
+            .get(&CounterKind::MinusOneMinusOne)
+            .copied()
+            .unwrap_or_default();
         characteristics.power = characteristics
             .power
-            .map(|power| power + i32::from(plus_one));
+            .map(|power| power + i32::from(plus_one) - i32::from(minus_one));
         characteristics.toughness = characteristics
             .toughness
-            .map(|toughness| toughness + i32::from(plus_one));
+            .map(|toughness| toughness + i32::from(plus_one) - i32::from(minus_one));
         Ok(characteristics)
     }
 
@@ -4515,7 +4523,8 @@ impl Game {
         Self::validate_effect_discard_event_order(&self.event_log)?;
         Self::validate_effect_sacrifice_event_order(&self.event_log)?;
         self.validate_ability_additional_tap_cost_event_order()?;
-        Self::validate_counter_placement_events(&self.event_log)?;
+        Self::validate_counter_lifecycle_events(&self.event_log)?;
+        self.validate_counter_removal_receipt_accounting()?;
         self.validate_replacement_effect_events()?;
         if self.started && !self.is_game_over() && !self.step.grants_priority() {
             return Err(RulesError::IllegalAction(
@@ -5042,7 +5051,7 @@ impl Game {
                         || object
                             .counters
                             .iter()
-                            .any(|(counter, amount)| *counter != "+1/+1" || *amount <= 0)
+                            .any(|(counter, amount)| !counter.is_valid() || *amount <= 0)
                     {
                         return Err(RulesError::IllegalAction(
                             "object has impossible turn metadata, damage/shield, or counters",
@@ -6353,6 +6362,17 @@ impl Game {
                 | Effect::GrantGraveyardCastPermissionUntilEndOfTurn
                 | Effect::ExileTargetCreature
                 | Effect::ExileTargetPermanent => continue,
+                Effect::AddCountersToSource { counter, amount }
+                | Effect::AddCountersToTarget { counter, amount }
+                | Effect::RemoveCountersFromSource { counter, amount }
+                | Effect::RemoveCountersFromTarget { counter, amount } => {
+                    if !counter.is_valid() || *amount <= 0 {
+                        return Err(RulesError::IllegalAction(
+                            "counter effects require a valid kind and positive amount",
+                        ));
+                    }
+                    continue;
+                }
             };
             if amount <= 0 {
                 return Err(RulesError::IllegalAction(
@@ -8293,13 +8313,8 @@ impl Game {
                 });
             }
             Effect::AddPlusOneCounterToSource => {
-                if self.zone_of(source) == Some(Zone::Battlefield)
-                    && self
-                        .characteristics(source)?
-                        .card_types
-                        .contains(&CardType::Creature)
-                {
-                    self.place_counter(source, source, "+1/+1", 1)?;
+                if self.zone_of(source) == Some(Zone::Battlefield) {
+                    self.place_counter(source, source, CounterKind::PlusOnePlusOne, 1)?;
                 }
             }
             Effect::AddPlusOneCounterToTarget => {
@@ -8307,7 +8322,31 @@ impl Game {
                 if !self.target_matches(Target::Permanent(target), TargetRequirement::Creature) {
                     return Err(RulesError::IllegalTarget(Target::Permanent(target)));
                 }
-                self.place_counter(source, target, "+1/+1", 1)?;
+                self.place_counter(source, target, CounterKind::PlusOnePlusOne, 1)?;
+            }
+            Effect::AddCountersToSource { counter, amount } => {
+                if self.zone_of(source) == Some(Zone::Battlefield) {
+                    self.place_counter(source, source, *counter, *amount)?;
+                }
+            }
+            Effect::AddCountersToTarget { counter, amount } => {
+                let target = Self::target_permanent(target)?;
+                if !self.target_matches(Target::Permanent(target), TargetRequirement::Permanent) {
+                    return Err(RulesError::IllegalTarget(Target::Permanent(target)));
+                }
+                self.place_counter(source, target, *counter, *amount)?;
+            }
+            Effect::RemoveCountersFromSource { counter, amount } => {
+                if self.zone_of(source) == Some(Zone::Battlefield) {
+                    self.remove_counter(source, source, *counter, *amount)?;
+                }
+            }
+            Effect::RemoveCountersFromTarget { counter, amount } => {
+                let target = Self::target_permanent(target)?;
+                if !self.target_matches(Target::Permanent(target), TargetRequirement::Permanent) {
+                    return Err(RulesError::IllegalTarget(Target::Permanent(target)));
+                }
+                self.remove_counter(source, target, *counter, *amount)?;
             }
             Effect::DealDamageToEachCreatureAndPlayer { amount } => {
                 // Snapshot the complete affected set before mutating the
@@ -9142,7 +9181,7 @@ impl Game {
                 }
                 self.move_to_zone(target, Zone::Battlefield)?;
                 if mana_spent.is_some_and(|spent| spent.contains(color)) {
-                    self.place_counter(source, target, "+1/+1", 1)?;
+                    self.place_counter(source, target, CounterKind::PlusOnePlusOne, 1)?;
                 }
             }
             Effect::ReturnOneCreatureCardFromEachGraveyardToHand => {
@@ -10223,30 +10262,23 @@ impl Game {
         Ok(())
     }
 
-    /// Adds a represented persistent counter to one live creature. Counter
+    /// Adds a represented persistent counter to one live permanent. Counter
     /// state belongs to the battlefield object and is cleared by the normal
     /// zone-departure transition above; it is not a hidden continuous effect.
     fn place_counter(
         &mut self,
         source: ObjectId,
         card: ObjectId,
-        counter: &'static str,
+        counter: CounterKind,
         amount: i16,
     ) -> Result<(), RulesError> {
-        if counter != "+1/+1" || amount <= 0 {
+        if !counter.is_valid() || amount <= 0 {
             return Err(RulesError::IllegalAction(
-                "counter placement requires a supported positive counter",
+                "counter placement requires a valid positive counter",
             ));
         }
         self.object(source)?;
         self.require_zone(card, Zone::Battlefield)?;
-        if !self
-            .characteristics(card)?
-            .card_types
-            .contains(&CardType::Creature)
-        {
-            return Err(RulesError::IllegalTarget(Target::Permanent(card)));
-        }
         let amount = self.replace_event_quantity(
             self.object(card)?.controller,
             ReplacementEventKind::CounterPlacement { counter },
@@ -10258,7 +10290,7 @@ impl Game {
             .ok_or(RulesError::UnknownCard(card))?
             .counters;
         let next = counters
-            .get(counter)
+            .get(&counter)
             .copied()
             .unwrap_or_default()
             .checked_add(amount)
@@ -10268,6 +10300,51 @@ impl Game {
             ))?;
         counters.insert(counter, next);
         self.record_event(GameEvent::CounterPlaced {
+            source,
+            card,
+            counter,
+            amount,
+        });
+        Ok(())
+    }
+
+    /// Removes a represented positive quantity of a typed counter from one
+    /// live permanent. This does not pass through quantity replacement: a
+    /// replacement such as Doubling Season changes placement, never a cost or
+    /// effect that removes counters. Validation happens before mutation so a
+    /// failed request rolls back its entire enclosing transition.
+    fn remove_counter(
+        &mut self,
+        source: ObjectId,
+        card: ObjectId,
+        counter: CounterKind,
+        amount: i16,
+    ) -> Result<(), RulesError> {
+        if !counter.is_valid() || amount <= 0 {
+            return Err(RulesError::IllegalAction(
+                "counter removal requires a valid positive counter",
+            ));
+        }
+        self.object(source)?;
+        self.require_zone(card, Zone::Battlefield)?;
+        let counters = &mut self
+            .objects
+            .get_mut(&card)
+            .ok_or(RulesError::UnknownCard(card))?
+            .counters;
+        let current = counters.get(&counter).copied().unwrap_or_default();
+        if current < amount {
+            return Err(RulesError::IllegalAction(
+                "counter removal requires sufficient counters",
+            ));
+        }
+        let remaining = current - amount;
+        if remaining == 0 {
+            counters.remove(&counter);
+        } else {
+            counters.insert(counter, remaining);
+        }
+        self.record_event(GameEvent::CounterRemoved {
             source,
             card,
             counter,
@@ -11339,22 +11416,77 @@ impl Game {
         Ok(())
     }
 
-    /// A counter receipt is a stable, positive, battlefield-only state
-    /// mutation. The live-zone audit proves the latter property; this replay
-    /// audit prevents malformed counter kinds or amounts from entering a
-    /// canonical event trace.
-    fn validate_counter_placement_events(events: &[GameEvent]) -> Result<(), RulesError> {
+    /// Counter receipts are stable, positive, battlefield-only state
+    /// mutations. The live-zone audit proves the latter property; this replay
+    /// audit prevents malformed named kinds or quantities from entering a
+    /// canonical event trace. Placement and removal remain separate receipts
+    /// because only placement is eligible for quantity replacement.
+    fn validate_counter_lifecycle_events(events: &[GameEvent]) -> Result<(), RulesError> {
         for event in events {
-            let GameEvent::CounterPlaced {
-                counter, amount, ..
-            } = event
-            else {
-                continue;
+            let (counter, amount) = match event {
+                GameEvent::CounterPlaced {
+                    counter, amount, ..
+                }
+                | GameEvent::CounterRemoved {
+                    counter, amount, ..
+                } => (*counter, *amount),
+                _ => continue,
             };
-            if *counter != "+1/+1" || *amount <= 0 {
+            if !counter.is_valid() || amount <= 0 {
                 return Err(RulesError::IllegalAction(
-                    "counter receipt has an unsupported kind or nonpositive amount",
+                    "counter receipt has an invalid kind or nonpositive amount",
                 ));
+            }
+        }
+        Ok(())
+    }
+
+    /// A counter removal must have enough previously recorded placement for
+    /// the same live object in the current measured event epoch. This is a
+    /// provenance check in addition to the live state invariant: it catches a
+    /// fabricated negative transition even when its final map happens to look
+    /// plausible. `clear_event_log` intentionally starts a fresh measured
+    /// epoch, so this audit only checks removals whose matching placement is
+    /// visible in the canonical trace.
+    fn validate_counter_removal_receipt_accounting(&self) -> Result<(), RulesError> {
+        let mut known = BTreeMap::<(ObjectId, CounterKind), i16>::new();
+        for event in &self.event_log {
+            match event {
+                GameEvent::CounterPlaced {
+                    card,
+                    counter,
+                    amount,
+                    ..
+                } => {
+                    let entry = known.entry((*card, *counter)).or_default();
+                    *entry = entry.checked_add(*amount).ok_or(RulesError::IllegalAction(
+                        "counter receipt accounting overflowed",
+                    ))?;
+                }
+                GameEvent::CounterRemoved {
+                    card,
+                    counter,
+                    amount,
+                    ..
+                } => {
+                    let entry = known.entry((*card, *counter)).or_default();
+                    // A cleared or deliberately truncated event log can
+                    // begin with a valid removal from extant counter state.
+                    // Only a visible positive balance is therefore
+                    // constrained here; the live transition enforces the
+                    // actual sufficiency atomically.
+                    if *entry > 0 {
+                        *entry = entry.checked_sub(*amount).ok_or(RulesError::IllegalAction(
+                            "counter removal receipt lacks matching placement",
+                        ))?;
+                        if *entry < 0 {
+                            return Err(RulesError::IllegalAction(
+                                "counter removal receipt exceeds visible placements",
+                            ));
+                        }
+                    }
+                }
+                _ => {}
             }
         }
         Ok(())
@@ -11431,10 +11563,16 @@ impl Game {
                                     == expected
                         })
                 }
-                Some(GameEvent::CounterPlaced { amount, .. }) => {
-                    matches!(event_kind, ReplacementEventKind::CounterPlacement { .. })
-                        && amount == replacement_amount
-                }
+                Some(GameEvent::CounterPlaced {
+                    counter: placed_counter,
+                    amount,
+                    ..
+                }) => matches!(
+                    event_kind,
+                    ReplacementEventKind::CounterPlacement {
+                        counter: replacement_counter,
+                    } if replacement_counter == placed_counter && amount == replacement_amount
+                ),
                 _ => false,
             };
             if !next_is_chain_or_effect {

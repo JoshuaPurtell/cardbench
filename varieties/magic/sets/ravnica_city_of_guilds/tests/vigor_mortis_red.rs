@@ -1,7 +1,8 @@
 //! Regression for Vigor Mortis's spent-green graveyard return.
 
 use cardbench_magic_engine::{
-    CardType, CastRequest, Color, Game, ManaCost, ManaPaymentSelection, PlayerId, Target, Zone,
+    CardType, CastRequest, Color, CounterKind, Game, ManaCost, ManaPaymentSelection, PlayerId,
+    Target, Zone,
 };
 use cardbench_magic_rav::{RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions};
 
@@ -87,7 +88,7 @@ fn vigor_mortis_returns_its_owners_creature_and_uses_spent_green_for_counter() {
         game.object(target)
             .expect("returned creature remains an object")
             .counters
-            .get("+1/+1"),
+            .get(&CounterKind::PlusOnePlusOne),
         Some(&1)
     );
     println!("Vigor Mortis trace: {:?}", game.canonical_event_log());
@@ -96,7 +97,7 @@ fn vigor_mortis_returns_its_owners_creature_and_uses_spent_green_for_counter() {
             event,
             cardbench_magic_engine::GameEvent::CounterPlaced {
                 card,
-                counter: "+1/+1",
+                counter: CounterKind::PlusOnePlusOne,
                 amount: 1,
                 ..
             } if *card == target
@@ -166,7 +167,7 @@ fn vigor_mortis_counter_clears_on_death_before_a_later_reentry() {
         game.object(target)
             .expect("target exists")
             .counters
-            .get("+1/+1"),
+            .get(&CounterKind::PlusOnePlusOne),
         Some(&1)
     );
 

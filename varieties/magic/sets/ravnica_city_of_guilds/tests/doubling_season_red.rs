@@ -1,8 +1,8 @@
 //! Red regression for the token/counter replacement substrate used by Doubling Season.
 
 use cardbench_magic_engine::{
-    CardType, CastRequest, Color, ConvokeContribution, ConvokePayment, Game, GameEvent, ManaCost,
-    ManaPaymentSelection, PlayerId, ReplacementEventKind, Target, Zone,
+    CardType, CastRequest, Color, ConvokeContribution, ConvokePayment, CounterKind, Game,
+    GameEvent, ManaCost, ManaPaymentSelection, PlayerId, ReplacementEventKind, Target, Zone,
 };
 use cardbench_magic_rav::{
     RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, rav_replacement_effect_bindings,
@@ -195,7 +195,7 @@ fn doubling_season_doubles_controlled_token_and_counter_events_once_per_source()
             .object(target)
             .expect("target remains live")
             .counters
-            .get("+1/+1"),
+            .get(&CounterKind::PlusOnePlusOne),
         Some(&2)
     );
     assert!(counter_game.event_log.windows(2).any(|events| {
@@ -205,13 +205,15 @@ fn doubling_season_doubles_controlled_token_and_counter_events_once_per_source()
                 GameEvent::ReplacementEffectApplied {
                     source,
                     affected_player: PlayerId(0),
-                    event: ReplacementEventKind::CounterPlacement { counter: "+1/+1" },
+                    event: ReplacementEventKind::CounterPlacement {
+                        counter: CounterKind::PlusOnePlusOne,
+                    },
                     original_amount: 1,
                     replacement_amount: 2,
                 },
                 GameEvent::CounterPlaced {
                     card,
-                    counter: "+1/+1",
+                    counter: CounterKind::PlusOnePlusOne,
                     amount: 2,
                     ..
                 },

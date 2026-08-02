@@ -1,6 +1,8 @@
 //! Red discovery contract for the source lane's unmerged Vinelasher landfall.
 
-use cardbench_magic_engine::{Effect, Game, GameEvent, PlayerId, Step, TriggerCondition, Zone};
+use cardbench_magic_engine::{
+    CounterKind, Effect, Game, GameEvent, PlayerId, Step, TriggerCondition, Zone,
+};
 use cardbench_magic_rav::{
     card_definitions, rav_activated_ability_bindings, rav_additional_spell_cost_bindings,
     rav_basic_land_type_bindings, rav_mana_ability_bindings, rav_triggered_ability_bindings,
@@ -113,12 +115,17 @@ fn vinelasher_kudzu_stacks_and_resolves_one_counter_for_its_controllers_land_pla
         game.object(kudzu)
             .expect("Kudzu remains on battlefield")
             .counters
-            .get("+1/+1"),
+            .get(&CounterKind::PlusOnePlusOne),
         Some(&1)
     );
     assert!(game.event_log.iter().any(|event| matches!(
         event,
-        GameEvent::CounterPlaced { source, card, counter: "+1/+1", amount: 1 }
+        GameEvent::CounterPlaced {
+            source,
+            card,
+            counter: CounterKind::PlusOnePlusOne,
+            amount: 1,
+        }
             if *source == kudzu && *card == kudzu
     )));
     game.validate_invariants()
@@ -162,7 +169,7 @@ fn vinelasher_kudzu_does_not_trigger_from_an_opponents_land_play() {
             .object(kudzu)
             .expect("Kudzu remains on battlefield")
             .counters
-            .contains_key("+1/+1"),
+            .contains_key(&CounterKind::PlusOnePlusOne),
         "an opponent land cannot create a Kudzu counter"
     );
     game.validate_invariants()

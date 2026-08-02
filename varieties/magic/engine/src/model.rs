@@ -308,6 +308,81 @@ pub struct CostReductionBinding {
     pub noncreature_only: bool,
 }
 
+/// A typed named counter carried by a live battlefield permanent.
+///
+/// Counter identity is rules data rather than a raw display string.  The
+/// bounded built-ins cover common cross-expansion counters, while `Named`
+/// lets an expansion introduce a genuinely new counter without adding a
+/// card-name branch to the engine.  Counters on players, emblems, and cards
+/// outside the battlefield deliberately remain outside this substrate.
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub enum CounterKind {
+    PlusOnePlusOne,
+    MinusOneMinusOne,
+    Charge,
+    Depletion,
+    Doom,
+    Flood,
+    Lore,
+    Loyalty,
+    Spore,
+    Storage,
+    Time,
+    Verse,
+    /// A nonempty expansion-defined counter name that is not an alias for a
+    /// supported built-in kind.
+    Named(&'static str),
+}
+
+impl CounterKind {
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::PlusOnePlusOne => "+1/+1",
+            Self::MinusOneMinusOne => "-1/-1",
+            Self::Charge => "charge",
+            Self::Depletion => "depletion",
+            Self::Doom => "doom",
+            Self::Flood => "flood",
+            Self::Lore => "lore",
+            Self::Loyalty => "loyalty",
+            Self::Spore => "spore",
+            Self::Storage => "storage",
+            Self::Time => "time",
+            Self::Verse => "verse",
+            Self::Named(name) => name,
+        }
+    }
+
+    /// A named counter must have a real identity and cannot duplicate a
+    /// built-in kind under a second representation. This keeps ordered maps
+    /// and event receipts unambiguous.
+    #[must_use]
+    pub fn is_valid(self) -> bool {
+        match self {
+            Self::Named(name) => {
+                !name.trim().is_empty()
+                    && ![
+                        "+1/+1",
+                        "-1/-1",
+                        "charge",
+                        "depletion",
+                        "doom",
+                        "flood",
+                        "lore",
+                        "loyalty",
+                        "spore",
+                        "storage",
+                        "time",
+                        "verse",
+                    ]
+                    .contains(&name)
+            }
+            _ => true,
+        }
+    }
+}
+
 /// A replacement event quantity that can be modified by a live permanent.
 ///
 /// The event kind is deliberately semantic instead of card-named. Future sets
@@ -316,7 +391,7 @@ pub struct CostReductionBinding {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ReplacementEventKind {
     TokenCreation,
-    CounterPlacement { counter: &'static str },
+    CounterPlacement { counter: CounterKind },
 }
 
 /// A source-bound replacement effect whose applicability is checked from the
@@ -1156,13 +1231,41 @@ pub enum Effect {
         amount: u8,
     },
     /// Place one persistent +1/+1 counter on the ability or spell source if
-    /// that source is still a creature permanent as this instruction resolves.
-    /// A departed source is an ordinary no-op, not a failed trigger resolution.
+    /// that source is still a battlefield permanent as this instruction
+    /// resolves. A departed source is an ordinary no-op, not a failed trigger
+    /// resolution; only a creature source receives the derived P/T modifier.
     AddPlusOneCounterToSource,
     /// Place one persistent +1/+1 counter on a targeted creature. The source
     /// remains provenance only and may have left the battlefield as an
     /// activation cost before this instruction resolves.
     AddPlusOneCounterToTarget,
+    /// Place a positive quantity of one typed counter on the resolving source
+    /// while it remains a battlefield permanent. This is not creature-only;
+    /// only `+1/+1` and `-1/-1` affect derived power and toughness.
+    AddCountersToSource {
+        counter: CounterKind,
+        amount: i16,
+    },
+    /// Place a positive quantity of one typed counter on a targeted live
+    /// battlefield permanent. Quantity replacement applies before the state
+    /// mutation and receipt.
+    AddCountersToTarget {
+        counter: CounterKind,
+        amount: i16,
+    },
+    /// Remove a positive quantity of one typed counter from the resolving
+    /// source. Insufficient counters reject the whole atomic resolution.
+    RemoveCountersFromSource {
+        counter: CounterKind,
+        amount: i16,
+    },
+    /// Remove a positive quantity of one typed counter from a targeted live
+    /// battlefield permanent. Insufficient counters reject the whole atomic
+    /// resolution rather than producing a partial removal.
+    RemoveCountersFromTarget {
+        counter: CounterKind,
+        amount: i16,
+    },
     /// Deal one fixed amount of damage to every creature currently on the
     /// battlefield and every player still in the game. This selection is made
     /// once while the spell resolves; state-based actions run only after the
@@ -1566,7 +1669,9 @@ impl Effect {
             Self::DestroyTargetArtifactOrEnchantment => {
                 Some(TargetRequirement::ArtifactOrEnchantment)
             }
-            Self::ReturnTargetPermanentToHandAndLoseControllerLife { .. } => {
+            Self::AddCountersToTarget { .. }
+            | Self::RemoveCountersFromTarget { .. }
+            | Self::ReturnTargetPermanentToHandAndLoseControllerLife { .. } => {
                 Some(TargetRequirement::Permanent)
             }
             Self::ReturnTargetCardToHand => Some(TargetRequirement::OwnGraveyardCard),
@@ -1608,6 +1713,8 @@ impl Effect {
             | Self::DealDamageToEachPlayerFromReceivedDamage
             | Self::AddManaController { .. }
             | Self::AddPlusOneCounterToSource
+            | Self::AddCountersToSource { .. }
+            | Self::RemoveCountersFromSource { .. }
             | Self::DrawControllerIfManaColorSpent { .. }
             | Self::ModifyAllCreaturesPtUntilEndOfTurnIfManaColorSpent { .. }
             | Self::CreateToken { .. }
@@ -1837,7 +1944,7 @@ pub struct CardObject {
     pub damage: i32,
     /// Temporary prevention shield units waiting to absorb damage.
     pub damage_shield: i32,
-    pub counters: BTreeMap<&'static str, i16>,
+    pub counters: BTreeMap<CounterKind, i16>,
     /// The permanent this Aura-like object is attached to. This identity is
     /// explicit so attachment cleanup and its persistent layer effect are
     /// auditable rather than inferred from a card name or target history.
@@ -2267,7 +2374,16 @@ pub enum GameEvent {
     CounterPlaced {
         source: ObjectId,
         card: ObjectId,
-        counter: &'static str,
+        counter: CounterKind,
+        amount: i16,
+    },
+    /// A resolving spell or ability removed a persistent positive quantity of
+    /// one typed counter from a live battlefield permanent. The final count
+    /// either remains positive or its key is removed entirely.
+    CounterRemoved {
+        source: ObjectId,
+        card: ObjectId,
+        counter: CounterKind,
         amount: i16,
     },
     /// One live permanent replaced an event quantity before the corresponding
