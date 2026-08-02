@@ -1574,12 +1574,18 @@ impl Game {
                 .catalog
                 .get(binding.card_definition)
                 .ok_or(RulesError::UnknownDefinition(binding.card_definition))?;
-            if !definition.is_creature()
+            let change_requires_only_permanent = matches!(
+                binding.change,
+                ContinuousChange::ControlledCreaturesAddKeyword(_)
+            );
+            if !(definition.is_creature()
+                || (definition.is_permanent() && change_requires_only_permanent))
                 || !matches!(
                     binding.change,
                     ContinuousChange::ControlledCreatureCountPowerToughness
                         | ContinuousChange::OtherControlledCreaturesModifyPowerToughness { .. }
                         | ContinuousChange::OtherControlledCreaturesAddKeyword(_)
+                        | ContinuousChange::ControlledCreaturesAddKeyword(_)
                         | ContinuousChange::ControlledCreaturesAddKeywordIfSourceEnchanted(_)
                 )
             {
@@ -3609,6 +3615,7 @@ impl Game {
                 ContinuousChange::ControlledCreatureCountPowerToughness
                 | ContinuousChange::OtherControlledCreaturesModifyPowerToughness { .. }
                 | ContinuousChange::OtherControlledCreaturesAddKeyword(_)
+                | ContinuousChange::ControlledCreaturesAddKeyword(_)
                 | ContinuousChange::ControlledCreaturesAddKeywordIfSourceEnchanted(_) => {
                     return Err(RulesError::IllegalAction(
                         "a static continuous change cannot be a timestamped effect",
@@ -3679,6 +3686,17 @@ impl Game {
             ContinuousChange::OtherControlledCreaturesAddKeyword(keyword) => {
                 if source == card
                     || self.controller_of(source)? != self.controller_of(card)?
+                    || !characteristics.card_types.contains(&CardType::Creature)
+                {
+                    return Ok(());
+                }
+                if !characteristics.keywords.contains(keyword) {
+                    characteristics.keywords.push(keyword.clone());
+                }
+                Ok(())
+            }
+            ContinuousChange::ControlledCreaturesAddKeyword(keyword) => {
+                if self.controller_of(source)? != self.controller_of(card)?
                     || !characteristics.card_types.contains(&CardType::Creature)
                 {
                     return Ok(());
@@ -3791,6 +3809,7 @@ impl Game {
             ContinuousChange::ControlledCreatureCountPowerToughness
                 | ContinuousChange::OtherControlledCreaturesModifyPowerToughness { .. }
                 | ContinuousChange::OtherControlledCreaturesAddKeyword(_)
+                | ContinuousChange::ControlledCreaturesAddKeyword(_)
                 | ContinuousChange::ControlledCreaturesAddKeywordIfSourceEnchanted(_)
         ) {
             return Err(RulesError::IllegalAction(
@@ -9064,7 +9083,11 @@ impl Game {
                 .catalog
                 .get(definition_id)
                 .ok_or(RulesError::UnknownDefinition(definition_id))?;
-            if !definition.is_creature()
+            let changes_require_only_permanent = changes
+                .iter()
+                .all(|change| matches!(change, ContinuousChange::ControlledCreaturesAddKeyword(_)));
+            if !(definition.is_creature()
+                || (definition.is_permanent() && changes_require_only_permanent))
                 || changes.is_empty()
                 || changes.iter().any(|change| {
                     !matches!(
@@ -9072,6 +9095,7 @@ impl Game {
                         ContinuousChange::ControlledCreatureCountPowerToughness
                             | ContinuousChange::OtherControlledCreaturesModifyPowerToughness { .. }
                             | ContinuousChange::OtherControlledCreaturesAddKeyword(_)
+                            | ContinuousChange::ControlledCreaturesAddKeyword(_)
                             | ContinuousChange::ControlledCreaturesAddKeywordIfSourceEnchanted(_)
                     )
                 })
@@ -9229,6 +9253,7 @@ impl Game {
                 ContinuousChange::ControlledCreatureCountPowerToughness
                     | ContinuousChange::OtherControlledCreaturesModifyPowerToughness { .. }
                     | ContinuousChange::OtherControlledCreaturesAddKeyword(_)
+                    | ContinuousChange::ControlledCreaturesAddKeyword(_)
                     | ContinuousChange::ControlledCreaturesAddKeywordIfSourceEnchanted(_)
             ) {
                 return Err(RulesError::IllegalAction(
@@ -13245,7 +13270,25 @@ impl Game {
     fn target_prevents_damage_from_source(&self, source: ObjectId, target: ObjectId) -> bool {
         self.characteristics(source).is_ok_and(|characteristics| {
             self.target_prevents_damage_from_colors(target, &characteristics.colors)
-        })
+        }) || self.target_prevents_damage_from_controlled_source(source, target)
+    }
+
+    fn target_prevents_damage_from_controlled_source(
+        &self,
+        source: ObjectId,
+        target: ObjectId,
+    ) -> bool {
+        self.controller_of(source)
+            .ok()
+            .zip(self.controller_of(target).ok())
+            .is_some_and(|(source_controller, target_controller)| {
+                source_controller == target_controller
+                    && self.characteristics(target).is_ok_and(|characteristics| {
+                        characteristics
+                            .keywords
+                            .contains(&Keyword::PreventDamageFromControlledSources)
+                    })
+            })
     }
 
     /// Lists every represented replacement applicable to one prospective
@@ -13730,6 +13773,7 @@ impl Game {
         self.deal_damage_to_player(source, player, amount)
     }
 
+    #[allow(clippy::too_many_lines)] // Damage replacement and receipt ordering share one transaction.
     fn deal_damage_to_permanent_from_colors(
         &mut self,
         source: ObjectId,
@@ -13794,7 +13838,9 @@ impl Game {
         }
         let (prevented, consumes_shield) = if self.damage_cannot_be_prevented(source) {
             (0, false)
-        } else if self.target_prevents_damage_from_colors(permanent, source_colors) {
+        } else if self.target_prevents_damage_from_colors(permanent, source_colors)
+            || self.target_prevents_damage_from_controlled_source(source, permanent)
+        {
             (amount, false)
         } else {
             let targeted =

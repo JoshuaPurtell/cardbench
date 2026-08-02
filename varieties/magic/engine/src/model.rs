@@ -1201,6 +1201,11 @@ pub enum Keyword {
     /// Damage dealt by a source of the named color is prevented when it would
     /// be dealt to this permanent.
     PreventDamageFromColor(Color),
+    /// Damage dealt to this creature by a source controlled by the same
+    /// player is prevented. Static source effects grant this to their
+    /// controller's current creatures; it is checked at the prospective
+    /// damage event rather than inferred from a card identity.
+    PreventDamageFromControlledSources,
     /// This permanent has protection from sources of the named color. The
     /// engine's core protection substrate will enforce targeting, combat,
     /// and damage-prevention consequences for this keyword.
@@ -2567,6 +2572,10 @@ pub enum ContinuousChange {
     /// every other creature controlled by the source's controller.
     OtherControlledCreaturesAddKeyword(Keyword),
     /// A battlefield-only static layer-six effect that grants one keyword to
+    /// every creature controlled by the source's controller, including a
+    /// creature source itself when applicable.
+    ControlledCreaturesAddKeyword(Keyword),
+    /// A battlefield-only static layer-six effect that grants one keyword to
     /// every creature controlled by the source's controller, but only while
     /// at least one live Aura is attached to the source.
     ControlledCreaturesAddKeywordIfSourceEnchanted(Keyword),
@@ -2587,6 +2596,7 @@ impl ContinuousChange {
             | Self::CannotBlockSource(_)
             | Self::AddDamageShield(_)
             | Self::OtherControlledCreaturesAddKeyword(_)
+            | Self::ControlledCreaturesAddKeyword(_)
             | Self::ControlledCreaturesAddKeywordIfSourceEnchanted(_)
             | Self::SuppressNonManaActivatedAbilities => Layer::Ability,
             Self::ModifyPowerToughness { .. }

@@ -44,6 +44,7 @@ fn pass_pair(game: &mut Game) {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // Both controller branches share one state-machine trace.
 fn static_friendly_source_prevention_blocks_only_same_controller_damage() {
     let mut game = Game::new_with_all_bindings_and_static_continuous_effects(
         vec![
@@ -60,7 +61,7 @@ fn static_friendly_source_prevention_blocks_only_same_controller_damage() {
                 CardType::Creature,
                 BTreeSet::from([Color::White]),
                 Some(3),
-                Some(3),
+                Some(4),
                 vec![],
             ),
             definition(
@@ -96,8 +97,13 @@ fn static_friendly_source_prevention_blocks_only_same_controller_damage() {
     let damage = game
         .add_card(PlayerId(0), DAMAGE, Zone::Hand)
         .expect("friendly damage source setup");
+    let opponent_damage = game
+        .add_card(PlayerId(1), DAMAGE, Zone::Hand)
+        .expect("opposing damage source setup");
     game.grant_mana(PlayerId(0), Color::Red, 1)
         .expect("pre-game payment setup");
+    game.grant_mana(PlayerId(1), Color::Red, 1)
+        .expect("opponent pre-game payment setup");
 
     game.cast_spell(
         PlayerId(0),
@@ -126,6 +132,35 @@ fn static_friendly_source_prevention_blocks_only_same_controller_damage() {
             amount: 3,
         } if *source == damage && *target == creature
     )));
+
+    game.pass_priority(PlayerId(0))
+        .expect("opponent receives priority");
+    game.cast_spell(
+        PlayerId(1),
+        CastRequest {
+            card: opponent_damage,
+            targets: vec![Target::Permanent(creature)],
+            convoke: vec![],
+            payment_mana_abilities: vec![],
+        },
+    )
+    .expect("opposing damage spell casts");
+    pass_pair(&mut game);
+    assert_eq!(
+        game.object(creature)
+            .expect("creature remains present")
+            .damage,
+        3,
+        "the static rule must not prevent damage from an opposing controller"
+    );
+    assert!(!game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::DamagePrevented { source, .. } if *source == opponent_damage
+    )));
+    eprintln!(
+        "static friendly-source prevention trace={:?}",
+        game.canonical_event_log()
+    );
     game.validate_invariants()
         .expect("static friendly-source prevention remains invariant-valid");
 }

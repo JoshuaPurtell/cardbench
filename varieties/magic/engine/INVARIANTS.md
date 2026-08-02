@@ -132,6 +132,14 @@ Oracle Magic rules coverage.
   trigger is queued for the prevented portion. A target departure or cleanup
   transition removes the shield and emits `DamageShieldExpired`, and an
   exhausted shield cannot remain in game state.
+- A permanent static source may grant
+  `PreventDamageFromControlledSources` to each current creature its controller
+  controls. The quality is evaluated for every prospective permanent-damage
+  packet against the damage source's current controller, so it prevents only
+  friendly-source damage and leaves an opposing controller's source unchanged.
+  It is derived characteristic state, never a standalone mutable shield; a
+  static source's departure immediately revokes the quality through the normal
+  battlefield/characteristics query boundary.
 - A spell effect may instead create that same shield for its controller from
   its retained chosen-X value. The cast boundary requires explicit X and pays
   it as generic mana; a positive X emits `DamageShieldCreated` with exactly
