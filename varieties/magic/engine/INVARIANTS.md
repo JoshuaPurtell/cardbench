@@ -329,9 +329,22 @@ Oracle Magic rules coverage.
   `TriggeredAbilityStacked` receipt; the active player keeps the normal
   post-resolution priority window and a trigger never performs its effect
   inline.
-- A stack object has a unique card and a valid controller. Resolving or
-  countering it removes it from the stack before it receives its resulting zone
-  move.
+- A stack object has a unique, positive, monotonic `StackObjectId` independent
+  of its source card and a valid controller. Thus two activations of the same
+  permanent remain distinguishable public stack objects. Resolving or
+  countering a spell removes it from the stack before it receives its resulting
+  zone move.
+- `ActivatedAbilityWithSingleTarget` names one lower, currently live activated
+  stack item by `StackObjectId`, never a source `ObjectId`. Its target must
+  have exactly one target occurrence. The public activated-stack view exposes
+  that identity and target occurrence to policies without exposing hidden-zone
+  information. A retarget decision holds the resolving spell at the stack top
+  with no priority, captures the lower ability's controller, source colors,
+  target requirement, and original target, and accepts only a different target
+  that remains legal for that lower ability at completion. It then emits one
+  `ActivatedAbilityTargetChanged` receipt before the enclosing spell continues
+  to its remaining effects; if no different legal target exists, that one
+  instruction is a no-op.
 - A `PhysicalSpell` target names a lower, non-ability, non-copy stack card.
   It is intentionally unavailable to stack-only virtual copies, whose
   identity has no physical object or terminal zone. A
@@ -530,8 +543,9 @@ Oracle Magic rules coverage.
 - Stack controller, effects, and target-slot count must match the represented
   card definition. Every executable occurrence of a target requirement owns
   one ordered stack slot; each slot also retains the target's captured object
-  incarnation (`None` only for player targets), so a target that leaves and
-  re-enters is illegal for the original stack object. The same object may
+  incarnation (`None` for players and activated-stack-item targets), so a
+  target that leaves and re-enters is illegal for the original stack object.
+  The same object may
   occupy multiple slots when the source has multiple independent target
   occurrences. Tokens and lands cannot occupy the stack. A target may later
   become illegal, but it cannot be absent, fabricated, or change enum kind

@@ -3680,7 +3680,8 @@ pub struct StackObject {
     pub ability_id: Option<&'static str>,
     pub targets: Vec<Target>,
     /// One captured object incarnation per target occurrence. `None` is used
-    /// for player targets, preserving the public target enum while retaining
+    /// for targets without a physical card object (players and activated
+    /// stack items), preserving the public target enum while retaining
     /// zone-change identity for permanent/spell references.
     pub target_incarnations: Vec<Option<u64>>,
     pub effects: Vec<Effect>,

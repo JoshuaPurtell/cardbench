@@ -52,6 +52,7 @@ fn stasis_game() -> Game {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // The attachment lifecycle trace is intentionally reviewed end-to-end.
 fn stasis_cell_reattaches_and_moves_its_restrictions() {
     let mut game = stasis_game();
     let first_target = game

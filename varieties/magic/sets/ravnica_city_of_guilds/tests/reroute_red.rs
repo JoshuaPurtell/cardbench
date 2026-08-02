@@ -70,6 +70,7 @@ fn guildmage_discard(source: cardbench_magic_engine::ObjectId) -> AbilityActivat
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // The priority/stack trace is intentionally reviewed end-to-end.
 fn reroute_retargets_one_exact_lower_activated_stack_item_then_draws() {
     let mut game = rav_game();
     let reroute = game
