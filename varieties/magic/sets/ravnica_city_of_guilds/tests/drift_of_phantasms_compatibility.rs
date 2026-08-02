@@ -1,17 +1,18 @@
-//! Bounded public contract for Drift of Phantasms.
-//!
-//! This test deliberately distinguishes the represented Defender and immediate
-//! hand-zone Transmute operations from stack-backed activated-ability fidelity.
+//! Full-fidelity static and Transmute contract for Drift of Phantasms.
 
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardType, Color, Game, GameEvent, Keyword, ManaCost, PlayerId, RulesError, Step, Zone,
+    CardType, Color, DecisionKind, DecisionSelection, Game, GameEvent, Keyword, ManaCost, PlayerId,
+    RulesError, Step, Zone,
 };
-use cardbench_magic_rav::{RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, run_all_scenarios};
+use cardbench_magic_rav::{
+    RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, rav_basic_land_type_bindings,
+    run_all_scenarios,
+};
 
 #[test]
-fn drift_definition_is_explicit_about_its_bounded_defender_and_transmute_scope() {
+fn drift_definition_is_explicit_about_its_full_static_and_transmute_scope() {
     let drift = card_definitions()
         .into_iter()
         .find(|definition| definition.id == "RAV-DRIFT-OF-PHANTASMS")
@@ -26,6 +27,7 @@ fn drift_definition_is_explicit_about_its_bounded_defender_and_transmute_scope()
         drift.keywords,
         [
             Keyword::Defender,
+            Keyword::Flying,
             Keyword::Transmute(ManaCost::with_colors(1, [Color::Blue, Color::Blue])),
         ]
     );
@@ -33,15 +35,17 @@ fn drift_definition_is_explicit_about_its_bounded_defender_and_transmute_scope()
     assert_eq!(
         drift.supported_rules,
         [
+            "full-rules-fidelity",
             "colored-cost-casting",
             "base-characteristics",
             "defender",
-            "immediate-hand-zone-transmute-compatibility",
+            "flying",
+            "transmute",
         ]
     );
     assert!(
-        !RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&drift.id),
-        "immediate Transmute must not be mistaken for its stack-backed printed behavior"
+        RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&drift.id),
+        "stack-backed Transmute and both static keywords are fully represented"
     );
 }
 
@@ -109,6 +113,83 @@ fn drift_directly_rejects_attacking_and_executes_only_the_existing_immediate_tra
 }
 
 #[test]
+fn drift_transmute_uses_the_stack_backed_private_library_decision() {
+    let player = PlayerId(0);
+    let opponent = PlayerId(1);
+    let mut game =
+        Game::new_with_basic_land_types(card_definitions(), 2, rav_basic_land_type_bindings())
+            .expect("RAV typed game builds");
+    let drift = game
+        .add_card(player, "RAV-DRIFT-OF-PHANTASMS", Zone::Hand)
+        .expect("Drift begins in hand");
+    let matching_value = game
+        .add_card(player, "RAV-CHAR", Zone::Library)
+        .expect("matching library card");
+    let islands = (0..3)
+        .map(|_| {
+            game.put_on_battlefield(player, "RAV-ISLAND")
+                .expect("Transmute mana source")
+        })
+        .collect::<Vec<_>>();
+    game.begin_game().expect("game begins");
+    for _ in 0..2 {
+        let first = game.priority;
+        game.pass_priority(first).expect("advance first priority");
+        let second = game.priority;
+        game.pass_priority(second).expect("advance second priority");
+    }
+
+    for island in islands {
+        game.activate_mana_ability(player, island, Color::Blue)
+            .expect("Transmute mana");
+    }
+
+    game.activate_transmute(player, drift)
+        .expect("stack-backed Transmute activates");
+    assert_eq!(game.stack.len(), 1, "the ability remains on the stack");
+    game.pass_priority(player).expect("controller passes");
+    game.pass_priority(opponent)
+        .expect("resolution opens the private library decision");
+    let decision = game
+        .view_for_player(player)
+        .expect("controller view")
+        .pending_decision
+        .expect("private Transmute search choice");
+    assert_eq!(decision.kind, DecisionKind::LibrarySearch);
+    assert!(
+        game.view_for_player(opponent)
+            .expect("opponent view")
+            .pending_decision
+            .is_none()
+    );
+    game.submit_decision(
+        player,
+        decision.id,
+        DecisionSelection::Objects(vec![matching_value]),
+    )
+    .expect("controller selects the matching card");
+
+    println!(
+        "drift_stack_transmute_trace={:#?}",
+        game.canonical_event_log()
+    );
+    assert!(game.stack.is_empty());
+    assert_eq!(game.zone_of(drift), Some(Zone::Graveyard));
+    assert_eq!(game.zone_of(matching_value), Some(Zone::Hand));
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::AbilityActivated { source, .. } if *source == drift
+    )));
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::Transmuted { discarded, found: Some(found), .. }
+            if *discarded == drift && *found == matching_value
+    )));
+    game.validate_invariants()
+        .expect("stack-backed Transmute preserves invariants");
+}
+
+#[test]
 fn drift_public_scenario_records_the_compatibility_receipt_and_no_attack_declaration() {
     let trace = run_all_scenarios()
         .expect("shown RAV scenarios run")
@@ -119,7 +200,7 @@ fn drift_public_scenario_records_the_compatibility_receipt_and_no_attack_declara
         .expect("Drift public scenario exists");
 
     println!("Drift compatibility trace: {:?}", trace.event_log);
-    assert_eq!(trace.digest, "fnv1a64:74b1293dcdd0928b");
+    assert_eq!(trace.digest, "fnv1a64:d31e3938268687e6");
     for marker in ["CardRevealed", "LibraryShuffled", "Transmuted", "StepBegan"] {
         assert!(
             trace.event_log.iter().any(|event| event.contains(marker)),

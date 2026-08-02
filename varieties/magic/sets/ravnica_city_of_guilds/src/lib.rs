@@ -41,7 +41,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 167] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 168] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -156,6 +156,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 167] = [
     "RAV-VINDICTIVE-MOB",
     "RAV-BELLTOWER-SPHINX",
     "RAV-COMPULSIVE-RESEARCH",
+    "RAV-DRIFT-OF-PHANTASMS",
     "RAV-FLIGHT-OF-FANCY",
     "RAV-FLOW-OF-IDEAS",
     "RAV-SURVEILLING-SPRITE",
@@ -4760,11 +4761,10 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             2,
             1,
         ),
-        // Compatibility scope: normal creature casting, base characteristics,
-        // Defender, and the existing immediate hand-zone Transmute operation.
-        // This remains deliberately outside the full-fidelity manifest because
-        // the shared Transmute substrate does not yet create a stack object or
-        // response window for its activated ability.
+        // Full fidelity: static Defender/Flying and the rules-defined
+        // hand-zone Transmute ability. The latter is an ordinary stack
+        // ability: costs discard this physical card, then a private library
+        // search decision resolves only after all players pass.
         CardDefinition {
             id: "RAV-DRIFT-OF-PHANTASMS",
             name: "Drift of Phantasms",
@@ -4775,15 +4775,18 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             card_types: types([CardType::Creature]),
             is_basic_land: false,
             supported_rules: &[
+                "full-rules-fidelity",
                 "colored-cost-casting",
                 "base-characteristics",
                 "defender",
-                "immediate-hand-zone-transmute-compatibility",
+                "flying",
+                "transmute",
             ],
             power: Some(0),
             toughness: Some(5),
             keywords: vec![
                 Keyword::Defender,
+                Keyword::Flying,
                 Keyword::Transmute(ManaCost::with_colors(1, [Color::Blue, Color::Blue])),
             ],
             effects: vec![],

@@ -65,10 +65,12 @@ fn first_range_creature_chassis_is_exactly_bounded_to_public_base_facts() {
     assert_eq!(
         drift.supported_rules,
         [
+            "full-rules-fidelity",
             "colored-cost-casting",
             "base-characteristics",
             "defender",
-            "immediate-hand-zone-transmute-compatibility",
+            "flying",
+            "transmute",
         ]
     );
 
