@@ -1,6 +1,8 @@
 //! Red regression for Farseek's typed land search slice.
 
-use cardbench_magic_engine::{CardType, CastRequest, Color, Game, GameEvent, PlayerId, Zone};
+use cardbench_magic_engine::{
+    CardType, CastRequest, Color, DecisionSelection, Game, GameEvent, PlayerId, PolicyAction, Zone,
+};
 use cardbench_magic_rav::{
     card_definitions, rav_activated_ability_bindings, rav_additional_spell_cost_bindings,
     rav_basic_land_type_bindings, rav_land_entry_bindings, rav_mana_ability_bindings,
@@ -63,7 +65,22 @@ fn farseek_returns_only_a_controller_owned_nonforest_typed_land_tapped() {
     )
     .expect("Farseek casts");
     game.pass_priority(PlayerId(0)).expect("caster passes");
-    game.pass_priority(PlayerId(1)).expect("opponent passes");
+    game.pass_priority(PlayerId(1))
+        .expect("opponent passes and opens the private search choice");
+    let decision = game
+        .view_for_player(PlayerId(0))
+        .expect("controller view")
+        .pending_decision
+        .expect("Farseek search choice is pending");
+    game.submit_policy_move(
+        PlayerId(0),
+        "test.farseek.select-plains.v1",
+        PolicyAction::SubmitDecision {
+            decision: decision.id,
+            selection: DecisionSelection::Objects(vec![plains]),
+        },
+    )
+    .expect("controller selects Plains");
 
     assert_eq!(game.zone_of(plains), Some(Zone::Battlefield));
     assert!(game.object(plains).expect("Plains persists").tapped);
@@ -123,7 +140,22 @@ fn farseek_land_entry_waits_for_its_spell_to_finish_before_triggering() {
     )
     .expect("Farseek casts");
     game.pass_priority(PlayerId(0)).expect("caster passes");
-    game.pass_priority(PlayerId(1)).expect("Farseek resolves");
+    game.pass_priority(PlayerId(1))
+        .expect("Farseek opens its private search choice");
+    let decision = game
+        .view_for_player(PlayerId(0))
+        .expect("controller view")
+        .pending_decision
+        .expect("Farseek search choice is pending");
+    game.submit_policy_move(
+        PlayerId(0),
+        "test.farseek.select-plains-for-landfall.v1",
+        PolicyAction::SubmitDecision {
+            decision: decision.id,
+            selection: DecisionSelection::Objects(vec![plains]),
+        },
+    )
+    .expect("controller selects Plains");
 
     let spell_resolved = game
         .event_log

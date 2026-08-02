@@ -34,6 +34,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-DOUBLING-SEASON",
             "RAV-GLARE-OF-SUBDUAL",
             "RAV-CHORD-OF-CALLING",
+            "RAV-FARSEEK",
             "RAV-SCION-OF-THE-WILD",
             "RAV-GUARDIAN-OF-VITU-GHAZI",
             "RAV-CONCLAVE-PHALANX",

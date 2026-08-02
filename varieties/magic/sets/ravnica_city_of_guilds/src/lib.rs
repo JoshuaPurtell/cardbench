@@ -65,6 +65,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 207] = [
     "RAV-DOUBLING-SEASON",
     "RAV-GLARE-OF-SUBDUAL",
     "RAV-CHORD-OF-CALLING",
+    "RAV-FARSEEK",
     "RAV-SCION-OF-THE-WILD",
     "RAV-GUARDIAN-OF-VITU-GHAZI",
     "RAV-CONCLAVE-PHALANX",
@@ -1197,11 +1198,8 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 },
             }],
         },
-        // Compatibility scope: exact casting cost and typed non-Forest land
-        // search into a tapped battlefield entry. The public engine selects
-        // the first qualifying card in its deterministic library order until
-        // policies can submit the hidden-zone choice, so this is deliberately
-        // not a positive full-fidelity definition.
+        // Full fidelity: exact casting cost and controller-private selection
+        // of one typed non-Forest land into a tapped battlefield entry.
         CardDefinition {
             id: "RAV-FARSEEK",
             name: "Farseek",
@@ -1212,9 +1210,10 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             card_types: types([CardType::Sorcery]),
             is_basic_land: false,
             supported_rules: &[
+                "full-rules-fidelity",
                 "library-nonforest-land-type-search",
                 "battlefield-tapped-land-entry",
-                "deterministic-library-search-selection",
+                "private-library-selection",
             ],
             power: None,
             toughness: None,
@@ -1227,7 +1226,9 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                     BasicLandType::Mountain,
                 ])),
                 destination: LibrarySearchDestination::BattlefieldTapped,
-                selection: LibrarySearchSelection::DeterministicFirstMatch,
+                selection: LibrarySearchSelection::PolicySubmitted {
+                    may_fail_to_find: true,
+                },
             }],
         },
         // Compatibility scope: normal enchantment casting plus the

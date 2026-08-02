@@ -11020,7 +11020,7 @@ digest = "fnv1a64:064d63ec916d9f38"
 [[scenario]]
 id = "rav_farseek_typed_land_search"
 seed = 152
-description = "Resolve Farseek's bounded deterministic non-Forest typed-land search into a tapped battlefield entry and shuffle receipt."
+description = "Resolve Farseek's controller-private non-Forest typed-land search into a tapped battlefield entry and shuffle receipt."
 
 [[scenario.card]]
 label = "farseek"
@@ -11058,14 +11058,19 @@ player = 0
 kind = "pass"
 player = 1
 
+[[scenario.action]]
+kind = "choose_library_search"
+player = 0
+found = "plains"
+
 [scenario.expected]
 zones = ["farseek:graveyard", "forest:library", "plains:battlefield"]
 tapped = ["plains:true"]
 stack_size = 0
 priority = 0
 mana = ["0:green:0"]
-event_markers = ["CardMoved", "LibrarySearchResolved", "LibraryShuffled", "SpellResolved"]
-digest = "fnv1a64:a623d146eac2dc7e"
+event_markers = ["DecisionOpened", "DecisionCompleted", "CardMoved", "LibrarySearchResolved", "LibraryShuffled", "SpellResolved"]
+digest = "fnv1a64:08e176e384c0416d"
 
 [[scenario]]
 id = "rav_perilous_forays_sacrifice_land_search"
