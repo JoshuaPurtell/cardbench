@@ -568,6 +568,18 @@ Oracle Magic rules coverage.
   another player. The stack-shape audit rejects an unmaterialized template, an
   out-of-range captured seat, or an any-upkeep stack receipt without the
   immediately preceding upkeep boundary.
+- An `BeginningOfAnyEndStep` trigger is stacked only after that end step's
+  own `StepBegan` receipt and before its first priority window. Its active
+  player is captured into a materialized
+  `SacrificeCapturedPlayerUntappedLand` stack effect and never recomputed from
+  the trigger source's controller or later turn state. The corresponding
+  public trigger-effect decision belongs only to that captured player and
+  offers only their currently controlled, untapped lands. A stale, tapped,
+  opponent-controlled, or wrong-player submission is rejected without a zone
+  mutation; when none are legal, the ability resolves as a no-op without a
+  fabricated zero-option decision. The stack-shape and step-boundary audits
+  reject an unmaterialized template, an out-of-range captured seat, or an
+  any-end-step receipt without its immediately preceding end-step boundary.
 - A `ControlledAuraEntersBattlefield` observer queues only when a live
   Aura-like permanent enters under that observer's current controller. The
   ordinary trigger stack item retains the live observer source/incarnation and

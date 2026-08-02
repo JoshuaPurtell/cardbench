@@ -35,12 +35,15 @@ fn coverage_categories_partition_every_printing_and_unique_name() {
         }
     }
 
-    assert_eq!(full_names.len(), 238);
-    assert_eq!(full_printings, 253);
+    assert_eq!(full_names.len(), 239);
+    assert_eq!(full_printings, 254);
     assert_eq!(partial_names.len(), 19);
     assert_eq!(partial_printings, 19);
-    assert_eq!(catalog_only_names.len(), 34);
-    assert_eq!(catalog_only_printings, 34);
+    assert_eq!(catalog_only_names.len(), 33);
+    assert_eq!(catalog_only_printings, 33);
+    assert_eq!(catalog_only_names.len(), 33);
+    assert_eq!(catalog_only_printings, 33);
+>>>>>>> 8e0654f8 (docs(rav): close Stoneshaker Shaman end-step audit)
     assert_eq!(
         full_names.len() + partial_names.len() + catalog_only_names.len(),
         291

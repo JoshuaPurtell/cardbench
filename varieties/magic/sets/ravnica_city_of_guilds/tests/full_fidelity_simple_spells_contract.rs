@@ -142,6 +142,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-SELL-SWORD-BRUTE",
             "RAV-FRENZIED-GOBLIN",
             "RAV-SPARKMAGE-APPRENTICE",
+            "RAV-STONESHAKER-SHAMAN",
             "RAV-HUNTED-DRAGON",
             "RAV-HUNTED-TROLL",
             "RAV-KEENING-BANSHEE",
