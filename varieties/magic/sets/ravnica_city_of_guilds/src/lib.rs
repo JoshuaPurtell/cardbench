@@ -67,6 +67,8 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 205] = [
     "RAV-CHORD-OF-CALLING",
     "RAV-SCION-OF-THE-WILD",
     "RAV-GUARDIAN-OF-VITU-GHAZI",
+    "RAV-CONCLAVE-PHALANX",
+    "RAV-ROOT-KIN-ALLY",
     "RAV-LAST-GASP",
     "RAV-ELVES-OF-DEEP-SHADOW",
     "RAV-BOROS-RECRUIT",
@@ -2144,9 +2146,8 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Convoke, Keyword::Flying],
             effects: vec![],
         },
-        // Compatibility scope: normal creature casting, base characteristics,
-        // and the existing Convoke payment hook. Its printed enter-the-
-        // battlefield behavior is intentionally unsupported.
+        // Full fidelity: the ETB trigger reads the controller's live white
+        // creature count at resolution after ordinary Convoke payment.
         CardDefinition {
             id: "RAV-CONCLAVE-PHALANX",
             name: "Conclave Phalanx",
@@ -2156,7 +2157,12 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Creature]),
             is_basic_land: false,
-            supported_rules: &["convoke", "base-characteristics"],
+            supported_rules: &[
+                "full-rules-fidelity",
+                "convoke",
+                "base-characteristics",
+                "etb-life-per-controlled-white-creature",
+            ],
             power: Some(2),
             toughness: Some(4),
             keywords: vec![Keyword::Convoke],
@@ -2212,9 +2218,8 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Convoke, Keyword::Trample],
             effects: vec![],
         },
-        // Compatibility scope: normal creature casting, base characteristics,
-        // and the existing Convoke payment hook. Its enter-the-battlefield
-        // counter behavior is intentionally unsupported.
+        // Full fidelity: exact Convoke contributors are captured by object
+        // incarnation at cast time and checked again at ETB resolution.
         CardDefinition {
             id: "RAV-ROOT-KIN-ALLY",
             name: "Root-Kin Ally",
@@ -2224,7 +2229,12 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Creature]),
             is_basic_land: false,
-            supported_rules: &["convoke", "base-characteristics"],
+            supported_rules: &[
+                "full-rules-fidelity",
+                "convoke",
+                "base-characteristics",
+                "etb-counters-exact-convoke-contributors",
+            ],
             power: Some(3),
             toughness: Some(3),
             keywords: vec![Keyword::Convoke],
@@ -7643,6 +7653,30 @@ pub fn rav_static_entry_restriction_bindings() -> Vec<StaticEntryRestrictionBind
 #[allow(clippy::too_many_lines)] // Keep the declarative trigger registry centralized for audit review.
 pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
     vec![
+        TriggeredAbilityBinding {
+            card_definition: "RAV-CONCLAVE-PHALANX",
+            ability: TriggeredAbility {
+                id: "etb-gain-life-per-controlled-white-creature",
+                condition: TriggerCondition::EntersBattlefield,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![Effect::GainLifeForEachControlledCreatureOfColor {
+                    color: Color::White,
+                }],
+            },
+        },
+        TriggeredAbilityBinding {
+            card_definition: "RAV-ROOT-KIN-ALLY",
+            ability: TriggeredAbility {
+                id: "etb-counter-exact-convoke-contributors",
+                condition: TriggerCondition::EntersBattlefield,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![Effect::AddPlusOneCounterToConvokeContributors],
+            },
+        },
         TriggeredAbilityBinding {
             card_definition: "RAV-BOTTLED-CLOISTER",
             ability: TriggeredAbility {

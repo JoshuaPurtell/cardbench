@@ -2,13 +2,12 @@
 //! require cast-time provenance rather than a static creature chassis.
 
 use cardbench_magic_engine::{
-    CastRequest, Color, ConvokeContribution, ConvokePayment, Game, GameEvent, PlayerId, Step,
-    Zone,
+    CastRequest, Color, ConvokeContribution, ConvokePayment, Game, GameEvent, PlayerId, Step, Zone,
 };
 use cardbench_magic_rav::{
-    card_definitions, rav_activated_ability_bindings, rav_additional_spell_cost_bindings,
-    rav_basic_land_type_bindings, rav_mana_ability_bindings, rav_triggered_ability_bindings,
-    RAV_FULL_FIDELITY_DEFINITION_IDS,
+    RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, rav_activated_ability_bindings,
+    rav_additional_spell_cost_bindings, rav_basic_land_type_bindings, rav_mana_ability_bindings,
+    rav_triggered_ability_bindings,
 };
 
 fn game() -> Game {
@@ -27,7 +26,8 @@ fn game() -> Game {
 fn advance_to_precombat_main(game: &mut Game) {
     game.begin_game().expect("fixture begins");
     for _ in 0..2 {
-        game.pass_priority(PlayerId(0)).expect("active player passes");
+        game.pass_priority(PlayerId(0))
+            .expect("active player passes");
         game.pass_priority(PlayerId(1)).expect("opponent passes");
     }
     assert_eq!(game.step, Step::PrecombatMain);

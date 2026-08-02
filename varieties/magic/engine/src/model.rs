@@ -1808,6 +1808,15 @@ pub enum Effect {
     /// remains provenance only and may have left the battlefield as an
     /// activation cost before this instruction resolves.
     AddPlusOneCounterToTarget,
+    /// ETB-trigger template for a creature that entered after being convoked.
+    /// Trigger materialization replaces this marker with the exact object
+    /// incarnations captured while its spell was cast.
+    AddPlusOneCounterToConvokeContributors,
+    /// Runtime-only Convoke provenance. A later zone change cannot make the
+    /// same stable object id eligible as its former incarnation.
+    AddPlusOneCountersToCapturedConvokeCreatures {
+        creatures: Vec<CapturedConvokeCreature>,
+    },
     /// Place a positive quantity of one typed counter on the resolving source
     /// while it remains a battlefield permanent. This is not creature-only;
     /// only `+1/+1` and `-1/-1` affect derived power and toughness.
@@ -1874,6 +1883,11 @@ pub enum Effect {
     /// battlefield when the instruction resolves. The count includes tokens
     /// and creatures controlled by every living player.
     GainLifeForEachCreature,
+    /// Gain life equal to the resolving ability controller's live creatures
+    /// that have the named color.
+    GainLifeForEachControlledCreatureOfColor {
+        color: Color,
+    },
     /// Gain life equal to the positive damage amount that caused this
     /// source-specific triggered ability to fire. This is intentionally a
     /// semantic operation rather than copied card text; the trigger queue
@@ -2646,6 +2660,7 @@ impl Effect {
             | Self::DealDamageToEachNonFlyingCreature { .. }
             | Self::GainLifeController { .. }
             | Self::GainLifeForEachCreature
+            | Self::GainLifeForEachControlledCreatureOfColor { .. }
             | Self::GainLifeControllerFromSourceDamage
             | Self::DrawController
             | Self::ExileControllerHandLinkedToSource
@@ -2664,6 +2679,8 @@ impl Effect {
             | Self::MillCapturedPlayer { .. }
             | Self::AddManaController { .. }
             | Self::AddPlusOneCounterToSource
+            | Self::AddPlusOneCounterToConvokeContributors
+            | Self::AddPlusOneCountersToCapturedConvokeCreatures { .. }
             | Self::AddCountersToSource { .. }
             | Self::RemoveCountersFromSource { .. }
             | Self::DrawControllerIfManaColorSpent { .. }
@@ -3327,6 +3344,15 @@ pub struct DelayedActionId(pub u64);
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct CapturedCombatParticipant {
     pub permanent: ObjectId,
+    pub incarnation: u64,
+}
+
+/// One exact creature that paid a Convoke cost.  The stable object identifier
+/// is paired with its payment-time incarnation, so a card that leaves and
+/// re-enters before the spell's ETB trigger resolves is not a contributor.
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub struct CapturedConvokeCreature {
+    pub creature: ObjectId,
     pub incarnation: u64,
 }
 

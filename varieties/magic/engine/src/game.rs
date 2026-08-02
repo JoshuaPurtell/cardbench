@@ -8,10 +8,10 @@ use crate::{
     ActivatedAbilityCostModifier, ActivatedAbilityCostModifierBinding, ActivatedAbilityKind,
     ActivatedCounterCostTarget, ActivatedManaAbility, AdditionalSpellCost,
     AdditionalSpellCostBinding, AttachmentBinding, AttachmentKind, BasicLandType,
-    BasicLandTypeBinding, CapturedCombatParticipant, CardDefinition, CardObject, CardType,
-    CastPaymentManaAbility, CastPermissionPayment, CastPermissionZone, CastTiming, Characteristics,
-    Color, CombatBlock, ContinuousChange, ContinuousEffect, CopiableValues, CopiedPermanent,
-    CostReductionBinding, CounterKind, CreatureSubtype,
+    BasicLandTypeBinding, CapturedCombatParticipant, CapturedConvokeCreature, CardDefinition,
+    CardObject, CardType, CastPaymentManaAbility, CastPermissionPayment, CastPermissionZone,
+    CastTiming, Characteristics, Color, CombatBlock, ContinuousChange, ContinuousEffect,
+    CopiableValues, CopiedPermanent, CostReductionBinding, CounterKind, CreatureSubtype,
     DELAYED_COMBAT_HISTORY_DESTRUCTION_ABILITY_ID, DamageReplacementChoice,
     DamageReplacementEffect, DamageReplacementEffectBinding, DecisionContinuation, DecisionId,
     DecisionKind, DecisionOption, DecisionSelection, DecisionVisibility, DeckList, DelayedAction,
@@ -684,6 +684,10 @@ enum TriggerEventPayload {
         incarnation: u64,
         card_types: BTreeSet<CardType>,
     },
+    /// Exact incarnations that paid the spell's Convoke cost. This exists only
+    /// for the resulting permanent's own ETB trigger and never exposes a
+    /// policy choice after costs have been paid.
+    ConvokeContributors(Vec<CapturedConvokeCreature>),
     /// The event itself identifies the trigger's sole target. This is used
     /// for the represented Blood Funnel cast trigger, where the triggering
     /// spell is not a policy-selected target.
@@ -853,6 +857,11 @@ pub struct Game {
     /// `(source, source_incarnation)` so an ordinary leave/re-enter boundary
     /// cannot merge separate cards' private exile state.
     linked_hand_exile_groups: BTreeMap<(ObjectId, u64), LinkedHandExileGroup>,
+    /// Exact creatures that paid one live physical spell's Convoke cost. The
+    /// key is that spell's stack incarnation, so terminal resolution,
+    /// countering, elimination, and zone changes cannot leak provenance into
+    /// a later cast of the same card.
+    convoke_contributor_provenance: BTreeMap<(ObjectId, u64), Vec<CapturedConvokeCreature>>,
     delayed_actions: Vec<DelayedAction>,
     next_linked_exile_group_id: u64,
     next_delayed_action_id: u64,
@@ -1116,6 +1125,7 @@ impl Game {
             exile_on_resolution: BTreeSet::new(),
             linked_exile_groups: BTreeMap::new(),
             linked_hand_exile_groups: BTreeMap::new(),
+            convoke_contributor_provenance: BTreeMap::new(),
             delayed_actions: Vec::new(),
             next_linked_exile_group_id: 1,
             next_delayed_action_id: 1,
@@ -5792,7 +5802,7 @@ impl Game {
         self.consecutive_passes = 0;
         self.check_state_based_actions()?;
         self.flush_pending_dies_triggers();
-        self.enqueue_enter_triggers(card, definition_id, player)?;
+        self.enqueue_enter_triggers(card, definition_id, player, &[])?;
         self.enqueue_land_entry_triggers(player)?;
         Ok(())
     }
@@ -6520,6 +6530,20 @@ impl Game {
             });
         }
         let source_incarnation = self.move_to_stack(request.card)?;
+        if !request.convoke.is_empty() {
+            let contributors = request
+                .convoke
+                .iter()
+                .map(|payment| {
+                    Ok(CapturedConvokeCreature {
+                        creature: payment.creature,
+                        incarnation: self.object(payment.creature)?.incarnation,
+                    })
+                })
+                .collect::<Result<Vec<_>, RulesError>>()?;
+            self.convoke_contributor_provenance
+                .insert((request.card, source_incarnation), contributors);
+        }
         let target_incarnations = self.target_incarnations(&spell_targets);
         let stack_item = self.allocate_stack_object_id();
         self.stack.push(StackObject {
@@ -8740,7 +8764,7 @@ impl Game {
         if let Some((card, definition, controller)) = entered_permanent
             && self.zone_of(card) == Some(Zone::Battlefield)
         {
-            self.enqueue_enter_triggers(card, definition, controller)?;
+            self.enqueue_enter_triggers(card, definition, controller, &[])?;
             if self.card_definition(card)?.is_land() {
                 self.queue_land_entry_trigger_batch(controller)?;
             }
@@ -9181,7 +9205,7 @@ impl Game {
         self.flush_pending_dies_triggers();
         for (card, definition, controller) in entered_permanents {
             if self.zone_of(card) == Some(Zone::Battlefield) {
-                self.enqueue_enter_triggers(card, definition, controller)?;
+                self.enqueue_enter_triggers(card, definition, controller, &[])?;
                 if self.card_definition(card)?.is_land() {
                     self.queue_land_entry_trigger_batch(controller)?;
                 }
@@ -10325,6 +10349,7 @@ impl Game {
         self.validate_blocks_trigger_event_order()?;
         self.validate_linked_exile_state()?;
         self.validate_linked_hand_exile_state()?;
+        self.validate_convoke_contributor_provenance()?;
         self.validate_linked_hand_exile_event_shape()?;
         Self::validate_spell_mana_payment_event_order(&self.event_log)?;
         self.validate_first_noncreature_spell_cast_event_order()?;
@@ -11167,6 +11192,27 @@ impl Game {
                             ) if entered.0 > 0
                                 && *entered_incarnation > 0
                                 && !card_types.is_empty()
+                        )
+                    } else if trigger_condition == Some(TriggerCondition::EntersBattlefield)
+                        && effects.as_slice()
+                            == [Effect::AddPlusOneCounterToConvokeContributors]
+                    {
+                        matches!(
+                            (effects.as_slice(), stack_object.effects.as_slice()),
+                            (
+                                [Effect::AddPlusOneCounterToConvokeContributors],
+                                [Effect::AddPlusOneCountersToCapturedConvokeCreatures {
+                                    creatures,
+                                }]
+                            ) if !creatures.is_empty()
+                                && creatures.iter().all(|captured| {
+                                    captured.creature.0 > 0 && captured.incarnation > 0
+                                })
+                                && creatures.iter().enumerate().all(|(index, captured)| {
+                                    !creatures[index + 1..]
+                                        .iter()
+                                        .any(|other| other.creature == captured.creature)
+                                })
                         )
                     } else if effects.iter().any(|effect| {
                         matches!(
@@ -13139,6 +13185,15 @@ impl Game {
             }
             if matches!(
                 effect,
+                Effect::AddPlusOneCounterToConvokeContributors
+                    | Effect::AddPlusOneCountersToCapturedConvokeCreatures { .. }
+            ) {
+                return Err(RulesError::IllegalAction(
+                    "Convoke-contributor effects are valid only on the matching ETB trigger",
+                ));
+            }
+            if matches!(
+                effect,
                 Effect::DestroyAllNonlandPermanentsWithManaValue { .. }
             ) {
                 return Err(RulesError::IllegalAction(
@@ -13276,6 +13331,8 @@ impl Game {
                 | Effect::ChangeTargetOfTargetActivatedAbility
                 | Effect::GainControlTargetUntilEndOfTurn
                 | Effect::AddPlusOneCounterToSource
+                | Effect::AddPlusOneCounterToConvokeContributors
+                | Effect::AddPlusOneCountersToCapturedConvokeCreatures { .. }
                 | Effect::LoseLifeEachOpponentEqualToControlledCreatures
                 | Effect::DiscardOneCardEachPlayer
                 | Effect::DiscardTargetPlayer { .. }
@@ -13302,6 +13359,7 @@ impl Game {
                 | Effect::MillTargetPlayerFromSourceDamage
                 | Effect::MillSourceControllerFromSourceDamage
                 | Effect::GainLifeForEachCreature
+                | Effect::GainLifeForEachControlledCreatureOfColor { .. }
                 | Effect::DealDamageToEachPlayerFromReceivedDamage
                 | Effect::DealDamageEqualToAttackingCreatures { .. }
                 | Effect::ModifyTargetPtUntilEndOfTurn { .. }
@@ -13853,6 +13911,13 @@ impl Game {
         let permanent_resolution = self.card_definition(stack_object.card)?.is_permanent();
         let entering_is_land = self.card_definition(stack_object.card)?.is_land();
         let entering_controller = self.object(stack_object.card)?.controller;
+        let convoke_contributors = if permanent_resolution {
+            self.convoke_contributor_provenance
+                .remove(&(stack_object.card, stack_object.source_incarnation))
+                .unwrap_or_default()
+        } else {
+            Vec::new()
+        };
         if permanent_resolution {
             self.move_to_zone(stack_object.card, Zone::Battlefield)?;
             if let Some((target, requirement, changes)) = pending_attachment {
@@ -13881,7 +13946,12 @@ impl Game {
         self.check_state_based_actions()?;
         self.flush_pending_dies_triggers();
         if permanent_resolution {
-            self.enqueue_enter_triggers(stack_object.card, definition_id, entering_controller)?;
+            self.enqueue_enter_triggers(
+                stack_object.card,
+                definition_id,
+                entering_controller,
+                &convoke_contributors,
+            )?;
             if entering_is_land {
                 self.enqueue_land_entry_triggers(entering_controller)?;
             }
@@ -15167,6 +15237,7 @@ impl Game {
         source: ObjectId,
         definition: &'static str,
         controller: PlayerId,
+        convoke_contributors: &[CapturedConvokeCreature],
     ) -> Result<(), RulesError> {
         self.enqueue_triggers_for_source(
             source,
@@ -15174,6 +15245,18 @@ impl Game {
             controller,
             TriggerCondition::EntersBattlefield,
         );
+        let source_incarnation = self.object(source)?.incarnation;
+        for event in &mut self.pending_trigger_events {
+            if event.source == source
+                && event.source_incarnation == source_incarnation
+                && event.ability.condition == TriggerCondition::EntersBattlefield
+                && event.ability.effects.as_slice()
+                    == [Effect::AddPlusOneCounterToConvokeContributors]
+            {
+                event.payload =
+                    TriggerEventPayload::ConvokeContributors(convoke_contributors.to_vec());
+            }
+        }
         self.enqueue_controlled_nonartifact_permanent_entry_triggers(source, controller)?;
         self.flush_pending_trigger_events()
     }
@@ -15516,7 +15599,8 @@ impl Game {
                 | TriggerEventPayload::DamageAmount(_)
                 | TriggerEventPayload::DamageAmountAndSourceController { .. }
                 | TriggerEventPayload::CombatDamageRecipient { .. }
-                | TriggerEventPayload::EnteredPermanent { .. } => None,
+                | TriggerEventPayload::EnteredPermanent { .. }
+                | TriggerEventPayload::ConvokeContributors(_) => None,
             };
             if let Some(targets) = exact_targets {
                 if targets.len() == event.ability.targets.len()
@@ -15677,6 +15761,12 @@ impl Game {
                     entered: *permanent,
                     entered_incarnation: *incarnation,
                     card_types: card_types.clone(),
+                },
+                (
+                    Effect::AddPlusOneCounterToConvokeContributors,
+                    TriggerEventPayload::ConvokeContributors(creatures),
+                ) => Effect::AddPlusOneCountersToCapturedConvokeCreatures {
+                    creatures: creatures.clone(),
                 },
                 (effect, _) => effect,
             })
@@ -18243,6 +18333,31 @@ impl Game {
                 }
                 self.place_counter(source, target, CounterKind::PlusOnePlusOne, 1)?;
             }
+            Effect::AddPlusOneCounterToConvokeContributors => {
+                return Err(RulesError::IllegalAction(
+                    "unmaterialized Convoke-contributor trigger reached resolution",
+                ));
+            }
+            Effect::AddPlusOneCountersToCapturedConvokeCreatures { creatures } => {
+                for captured in creatures {
+                    if self.zone_of(captured.creature) == Some(Zone::Battlefield)
+                        && self.object_has_incarnation(
+                            captured.creature,
+                            captured.incarnation,
+                        )
+                        && self.characteristics(captured.creature).is_ok_and(|characteristics| {
+                            characteristics.card_types.contains(&CardType::Creature)
+                        })
+                    {
+                        self.place_counter(
+                            source,
+                            captured.creature,
+                            CounterKind::PlusOnePlusOne,
+                            1,
+                        )?;
+                    }
+                }
+            }
             Effect::AddCountersToSource { counter, amount } => {
                 if self.zone_of(source) == Some(Zone::Battlefield)
                     && self.object_has_incarnation(source, source_incarnation)
@@ -18384,6 +18499,34 @@ impl Game {
                 let amount = i16::try_from(count).map_err(|_| {
                     RulesError::IllegalAction(
                         "battlefield creature count exceeds life-gain event capacity",
+                    )
+                })?;
+                if amount > 0 {
+                    self.players[controller.0].life += i64::from(amount);
+                    self.record_event(GameEvent::LifeGained {
+                        player: controller,
+                        amount,
+                    });
+                    self.enqueue_life_gain_triggers(controller);
+                }
+            }
+            Effect::GainLifeForEachControlledCreatureOfColor { color } => {
+                let count = self
+                    .all_battlefield_cards()
+                    .into_iter()
+                    .filter(|card| {
+                        self.controller_of(*card).is_ok_and(|card_controller| {
+                            card_controller == controller
+                                && self.characteristics(*card).is_ok_and(|characteristics| {
+                                    characteristics.card_types.contains(&CardType::Creature)
+                                        && characteristics.colors.contains(color)
+                                })
+                        })
+                    })
+                    .count();
+                let amount = i16::try_from(count).map_err(|_| {
+                    RulesError::IllegalAction(
+                        "controlled colored creature count exceeds life-gain event capacity",
                     )
                 })?;
                 if amount > 0 {
@@ -20970,6 +21113,9 @@ impl Game {
 
     fn move_to_spell_terminal_zone(&mut self, card: ObjectId) -> Result<(), RulesError> {
         self.spell_timing_exceptions.remove(&card);
+        let incarnation = self.object(card)?.incarnation;
+        self.convoke_contributor_provenance
+            .remove(&(card, incarnation));
         if self.exile_on_resolution.remove(&card) {
             self.move_to_zone(card, Zone::Exile)
         } else {
@@ -21571,6 +21717,17 @@ impl Game {
         if ability.effects.iter().any(|effect| {
             matches!(
                 effect,
+                Effect::AddPlusOneCounterToConvokeContributors
+                    | Effect::AddPlusOneCountersToCapturedConvokeCreatures { .. }
+            )
+        }) {
+            return Err(RulesError::IllegalAction(
+                "Convoke-contributor counter effects require a triggered ability",
+            ));
+        }
+        if ability.effects.iter().any(|effect| {
+            matches!(
+                effect,
                 Effect::DestroyAllNonlandPermanentsWithManaValueEqualToSourceCounters { .. }
             )
         }) && !ability.sacrifice_source
@@ -21582,6 +21739,7 @@ impl Game {
         Self::validate_cast_effects_for_ability(&ability.effects)
     }
 
+    #[allow(clippy::too_many_lines)] // Closed-world trigger shapes preserve provenance invariants.
     fn validate_triggered_ability_definition(
         ability: &crate::TriggeredAbility,
     ) -> Result<(), RulesError> {
@@ -21617,6 +21775,28 @@ impl Game {
         {
             return Err(RulesError::IllegalAction(
                 "combat-damage provenance destruction has the wrong trigger condition",
+            ));
+        }
+        let has_convoke_marker = ability
+            .effects
+            .contains(&Effect::AddPlusOneCounterToConvokeContributors);
+        if has_convoke_marker
+            && (ability.condition != TriggerCondition::EntersBattlefield
+                || !ability.targets.is_empty()
+                || ability.effects.as_slice() != [Effect::AddPlusOneCounterToConvokeContributors])
+        {
+            return Err(RulesError::IllegalAction(
+                "Convoke-contributor counters require one target-free ETB trigger effect",
+            ));
+        }
+        if ability.effects.iter().any(|effect| {
+            matches!(
+                effect,
+                Effect::AddPlusOneCountersToCapturedConvokeCreatures { .. }
+            )
+        }) {
+            return Err(RulesError::IllegalAction(
+                "materialized Convoke-contributor effect escaped onto a triggered binding",
             ));
         }
         if ability.condition == TriggerCondition::ControlledNonartifactPermanentEntersBattlefield
@@ -21769,6 +21949,7 @@ impl Game {
                 effect,
                 Effect::DestroyCapturedCreature { .. }
                     | Effect::DestroyCapturedCombatParticipants { .. }
+                    | Effect::AddPlusOneCountersToCapturedConvokeCreatures { .. }
             ) {
                 return Err(RulesError::IllegalAction(
                     "materialized event-provenance effect escaped onto an ability binding",
@@ -22699,6 +22880,37 @@ impl Game {
             return Err(RulesError::IllegalAction(
                 "delayed action references a missing linked-exile group",
             ));
+        }
+        Ok(())
+    }
+
+    /// A physical spell may retain Convoke contributors only while that exact
+    /// spell incarnation is on the stack. The captured object identities are
+    /// intentionally exact and unique; they are consumed before a permanent
+    /// enters so no later cast or terminal zone can inherit them.
+    fn validate_convoke_contributor_provenance(&self) -> Result<(), RulesError> {
+        for ((spell, source_incarnation), contributors) in &self.convoke_contributor_provenance {
+            let live_spell = self.stack.iter().any(|stack_object| {
+                stack_object.card == *spell
+                    && stack_object.ability_id.is_none()
+                    && stack_object.source_incarnation == *source_incarnation
+                    && stack_object.convoke_symbols == contributors.len()
+            });
+            let mut seen = BTreeSet::new();
+            if spell.0 == 0
+                || *source_incarnation == 0
+                || contributors.is_empty()
+                || !live_spell
+                || contributors.iter().any(|captured| {
+                    captured.creature.0 == 0
+                        || captured.incarnation == 0
+                        || !seen.insert(captured.creature)
+                })
+            {
+                return Err(RulesError::IllegalAction(
+                    "Convoke contributor provenance has an invalid live spell or incarnation",
+                ));
+            }
         }
         Ok(())
     }
@@ -27022,6 +27234,14 @@ impl Game {
             self.regeneration_shields.remove(&object);
             debug_assert_eq!(self.objects[&object].controller, owner);
         }
+        self.convoke_contributor_provenance
+            .retain(|(spell, incarnation), _| {
+                self.stack.iter().any(|stack_object| {
+                    stack_object.card == *spell
+                        && stack_object.ability_id.is_none()
+                        && stack_object.source_incarnation == *incarnation
+                })
+            });
     }
 
     fn record_game_end_if_needed(&mut self) {
