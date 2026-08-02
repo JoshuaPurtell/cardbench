@@ -1736,6 +1736,14 @@ pub enum Effect {
     /// current turn's cleanup step. The object never changes zones: its owner
     /// remains authoritative for every nonbattlefield destination.
     GainControlTargetUntilEndOfTurn,
+    /// Atomically exchange indefinite control of two target creatures. The
+    /// first target is controlled by the resolving controller; the second is
+    /// controlled by an opponent and has power no greater than the first.
+    /// Both target slots remain coupled through casting and resolution. The
+    /// resulting layer-two effects are self-sourced by their affected
+    /// permanents, so the completed exchange survives this effect's source
+    /// leaving the battlefield.
+    ExchangeControlOfTargetCreatures,
     /// Make one targeted player lose life without dealing damage. Prevention,
     /// redirection, and damage triggers therefore do not apply.
     LoseLifeTarget {
@@ -2694,6 +2702,9 @@ impl Effect {
             | Self::ReturnTargetPermanentToHandAndLoseControllerLife { .. }
             | Self::UntapTargetPermanent
             | Self::GainControlTargetUntilEndOfTurn => Some(TargetRequirement::Permanent),
+            Self::ExchangeControlOfTargetCreatures | Self::ReturnControlledCreatureToHand => {
+                Some(TargetRequirement::ControlledCreature)
+            }
             Self::ReturnTargetCardToHand => Some(TargetRequirement::OwnGraveyardCard),
             Self::PutTargetGraveyardCardOnOwnersLibraryBottom => {
                 Some(TargetRequirement::GraveyardCard)
@@ -2707,7 +2718,6 @@ impl Effect {
             | Self::PutTargetCreatureCardInControllerGraveyardOnOwnersLibraryTop => {
                 Some(TargetRequirement::CreatureCardInControllerGraveyard)
             }
-            Self::ReturnControlledCreatureToHand => Some(TargetRequirement::ControlledCreature),
             Self::ReturnControlledLandToHand => Some(TargetRequirement::ControlledLand),
             Self::ReturnOpponentCreatureToHand => Some(TargetRequirement::OpponentCreature),
             Self::CounterTargetInstantOrSorcerySpell
@@ -2811,6 +2821,20 @@ impl Effect {
             | Self::DestroyCapturedCreature { .. }
             | Self::DestroyCapturedCombatParticipants { .. }
             | Self::ExileAttachedCreatureAndAurasUntilEndStep => None,
+        }
+    }
+
+    /// Returns the ordered target slots owned by this one effect. Most
+    /// instructions own zero or one slot; target-pair instructions retain two
+    /// slots without being decomposed into independently resolving effects.
+    #[must_use]
+    pub const fn target_requirements(&self) -> [Option<TargetRequirement>; 2] {
+        match self {
+            Self::ExchangeControlOfTargetCreatures => [
+                Some(TargetRequirement::ControlledCreature),
+                Some(TargetRequirement::OpponentCreature),
+            ],
+            _ => [self.target_requirement(), None],
         }
     }
 }
@@ -4096,14 +4120,23 @@ pub struct StackObject {
     pub generic_cost_reduction: u8,
 }
 
-/// The resolution status for the target occurrence, if any, owned by one
+/// The resolution status for the target occurrence(s), if any, owned by one
 /// effect in a stack object. This is deliberately aligned one-for-one with
 /// `StackObject::effects`, rather than with the deduplicated set of objects
 /// named as targets: one permanent can legally occupy several target slots.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum StackEffectResolution {
     Untargeted,
-    Targeted { target: Target, legal: bool },
+    Targeted {
+        target: Target,
+        legal: bool,
+    },
+    TargetedPair {
+        first: Target,
+        first_legal: bool,
+        second: Target,
+        second_legal: bool,
+    },
 }
 
 /// The initial target-resolution decision for one stack object.
@@ -4133,8 +4166,8 @@ impl StackObject {
     pub fn target_count(&self) -> usize {
         self.effects
             .iter()
-            .filter(|effect| effect.target_requirement().is_some())
-            .count()
+            .map(|effect| effect.target_requirements().into_iter().flatten().count())
+            .sum()
     }
 
     /// Produces the one-shot target decision used by a stack resolution.
@@ -4161,15 +4194,35 @@ impl StackObject {
         let effects = self
             .effects
             .iter()
-            .map(|effect| match effect.target_requirement() {
-                None => StackEffectResolution::Untargeted,
-                Some(requirement) => {
-                    has_target = true;
-                    // The exact arity check above proves this is present.
-                    let target = targets.next().expect("target occurrence is present");
-                    let legal = target_is_legal(target, requirement);
-                    has_legal_target |= legal;
-                    StackEffectResolution::Targeted { target, legal }
+            .map(|effect| {
+                let [first_requirement, second_requirement] = effect.target_requirements();
+                match (first_requirement, second_requirement) {
+                    (None, None) => StackEffectResolution::Untargeted,
+                    (Some(requirement), None) => {
+                        has_target = true;
+                        // The exact arity check above proves this is present.
+                        let target = targets.next().expect("target occurrence is present");
+                        let legal = target_is_legal(target, requirement);
+                        has_legal_target |= legal;
+                        StackEffectResolution::Targeted { target, legal }
+                    }
+                    (Some(first_requirement), Some(second_requirement)) => {
+                        has_target = true;
+                        let first = targets.next().expect("first target occurrence is present");
+                        let second = targets.next().expect("second target occurrence is present");
+                        let first_legal = target_is_legal(first, first_requirement);
+                        let second_legal = target_is_legal(second, second_requirement);
+                        has_legal_target |= first_legal || second_legal;
+                        StackEffectResolution::TargetedPair {
+                            first,
+                            first_legal,
+                            second,
+                            second_legal,
+                        }
+                    }
+                    (None, Some(_)) => {
+                        unreachable!("an effect cannot have a second target without a first")
+                    }
                 }
             })
             .collect();

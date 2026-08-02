@@ -43,7 +43,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 226] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 227] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
@@ -123,6 +123,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 226] = [
     "RAV-FOREST",
     "RAV-CONCLAVE-EQUENAUT",
     "RAV-SNAPPING-DRAKE",
+    "RAV-SPAWNBROKER",
     "RAV-TATTERED-DRAKE",
     "RAV-TERRAFORMER",
     "RAV-ROOFSTALKER-WIGHT",
@@ -3018,6 +3019,30 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             power: Some(3),
             toughness: Some(2),
             keywords: vec![Keyword::Flying],
+            effects: vec![],
+        },
+        // Full fidelity: the target-pair ETB keeps both creature targets on
+        // the trigger stack, rechecks the dependent power restriction, and
+        // installs the resulting durable control exchange without zone moves.
+        CardDefinition {
+            id: "RAV-SPAWNBROKER",
+            name: "Spawnbroker",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(2, [Color::Blue]),
+            colors: colors([Color::Blue]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "etb-optional-two-creature-control-exchange",
+                "opponent-creature-power-at-most-controlled-target",
+            ],
+            power: Some(1),
+            toughness: Some(1),
+            keywords: vec![],
             effects: vec![],
         },
         // Full fidelity: the source's controller pays one life as a bound
@@ -8236,6 +8261,20 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                 optional: false,
                 targets: vec![],
                 effects: vec![Effect::LoseLifeController { amount: 1 }],
+            },
+        },
+        TriggeredAbilityBinding {
+            card_definition: "RAV-SPAWNBROKER",
+            ability: TriggeredAbility {
+                id: "etb-may-exchange-control-creatures",
+                condition: TriggerCondition::EntersBattlefield,
+                mana_cost: ManaCost::new(0),
+                optional: true,
+                targets: vec![
+                    TargetRequirement::ControlledCreature,
+                    TargetRequirement::OpponentCreature,
+                ],
+                effects: vec![Effect::ExchangeControlOfTargetCreatures],
             },
         },
         TriggeredAbilityBinding {

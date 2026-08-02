@@ -17,7 +17,7 @@ use crate::{
     DecisionContinuation, DecisionId, DecisionKind, DecisionOption, DecisionSelection,
     DecisionVisibility, DeckList, DelayedAction, DelayedActionId, DelayedActionKind,
     DelayedActionTiming, Duration, Effect, GameEvent, GeneralizedAbilityActivation,
-    GeneralizedActivatedAbilityCost, HandCardSnapshot, Keyword, LandEntryBinding,
+    GeneralizedActivatedAbilityCost, HandCardSnapshot, Keyword, LandEntryBinding, Layer,
     LibrarySearchCardinality, LibrarySearchDestination, LibrarySearchRequirement,
     LibrarySearchSelection, LinkedExileGroup, LinkedExileGroupId, LinkedExileMember,
     LinkedExileMemberRole, ManaAbilityActivation, ManaAbilityBinding,
@@ -1628,7 +1628,7 @@ impl Game {
                         .ability
                         .effects
                         .iter()
-                        .filter_map(Effect::target_requirement)
+                        .flat_map(|effect| effect.target_requirements().into_iter().flatten())
                         .collect::<Vec<_>>()
             {
                 return Err(RulesError::IllegalAction(
@@ -6793,25 +6793,24 @@ impl Game {
                     "private opponent-library choice is valid only on an activated ability",
                 ));
             }
-            let Some(requirement) = effect.target_requirement() else {
-                continue;
-            };
-            let target = targets.next().ok_or(RulesError::IllegalAction(
-                "chosen-X spell target is missing",
-            ))?;
-            if !effect.requires_chosen_x() {
-                continue;
-            }
-            if requirement != TargetRequirement::Creature {
-                return Err(RulesError::IllegalAction(
-                    "chosen-X instruction has an unsupported target requirement",
-                ));
-            }
-            let Target::Permanent(card) = target else {
-                return Err(RulesError::IllegalTarget(target));
-            };
-            if self.permanent_mana_value(card)? > i16::from(x_value) {
-                return Err(RulesError::IllegalTarget(target));
+            for requirement in effect.target_requirements().into_iter().flatten() {
+                let target = targets.next().ok_or(RulesError::IllegalAction(
+                    "chosen-X spell target is missing",
+                ))?;
+                if !effect.requires_chosen_x() {
+                    continue;
+                }
+                if requirement != TargetRequirement::Creature {
+                    return Err(RulesError::IllegalAction(
+                        "chosen-X instruction has an unsupported target requirement",
+                    ));
+                }
+                let Target::Permanent(card) = target else {
+                    return Err(RulesError::IllegalTarget(target));
+                };
+                if self.permanent_mana_value(card)? > i16::from(x_value) {
+                    return Err(RulesError::IllegalTarget(target));
+                }
             }
         }
         Ok(())
@@ -8977,7 +8976,7 @@ impl Game {
         let requirements = original
             .effects
             .iter()
-            .filter_map(Effect::target_requirement)
+            .flat_map(|effect| effect.target_requirements().into_iter().flatten())
             .collect::<Vec<_>>();
         if targets.len() != requirements.len()
             || targets
@@ -9003,6 +9002,7 @@ impl Game {
                 return Err(RulesError::IllegalTarget(*target));
             }
         }
+        self.validate_effect_target_relations(controller, &original.effects, targets)?;
         Ok(())
     }
 
@@ -9055,6 +9055,7 @@ impl Game {
                 "trigger-target decision no longer matches its captured trigger provenance",
             ));
         }
+        self.validate_effect_target_relations(controller, &effects, &targets)?;
 
         let event = PendingTriggeredAbilityEvent {
             source,
@@ -11336,7 +11337,7 @@ impl Game {
                         != ability
                             .effects
                             .iter()
-                            .filter_map(Effect::target_requirement)
+                            .flat_map(|effect| effect.target_requirements().into_iter().flatten())
                             .collect::<Vec<_>>()
                 {
                     return Err(RulesError::IllegalAction(
@@ -12066,7 +12067,7 @@ impl Game {
                 definition
                     .effects
                     .iter()
-                    .filter_map(Effect::target_requirement),
+                    .flat_map(|effect| effect.target_requirements().into_iter().flatten()),
             ) {
                 if !Self::target_shape_matches(*target, requirement) {
                     return Err(RulesError::IllegalTarget(*target));
@@ -13576,7 +13577,7 @@ impl Game {
         let requirements: Vec<_> = definition
             .effects
             .iter()
-            .filter_map(Effect::target_requirement)
+            .flat_map(|effect| effect.target_requirements().into_iter().flatten())
             .collect();
         if requirements.is_empty() {
             if targets.is_empty() {
@@ -13603,6 +13604,120 @@ impl Game {
                 return Err(RulesError::IllegalTarget(*target));
             }
         }
+        self.validate_effect_target_relations(controller, &definition.effects, targets)?;
+        Ok(())
+    }
+
+    /// Validates target relationships that cannot be expressed by one target
+    /// slot in isolation. Ordinary target shape, controller, and protection
+    /// checks run first; this adds only cross-slot constraints owned by an
+    /// effect and is shared by spell casts, trigger choices, and spell copies.
+    fn validate_effect_target_relations(
+        &self,
+        controller: PlayerId,
+        effects: &[Effect],
+        targets: &[Target],
+    ) -> Result<(), RulesError> {
+        let mut target_index = 0;
+        for effect in effects {
+            let target_count = effect.target_requirements().into_iter().flatten().count();
+            if matches!(effect, Effect::ExchangeControlOfTargetCreatures) {
+                let first = *targets.get(target_index).ok_or(RulesError::IllegalAction(
+                    "control exchange is missing its first target",
+                ))?;
+                let second = *targets
+                    .get(target_index + 1)
+                    .ok_or(RulesError::IllegalAction(
+                        "control exchange is missing its second target",
+                    ))?;
+                self.validate_control_exchange_target_pair(controller, first, second)?;
+            }
+            target_index += target_count;
+        }
+        if target_index != targets.len() {
+            return Err(RulesError::IllegalAction(
+                "effect target relations have an invalid target count",
+            ));
+        }
+        Ok(())
+    }
+
+    /// Determines whether every represented target-pair relation has at
+    /// least one current legal selection before opening a trigger-target
+    /// decision. The public decision still projects the union of each slot's
+    /// legal objects; submission performs the exact pair revalidation.
+    fn effect_target_relations_are_selectable(
+        &self,
+        controller: PlayerId,
+        source_colors: &BTreeSet<Color>,
+        effects: &[Effect],
+    ) -> bool {
+        effects.iter().all(|effect| {
+            if !matches!(effect, Effect::ExchangeControlOfTargetCreatures) {
+                return true;
+            }
+            let first_candidates = self.legal_trigger_targets_for_colors(
+                controller,
+                source_colors,
+                TargetRequirement::ControlledCreature,
+            );
+            let second_candidates = self.legal_trigger_targets_for_colors(
+                controller,
+                source_colors,
+                TargetRequirement::OpponentCreature,
+            );
+            first_candidates.iter().any(|first| {
+                second_candidates.iter().any(|second| {
+                    self.validate_control_exchange_target_pair(controller, *first, *second)
+                        .is_ok()
+                })
+            })
+        })
+    }
+
+    /// The dependent target relation for an indefinite creature-control
+    /// exchange. It deliberately reads current characteristics: a later
+    /// power or control change may leave one target legal but prevent the
+    /// all-or-nothing exchange at resolution.
+    fn validate_control_exchange_target_pair(
+        &self,
+        controller: PlayerId,
+        first: Target,
+        second: Target,
+    ) -> Result<(), RulesError> {
+        if !self.target_matches_for_controller(
+            controller,
+            first,
+            TargetRequirement::ControlledCreature,
+        ) {
+            return Err(RulesError::IllegalTarget(first));
+        }
+        if !self.target_matches_for_controller(
+            controller,
+            second,
+            TargetRequirement::OpponentCreature,
+        ) {
+            return Err(RulesError::IllegalTarget(second));
+        }
+        let Target::Permanent(first) = first else {
+            return Err(RulesError::IllegalTarget(first));
+        };
+        let Target::Permanent(second) = second else {
+            return Err(RulesError::IllegalTarget(second));
+        };
+        let first_power = self
+            .characteristics(first)
+            .map_err(|_| RulesError::IllegalTarget(Target::Permanent(first)))?
+            .power
+            .ok_or(RulesError::IllegalTarget(Target::Permanent(first)))?;
+        let second_power = self
+            .characteristics(second)
+            .map_err(|_| RulesError::IllegalTarget(Target::Permanent(second)))?
+            .power
+            .ok_or(RulesError::IllegalTarget(Target::Permanent(second)))?;
+        if second_power > first_power {
+            return Err(RulesError::IllegalTarget(Target::Permanent(second)));
+        }
         Ok(())
     }
 
@@ -13618,8 +13733,8 @@ impl Game {
         let target_count = definition
             .effects
             .iter()
-            .filter(|effect| effect.target_requirement().is_some())
-            .count();
+            .map(|effect| effect.target_requirements().into_iter().flatten().count())
+            .sum();
         let cost_count = self
             .additional_spell_costs
             .get(definition.id)
@@ -13973,6 +14088,7 @@ impl Game {
                 | Effect::AttachSourceToTarget { .. }
                 | Effect::ChangeTargetOfTargetActivatedAbility
                 | Effect::GainControlTargetUntilEndOfTurn
+                | Effect::ExchangeControlOfTargetCreatures
                 | Effect::AddPlusOneCounterToSource
                 | Effect::AddPlusOneCounterToConvokeContributors
                 | Effect::AddPlusOneCountersToCapturedConvokeCreatures { .. }
@@ -14474,6 +14590,78 @@ impl Game {
                         effect_index,
                         target,
                     });
+                }
+                StackEffectResolution::TargetedPair {
+                    first,
+                    first_legal: _,
+                    second,
+                    second_legal: _,
+                } => {
+                    let first_occurrence = target_index;
+                    target_index += 2;
+                    let [Some(first_requirement), Some(second_requirement)] =
+                        effect.target_requirements()
+                    else {
+                        return Err(RulesError::IllegalAction(
+                            "target-pair resolution lacks two target requirements",
+                        ));
+                    };
+                    if !matches!(effect, Effect::ExchangeControlOfTargetCreatures) {
+                        return Err(RulesError::IllegalAction(
+                            "unsupported multi-target effect reached stack resolution",
+                        ));
+                    }
+                    let first_still_legal = self.stack_target_incarnation_matches(
+                        &stack_object,
+                        first_occurrence,
+                        first,
+                    ) && self.target_matches_for_colors(
+                        stack_object.controller,
+                        first,
+                        first_requirement,
+                        &stack_object.source_colors,
+                    );
+                    let second_still_legal = self.stack_target_incarnation_matches(
+                        &stack_object,
+                        first_occurrence + 1,
+                        second,
+                    ) && self.target_matches_for_colors(
+                        stack_object.controller,
+                        second,
+                        second_requirement,
+                        &stack_object.source_colors,
+                    );
+                    let pair_still_legal = first_still_legal
+                        && second_still_legal
+                        && self
+                            .validate_control_exchange_target_pair(
+                                stack_object.controller,
+                                first,
+                                second,
+                            )
+                            .is_ok();
+                    if pair_still_legal {
+                        self.exchange_control_of_creatures(
+                            stack_object.controller,
+                            Self::target_permanent(Some(first))?,
+                            Self::target_permanent(Some(second))?,
+                        )?;
+                    } else {
+                        if !first_still_legal {
+                            self.record_event(GameEvent::TargetInstructionSkipped {
+                                card: stack_object.card,
+                                effect_index,
+                                target: first,
+                            });
+                        }
+                        if !second_still_legal || first_still_legal {
+                            self.record_event(GameEvent::TargetInstructionSkipped {
+                                card: stack_object.card,
+                                effect_index,
+                                target: second,
+                            });
+                        }
+                    }
                 }
             }
         }
@@ -15134,7 +15322,7 @@ impl Game {
         for requirement in original_stack
             .effects
             .iter()
-            .filter_map(Effect::target_requirement)
+            .flat_map(|effect| effect.target_requirements().into_iter().flatten())
         {
             for target in self.legal_trigger_targets_for_colors(
                 controller,
@@ -16328,7 +16516,11 @@ impl Game {
                         *requirement,
                     )
                     .is_empty()
-            }) {
+            }) && self.effect_target_relations_are_selectable(
+                event.controller,
+                &event.source_colors,
+                &effects,
+            ) {
                 let options = self.trigger_target_options(
                     event.controller,
                     &event.source_colors,
@@ -18818,6 +19010,11 @@ impl Game {
                     ContinuousChange::ChangeController(controller),
                     Duration::EndOfTurn(self.turn),
                 )?;
+            }
+            Effect::ExchangeControlOfTargetCreatures => {
+                return Err(RulesError::IllegalAction(
+                    "control exchange must resolve through its coupled target-pair boundary",
+                ));
             }
             Effect::ReplaceControllerLandsWithChosenBasicLandTypeUntilEndOfTurn => {
                 return Err(RulesError::IllegalAction(
@@ -22489,6 +22686,47 @@ impl Game {
         Ok(())
     }
 
+    /// Commits an already validated exchange as two permanent layer-two
+    /// effects in one no-priority resolution transaction. Each effect uses
+    /// its affected permanent as source and target: the exchange is not tied
+    /// to the spell or ability source remaining on the battlefield, while a
+    /// later departure of either exchanged permanent cleanly removes only its
+    /// own control effect.
+    fn exchange_control_of_creatures(
+        &mut self,
+        controller: PlayerId,
+        first: ObjectId,
+        second: ObjectId,
+    ) -> Result<(), RulesError> {
+        self.validate_control_exchange_target_pair(
+            controller,
+            Target::Permanent(first),
+            Target::Permanent(second),
+        )?;
+        let first_controller = self.controller_of(first)?;
+        let second_controller = self.controller_of(second)?;
+        let control_before = self.control_projection()?;
+        for (target, next_controller) in [(first, second_controller), (second, first_controller)] {
+            let incarnation = self.object(target)?.incarnation;
+            self.continuous_effects.push(ContinuousEffect {
+                source: target,
+                source_incarnation: incarnation,
+                target,
+                target_incarnation: incarnation,
+                change: ContinuousChange::ChangeController(next_controller),
+                duration: Duration::Permanent,
+                timestamp: self.next_timestamp,
+            });
+            self.next_timestamp += 1;
+            self.record_event(GameEvent::ContinuousEffectCreated {
+                source: target,
+                target,
+                layer: Layer::Control,
+            });
+        }
+        self.record_control_reversions(&control_before)
+    }
+
     fn expire_continuous_effects_involving(&mut self, card: ObjectId) {
         self.expire_continuous_effects_involving_with_control_before(card, None);
     }
@@ -22784,7 +23022,7 @@ impl Game {
         let effect_targets = ability
             .effects
             .iter()
-            .filter_map(Effect::target_requirement)
+            .flat_map(|effect| effect.target_requirements().into_iter().flatten())
             .collect::<Vec<_>>();
         if effect_targets != ability.targets {
             return Err(RulesError::IllegalAction(
@@ -22860,7 +23098,7 @@ impl Game {
         let effect_targets = ability
             .effects
             .iter()
-            .filter_map(Effect::target_requirement)
+            .flat_map(|effect| effect.target_requirements().into_iter().flatten())
             .collect::<Vec<_>>();
         if effect_targets != ability.targets {
             return Err(RulesError::IllegalAction(
@@ -28091,7 +28329,7 @@ impl Game {
                 for requirement in original_stack
                     .effects
                     .iter()
-                    .filter_map(Effect::target_requirement)
+                    .flat_map(|effect| effect.target_requirements().into_iter().flatten())
                 {
                     for target in self.legal_trigger_targets_for_colors(
                         *controller,
