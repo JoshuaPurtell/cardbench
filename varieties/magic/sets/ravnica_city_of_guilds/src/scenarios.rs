@@ -4,13 +4,13 @@
 //! has no parser dependency and each evaluated setup/action/assertion is visible in
 //! versioned data rather than hidden in a Rust test body.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 
 use cardbench_magic_engine::{
     AbilityActivation, BasicLandManaAbilityActivation, CastPaymentManaAbility, CastRequest, Color,
     CombatBlock, ConvokeContribution, ConvokePayment, Game, ManaAbilityActivation,
-    ManaPaymentSelection, ObjectId, PlayerId, RulesError, Target, Zone,
+    ManaPaymentSelection, ObjectId, PlayerId, PolicyAction, RulesError, Target, Zone,
 };
 
 use crate::{
@@ -92,6 +92,7 @@ struct ExpectedState {
     zones: Vec<String>,
     powers: Vec<String>,
     toughnesses: Vec<String>,
+    colors: Vec<String>,
     tapped: Vec<String>,
     token_count: Option<usize>,
     mana: Vec<String>,
@@ -318,6 +319,7 @@ fn set_expected_field(
         "zones" => scenario.expected.zones = parse_string_array(value, line_number)?,
         "powers" => scenario.expected.powers = parse_string_array(value, line_number)?,
         "toughnesses" => scenario.expected.toughnesses = parse_string_array(value, line_number)?,
+        "colors" => scenario.expected.colors = parse_string_array(value, line_number)?,
         "tapped" => scenario.expected.tapped = parse_string_array(value, line_number)?,
         "token_count" => scenario.expected.token_count = Some(parse_number(value, line_number)?),
         "mana" => scenario.expected.mana = parse_string_array(value, line_number)?,
@@ -465,13 +467,31 @@ fn execute_action(
                 convoke,
                 payment_mana_abilities,
             };
-            if action.mana_spend.is_empty() {
-                game.cast_spell(player, request).map_err(rules_error)
+            if action.color.is_empty() {
+                if action.mana_spend.is_empty() {
+                    game.cast_spell(player, request).map_err(rules_error)
+                } else {
+                    game.cast_spell_with_mana_spend(
+                        player,
+                        request,
+                        parse_mana_payment_selection(&action.mana_spend)?,
+                    )
+                    .map_err(rules_error)
+                }
             } else {
-                game.cast_spell_with_mana_spend(
+                if !action.mana_spend.is_empty() {
+                    return Err(
+                        "chosen-color scenario casts do not yet combine with an explicit mana-spend selection"
+                            .to_owned(),
+                    );
+                }
+                game.submit_policy_move(
                     player,
-                    request,
-                    parse_mana_payment_selection(&action.mana_spend)?,
+                    "rav-scenario.cast-with-color-choice.v1",
+                    PolicyAction::CastWithColorChoice {
+                        request,
+                        color: parse_color(&action.color)?,
+                    },
                 )
                 .map_err(rules_error)
             }
@@ -865,6 +885,20 @@ fn assert_expected_state(
         if actual != Some(expected_toughness) {
             return Err(format!(
                 "{}: expected `{label}` to have toughness {expected_toughness}, got {actual:?}",
+                specification.id
+            ));
+        }
+    }
+    for expected in &specification.expected.colors {
+        let (label, color) = split_pair(expected, "color assertion")?;
+        let actual = game
+            .characteristics(lookup(labels, label)?)
+            .map_err(rules_error)?
+            .colors;
+        let expected = BTreeSet::from([parse_color(color)?]);
+        if actual != expected {
+            return Err(format!(
+                "{}: expected `{label}` to have exactly color {color}, got {actual:?}",
                 specification.id
             ));
         }

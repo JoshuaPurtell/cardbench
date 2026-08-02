@@ -3604,6 +3604,10 @@ impl Game {
                 ContinuousChange::AddColor(color) => {
                     characteristics.colors.insert(*color);
                 }
+                ContinuousChange::ReplaceColorsWith(color) => {
+                    characteristics.colors.clear();
+                    characteristics.colors.insert(*color);
+                }
                 ContinuousChange::AddKeyword(keyword) => {
                     characteristics.keywords.push(keyword.clone());
                 }
@@ -3841,7 +3845,11 @@ impl Game {
     ) -> Result<(), RulesError> {
         self.object(source)?;
         self.object(target)?;
-        if matches!(change, ContinuousChange::AddColor(Color::Colorless)) {
+        if matches!(
+            change,
+            ContinuousChange::AddColor(Color::Colorless)
+                | ContinuousChange::ReplaceColorsWith(Color::Colorless)
+        ) {
             return Err(RulesError::IllegalAction(
                 "continuous effects may not add the colorless mana kind as a card color",
             ));
@@ -9375,7 +9383,11 @@ impl Game {
                     "continuous effect target incarnation is stale or invalid",
                 ));
             }
-            if matches!(effect.change, ContinuousChange::AddColor(Color::Colorless)) {
+            if matches!(
+                effect.change,
+                ContinuousChange::AddColor(Color::Colorless)
+                    | ContinuousChange::ReplaceColorsWith(Color::Colorless)
+            ) {
                 return Err(RulesError::IllegalAction(
                     "continuous effects may not add the colorless mana kind as a card color",
                 ));
@@ -10685,6 +10697,7 @@ impl Game {
                 | Effect::RegenerateSource
                 | Effect::AddKeywordToControllerCreaturesUntilEndOfTurn { .. }
                 | Effect::AddChosenColorProtectionToControllerCreaturesUntilEndOfTurn
+                | Effect::ReplaceTargetCreatureColorsWithChosenColorUntilEndOfTurn
                 | Effect::DestroyTargetLand
                 | Effect::DestroyTargetLandAndUntapSourceIfNonbasic
                 | Effect::DestroyTargetArtifact
@@ -15255,6 +15268,23 @@ impl Game {
                         Duration::EndOfTurn(self.turn),
                     )?;
                 }
+            }
+            Effect::ReplaceTargetCreatureColorsWithChosenColorUntilEndOfTurn => {
+                let color = chosen_color.ok_or(RulesError::IllegalAction(
+                    "chosen-color replacement resolved without a chosen color",
+                ))?;
+                if !color.is_colored() {
+                    return Err(RulesError::IllegalAction(
+                        "chosen-color replacement retained a non-card color",
+                    ));
+                }
+                let creature = Self::target_permanent(target)?;
+                self.install_continuous_effect(
+                    source,
+                    creature,
+                    ContinuousChange::ReplaceColorsWith(color),
+                    Duration::EndOfTurn(self.turn),
+                )?;
             }
             Effect::RadianceUntapAndModifyUntilEndOfTurn { power, toughness } => {
                 let target = Self::target_permanent(target)?;

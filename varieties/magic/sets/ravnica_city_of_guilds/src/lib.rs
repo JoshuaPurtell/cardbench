@@ -40,7 +40,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 162] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 163] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -142,6 +142,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 162] = [
     "RAV-RECOLLECT",
     "RAV-MNEMONIC-NEXUS",
     "RAV-PEEL-FROM-REALITY",
+    "RAV-QUICKCHANGE",
     "RAV-SINS-OF-THE-PAST",
     "RAV-SEWERDREG",
     "RAV-VOTARY-OF-THE-CONCLAVE",
@@ -1212,6 +1213,31 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             effects: vec![
                 Effect::ReturnControlledCreatureToHand,
                 Effect::ReturnOpponentCreatureToHand,
+            ],
+        },
+        // Full fidelity: a policy-selected five-color card color is retained
+        // on the spell stack, replaces the creature target's colors in layer
+        // five until end of turn, and then the controller draws one card.
+        CardDefinition {
+            id: "RAV-QUICKCHANGE",
+            name: "Quickchange",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(0, [Color::Blue]),
+            colors: colors([Color::Blue]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Instant]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "policy-chosen-target-color-replacement-until-end-of-turn",
+                "controller-draw",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![
+                Effect::ReplaceTargetCreatureColorsWithChosenColorUntilEndOfTurn,
+                Effect::DrawController,
             ],
         },
         // Only the hand-zone transmute activation is executable. The printed

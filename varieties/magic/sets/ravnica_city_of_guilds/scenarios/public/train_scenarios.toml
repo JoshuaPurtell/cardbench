@@ -533,6 +533,58 @@ event_markers = ["ContinuousEffectCreated", "AuraAttached", "TriggeredAbilitySta
 digest = "fnv1a64:c62054edce85b939"
 
 [[scenario]]
+id = "rav_quickchange_color_replacement"
+seed = 164
+description = "Cast Quickchange with a policy-submitted Red color, replace a multicolor creature target's complete color set in layer five, then draw one card."
+
+[[scenario.card]]
+label = "quickchange"
+owner = 0
+definition = "RAV-QUICKCHANGE"
+zone = "hand"
+
+[[scenario.card]]
+label = "target"
+owner = 1
+definition = "RAV-WATCHWOLF"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "drawn"
+owner = 0
+definition = "RAV-PLAINS"
+zone = "library"
+
+[[scenario.mana]]
+player = 0
+color = "blue"
+amount = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "quickchange"
+target = "permanent:target"
+color = "red"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["quickchange:graveyard", "target:battlefield", "drawn:hand"]
+colors = ["target:red"]
+stack_size = 0
+priority = 0
+mana = ["0:blue:0"]
+event_markers = ["SpellColorChosen", "SpellCast", "ContinuousEffectCreated", "CardMoved", "SpellResolved"]
+digest = "fnv1a64:c25b45b7a2757fb0"
+
+[[scenario]]
 id = "rav_cerulean_sphinx_owner_library_shuffle"
 seed = 211
 description = "Activate Cerulean Sphinx, move its exact battlefield incarnation to its owner's library, then record the deterministic owner-library shuffle before the ability resolves."

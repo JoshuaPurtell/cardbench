@@ -1917,6 +1917,12 @@ pub enum Effect {
     /// resolves. The choice is retained on the stack rather than inferred
     /// from mana spent or a deterministic policy fallback.
     AddChosenColorProtectionToControllerCreaturesUntilEndOfTurn,
+    /// Replace one targeted creature's complete color set with the explicit
+    /// card color selected while this spell was cast.  This is deliberately
+    /// distinct from adding a color: later layer-five effects still apply in
+    /// timestamp order, while the target's printed colors are absent for the
+    /// stated duration.
+    ReplaceTargetCreatureColorsWithChosenColorUntilEndOfTurn,
     RadianceUntapAndModifyUntilEndOfTurn {
         power: i16,
         toughness: i16,
@@ -2136,6 +2142,7 @@ impl Effect {
         matches!(
             self,
             Self::AddChosenColorProtectionToControllerCreaturesUntilEndOfTurn
+                | Self::ReplaceTargetCreatureColorsWithChosenColorUntilEndOfTurn
         )
     }
 
@@ -2161,15 +2168,16 @@ impl Effect {
             | Self::TapTargetCreature
             | Self::RegenerateTargetCreature
             | Self::AddPlusOneCounterToTarget
-            | Self::PutTargetCreatureOnOwnersLibraryTop => Some(TargetRequirement::Creature),
+            | Self::PutTargetCreatureOnOwnersLibraryTop
+            | Self::ReplaceTargetCreatureColorsWithChosenColorUntilEndOfTurn
+            | Self::DestroyTargetCreatureWithManaValueAtMostChosenX => {
+                Some(TargetRequirement::Creature)
+            }
             Self::PreventTargetCreatureCombatDamageUntilEndOfTurn { .. } => {
                 Some(TargetRequirement::AttackingOrBlockingCreature)
             }
             Self::AddTargetDamageShieldUntilEndOfTurn { .. } => {
                 Some(TargetRequirement::PlayerOrCreature)
-            }
-            Self::DestroyTargetCreatureWithManaValueAtMostChosenX => {
-                Some(TargetRequirement::Creature)
             }
             Self::DestroyTargetNonblackCreature => Some(TargetRequirement::NonblackCreature),
             Self::DestroyDistinctTargetCreature => Some(TargetRequirement::DistinctCreature),
@@ -2617,6 +2625,10 @@ pub enum ContinuousChange {
     ChangeControllerToSourceController,
     AddCardType(CardType),
     AddColor(Color),
+    /// Replace the affected permanent's complete color set in layer five.
+    /// This is not an additive color grant: cards with multiple printed
+    /// colors become exactly this color until the effect expires.
+    ReplaceColorsWith(Color),
     AddKeyword(Keyword),
     RemoveKeyword(Keyword),
     CannotBlockSource(ObjectId),
@@ -2667,7 +2679,7 @@ impl ContinuousChange {
         match self {
             Self::ChangeController(_) | Self::ChangeControllerToSourceController => Layer::Control,
             Self::AddCardType(_) => Layer::Type,
-            Self::AddColor(_) => Layer::Color,
+            Self::AddColor(_) | Self::ReplaceColorsWith(_) => Layer::Color,
             Self::AddKeyword(_)
             | Self::RemoveKeyword(_)
             | Self::CannotBlockSource(_)

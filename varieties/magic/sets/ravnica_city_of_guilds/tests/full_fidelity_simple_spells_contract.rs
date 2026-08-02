@@ -114,6 +114,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-RECOLLECT",
             "RAV-MNEMONIC-NEXUS",
             "RAV-PEEL-FROM-REALITY",
+            "RAV-QUICKCHANGE",
             "RAV-SINS-OF-THE-PAST",
             "RAV-SEWERDREG",
             "RAV-VOTARY-OF-THE-CONCLAVE",
@@ -189,6 +190,13 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
                 Effect::CounterTargetPhysicalSpellThenMillItsControllerByManaValueIfManaColorSpent {
                     color: Color::Blue,
                 },
+            ],
+        ),
+        (
+            "RAV-QUICKCHANGE",
+            vec![
+                Effect::ReplaceTargetCreatureColorsWithChosenColorUntilEndOfTurn,
+                Effect::DrawController,
             ],
         ),
         (
