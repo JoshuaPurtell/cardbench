@@ -49,8 +49,8 @@ a zone move. The fetched Aura's ordinary ETB trigger is queued only after the
 Mage trigger's terminal receipt. The opponent sees neither unselected Aura
 identities nor a private decision projection.
 
-The current catalog partition is 215 full / 41 partial / 35 catalog-only unique
-names (230 / 41 / 35 printings). The independently checked coverage-report
+The current catalog partition is 216 full / 40 partial / 35 catalog-only unique
+names (231 / 40 / 35 printings). The independently checked coverage-report
 binary emits the same partition.
 
 `RAV_FULL_FIDELITY_DEFINITION_IDS` is a deliberately small positive manifest,
@@ -284,8 +284,8 @@ nonblack creature through the ordinary regenerable destruction lifecycle, and
 its immediate hand-zone Transmute operation remains explicitly outside the
 stack-backed fidelity boundary.
 
-The creature-chassis batch for Carrion Howler, Coalhauler Swine, Bramble
-Elemental, Boros Swiftblade, and Loxodon
+The creature-chassis batch for Coalhauler Swine, Bramble Elemental, Boros
+Swiftblade, and Loxodon
 Hierarch is also deliberately
 bounded. Each records only public identity, mana cost, color, type, and base
 power/toughness facts, and supports only normal creature casting and those base
@@ -296,6 +296,12 @@ upkeep life-loss trigger, Dromad's received-damage one-life trigger, and
 Carven Caryatid's Defender plus ETB draw are fully represented. The
 public scenarios exercise exact colored-cost payment, stack resolution, zone
 movement, and base P/T values; they do not imply full-card fidelity.
+
+Carrion Howler is a positive-manifest entry. Its sole activation uses the
+engine's generalized life-payment cost profile, records `AbilityLifePaid`
+before the stack object, and applies the exact temporary source modifier only
+on normal ability resolution. The shown scenario records the entire lifecycle
+and the focused contract ends with the state-machine invariant audit.
 
 The second creature-chassis batch adds Elvish Skysweeper, Frenzied Goblin,
 Greater Forgeling, Lore Broker, Mortipede, Selesnya Evangel, and Selesnya

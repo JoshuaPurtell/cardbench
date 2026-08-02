@@ -41,7 +41,10 @@ fn carrion_howler_requires_a_life_paid_source_pump_without_double_strike() {
         .find(|definition| definition.id == "RAV-CARRION-HOWLER")
         .expect("Carrion Howler definition exists");
     assert_eq!(howler.mana_cost, ManaCost::with_colors(3, [Color::Black]));
-    assert_eq!(howler.card_types, [CardType::Creature].into_iter().collect());
+    assert_eq!(
+        howler.card_types,
+        [CardType::Creature].into_iter().collect()
+    );
     assert_eq!((howler.power, howler.toughness), (Some(2), Some(2)));
     assert!(
         howler.keywords.is_empty(),
@@ -109,7 +112,9 @@ fn carrion_howler_pays_life_before_its_source_pump_resolves() {
 
     assert_eq!(game.zone_of(howler), Some(Zone::Battlefield));
     assert_eq!(
-        game.characteristics(howler).expect("Howler remains live").power,
+        game.characteristics(howler)
+            .expect("Howler remains live")
+            .power,
         Some(4)
     );
     assert_eq!(
