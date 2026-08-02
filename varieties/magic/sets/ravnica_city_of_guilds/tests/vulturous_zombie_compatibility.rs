@@ -1,4 +1,4 @@
-//! Bounded public contract for Vulturous Zombie's shared Flying rule.
+//! Full public contract for Vulturous Zombie's static Flying rule.
 
 use std::collections::BTreeSet;
 
@@ -6,7 +6,7 @@ use cardbench_magic_engine::{CardType, Color, Keyword, ManaCost};
 use cardbench_magic_rav::{RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, run_all_scenarios};
 
 #[test]
-fn vulturous_zombie_definition_is_explicit_about_flying_and_omitted_trigger() {
+fn vulturous_zombie_definition_has_its_static_and_graveyard_trigger_rules() {
     let zombie = card_definitions()
         .into_iter()
         .find(|definition| definition.id == "RAV-VULTUROUS-ZOMBIE")
@@ -23,9 +23,15 @@ fn vulturous_zombie_definition_is_explicit_about_flying_and_omitted_trigger() {
     assert!(zombie.effects.is_empty());
     assert_eq!(
         zombie.supported_rules,
-        ["colored-cost-casting", "base-characteristics", "flying"]
+        [
+            "full-rules-fidelity",
+            "colored-cost-casting",
+            "base-characteristics",
+            "flying",
+            "opponent-card-to-graveyard-plus-one-counter",
+        ]
     );
-    assert!(!RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&zombie.id));
+    assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&zombie.id));
 }
 
 #[test]

@@ -271,6 +271,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 227] = [
     "RAV-WOEBRINGER-DEMON",
     "RAV-ZEPHYR-SPIRIT",
     "RAV-WIZENED-SNITCHES",
+    "RAV-VULTUROUS-ZOMBIE",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -5484,9 +5485,9 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::CannotBlockUnlessControlsMountain],
             effects: vec![],
         },
-        // Compatibility scope: normal colored-cost creature casting, base
-        // characteristics, and static Flying. Its graveyard-triggered counter
-        // behavior is deliberately unsupported.
+        // Full fidelity: every ordinary opponent-owned card move into a
+        // graveyard is observed from the battlefield and queues the source's
+        // counter trigger on the ordinary stack.
         CardDefinition {
             id: "RAV-VULTUROUS-ZOMBIE",
             name: "Vulturous Zombie",
@@ -5496,7 +5497,13 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Creature]),
             is_basic_land: false,
-            supported_rules: &["colored-cost-casting", "base-characteristics", "flying"],
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "flying",
+                "opponent-card-to-graveyard-plus-one-counter",
+            ],
             power: Some(3),
             toughness: Some(3),
             keywords: vec![Keyword::Flying],
@@ -7949,6 +7956,17 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                 optional: false,
                 targets: vec![],
                 effects: vec![Effect::GainLifeController { amount: 2 }],
+            },
+        },
+        TriggeredAbilityBinding {
+            card_definition: "RAV-VULTUROUS-ZOMBIE",
+            ability: TriggeredAbility {
+                id: "opponent-card-to-graveyard-plus-one-counter",
+                condition: TriggerCondition::OpponentCardPutIntoGraveyard,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![Effect::AddPlusOneCounterToSource],
             },
         },
         TriggeredAbilityBinding {
