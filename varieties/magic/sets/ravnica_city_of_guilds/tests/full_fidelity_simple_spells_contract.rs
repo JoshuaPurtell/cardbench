@@ -26,6 +26,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-GLIMPSE-THE-UNTHINKABLE",
             "RAV-GAZE-OF-THE-GORGON",
             "RAV-DROOLING-GROODION",
+            "RAV-DARK-HEART-OF-THE-WOOD",
             "RAV-GOLGARI-ROTWURM",
             "RAV-SCATTER-THE-SEEDS",
             "RAV-DOUBLING-SEASON",

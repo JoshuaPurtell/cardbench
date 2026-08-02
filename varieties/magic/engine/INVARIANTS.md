@@ -893,6 +893,13 @@ Oracle Magic rules coverage.
   records `SacrificedAsAbilityCost` immediately followed by its graveyard move
   (or token-ceases receipt), before `AbilityActivated`; a rejected selection is
   an atomic no-op with no mana debit or cost receipt.
+- A generalized activation-cost profile may further require that every bound
+  land sacrifice currently has one exact `BasicLandType`. Registration rejects
+  such a profile when its ability has no land-sacrifice slot; activation rejects
+  a wrong typed land before mana payment or any event. Replay checks each
+  matching historical `SacrificedAsAbilityCost` receipt against the immutable
+  profile, so a fabricated or substituted non-Forest land cannot become a
+  valid payment after its graveyard move.
 - An activated ability that requires additional creature taps receives exactly
   that many explicit, distinct, controlled, untapped non-source creature
   selections from the policy. These are cost taps rather than tap-symbol
