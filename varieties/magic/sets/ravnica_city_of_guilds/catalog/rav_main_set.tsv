@@ -71,7 +71,7 @@
 63	Remand	executable:RAV-REMAND
 64	Snapping Drake	executable:RAV-SNAPPING-DRAKE
 65	Spawnbroker
-66	Stasis Cell
+66	Stasis Cell	executable:RAV-STASIS-CELL
 67	Surveilling Sprite	executable:RAV-SURVEILLING-SPRITE
 68	Tattered Drake	executable:RAV-TATTERED-DRAKE
 69	Telling Time	executable:RAV-TELLING-TIME

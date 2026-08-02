@@ -42,7 +42,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 182] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 183] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
@@ -211,6 +211,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 182] = [
     "RAV-BATHE-IN-LIGHT",
     "RAV-LIGHT-OF-SANCTION",
     "RAV-FAITHS-FETTERS",
+    "RAV-STASIS-CELL",
     "RAV-CONCERTED-EFFORT",
     "RAV-CHANT-OF-VITU-GHAZI",
     "RAV-CENTAUR-SAFEGUARD",
@@ -2514,6 +2515,30 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                     ContinuousChange::AddKeyword(Keyword::CannotAttackOrBlock),
                     ContinuousChange::SuppressNonManaActivatedAbilities,
                 ],
+            }],
+        },
+        CardDefinition {
+            id: "RAV-STASIS-CELL",
+            name: "Stasis Cell",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(1, [Color::Blue]),
+            colors: colors([Color::Blue]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Enchantment]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "aura-enchant-creature",
+                "attached-creature-combat-and-nonmana-activation-restriction",
+                "generic-three-target-creature-reattachment",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![Effect::AttachSourceToTarget {
+                target: TargetRequirement::Creature,
+                changes: stasis_cell_attachment_changes(),
             }],
         },
         // Compatibility scope: this creature uses the expansion-neutral Aura
@@ -6016,6 +6041,25 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
             },
         },
         ActivatedAbilityBinding {
+            card_definition: "RAV-STASIS-CELL",
+            ability: ActivatedAbility {
+                id: "reattach-to-target-creature",
+                mana_cost: ManaCost::new(3),
+                tap_cost: false,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![TargetRequirement::Creature],
+                effects: vec![Effect::AttachSourceToTarget {
+                    target: TargetRequirement::Creature,
+                    changes: stasis_cell_attachment_changes(),
+                }],
+            },
+        },
+        ActivatedAbilityBinding {
             card_definition: "RAV-GRIFTERS-BLADE",
             ability: ActivatedAbility {
                 id: "equip-plus-one-plus-one",
@@ -6707,6 +6751,13 @@ fn peregrine_mask_attachment_changes() -> Vec<ContinuousChange> {
     ]
 }
 
+fn stasis_cell_attachment_changes() -> Vec<ContinuousChange> {
+    vec![
+        ContinuousChange::AddKeyword(Keyword::CannotAttackOrBlock),
+        ContinuousChange::SuppressNonManaActivatedAbilities,
+    ]
+}
+
 /// Explicit persistent-attachment metadata for the RAV Equipment slice.
 ///
 /// The activated ability above owns target ordering and stack resolution;
@@ -6727,6 +6778,13 @@ pub fn rav_attachment_bindings() -> Vec<AttachmentBinding> {
             kind: AttachmentKind::Equipment,
             target: TargetRequirement::ControlledCreature,
             changes: peregrine_mask_attachment_changes(),
+            granted_activated_abilities: vec![],
+        },
+        AttachmentBinding {
+            card_definition: "RAV-STASIS-CELL",
+            kind: AttachmentKind::Aura,
+            target: TargetRequirement::Creature,
+            changes: stasis_cell_attachment_changes(),
             granted_activated_abilities: vec![],
         },
         AttachmentBinding {
