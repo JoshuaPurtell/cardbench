@@ -66,6 +66,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 211] = [
     "RAV-GLARE-OF-SUBDUAL",
     "RAV-CHORD-OF-CALLING",
     "RAV-FARSEEK",
+    "RAV-MUDDLE-THE-MIXTURE",
     "RAV-SCION-OF-THE-WILD",
     "RAV-GUARDIAN-OF-VITU-GHAZI",
     "RAV-CONCLAVE-PHALANX",
@@ -1458,7 +1459,11 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Instant]),
             is_basic_land: false,
-            supported_rules: &["counter-target-instant-or-sorcery-spell", "transmute"],
+            supported_rules: &[
+                "full-rules-fidelity",
+                "counter-target-instant-or-sorcery-spell",
+                "transmute",
+            ],
             power: None,
             toughness: None,
             keywords: vec![Keyword::Transmute(ManaCost::with_colors(

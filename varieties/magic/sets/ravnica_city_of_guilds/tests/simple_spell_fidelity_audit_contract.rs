@@ -19,7 +19,11 @@ fn audited_simple_spells_keep_their_precise_compatibility_boundaries() {
         ("RAV-DRYADS-CARESS", &["controller-life-gain"] as &[_]),
         (
             "RAV-MUDDLE-THE-MIXTURE",
-            &["counter-target-instant-or-sorcery-spell", "transmute"] as &[_],
+            &[
+                "full-rules-fidelity",
+                "counter-target-instant-or-sorcery-spell",
+                "transmute",
+            ] as &[_],
         ),
         (
             "RAV-DIZZY-SPELL",
@@ -33,7 +37,7 @@ fn audited_simple_spells_keep_their_precise_compatibility_boundaries() {
     for (id, supported_rules) in expected {
         let spell = definition(id);
         assert_eq!(spell.supported_rules, supported_rules, "{id}");
-        if id != "RAV-DIZZY-SPELL" {
+        if !matches!(id, "RAV-DIZZY-SPELL" | "RAV-MUDDLE-THE-MIXTURE") {
             assert!(
                 !RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&id),
                 "{id} has an explicit unsupported functional rule and must not be promoted"

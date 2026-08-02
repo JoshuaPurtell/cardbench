@@ -39,6 +39,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-GUARDIAN-OF-VITU-GHAZI",
             "RAV-CONCLAVE-PHALANX",
             "RAV-ROOT-KIN-ALLY",
+            "RAV-MUDDLE-THE-MIXTURE",
             "RAV-LAST-GASP",
             "RAV-ELVES-OF-DEEP-SHADOW",
             "RAV-BOROS-RECRUIT",
