@@ -1,5 +1,7 @@
 # Magic engine bug ledger
 
+| `rav-coverage-count-stale-after-terrarion` | RAV integration contract drift — Terrarion's catalog promotion advances the executable/full partitions but fixed public coverage assertions still report the preceding baseline | Open — red `pending` | Exact red commands: `cargo test -p cardbench-magic-rav --test catalog_coverage -- --nocapture` failed executable printings `left: 250`, `right: 249`; `cargo test -p cardbench-magic-rav --test coverage_report_contract -- --nocapture` failed full names `left: 181`, `right: 180`. The authoritative post-promotion report is 250 executable / 56 catalog-only printings and names, with 196 full / 54 partial / 56 catalog-only printings and 181 / 54 / 56 unique names. |
+
 | `terrarion-entry-and-sacrifice-mana-lifecycle-missing` | RAV artifact/core coverage gap — Terrarion is catalog-only because bound mana abilities cannot yet sacrifice their source or receive an explicit multi-color output allocation, and entry restrictions cannot yet make their own source enter tapped | Open — red `pending` | Reproduction: `cargo test -p cardbench-magic-rav --test terrarion_red -- --nocapture`. The required green repair must use generic source-sacrifice mana-cost, selected multi-color bundle, self-entry replacement, and existing battlefield-to-graveyard triggered-draw lifecycle rather than card-name control flow. |
 
 <<<<<<< HEAD
