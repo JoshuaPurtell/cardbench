@@ -3880,6 +3880,10 @@ pub enum DecisionContinuation {
         source: ObjectId,
         source_incarnation: u64,
         controller: PlayerId,
+        /// Index of the prospective token/counter event in the immutable
+        /// stack-item instruction list. The remaining suffix resumes only
+        /// after this one event's replacement chain has committed.
+        effect_index: usize,
         event: ReplacementEventKind,
         original_amount: i16,
         amount: i16,

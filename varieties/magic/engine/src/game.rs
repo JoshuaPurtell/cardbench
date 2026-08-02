@@ -905,6 +905,11 @@ pub struct Game {
     pub players: Vec<PlayerState>,
     objects: BTreeMap<ObjectId, CardObject>,
     pub stack: Vec<StackObject>,
+    /// The next unresolved instruction for a stack item paused at a
+    /// no-priority replacement decision. The stack object retains its full,
+    /// immutable cast-time effect list for provenance auditing; this cursor
+    /// resumes the suffix without replaying an already replaced event.
+    stack_effect_cursors: BTreeMap<StackObjectId, usize>,
     pub continuous_effects: Vec<ContinuousEffect>,
     pub active_player: PlayerId,
     pub priority: PlayerId,
@@ -1173,6 +1178,7 @@ impl Game {
             players,
             objects: BTreeMap::new(),
             stack: Vec::new(),
+            stack_effect_cursors: BTreeMap::new(),
             continuous_effects: Vec::new(),
             active_player: PlayerId(0),
             priority: PlayerId(0),
@@ -7601,6 +7607,7 @@ impl Game {
                 source,
                 source_incarnation,
                 controller,
+                effect_index,
                 event,
                 original_amount,
                 amount,
@@ -7613,6 +7620,7 @@ impl Game {
                     source,
                     source_incarnation,
                     controller,
+                    effect_index,
                     event,
                     original_amount,
                     amount,
@@ -8676,6 +8684,7 @@ impl Game {
         source: ObjectId,
         source_incarnation: u64,
         controller: PlayerId,
+        effect_index: usize,
         event: ReplacementEventKind,
         original_amount: i16,
         mut amount: i16,
@@ -8705,6 +8714,7 @@ impl Game {
             source,
             source_incarnation,
             controller,
+            effect_index,
             event,
             original_amount,
             amount,
@@ -8720,6 +8730,7 @@ impl Game {
         source: ObjectId,
         source_incarnation: u64,
         controller: PlayerId,
+        effect_index: usize,
         event: ReplacementEventKind,
         original_amount: i16,
         mut amount: i16,
@@ -8734,6 +8745,7 @@ impl Game {
                         source,
                         source_incarnation,
                         controller,
+                        effect_index,
                         event,
                         original_amount,
                         amount,
@@ -8753,6 +8765,7 @@ impl Game {
                         source,
                         source_incarnation,
                         controller,
+                        effect_index,
                         event,
                         original_amount,
                         amount,
@@ -8771,6 +8784,7 @@ impl Game {
         source: ObjectId,
         source_incarnation: u64,
         controller: PlayerId,
+        effect_index: usize,
         event: ReplacementEventKind,
         original_amount: i16,
         amount: i16,
@@ -8781,42 +8795,20 @@ impl Game {
                 "quantity replacement chain reached a nonpositive final amount",
             ));
         }
-        let stack_object = self.stack.pop().ok_or(RulesError::IllegalAction(
+        let stack_object = self.stack.last().cloned().ok_or(RulesError::IllegalAction(
             "quantity replacement decision escaped its stack item",
         ))?;
-        let stack_shape_matches = match &resolution {
-            QuantityReplacementResolution::CreateTokens { player, token } => {
-                let token_count = u8::try_from(original_amount).ok();
-                matches!(
-                    (stack_object.effects.as_slice(), stack_object.targets.as_slice()),
-                    ([Effect::CreateToken { token: stack_token, count }], [])
-                        if stack_object.controller == *player
-                            && token_count == Some(*count)
-                            && stack_token == token
-                ) || matches!(
-                    (stack_object.effects.as_slice(), stack_object.targets.as_slice()),
-                    ([Effect::CreateTokenForTargetPlayer { token: stack_token, count }
-                        | Effect::CreateTokenForTargetOpponent { token: stack_token, count }], [Target::Player(target)])
-                        if target == player
-                            && token_count == Some(*count)
-                            && stack_token == token
-                )
-            }
-            QuantityReplacementResolution::PlaceCounters { card, counter } => {
-                matches!(
-                    (stack_object.effects.as_slice(), stack_object.targets.as_slice()),
-                    ([Effect::AddCountersToSource { counter: stack_counter, amount: stack_amount }], [])
-                        if *card == source && *stack_counter == *counter && *stack_amount == original_amount
-                ) || matches!(
-                    (stack_object.effects.as_slice(), stack_object.targets.as_slice()),
-                    ([Effect::AddCountersToTarget { counter: stack_counter, amount: stack_amount }], [Target::Permanent(target)])
-                        if *target == *card && *stack_counter == *counter && *stack_amount == original_amount
-                )
-            }
-        };
+        let stack_shape_matches = Self::quantity_replacement_stack_shape_matches(
+            &stack_object,
+            effect_index,
+            source,
+            original_amount,
+            &resolution,
+        );
         if stack_object.card != source
             || stack_object.source_incarnation != source_incarnation
             || stack_object.controller != controller
+            || self.stack_effect_cursor(&stack_object)? != effect_index
             || !stack_shape_matches
         {
             return Err(RulesError::IllegalAction(
@@ -8841,6 +8833,25 @@ impl Game {
                 self.place_counter_after_replacement(source, card, counter, amount)?;
             }
         }
+        let next_effect_index = effect_index
+            .checked_add(1)
+            .ok_or(RulesError::IllegalAction(
+                "stack instruction cursor overflowed",
+            ))?;
+        if next_effect_index < stack_object.effects.len() {
+            self.stack_effect_cursors
+                .insert(stack_object.id, next_effect_index);
+            return self.resolve_top_of_stack();
+        }
+        let terminal_stack_object = self.stack.pop().ok_or(RulesError::IllegalAction(
+            "quantity replacement terminal stack item disappeared",
+        ))?;
+        if terminal_stack_object.id != stack_object.id {
+            return Err(RulesError::IllegalAction(
+                "quantity replacement terminal stack identity changed",
+            ));
+        }
+        self.stack_effect_cursors.remove(&stack_object.id);
         if let Some(ability) = stack_object.ability_id {
             self.record_event(GameEvent::AbilityResolved {
                 source,
@@ -11125,6 +11136,27 @@ impl Game {
                 "pending land-entry trigger escaped its resolving stack object",
             ));
         }
+        if self.stack_effect_cursors.iter().any(|(stack_id, cursor)| {
+            *cursor == 0
+                || !matches!(
+                    (self.stack.last(), self.pending_decision.as_ref()),
+                    (
+                        Some(stack_object),
+                        Some(PendingDecision {
+                            continuation:
+                                DecisionContinuation::QuantityReplacement {
+                                    effect_index,
+                                    ..
+                                },
+                            ..
+                        }),
+                    ) if stack_object.id == *stack_id && *effect_index == *cursor
+                )
+        }) {
+            return Err(RulesError::IllegalAction(
+                "resumable stack instruction cursor escaped its quantity decision",
+            ));
+        }
         if !self.pending_empty_library_draw_losses.is_empty()
             && (self.stack.is_empty()
                 || self
@@ -13324,6 +13356,99 @@ impl Game {
         Ok(())
     }
 
+    /// Returns the next unresolved instruction for one live stack item.
+    ///
+    /// A cursor exists only while a no-priority quantity-replacement choice
+    /// has already completed an earlier instruction in the same item. The
+    /// immutable stack effects remain the cast-time source of truth.
+    fn stack_effect_cursor(&self, stack_object: &StackObject) -> Result<usize, RulesError> {
+        let cursor = self
+            .stack_effect_cursors
+            .get(&stack_object.id)
+            .copied()
+            .unwrap_or(0);
+        if cursor > stack_object.effects.len()
+            || (cursor == stack_object.effects.len() && cursor != 0)
+        {
+            return Err(RulesError::IllegalAction(
+                "stack instruction cursor is outside its immutable effect list",
+            ));
+        }
+        Ok(cursor)
+    }
+
+    fn effect_target_offset(effects: &[Effect], effect_index: usize) -> usize {
+        effects
+            .iter()
+            .take(effect_index)
+            .map(|effect| effect.target_requirements().into_iter().flatten().count())
+            .sum()
+    }
+
+    /// Checks the exact instruction at one resumable cursor without rewriting
+    /// the full stack item's cast-time effect list or target provenance.
+    fn quantity_replacement_stack_shape_matches(
+        stack_object: &StackObject,
+        effect_index: usize,
+        source: ObjectId,
+        original_amount: i16,
+        resolution: &QuantityReplacementResolution,
+    ) -> bool {
+        let Some(effect) = stack_object.effects.get(effect_index) else {
+            return false;
+        };
+        let target_offset = Self::effect_target_offset(&stack_object.effects, effect_index);
+        match resolution {
+            QuantityReplacementResolution::CreateTokens { player, token } => {
+                matches!(
+                    effect,
+                    Effect::CreateToken {
+                        token: stack_token,
+                        count,
+                    } if stack_object.controller == *player
+                        && i16::from(*count) == original_amount
+                        && stack_token == token
+                ) || matches!(
+                    (effect, stack_object.targets.get(target_offset)),
+                    (
+                        Effect::CreateTokenForTargetPlayer {
+                            token: stack_token,
+                            count,
+                        } | Effect::CreateTokenForTargetOpponent {
+                            token: stack_token,
+                            count,
+                        },
+                        Some(Target::Player(target)),
+                    ) if *target == *player
+                        && i16::from(*count) == original_amount
+                        && stack_token == token
+                )
+            }
+            QuantityReplacementResolution::PlaceCounters { card, counter } => {
+                matches!(
+                    effect,
+                    Effect::AddCountersToSource {
+                        counter: stack_counter,
+                        amount: stack_amount,
+                    } if *card == source
+                        && *stack_counter == *counter
+                        && *stack_amount == original_amount
+                ) || matches!(
+                    (effect, stack_object.targets.get(target_offset)),
+                    (
+                        Effect::AddCountersToTarget {
+                            counter: stack_counter,
+                            amount: stack_amount,
+                        },
+                        Some(Target::Permanent(target)),
+                    ) if *target == *card
+                        && *stack_counter == *counter
+                        && *stack_amount == original_amount
+                )
+            }
+        }
+    }
+
     /// Applies every currently applicable quantity replacement exactly once.
     /// This compatibility path has no suspended stack continuation, so it
     /// advances a shared prospective-event chain in stable battlefield order.
@@ -14621,9 +14746,17 @@ impl Game {
         {
             return Ok(());
         }
+        let next_effect_index = self
+            .stack
+            .last()
+            .ok_or(RulesError::IllegalAction(
+                "attempted to resolve an empty stack",
+            ))
+            .and_then(|stack_object| self.stack_effect_cursor(stack_object))?;
         let stack_object = self.stack.pop().ok_or(RulesError::IllegalAction(
             "attempted to resolve an empty stack",
         ))?;
+        self.stack_effect_cursors.remove(&stack_object.id);
         // Target legality is snapshotted once, per target occurrence, before
         // any instruction resolves to establish the all-illegal boundary. An
         // initially legal slot is rechecked before its own instruction: an
@@ -14644,6 +14777,11 @@ impl Game {
             })
             .map_err(|_| RulesError::IllegalAction("stack object has an invalid target count"))?;
         if matches!(plan, StackResolutionPlan::CounteredByRules) {
+            if next_effect_index != 0 {
+                return Err(RulesError::IllegalAction(
+                    "a resumed stack item cannot become countered after beginning resolution",
+                ));
+            }
             if let Some(ability) = stack_object.ability_id {
                 self.record_event(GameEvent::AbilityCounteredByRules {
                     source: stack_object.card,
@@ -14711,15 +14849,26 @@ impl Game {
         }
         let mut pending_attachment: Option<(ObjectId, TargetRequirement, Vec<ContinuousChange>)> =
             None;
-        let mut target_index = 0;
+        let mut target_index = Self::effect_target_offset(&stack_object.effects, next_effect_index);
         for (effect_index, (effect, target_resolution)) in stack_object
             .effects
             .iter()
             .zip(effect_resolutions)
             .enumerate()
         {
+            if effect_index < next_effect_index {
+                continue;
+            }
             if !trigger_payment_paid {
                 continue;
+            }
+            if effect_index > next_effect_index
+                && self.suspend_resolving_stack_instruction_for_quantity_replacement(
+                    &stack_object,
+                    effect_index,
+                )?
+            {
+                return Ok(());
             }
             match target_resolution {
                 StackEffectResolution::Untargeted => {
@@ -15070,10 +15219,43 @@ impl Game {
         Ok(())
     }
 
-    /// Opens an affected-player replacement decision for a one-effect token
-    /// creation or counter-placement stack item. The generic chain retains
-    /// the stack item while the player selects an ordering, then recomputes
-    /// live source incarnations after every application.
+    /// Reinstates an in-progress stack object only long enough to ask whether
+    /// its next instruction has concurrent quantity replacements.  Earlier
+    /// instructions have already committed as part of the same resolution;
+    /// no priority is created while the affected player chooses the current
+    /// prospective event's ordering.
+    fn suspend_resolving_stack_instruction_for_quantity_replacement(
+        &mut self,
+        stack_object: &StackObject,
+        effect_index: usize,
+    ) -> Result<bool, RulesError> {
+        if effect_index == 0 || effect_index >= stack_object.effects.len() {
+            return Err(RulesError::IllegalAction(
+                "resumable quantity instruction cursor is outside a stack suffix",
+            ));
+        }
+        self.stack.push(stack_object.clone());
+        self.stack_effect_cursors
+            .insert(stack_object.id, effect_index);
+        if self.suspend_top_stack_item_for_quantity_replacement_choice()? {
+            return Ok(true);
+        }
+        let restored = self.stack.pop().ok_or(RulesError::IllegalAction(
+            "resumable quantity instruction stack item disappeared",
+        ))?;
+        self.stack_effect_cursors.remove(&stack_object.id);
+        if restored.id != stack_object.id {
+            return Err(RulesError::IllegalAction(
+                "resumable quantity instruction stack identity changed",
+            ));
+        }
+        Ok(false)
+    }
+
+    /// Opens an affected-player replacement decision for the next unresolved
+    /// token-creation or counter-placement instruction. The immutable stack
+    /// item remains live while the player selects an ordering, then resumes
+    /// only its as-yet-unresolved instruction suffix.
     #[allow(clippy::too_many_lines)] // The exhaustive stack-shape matcher remains one auditable replacement boundary.
     fn suspend_top_stack_item_for_quantity_replacement_choice(
         &mut self,
@@ -15090,8 +15272,13 @@ impl Game {
         let source_incarnation = top.source_incarnation;
         let controller = top.controller;
         let source_colors = top.source_colors.clone();
-        let candidate = match (top.effects.as_slice(), top.targets.as_slice()) {
-            ([Effect::CreateToken { token, count }], []) if *count > 0 => Some((
+        let effect_index = self.stack_effect_cursor(top)?;
+        let target_offset = Self::effect_target_offset(&top.effects, effect_index);
+        let candidate = match (
+            top.effects.get(effect_index),
+            top.targets.get(target_offset).copied(),
+        ) {
+            (Some(Effect::CreateToken { token, count }), _) if *count > 0 => Some((
                 controller,
                 ReplacementEventKind::TokenCreation,
                 i16::from(*count),
@@ -15101,51 +15288,61 @@ impl Game {
                 },
             )),
             (
-                [
+                Some(
                     Effect::CreateTokenForTargetPlayer { token, count }
                     | Effect::CreateTokenForTargetOpponent { token, count },
-                ],
-                [Target::Player(player)],
+                ),
+                Some(Target::Player(player)),
             ) if *count > 0
-                && self.stack_target_incarnation_matches(top, 0, Target::Player(*player))
+                && self.stack_target_incarnation_matches(
+                    top,
+                    target_offset,
+                    Target::Player(player),
+                )
                 && self.target_matches_for_colors(
                     controller,
-                    Target::Player(*player),
+                    Target::Player(player),
                     TargetRequirement::Player,
                     &source_colors,
                 ) =>
             {
                 Some((
-                    *player,
+                    player,
                     ReplacementEventKind::TokenCreation,
                     i16::from(*count),
                     QuantityReplacementResolution::CreateTokens {
-                        player: *player,
+                        player,
                         token: token.clone(),
                     },
                 ))
             }
-            ([Effect::AddCountersToTarget { counter, amount }], [Target::Permanent(card)])
-                if *amount > 0
-                    && self.stack_target_incarnation_matches(top, 0, Target::Permanent(*card))
-                    && self.target_matches_for_colors(
-                        controller,
-                        Target::Permanent(*card),
-                        TargetRequirement::Permanent,
-                        &source_colors,
-                    ) =>
+            (
+                Some(Effect::AddCountersToTarget { counter, amount }),
+                Some(Target::Permanent(card)),
+            ) if *amount > 0
+                && self.stack_target_incarnation_matches(
+                    top,
+                    target_offset,
+                    Target::Permanent(card),
+                )
+                && self.target_matches_for_colors(
+                    controller,
+                    Target::Permanent(card),
+                    TargetRequirement::Permanent,
+                    &source_colors,
+                ) =>
             {
                 Some((
-                    self.controller_of(*card)?,
+                    self.controller_of(card)?,
                     ReplacementEventKind::CounterPlacement { counter: *counter },
                     *amount,
                     QuantityReplacementResolution::PlaceCounters {
-                        card: *card,
+                        card,
                         counter: *counter,
                     },
                 ))
             }
-            ([Effect::AddCountersToSource { counter, amount }], [])
+            (Some(Effect::AddCountersToSource { counter, amount }), _)
                 if *amount > 0
                     && self.zone_of(source) == Some(Zone::Battlefield)
                     && self.object_has_incarnation(source, source_incarnation) =>
@@ -15174,6 +15371,7 @@ impl Game {
             source,
             source_incarnation,
             controller,
+            effect_index,
             event,
             amount,
             amount,
@@ -15191,6 +15389,7 @@ impl Game {
         source: ObjectId,
         source_incarnation: u64,
         controller: PlayerId,
+        effect_index: usize,
         event: ReplacementEventKind,
         original_amount: i16,
         amount: i16,
@@ -15217,6 +15416,7 @@ impl Game {
                 source,
                 source_incarnation,
                 controller,
+                effect_index,
                 event,
                 original_amount,
                 amount,
@@ -29563,6 +29763,7 @@ impl Game {
                 source,
                 source_incarnation,
                 controller,
+                effect_index,
                 event,
                 original_amount,
                 amount,
@@ -29583,40 +29784,19 @@ impl Game {
                     used[index + 1..].contains(choice)
                         || !matches!(choice, ReplacementChoice::Quantity { .. })
                 });
-                let stack_shape_matches = match resolution {
-                    QuantityReplacementResolution::CreateTokens { player, .. } => {
-                        matches!(
-                            (top.effects.as_slice(), top.targets.as_slice()),
-                            ([Effect::CreateToken { count, .. }], [])
-                                if top.controller == *player && i16::from(*count) == *original_amount
-                        ) || matches!(
-                            (top.effects.as_slice(), top.targets.as_slice()),
-                            ([Effect::CreateTokenForTargetPlayer { count, .. }
-                                | Effect::CreateTokenForTargetOpponent { count, .. }], [Target::Player(target)])
-                                if target == player && i16::from(*count) == *original_amount
-                        )
-                    }
-                    QuantityReplacementResolution::PlaceCounters { card, counter } => {
-                        matches!(
-                            (top.effects.as_slice(), top.targets.as_slice()),
-                            ([Effect::AddCountersToSource { counter: stack_counter, amount: stack_amount }], [])
-                                if *card == *source
-                                    && *stack_counter == *counter
-                                    && *stack_amount == *original_amount
-                        ) || matches!(
-                            (top.effects.as_slice(), top.targets.as_slice()),
-                            ([Effect::AddCountersToTarget { counter: stack_counter, amount: stack_amount }], [Target::Permanent(target)])
-                                if *target == *card
-                                    && *stack_counter == *counter
-                                    && *stack_amount == *original_amount
-                        )
-                    }
-                };
+                let stack_shape_matches = Self::quantity_replacement_stack_shape_matches(
+                    top,
+                    *effect_index,
+                    *source,
+                    *original_amount,
+                    resolution,
+                );
                 if decision.kind != DecisionKind::Replacement
                     || decision.visibility != DecisionVisibility::Public
                     || top.card != *source
                     || top.source_incarnation != *source_incarnation
                     || top.controller != *controller
+                    || self.stack_effect_cursor(top).ok() != Some(*effect_index)
                     || *original_amount <= 0
                     || *amount <= 0
                     || !used_are_unique

@@ -9,8 +9,9 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardDefinition, CardType, CastRequest, DecisionKind, Effect, Game, ManaCost, PlayerId,
-    ReplacementEffect, ReplacementEffectBinding, TokenSpec, Zone,
+    CardDefinition, CardType, CastRequest, DecisionKind, DecisionSelection, Effect, Game,
+    GameEvent, ManaCost, PlayerId, PolicyAction, ReplacementChoice, ReplacementEffect,
+    ReplacementEffectBinding, TokenSpec, Zone,
 };
 
 const DOUBLER: &str = "TST-MULTI-INSTRUCTION-DOUBLER";
@@ -36,6 +37,7 @@ fn definition(id: &'static str, card_type: CardType, effects: Vec<Effect>) -> Ca
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // The full decision/resumption transcript is the regression contract.
 fn concurrent_token_replacements_pause_a_multi_instruction_spell_for_the_affected_player() {
     let caster = PlayerId(0);
     let responder = PlayerId(1);
@@ -47,11 +49,12 @@ fn concurrent_token_replacements_pause_a_multi_instruction_spell_for_the_affecte
                 TOKEN_AND_LIFE,
                 CardType::Instant,
                 vec![
+                    Effect::GainLifeController { amount: 1 },
                     Effect::CreateToken {
                         token: TokenSpec::saproling(),
                         count: 1,
                     },
-                    Effect::GainLifeController { amount: 1 },
+                    Effect::GainLifeController { amount: 2 },
                 ],
             ),
         ],
@@ -110,4 +113,67 @@ fn concurrent_token_replacements_pause_a_multi_instruction_spell_for_the_affecte
     assert_eq!(decision.kind, DecisionKind::Replacement);
     assert_eq!(decision.replacement_candidates.len(), 2);
     assert_eq!(game.stack.len(), 1, "the spell remains on the stack");
+
+    let tripler = decision
+        .replacement_candidates
+        .iter()
+        .copied()
+        .find(|choice| {
+            matches!(
+                choice,
+                ReplacementChoice::Quantity {
+                    effect: ReplacementEffect::MultiplyTokenCreation { multiplier: 3 },
+                    ..
+                }
+            )
+        })
+        .expect("tripler is one legal first replacement");
+    game.submit_policy_move(
+        caster,
+        "multi-instruction-quantity-replacement-red",
+        PolicyAction::SubmitDecision {
+            decision: decision.id,
+            selection: DecisionSelection::Replacements(vec![tripler]),
+        },
+    )
+    .expect("choice applies the selected multiplier, then resumes the suffix");
+
+    let events = &game.event_log;
+    eprintln!("multi-instruction resumed trace: {events:?}");
+    let first_life = events
+        .iter()
+        .position(|event| matches!(event, GameEvent::LifeGained { player, amount: 1 } if *player == caster))
+        .expect("resolved prefix gains life before the prospective token event");
+    let second_replacement = events
+        .iter()
+        .rposition(|event| matches!(event, GameEvent::ReplacementEffectApplied { .. }))
+        .expect("both multipliers produce receipts");
+    let first_token = events
+        .iter()
+        .position(|event| matches!(event, GameEvent::TokenCreated { .. }))
+        .expect("replacement result creates tokens");
+    let gained_life = events
+        .iter()
+        .rposition(|event| matches!(event, GameEvent::LifeGained { player, amount: 2 } if *player == caster))
+        .expect("unresolved suffix gains life");
+    let resolved = events
+        .iter()
+        .position(|event| matches!(event, GameEvent::SpellResolved { card } if *card == spell))
+        .expect("spell resolves after the suffix");
+    assert!(first_life < second_replacement);
+    assert!(second_replacement < first_token);
+    assert!(first_token < gained_life);
+    assert!(gained_life < resolved);
+    assert_eq!(game.stack.len(), 0, "completed spell leaves the stack once");
+    assert_eq!(
+        game.player(caster)
+            .expect("caster exists")
+            .battlefield
+            .len(),
+        8,
+        "one token becomes six after the selected tripler and forced doubler"
+    );
+    assert_eq!(game.player(caster).expect("caster exists").life, 23);
+    game.validate_invariants()
+        .expect("resumed multi-instruction resolution is invariant-valid");
 }
