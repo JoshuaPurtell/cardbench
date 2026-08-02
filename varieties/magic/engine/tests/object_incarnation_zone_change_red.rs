@@ -9,7 +9,7 @@ use std::collections::BTreeSet;
 use cardbench_magic_engine::{
     AbilityActivation, ActivatedAbility, ActivatedAbilityBinding, BasicLandManaAbilityActivation,
     BasicLandType, BasicLandTypeBinding, CardDefinition, CardType, CastPaymentManaAbility,
-    CastRequest, Color, ContinuousChange, Duration, Effect, Game, GameEvent, ManaCost,
+    CastRequest, Color, ContinuousChange, CounterKind, Duration, Effect, Game, GameEvent, ManaCost,
     ManaPaymentSelection, PlayerId, Target, TriggerCondition, TriggeredAbility,
     TriggeredAbilityBinding, Zone,
 };
@@ -123,25 +123,46 @@ fn game() -> Game {
             land_type: BasicLandType::Forest,
         }],
         [],
-        [ActivatedAbilityBinding {
-            card_definition: SOURCE,
-            ability: ActivatedAbility {
-                id: "self-pump",
-                mana_cost: ManaCost::new(0),
-                tap_cost: false,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: false,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![],
-                effects: vec![Effect::ModifySourcePtUntilEndOfTurn {
-                    power: 1,
-                    toughness: 1,
-                }],
+        [
+            ActivatedAbilityBinding {
+                card_definition: SOURCE,
+                ability: ActivatedAbility {
+                    id: "self-pump",
+                    mana_cost: ManaCost::new(0),
+                    tap_cost: false,
+                    sorcery_speed: false,
+                    additional_tap_creatures: 0,
+                    sacrifice_source: false,
+                    sacrifice_creatures: 0,
+                    sacrifice_lands: 0,
+                    discard_cards: 0,
+                    targets: vec![],
+                    effects: vec![Effect::ModifySourcePtUntilEndOfTurn {
+                        power: 1,
+                        toughness: 1,
+                    }],
+                },
             },
-        }],
+            ActivatedAbilityBinding {
+                card_definition: SOURCE,
+                ability: ActivatedAbility {
+                    id: "self-charge",
+                    mana_cost: ManaCost::new(0),
+                    tap_cost: false,
+                    sorcery_speed: false,
+                    additional_tap_creatures: 0,
+                    sacrifice_source: false,
+                    sacrifice_creatures: 0,
+                    sacrifice_lands: 0,
+                    discard_cards: 0,
+                    targets: vec![],
+                    effects: vec![Effect::AddCountersToSource {
+                        counter: CounterKind::Charge,
+                        amount: 1,
+                    }],
+                },
+            },
+        ],
     )
     .expect("fixture game initializes")
 }
@@ -191,6 +212,18 @@ fn source_relative_effect_cannot_modify_a_returned_source_incarnation() {
             .power,
         Some(2)
     );
+    game.activate_ability(
+        caster,
+        AbilityActivation {
+            source,
+            ability_id: "self-charge",
+            sacrifice_sources: vec![],
+            additional_tap_creatures: vec![],
+            discard_cards: vec![],
+            targets: vec![],
+        },
+    )
+    .expect("self-counter ability is placed below the pump on the stack");
     game.activate_ability(
         caster,
         AbilityActivation {
@@ -256,6 +289,7 @@ fn source_relative_effect_cannot_modify_a_returned_source_incarnation() {
     );
 
     pass_pair(&mut game);
+    pass_pair(&mut game);
     eprintln!(
         "incarnation source regression: original={original_incarnation}; returned={returned_incarnation}; source={source:?}; characteristics={:?}; events={:?}",
         game.characteristics(source),
@@ -267,6 +301,14 @@ fn source_relative_effect_cannot_modify_a_returned_source_incarnation() {
             .power,
         Some(1),
         "the old ability must not modify the returned source incarnation"
+    );
+    assert_eq!(
+        game.object(source)
+            .expect("returned source exists")
+            .counters
+            .get(&CounterKind::Charge),
+        None,
+        "a generalized source-counter effect from the old incarnation must also no-op"
     );
     assert_eq!(
         game.canonical_event_log()
