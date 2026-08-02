@@ -3257,7 +3257,8 @@ impl Game {
                 | DecisionContinuation::TriggeredAbilityOrder { .. }
                 | DecisionContinuation::QuantityReplacement { .. }
                 | DecisionContinuation::DamageReplacement { .. }
-                | DecisionContinuation::CounterUnlessPaysMana { .. } => None,
+                | DecisionContinuation::CounterUnlessPaysMana { .. }
+                | DecisionContinuation::ConditionalPrivateDiscard { .. } => None,
             })
             .map(|(source, destination, may_fail_to_find)| {
                 self.decision_candidate_cards(
@@ -3313,7 +3314,8 @@ impl Game {
                 | DecisionContinuation::TriggeredAbilityOrder { .. }
                 | DecisionContinuation::QuantityReplacement { .. }
                 | DecisionContinuation::DamageReplacement { .. }
-                | DecisionContinuation::CounterUnlessPaysMana { .. } => None,
+                | DecisionContinuation::CounterUnlessPaysMana { .. }
+                | DecisionContinuation::ConditionalPrivateDiscard { .. } => None,
             });
         let optional_triggered_ability_choice = self
             .pending_optional_trigger_choice
@@ -3357,7 +3359,8 @@ impl Game {
                 | DecisionContinuation::TriggeredAbilityOrder { .. }
                 | DecisionContinuation::QuantityReplacement { .. }
                 | DecisionContinuation::DamageReplacement { .. }
-                | DecisionContinuation::CounterUnlessPaysMana { .. } => None,
+                | DecisionContinuation::CounterUnlessPaysMana { .. }
+                | DecisionContinuation::ConditionalPrivateDiscard { .. } => None,
             })
             .map(|(source, ability)| {
                 self.decision_candidate_cards(
@@ -3411,7 +3414,8 @@ impl Game {
                 | DecisionContinuation::TriggeredAbilityTargets { .. }
                 | DecisionContinuation::TriggeredAbilityOrder { .. }
                 | DecisionContinuation::QuantityReplacement { .. }
-                | DecisionContinuation::CounterUnlessPaysMana { .. } => None,
+                | DecisionContinuation::CounterUnlessPaysMana { .. }
+                | DecisionContinuation::ConditionalPrivateDiscard { .. } => None,
             });
         let mut opponent_life = Vec::new();
         let mut opponent_battlefield = Vec::new();
@@ -6063,6 +6067,12 @@ impl Game {
                 &mana_cost,
                 selection,
             ),
+            DecisionContinuation::ConditionalPrivateDiscard { source, recipient } => {
+                let selected = Self::validate_object_decision_selection(&decision, selection)?;
+                self.resolve_conditional_private_discard_decision(
+                    &decision, source, recipient, selected,
+                )
+            }
         }
     }
 
@@ -6165,6 +6175,78 @@ impl Game {
         }
         self.complete_pending_decision(decision)?;
         self.resolve_top_of_stack_with_optional_decision(None, Some(pay))
+    }
+
+    /// Completes a recipient-private conditional discard after a targeted
+    /// spell has already drawn its cards.  This is intentionally a direct
+    /// terminal-resolution continuation: rerunning the ordinary resolver
+    /// would draw a second time after the decision has completed.
+    fn resolve_conditional_private_discard_decision(
+        &mut self,
+        decision: &PendingDecision,
+        source: ObjectId,
+        recipient: PlayerId,
+        selected: Vec<ObjectId>,
+    ) -> Result<(), RulesError> {
+        let top = self.stack.last().ok_or(RulesError::IllegalAction(
+            "conditional private discard escaped its stack spell",
+        ))?;
+        if decision.kind != DecisionKind::ConditionalPrivateDiscard
+            || decision.visibility != DecisionVisibility::Private
+            || decision.player != recipient
+            || top.card != source
+            || top.targets.as_slice() != [Target::Player(recipient)]
+            || top.ability_id.is_some()
+            || top.effects.as_slice() != [Effect::DrawTargetPlayerThenConditionalPrivateDiscard]
+            || !self.target_matches_for_controller(
+                top.controller,
+                Target::Player(recipient),
+                TargetRequirement::Player,
+            )
+            || selected.iter().any(|card| {
+                self.zone_of(*card) != Some(Zone::Hand)
+                    || self
+                        .object(*card)
+                        .map_or(true, |object| object.owner != recipient)
+            })
+        {
+            return Err(RulesError::IllegalAction(
+                "conditional private discard no longer matches its recipient hand or stack spell",
+            ));
+        }
+
+        let one_land = selected.len() == 1
+            && self
+                .card_definition(selected[0])
+                .is_ok_and(CardDefinition::is_land);
+        let two_cards = selected.len() == 2;
+        if !one_land && !two_cards {
+            return Err(RulesError::IllegalAction(
+                "conditional private discard requires one land or two distinct hand cards",
+            ));
+        }
+
+        self.stack.pop().ok_or(RulesError::IllegalAction(
+            "conditional private discard stack spell disappeared before resolution",
+        ))?;
+        self.complete_pending_decision(decision)?;
+        for card in selected {
+            self.record_event(GameEvent::CardDiscarded {
+                player: recipient,
+                card,
+            });
+            self.move_to_zone(card, Zone::Graveyard)?;
+        }
+        self.record_event(GameEvent::SpellResolved { card: source });
+        self.move_to_spell_terminal_zone(source)?;
+        self.check_state_based_actions()?;
+        self.flush_pending_dies_triggers();
+        self.flush_pending_land_entry_triggers()?;
+        self.flush_pending_damage_triggers();
+        self.flush_pending_life_gain_triggers();
+        self.flush_pending_dies_triggers();
+        self.priority = self.priority_after_resolution();
+        Ok(())
     }
 
     fn validate_object_decision_selection(
@@ -10908,6 +10990,7 @@ impl Game {
                 | Effect::DrawController
                 | Effect::DrawControllerForEachControlledBasicLandType { .. }
                 | Effect::DrawTargetPlayer
+                | Effect::DrawTargetPlayerThenConditionalPrivateDiscard
                 | Effect::PreventLibrarySearchUntilEndOfTurn
                 | Effect::SearchControllerLibrary { .. }
                 | Effect::SearchControllerLibraryForFirstCompatibleAuraAttachedToSource
@@ -11072,6 +11155,9 @@ impl Game {
             return Ok(());
         }
         if self.suspend_top_stack_item_for_library_top_partition_choice()? {
+            return Ok(());
+        }
+        if self.suspend_top_stack_item_for_conditional_private_discard_choice()? {
             return Ok(());
         }
         if self.suspend_top_stack_item_for_library_search_choice()? {
@@ -12134,6 +12220,76 @@ impl Game {
             card_count,
             cards.iter().copied().map(DecisionOption::Object).collect(),
             DecisionContinuation::LibraryTopPartition { source, cards },
+        )?;
+        Ok(true)
+    }
+
+    /// Draws the recipient's cards, then opens the private no-priority
+    /// boundary for a conditional discard.  The spell remains on the stack;
+    /// candidates are the recipient's *post-draw* hand, never a snapshot
+    /// selected by the spell controller.
+    fn suspend_top_stack_item_for_conditional_private_discard_choice(
+        &mut self,
+    ) -> Result<bool, RulesError> {
+        if self.pending_decision.is_some()
+            || self.pending_private_library_choice.is_some()
+            || self.pending_private_opponent_library_exile_choice.is_some()
+        {
+            return Err(RulesError::IllegalAction(
+                "a second private choice attempted to open during resolution",
+            ));
+        }
+        let Some(top) = self.stack.last() else {
+            return Ok(false);
+        };
+        let (source, controller, recipient) = match (
+            top.ability_id,
+            top.targets.as_slice(),
+            top.effects.as_slice(),
+        ) {
+            (
+                None,
+                [Target::Player(recipient)],
+                [Effect::DrawTargetPlayerThenConditionalPrivateDiscard],
+            ) => (top.card, top.controller, *recipient),
+            (_, _, [Effect::DrawTargetPlayerThenConditionalPrivateDiscard]) => {
+                return Err(RulesError::IllegalAction(
+                    "conditional private discard must be one targeted spell instruction",
+                ));
+            }
+            _ => return Ok(false),
+        };
+        // An illegal target is handled by the ordinary all-targets-illegal
+        // rules-counter path. It must not draw cards or open a hand decision.
+        if !self.target_matches_for_controller(
+            controller,
+            Target::Player(recipient),
+            TargetRequirement::Player,
+        ) {
+            return Ok(false);
+        }
+        for _ in 0..3 {
+            self.draw_card_from_spell_effect(recipient)?;
+        }
+        if self.players[recipient.0].lost {
+            return Err(RulesError::IllegalAction(
+                "conditional private discard recipient left the game while drawing",
+            ));
+        }
+        let options = self.players[recipient.0]
+            .hand
+            .iter()
+            .copied()
+            .map(DecisionOption::Object)
+            .collect::<Vec<_>>();
+        self.open_pending_decision(
+            recipient,
+            DecisionVisibility::Private,
+            DecisionKind::ConditionalPrivateDiscard,
+            1,
+            2,
+            options,
+            DecisionContinuation::ConditionalPrivateDiscard { source, recipient },
         )?;
         Ok(true)
     }
@@ -15114,6 +15270,11 @@ impl Game {
                     other => return Err(RulesError::IllegalTarget(other)),
                 };
                 self.draw_card_from_spell_effect(player)?;
+            }
+            Effect::DrawTargetPlayerThenConditionalPrivateDiscard => {
+                return Err(RulesError::IllegalAction(
+                    "conditional private discard effect bypassed its decision boundary",
+                ));
             }
             Effect::PreventLibrarySearchUntilEndOfTurn => {
                 self.library_search_prevented_until = Some(self.turn);
@@ -21765,6 +21926,38 @@ impl Game {
                 {
                     return Err(RulesError::IllegalAction(
                         "damage replacement decision violates its prospective-event boundary",
+                    ));
+                }
+            }
+            DecisionContinuation::ConditionalPrivateDiscard { source, recipient } => {
+                let top = self.stack.last().ok_or(RulesError::IllegalAction(
+                    "conditional private discard decision escaped its stack spell",
+                ))?;
+                let expected_options = self.players[recipient.0]
+                    .hand
+                    .iter()
+                    .copied()
+                    .map(DecisionOption::Object)
+                    .collect::<Vec<_>>();
+                if decision.kind != DecisionKind::ConditionalPrivateDiscard
+                    || decision.visibility != DecisionVisibility::Private
+                    || decision.player != *recipient
+                    || top.card != *source
+                    || top.ability_id.is_some()
+                    || top.targets.as_slice() != [Target::Player(*recipient)]
+                    || top.effects.as_slice()
+                        != [Effect::DrawTargetPlayerThenConditionalPrivateDiscard]
+                    || !self.target_matches_for_controller(
+                        top.controller,
+                        Target::Player(*recipient),
+                        TargetRequirement::Player,
+                    )
+                    || decision.options != expected_options
+                    || decision.min_selections != 1
+                    || decision.max_selections != 2
+                {
+                    return Err(RulesError::IllegalAction(
+                        "conditional private discard decision violates its private hand and stack boundary",
                     ));
                 }
             }

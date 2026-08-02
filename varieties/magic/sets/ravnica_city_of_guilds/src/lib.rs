@@ -155,6 +155,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 166] = [
     "RAV-SADISTIC-AUGERMAGE",
     "RAV-VINDICTIVE-MOB",
     "RAV-BELLTOWER-SPHINX",
+    "RAV-COMPULSIVE-RESEARCH",
     "RAV-FLIGHT-OF-FANCY",
     "RAV-FLOW-OF-IDEAS",
     "RAV-SURVEILLING-SPRITE",
@@ -3372,6 +3373,29 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             toughness: Some(5),
             keywords: vec![Keyword::Flying],
             effects: vec![],
+        },
+        // Full fidelity: the targeted player draws before a recipient-private
+        // no-priority decision chooses either one land or two cards to
+        // discard. The stack object retains the player target throughout, so
+        // the caster never receives a hidden-hand selection shortcut.
+        CardDefinition {
+            id: "RAV-COMPULSIVE-RESEARCH",
+            name: "Compulsive Research",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(2, [Color::Blue]),
+            colors: colors([Color::Blue]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Sorcery]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "target-player-draw-three-conditional-private-discard",
+                "policy-submitted-private-discard",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![Effect::DrawTargetPlayerThenConditionalPrivateDiscard],
         },
         // Full fidelity: this Aura attaches to a creature, grants Flying,
         // and its ETB trigger draws two cards through the ordinary stack.

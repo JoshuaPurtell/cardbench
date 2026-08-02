@@ -1714,6 +1714,13 @@ pub enum Effect {
     /// target slot preserves resolution-time legality instead of treating an
     /// opponent's draw as an untracked controller-side mutation.
     DrawTargetPlayer,
+    /// Draw three cards for the targeted player, then suspend the resolving
+    /// spell for that recipient's private choice of either one land card or
+    /// two distinct cards to discard.  The instruction is one semantic unit:
+    /// splitting it into ordinary draw/discard effects would incorrectly give
+    /// the spell controller a deterministic or public choice over another
+    /// player's hand.
+    DrawTargetPlayerThenConditionalPrivateDiscard,
     /// Prevent represented library-search actions through the current turn.
     /// The marker is installed only by stack resolution and is cleared as the
     /// next turn begins, so a rejected search cannot consume mana, cards, or
@@ -2258,6 +2265,7 @@ impl Effect {
             Self::LoseLifeTarget { .. }
             | Self::CreateTokenForTargetPlayer { .. }
             | Self::DrawTargetPlayer
+            | Self::DrawTargetPlayerThenConditionalPrivateDiscard
             | Self::DiscardTargetPlayer { .. }
             | Self::MillTargetPlayer { .. }
             | Self::MillTargetPlayerFromSourceDamage => Some(TargetRequirement::Player),
@@ -3033,6 +3041,10 @@ pub enum DecisionKind {
     /// The controller of a targeted spell must explicitly pay or decline an
     /// "unless that spell's controller pays" resolution-time mana cost.
     CounterUnlessPaysMana,
+    /// The targeted player has drawn cards while a spell resolves and must
+    /// privately choose either one land card or two distinct cards from their
+    /// current hand.  It is deliberately not a priority action.
+    ConditionalPrivateDiscard,
 }
 
 /// One public member of an APNAP simultaneous-trigger ordering group.
@@ -3232,6 +3244,13 @@ pub enum DecisionContinuation {
         target_spell: ObjectId,
         target_incarnation: u64,
         mana_cost: ManaCost,
+    },
+    /// Resumes a targeted spell after its recipient privately selects the
+    /// printed conditional discard. `recipient` is captured from the stack
+    /// target, never inferred from the spell controller.
+    ConditionalPrivateDiscard {
+        source: ObjectId,
+        recipient: PlayerId,
     },
 }
 

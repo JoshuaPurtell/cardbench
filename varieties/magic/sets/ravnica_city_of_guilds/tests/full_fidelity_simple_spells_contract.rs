@@ -125,6 +125,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-SADISTIC-AUGERMAGE",
             "RAV-VINDICTIVE-MOB",
             "RAV-BELLTOWER-SPHINX",
+            "RAV-COMPULSIVE-RESEARCH",
             "RAV-FLIGHT-OF-FANCY",
             "RAV-FLOW-OF-IDEAS",
             "RAV-SURVEILLING-SPRITE",
