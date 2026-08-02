@@ -2862,6 +2862,20 @@ impl Game {
             &activation.sacrifice_sources,
             &activation.discard_cards,
         )?;
+        if generalized_cost.detach_source_equipment {
+            let binding = self.attachment_binding_for(activation.source)?.ok_or(
+                RulesError::IllegalAction(
+                    "an activated detach cost requires a typed attachment binding",
+                ),
+            )?;
+            if binding.kind != AttachmentKind::Equipment
+                || self.object(activation.source)?.attached_to.is_none()
+            {
+                return Err(RulesError::IllegalAction(
+                    "an activated detach cost requires attached source Equipment",
+                ));
+            }
+        }
         let mut base_mana_cost = ability.mana_cost.clone();
         if let Some(x_value) = generalized_cost_payment.chosen_x {
             if !generalized_cost.has_x_cost {
@@ -2977,6 +2991,18 @@ impl Game {
                 card: *card,
             });
             self.move_to_zone(*card, Zone::Library)?;
+        }
+        if generalized_cost.detach_source_equipment {
+            let binding = self.attachment_binding_for(activation.source)?.ok_or(
+                RulesError::IllegalAction(
+                    "an activated detach cost requires a typed attachment binding",
+                ),
+            )?;
+            self.detach_equipment(
+                activation.source,
+                &binding,
+                "paid as activated ability cost",
+            )?;
         }
         if let Some(x_value) = generalized_cost_payment.chosen_x {
             self.record_event(GameEvent::AbilityXCostChosen {
@@ -3675,6 +3701,15 @@ impl Game {
                     may_fail_to_find,
                     ..
                 } => Some((*source, *destination, *may_fail_to_find)),
+                DecisionContinuation::LibrarySearchAndCast {
+                    source,
+                    may_fail_to_find,
+                    ..
+                } => Some((
+                    *source,
+                    LibrarySearchDestination::CastWithoutPayingManaCost,
+                    *may_fail_to_find,
+                )),
                 DecisionContinuation::LibrarySearchMany { .. }
                 | DecisionContinuation::LibraryReorder { .. }
                 | DecisionContinuation::LibraryTopPartition { .. }
@@ -3736,6 +3771,7 @@ impl Game {
                         .collect(),
                 }),
                 DecisionContinuation::LibrarySearch { .. }
+                | DecisionContinuation::LibrarySearchAndCast { .. }
                 | DecisionContinuation::LibrarySearchMany { .. }
                 | DecisionContinuation::LibraryReorder { .. }
                 | DecisionContinuation::LibraryTopPartition { .. }
@@ -3784,6 +3820,7 @@ impl Game {
                     source, ability, ..
                 } => Some((*source, *ability)),
                 DecisionContinuation::LibrarySearch { .. }
+                | DecisionContinuation::LibrarySearchAndCast { .. }
                 | DecisionContinuation::LibrarySearchMany { .. }
                 | DecisionContinuation::LibraryReorder { .. }
                 | DecisionContinuation::LibraryTopPartition { .. }
@@ -3842,6 +3879,7 @@ impl Game {
                         .collect(),
                 }),
                 DecisionContinuation::LibrarySearch { .. }
+                | DecisionContinuation::LibrarySearchAndCast { .. }
                 | DecisionContinuation::LibrarySearchMany { .. }
                 | DecisionContinuation::LibraryReorder { .. }
                 | DecisionContinuation::LibraryTopPartition { .. }
@@ -6261,6 +6299,7 @@ impl Game {
                                 == Some(match permission.zone {
                                     CastPermissionZone::Graveyard => Zone::Graveyard,
                                     CastPermissionZone::Exile => Zone::Exile,
+                                    CastPermissionZone::Library => Zone::Library,
                                 })
                     })
             });
@@ -6477,6 +6516,7 @@ impl Game {
                 from: match permission.zone {
                     CastPermissionZone::Graveyard => Zone::Graveyard,
                     CastPermissionZone::Exile => Zone::Exile,
+                    CastPermissionZone::Library => Zone::Library,
                 },
             });
         }
@@ -7037,6 +7077,19 @@ impl Game {
                     selected.into_iter().next(),
                 )
             }
+            DecisionContinuation::LibrarySearchAndCast {
+                source,
+                source_incarnation,
+                requirement,
+                may_fail_to_find,
+            } => self.resolve_library_search_and_cast_decision(
+                &decision,
+                source,
+                source_incarnation,
+                &requirement,
+                may_fail_to_find,
+                selection,
+            ),
             DecisionContinuation::LibrarySearchMany {
                 source,
                 requirement,
@@ -8564,6 +8617,11 @@ impl Game {
                     entered_permanent = Some((card, definition, object.controller));
                 }
                 LibrarySearchDestination::Hand => self.move_to_zone(card, Zone::Hand)?,
+                LibrarySearchDestination::CastWithoutPayingManaCost => {
+                    return Err(RulesError::IllegalAction(
+                        "ordinary library search cannot use the immediate-cast destination",
+                    ));
+                }
             }
         }
         self.record_event(GameEvent::LibrarySearchResolved {
@@ -8608,6 +8666,140 @@ impl Game {
         self.flush_pending_life_gain_triggers();
         self.flush_pending_dies_triggers();
         self.priority = self.priority_after_resolution();
+        Ok(())
+    }
+
+    /// Commits the private search selection for an effect that casts the
+    /// chosen instant inside the same resolving ability. The source ability is
+    /// removed before the spell is cast, so the selected spell becomes the
+    /// new top of stack while its parent still receives its terminal receipt
+    /// before any player gets priority.
+    #[allow(clippy::too_many_arguments, clippy::too_many_lines)] // The hidden-card and public-target continuation is one atomic rules action.
+    fn resolve_library_search_and_cast_decision(
+        &mut self,
+        decision: &PendingDecision,
+        source: ObjectId,
+        source_incarnation: u64,
+        requirement: &LibrarySearchRequirement,
+        may_fail_to_find: bool,
+        selection: DecisionSelection,
+    ) -> Result<(), RulesError> {
+        let DecisionSelection::LibrarySearchAndCast { selected, targets } = selection else {
+            return Err(RulesError::IllegalAction(
+                "library search-and-cast requires its typed selection",
+            ));
+        };
+        let stack_object = self.stack.last().cloned().ok_or(RulesError::IllegalAction(
+            "library search-and-cast choice has no live stack item",
+        ))?;
+        if stack_object.card != source
+            || stack_object.source_incarnation != source_incarnation
+            || stack_object.controller != decision.player
+            || !matches!(
+                stack_object.effects.as_slice(),
+                [Effect::SearchControllerLibraryAndCastInstantWithoutPayingManaCost {
+                    requirement: stack_requirement,
+                    selection: LibrarySearchSelection::PolicySubmitted {
+                        may_fail_to_find: stack_may_fail,
+                    },
+                }] if stack_requirement == requirement && *stack_may_fail == may_fail_to_find
+            )
+        {
+            return Err(RulesError::IllegalAction(
+                "library search-and-cast choice no longer matches the live stack item",
+            ));
+        }
+        let candidates = self.library_search_candidates(decision.player, requirement, None)?;
+        if decision.options
+            != candidates
+                .iter()
+                .copied()
+                .map(DecisionOption::Object)
+                .collect::<Vec<_>>()
+        {
+            return Err(RulesError::IllegalAction(
+                "library search-and-cast candidates changed before selection",
+            ));
+        }
+        match selected {
+            Some(card) if candidates.contains(&card) => {}
+            Some(_) => {
+                return Err(RulesError::IllegalAction(
+                    "library search-and-cast selected a card outside its legal candidates",
+                ));
+            }
+            None if may_fail_to_find || candidates.is_empty() => {
+                if !targets.is_empty() {
+                    return Err(RulesError::IllegalAction(
+                        "a declined library search-and-cast cannot supply spell targets",
+                    ));
+                }
+            }
+            None => {
+                return Err(RulesError::IllegalAction(
+                    "this library search-and-cast must select a matching card when one exists",
+                ));
+            }
+        }
+
+        self.stack.pop().ok_or(RulesError::IllegalAction(
+            "library search-and-cast stack item disappeared before resolution",
+        ))?;
+        self.complete_pending_decision(decision)?;
+        self.record_event(GameEvent::LibrarySearchResolved {
+            player: decision.player,
+            source,
+            found: selected,
+            destination: LibrarySearchDestination::CastWithoutPayingManaCost,
+        });
+        if let Some(card) = selected {
+            let card_incarnation = self.object(card)?.incarnation;
+            self.effect_created_cast_permissions.insert(
+                card,
+                EffectCreatedCastPermission {
+                    player: decision.player,
+                    zone: CastPermissionZone::Library,
+                    payment: CastPermissionPayment::WithoutPayingManaCost,
+                    timing: CastTiming::AsThoughInstant,
+                    expires_turn: self.turn,
+                    source,
+                    source_incarnation,
+                    card_incarnation,
+                },
+            );
+            self.cast_spell_impl(
+                decision.player,
+                &CastRequest {
+                    card,
+                    targets,
+                    convoke: vec![],
+                    payment_mana_abilities: vec![],
+                },
+                None,
+                None,
+                None,
+            )?;
+        }
+        self.shuffle_library(decision.player);
+        let cards =
+            u16::try_from(self.players[decision.player.0].library.len()).unwrap_or(u16::MAX);
+        self.record_event(GameEvent::LibraryShuffled {
+            player: decision.player,
+            cards,
+        });
+        self.record_event(GameEvent::AbilityResolved {
+            source,
+            source_incarnation,
+            ability: stack_object.ability_id.ok_or(RulesError::IllegalAction(
+                "library search-and-cast parent is not an activated ability",
+            ))?,
+        });
+        self.check_state_based_actions()?;
+        self.flush_pending_land_entry_triggers()?;
+        self.flush_pending_damage_triggers();
+        self.flush_pending_life_gain_triggers();
+        self.flush_pending_dies_triggers();
+        self.restore_priority_after_stack_resolution();
         Ok(())
     }
 
@@ -8775,6 +8967,11 @@ impl Game {
                     entered_permanents.push((*card, definition, object.controller));
                 }
                 LibrarySearchDestination::Hand => self.move_to_zone(*card, Zone::Hand)?,
+                LibrarySearchDestination::CastWithoutPayingManaCost => {
+                    return Err(RulesError::IllegalAction(
+                        "multi-card library search cannot use the immediate-cast destination",
+                    ));
+                }
             }
         }
         self.record_event(GameEvent::LibrarySearchBatchResolved {
@@ -9454,6 +9651,11 @@ impl Game {
                     }
                 }
                 LibrarySearchDestination::Hand => self.move_to_zone(card, Zone::Hand)?,
+                LibrarySearchDestination::CastWithoutPayingManaCost => {
+                    return Err(RulesError::IllegalAction(
+                        "ordinary library search cannot use the immediate-cast destination",
+                    ));
+                }
             }
         }
         self.record_event(GameEvent::LibrarySearchResolved {
@@ -9591,6 +9793,11 @@ impl Game {
                     }
                 }
                 LibrarySearchDestination::Hand => self.move_to_zone(*card, Zone::Hand)?,
+                LibrarySearchDestination::CastWithoutPayingManaCost => {
+                    return Err(RulesError::IllegalAction(
+                        "multi-card library search cannot use the immediate-cast destination",
+                    ));
+                }
             }
         }
         self.record_event(GameEvent::LibrarySearchBatchResolved {
@@ -9685,6 +9892,13 @@ impl Game {
             LibrarySearchRequirement::CardTypes(types) => {
                 Ok(!types.is_empty() && types.is_subset(&definition.card_types))
             }
+            LibrarySearchRequirement::InstantWithAnyColorAndManaValueAtMost {
+                colors,
+                mana_value,
+            } => Ok(!colors.is_empty()
+                && definition.card_types.contains(&CardType::Instant)
+                && definition.mana_cost.mana_value() <= *mana_value
+                && definition.colors.iter().any(|color| colors.contains(color))),
         }
     }
 
@@ -11048,6 +11262,7 @@ impl Game {
                 let expected_zone = match permission.zone {
                     CastPermissionZone::Graveyard => Zone::Graveyard,
                     CastPermissionZone::Exile => Zone::Exile,
+                    CastPermissionZone::Library => Zone::Library,
                 };
                 card.0 == 0
                     || permission.source.0 == 0
@@ -12808,6 +13023,7 @@ impl Game {
                 | Effect::DrawTargetPlayerThenConditionalPrivateDiscard
                 | Effect::PreventLibrarySearchUntilEndOfTurn
                 | Effect::SearchControllerLibrary { .. }
+                | Effect::SearchControllerLibraryAndCastInstantWithoutPayingManaCost { .. }
                 | Effect::SearchControllerLibraryForFirstCompatibleAuraAttachedToSource
                 | Effect::SearchControllerLibraryMany { .. }
                 | Effect::RevealTopLibraryCardsAndReorder { .. }
@@ -13001,6 +13217,9 @@ impl Game {
             return Ok(());
         }
         if self.suspend_top_stack_item_for_conditional_private_discard_choice()? {
+            return Ok(());
+        }
+        if self.suspend_top_stack_item_for_library_search_and_cast_choice()? {
             return Ok(());
         }
         if self.suspend_top_stack_item_for_library_search_choice()? {
@@ -14016,6 +14235,66 @@ impl Game {
                 source,
                 requirement,
                 destination,
+                may_fail_to_find,
+            },
+        )?;
+        Ok(true)
+    }
+
+    /// Opens one private no-priority choice for an effect that must cast its
+    /// selected instant before its parent ability finishes resolving. The
+    /// policy receives candidates through the ordinary decision projection and
+    /// submits that selected card together with its spell targets.
+    fn suspend_top_stack_item_for_library_search_and_cast_choice(
+        &mut self,
+    ) -> Result<bool, RulesError> {
+        if self.pending_decision.is_some()
+            || self.pending_private_library_choice.is_some()
+            || self.pending_private_opponent_library_exile_choice.is_some()
+        {
+            return Err(RulesError::IllegalAction(
+                "a second hidden-library choice attempted to open during resolution",
+            ));
+        }
+        if self.library_search_prevented_until == Some(self.turn) {
+            return Ok(false);
+        }
+        let Some(top) = self.stack.last() else {
+            return Ok(false);
+        };
+        let (source, source_incarnation, controller, requirement, may_fail_to_find) =
+            match top.effects.as_slice() {
+                [
+                    Effect::SearchControllerLibraryAndCastInstantWithoutPayingManaCost {
+                        requirement,
+                        selection: LibrarySearchSelection::PolicySubmitted { may_fail_to_find },
+                    },
+                ] => (
+                    top.card,
+                    top.source_incarnation,
+                    top.controller,
+                    requirement.clone(),
+                    *may_fail_to_find,
+                ),
+                _ => return Ok(false),
+            };
+        let cards = self.library_search_candidates(controller, &requirement, None)?;
+        let (min_selections, max_selections) = if cards.is_empty() || may_fail_to_find {
+            (0, 1)
+        } else {
+            (1, 1)
+        };
+        self.open_pending_decision(
+            controller,
+            DecisionVisibility::Private,
+            DecisionKind::LibrarySearchAndCast,
+            min_selections,
+            max_selections,
+            cards.into_iter().map(DecisionOption::Object).collect(),
+            DecisionContinuation::LibrarySearchAndCast {
+                source,
+                source_incarnation,
+                requirement,
                 may_fail_to_find,
             },
         )?;
@@ -17834,6 +18113,34 @@ impl Game {
                     chosen_x,
                 )?;
             }
+            Effect::SearchControllerLibraryAndCastInstantWithoutPayingManaCost {
+                selection,
+                ..
+            } => {
+                if self.library_search_prevented_until != Some(self.turn) {
+                    return Err(RulesError::IllegalAction(
+                        "library search-and-cast bypassed its policy decision",
+                    ));
+                }
+                if !matches!(selection, LibrarySearchSelection::PolicySubmitted { .. }) {
+                    return Err(RulesError::IllegalAction(
+                        "library search-and-cast requires a policy-submitted selection",
+                    ));
+                }
+                self.record_event(GameEvent::LibrarySearchResolved {
+                    player: controller,
+                    source,
+                    found: None,
+                    destination: LibrarySearchDestination::CastWithoutPayingManaCost,
+                });
+                self.shuffle_library(controller);
+                let cards = u16::try_from(self.players[controller.0].library.len())
+                    .unwrap_or(u16::MAX);
+                self.record_event(GameEvent::LibraryShuffled {
+                    player: controller,
+                    cards,
+                });
+            }
             Effect::SearchControllerLibraryForFirstCompatibleAuraAttachedToSource => {
                 self.resolve_controller_library_aura_attachment_search(
                     source,
@@ -19690,6 +19997,7 @@ impl Game {
                         from: match zone {
                             CastPermissionZone::Graveyard => Zone::Graveyard,
                             CastPermissionZone::Exile => Zone::Exile,
+                            CastPermissionZone::Library => Zone::Library,
                         },
                     });
                 }
@@ -20959,6 +21267,11 @@ impl Game {
                 ));
             }
         }
+        if cost.detach_source_equipment && cost.return_source_to_hand {
+            return Err(RulesError::IllegalAction(
+                "an activated cost cannot both detach and return its source Equipment",
+            ));
+        }
         Ok(())
     }
 
@@ -21224,11 +21537,77 @@ impl Game {
             else {
                 continue;
             };
+            if *destination == LibrarySearchDestination::CastWithoutPayingManaCost {
+                let shuffle_index = if let Some(card) = found {
+                    if !matches!(
+                        events.get(index + 1),
+                        Some(GameEvent::SpellCastFromPermission {
+                            player: cast_player,
+                            card: cast_card,
+                            from: Zone::Library,
+                        }) if cast_player == player && cast_card == card
+                    ) {
+                        return Err(RulesError::IllegalAction(
+                            "library search-and-cast receipt lacks its library cast permission",
+                        ));
+                    }
+                    let mut saw_cast = false;
+                    let mut cursor = index + 2;
+                    loop {
+                        let Some(candidate) = events.get(cursor) else {
+                            return Err(RulesError::IllegalAction(
+                                "library search-and-cast receipt lacks its controller shuffle",
+                            ));
+                        };
+                        match candidate {
+                            GameEvent::SpellCast {
+                                player: cast_player,
+                                card: cast_card,
+                            } if cast_player == player && cast_card == card => saw_cast = true,
+                            GameEvent::LibraryShuffled {
+                                player: shuffled, ..
+                            } if shuffled == player => {
+                                if !saw_cast {
+                                    return Err(RulesError::IllegalAction(
+                                        "library search-and-cast receipt lacks its ordinary spell cast",
+                                    ));
+                                }
+                                break cursor;
+                            }
+                            GameEvent::PriorityPassed { .. }
+                            | GameEvent::AbilityResolved { .. }
+                            | GameEvent::SpellResolved { .. }
+                            | GameEvent::LibrarySearchResolved { .. }
+                            | GameEvent::LibrarySearchBatchResolved { .. } => {
+                                return Err(RulesError::IllegalAction(
+                                    "library search-and-cast receipt interleaved an invalid game boundary",
+                                ));
+                            }
+                            _ => {}
+                        }
+                        cursor += 1;
+                    }
+                } else {
+                    index + 1
+                };
+                if !matches!(
+                    events.get(shuffle_index),
+                    Some(GameEvent::LibraryShuffled { player: shuffled, .. }) if shuffled == player
+                ) {
+                    return Err(RulesError::IllegalAction(
+                        "library search-and-cast receipt lacks its controller shuffle",
+                    ));
+                }
+                continue;
+            }
             if let Some(card) = found {
                 let expected_zone = match destination {
                     LibrarySearchDestination::Battlefield
                     | LibrarySearchDestination::BattlefieldTapped => Zone::Battlefield,
                     LibrarySearchDestination::Hand => Zone::Hand,
+                    LibrarySearchDestination::CastWithoutPayingManaCost => unreachable!(
+                        "immediate library casts are handled before ordinary search movement"
+                    ),
                 };
                 let mut preceding_index = index.checked_sub(1).ok_or(RulesError::IllegalAction(
                     "library-search receipt lacks selected-card movement",
@@ -21321,6 +21700,11 @@ impl Game {
                 LibrarySearchDestination::Battlefield
                 | LibrarySearchDestination::BattlefieldTapped => Zone::Battlefield,
                 LibrarySearchDestination::Hand => Zone::Hand,
+                LibrarySearchDestination::CastWithoutPayingManaCost => {
+                    return Err(RulesError::IllegalAction(
+                        "multi-card library search cannot use the immediate-cast destination",
+                    ));
+                }
             };
             let mut cursor = index;
             let mut later_selected_card = None;
@@ -21538,9 +21922,10 @@ impl Game {
         Ok(())
     }
 
-    /// `AttachmentDetached` is a cleanup receipt only. It must refer to an
-    /// Equipment (Auras have their own ordinary state-based zone transition),
-    /// and a reattachment must name a previously constructed endpoint.
+    /// `AttachmentDetached` records either ordinary Equipment cleanup or a
+    /// typed detach activation cost. It must refer to an Equipment (Auras
+    /// have their own ordinary state-based zone transition), and a
+    /// reattachment must name a previously constructed endpoint.
     fn validate_attachment_detach_event_order(events: &[GameEvent]) -> Result<(), RulesError> {
         let mut attached = BTreeSet::new();
         for event in events {
@@ -23172,6 +23557,7 @@ impl Game {
             let mut return_payments = Vec::new();
             let mut hand_library_payments = Vec::new();
             let mut typed_land_sacrifices = Vec::new();
+            let mut detach_payments = Vec::new();
             let mut x_payments = Vec::new();
             let mut index = activation_index;
             while let Some(previous) = index.checked_sub(1) {
@@ -23265,6 +23651,14 @@ impl Game {
                     } if receipt_player == player && receipt_source == source => {
                         typed_land_sacrifices.push(*permanent);
                     }
+                    GameEvent::AttachmentDetached {
+                        attachment,
+                        kind: AttachmentKind::Equipment,
+                        reason: "paid as activated ability cost",
+                        ..
+                    } if attachment == source => {
+                        detach_payments.push(*attachment);
+                    }
                     GameEvent::AbilityXCostChosen {
                         player: receipt_player,
                         source: receipt_source,
@@ -23285,6 +23679,7 @@ impl Game {
             return_payments.reverse();
             hand_library_payments.reverse();
             typed_land_sacrifices.reverse();
+            detach_payments.reverse();
             x_payments.reverse();
             let expected_life = (profile.life_payment > 0).then_some(profile.life_payment);
             if life_payments.as_slice() != expected_life.as_slice() {
@@ -23357,6 +23752,15 @@ impl Game {
             if profile.has_x_cost != (x_payments.len() == 1) {
                 return Err(RulesError::IllegalAction(
                     "activated chosen-X receipts do not match their bound cost",
+                ));
+            }
+            if profile.detach_source_equipment != (detach_payments.len() == 1)
+                || detach_payments
+                    .iter()
+                    .any(|attachment| attachment != source)
+            {
+                return Err(RulesError::IllegalAction(
+                    "activated Equipment-detach receipts do not match their bound cost",
                 ));
             }
             if x_payments.len() > 1 {
@@ -24991,6 +25395,50 @@ impl Game {
                 {
                     return Err(RulesError::IllegalAction(
                         "multi-card library-search decision escaped its typed continuation boundary",
+                    ));
+                }
+            }
+            DecisionContinuation::LibrarySearchAndCast {
+                source,
+                source_incarnation,
+                requirement,
+                may_fail_to_find,
+            } => {
+                let top = self.stack.last().ok_or(RulesError::IllegalAction(
+                    "library search-and-cast decision escaped its stack item",
+                ))?;
+                let matches_stack = matches!(
+                    top.effects.as_slice(),
+                    [Effect::SearchControllerLibraryAndCastInstantWithoutPayingManaCost {
+                        requirement: stack_requirement,
+                        selection: LibrarySearchSelection::PolicySubmitted {
+                            may_fail_to_find: stack_may_fail,
+                        },
+                    }] if stack_requirement == requirement && stack_may_fail == may_fail_to_find
+                );
+                let expected_options = self
+                    .library_search_candidates(decision.player, requirement, None)?
+                    .into_iter()
+                    .map(DecisionOption::Object)
+                    .collect::<Vec<_>>();
+                let (expected_min, expected_max) =
+                    if expected_options.is_empty() || *may_fail_to_find {
+                        (0, 1)
+                    } else {
+                        (1, 1)
+                    };
+                if decision.kind != DecisionKind::LibrarySearchAndCast
+                    || decision.visibility != DecisionVisibility::Private
+                    || top.card != *source
+                    || top.source_incarnation != *source_incarnation
+                    || top.controller != decision.player
+                    || !matches_stack
+                    || decision.options != expected_options
+                    || decision.min_selections != expected_min
+                    || decision.max_selections != expected_max
+                {
+                    return Err(RulesError::IllegalAction(
+                        "library search-and-cast decision escaped its typed continuation boundary",
                     ));
                 }
             }

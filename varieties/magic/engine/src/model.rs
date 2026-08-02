@@ -90,6 +90,14 @@ pub enum LibrarySearchRequirement {
     /// text, and it can represent an expansion-neutral "creature card",
     /// "enchantment card", or combined-type library search.
     CardTypes(BTreeSet<CardType>),
+    /// An instant card with mana value at most the retained bound and at
+    /// least one printed card color in `colors`. This is a typed library
+    /// predicate, not a display-name or rules-text match, and supports
+    /// effects that immediately cast a selected instant during resolution.
+    InstantWithAnyColorAndManaValueAtMost {
+        colors: BTreeSet<Color>,
+        mana_value: u8,
+    },
 }
 
 /// The quantity a policy-submitted library search may choose.  Exact searches
@@ -134,6 +142,11 @@ pub enum LibrarySearchDestination {
     Battlefield,
     BattlefieldTapped,
     Hand,
+    /// Cast the selected instant immediately during the resolving effect,
+    /// without paying its mana cost. The selected card moves directly from
+    /// the private library to the stack; its targets are supplied through
+    /// the same no-priority decision that selected the card.
+    CastWithoutPayingManaCost,
 }
 
 /// How a typed library-search instruction selects among its matching cards.
@@ -630,6 +643,11 @@ pub struct GeneralizedActivatedAbilityCost {
     /// Number of additional controlled battlefield permanents that must be
     /// selected and returned to their owners' hands as part of the cost.
     pub return_controlled_permanents: u8,
+    /// Detach the source Equipment from its exact current endpoint while
+    /// paying the activation cost. This is not a zone change: the Equipment
+    /// remains on the battlefield, its attachment-derived changes end, and
+    /// its source incarnation stays stable for the resulting stack object.
+    pub detach_source_equipment: bool,
     /// Number of owned hand cards that must be selected and put on top of
     /// their owner's library as part of the cost. Selections are committed in
     /// listed order, making the final selection the top card when a future
@@ -653,6 +671,7 @@ impl GeneralizedActivatedAbilityCost {
             && self.counter_removals.is_empty()
             && !self.return_source_to_hand
             && self.return_controlled_permanents == 0
+            && !self.detach_source_equipment
             && self.put_hand_cards_on_library_top == 0
             && self.sacrifice_land_basic_type.is_none()
             && !self.has_x_cost
@@ -1911,6 +1930,15 @@ pub enum Effect {
         destination: LibrarySearchDestination,
         selection: LibrarySearchSelection,
     },
+    /// Search the resolving controller's library for one qualifying instant,
+    /// then cast the selected card immediately without paying its mana cost
+    /// and finally shuffle. Both the hidden card selection and that instant's
+    /// ordinary targets are supplied at one typed no-priority decision; the
+    /// cast itself retains ordinary stack receipts and source incarnation.
+    SearchControllerLibraryAndCastInstantWithoutPayingManaCost {
+        requirement: LibrarySearchRequirement,
+        selection: LibrarySearchSelection,
+    },
     /// Search the resolving controller's library for the first Aura that can
     /// legally attach to this effect's exact live source incarnation, put it
     /// onto the battlefield attached to that source, then shuffle. This is a
@@ -2444,6 +2472,10 @@ impl Effect {
                     requirement: LibrarySearchRequirement::CreatureWithManaValueAtMostChosenX,
                     ..
                 }
+                | Self::SearchControllerLibraryAndCastInstantWithoutPayingManaCost {
+                    requirement: LibrarySearchRequirement::CreatureWithManaValueAtMostChosenX,
+                    ..
+                }
         )
     }
 
@@ -2599,6 +2631,7 @@ impl Effect {
             | Self::DrawControllerForEachControlledBasicLandType { .. }
             | Self::PreventLibrarySearchUntilEndOfTurn
             | Self::SearchControllerLibrary { .. }
+            | Self::SearchControllerLibraryAndCastInstantWithoutPayingManaCost { .. }
             | Self::SearchControllerLibraryForFirstCompatibleAuraAttachedToSource
             | Self::SearchControllerLibraryMany { .. }
             | Self::RevealTopLibraryCardsAndReorder { .. }
@@ -3229,6 +3262,9 @@ pub enum Zone {
 pub enum CastPermissionZone {
     Graveyard,
     Exile,
+    /// A one-shot permission used only while the granting stack effect is
+    /// resolving. It is never exposed as an ordinary priority action.
+    Library,
 }
 
 /// Whether an effect-created casting permission replaces the spell's mana
@@ -3359,6 +3395,10 @@ pub enum DecisionVisibility {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DecisionKind {
     LibrarySearch,
+    /// A private library search whose selected instant must be cast before
+    /// the suspended source ability finishes resolving. The one submission
+    /// carries both the selected hidden card and that spell's public targets.
+    LibrarySearchAndCast,
     /// A public top-library slice was revealed and must be placed back in one
     /// exact top-to-bottom order before the suspended stack item continues.
     LibraryReorder,
@@ -3443,6 +3483,14 @@ pub enum DecisionOption {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum DecisionSelection {
     Objects(Vec<ObjectId>),
+    /// Select one optional hidden library instant and the exact ordinary
+    /// targets with which it is cast. `selected: None` is a legal decline
+    /// only when the underlying search permits failure; in that case targets
+    /// must be empty.
+    LibrarySearchAndCast {
+        selected: Option<ObjectId>,
+        targets: Vec<Target>,
+    },
     /// One exhaustive partition of a private top-library snapshot. `bottom`
     /// is ordered bottom-to-top, which lets the engine restore it without
     /// exposing unseen identities in public receipts.
@@ -3510,6 +3558,16 @@ pub enum DecisionContinuation {
         source: ObjectId,
         requirement: LibrarySearchRequirement,
         destination: LibrarySearchDestination,
+        may_fail_to_find: bool,
+    },
+    /// Retains the typed search predicate while the chosen instant is still
+    /// hidden. The source stack item stays live until the selection is
+    /// revalidated, its ordinary spell targets are validated, and the card is
+    /// cast through a one-shot library permission.
+    LibrarySearchAndCast {
+        source: ObjectId,
+        source_incarnation: u64,
+        requirement: LibrarySearchRequirement,
         may_fail_to_find: bool,
     },
     LibrarySearchMany {

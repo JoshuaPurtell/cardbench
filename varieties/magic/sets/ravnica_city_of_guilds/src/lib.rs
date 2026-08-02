@@ -235,6 +235,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 199] = [
     "RAV-TERRARION",
     "RAV-GRIFTERS-BLADE",
     "RAV-PARIAHS-SHIELD",
+    "RAV-SUNFORGER",
     "RAV-FESTIVAL-OF-THE-GUILDPACT",
     "RAV-FLICKERFORM",
     "RAV-SUPPRESSION-FIELD",
@@ -3601,6 +3602,33 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
+        // Full fidelity: this colorless Equipment costs `{3}`, grants its
+        // exact equipped creature +4/+0, has ordinary sorcery-speed `{3}`
+        // equip, and uses a `{R}{W}` detach cost to suspend a policy-selected
+        // controller-library instant search/cast continuation. The fetched
+        // red or white instant has mana value at most four and is cast with
+        // ordinary targets and stack receipts without paying its mana cost.
+        CardDefinition {
+            id: "RAV-SUNFORGER",
+            name: "Sunforger",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::new(3),
+            colors: BTreeSet::new(),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Artifact]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colorless-equipment-casting",
+                "equipment-plus-four-plus-zero",
+                "sorcery-speed-equip-three",
+                "equip-three-and-detach-search-red-or-white-instant-mana-value-at-most-four-cast-without-mana",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![],
+        },
         // This definition is complete for the public RAV Birds of Paradise
         // card: normal creature characteristics, Flying, and its one explicit
         // chosen-color tap mana ability all use shared, directly tested rules
@@ -6609,6 +6637,52 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
             },
         },
         ActivatedAbilityBinding {
+            card_definition: "RAV-SUNFORGER",
+            ability: ActivatedAbility {
+                id: "equip-plus-four-plus-zero",
+                mana_cost: ManaCost::new(3),
+                tap_cost: false,
+                sorcery_speed: true,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![TargetRequirement::ControlledCreature],
+                effects: vec![Effect::AttachSourceToTarget {
+                    target: TargetRequirement::ControlledCreature,
+                    changes: sunforger_attachment_changes(),
+                }],
+            },
+        },
+        ActivatedAbilityBinding {
+            card_definition: "RAV-SUNFORGER",
+            ability: ActivatedAbility {
+                id: "red-white-detach-search-and-cast-instant",
+                mana_cost: ManaCost::with_colors(0, [Color::Red, Color::White]),
+                tap_cost: false,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![],
+                effects: vec![
+                    Effect::SearchControllerLibraryAndCastInstantWithoutPayingManaCost {
+                        requirement:
+                            LibrarySearchRequirement::InstantWithAnyColorAndManaValueAtMost {
+                                colors: colors([Color::Red, Color::White]),
+                                mana_value: 4,
+                            },
+                        selection: LibrarySearchSelection::PolicySubmitted {
+                            may_fail_to_find: true,
+                        },
+                    },
+                ],
+            },
+        },
+        ActivatedAbilityBinding {
             card_definition: "RAV-PEREGRINE-MASK",
             ability: ActivatedAbility {
                 id: "equip-defender-flying-first-strike",
@@ -7293,6 +7367,13 @@ fn pariahs_shield_attachment_changes() -> Vec<ContinuousChange> {
     vec![ContinuousChange::RedirectDamageToAttachmentController]
 }
 
+fn sunforger_attachment_changes() -> Vec<ContinuousChange> {
+    vec![ContinuousChange::ModifyPowerToughness {
+        power: 4,
+        toughness: 0,
+    }]
+}
+
 fn peregrine_mask_attachment_changes() -> Vec<ContinuousChange> {
     vec![
         ContinuousChange::AddKeyword(Keyword::Defender),
@@ -7328,6 +7409,13 @@ pub fn rav_attachment_bindings() -> Vec<AttachmentBinding> {
             kind: AttachmentKind::Equipment,
             target: TargetRequirement::ControlledCreature,
             changes: pariahs_shield_attachment_changes(),
+            granted_activated_abilities: vec![],
+        },
+        AttachmentBinding {
+            card_definition: "RAV-SUNFORGER",
+            kind: AttachmentKind::Equipment,
+            target: TargetRequirement::ControlledCreature,
+            changes: sunforger_attachment_changes(),
             granted_activated_abilities: vec![],
         },
         AttachmentBinding {
@@ -8167,6 +8255,14 @@ pub fn rav_generalized_activated_ability_cost_bindings() -> Vec<ActivatedAbility
             ability_id: "green-sacrifice-forest-gain-three-life",
             cost: GeneralizedActivatedAbilityCost {
                 sacrifice_land_basic_type: Some(BasicLandType::Forest),
+                ..GeneralizedActivatedAbilityCost::default()
+            },
+        },
+        ActivatedAbilityCostBinding {
+            card_definition: "RAV-SUNFORGER",
+            ability_id: "red-white-detach-search-and-cast-instant",
+            cost: GeneralizedActivatedAbilityCost {
+                detach_source_equipment: true,
                 ..GeneralizedActivatedAbilityCost::default()
             },
         },

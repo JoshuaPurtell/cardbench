@@ -106,6 +106,7 @@ fn fixture() -> Game {
             }],
             return_source_to_hand: false,
             return_controlled_permanents: 1,
+            detach_source_equipment: false,
             put_hand_cards_on_library_top: 0,
             sacrifice_land_basic_type: None,
             has_x_cost: true,

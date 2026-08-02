@@ -204,6 +204,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-TERRARION",
             "RAV-GRIFTERS-BLADE",
             "RAV-PARIAHS-SHIELD",
+            "RAV-SUNFORGER",
             "RAV-FESTIVAL-OF-THE-GUILDPACT",
             "RAV-FLICKERFORM",
             "RAV-SUPPRESSION-FIELD",
