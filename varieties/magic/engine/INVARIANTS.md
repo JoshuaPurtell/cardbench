@@ -776,11 +776,16 @@ Oracle Magic rules coverage.
   never retain counter state. `+1/+1` and `-1/-1` counters each contribute
   once to derived creature power and toughness after supported timestamped
   layer-seven effects; every other named kind is real permanent state with no
-  implied characteristic rule. Every `CounterPlaced` and `CounterRemoved`
-  receipt names a valid kind and a positive quantity. Placement applies the
-  prospective quantity-replacement pipeline before mutation; removal never
-  does. Removal preflights the live counter balance and, if insufficient,
-  atomically restores the resolving stack object, event log, and counter map.
+  implied characteristic rule. Before creature toughness or lethal-damage
+  checks in every state-based-action pass, CR 704.5q cancels the minimum
+  opposing `+1/+1`/`-1/-1` pair count on each permanent. A stable battlefield
+  object therefore never has both positive counts; each cancellation emits one
+  source-free, positive `CounterPairsRemovedByStateBasedAction` receipt.
+  Every `CounterPlaced` and `CounterRemoved` receipt names a valid kind and a
+  positive quantity. Placement applies the prospective quantity-replacement
+  pipeline before mutation; source-based removal never does. Removal
+  preflights the live counter balance and, if insufficient, atomically restores
+  the resolving stack object, event log, and counter map.
   Generic target-counter instructions require a live permanent at casting and
   resolution. This bounded substrate does not yet represent counters on
   players or nonbattlefield objects. Typed counter-removal activation costs are
