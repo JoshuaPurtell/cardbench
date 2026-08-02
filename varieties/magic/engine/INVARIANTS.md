@@ -532,6 +532,14 @@ Oracle Magic rules coverage.
   or emits `SpellCountered` followed by the target's ordinary terminal move.
   Until a policy submits that sacrifice choice, stable battlefield order is an
   explicitly bounded fixture-selection rule rather than full choice fidelity.
+- `FirstNoncreatureSpellCastEachTurn` separately records every player's first
+  noncreature spell for the current turn; it is not a global first-spell flag
+  and a countered first spell still consumes only that player's slot. The
+  per-player state resets only on the next Untap turn transition. When a live
+  binding observes such a cast, `FirstNoncreatureSpellCastThisTurn` names the
+  exact turn, caster, and spell immediately after that spell's cast-incarnation
+  receipts and before its trigger is stacked. Replay rejects duplicate
+  player/turn receipts, a creature spell, or nonadjacent cast provenance.
 - A stack instruction that depends on colors spent to cast its spell requires
   a nonempty `mana_spent` receipt on that exact stack object. When the visible
   event log contains its `SpellCast`, the immediately preceding

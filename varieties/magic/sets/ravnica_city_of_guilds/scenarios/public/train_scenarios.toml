@@ -11983,3 +11983,47 @@ mana = ["0:blue:1"]
 mana_receipts = ["0:blue:1"]
 event_markers = ["LandEntryLifePaid", "BoundManaAbilityActivated", "ManaAdded"]
 digest = "fnv1a64:70baadd7a87d78d6"
+
+[[scenario]]
+id = "rav_nullstone_gargoyle_first_noncreature_counter"
+seed = 0
+description = "Nullstone Gargoyle observes player zero's first noncreature spell of turn one, retains it as the trigger target, and counters it through the ordinary stack."
+triggers = true
+
+[[scenario.card]]
+label = "gargoyle"
+owner = 0
+definition = "RAV-NULLSTONE-GARGOYLE"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "terrarion"
+owner = 0
+definition = "RAV-TERRARION"
+zone = "hand"
+
+[[scenario.mana]]
+player = 0
+color = "green"
+amount = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "terrarion"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["gargoyle:battlefield", "terrarion:graveyard"]
+mana = ["0:green:0"]
+stack_size = 0
+priority = 0
+event_markers = ["SpellCast", "FirstNoncreatureSpellCastThisTurn", "TriggeredAbilityStacked", "SpellCountered", "AbilityResolved"]
+digest = "fnv1a64:1cf8fd71ab4c5550"
