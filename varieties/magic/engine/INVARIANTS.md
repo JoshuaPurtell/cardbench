@@ -61,11 +61,16 @@ Oracle Magic rules coverage.
   only for non-token sources; a token's legal declaration and damage batch must
   not fail while attempting a definition lookup.
 - Object IDs never alias or regress. Every card object has a positive,
-  monotonic incarnation that advances on each zone transition; a physical
-  card retaining its public `ObjectId` after leaving and re-entering is a new
-  rules object. Object turn metadata cannot be from a future turn, marked
-  damage cannot be negative, and a card outside the battlefield retains its
-  owner's controller in the current no-control-change rules slice.
+  monotonic incarnation that advances on every actual zone transition,
+  including library-to-hand draw, hand-to-stack cast, stack-to-terminal-zone,
+  and battlefield departure/return. A physical card retaining its public
+  `ObjectId` after leaving and re-entering is a new rules object. Every
+  advance has exactly one public `ObjectIncarnationAdvanced` receipt directly
+  after the associated `CardMoved` or `SpellCast` receipt; receipt values are
+  strictly increasing per object. Object turn metadata cannot be from a
+  future turn, marked damage cannot be negative, and a card outside the
+  battlefield retains its owner's controller in the current no-control-change
+  rules slice.
 - A regeneration shield is private, source-identified replacement state for a
   current battlefield creature. Shield creation records
   `RegenerationShieldCreated { source, target }`; the next modeled destroy or
@@ -215,6 +220,16 @@ Oracle Magic rules coverage.
   cannot make the complete resolution fail. Each skipped instruction emits its own
   `TargetInstructionSkipped { effect_index, target }` diagnostic receipt. A
   resolving counter effect emits the distinct `SpellCountered` receipt.
+- Every stack object also captures its source incarnation. Spell objects must
+  name the source's current incarnation while they remain on the stack;
+  activated and triggered abilities may intentionally retain a historical
+  incarnation after their source leaves (notably a dies trigger). The
+  `AbilityActivated`, `TriggeredAbilityStacked`, `AbilityResolved`, and
+  `AbilityCounteredByRules` receipts carry that same value, and the ability
+  lifecycle audit keys open/terminal receipts by `(source, incarnation,
+  ability)` rather than the stable object ID alone. Source-relative effects
+  must do nothing if their captured source is not the same live battlefield
+  incarnation.
 - A `CreatureCardInControllerGraveyard` target names a creature catalog card
   currently in the resolving controller's graveyard. An ETB ability with an
   intervening "another creature card" condition is stacked only if that
@@ -822,9 +837,11 @@ Oracle Magic rules coverage.
   marked damage clears there. An effect removed because its source or target
   leaves the battlefield emits an explicit expiration lifecycle receipt.
 - Every continuous effect names extant source and target objects, has a unique
-  positive monotonic timestamp, and has a valid duration. A permanent-duration effect
-  cannot outlive either battlefield endpoint; an end-of-turn effect belongs to
-  the current turn only.
+  positive monotonic timestamp, captures both endpoint incarnations, and has a
+  valid duration. A permanent-duration effect cannot outlive either matching
+  battlefield endpoint; an end-of-turn effect belongs to the current turn
+  only and may retain its historical source after a spell has left the stack.
+  In either duration, it cannot apply to a target that has left and returned.
 - An Aura-like modifier is established only while its resolving permanent is
   entering the battlefield against one legal creature target. The resulting
   `AuraAttached` receipt immediately follows its matching permanent
@@ -833,7 +850,9 @@ Oracle Magic rules coverage.
   modifier; a non-Aura or token has no attachment target. When the attached
   creature leaves or becomes illegal, state-based actions move the Aura to its
   graveyard and normal zone cleanup expires its modifier before another player
-  can act.
+  can act. Its attachment records the attached target's incarnation, so a
+  prior attachment cannot become attached to a newly returned object with the
+  same stable ID.
 - Static continuous bindings are immutable expansion data, never timestamped
   runtime effects. Each registered binding names one creature definition and
   one supported static change. It applies only while an object with that
