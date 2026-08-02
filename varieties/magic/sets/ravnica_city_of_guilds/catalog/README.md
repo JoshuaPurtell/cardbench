@@ -50,8 +50,8 @@ different eligible Aura or decline a successful search in this slice. That
 choice fidelity remains unsupported, so Auratouched Mage is not in
 `RAV_FULL_FIDELITY_DEFINITION_IDS`.
 
-The current catalog partition is 174 full / 54 partial / 63 catalog-only unique
-names (189 / 54 / 63 printings). The independently checked coverage-report
+The current catalog partition is 181 full / 54 partial / 56 catalog-only unique
+names (196 / 54 / 56 printings). The independently checked coverage-report
 binary emits the same partition.
 
 `RAV_FULL_FIDELITY_DEFINITION_IDS` is a deliberately small positive manifest,
