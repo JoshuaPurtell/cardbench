@@ -18222,8 +18222,10 @@ impl Game {
                     }
                     let is_linked_attachment_receipt = saw_selected_attachment
                         && match events.get(preceding_index) {
-                            Some(GameEvent::ContinuousEffectCreated { source, .. })
-                            | Some(GameEvent::ControllerChanged { source, .. }) => *source == *card,
+                            Some(
+                                GameEvent::ContinuousEffectCreated { source, .. }
+                                | GameEvent::ControllerChanged { source, .. },
+                            ) => *source == *card,
                             _ => false,
                         };
                     if !is_attachment_receipt && !is_linked_attachment_receipt {

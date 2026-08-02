@@ -14,7 +14,10 @@ fn compulsive_research_requires_target_draw_and_conditional_private_discard_for_
         definition.mana_cost,
         ManaCost::with_colors(2, [Color::Blue])
     );
-    assert_eq!(definition.card_types, [CardType::Sorcery].into_iter().collect());
+    assert_eq!(
+        definition.card_types,
+        [CardType::Sorcery].into_iter().collect()
+    );
     assert!(
         definition
             .supported_rules
