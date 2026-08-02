@@ -465,6 +465,16 @@ Oracle Magic rules coverage.
   `controller_of`, never the owner-bound base controller, so a player may
   choose a creature they currently control through a layer-two effect; its
   normal owner-indexed graveyard move then ends the temporary control effect.
+- A `ControlledNonartifactPermanentEntersBattlefield` observer snapshots the
+  entering permanent's positive incarnation and nonempty current card-type
+  set at entry. Its `ReturnAnotherControlledPermanentSharing...` stack effect
+  can resolve only through a public zero-or-one object decision: the chooser
+  may decline, but a selected object must be a different current battlefield
+  permanent they control and share at least one captured type. The entering
+  permanent may subsequently leave or change types without changing the
+  captured event. A stale, foreign, departed, same-object, or non-overlapping
+  choice is atomic; a successful choice uses the ordinary owner-hand zone
+  transition before the trigger's `AbilityResolved` receipt.
 - A `Blocks` trigger is observed only for a creature that was successfully
   committed as a legal blocker. It waits until the defender's complete
   declaration and every required attacker damage-order decision have finished,

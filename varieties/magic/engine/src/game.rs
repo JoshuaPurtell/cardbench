@@ -8687,6 +8687,7 @@ impl Game {
         Ok(())
     }
 
+    #[allow(clippy::too_many_lines)] // One typed trigger-choice dispatcher preserves each continuation's stale checks.
     fn resolve_triggered_effect_object_decision(
         &mut self,
         decision: &PendingDecision,
@@ -8793,7 +8794,7 @@ impl Game {
                         let candidates = game.controlled_permanents_sharing_card_types(
                             player,
                             *entered,
-                            &card_types,
+                            card_types,
                         );
                         if !candidates.contains(&permanent) {
                             return Err(RulesError::IllegalAction(
@@ -14119,7 +14120,10 @@ impl Game {
             return Ok(());
         }
         let entering_characteristics = self.characteristics(entering)?;
-        if entering_characteristics.card_types.contains(&CardType::Artifact) {
+        if entering_characteristics
+            .card_types
+            .contains(&CardType::Artifact)
+        {
             return Ok(());
         }
         let entering_incarnation = self.object(entering)?.incarnation;
@@ -14129,7 +14133,8 @@ impl Game {
             .into_iter()
             .filter_map(|source| {
                 let object = self.object(source).ok()?;
-                if object.token.is_some() || self.controller_of(source).ok()? != entering_controller {
+                if object.token.is_some() || self.controller_of(source).ok()? != entering_controller
+                {
                     return None;
                 }
                 let definition = self.card_definition(source).ok()?.id;
@@ -14144,23 +14149,25 @@ impl Game {
                 .into_iter()
                 .flat_map(|abilities| abilities.values())
                 .filter(|ability| {
-                    ability.condition == TriggerCondition::ControlledNonartifactPermanentEntersBattlefield
+                    ability.condition
+                        == TriggerCondition::ControlledNonartifactPermanentEntersBattlefield
                 })
                 .cloned()
                 .collect::<Vec<_>>();
             for ability in triggers {
-                self.pending_trigger_events.push(PendingTriggeredAbilityEvent {
-                    source,
-                    source_incarnation,
-                    source_colors: source_colors.clone(),
-                    controller: entering_controller,
-                    ability,
-                    payload: TriggerEventPayload::EnteredPermanent {
-                        permanent: entering,
-                        incarnation: entering_incarnation,
-                        card_types: entering_card_types.clone(),
-                    },
-                });
+                self.pending_trigger_events
+                    .push(PendingTriggeredAbilityEvent {
+                        source,
+                        source_incarnation,
+                        source_colors: source_colors.clone(),
+                        controller: entering_controller,
+                        ability,
+                        payload: TriggerEventPayload::EnteredPermanent {
+                            permanent: entering,
+                            incarnation: entering_incarnation,
+                            card_types: entering_card_types.clone(),
+                        },
+                    });
             }
         }
         Ok(())
@@ -15071,6 +15078,7 @@ impl Game {
         Ok(())
     }
 
+    #[allow(clippy::too_many_lines)] // One effect-object suspension gate keeps each stack shape explicit.
     fn suspend_top_trigger_for_effect_object_choice(&mut self) -> Result<bool, RulesError> {
         if self.pending_decision.is_some() {
             return Err(RulesError::IllegalAction(
@@ -15156,10 +15164,8 @@ impl Game {
                 TriggeredEffectObjectDecisionKind::DiscardEachPlayer { .. } => {
                     DecisionVisibility::Private
                 }
-                TriggeredEffectObjectDecisionKind::SacrificeControllerCreature => {
-                    DecisionVisibility::Public
-                }
-                TriggeredEffectObjectDecisionKind::ReturnAnotherControlledPermanentSharingEnteredCardTypes { .. } => {
+                TriggeredEffectObjectDecisionKind::SacrificeControllerCreature
+                | TriggeredEffectObjectDecisionKind::ReturnAnotherControlledPermanentSharingEnteredCardTypes { .. } => {
                     DecisionVisibility::Public
                 }
             },
@@ -15203,12 +15209,13 @@ impl Game {
             .filter(|candidate| *candidate != entered)
             .filter(|candidate| self.controller_of(*candidate) == Ok(controller))
             .filter(|candidate| {
-                self.characteristics(*candidate).is_ok_and(|characteristics| {
-                    characteristics
-                        .card_types
-                        .iter()
-                        .any(|card_type| card_types.contains(card_type))
-                })
+                self.characteristics(*candidate)
+                    .is_ok_and(|characteristics| {
+                        characteristics
+                            .card_types
+                            .iter()
+                            .any(|card_type| card_types.contains(card_type))
+                    })
             })
             .collect()
     }
@@ -20287,7 +20294,7 @@ impl Game {
             ));
         }
         if ability.condition == TriggerCondition::ControlledNonartifactPermanentEntersBattlefield
-            && (ability.optional != true
+            && (!ability.optional
                 || !ability.targets.is_empty()
                 || ability.effects.as_slice()
                     != [Effect::ReturnAnotherControlledPermanentSharingEnteredCardTypes])

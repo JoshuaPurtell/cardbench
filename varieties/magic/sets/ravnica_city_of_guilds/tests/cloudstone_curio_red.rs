@@ -121,7 +121,11 @@ fn cloudstone_curio_retains_entry_types_and_bounces_only_a_chosen_other_controll
     assert_eq!(decision.min_selections, 0, "the controller may decline");
     assert_eq!(decision.max_selections, 1);
     assert_eq!(
-        decision.candidates.iter().map(|candidate| candidate.id).collect::<Vec<_>>(),
+        decision
+            .candidates
+            .iter()
+            .map(|candidate| candidate.id)
+            .collect::<Vec<_>>(),
         vec![compatible],
         "Curio sees only the other controlled permanent sharing Creature"
     );
@@ -132,7 +136,10 @@ fn cloudstone_curio_retains_entry_types_and_bounces_only_a_chosen_other_controll
     )
     .expect("controller returns compatible permanent");
 
-    println!("Cloudstone Curio return trace: {:?}", game.canonical_event_log());
+    println!(
+        "Cloudstone Curio return trace: {:?}",
+        game.canonical_event_log()
+    );
     assert_eq!(game.zone_of(compatible), Some(Zone::Hand));
     assert_eq!(game.zone_of(entering), Some(Zone::Battlefield));
     assert!(game.event_log.iter().any(|event| matches!(
@@ -159,7 +166,12 @@ fn cloudstone_curio_controller_can_explicitly_decline_the_optional_return() {
     game.grant_mana(PlayerId(0), Color::White, 1).unwrap();
     game.cast_spell(
         PlayerId(0),
-        CastRequest { card: entering, targets: vec![], convoke: vec![], payment_mana_abilities: vec![] },
+        CastRequest {
+            card: entering,
+            targets: vec![],
+            convoke: vec![],
+            payment_mana_abilities: vec![],
+        },
     )
     .expect("Watchwolf casts");
     pass_pair(&mut game);
