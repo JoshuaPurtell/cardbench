@@ -42,7 +42,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 180] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 181] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
@@ -51,6 +51,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 180] = [
     "RAV-BLOCKBUSTER",
     "RAV-PEREGRINE-MASK",
     "RAV-VOYAGER-STAFF",
+    "RAV-SPECTRAL-SEARCHLIGHT",
     "RAV-PUTREFY",
     "RAV-GLIMPSE-THE-UNTHINKABLE",
     "RAV-GAZE-OF-THE-GORGON",
@@ -890,6 +891,30 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 "full-rules-fidelity",
                 "colorless-artifact-casting",
                 "sacrifice-linked-exile-target-creature-until-end-step",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![],
+        },
+        // Full fidelity: the target-bearing activation is deliberately a
+        // stack ability rather than a mana ability. The exact targeted player
+        // supplies one of the five colored outputs at resolution through the
+        // shared public decision boundary.
+        CardDefinition {
+            id: "RAV-SPECTRAL-SEARCHLIGHT",
+            name: "Spectral Searchlight",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::new(3),
+            colors: BTreeSet::new(),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Artifact]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colorless-artifact-casting",
+                "tap-target-player-chooses-one-color-mana",
+                "target-player-chooses-one-color-mana",
             ],
             power: None,
             toughness: None,
@@ -5989,6 +6014,22 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 discard_cards: 0,
                 targets: vec![TargetRequirement::Creature],
                 effects: vec![Effect::ExileTargetCreatureUntilEndStep],
+            },
+        },
+        ActivatedAbilityBinding {
+            card_definition: "RAV-SPECTRAL-SEARCHLIGHT",
+            ability: ActivatedAbility {
+                id: "tap-target-player-chosen-color-mana",
+                mana_cost: ManaCost::new(0),
+                tap_cost: true,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![TargetRequirement::Player],
+                effects: vec![Effect::AddOneManaOfTargetPlayersChosenColor],
             },
         },
         ActivatedAbilityBinding {

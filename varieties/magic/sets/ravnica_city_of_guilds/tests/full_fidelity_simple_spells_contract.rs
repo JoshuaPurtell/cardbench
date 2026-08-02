@@ -21,6 +21,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-BLOCKBUSTER",
             "RAV-PEREGRINE-MASK",
             "RAV-VOYAGER-STAFF",
+            "RAV-SPECTRAL-SEARCHLIGHT",
             "RAV-PUTREFY",
             "RAV-GLIMPSE-THE-UNTHINKABLE",
             "RAV-GAZE-OF-THE-GORGON",
