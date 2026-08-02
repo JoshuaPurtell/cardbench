@@ -28,6 +28,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-DROOLING-GROODION",
             "RAV-DARK-HEART-OF-THE-WOOD",
             "RAV-GOLGARI-ROTWURM",
+            "RAV-GOLGARI-GERMINATION",
             "RAV-SCATTER-THE-SEEDS",
             "RAV-DOUBLING-SEASON",
             "RAV-GLARE-OF-SUBDUAL",

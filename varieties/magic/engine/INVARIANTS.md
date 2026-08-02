@@ -949,7 +949,10 @@ Oracle Magic rules coverage.
   positive damage before SBAs; `AnotherCreatureDies` observers are captured
   while both objects still have battlefield provenance, so a simultaneous
   creature death and a token death cannot erase a surviving observer's
-  trigger. Dies triggers retain the historical source object after a graveyard move and
+  trigger. `ControlledNontokenCreatureDies` observes only a non-token
+  creature whose live controller equals the observing source's live controller
+  immediately before the battlefield-to-graveyard transition; token and
+  opposing-creature deaths queue no such event. Dies triggers retain the historical source object after a graveyard move and
   materialize every declared target slot before stacking; a legal selected
   target cannot be dropped or replaced by an empty target vector.
   A `LifeGained` trigger is captured only from a source controlled by the

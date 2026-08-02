@@ -50,8 +50,8 @@ different eligible Aura or decline a successful search in this slice. That
 choice fidelity remains unsupported, so Auratouched Mage is not in
 `RAV_FULL_FIDELITY_DEFINITION_IDS`.
 
-The current catalog partition is 193 full / 54 partial / 44 catalog-only unique
-names (208 / 54 / 44 printings). The independently checked coverage-report
+The current catalog partition is 194 full / 54 partial / 43 catalog-only unique
+names (209 / 54 / 43 printings). The independently checked coverage-report
 binary emits the same partition.
 
 `RAV_FULL_FIDELITY_DEFINITION_IDS` is a deliberately small positive manifest,
@@ -63,7 +63,7 @@ Overwhelm, Gather Courage, Seeds of Strength, Darkblast, Greater Mossdog,
 Seismic Spike, Incite Hysteria, Searing Meditation, the
 four RAV Signets, the five RAV basic lands, Conclave Equenaut, Snapping Drake,
 Goliath Spider, Courier Hawk, Skyknight Legionnaire, Birds of Paradise, and
-Fiery Conclusion, Ribbons of Night, Smash, Caregiver, and Bloodletter Quill are listed only after an
+Golgari Germination are listed only after an
 ability-by-ability contract proves their complete represented behavior and
 public receipt traces. Sundering Vitae and Recollect are now included after
 their typed target and zone-transition contracts: Sundering Vitae's
