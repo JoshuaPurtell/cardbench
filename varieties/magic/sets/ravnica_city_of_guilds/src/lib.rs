@@ -40,7 +40,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 154] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 155] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -164,6 +164,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 154] = [
     "RAV-VIGOR-MORTIS",
     "RAV-STONE-SEEDER-HIEROPHANT",
     "RAV-MOLDERVINE-CLOAK",
+    "RAV-FISTS-OF-IRONWOOD",
     "RAV-CLINGING-DARKNESS",
     "RAV-URSAPINE",
     "RAV-TRANSLUMINANT",
@@ -457,9 +458,9 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 },
             ],
         },
-        // Compatibility scope: the exact two-token creation side effect only.
-        // The persistent Aura attachment and its granted combat capability are
-        // deliberately absent until the engine represents attachments.
+        // Full fidelity: this creature Aura grants Trample through the
+        // attachment lifecycle, then creates its Saprolings through its own
+        // ordinary enter-the-battlefield stack trigger.
         CardDefinition {
             id: "RAV-FISTS-OF-IRONWOOD",
             name: "Fists of Ironwood",
@@ -469,13 +470,16 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Enchantment]),
             is_basic_land: false,
-            supported_rules: &["two-saproling-token-creation"],
+            supported_rules: &[
+                "full-rules-fidelity",
+                "aura-enchant-creature-trample-etb-two-saprolings",
+            ],
             power: None,
             toughness: None,
             keywords: vec![],
-            effects: vec![Effect::CreateToken {
-                token: TokenSpec::saproling(),
-                count: 2,
+            effects: vec![Effect::AttachSourceToTarget {
+                target: TargetRequirement::Creature,
+                changes: vec![ContinuousChange::AddKeyword(Keyword::Trample)],
             }],
         },
         // Compatibility scope: the controller life-gain component only. The
@@ -5943,6 +5947,20 @@ pub fn rav_static_entry_restriction_bindings() -> Vec<StaticEntryRestrictionBind
 #[allow(clippy::too_many_lines)] // Keep the declarative trigger registry centralized for audit review.
 pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
     vec![
+        TriggeredAbilityBinding {
+            card_definition: "RAV-FISTS-OF-IRONWOOD",
+            ability: TriggeredAbility {
+                id: "etb-two-saprolings",
+                condition: TriggerCondition::EntersBattlefield,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![Effect::CreateToken {
+                    token: TokenSpec::saproling(),
+                    count: 2,
+                }],
+            },
+        },
         TriggeredAbilityBinding {
             card_definition: "RAV-FLIGHT-OF-FANCY",
             ability: TriggeredAbility {

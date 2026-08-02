@@ -341,6 +341,12 @@ Oracle Magic rules coverage.
   discard and controller-creature-sacrifice triggers keep their stack object
   live while the relevant chooser submits a legal current hand or battlefield
   object; no deterministic fixture selection may move a card or permanent.
+- A target-free token-producing ETB trigger from an Aura is not an inline
+  spell effect: its source must first enter the battlefield, establish every
+  legal attachment-linked continuous change, and emit the corresponding
+  attachment receipt. Only then may `TriggeredAbilityStacked` open its normal
+  priority window; no `TokenCreated` receipt may precede that trigger's own
+  terminal `AbilityResolved` receipt.
 - Every simultaneous controller group with two or more represented triggers
   opens one public `TriggeredAbilityOrder` decision before any member of that
   group reaches the stack. Its options and submitted permutation are exact,

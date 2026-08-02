@@ -3,8 +3,8 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardType, Color, ContinuousChange, Effect, Keyword, ManaCost, TargetRequirement,
-    TokenSpec, TriggerCondition,
+    CardType, Color, ContinuousChange, Effect, Keyword, ManaCost, TargetRequirement, TokenSpec,
+    TriggerCondition,
 };
 use cardbench_magic_rav::{
     RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, rav_triggered_ability_bindings,
@@ -43,7 +43,10 @@ fn fists_of_ironwood_requires_creature_aura_trample_and_etb_saprolings() {
         .find(|binding| binding.card_definition == "RAV-FISTS-OF-IRONWOOD")
         .expect("Fists of Ironwood Saproling trigger exists");
     assert_eq!(trigger.ability.id, "etb-two-saprolings");
-    assert_eq!(trigger.ability.condition, TriggerCondition::EntersBattlefield);
+    assert_eq!(
+        trigger.ability.condition,
+        TriggerCondition::EntersBattlefield
+    );
     assert_eq!(
         trigger.ability.effects,
         [Effect::CreateToken {

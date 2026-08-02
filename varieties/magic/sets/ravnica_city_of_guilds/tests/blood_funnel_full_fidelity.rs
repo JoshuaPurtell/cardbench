@@ -1,6 +1,6 @@
 //! Compatibility contract for Blood Funnel's cost and cast-trigger substrate.
 
-use cardbench_magic_engine::{CastRequest, Color, Game, GameEvent, PlayerId, Zone};
+use cardbench_magic_engine::{CastRequest, Color, Game, GameEvent, PlayerId, Target, Zone};
 use cardbench_magic_rav::{
     RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, rav_activated_ability_bindings,
     rav_additional_spell_cost_bindings, rav_basic_land_type_bindings, rav_cost_reduction_bindings,
@@ -32,6 +32,9 @@ fn noncreature_cast_is_reduced_and_trigger_sacrifices_before_spell_resolution() 
     let fodder = game
         .add_card(PlayerId(0), "RAV-WATCHWOLF", Zone::Battlefield)
         .expect("creature setup");
+    let target = game
+        .add_card(PlayerId(0), "RAV-WATCHWOLF", Zone::Battlefield)
+        .expect("Aura target setup");
     let spell = game
         .add_card(PlayerId(0), "RAV-FISTS-OF-IRONWOOD", Zone::Hand)
         .expect("noncreature spell setup");
@@ -42,7 +45,7 @@ fn noncreature_cast_is_reduced_and_trigger_sacrifices_before_spell_resolution() 
         PlayerId(0),
         CastRequest {
             card: spell,
-            targets: vec![],
+            targets: vec![Target::Permanent(target)],
             convoke: vec![],
             payment_mana_abilities: vec![],
         },
@@ -62,6 +65,10 @@ fn noncreature_cast_is_reduced_and_trigger_sacrifices_before_spell_resolution() 
     game.pass_priority(PlayerId(0))
         .expect("caster passes spell");
     game.pass_priority(PlayerId(1)).expect("spell resolves");
+    game.pass_priority(PlayerId(0))
+        .expect("caster passes Fists trigger");
+    game.pass_priority(PlayerId(1))
+        .expect("Fists trigger resolves");
 
     println!(
         "Blood Funnel sacrifice trace: {:?}",
@@ -84,9 +91,9 @@ fn noncreature_cast_without_a_creature_is_countered_by_its_own_trigger() {
         .add_card(PlayerId(0), "RAV-BLOOD-FUNNEL", Zone::Battlefield)
         .expect("Blood Funnel setup");
     let spell = game
-        .add_card(PlayerId(0), "RAV-FISTS-OF-IRONWOOD", Zone::Hand)
+        .add_card(PlayerId(0), "RAV-DRYADS-CARESS", Zone::Hand)
         .expect("noncreature spell setup");
-    game.grant_mana(PlayerId(0), Color::Green, 1)
+    game.grant_mana(PlayerId(0), Color::Green, 3)
         .expect("reduced spell mana");
     game.cast_spell(
         PlayerId(0),

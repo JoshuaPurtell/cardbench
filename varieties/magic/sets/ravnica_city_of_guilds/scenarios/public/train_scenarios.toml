@@ -372,13 +372,20 @@ digest = "fnv1a64:c6274f2ede4c2452"
 [[scenario]]
 id = "rav_fists_of_ironwood_tokens"
 seed = 0
-description = "Resolve the bounded Fists of Ironwood token-creation slice."
+description = "Resolve Fists of Ironwood as a creature Aura, then resolve its own ETB trigger to create two Saprolings."
+triggers = true
 
 [[scenario.card]]
 label = "fists"
 owner = 0
 definition = "RAV-FISTS-OF-IRONWOOD"
 zone = "hand"
+
+[[scenario.card]]
+label = "target"
+owner = 0
+definition = "RAV-WATCHWOLF"
+zone = "battlefield"
 
 [[scenario.mana]]
 player = 0
@@ -389,6 +396,15 @@ amount = 2
 kind = "cast"
 player = 0
 card = "fists"
+target = "permanent:target"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
 
 [[scenario.action]]
 kind = "pass"
@@ -399,10 +415,15 @@ kind = "pass"
 player = 1
 
 [scenario.expected]
-zones = ["fists:battlefield"]
+zones = ["fists:battlefield", "target:battlefield"]
+powers = ["target:3"]
+toughnesses = ["target:3"]
 token_count = 2
-event_markers = ["TokenCreated", "SpellResolved"]
-digest = "fnv1a64:31fb7084dc0541c1"
+stack_size = 0
+priority = 0
+mana = ["0:green:0"]
+event_markers = ["ContinuousEffectCreated", "AuraAttached", "TriggeredAbilityStacked", "TokenCreated", "AbilityResolved", "SpellResolved"]
+digest = "fnv1a64:c62054edce85b939"
 
 [[scenario]]
 id = "rav_dryads_caress_life"
@@ -10731,6 +10752,12 @@ definition = "RAV-WATCHWOLF"
 zone = "battlefield"
 
 [[scenario.card]]
+label = "target"
+owner = 0
+definition = "RAV-WATCHWOLF"
+zone = "battlefield"
+
+[[scenario.card]]
 label = "fists"
 owner = 0
 definition = "RAV-FISTS-OF-IRONWOOD"
@@ -10745,6 +10772,15 @@ amount = 1
 kind = "cast"
 player = 0
 card = "fists"
+target = "permanent:target"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
 
 [[scenario.action]]
 kind = "pass"
@@ -10763,13 +10799,13 @@ kind = "pass"
 player = 1
 
 [scenario.expected]
-zones = ["funnel:battlefield", "fodder:graveyard", "fists:battlefield"]
+zones = ["funnel:battlefield", "fodder:graveyard", "target:battlefield", "fists:battlefield"]
 stack_size = 0
 priority = 0
 mana = ["0:green:0"]
 token_count = 2
-event_markers = ["SpellCast", "TriggeredAbilityStacked", "SacrificedByEffect", "AbilityResolved", "TokenCreated", "SpellResolved"]
-digest = "fnv1a64:04411863f8d67a41"
+event_markers = ["SpellCast", "TriggeredAbilityStacked", "SacrificedByEffect", "ContinuousEffectCreated", "AuraAttached", "AbilityResolved", "TokenCreated", "SpellResolved"]
+digest = "fnv1a64:db8b56a6f958d5ac"
 
 [[scenario]]
 id = "rav_clinging_darkness_persistent_attachment"
@@ -10816,3 +10852,59 @@ priority = 0
 mana = ["0:black:1"]
 event_markers = ["SpellCast", "CardMoved", "ContinuousEffectCreated", "AuraAttached", "SpellResolved"]
 digest = "fnv1a64:74efe2597f160cf9"
+
+[[scenario]]
+id = "rav_fists_of_ironwood_aura_trigger"
+seed = 160
+description = "Resolve Fists of Ironwood as a creature Aura, retain its source-linked Trample grant, then resolve its own ETB trigger to create exactly two Saprolings."
+triggers = true
+
+[[scenario.card]]
+label = "fists"
+owner = 0
+definition = "RAV-FISTS-OF-IRONWOOD"
+zone = "hand"
+
+[[scenario.card]]
+label = "target"
+owner = 0
+definition = "RAV-WATCHWOLF"
+zone = "battlefield"
+
+[[scenario.mana]]
+player = 0
+color = "green"
+amount = 2
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "fists"
+target = "permanent:target"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["fists:battlefield", "target:battlefield"]
+powers = ["target:3"]
+toughnesses = ["target:3"]
+stack_size = 0
+priority = 0
+mana = ["0:green:0"]
+token_count = 2
+event_markers = ["SpellCast", "ContinuousEffectCreated", "AuraAttached", "TriggeredAbilityStacked", "TokenCreated", "AbilityResolved", "SpellResolved"]
+digest = "fnv1a64:c62054edce85b939"

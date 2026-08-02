@@ -4,7 +4,7 @@
 //! fidelity: omitted attachment, recursion, cost, and keyword behavior stays
 //! out of `supported_rules` and cannot be mistaken for an engine feature.
 
-use cardbench_magic_engine::{CardType, Color, Effect, ManaCost, TargetRequirement, TokenSpec};
+use cardbench_magic_engine::{Color, Effect, ManaCost, TargetRequirement};
 use cardbench_magic_rav::{
     CatalogResolutionError, RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions,
     executable_definition_id_for_collector, run_all_scenarios,
@@ -53,17 +53,6 @@ fn seeds_of_strength_preserves_three_separate_target_modifiers() {
 
 #[test]
 fn bounded_effect_slices_state_only_the_semantics_that_are_executable() {
-    let fists = definition("RAV-FISTS-OF-IRONWOOD");
-    assert!(fists.card_types.contains(&CardType::Enchantment));
-    assert_eq!(fists.supported_rules, ["two-saproling-token-creation"]);
-    assert_eq!(
-        fists.effects,
-        vec![Effect::CreateToken {
-            token: TokenSpec::saproling(),
-            count: 2,
-        }]
-    );
-
     let caress = definition("RAV-DRYADS-CARESS");
     assert_eq!(caress.supported_rules, ["controller-life-gain"]);
     assert_eq!(
