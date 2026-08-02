@@ -201,6 +201,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-BOTTLED-CLOISTER",
             "RAV-CYCLOPEAN-SNARE",
             "RAV-CLOUDSTONE-CURIO",
+            "RAV-PLAGUE-BOILER",
             "RAV-TERRARION",
             "RAV-GRIFTERS-BLADE",
             "RAV-PARIAHS-SHIELD",
