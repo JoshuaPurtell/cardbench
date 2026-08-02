@@ -124,6 +124,13 @@ Oracle Magic rules coverage.
   incarnation is still on the battlefield; an already departed source leaves
   the instruction as a no-op and a later incarnation with the same stable
   object ID can never be returned by the old stack object.
+- `MoveSourceToOwnersLibraryAndShuffle` has the same exact-live-incarnation
+  boundary. It performs the ordinary owner-indexed `Library` move first, then
+  deterministically shuffles that immutable owner's library and records one
+  `LibraryShuffled` receipt with its post-move card count. The ability
+  controller is never a substitute for the owner after control changes; if a
+  response removes or re-creates the source, the historical instruction is a
+  no-op with no library move or shuffle receipt.
 - A regeneration shield is private, source-identified replacement state for a
   current battlefield creature. Shield creation records
   `RegenerationShieldCreated { source, target }`; the next modeled destroy or
