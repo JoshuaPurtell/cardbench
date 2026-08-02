@@ -1121,13 +1121,14 @@ Oracle Magic rules coverage.
   destruction and zone-departure lifecycle. The complete batch of resulting
   receipts precedes the enclosing spell terminal receipt and one subsequent
   state-based-action fixed point.
-- Landwalk is likewise declaration provenance: every recorded attacker is in
-  the unique declared-attacker set and retains a nonempty set of typed basic
-  land types. A submitted blocker is rejected exactly when the fixed defender
-  controls at least one recorded land type for that attacker. The provenance is
-  cleared when that creature leaves combat or the combat declaration resets,
-  so a later keyword or land change cannot rewrite the legality already
-  recorded for that combat.
+- Static and temporary landwalk are declaration provenance: every recorded
+  attacker is in the unique declared-attacker set and retains a nonempty set
+  of typed basic land types. A submitted blocker is rejected exactly when the
+  fixed defender controls at least one recorded land type for that attacker.
+  The provenance is cleared when that creature leaves combat or the combat
+  declaration resets, so a later keyword or land change cannot rewrite the
+  legality already recorded for that combat; a rejected block emits no
+  `BlockersDeclared` receipt or partial combat mutation.
 - A target constrained to an attacking-or-blocking creature has the normal
   permanent target shape, but must additionally identify a battlefield
   creature present in the active combat's attacker or blocker provenance at

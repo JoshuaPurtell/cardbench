@@ -216,8 +216,8 @@ public scenarios exercise exact colored-cost payment, stack resolution, zone
 movement, and base P/T values; they do not imply full-card fidelity.
 
 The second creature-chassis batch adds Elvish Skysweeper, Frenzied Goblin,
-Grayscaled Gharial, Greater Forgeling, Lore Broker, Mortipede, Selesnya
-Evangel, and Selesnya Sagittars. These definitions likewise
+Greater Forgeling, Lore Broker, Mortipede, Selesnya Evangel, and Selesnya
+Sagittars. These definitions likewise
 record only public identity, mana cost, color, creature type, and base
 power/toughness. Their card-specific activated, triggered, evasion, token, and
 combat behavior is intentionally unsupported. Four public cast-and-resolve
@@ -226,6 +226,13 @@ resolution, graveyard movement, and retained base P/T; they do not assert any
 omitted abilities. Goblin Fire Fiend is a later static-keyword exception: its
 Haste and same-turn attack are covered, while its must-block restriction and
 activated power boost remain bounded.
+
+Grayscaled Gharial is now a full-fidelity static-keyword entry. Its typed
+Islandwalk is captured when it is declared as an attacker; a defender that
+controls a registered Island cannot submit a blocker for that attacker. The
+focused trace proves the rejection is atomic and leaves no blocker-declaration
+receipt, so this combat rule is not inferred merely from final battlefield
+state.
 
 The focused noncreature spell batch promotes Ribbons of Night, Dogpile, and
 Overwhelm as ability-complete

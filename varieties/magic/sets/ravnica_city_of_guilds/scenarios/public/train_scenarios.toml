@@ -3567,7 +3567,7 @@ digest = "fnv1a64:d79347f0d71c8635"
 [[scenario]]
 id = "rav_one_mana_creature_chassis"
 seed = 0
-description = "Cast Grayscaled Gharial and Elvish Skysweeper with their exact one-color costs, then verify only their base P/T. Their printed evasion and activated behavior are deliberately omitted."
+description = "Cast Grayscaled Gharial and Elvish Skysweeper with their exact one-color costs, then verify their base P/T. Gharial's static typed landwalk has a dedicated combat-invariant regression; Skysweeper's activation remains outside this fixture."
 
 [[scenario.card]]
 label = "gharial"
