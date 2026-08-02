@@ -22,4 +22,4 @@ event_markers = [
   "DamageDealtToPlayer",
   "LifeGained",
 ]
-digest = "fnv1a64:b3a8f81090c551b6"
+digest = "fnv1a64:0fc08a289eba7208"

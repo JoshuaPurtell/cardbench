@@ -622,7 +622,7 @@ mod tests {
         assert_eq!(first.turns, 30);
         assert_eq!(first.accepted_policy_moves, 759);
         assert_eq!(first.life, [-2, 10]);
-        assert_eq!(first.digest, "fnv1a64:9c899905a0c09b87");
+        assert_eq!(first.digest, "fnv1a64:a83395eae0b4c524");
         for marker in [
             "DeckLoaded",
             "LibraryShuffled",

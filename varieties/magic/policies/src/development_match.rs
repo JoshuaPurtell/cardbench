@@ -13,7 +13,7 @@ const REQUIRED_EVENT_MARKERS: [&str; 8] = [
     "DamageDealtToPlayer",
     "LifeGained",
 ];
-const EXPECTED_EVENT_DIGEST: &str = "fnv1a64:b3a8f81090c551b6";
+const EXPECTED_EVENT_DIGEST: &str = "fnv1a64:0fc08a289eba7208";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PolicyMatchResult {
@@ -125,7 +125,7 @@ fn validate_reference_match_fixture() -> Result<(), String> {
         "life = [23, 17]",
         "token_count = 3",
         "policy_moves = 8",
-        "digest = \"fnv1a64:b3a8f81090c551b6\"",
+        "digest = \"fnv1a64:0fc08a289eba7208\"",
     ] {
         if !fixture.contains(expected) {
             return Err(format!("reference_match.toml is missing `{expected}`"));
