@@ -567,7 +567,10 @@ Oracle Magic rules coverage.
   completes its public target-selection boundary before it is stacked, then
   opens the same controller-only accept/decline boundary after ordinary
   priority passes; declining preserves the already selected target without
-  applying its instruction. The represented one-effect all-player-
+  applying its instruction. A decline is consumed before any effect-specific
+  suspension: it emits the trigger's sole terminal `AbilityResolved` receipt
+  without opening a hidden-zone, replacement, or other deferred decision.
+  The represented one-effect all-player-
   discard and controller-creature-sacrifice triggers keep their stack object
   live while the relevant chooser submits a legal current hand or battlefield
   object; no deterministic fixture selection may move a card or permanent.
@@ -669,7 +672,8 @@ Oracle Magic rules coverage.
   its controller. The view exposes the exact cost, current affordability, and
   legal conditional targets. Declining requires no target and spends nothing;
   accepting requires a payable pool and the exact target shape. Only acceptance
-  emits `AbilityManaPaid`, and rejected submissions are atomic no-ops.
+  emits `AbilityManaPaid`; decline executes no effect instruction or deferred
+  decision, and rejected submissions are atomic no-ops.
 - A registered generic-cost reducer has a catalogued permanent source, a
   strictly positive amount, and is registered before the game starts. It
   contributes only while a source with that definition is live on the casting
