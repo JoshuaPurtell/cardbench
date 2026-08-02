@@ -9,20 +9,20 @@ use crate::{
     ActivatedCounterCostTarget, ActivatedManaAbility, AdditionalSpellCost,
     AdditionalSpellCostBinding, AttachmentBinding, AttachmentKind, BasicLandType,
     BasicLandTypeBinding, CardDefinition, CardObject, CardType, CastPaymentManaAbility,
-    Characteristics, Color, CombatBlock, ContinuousChange, ContinuousEffect, CopiableValues,
-    CopiedPermanent, CostReductionBinding, CounterKind, CreatureSubtype, DamageReplacementChoice,
-    DecisionContinuation, DecisionId, DecisionKind, DecisionOption, DecisionSelection,
-    DecisionVisibility, DeckList, DelayedAction, DelayedActionId, DelayedActionKind,
-    DelayedActionTiming, Duration, Effect, GameEvent, GeneralizedAbilityActivation,
-    GeneralizedActivatedAbilityCost, Keyword, LandEntryBinding, LibrarySearchDestination,
-    LibrarySearchRequirement, LibrarySearchSelection, LinkedExileGroup, LinkedExileGroupId,
-    LinkedExileMember, LinkedExileMemberRole, ManaAbilityActivation, ManaAbilityBinding,
-    ManaAbilityOutput, ManaCost, ManaPaymentSelection, ObjectId, PendingDecision, PlayerId,
-    PlayerState, PolicyMoveKind, ReplacementEffect, ReplacementEffectBinding, ReplacementEventKind,
-    StackEffectResolution, StackObject, StackResolutionPlan, StaticAttackRestriction,
-    StaticAttackRestrictionBinding, StaticContinuousEffectBinding, Step, TRANSMUTE_ABILITY_ID,
-    Target, TargetRequirement, TokenSpec, TriggerCondition, TriggeredAbilityBinding,
-    TriggeredEffectObjectDecisionKind, Zone,
+    CastPermissionPayment, CastPermissionZone, CastTiming, Characteristics, Color, CombatBlock,
+    ContinuousChange, ContinuousEffect, CopiableValues, CopiedPermanent, CostReductionBinding,
+    CounterKind, CreatureSubtype, DamageReplacementChoice, DecisionContinuation, DecisionId,
+    DecisionKind, DecisionOption, DecisionSelection, DecisionVisibility, DeckList, DelayedAction,
+    DelayedActionId, DelayedActionKind, DelayedActionTiming, Duration, Effect, GameEvent,
+    GeneralizedAbilityActivation, GeneralizedActivatedAbilityCost, Keyword, LandEntryBinding,
+    LibrarySearchDestination, LibrarySearchRequirement, LibrarySearchSelection, LinkedExileGroup,
+    LinkedExileGroupId, LinkedExileMember, LinkedExileMemberRole, ManaAbilityActivation,
+    ManaAbilityBinding, ManaAbilityOutput, ManaCost, ManaPaymentSelection, ObjectId,
+    PendingDecision, PlayerId, PlayerState, PolicyMoveKind, ReplacementEffect,
+    ReplacementEffectBinding, ReplacementEventKind, StackEffectResolution, StackObject,
+    StackResolutionPlan, StaticAttackRestriction, StaticAttackRestrictionBinding,
+    StaticContinuousEffectBinding, Step, TRANSMUTE_ABILITY_ID, Target, TargetRequirement,
+    TokenSpec, TriggerCondition, TriggeredAbilityBinding, TriggeredEffectObjectDecisionKind, Zone,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -88,6 +88,30 @@ pub struct ConvokePayment {
 struct GraveyardCastPermission {
     player: PlayerId,
     expires_turn: u32,
+}
+
+/// One typed permission created only while a stack effect resolves. The exact
+/// card incarnation and source provenance prevent a returned card or a later
+/// same-id source from inheriting an old casting exception.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct EffectCreatedCastPermission {
+    player: PlayerId,
+    zone: CastPermissionZone,
+    payment: CastPermissionPayment,
+    timing: CastTiming,
+    expires_turn: u32,
+    source: ObjectId,
+    source_incarnation: u64,
+    card_incarnation: u64,
+}
+
+/// Metadata retained only while a virtual spell copy remains on the stack.
+/// The copy itself uses an otherwise unallocated `ObjectId`; it never enters
+/// `objects` or a player zone and therefore cannot move the original physical
+/// card at terminal resolution.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct VirtualSpellCopy {
+    original: ObjectId,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -337,6 +361,10 @@ pub struct PendingDecisionView {
     pub visibility: DecisionVisibility,
     pub min_selections: u8,
     pub max_selections: u8,
+    /// Public target-shaped options for a target-selection continuation. This
+    /// stays separate from `candidates`, whose card views may be private for
+    /// library and hand selections.
+    pub target_candidates: Vec<Target>,
     pub candidates: Vec<CardView>,
 }
 
@@ -618,6 +646,14 @@ pub struct Game {
     land_entry_behaviors: BTreeMap<&'static str, LandEntryBinding>,
     additional_spell_costs: BTreeMap<&'static str, Vec<AdditionalSpellCost>>,
     graveyard_cast_permissions: BTreeMap<ObjectId, GraveyardCastPermission>,
+    effect_created_cast_permissions: BTreeMap<ObjectId, EffectCreatedCastPermission>,
+    /// Physical instant/sorcery cards currently on the stack under an
+    /// effect-created as-though-instant timing exception.
+    spell_timing_exceptions: BTreeSet<ObjectId>,
+    /// Live virtual spell copies keyed by their unique stack-only identity.
+    /// This map is the ownership boundary that prevents a copy terminal path
+    /// from moving the original physical card.
+    virtual_spell_copies: BTreeMap<ObjectId, VirtualSpellCopy>,
     exile_on_resolution: BTreeSet<ObjectId>,
     /// Exact-incarnation exile groups that still own one delayed return.
     /// This is typed, clonable state; no resolver closure escapes onto the
@@ -870,6 +906,9 @@ impl Game {
             land_entry_behaviors: BTreeMap::new(),
             additional_spell_costs,
             graveyard_cast_permissions: BTreeMap::new(),
+            effect_created_cast_permissions: BTreeMap::new(),
+            spell_timing_exceptions: BTreeSet::new(),
+            virtual_spell_copies: BTreeMap::new(),
             exile_on_resolution: BTreeSet::new(),
             linked_exile_groups: BTreeMap::new(),
             delayed_actions: Vec::new(),
@@ -1546,6 +1585,9 @@ impl Game {
     }
 
     pub fn card_definition(&self, card: ObjectId) -> Result<&CardDefinition, RulesError> {
+        if let Some(copy) = self.virtual_spell_copies.get(&card) {
+            return self.card_definition(copy.original);
+        }
         let definition = self
             .effective_definition_id(card)?
             .ok_or(RulesError::IllegalAction("token has no card definition"))?;
@@ -2881,6 +2923,7 @@ impl Game {
                         visibility: decision.visibility,
                         min_selections: decision.min_selections,
                         max_selections: decision.max_selections,
+                        target_candidates: Self::decision_target_candidates(decision),
                         candidates,
                     })
             })
@@ -2897,7 +2940,8 @@ impl Game {
                     ..
                 } => Some((*source, *destination, *may_fail_to_find)),
                 DecisionContinuation::TriggeredEffectObject { .. }
-                | DecisionContinuation::CombatDamageOrder { .. } => None,
+                | DecisionContinuation::CombatDamageOrder { .. }
+                | DecisionContinuation::SpellCopyTargets { .. } => None,
             })
             .map(|(source, destination, may_fail_to_find)| {
                 self.decision_candidate_cards(
@@ -2966,7 +3010,8 @@ impl Game {
                     source, ability, ..
                 } => Some((*source, *ability)),
                 DecisionContinuation::LibrarySearch { .. }
-                | DecisionContinuation::CombatDamageOrder { .. } => None,
+                | DecisionContinuation::CombatDamageOrder { .. }
+                | DecisionContinuation::SpellCopyTargets { .. } => None,
             })
             .map(|(source, ability)| {
                 self.decision_candidate_cards(
@@ -3043,7 +3088,7 @@ impl Game {
         let stack_spells = self
             .stack
             .iter()
-            .map(|stack_object| self.card_view(stack_object.card))
+            .map(|stack_object| self.stack_card_view(stack_object))
             .collect::<Result<Vec<_>, _>>()?;
         Ok(GameView {
             player,
@@ -4531,7 +4576,23 @@ impl Game {
                     && permission.expires_turn >= self.turn
                     && self.zone_of(request.card) == Some(Zone::Graveyard)
             });
-        if !from_graveyard {
+        let effect_permission = self
+            .effect_created_cast_permissions
+            .get(&request.card)
+            .copied()
+            .filter(|permission| {
+                permission.player == player
+                    && permission.expires_turn >= self.turn
+                    && self.object(request.card).is_ok_and(|object| {
+                        object.incarnation == permission.card_incarnation
+                            && self.zone_of(request.card)
+                                == Some(match permission.zone {
+                                    CastPermissionZone::Graveyard => Zone::Graveyard,
+                                    CastPermissionZone::Exile => Zone::Exile,
+                                })
+                    })
+            });
+        if !from_graveyard && effect_permission.is_none() {
             self.require_zone(request.card, Zone::Hand)?;
         }
         let definition = self.card_definition(request.card)?.clone();
@@ -4562,7 +4623,10 @@ impl Game {
             ));
         }
         Self::validate_cast_effects(&definition)?;
+        let timing_exception = effect_permission
+            .is_some_and(|permission| permission.timing == CastTiming::AsThoughInstant);
         if !definition.card_types.contains(&CardType::Instant)
+            && !timing_exception
             && (player != self.active_player || !self.step.is_main() || !self.stack.is_empty())
         {
             return Err(RulesError::IllegalAction(
@@ -4609,7 +4673,11 @@ impl Game {
                 }
             }
         }
-        if from_graveyard
+        let is_mana_free_permission = from_graveyard
+            || effect_permission.is_some_and(|permission| {
+                permission.payment == CastPermissionPayment::WithoutPayingManaCost
+            });
+        if is_mana_free_permission
             && (!request.payment_mana_abilities.is_empty()
                 || !request.convoke.is_empty()
                 || mana_payment_selection.is_some())
@@ -4632,7 +4700,7 @@ impl Game {
             .generic_cost_reduction(player, &payment_definition)
             .min(payment_definition.mana_cost.generic);
         payment_definition.mana_cost.generic -= applied_generic_cost_reduction;
-        let (paid_cost, mana_spent) = if from_graveyard {
+        let (paid_cost, mana_spent) = if is_mana_free_permission {
             (self.players[player.0].mana_pool.clone(), None)
         } else {
             self.pay_cost_with_convoke(
@@ -4687,6 +4755,20 @@ impl Game {
             self.record_event(GameEvent::SpellCastFromGraveyard {
                 player,
                 card: request.card,
+            });
+        }
+        if let Some(permission) = effect_permission {
+            self.effect_created_cast_permissions.remove(&request.card);
+            if permission.timing == CastTiming::AsThoughInstant {
+                self.spell_timing_exceptions.insert(request.card);
+            }
+            self.record_event(GameEvent::SpellCastFromPermission {
+                player,
+                card: request.card,
+                from: match permission.zone {
+                    CastPermissionZone::Graveyard => Zone::Graveyard,
+                    CastPermissionZone::Exile => Zone::Exile,
+                },
             });
         }
         self.record_event(GameEvent::SpellCast {
@@ -5232,48 +5314,76 @@ impl Game {
                 "only the decision player may submit this decision",
             ));
         }
-        let selected = Self::validate_decision_selection(&decision, selection)?;
         match decision.continuation.clone() {
             DecisionContinuation::LibrarySearch {
                 source,
                 requirement,
                 destination,
                 may_fail_to_find,
-            } => self.resolve_library_search_decision(
-                &decision,
-                source,
-                &requirement,
-                destination,
-                may_fail_to_find,
-                selected.into_iter().next(),
-            ),
+            } => {
+                let selected = Self::validate_object_decision_selection(&decision, selection)?;
+                self.resolve_library_search_decision(
+                    &decision,
+                    source,
+                    &requirement,
+                    destination,
+                    may_fail_to_find,
+                    selected.into_iter().next(),
+                )
+            }
             DecisionContinuation::TriggeredEffectObject {
                 source,
                 controller,
                 ability,
                 kind,
-            } => self.resolve_triggered_effect_object_decision(
-                &decision,
-                source,
-                controller,
-                ability,
-                kind,
-                selected.into_iter().next(),
-            ),
+            } => {
+                let selected = Self::validate_object_decision_selection(&decision, selection)?;
+                self.resolve_triggered_effect_object_decision(
+                    &decision,
+                    source,
+                    controller,
+                    ability,
+                    kind,
+                    selected.into_iter().next(),
+                )
+            }
             DecisionContinuation::CombatDamageOrder {
                 attacker,
                 remaining,
             } => {
+                let selected = Self::validate_object_decision_selection(&decision, selection)?;
                 self.resolve_combat_damage_order_decision(&decision, attacker, remaining, selected)
+            }
+            DecisionContinuation::SpellCopyTargets {
+                source,
+                source_incarnation,
+                controller,
+                original,
+                original_source_incarnation,
+            } => {
+                let selected = Self::validate_target_decision_selection(&decision, selection)?;
+                self.resolve_spell_copy_target_decision(
+                    &decision,
+                    source,
+                    source_incarnation,
+                    controller,
+                    original,
+                    original_source_incarnation,
+                    &selected,
+                )
             }
         }
     }
 
-    fn validate_decision_selection(
+    fn validate_object_decision_selection(
         decision: &PendingDecision,
         selection: DecisionSelection,
     ) -> Result<Vec<ObjectId>, RulesError> {
-        let DecisionSelection::Objects(selected) = selection;
+        let DecisionSelection::Objects(selected) = selection else {
+            return Err(RulesError::IllegalAction(
+                "this decision requires object selections",
+            ));
+        };
         let count = u8::try_from(selected.len())
             .map_err(|_| RulesError::IllegalAction("decision selection exceeds engine range"))?;
         if count < decision.min_selections || count > decision.max_selections {
@@ -5402,6 +5512,199 @@ impl Game {
             blockers: selected,
         });
         self.open_next_combat_damage_order(decision.player, remaining)
+    }
+
+    fn validate_target_decision_selection(
+        decision: &PendingDecision,
+        selection: DecisionSelection,
+    ) -> Result<Vec<Target>, RulesError> {
+        let DecisionSelection::Targets(selected) = selection else {
+            return Err(RulesError::IllegalAction(
+                "this decision requires target selections",
+            ));
+        };
+        let count = u8::try_from(selected.len())
+            .map_err(|_| RulesError::IllegalAction("decision selection exceeds engine range"))?;
+        if count < decision.min_selections || count > decision.max_selections {
+            return Err(RulesError::IllegalAction(
+                "decision selection violates its minimum or maximum cardinality",
+            ));
+        }
+        if selected
+            .iter()
+            .any(|target| !decision.options.contains(&DecisionOption::Target(*target)))
+        {
+            return Err(RulesError::IllegalAction(
+                "decision selection contains an illegal target option",
+            ));
+        }
+        Ok(selected)
+    }
+
+    #[allow(clippy::too_many_arguments)] // The whole suspended-copy continuation is one atomic rules action.
+    fn resolve_spell_copy_target_decision(
+        &mut self,
+        decision: &PendingDecision,
+        source: ObjectId,
+        source_incarnation: u64,
+        controller: PlayerId,
+        original: ObjectId,
+        original_source_incarnation: u64,
+        targets: &[Target],
+    ) -> Result<(), RulesError> {
+        let source_stack = self.stack.last().cloned().ok_or(RulesError::IllegalAction(
+            "spell-copy target decision escaped its copying spell",
+        ))?;
+        let source_matches = source_stack.card == source
+            && source_stack.source_incarnation == source_incarnation
+            && source_stack.controller == controller
+            && source_stack.ability_id.is_none()
+            && source_stack.targets.as_slice() == [Target::Spell(original)]
+            && matches!(
+                source_stack.effects.as_slice(),
+                [Effect::CopyTargetInstantOrSorcerySpell {
+                    may_choose_new_targets: true,
+                }]
+            );
+        let original_stack = self
+            .stack
+            .iter()
+            .find(|candidate| candidate.card == original)
+            .cloned()
+            .ok_or(RulesError::IllegalAction(
+                "spell-copy target decision lost its original spell",
+            ))?;
+        if !source_matches
+            || self.virtual_spell_copies.contains_key(&original)
+            || original_stack.ability_id.is_some()
+            || original_stack.source_incarnation != original_source_incarnation
+            || !self.stack_target_incarnation_matches(&source_stack, 0, Target::Spell(original))
+            || !self.target_matches_for_colors(
+                controller,
+                Target::Spell(original),
+                TargetRequirement::InstantOrSorcerySpell,
+                &source_stack.source_colors,
+            )
+        {
+            return Err(RulesError::IllegalAction(
+                "spell-copy target decision no longer matches its stack provenance",
+            ));
+        }
+        self.validate_spell_copy_targets(controller, &original_stack, targets, source)?;
+
+        self.stack.pop().ok_or(RulesError::IllegalAction(
+            "copying spell disappeared before target decision completion",
+        ))?;
+        self.complete_pending_decision(decision)?;
+        self.push_virtual_spell_copy(&original_stack, controller, targets, true)?;
+        self.record_event(GameEvent::SpellResolved { card: source });
+        self.move_to_spell_terminal_zone(source)?;
+        self.check_state_based_actions()?;
+        self.flush_pending_dies_triggers();
+        self.flush_pending_land_entry_triggers()?;
+        self.flush_pending_damage_triggers();
+        self.flush_pending_life_gain_triggers();
+        self.flush_pending_dies_triggers();
+        self.priority = self.priority_after_resolution();
+        Ok(())
+    }
+
+    fn validate_spell_copy_targets(
+        &self,
+        controller: PlayerId,
+        original: &StackObject,
+        targets: &[Target],
+        copying_spell: ObjectId,
+    ) -> Result<(), RulesError> {
+        let requirements = original
+            .effects
+            .iter()
+            .filter_map(Effect::target_requirement)
+            .collect::<Vec<_>>();
+        if targets.len() != requirements.len()
+            || targets
+                .iter()
+                .zip(&requirements)
+                .any(|(target, requirement)| {
+                    *target == Target::Spell(copying_spell)
+                        || !self.target_matches_for_colors(
+                            controller,
+                            *target,
+                            *requirement,
+                            &original.source_colors,
+                        )
+                })
+        {
+            return Err(RulesError::IllegalAction(
+                "spell-copy target selection is not legal for every target slot",
+            ));
+        }
+        let mut distinct = HashSet::new();
+        for (target, requirement) in targets.iter().zip(requirements) {
+            if requirement == TargetRequirement::DistinctCreature && !distinct.insert(*target) {
+                return Err(RulesError::IllegalTarget(*target));
+            }
+        }
+        Ok(())
+    }
+
+    /// Places a stack-only virtual spell copy above the current stack. A copy
+    /// receives an allocated identity solely for event/replay/audit purposes;
+    /// it has no `CardObject`, no owner-zone membership, and no cast receipt.
+    fn push_virtual_spell_copy(
+        &mut self,
+        original: &StackObject,
+        controller: PlayerId,
+        targets: &[Target],
+        retargeted: bool,
+    ) -> Result<ObjectId, RulesError> {
+        if original.ability_id.is_some()
+            || self.virtual_spell_copies.contains_key(&original.card)
+            || !self
+                .card_definition(original.card)?
+                .card_types
+                .iter()
+                .any(|kind| matches!(kind, CardType::Instant | CardType::Sorcery))
+        {
+            return Err(RulesError::IllegalAction(
+                "only a physical instant or sorcery spell can be copied in this slice",
+            ));
+        }
+        let copy = ObjectId(self.next_object_id);
+        self.next_object_id =
+            self.next_object_id
+                .checked_add(1)
+                .ok_or(RulesError::IllegalAction(
+                    "object identifier space exhausted",
+                ))?;
+        self.virtual_spell_copies.insert(
+            copy,
+            VirtualSpellCopy {
+                original: original.card,
+            },
+        );
+        self.stack.push(StackObject {
+            card: copy,
+            source_incarnation: original.source_incarnation,
+            source_colors: original.source_colors.clone(),
+            controller,
+            ability_id: None,
+            targets: targets.to_vec(),
+            target_incarnations: self.target_incarnations(targets),
+            effects: original.effects.clone(),
+            chosen_x: original.chosen_x,
+            mana_spent: original.mana_spent.clone(),
+            convoke_symbols: original.convoke_symbols,
+            generic_cost_reduction: original.generic_cost_reduction,
+        });
+        self.record_event(GameEvent::SpellCopied {
+            copy,
+            original: original.card,
+            original_source_incarnation: original.source_incarnation,
+            controller,
+            retargeted,
+        });
+        Ok(copy)
     }
 
     #[allow(clippy::too_many_lines)] // The suspended selection and terminal stack lifecycle are one transaction.
@@ -6805,7 +7108,8 @@ impl Game {
         let mut stack_cards = BTreeSet::new();
         for (stack_index, stack_object) in self.stack.iter().enumerate() {
             let is_ability = stack_object.ability_id.is_some();
-            let stack_card_conflict = if is_ability {
+            let is_virtual_copy = self.virtual_spell_copies.contains_key(&stack_object.card);
+            let stack_card_conflict = if is_ability || is_virtual_copy {
                 false
             } else {
                 locations.contains_key(&stack_object.card) || !stack_cards.insert(stack_object.card)
@@ -6815,7 +7119,14 @@ impl Game {
                     "stack card must not also exist in a zone",
                 ));
             }
-            let object = self.object(stack_object.card)?;
+            if is_virtual_copy && is_ability {
+                return Err(RulesError::IllegalAction(
+                    "a virtual spell copy cannot become an activated ability source",
+                ));
+            }
+            let object = (!is_virtual_copy)
+                .then(|| self.object(stack_object.card))
+                .transpose()?;
             self.player(stack_object.controller)?;
             if stack_object.source_incarnation == 0 {
                 return Err(RulesError::IllegalAction(
@@ -6827,7 +7138,11 @@ impl Game {
                     "stack object source colors include the colorless mana kind",
                 ));
             }
-            if !is_ability && object.incarnation != stack_object.source_incarnation {
+            if !is_ability
+                && !is_virtual_copy
+                && object
+                    .is_some_and(|object| object.incarnation != stack_object.source_incarnation)
+            {
                 return Err(RulesError::IllegalAction(
                     "stack spell does not retain its current stack incarnation",
                 ));
@@ -6837,7 +7152,10 @@ impl Game {
                     "a departed player controls a stack object",
                 ));
             }
-            if !is_ability && object.controller != stack_object.controller {
+            if !is_ability
+                && !is_virtual_copy
+                && object.is_some_and(|object| object.controller != stack_object.controller)
+            {
                 return Err(RulesError::IllegalAction(
                     "stack controller does not match its card object",
                 ));
@@ -6850,18 +7168,42 @@ impl Game {
                     "a battlefield ability source must remain controlled by its activator",
                 ));
             }
-            let definition = self
-                .effective_definition_id(stack_object.card)?
-                .and_then(|definition| self.catalog.get(definition))
-                .ok_or(RulesError::IllegalAction(
-                    "a stack object must be a non-token card with a catalog definition",
-                ))?;
+            let definition = if is_virtual_copy {
+                self.card_definition(stack_object.card)?
+            } else {
+                self.effective_definition_id(stack_object.card)?
+                    .and_then(|definition| self.catalog.get(definition))
+                    .ok_or(RulesError::IllegalAction(
+                        "a stack object must be a non-token card with a catalog definition",
+                    ))?
+            };
             if !is_ability && stack_object.source_colors != definition.colors {
                 return Err(RulesError::IllegalAction(
                     "stack spell source colors do not match its printed characteristics",
                 ));
             }
-            if object.token.is_some() || (!is_ability && definition.is_land()) {
+            if is_virtual_copy {
+                let original = self
+                    .virtual_spell_copies
+                    .get(&stack_object.card)
+                    .ok_or(RulesError::IllegalAction(
+                        "virtual stack spell lacks copy provenance",
+                    ))?
+                    .original;
+                if original == stack_object.card
+                    || !self.stack[..stack_index].iter().any(|candidate| {
+                        candidate.card == original && candidate.ability_id.is_none()
+                    })
+                    || self.virtual_spell_copies.contains_key(&original)
+                {
+                    return Err(RulesError::IllegalAction(
+                        "virtual stack spell lacks a lower physical original",
+                    ));
+                }
+            }
+            if object.is_some_and(|object| object.token.is_some())
+                || (!is_ability && definition.is_land())
+            {
                 return Err(RulesError::IllegalAction(
                     "a token or land occupies the stack",
                 ));
@@ -6872,7 +7214,9 @@ impl Game {
                 ));
             }
             if !is_ability
+                && !is_virtual_copy
                 && !definition.card_types.contains(&CardType::Instant)
+                && !self.spell_timing_exceptions.contains(&stack_object.card)
                 && (stack_index != 0
                     || stack_object.controller != self.active_player
                     || !self.step.is_main())
@@ -6994,6 +7338,7 @@ impl Game {
                 }
             }
             if !is_ability
+                && !is_virtual_copy
                 && definition
                     .effects
                     .iter()
@@ -7015,7 +7360,10 @@ impl Game {
                     "a chosen-X stack spell lacks an explicit payment receipt",
                 ));
             }
-            if !is_ability && let Some(chosen_x) = stack_object.chosen_x {
+            if !is_ability
+                && !is_virtual_copy
+                && let Some(chosen_x) = stack_object.chosen_x
+            {
                 let total_symbols = usize::from(definition.mana_cost.mana_value())
                     .checked_add(usize::from(chosen_x))
                     .ok_or(RulesError::IllegalAction(
@@ -7065,7 +7413,8 @@ impl Game {
                     ));
                 }
             }
-            if let Some(colors) = &stack_object.mana_spent
+            if !is_virtual_copy
+                && let Some(colors) = &stack_object.mana_spent
                 && let Some(cast_index) = self.event_log.iter().rposition(|event| {
                     matches!(event, GameEvent::SpellCast { card, .. } if *card == stack_object.card)
                 })
@@ -7171,9 +7520,40 @@ impl Game {
                 return Err(RulesError::IllegalAction("object has no game location"));
             }
         }
+        if self.virtual_spell_copies.keys().any(|copy| {
+            copy.0 == 0
+                || locations.contains_key(copy)
+                || self.objects.contains_key(copy)
+                || !self
+                    .stack
+                    .iter()
+                    .any(|stack_object| stack_object.card == *copy)
+        }) {
+            return Err(RulesError::IllegalAction(
+                "virtual spell-copy state has an invalid identity or orphaned stack object",
+            ));
+        }
+        if self.spell_timing_exceptions.iter().any(|card| {
+            !self.stack.iter().any(|stack_object| {
+                stack_object.card == *card
+                    && stack_object.ability_id.is_none()
+                    && !self.virtual_spell_copies.contains_key(card)
+            }) || !self.event_log.iter().any(|event| {
+                matches!(
+                    event,
+                    GameEvent::SpellCastFromPermission { card: cast_card, .. }
+                        if cast_card == card
+                )
+            })
+        }) {
+            return Err(RulesError::IllegalAction(
+                "spell timing exception lacks a permitted live spell provenance",
+            ));
+        }
         if self
             .objects
             .keys()
+            .chain(self.virtual_spell_copies.keys())
             .map(|card| card.0)
             .max()
             .is_some_and(|highest| highest >= self.next_object_id)
@@ -8378,6 +8758,16 @@ impl Game {
                 "a policy-submitted library search spell must contain exactly one effect",
             ));
         }
+        let spell_copy_effects = definition
+            .effects
+            .iter()
+            .filter(|effect| matches!(effect, Effect::CopyTargetInstantOrSorcerySpell { .. }))
+            .count();
+        if spell_copy_effects > 0 && definition.effects.len() != 1 {
+            return Err(RulesError::IllegalAction(
+                "a spell-copy instruction must be the only effect on its spell",
+            ));
+        }
         for effect in &definition.effects {
             if matches!(
                 effect,
@@ -8500,8 +8890,10 @@ impl Game {
                 | Effect::RadianceDestroyEnchantments
                 | Effect::DestroyAllNonTokenCreatures
                 | Effect::CounterTargetInstantOrSorcerySpell
+                | Effect::CopyTargetInstantOrSorcerySpell { .. }
                 | Effect::SacrificeCreatureOrCounterTargetSpell
                 | Effect::GrantGraveyardCastPermissionUntilEndOfTurn
+                | Effect::GrantExileCastPermissionUntilEndOfTurn { .. }
                 | Effect::ExileTargetCreature
                 | Effect::ExileTargetPermanent
                 | Effect::ExileAttachedCreatureAndAurasUntilEndStep => continue,
@@ -8575,6 +8967,9 @@ impl Game {
             self.consecutive_passes = 0;
             return Ok(());
         }
+        if self.suspend_top_stack_item_for_spell_copy_target_choice()? {
+            return Ok(());
+        }
         if self.suspend_top_stack_item_for_library_search_choice()? {
             return Ok(());
         }
@@ -8618,6 +9013,11 @@ impl Game {
                     source: stack_object.card,
                     source_incarnation: stack_object.source_incarnation,
                     ability,
+                });
+            } else if let Some(copy) = self.virtual_spell_copies.remove(&stack_object.card) {
+                self.record_event(GameEvent::SpellCopyCounteredByRules {
+                    copy: stack_object.card,
+                    original: copy.original,
                 });
             } else {
                 self.record_event(GameEvent::SpellCounteredByRules {
@@ -8857,6 +9257,20 @@ impl Game {
             self.priority = self.priority_after_resolution();
             return Ok(());
         }
+        if let Some(copy) = self.virtual_spell_copies.remove(&stack_object.card) {
+            self.record_event(GameEvent::SpellCopyResolved {
+                copy: stack_object.card,
+                original: copy.original,
+            });
+            self.check_state_based_actions()?;
+            self.flush_pending_dies_triggers();
+            self.flush_pending_land_entry_triggers()?;
+            self.flush_pending_damage_triggers();
+            self.flush_pending_life_gain_triggers();
+            self.flush_pending_dies_triggers();
+            self.priority = self.priority_after_resolution();
+            return Ok(());
+        }
         if !self.objects.contains_key(&stack_object.card) {
             // CR 800.4a cleanup can remove the owner and this already-popped
             // source while an instruction resolves (for example, an empty
@@ -8978,6 +9392,106 @@ impl Game {
         });
         self.priority = affected_player;
         self.consecutive_passes = 0;
+        Ok(true)
+    }
+
+    /// Opens the generic no-priority target-selection boundary for a resolving
+    /// spell-copy effect. The copying spell stays on the stack until its
+    /// controller submits the exact `DecisionId`; no priority action can
+    /// interleave between seeing public target candidates and creating the
+    /// copy.
+    fn suspend_top_stack_item_for_spell_copy_target_choice(&mut self) -> Result<bool, RulesError> {
+        if self.pending_decision.is_some() {
+            return Err(RulesError::IllegalAction(
+                "a second typed decision attempted to open during spell-copy resolution",
+            ));
+        }
+        let Some(top) = self.stack.last() else {
+            return Ok(false);
+        };
+        let (source, source_incarnation, controller, original) = match (
+            top.ability_id,
+            top.targets.as_slice(),
+            top.effects.as_slice(),
+        ) {
+            (
+                None,
+                [Target::Spell(original)],
+                [
+                    Effect::CopyTargetInstantOrSorcerySpell {
+                        may_choose_new_targets: true,
+                    },
+                ],
+            ) => (top.card, top.source_incarnation, top.controller, *original),
+            _ => return Ok(false),
+        };
+        if self.virtual_spell_copies.contains_key(&original)
+            || !self.stack_target_incarnation_matches(top, 0, Target::Spell(original))
+            || !self.target_matches_for_colors(
+                controller,
+                Target::Spell(original),
+                TargetRequirement::InstantOrSorcerySpell,
+                &top.source_colors,
+            )
+        {
+            // The ordinary all-targets-illegal resolver owns this case and
+            // must not open a target choice for an invalid spell target.
+            return Ok(false);
+        }
+        let original_stack = self
+            .stack
+            .iter()
+            .find(|candidate| candidate.card == original)
+            .cloned()
+            .ok_or(RulesError::IllegalTarget(Target::Spell(original)))?;
+        if original_stack.ability_id.is_some() || original_stack.target_count() == 0 {
+            // No legal target slot needs replacing. The ordinary effect path
+            // creates a retained-target copy without a synthetic prompt.
+            return Ok(false);
+        }
+        let mut options = Vec::new();
+        for requirement in original_stack
+            .effects
+            .iter()
+            .filter_map(Effect::target_requirement)
+        {
+            for target in self.legal_trigger_targets_for_colors(
+                controller,
+                &original_stack.source_colors,
+                requirement,
+            ) {
+                if target == Target::Spell(source) {
+                    continue;
+                }
+                let option = DecisionOption::Target(target);
+                if !options.contains(&option) {
+                    options.push(option);
+                }
+            }
+        }
+        if options.is_empty() {
+            // A retained-target copy is still possible. The resolver will
+            // copy without opening an impossible "choose new targets" prompt.
+            return Ok(false);
+        }
+        let target_count = u8::try_from(original_stack.target_count()).map_err(|_| {
+            RulesError::IllegalAction("spell copy target count exceeds decision range")
+        })?;
+        self.open_pending_decision(
+            controller,
+            DecisionVisibility::Public,
+            DecisionKind::SpellCopyTargets,
+            target_count,
+            target_count,
+            options,
+            DecisionContinuation::SpellCopyTargets {
+                source,
+                source_incarnation,
+                controller,
+                original,
+                original_source_incarnation: original_stack.source_incarnation,
+            },
+        )?;
         Ok(true)
     }
 
@@ -12059,6 +12573,22 @@ impl Game {
                 });
                 self.move_to_spell_terminal_zone(target)?;
             }
+            Effect::CopyTargetInstantOrSorcerySpell {
+                may_choose_new_targets: _,
+            } => {
+                let target = Self::target_spell(target)?;
+                let original = self
+                    .stack
+                    .iter()
+                    .find(|candidate| candidate.card == target)
+                    .cloned()
+                    .ok_or(RulesError::IllegalTarget(Target::Spell(target)))?;
+                // Target re-selection is handled before this stack item is
+                // popped. Reaching this dispatch therefore means either the
+                // effect retained targets or the copied spell has no target
+                // slots to replace.
+                self.push_virtual_spell_copy(&original, controller, &original.targets, false)?;
+            }
             Effect::SacrificeCreatureOrCounterTargetSpell => {
                 let target = Self::target_spell(target)?;
                 let candidate = self.all_battlefield_cards().into_iter().find(|candidate| {
@@ -12111,6 +12641,40 @@ impl Game {
                     source,
                     player: controller,
                     card: target,
+                    until_turn: self.turn,
+                });
+            }
+            Effect::GrantExileCastPermissionUntilEndOfTurn { payment, timing } => {
+                let target = Self::target_permanent(target)?;
+                if !self.target_matches_for_controller(
+                    controller,
+                    Target::Permanent(target),
+                    TargetRequirement::InstantOrSorceryCardInControllerExile,
+                ) {
+                    return Err(RulesError::IllegalTarget(Target::Permanent(target)));
+                }
+                let card_incarnation = self.object(target)?.incarnation;
+                self.effect_created_cast_permissions.insert(
+                    target,
+                    EffectCreatedCastPermission {
+                        player: controller,
+                        zone: CastPermissionZone::Exile,
+                        payment: *payment,
+                        timing: *timing,
+                        expires_turn: self.turn,
+                        source,
+                        source_incarnation,
+                        card_incarnation,
+                    },
+                );
+                self.record_event(GameEvent::CastPermissionGranted {
+                    source,
+                    source_incarnation,
+                    player: controller,
+                    card: target,
+                    zone: CastPermissionZone::Exile,
+                    payment: *payment,
+                    timing: *timing,
                     until_turn: self.turn,
                 });
             }
@@ -12495,6 +13059,13 @@ impl Game {
                             || definition.card_types.contains(&CardType::Sorcery)
                     })
             }
+            (Target::Permanent(card), TargetRequirement::InstantOrSorceryCardInControllerExile) => {
+                self.zone_of(card) == Some(Zone::Exile)
+                    && self.card_definition(card).is_ok_and(|definition| {
+                        definition.card_types.contains(&CardType::Instant)
+                            || definition.card_types.contains(&CardType::Sorcery)
+                    })
+            }
             (Target::Spell(card), TargetRequirement::InstantOrSorcerySpell) => {
                 self.stack
                     .iter()
@@ -12578,6 +13149,12 @@ impl Game {
                 (
                     Target::Permanent(card),
                     TargetRequirement::InstantOrSorceryCardInControllerGraveyard,
+                ) => self
+                    .object(card)
+                    .is_ok_and(|object| object.owner == controller),
+                (
+                    Target::Permanent(card),
+                    TargetRequirement::InstantOrSorceryCardInControllerExile,
                 ) => self
                     .object(card)
                     .is_ok_and(|object| object.owner == controller),
@@ -12688,6 +13265,7 @@ impl Game {
                     | TargetRequirement::CreatureCardInControllerGraveyard
                     | TargetRequirement::EnchantmentCardInControllerGraveyard
                     | TargetRequirement::InstantOrSorceryCardInControllerGraveyard
+                    | TargetRequirement::InstantOrSorceryCardInControllerExile
                     | TargetRequirement::ControlledCreature
                     | TargetRequirement::OpponentCreature
                     | TargetRequirement::PlayerOrCreature
@@ -12803,6 +13381,23 @@ impl Game {
                 for card in expired_permissions {
                     self.graveyard_cast_permissions.remove(&card);
                     self.record_event(GameEvent::GraveyardCastPermissionExpired { card });
+                }
+                let expired_effect_permissions = self
+                    .effect_created_cast_permissions
+                    .iter()
+                    .filter_map(|(card, permission)| {
+                        (permission.expires_turn == self.turn).then_some((*card, permission.zone))
+                    })
+                    .collect::<Vec<_>>();
+                for (card, zone) in expired_effect_permissions {
+                    self.effect_created_cast_permissions.remove(&card);
+                    self.record_event(GameEvent::CastPermissionExpired {
+                        card,
+                        from: match zone {
+                            CastPermissionZone::Graveyard => Zone::Graveyard,
+                            CastPermissionZone::Exile => Zone::Exile,
+                        },
+                    });
                 }
                 for card in self.all_battlefield_cards() {
                     self.objects
@@ -13293,6 +13888,7 @@ impl Game {
     }
 
     fn move_to_spell_terminal_zone(&mut self, card: ObjectId) -> Result<(), RulesError> {
+        self.spell_timing_exceptions.remove(&card);
         if self.exile_on_resolution.remove(&card) {
             self.move_to_zone(card, Zone::Exile)
         } else {
@@ -13335,6 +13931,12 @@ impl Game {
         let advanced_incarnation = previous_zone != Some(zone);
         if advanced_incarnation {
             self.advance_object_incarnation(card)?;
+            // A cast permission belongs to one exact zone incarnation. Any
+            // ordinary zone change revokes it before the new zone is exposed;
+            // only the authorized cast path consumes its own permission after
+            // the stack transition has been committed.
+            self.effect_created_cast_permissions.remove(&card);
+            self.graveyard_cast_permissions.remove(&card);
         }
         let left_battlefield =
             previous_zone == Some(Zone::Battlefield) && zone != Zone::Battlefield;
@@ -16160,8 +16762,20 @@ impl Game {
         decision
             .options
             .iter()
-            .map(|option| match option {
-                DecisionOption::Object(card) => self.card_view(*card),
+            .filter_map(|option| match option {
+                DecisionOption::Object(card) => Some(self.card_view(*card)),
+                DecisionOption::Target(_) => None,
+            })
+            .collect()
+    }
+
+    fn decision_target_candidates(decision: &PendingDecision) -> Vec<Target> {
+        decision
+            .options
+            .iter()
+            .filter_map(|option| match option {
+                DecisionOption::Object(_) => None,
+                DecisionOption::Target(target) => Some(*target),
             })
             .collect()
     }
@@ -16411,6 +17025,79 @@ impl Game {
                     ));
                 }
             }
+            DecisionContinuation::SpellCopyTargets {
+                source,
+                source_incarnation,
+                controller,
+                original,
+                original_source_incarnation,
+            } => {
+                let top = self.stack.last().ok_or(RulesError::IllegalAction(
+                    "spell-copy decision escaped its copying spell",
+                ))?;
+                let original_stack = self
+                    .stack
+                    .iter()
+                    .find(|candidate| candidate.card == *original)
+                    .ok_or(RulesError::IllegalAction(
+                        "spell-copy decision lost its original spell",
+                    ))?;
+                let mut expected_options = Vec::new();
+                for requirement in original_stack
+                    .effects
+                    .iter()
+                    .filter_map(Effect::target_requirement)
+                {
+                    for target in self.legal_trigger_targets_for_colors(
+                        *controller,
+                        &original_stack.source_colors,
+                        requirement,
+                    ) {
+                        if target == Target::Spell(*source) {
+                            continue;
+                        }
+                        let option = DecisionOption::Target(target);
+                        if !expected_options.contains(&option) {
+                            expected_options.push(option);
+                        }
+                    }
+                }
+                let target_count = u8::try_from(original_stack.target_count()).map_err(|_| {
+                    RulesError::IllegalAction("spell copy target count exceeds decision range")
+                })?;
+                if decision.kind != DecisionKind::SpellCopyTargets
+                    || decision.visibility != DecisionVisibility::Public
+                    || top.card != *source
+                    || top.source_incarnation != *source_incarnation
+                    || top.controller != *controller
+                    || top.ability_id.is_some()
+                    || top.targets.as_slice() != [Target::Spell(*original)]
+                    || !matches!(
+                        top.effects.as_slice(),
+                        [Effect::CopyTargetInstantOrSorcerySpell {
+                            may_choose_new_targets: true,
+                        }]
+                    )
+                    || self.virtual_spell_copies.contains_key(original)
+                    || original_stack.ability_id.is_some()
+                    || original_stack.source_incarnation != *original_source_incarnation
+                    || original_stack.target_count() == 0
+                    || decision.options != expected_options
+                    || decision.min_selections != target_count
+                    || decision.max_selections != target_count
+                    || !self.stack_target_incarnation_matches(top, 0, Target::Spell(*original))
+                    || !self.target_matches_for_colors(
+                        *controller,
+                        Target::Spell(*original),
+                        TargetRequirement::InstantOrSorcerySpell,
+                        &top.source_colors,
+                    )
+                {
+                    return Err(RulesError::IllegalAction(
+                        "spell-copy decision violates stack or target provenance",
+                    ));
+                }
+            }
         }
         Ok(())
     }
@@ -16482,6 +17169,27 @@ impl Game {
             card_types: characteristics.card_types,
             can_attack,
         })
+    }
+
+    /// Produces a public stack projection for either a physical spell card or
+    /// a virtual copied spell. A copy has no zone object, counters, or tap
+    /// state, but retains its copied definition and stack controller.
+    fn stack_card_view(&self, stack_object: &StackObject) -> Result<CardView, RulesError> {
+        if self.virtual_spell_copies.contains_key(&stack_object.card) {
+            let definition = self.card_definition(stack_object.card)?;
+            return Ok(CardView {
+                id: stack_object.card,
+                definition: Some(definition.id),
+                controller: stack_object.controller,
+                tapped: false,
+                colors: definition.colors.clone(),
+                mana_colors: definition.mana_colors.clone(),
+                basic_land_type: self.basic_land_types.get(definition.id).copied(),
+                card_types: definition.card_types.clone(),
+                can_attack: false,
+            });
+        }
+        self.card_view(stack_object.card)
     }
 
     fn object_has_incarnation(&self, object: ObjectId, incarnation: u64) -> bool {

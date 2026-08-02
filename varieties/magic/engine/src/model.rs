@@ -1220,6 +1220,11 @@ pub enum TargetRequirement {
     EnchantmentCardInControllerGraveyard,
     /// An instant or sorcery card in the casting player's graveyard.
     InstantOrSorceryCardInControllerGraveyard,
+    /// An instant or sorcery card in the casting player's exile zone. This is
+    /// intentionally distinct from a graveyard card so an effect-created
+    /// casting permission cannot silently authorize a card in the wrong
+    /// public zone.
+    InstantOrSorceryCardInControllerExile,
     /// A battlefield creature controlled by the resolving spell's controller.
     ControlledCreature,
     /// A battlefield creature controlled by a different player from the
@@ -1746,12 +1751,28 @@ pub enum Effect {
     /// Counter one targeted instant or sorcery spell. This is intentionally a
     /// semantic effect rather than a copied card-text string.
     CounterTargetInstantOrSorcerySpell,
+    /// Create one virtual copy of a targeted instant or sorcery stack object.
+    /// A copy retains its source's cast-time values, but its controller may
+    /// choose new legal targets through the typed decision boundary when the
+    /// instruction permits it. The copied spell is not cast and never moves
+    /// the original physical card between zones.
+    CopyTargetInstantOrSorcerySpell {
+        may_choose_new_targets: bool,
+    },
     /// Sacrifice one creature controlled by the resolving source's controller
     /// if possible; otherwise counter one targeted noncreature spell.
     SacrificeCreatureOrCounterTargetSpell,
     /// Grant a current-turn mana-free cast permission for the targeted instant
     /// or sorcery in the resolving controller's graveyard.
     GrantGraveyardCastPermissionUntilEndOfTurn,
+    /// Grant a current-turn permission for the targeted instant or sorcery in
+    /// the resolving controller's exile zone. The typed payment and timing
+    /// fields make the exceptional cast auditable rather than treating exile
+    /// as an untracked second hand.
+    GrantExileCastPermissionUntilEndOfTurn {
+        payment: CastPermissionPayment,
+        timing: CastTiming,
+    },
     /// Destroy the targeted artifact or enchantment permanent. The target is
     /// rechecked as this instruction resolves, then changes zones using the
     /// ordinary destruction lifecycle.
@@ -1934,7 +1955,8 @@ impl Effect {
             Self::ReturnControlledCreatureToHand => Some(TargetRequirement::ControlledCreature),
             Self::ReturnControlledLandToHand => Some(TargetRequirement::ControlledLand),
             Self::ReturnOpponentCreatureToHand => Some(TargetRequirement::OpponentCreature),
-            Self::CounterTargetInstantOrSorcerySpell => {
+            Self::CounterTargetInstantOrSorcerySpell
+            | Self::CopyTargetInstantOrSorcerySpell { .. } => {
                 Some(TargetRequirement::InstantOrSorcerySpell)
             }
             Self::SacrificeCreatureOrCounterTargetSpell => {
@@ -1942,6 +1964,9 @@ impl Effect {
             }
             Self::GrantGraveyardCastPermissionUntilEndOfTurn => {
                 Some(TargetRequirement::InstantOrSorceryCardInControllerGraveyard)
+            }
+            Self::GrantExileCastPermissionUntilEndOfTurn { .. } => {
+                Some(TargetRequirement::InstantOrSorceryCardInControllerExile)
             }
             Self::DealDamageController { .. }
             | Self::LoseLifeController { .. }
@@ -2450,6 +2475,33 @@ pub enum Zone {
     Exile,
 }
 
+/// The public zone from which an effect-created cast is authorized.  It is
+/// stored in permission state and receipts rather than inferred from the
+/// card's later zone, because a zone change must revoke the old permission.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum CastPermissionZone {
+    Graveyard,
+    Exile,
+}
+
+/// Whether an effect-created casting permission replaces the spell's mana
+/// cost. Nonmana additional costs are deliberately outside this first slice.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum CastPermissionPayment {
+    PayManaCost,
+    WithoutPayingManaCost,
+}
+
+/// The timing boundary supplied by an effect-created permission. `Normal`
+/// retains normal instant/sorcery timing; `AsThoughInstant` is the bounded
+/// exception needed by effects that explicitly allow the cast at instant
+/// speed.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum CastTiming {
+    Normal,
+    AsThoughInstant,
+}
+
 /// Stable identity for one typed linked-exile group. A group is ephemeral
 /// rules state, not a card identity: it records precisely which object
 /// incarnations one resolving effect placed in exile for a later action.
@@ -2545,6 +2597,10 @@ pub enum DecisionKind {
     /// The attacking player orders one multi-block group after blockers are
     /// declared and before either player receives priority.
     CombatDamageOrder,
+    /// The controller of an effect that copies a spell selects replacement
+    /// targets before the new virtual stack object exists. This is a
+    /// no-priority rules decision, never a free targeting action.
+    SpellCopyTargets,
 }
 
 /// A concrete option retained in typed pending-decision state. This first
@@ -2553,6 +2609,10 @@ pub enum DecisionKind {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DecisionOption {
     Object(ObjectId),
+    /// A public stack/battlefield/player target option. Target choices use a
+    /// distinct variant so a card selected from a private library cannot be
+    /// confused with a public target selected for a copied spell.
+    Target(Target),
 }
 
 /// A submitted answer to a typed decision. The continuation determines which
@@ -2560,6 +2620,7 @@ pub enum DecisionOption {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum DecisionSelection {
     Objects(Vec<ObjectId>),
+    Targets(Vec<Target>),
 }
 
 /// Stateful continuation details for the migrated trigger-effect object
@@ -2597,6 +2658,17 @@ pub enum DecisionContinuation {
     CombatDamageOrder {
         attacker: ObjectId,
         remaining: Vec<(ObjectId, Vec<ObjectId>)>,
+    },
+    /// A copy effect remains on the stack while this public target decision
+    /// is pending. `source` identifies that copying spell, while `original`
+    /// identifies the lower instant/sorcery whose stack values will be cloned
+    /// once the decision completes.
+    SpellCopyTargets {
+        source: ObjectId,
+        source_incarnation: u64,
+        controller: PlayerId,
+        original: ObjectId,
+        original_source_incarnation: u64,
     },
 }
 
@@ -3258,6 +3330,29 @@ pub enum GameEvent {
     SpellCounteredByRules {
         card: ObjectId,
     },
+    /// A resolving effect created a virtual stack object from the current
+    /// values of an instant or sorcery. `copy` is a fresh virtual identity;
+    /// `original` remains the physical card (or earlier copy) whose values
+    /// were cloned and is never moved by this receipt.
+    SpellCopied {
+        copy: ObjectId,
+        original: ObjectId,
+        original_source_incarnation: u64,
+        controller: PlayerId,
+        retargeted: bool,
+    },
+    /// A virtual spell copy completed resolution. Copies have no card-zone
+    /// terminal move, so this is intentionally distinct from `SpellResolved`.
+    SpellCopyResolved {
+        copy: ObjectId,
+        original: ObjectId,
+    },
+    /// Every target of a virtual spell copy was illegal at resolution. The
+    /// copy ceases to exist without moving the original physical card.
+    SpellCopyCounteredByRules {
+        copy: ObjectId,
+        original: ObjectId,
+    },
     AbilityCounteredByRules {
         source: ObjectId,
         source_incarnation: u64,
@@ -3291,6 +3386,33 @@ pub enum GameEvent {
     },
     GraveyardCastPermissionExpired {
         card: ObjectId,
+    },
+    /// A typed effect-created cast permission was installed for an exact card
+    /// incarnation in a named public zone. The source provenance lets a replay
+    /// distinguish two same-card permissions granted in one turn.
+    CastPermissionGranted {
+        source: ObjectId,
+        source_incarnation: u64,
+        player: PlayerId,
+        card: ObjectId,
+        zone: CastPermissionZone,
+        payment: CastPermissionPayment,
+        timing: CastTiming,
+        until_turn: u32,
+    },
+    /// A spell used a previously granted effect-created permission. It is a
+    /// casting receipt, never a second card movement receipt.
+    SpellCastFromPermission {
+        player: PlayerId,
+        card: ObjectId,
+        from: Zone,
+    },
+    /// A permission expired at cleanup without being used. A zone-changing
+    /// card instead has its stale permission silently revoked as part of that
+    /// atomic transition; it cannot survive to this receipt.
+    CastPermissionExpired {
+        card: ObjectId,
+        from: Zone,
     },
     DamageDealtToPlayer {
         source: ObjectId,

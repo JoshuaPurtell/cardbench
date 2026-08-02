@@ -8,15 +8,17 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardDefinition, CardType, CastPermissionPayment, CastTiming, CastRequest, Color,
-    DecisionKind, DecisionSelection, Effect, Game, GameEvent, ManaCost, PlayerId, Target,
-    TargetRequirement, Zone,
+    CardDefinition, CardType, CastPermissionPayment, CastRequest, CastTiming, Color, DecisionKind,
+    DecisionSelection, Effect, Game, GameEvent, ManaCost, PlayerId, Target, TargetRequirement,
+    Zone,
 };
 
 const PING: &str = "TST-COPY-PING";
 const COPY: &str = "TST-COPY-EFFECT";
+const COPY_RETAIN: &str = "TST-COPY-RETAIN";
 const EXILE_PERMISSION: &str = "TST-EXILE-PERMISSION";
 const SORCERY: &str = "TST-EXILE-SORCERY";
+const ISLAND: &str = "TST-EXILE-ISLAND";
 
 fn definition(
     id: &'static str,
@@ -62,6 +64,14 @@ fn game() -> Game {
                 }],
             ),
             definition(
+                COPY_RETAIN,
+                BTreeSet::from([CardType::Instant]),
+                ManaCost::new(0),
+                vec![Effect::CopyTargetInstantOrSorcerySpell {
+                    may_choose_new_targets: false,
+                }],
+            ),
+            definition(
                 EXILE_PERMISSION,
                 BTreeSet::from([CardType::Instant]),
                 ManaCost::new(0),
@@ -79,6 +89,21 @@ fn game() -> Game {
                     target: TargetRequirement::Player,
                 }],
             ),
+            CardDefinition {
+                id: ISLAND,
+                name: ISLAND,
+                set_code: "TST",
+                mana_cost: ManaCost::new(0),
+                colors: BTreeSet::new(),
+                mana_colors: BTreeSet::from([Color::Blue]),
+                card_types: BTreeSet::from([CardType::Land]),
+                is_basic_land: false,
+                supported_rules: &["spell-copy-cast-permission-red"],
+                power: None,
+                toughness: None,
+                keywords: vec![],
+                effects: vec![],
+            },
         ],
         2,
     )
@@ -112,13 +137,13 @@ fn copied_spell_is_a_distinct_stack_item_and_reselects_targets_via_decision_id()
         .expect("copy spell enters hand");
     game.begin_game().expect("game begins");
 
-    game.cast_spell(PlayerId(0), request(ping, vec![Target::Player(PlayerId(1))]))
-        .expect("ping casts");
     game.cast_spell(
         PlayerId(0),
-        request(copy, vec![Target::Spell(ping)]),
+        request(ping, vec![Target::Player(PlayerId(1))]),
     )
-    .expect("copy effect casts");
+    .expect("ping casts");
+    game.cast_spell(PlayerId(0), request(copy, vec![Target::Spell(ping)]))
+        .expect("copy effect casts");
     resolve_top(&mut game);
 
     let decision = game
@@ -127,7 +152,11 @@ fn copied_spell_is_a_distinct_stack_item_and_reselects_targets_via_decision_id()
         .pending_decision
         .expect("copy target decision opens");
     assert_eq!(decision.kind, DecisionKind::SpellCopyTargets);
-    assert!(decision.target_candidates.contains(&Target::Player(PlayerId(0))));
+    assert!(
+        decision
+            .target_candidates
+            .contains(&Target::Player(PlayerId(0)))
+    );
     game.submit_decision(
         PlayerId(0),
         decision.id,
@@ -136,22 +165,79 @@ fn copied_spell_is_a_distinct_stack_item_and_reselects_targets_via_decision_id()
     .expect("controller retargets copied spell");
     assert_eq!(game.stack.len(), 2, "copy sits above the original spell");
     assert_eq!(game.zone_of(copy), Some(Zone::Graveyard));
-    assert_eq!(game.zone_of(ping), None, "physical ping remains its original stack object");
+    assert_eq!(
+        game.zone_of(ping),
+        None,
+        "physical ping remains its original stack object"
+    );
     assert!(game.event_log.iter().any(|event| matches!(
         event,
         GameEvent::SpellCopied { original, .. } if *original == ping
     )));
 
     resolve_top(&mut game);
-    assert_eq!(game.players[0].life, 18, "retargeted copy damages its new target");
+    assert_eq!(
+        game.players[0].life, 18,
+        "retargeted copy damages its new target"
+    );
     assert_eq!(game.players[1].life, 20, "original has not yet resolved");
-    assert!(game
-        .event_log
-        .iter()
-        .any(|event| matches!(event, GameEvent::SpellCopyResolved { .. })));
+    assert!(
+        game.event_log
+            .iter()
+            .any(|event| matches!(event, GameEvent::SpellCopyResolved { .. }))
+    );
     resolve_top(&mut game);
-    assert_eq!(game.players[1].life, 18, "original still resolves independently");
-    game.validate_invariants().expect("copy lifecycle is auditable");
+    assert_eq!(
+        game.players[1].life, 18,
+        "original still resolves independently"
+    );
+    game.validate_invariants()
+        .expect("copy lifecycle is auditable");
+}
+
+#[test]
+fn copy_effect_can_retain_the_original_targets_without_opening_a_decision() {
+    let mut game = game();
+    let ping = game
+        .add_card(PlayerId(0), PING, Zone::Hand)
+        .expect("ping enters hand");
+    let copy = game
+        .add_card(PlayerId(0), COPY_RETAIN, Zone::Hand)
+        .expect("retained-target copy enters hand");
+    game.begin_game().expect("game begins");
+
+    game.cast_spell(
+        PlayerId(0),
+        request(ping, vec![Target::Player(PlayerId(1))]),
+    )
+    .expect("ping casts");
+    game.cast_spell(PlayerId(0), request(copy, vec![Target::Spell(ping)]))
+        .expect("retained-target copy casts");
+    resolve_top(&mut game);
+    assert!(
+        game.view_for_player(PlayerId(0))
+            .expect("view")
+            .pending_decision
+            .is_none(),
+        "retaining targets is not a synthetic policy prompt"
+    );
+    assert_eq!(game.stack.len(), 2, "copy sits above original");
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::SpellCopied {
+            original,
+            retargeted: false,
+            ..
+        } if *original == ping
+    )));
+    resolve_top(&mut game);
+    resolve_top(&mut game);
+    assert_eq!(
+        game.players[1].life, 16,
+        "copy and original retain the same target"
+    );
+    game.validate_invariants()
+        .expect("retained-target copy lifecycle is auditable");
 }
 
 #[test]
@@ -163,8 +249,9 @@ fn exile_permission_can_pay_and_cast_sorcery_at_instant_speed() {
     let sorcery = game
         .add_card(PlayerId(0), SORCERY, Zone::Exile)
         .expect("sorcery starts exiled");
-    game.grant_mana(PlayerId(0), Color::Blue, 1)
-        .expect("fixture mana");
+    let island = game
+        .put_on_battlefield(PlayerId(0), ISLAND)
+        .expect("mana source enters before game");
     game.begin_game().expect("game begins");
 
     game.cast_spell(
@@ -177,14 +264,20 @@ fn exile_permission_can_pay_and_cast_sorcery_at_instant_speed() {
         event,
         GameEvent::CastPermissionGranted { card, .. } if *card == sorcery
     )));
+    game.activate_mana_ability(PlayerId(0), island, Color::Blue)
+        .expect("standard-cost permission permits an ordinary mana ability");
 
-    game.cast_spell(PlayerId(0), request(sorcery, vec![Target::Player(PlayerId(1))]))
-        .expect("permission allows a sorcery while the stack is nonempty or off-main timing");
+    game.cast_spell(
+        PlayerId(0),
+        request(sorcery, vec![Target::Player(PlayerId(1))]),
+    )
+    .expect("permission allows a sorcery while the stack is nonempty or off-main timing");
     assert!(game.event_log.iter().any(|event| matches!(
         event,
         GameEvent::SpellCastFromPermission { card, from: Zone::Exile, .. } if *card == sorcery
     )));
     resolve_top(&mut game);
     assert_eq!(game.zone_of(sorcery), Some(Zone::Graveyard));
-    game.validate_invariants().expect("permission state is consumed safely");
+    game.validate_invariants()
+        .expect("permission state is consumed safely");
 }
