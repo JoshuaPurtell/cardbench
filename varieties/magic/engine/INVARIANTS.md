@@ -671,6 +671,11 @@ Oracle Magic rules coverage.
   Every materialized dynamic effect is checked against its binding before it
   can resolve, and no pending attack, damage, life-gain, or dies trigger may survive its
   enclosing transition.
+  A recipient-damage trigger that derives the damage source's controller must
+  capture that controller at the damage receipt, materialize a target-free
+  player instruction, and never open a policy target decision. Its positive
+  amount and captured player must survive source/recipient zone changes and
+  match the binding before resolution.
 - A resolving all-player discard effect selects at most one controller-owned
   hand card per living player in deterministic hand order. Every
   `CardDiscarded` receipt is immediately followed by that exact card's
