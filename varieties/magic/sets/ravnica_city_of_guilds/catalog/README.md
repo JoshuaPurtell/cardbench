@@ -49,8 +49,8 @@ a zone move. The fetched Aura's ordinary ETB trigger is queued only after the
 Mage trigger's terminal receipt. The opponent sees neither unselected Aura
 identities nor a private decision projection.
 
-The current catalog partition is 224 full / 32 partial / 35 catalog-only unique
-names (239 / 32 / 35 printings). The independently checked coverage-report
+The current catalog partition is 227 full / 30 partial / 34 catalog-only unique
+names (242 / 30 / 34 printings). The independently checked coverage-report
 binary emits the same partition.
 
 Bramble Elemental is full-fidelity through the expansion-neutral, current-
@@ -58,6 +58,14 @@ controller-scoped Aura-entry trigger condition. Its controller receives the
 ordinary optional stack decision, where accepting creates one typed Saproling
 and declining creates none; an opponent-controlled Aura cannot queue that
 trigger.
+
+Spawnbroker is a positive-manifest entry through the expansion-neutral paired-
+target control-exchange instruction. Its ETB target decision retains both
+ordered creature occurrences and validates the opponent creature's current
+power against the controlled one before stack placement and resolution. A
+completed exchange writes two durable layer-two effects before either control
+receipt; a response that makes either target illegal leaves neither permanent
+partially exchanged.
 
 `RAV_FULL_FIDELITY_DEFINITION_IDS` is a deliberately small positive manifest,
 not an inference from executable status. Char, Lightning Helix, Scatter the

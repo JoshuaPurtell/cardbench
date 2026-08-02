@@ -419,6 +419,18 @@ Oracle Magic rules coverage.
   `TriggeredAbilityStacked`; rejected stale, wrong-controller, wrong-source,
   wrong-ability, wrong-cardinality, illegal, or distinctness-violating answers
   leave the pending decision, stack, zones, mana, and event log unchanged.
+- A target-pair instruction owns its ordered target slots as one stack effect:
+  stack target count, target-incarnation provenance, and the registered target
+  requirements must include both occurrences. Any relation between the pair is
+  checked before the decision completes and again when that instruction
+  resolves. If either target or the relation is no longer legal, the entire
+  paired instruction is a no-op; it cannot create a one-sided control change.
+  A completed permanent creature-control exchange creates both layer-two
+  effects before either `ControllerChanged` receipt. Each affected permanent
+  sources its own durable control effect, so the original spell or ability
+  source leaving the battlefield cannot undo either completed half, while a
+  later departure of one exchanged permanent expires only that permanent's
+  effect. Ownership-indexed zones never change during the exchange.
 - Every migrated no-priority choice occupies the one typed, clonable
   `PendingDecision` state slot. Its positive `DecisionId` is strictly less
   than the next monotonic id, is never reused after completion, names one
