@@ -27,9 +27,9 @@ use crate::{
     StackEffectResolution, StackObject, StackObjectId, StackResolutionPlan,
     StaticAttackRestriction, StaticAttackRestrictionBinding, StaticContinuousEffectBinding,
     StaticEntryRestriction, StaticEntryRestrictionBinding, StaticLibraryTopRevealBinding,
-    StaticLibraryTopRevealScope, Step, TRANSMUTE_ABILITY_ID, Target, TargetRequirement,
-    TokenSpec, TriggerCondition,
-    TriggerOrderEntry, TriggeredAbilityBinding, TriggeredEffectObjectDecisionKind, Zone,
+    StaticLibraryTopRevealScope, Step, TRANSMUTE_ABILITY_ID, Target, TargetRequirement, TokenSpec,
+    TriggerCondition, TriggerOrderEntry, TriggeredAbilityBinding,
+    TriggeredEffectObjectDecisionKind, Zone,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
