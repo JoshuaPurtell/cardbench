@@ -491,6 +491,15 @@ Oracle Magic rules coverage.
   `controller_of`, never the owner-bound base controller, so a player may
   choose a creature they currently control through a layer-two effect; its
   normal owner-indexed graveyard move then ends the temporary control effect.
+- A `ControlledAuraEntersBattlefield` observer queues only when a live
+  Aura-like permanent enters under that observer's current controller. The
+  ordinary trigger stack item retains the live observer source/incarnation and
+  controller; an opponent's Aura cannot queue it. Its target-free optional
+  decision belongs only to that controller: acceptance creates exactly the
+  declared typed token and the matching `TokenCreated`/`AbilityResolved`
+  receipts, while decline creates neither a token nor a fabricated effect
+  receipt. Zone departure or control change after placement is handled by the
+  ordinary trigger-source and stack lifecycle audits.
 - A `ControlledNonartifactPermanentEntersBattlefield` observer snapshots the
   entering permanent's positive incarnation and nonempty current card-type
   set at entry. Its `ReturnAnotherControlledPermanentSharing...` stack effect

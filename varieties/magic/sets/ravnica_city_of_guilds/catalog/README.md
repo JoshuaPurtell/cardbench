@@ -53,6 +53,12 @@ The current catalog partition is 218 full / 38 partial / 35 catalog-only unique
 names (233 / 38 / 35 printings). The independently checked coverage-report
 binary emits the same partition.
 
+Bramble Elemental is full-fidelity through the expansion-neutral, current-
+controller-scoped Aura-entry trigger condition. Its controller receives the
+ordinary optional stack decision, where accepting creates one typed Saproling
+and declining creates none; an opponent-controlled Aura cannot queue that
+trigger.
+
 `RAV_FULL_FIDELITY_DEFINITION_IDS` is a deliberately small positive manifest,
 not an inference from executable status. Char, Lightning Helix, Scatter the
 Seeds, Guardian of Vitu-Ghazi, Last Gasp, Elves of Deep Shadow, Boros Recruit,
