@@ -24,6 +24,7 @@ fn game() -> Game {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // One contract audits visibility, layer, payment, and stack ordering.
 fn crown_reveals_only_its_controllers_top_and_rotates_the_live_color_layer() {
     let mut game = game();
     let crown = game
