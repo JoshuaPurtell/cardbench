@@ -813,6 +813,28 @@ Oracle Magic rules coverage.
   movement when `found` is absent. Either battlefield destination may queue
   ordinary entry-trigger work only after the search source reaches its own
   terminal stack lifecycle.
+- A policy-submitted batch library search uses an expansion-neutral typed
+  predicate and either `ZeroOrMore { maximum }` or `Exactly(count)` selection
+  cardinality. Its candidate identities project only to the resolving
+  controller, include only current controller-owned library cards matching the
+  typed predicate, and reject stale, duplicate, oversized, or foreign answers
+  atomically. An exact hidden-zone search with too few candidates is a legal
+  zero-card failure-to-find boundary; one that permits failure to find may
+  submit fewer than the requested count. Each selected card moves through the
+  ordinary destination transition (and is revealed first only when the effect
+  requires it); `LibrarySearchBatchResolved` names the ordered selected set
+  and is immediately followed by exactly one controller `LibraryShuffled`
+  receipt.
+- `RevealTopLibraryCardsAndReorder` snapshots at most its positive requested
+  top-card count in current top-to-bottom order, emits one public
+  `CardRevealed` receipt for each snapshot member, then opens one public
+  `LibraryReorder` pending decision. Every player sees the same revealed
+  option set, but only its controller may submit the exact stale-safe
+  `DecisionId`; the submitted selection must be a complete duplicate-free
+  permutation. `LibraryReordered { top_to_bottom }` records that permutation
+  before the suspended spell or ability reaches its terminal receipt. No zone
+  transition, shuffle, or unrelated priority action may interleave with the
+  captured ordering boundary.
 - A `Permanent` target is a current battlefield object, never a player or a
   card in another zone. A permanent-bounce instruction snapshots the target's
   controller before its owner-hand zone move; its `CardMoved { to: Hand }`
