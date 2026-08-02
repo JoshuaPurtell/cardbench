@@ -41,7 +41,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 139] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 140] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -149,6 +149,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 139] = [
     "RAV-VINDICTIVE-MOB",
     "RAV-BELLTOWER-SPHINX",
     "RAV-FLIGHT-OF-FANCY",
+    "RAV-MARK-OF-EVICTION",
     "RAV-VEDALKEN-ENTRANCER",
     "RAV-TIDEWATER-MINION",
     "RAV-SUNHOME-FORTRESS",
@@ -3103,6 +3104,33 @@ pub fn card_definitions() -> Vec<CardDefinition> {
         // Full fidelity: Defender and the tap activation that mills a target
         // player for two cards are both typed engine rules.
         CardDefinition {
+            id: "RAV-MARK-OF-EVICTION",
+            name: "Mark of Eviction",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(0, [Color::Blue]),
+            colors: colors([Color::Blue]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Enchantment]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "aura-enchant-creature-upkeep-return-enchanted-creature",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![Effect::AttachSourceToTarget {
+                target: TargetRequirement::Creature,
+                changes: vec![],
+            }],
+        },
+        // Full fidelity: the Aura attaches only to a creature, then its
+        // active-controller upkeep trigger reads that exact live attachment
+        // endpoint when it resolves. Returning the creature follows the
+        // normal owner-hand lifecycle, after which SBA cleans up the Aura.
+        // Full fidelity: Defender and the normal targeted mill activation are
+        // both expansion-neutral typed engine rules.
+        CardDefinition {
             id: "RAV-VEDALKEN-ENTRANCER",
             name: "Vedalken Entrancer",
             set_code: SET_CODE,
@@ -5579,6 +5607,17 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                 optional: false,
                 targets: vec![],
                 effects: vec![Effect::DrawController, Effect::DrawController],
+            },
+        },
+        TriggeredAbilityBinding {
+            card_definition: "RAV-MARK-OF-EVICTION",
+            ability: TriggeredAbility {
+                id: "upkeep-return-enchanted-creature",
+                condition: TriggerCondition::BeginningOfUpkeep,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![Effect::ReturnSourceAttachedPermanentToHand],
             },
         },
         TriggeredAbilityBinding {

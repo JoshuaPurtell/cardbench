@@ -120,6 +120,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-VINDICTIVE-MOB",
             "RAV-BELLTOWER-SPHINX",
             "RAV-FLIGHT-OF-FANCY",
+            "RAV-MARK-OF-EVICTION",
             "RAV-VEDALKEN-ENTRANCER",
             "RAV-TIDEWATER-MINION",
             "RAV-SUNHOME-FORTRESS",

@@ -60,8 +60,10 @@ Oracle Magic rules coverage.
 - An attachment binding has one typed source kind (`Aura` or `Equipment`),
   one permanent-only target restriction, and a duplicate-free set of optional
   linked continuous changes. Aura bindings require an Enchantment source and
-  matching permanent-spell attachment effect; Equipment bindings require an
-  Artifact source and matching activated attachment effect. A live Aura has
+  matching permanent-spell attachment effect; they may have no linked change
+  when their represented behavior is source-relative. Equipment bindings
+  require a nonempty set, an Artifact source, and matching activated or
+  target-bearing triggered attachment effect. A live Aura has
   exactly one legal attached target; if either endpoint or legality
   disappears, the ordinary SBA moves it to its graveyard and expires every
   linked effect. Equipment may be unattached; its attach activation may move
@@ -75,6 +77,12 @@ Oracle Magic rules coverage.
   attached Equipment, including one with no declared changes.
   A suppression change rejects only nonmana activated abilities before any
   cost or receipt; mana abilities remain legal.
+- A source-relative Aura instruction reads only the permanent currently
+  attached to its exact live source incarnation at resolution. If that source
+  has departed, returned, or become unattached, the instruction is a no-op;
+  it must never follow a stable object ID into a later incarnation. Returning
+  a live attached permanent uses the ordinary owner-hand zone transition,
+  after which SBA performs the now-unattached Aura's normal graveyard cleanup.
 - A non-token object has exactly one catalog definition; a token has exactly
   one token specification and exists only on the battlefield. An object cannot
   be both, and no nonpermanent card can occupy the battlefield.

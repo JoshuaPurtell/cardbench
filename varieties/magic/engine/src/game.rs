@@ -1067,6 +1067,7 @@ impl Game {
                 AttachmentKind::Equipment => definition.card_types.contains(&CardType::Artifact),
             };
             if !valid_source
+                || (binding.kind == AttachmentKind::Equipment && binding.changes.is_empty())
                 || !Self::attachment_target_requirement_is_permanent(binding.target)
                 || binding
                     .changes
@@ -4046,6 +4047,40 @@ impl Game {
         Ok(self
             .attachment_binding_for(card)?
             .is_some_and(|binding| binding.kind == AttachmentKind::Aura))
+    }
+
+    /// Resolves a source-relative Aura instruction against the endpoint that
+    /// remains attached to the exact source incarnation. A source which left
+    /// the battlefield, returned, or lost its attachment has no current
+    /// "enchanted permanent", so the instruction is a normal no-op.
+    fn return_source_attached_permanent_to_hand(
+        &mut self,
+        source: ObjectId,
+        source_incarnation: u64,
+    ) -> Result<(), RulesError> {
+        if self.zone_of(source) != Some(Zone::Battlefield)
+            || !self.object_has_incarnation(source, source_incarnation)
+        {
+            return Ok(());
+        }
+        if !self.is_aura_like(source)? {
+            return Err(RulesError::IllegalAction(
+                "attached-permanent return requires an Aura-like source",
+            ));
+        }
+        let source_object = self.object(source)?.clone();
+        let (Some(target), Some(target_incarnation)) = (
+            source_object.attached_to,
+            source_object.attached_to_incarnation,
+        ) else {
+            return Ok(());
+        };
+        if self.zone_of(target) != Some(Zone::Battlefield)
+            || !self.object_has_incarnation(target, target_incarnation)
+        {
+            return Ok(());
+        }
+        self.move_to_zone(target, Zone::Hand)
     }
 
     /// Captures an Aura-relative linked-exile group. The source-relative
@@ -7540,7 +7575,7 @@ impl Game {
         self.validate_static_entry_restriction_event_order()?;
         Self::validate_permanent_copy_event_order(&self.event_log)?;
         Self::validate_library_search_event_order(&self.event_log)?;
-        Self::validate_attachment_event_order(&self.event_log)?;
+        self.validate_attachment_event_order(&self.event_log)?;
         Self::validate_attachment_detach_event_order(&self.event_log)?;
         Self::validate_delayed_action_event_order(&self.event_log)?;
         Self::validate_trigger_order_event_order(&self.event_log)?;
@@ -8662,6 +8697,7 @@ impl Game {
             };
             if binding.card_definition != *definition_id
                 || !source_type_is_valid
+                || (binding.kind == AttachmentKind::Equipment && binding.changes.is_empty())
                 || !Self::attachment_target_requirement_is_permanent(binding.target)
                 || binding
                     .changes
@@ -10009,6 +10045,7 @@ impl Game {
                 }
                 | Effect::ReturnOneCreatureCardFromEachGraveyardToHand
                 | Effect::ReturnUpToThreeControllerGraveyardLandCardsToHand
+                | Effect::ReturnSourceAttachedPermanentToHand
                 | Effect::LookAtTopCardsChooseForLifeOrGraveyard { .. }
                 | Effect::LookAtTopCardsOfTargetOpponentExileOne { .. }
                 | Effect::ShuffleGraveyardsIntoLibraries
@@ -14361,6 +14398,9 @@ impl Game {
                     controller,
                 )?;
             }
+            Effect::ReturnSourceAttachedPermanentToHand => {
+                self.return_source_attached_permanent_to_hand(source, source_incarnation)?;
+            }
             Effect::DestroyTargetArtifactOrEnchantment => {
                 let target = Self::target_permanent(target)?;
                 if !self.target_matches(
@@ -16425,19 +16465,29 @@ impl Game {
 
     /// An attachment receipt is the public boundary between establishing its
     /// linked continuous effects and exposing the attached endpoint to later
-    /// state-based actions. It immediately follows the final matching effect
+    /// state-based actions. An Aura that carries no continuous change has no
+    /// such receipt, so its attachment is itself the public lifecycle
+    /// boundary. Every nonempty attachment follows its final matching effect
     /// receipt so replay cannot describe a modifier without an attachment.
     /// A zero-change attachment instead has its own explicit receipt, which
     /// must not pretend to have installed an effect.
-    fn validate_attachment_event_order(events: &[GameEvent]) -> Result<(), RulesError> {
+    fn validate_attachment_event_order(&self, events: &[GameEvent]) -> Result<(), RulesError> {
         for (index, event) in events.iter().enumerate() {
-            let (attachment, target) = match event {
-                GameEvent::AuraAttached { aura, target } => (*aura, *target),
+            let (attachment, target, requires_continuous_effect) = match event {
+                GameEvent::AuraAttached { aura, target } => (
+                    *aura,
+                    *target,
+                    self.attachment_binding_for(*aura)?
+                        .is_some_and(|binding| !binding.changes.is_empty()),
+                ),
                 GameEvent::EquipmentAttached {
                     equipment, target, ..
-                } => (*equipment, *target),
+                } => (*equipment, *target, true),
                 _ => continue,
             };
+            if !requires_continuous_effect {
+                continue;
+            }
             if !matches!(
                 events.get(index.checked_sub(1).ok_or(RulesError::IllegalAction(
                     "attachment receipt lacks its continuous-effect receipt",

@@ -1671,6 +1671,12 @@ pub enum Effect {
         target: TargetRequirement,
         changes: Vec<ContinuousChange>,
     },
+    /// Return the permanent currently attached to this resolving Aura source
+    /// to its owner's hand. The attachment endpoint is read at resolution
+    /// from the source's exact battlefield incarnation; a departed, returned,
+    /// or unattached source therefore cannot affect a later object merely
+    /// because it retains the same stable object id.
+    ReturnSourceAttachedPermanentToHand,
     /// Reveal the resolving controller's top library card, move it to hand,
     /// then make that controller lose life equal to its catalog mana value.
     /// An empty library has no card to reveal and is not a draw-loss path.
@@ -2036,7 +2042,6 @@ impl Effect {
                 Some(TargetRequirement::Land)
             }
             Self::UntapTargetLand => Some(TargetRequirement::Land),
-            Self::UntapTargetPermanent => Some(TargetRequirement::Permanent),
             Self::DestroyTargetArtifact => Some(TargetRequirement::Artifact),
             Self::RadianceDestroyEnchantments => Some(TargetRequirement::Enchantment),
             Self::DestroyTargetFlyingCreature => Some(TargetRequirement::FlyingCreature),
@@ -2049,6 +2054,7 @@ impl Effect {
             Self::AddCountersToTarget { .. }
             | Self::RemoveCountersFromTarget { .. }
             | Self::ReturnTargetPermanentToHandAndLoseControllerLife { .. }
+            | Self::UntapTargetPermanent
             | Self::GainControlTargetUntilEndOfTurn => Some(TargetRequirement::Permanent),
             Self::ReturnTargetCardToHand => Some(TargetRequirement::OwnGraveyardCard),
             Self::ReturnTargetEnchantmentCardToHand => {
@@ -2104,6 +2110,7 @@ impl Effect {
             | Self::CreateToken { .. }
             | Self::ReturnOneCreatureCardFromEachGraveyardToHand
             | Self::ReturnUpToThreeControllerGraveyardLandCardsToHand
+            | Self::ReturnSourceAttachedPermanentToHand
             | Self::LookAtTopCardsChooseForLifeOrGraveyard { .. }
             | Self::ShuffleGraveyardsIntoLibraries
             | Self::ModifySourcePtUntilEndOfTurn { .. }
@@ -2540,7 +2547,9 @@ pub enum AttachmentKind {
 /// spell and an Equipment activated ability both still carry an ordinary
 /// `AttachSourceToTarget` effect so the stack retains target occurrence and
 /// resolution-time legality; this binding gives that effect its attachment
-/// lifecycle semantics.
+/// lifecycle semantics. An Aura may have no linked continuous changes (for
+/// example, an Aura whose rules text is only a source-relative trigger); an
+/// Equipment binding must retain at least one linked change.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AttachmentBinding {
     pub card_definition: &'static str,
