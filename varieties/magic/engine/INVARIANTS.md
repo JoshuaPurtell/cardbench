@@ -12,6 +12,12 @@ Oracle Magic rules coverage.
   seat `n`, and both active player and priority holder name existing, living
   seats while the game continues. A fixture cannot add, remove, or reorder a
   seat after game construction.
+- A cast first places every represented cast trigger using APNAP. If that
+  placement opens a mandatory trigger-order or trigger-target decision, the
+  decision player remains the priority holder until the no-priority decision
+  completes; the caster does not regain priority merely because their cast
+  completed. Without such a decision, the caster retains priority after the
+  completed cast in the ordinary way.
 - A game ends only when zero or one players remain. Its terminal transition
   emits exactly one `GameEnded { winner }` record (where `winner` is `None`
   for a draw). In a continuing multiplayer game, an eliminated player is
