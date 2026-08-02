@@ -11052,6 +11052,7 @@ impl Game {
         self.validate_any_upkeep_trigger_event_order()?;
         self.validate_any_end_step_trigger_event_order()?;
         self.validate_blocks_trigger_event_order()?;
+        self.validate_enters_battlefield_trigger_event_order()?;
         self.validate_linked_exile_state()?;
         self.validate_linked_hand_exile_state()?;
         self.validate_convoke_contributor_provenance()?;
@@ -14923,6 +14924,12 @@ impl Game {
                 }
                 self.attach_with_binding(stack_object.card, target, &binding, false)?;
             }
+            self.capture_enter_triggers(
+                stack_object.card,
+                definition_id,
+                entering_controller,
+                &convoke_contributors,
+            )?;
         } else if pending_attachment.is_some() {
             return Err(RulesError::IllegalAction(
                 "an aura attachment effect requires a permanent spell",
@@ -14932,16 +14939,8 @@ impl Game {
         }
         self.check_state_based_actions()?;
         self.flush_pending_dies_triggers();
-        if permanent_resolution {
-            self.enqueue_enter_triggers(
-                stack_object.card,
-                definition_id,
-                entering_controller,
-                &convoke_contributors,
-            )?;
-            if entering_is_land {
-                self.enqueue_land_entry_triggers(entering_controller)?;
-            }
+        if permanent_resolution && entering_is_land {
+            self.enqueue_land_entry_triggers(entering_controller)?;
         }
         self.flush_pending_land_entry_triggers()?;
         self.flush_pending_damage_triggers();
@@ -16233,7 +16232,11 @@ impl Game {
         Ok(true)
     }
 
-    fn enqueue_enter_triggers(
+    /// Captures source-self and controller-scoped entry triggers while the
+    /// entering permanent is still the live battlefield object.  Placement is
+    /// deliberately deferred: the caller must run SBAs first, then the shared
+    /// pending-trigger pipeline puts this captured event on the stack.
+    fn capture_enter_triggers(
         &mut self,
         source: ObjectId,
         definition: &'static str,
@@ -16259,7 +16262,19 @@ impl Game {
             }
         }
         self.enqueue_controlled_nonartifact_permanent_entry_triggers(source, controller)?;
-        self.enqueue_controlled_aura_entry_triggers(source, controller)?;
+        self.enqueue_controlled_aura_entry_triggers(source, controller)
+    }
+
+    /// Captures and immediately places entry triggers for an entry path whose
+    /// caller has already reached its post-SBA trigger-placement boundary.
+    fn enqueue_enter_triggers(
+        &mut self,
+        source: ObjectId,
+        definition: &'static str,
+        controller: PlayerId,
+        convoke_contributors: &[CapturedConvokeCreature],
+    ) -> Result<(), RulesError> {
+        self.capture_enter_triggers(source, definition, controller, convoke_contributors)?;
         self.flush_pending_trigger_events()
     }
 
@@ -26300,6 +26315,62 @@ impl Game {
             {
                 return Err(RulesError::IllegalAction(
                     "blocks trigger does not name a committed current-combat blocker",
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// An ETB trigger uses the entering permanent's exact battlefield
+    /// incarnation. SBAs may move that permanent before the trigger reaches
+    /// the stack, but they must not rewrite the event's historical source to
+    /// its later graveyard, exile, or returned object incarnation.
+    fn validate_enters_battlefield_trigger_event_order(&self) -> Result<(), RulesError> {
+        for (stacked_index, event) in self.event_log.iter().enumerate() {
+            let GameEvent::TriggeredAbilityStacked {
+                source,
+                source_incarnation,
+                ability,
+                ..
+            } = event
+            else {
+                continue;
+            };
+            let definition = self
+                .objects
+                .get(source)
+                .and_then(|object| object.definition)
+                .or_else(|| self.departed_card_definitions.get(source).copied())
+                .ok_or(RulesError::IllegalAction(
+                    "ETB trigger source lacks definition provenance",
+                ))?;
+            let is_enters_battlefield = self
+                .triggered_abilities
+                .get(definition)
+                .and_then(|abilities| abilities.get(ability))
+                .is_some_and(|binding| binding.condition == TriggerCondition::EntersBattlefield);
+            if !is_enters_battlefield {
+                continue;
+            }
+            let Some(entry_incarnation_index) =
+                self.event_log[..stacked_index].iter().rposition(|prior| {
+                    matches!(
+                        prior,
+                        GameEvent::ObjectIncarnationAdvanced { object, incarnation }
+                            if object == source && incarnation == source_incarnation
+                    )
+                })
+            else {
+                return Err(RulesError::IllegalAction(
+                    "ETB trigger lacks its battlefield incarnation receipt",
+                ));
+            };
+            if !matches!(
+                self.event_log[..entry_incarnation_index].last(),
+                Some(GameEvent::CardMoved { card, to: Zone::Battlefield }) if card == source
+            ) {
+                return Err(RulesError::IllegalAction(
+                    "ETB trigger source incarnation was not created by battlefield entry",
                 ));
             }
         }
