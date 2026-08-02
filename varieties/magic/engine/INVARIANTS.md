@@ -1476,9 +1476,10 @@ Oracle Magic rules coverage.
   damage cannot begin without both declarations. A participant may leave after
   declaration, so later combat bookkeeping preserves the exact declared pair
   without dereferencing a vanished token. Every *live attacker* remains a
-  battlefield object; any ordinary departure or SBA token-cessation removes
-  that attacker and its live blocker group before its object record or zone
-  incarnation disappears. A current live blocker assignment requires its
+  battlefield object; any ordinary departure, SBA token-cessation, or
+  CR 800.4a owner-departure removal removes that attacker and its live blocker
+  group before its object record or zone incarnation disappears. A current live
+  blocker assignment requires its
   current exact incarnation in history; a departed blocker or ceased token
   instead requires a matching immutable declared pair and may have no
   remaining `CardObject`. Before blockers are declared, every blocker map,
