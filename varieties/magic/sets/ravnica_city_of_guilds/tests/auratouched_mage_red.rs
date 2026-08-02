@@ -1,4 +1,4 @@
-//! Red discovery contract for Auratouched Mage's bounded Aura-search ETB.
+//! Full-fidelity contract for Auratouched Mage's private Aura-search ETB.
 
 use std::collections::BTreeSet;
 

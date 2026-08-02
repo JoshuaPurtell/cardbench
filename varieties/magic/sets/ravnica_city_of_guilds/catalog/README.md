@@ -40,15 +40,14 @@ returns their capability gap instead of a blank executable spell. Rows that poin
 an executable compatibility definition remain subject to that definition's
 `supported_rules` scope; catalog coverage does not claim full rules fidelity.
 
-Auratouched Mage is an executable *bounded* compatibility definition. Its
-stack-backed ETB uses the shared typed Aura attachment lifecycle to take the
-first library Aura that can legally attach to the source's exact current
-incarnation, put it onto the battlefield attached, record the ordinary search
-and shuffle receipts, and enqueue the fetched Aura's own ETB trigger. The
-selection is intentionally deterministic: the controller cannot choose a
-different eligible Aura or decline a successful search in this slice. That
-choice fidelity remains unsupported, so Auratouched Mage is not in
-`RAV_FULL_FIDELITY_DEFINITION_IDS`.
+Auratouched Mage is a full-fidelity source-bound Aura-search definition. Its
+stack-backed ETB opens a controller-private, zero-or-one choice over the
+currently compatible Auras in that controller's library. The chosen Aura
+enters attached only to the Mage's captured current incarnation; an explicit
+decline or no candidate records the same search-and-shuffle lifecycle without
+a zone move. The fetched Aura's ordinary ETB trigger is queued only after the
+Mage trigger's terminal receipt. The opponent sees neither unselected Aura
+identities nor a private decision projection.
 
 The current catalog partition is 202 full / 53 partial / 36 catalog-only unique
 names (217 / 53 / 36 printings). The independently checked coverage-report

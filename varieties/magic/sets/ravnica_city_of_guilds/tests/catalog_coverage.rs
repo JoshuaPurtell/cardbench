@@ -93,7 +93,7 @@ fn clinging_darkness_resolves_to_its_executable_aura_definition() {
 }
 
 #[test]
-fn auratouched_mage_resolves_to_its_bounded_aura_search_definition() {
+fn auratouched_mage_resolves_to_its_full_private_aura_search_definition() {
     assert_eq!(
         executable_definition_id_for_collector(1),
         Ok("RAV-AURATOUCHED-MAGE")

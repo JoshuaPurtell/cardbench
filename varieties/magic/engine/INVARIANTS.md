@@ -1226,6 +1226,19 @@ Oracle Magic rules coverage.
   movement when `found` is absent. Either battlefield destination may queue
   ordinary entry-trigger work only after the search source reaches its own
   terminal stack lifecycle.
+- A source-bound Aura search is the same private, id-bearing zero-or-one
+  library decision, but its candidates are additionally restricted to Auras
+  that can establish a registered typed Aura attachment to the resolving
+  source's exact current battlefield incarnation. The candidate set becomes
+  empty if that source has left or returned before resolution. A selected Aura
+  must still be in its owner's library and remain legal for that exact source
+  when submitted; the engine completes `DecisionCompleted`, performs the
+  Aura's ordinary battlefield/incarnation and attachment receipts, then
+  records `LibrarySearchResolved` and `LibraryShuffled` before the parent
+  ability's terminal receipt. An explicit decline or empty candidate set
+  creates no Aura zone move, but still records the result/shuffle pair. The
+  decision is private to the source controller and its candidates are never
+  exposed in another `GameView` or the canonical event log.
 - A policy-submitted search-and-cast continuation is an exact one-effect
   activated-ability stack boundary. It opens only for the resolving controller,
   exposes only current matching instant candidates, and accepts one selected

@@ -211,6 +211,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-FLICKERFORM",
             "RAV-SUPPRESSION-FIELD",
             "RAV-LOXODON-GATEKEEPER",
+            "RAV-AURATOUCHED-MAGE",
             "RAV-THREE-DREAMS",
             "RAV-CONCLAVES-BLESSING",
             "RAV-ZEPHYR-SPIRIT",
