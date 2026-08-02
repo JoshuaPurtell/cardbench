@@ -16026,9 +16026,6 @@ impl Game {
         let Some(top) = self.stack.last().cloned() else {
             return Ok(false);
         };
-        if top.ability_id.is_some() {
-            return Ok(false);
-        }
         let effect_index = self.stack_effect_cursor(&top)?;
         let target_offset = Self::effect_target_offset(&top.effects, effect_index);
         let (
@@ -18121,7 +18118,6 @@ impl Game {
             || top.card != source
             || top.source_incarnation != source_incarnation
             || top.controller != controller
-            || top.ability_id.is_some()
             || self.stack_effect_cursor(top)? != effect_index
             || !stack_shape_matches
             || top.targets.get(target_offset) != Some(&original_target)
@@ -18260,7 +18256,7 @@ impl Game {
 
     /// Finishes one exact replacement-resolved damage instruction. A later
     /// suffix is resumed through the ordinary resolver; only a final damage
-    /// instruction performs terminal spell lifecycle work here.
+    /// instruction performs the normal spell or ability terminal lifecycle.
     fn finish_suspended_damage_replacement_spell(
         &mut self,
         source_stack_item: StackObjectId,
@@ -18276,7 +18272,6 @@ impl Game {
         if stack_object.id != source_stack_item
             || stack_object.card != source
             || stack_object.source_incarnation != source_incarnation
-            || stack_object.ability_id.is_some()
             || self.stack_effect_cursor(&stack_object)? != effect_index
             || stack_object.targets.get(target_offset) != Some(&original_target)
             || !self.stack_target_incarnation_matches(&stack_object, target_offset, original_target)
@@ -18308,6 +18303,20 @@ impl Game {
             ));
         }
         self.stack_effect_cursors.remove(&stack_object.id);
+        if let Some(ability) = terminal.ability_id {
+            self.record_event(GameEvent::AbilityResolved {
+                source,
+                source_incarnation,
+                ability,
+            });
+            self.check_state_based_actions()?;
+            self.flush_pending_land_entry_triggers()?;
+            self.flush_pending_damage_triggers();
+            self.flush_pending_life_gain_triggers();
+            self.flush_pending_dies_triggers();
+            self.restore_priority_after_stack_resolution();
+            return Ok(());
+        }
         self.record_event(GameEvent::SpellResolved { card: source });
         self.move_to_spell_terminal_zone(source)?;
         self.check_state_based_actions()?;
@@ -30421,7 +30430,6 @@ impl Game {
                     || top.card != *source
                     || top.source_incarnation != *source_incarnation
                     || top.controller != *controller
-                    || top.ability_id.is_some()
                     || self.stack_effect_cursor(top).ok() != Some(*effect_index)
                     || top.targets.get(target_offset) != Some(original_target)
                     || !stack_shape_matches

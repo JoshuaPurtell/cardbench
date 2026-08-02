@@ -9,8 +9,9 @@ use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
     AbilityActivation, ActivatedAbility, ActivatedAbilityBinding, CardDefinition, CardType,
-    CastRequest, Color, DecisionKind, Effect, Game, ManaCost, PlayerId, Target,
-    TargetRequirement, TriggerCondition, TriggeredAbility, TriggeredAbilityBinding, Zone,
+    CastRequest, Color, DamageReplacementChoice, DecisionKind, DecisionSelection, Effect, Game,
+    GameEvent, ManaCost, PlayerId, ReplacementChoice, Target, TargetRequirement, TriggerCondition,
+    TriggeredAbility, TriggeredAbilityBinding, Zone,
 };
 
 const TRIGGER_SOURCE: &str = "TST-TRIGGERED-DAMAGE-REPLACEMENT-SOURCE";
@@ -201,4 +202,61 @@ fn a_targeted_triggered_damage_instruction_opens_a_replacement_decision() {
     assert_eq!(game.stack.len(), 1, "the resolving trigger remains live");
     game.validate_invariants()
         .expect("paused triggered replacement boundary remains valid");
+
+    let redirect = decision
+        .replacement_candidates
+        .iter()
+        .copied()
+        .find(|choice| {
+            matches!(
+                choice,
+                ReplacementChoice::Damage(DamageReplacementChoice::Redirect { .. })
+            )
+        })
+        .expect("redirection is one affected-player replacement option");
+    game.submit_decision(
+        controller,
+        decision.id,
+        DecisionSelection::Replacements(vec![redirect]),
+    )
+    .expect("affected player orders the trigger's concurrent replacements");
+
+    assert_eq!(game.player(controller).expect("controller exists").life, 23);
+    assert_eq!(game.player(opponent).expect("opponent exists").life, 18);
+    assert!(
+        game.stack.is_empty(),
+        "triggered suffix resolves exactly once"
+    );
+    let events = &game.event_log;
+    let prefix = events
+        .iter()
+        .position(|event| {
+            matches!(event, GameEvent::LifeGained { player, amount } if *player == controller && *amount == 1)
+        })
+        .expect("prefix life receipt");
+    let redirected = events
+        .iter()
+        .position(
+            |event| matches!(event, GameEvent::DamageRedirected { source: damage_source, .. } if *damage_source == source),
+        )
+        .expect("selected redirection receipt");
+    let suffix = events
+        .iter()
+        .position(|event| {
+            matches!(event, GameEvent::LifeGained { player, amount } if *player == controller && *amount == 2)
+        })
+        .expect("suffix life receipt");
+    let resolved = events
+        .iter()
+        .position(|event| {
+            matches!(event, GameEvent::AbilityResolved { source: resolved_source, ability, .. } if *resolved_source == source && *ability == ABILITY)
+        })
+        .expect("one terminal triggered-ability receipt");
+    assert!(prefix < redirected && redirected < suffix && suffix < resolved);
+    eprintln!(
+        "triggered damage replacement green trace: {:?}",
+        game.canonical_event_log()
+    );
+    game.validate_invariants()
+        .expect("completed triggered replacement boundary remains valid");
 }

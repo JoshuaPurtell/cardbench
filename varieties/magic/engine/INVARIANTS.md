@@ -254,7 +254,7 @@ Oracle Magic rules coverage.
 - A bounded prospective damage event carries source incarnation, target
   incarnation (when the target is a permanent), affected player, remaining
   amount, and the exact replacement identities already used. For any exact
-  targeted `DealDamage` instruction of a represented instant/sorcery, the
+  targeted `DealDamage` instruction of a represented stack spell or ability, the
   engine gathers live target-shields, permanent shields/protection, and
   bounded redirections before it records any damage. Two or more candidates
   open the same public, id-bearing `DecisionKind::Replacement` boundary used
@@ -313,16 +313,15 @@ Oracle Magic rules coverage.
   applicable replacements; one source-bound replacement identity cannot
   apply twice to the same prospective event.
 - The current decision continuation is intentionally narrow: it supports a
-  targeted direct-damage instant/sorcery instruction and bounded redirections
+  targeted direct-damage stack instruction and bounded redirections
   that may split the pending event. A partial redirect commits its
   new-recipient packet first and retains the protected remainder as a
   deterministic deferred packet inside the same no-priority stack
   continuation. Every deferred packet has a positive amount, a live matching
   target incarnation, a valid affected player, and unique prior replacement
   identities before it can be resumed; replacements are re-evaluated at each
-  recipient. Optional replacements, activated-ability damage instructions,
-  and a fully general replacement-event algebra remain explicit engine gaps
-  rather than deterministic claims.
+  recipient. Optional replacements and a fully general replacement-event
+  algebra remain explicit engine gaps rather than deterministic claims.
 - A dynamic creature-count life-gain effect snapshots all current battlefield
   creatures at resolution, including tokens and opposing creatures, converts
   the count into a bounded receipt, and queues life-gain triggers only for the
