@@ -41,7 +41,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 138] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 139] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -178,6 +178,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 138] = [
     "RAV-CENTAUR-SAFEGUARD",
     "RAV-CYCLOPEAN-SNARE",
     "RAV-GRIFTERS-BLADE",
+    "RAV-FLICKERFORM",
     "RAV-SUPPRESSION-FIELD",
     "RAV-LOXODON-GATEKEEPER",
 ];
@@ -2094,6 +2095,33 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             toughness: None,
             keywords: vec![Keyword::Convoke],
             effects: vec![Effect::GainLifeForEachCreature],
+        },
+        // Full fidelity: ordinary Aura attachment preserves the exact source
+        // and target incarnations used by Flickerform's stack-backed blink.
+        // The shared linked-exile substrate returns the creature and every
+        // Aura attached to that exact creature at the next end step.
+        CardDefinition {
+            id: "RAV-FLICKERFORM",
+            name: "Flickerform",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(1, [Color::White]),
+            colors: colors([Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Enchantment]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "aura-enchant-creature",
+                "aura-linked-exile-and-next-end-step-return",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![Effect::AttachSourceToTarget {
+                target: TargetRequirement::Creature,
+                changes: vec![],
+            }],
         },
         // Full fidelity: this immutable battlefield binding raises every
         // nonmana activated ability's generic cost while leaving mana
@@ -4557,6 +4585,22 @@ pub fn rav_land_entry_bindings() -> Vec<LandEntryBinding> {
 #[allow(clippy::too_many_lines)]
 pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
     vec![
+        ActivatedAbilityBinding {
+            card_definition: "RAV-FLICKERFORM",
+            ability: ActivatedAbility {
+                id: "linked-exile-attached-creature-and-auras",
+                mana_cost: ManaCost::with_colors(2, [Color::White, Color::White]),
+                tap_cost: false,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![],
+                effects: vec![Effect::ExileAttachedCreatureAndAurasUntilEndStep],
+            },
+        },
         ActivatedAbilityBinding {
             card_definition: "RAV-TIDEWATER-MINION",
             ability: ActivatedAbility {

@@ -43,11 +43,21 @@ fn advance_until_delayed_return(game: &mut Game) {
             return;
         }
         match game.step {
-            Step::DeclareAttackers => {
+            Step::DeclareAttackers
+                if !game
+                    .event_log
+                    .iter()
+                    .any(|event| matches!(event, GameEvent::AttackersDeclared { .. })) =>
+            {
                 game.declare_attackers(game.active_player, &[])
                     .expect("empty attackers are declared");
             }
-            Step::DeclareBlockers => {
+            Step::DeclareBlockers
+                if !game
+                    .event_log
+                    .iter()
+                    .any(|event| matches!(event, GameEvent::BlockersDeclared { .. })) =>
+            {
                 game.declare_blockers(PlayerId(1 - game.active_player.0), &[])
                     .expect("empty blockers are declared");
             }
@@ -73,12 +83,17 @@ fn flickerform_requires_aura_attachment_and_linked_blink_binding() {
         ManaCost::with_colors(1, [Color::White])
     );
     assert_eq!(definition.colors, BTreeSet::from([Color::White]));
-    assert_eq!(definition.card_types, BTreeSet::from([CardType::Enchantment]));
+    assert_eq!(
+        definition.card_types,
+        BTreeSet::from([CardType::Enchantment])
+    );
     assert_eq!((definition.power, definition.toughness), (None, None));
     assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&definition.id));
-    assert!(definition
-        .supported_rules
-        .contains(&"aura-linked-exile-and-next-end-step-return"));
+    assert!(
+        definition
+            .supported_rules
+            .contains(&"aura-linked-exile-and-next-end-step-return")
+    );
     assert!(rav_activated_ability_bindings().iter().any(|binding| {
         binding.card_definition == "RAV-FLICKERFORM"
             && binding.ability.id == "linked-exile-attached-creature-and-auras"
@@ -146,7 +161,8 @@ fn flickerform_exiles_the_attached_creature_and_returns_it_with_all_auras() {
         },
     )
     .expect("second Aura casts");
-    game.pass_priority(PlayerId(0)).expect("caster passes Cloak");
+    game.pass_priority(PlayerId(0))
+        .expect("caster passes Cloak");
     game.pass_priority(PlayerId(1)).expect("Cloak resolves");
     for land in plains.iter().skip(4).take(4) {
         game.activate_mana_ability(PlayerId(0), *land, Color::White)
@@ -177,7 +193,9 @@ fn flickerform_exiles_the_attached_creature_and_returns_it_with_all_auras() {
     assert_eq!(game.zone_of(flickerform), Some(Zone::Battlefield));
     assert_eq!(game.zone_of(cloak), Some(Zone::Battlefield));
     assert_eq!(
-        game.object(flickerform).expect("Flickerform returned").attached_to,
+        game.object(flickerform)
+            .expect("Flickerform returned")
+            .attached_to,
         Some(creature)
     );
     assert_eq!(
