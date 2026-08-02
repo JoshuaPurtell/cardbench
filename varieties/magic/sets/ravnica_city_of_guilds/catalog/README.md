@@ -40,6 +40,20 @@ returns their capability gap instead of a blank executable spell. Rows that poin
 an executable compatibility definition remain subject to that definition's
 `supported_rules` scope; catalog coverage does not claim full rules fidelity.
 
+Auratouched Mage is an executable *bounded* compatibility definition. Its
+stack-backed ETB uses the shared typed Aura attachment lifecycle to take the
+first library Aura that can legally attach to the source's exact current
+incarnation, put it onto the battlefield attached, record the ordinary search
+and shuffle receipts, and enqueue the fetched Aura's own ETB trigger. The
+selection is intentionally deterministic: the controller cannot choose a
+different eligible Aura or decline a successful search in this slice. That
+choice fidelity remains unsupported, so Auratouched Mage is not in
+`RAV_FULL_FIDELITY_DEFINITION_IDS`.
+
+After this bounded promotion, the catalog partition is 164 full / 58 partial /
+69 catalog-only unique names (179 / 58 / 69 printings). The independently
+checked coverage-report binary emits the same partition.
+
 `RAV_FULL_FIDELITY_DEFINITION_IDS` is a deliberately small positive manifest,
 not an inference from executable status. Char, Lightning Helix, Scatter the
 Seeds, Guardian of Vitu-Ghazi, Last Gasp, Elves of Deep Shadow, Boros Recruit,

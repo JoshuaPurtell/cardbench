@@ -285,13 +285,13 @@ mod tests {
 
     #[test]
     fn catalog_only_cards_fail_closed_with_their_declared_gap() {
-        let error = executable_definition_id_for_collector(1)
-            .expect_err("Auratouched Mage should not become a blank executable card");
+        let error = executable_definition_id_for_collector(8)
+            .expect_err("Concerted Effort should not become a blank executable card");
         assert_eq!(
             error,
             CatalogResolutionError::CapabilityGap {
-                collector_number: 1,
-                name: "Auratouched Mage",
+                collector_number: 8,
+                name: "Concerted Effort",
                 capability_gap: "card-specific-rules-not-implemented",
             }
         );
