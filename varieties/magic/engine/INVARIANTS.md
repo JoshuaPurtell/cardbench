@@ -381,7 +381,10 @@ Oracle Magic rules coverage.
   resolution receipts remain required after entry. Controller-relative trigger
   selection must use controller-relative legality, so a `ControlledLand`
   target can select the newly entered land itself but can never select an
-  opponent's land.
+  opponent's land. A selected target retains its exact incarnation through
+  the response window, must still be a controlled land at resolution, and
+  then uses the ordinary owner-indexed hand transition before the terminal
+  ability receipt.
 - A `LandEntersBattlefield` or `ControlledLandEntersBattlefield` trigger binding
   is permitted only on a permanent source and uses the same checked
   effect/target shape as every other trigger. Every represented land entry

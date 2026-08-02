@@ -49,8 +49,8 @@ a zone move. The fetched Aura's ordinary ETB trigger is queued only after the
 Mage trigger's terminal receipt. The opponent sees neither unselected Aura
 identities nor a private decision projection.
 
-The current catalog partition is 232 full / 25 partial / 34 catalog-only unique
-names (247 / 25 / 34 printings). The independently checked coverage-report
+The current catalog partition is 236 full / 21 partial / 34 catalog-only unique
+names (251 / 21 / 34 printings). The independently checked coverage-report
 binary emits the same partition.
 
 Bramble Elemental is full-fidelity through the expansion-neutral, current-
@@ -64,6 +64,13 @@ use the ordinary public trigger-target decision: only a live enchantment may
 be selected, and its owner-indexed hand move occurs during the stack
 resolution before the ability receipt. A non-enchantment answer is an atomic
 rejection rather than a fallback return operation.
+
+Boros Garrison, Dimir Aqueduct, Golgari Rot Farm, and Selesnya Sanctuary are
+positive-manifest entries through one shared land abstraction. Each enters
+tapped, resolves its mandatory controller-land return through the ordinary
+target/stack lifecycle, and has its distinct fixed two-color mana bundle. The
+live trace covers self-return and excludes an opponent's land; its returned
+card uses the normal owner-indexed hand transition.
 
 Spawnbroker is a positive-manifest entry through the expansion-neutral paired-
 target control-exchange instruction. Its ETB target decision retains both
