@@ -698,7 +698,11 @@ Oracle Magic rules coverage.
   own instruction, so an earlier instruction that removes a repeated target
   cannot make the complete resolution fail. Each skipped instruction emits its own
   `TargetInstructionSkipped { effect_index, target }` diagnostic receipt. A
-  resolving counter effect emits the distinct `SpellCountered` receipt.
+  resolving counter effect emits the distinct `SpellCountered` receipt. Land,
+  controlled-land, and artifact requirements read the target's current
+  layer-four type set for both casting and that resolution recheck, rather
+  than its printed definition; a creature made into a land or artifact can be
+  legally targeted and resolved by the matching typed instruction.
 - `PutTargetCreatureOnOwnersLibraryTop` accepts only a live creature target
   whose exact incarnation still matches the occurrence captured when its spell
   or triggered ability entered the stack. Its zone transition uses the ordinary
