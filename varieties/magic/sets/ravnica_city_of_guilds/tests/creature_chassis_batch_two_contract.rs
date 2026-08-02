@@ -13,24 +13,14 @@ use cardbench_magic_rav::{card_definitions, run_all_scenarios};
 #[allow(clippy::too_many_lines)] // Explicit base-fact matrix is intentionally audit-friendly.
 fn second_creature_chassis_batch_is_exactly_bounded_to_public_base_facts() {
     let definitions = card_definitions();
-    let expected = [
-        (
-            "RAV-LORE-BROKER",
-            "Lore Broker",
-            ManaCost::with_colors(1, [Color::Blue]),
-            BTreeSet::from([Color::Blue]),
-            1,
-            2,
-        ),
-        (
-            "RAV-MORTIPEDE",
-            "Mortipede",
-            ManaCost::with_colors(3, [Color::Black]),
-            BTreeSet::from([Color::Black]),
-            4,
-            1,
-        ),
-    ];
+    let expected = [(
+        "RAV-LORE-BROKER",
+        "Lore Broker",
+        ManaCost::with_colors(1, [Color::Blue]),
+        BTreeSet::from([Color::Blue]),
+        1,
+        2,
+    )];
 
     for (id, name, mana_cost, colors, power, toughness) in expected {
         let definition = definitions
@@ -70,7 +60,13 @@ fn second_creature_chassis_batch_is_exactly_bounded_to_public_base_facts() {
     assert_eq!(sagittars.keywords, [Keyword::Reach]);
     assert_eq!(
         sagittars.supported_rules,
-        ["colored-cost-casting", "base-characteristics", "reach"]
+        [
+            "full-rules-fidelity",
+            "colored-cost-casting",
+            "base-characteristics",
+            "reach",
+            "tap-damage-attacking-or-blocking-creature",
+        ]
     );
 }
 

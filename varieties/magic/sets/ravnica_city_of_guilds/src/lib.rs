@@ -43,7 +43,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 217] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 218] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
@@ -216,6 +216,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 217] = [
     "RAV-INFECTIOUS-HOST",
     "RAV-CARRION-HOWLER",
     "RAV-MORTIPEDE",
+    "RAV-SELESNYA-SAGITTARS",
     "RAV-TWILIGHT-DROVER",
     "RAV-ELVISH-SKYSWEEPER",
     "RAV-CONVOLUTE",
@@ -4034,9 +4035,9 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
-        // Compatibility scope: normal colored-cost creature casting, base
-        // characteristics, and Reach. Its printed tap-to-damage activation
-        // remains deliberately omitted from this compatibility slice.
+        // Full printed behavior: Reach is static, while the tap activation
+        // uses the ordinary ability stack and rechecks its combat-only target
+        // when it resolves.
         CardDefinition {
             id: "RAV-SELESNYA-SAGITTARS",
             name: "Selesnya Sagittars",
@@ -4046,7 +4047,13 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Creature]),
             is_basic_land: false,
-            supported_rules: &["colored-cost-casting", "base-characteristics", "reach"],
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "reach",
+                "tap-damage-attacking-or-blocking-creature",
+            ],
             power: Some(2),
             toughness: Some(5),
             keywords: vec![Keyword::Reach],
@@ -7126,6 +7133,27 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 ],
                 effects: vec![Effect::DealDamage {
                     amount: 3,
+                    target: cardbench_magic_engine::TargetRequirement::AttackingOrBlockingCreature,
+                }],
+            },
+        },
+        ActivatedAbilityBinding {
+            card_definition: "RAV-SELESNYA-SAGITTARS",
+            ability: ActivatedAbility {
+                id: "tap-damage-attacker-or-blocker",
+                mana_cost: ManaCost::new(0),
+                tap_cost: true,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![
+                    cardbench_magic_engine::TargetRequirement::AttackingOrBlockingCreature,
+                ],
+                effects: vec![Effect::DealDamage {
+                    amount: 1,
                     target: cardbench_magic_engine::TargetRequirement::AttackingOrBlockingCreature,
                 }],
             },

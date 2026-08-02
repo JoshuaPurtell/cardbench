@@ -7980,7 +7980,7 @@ digest = "fnv1a64:582e991a894fa999"
 [[scenario]]
 id = "rav_selesnya_sagittars_reach_compatibility"
 seed = 46
-description = "Declare the long-controlled Flying Snapping Drake, then legally block it with Selesnya Sagittars' Reach; its tap-to-damage activation remains unsupported."
+description = "Declare the long-controlled Flying Snapping Drake, then legally block it with Selesnya Sagittars' Reach."
 
 [[scenario.card]]
 label = "drake"
@@ -12354,3 +12354,93 @@ stack_size = 0
 priority = 0
 event_markers = ["AbilityManaPaid", "AbilityActivated", "ContinuousEffectCreated", "AbilityResolved", "AttackersDeclared", "BlockersDeclared"]
 digest = "fnv1a64:229accaf4fa98e67"
+
+[[scenario]]
+id = "rav_selesnya_sagittars_combat_damage"
+seed = 97
+description = "Declare a long-controlled attacker, activate Selesnya Sagittars against that attacking creature, and resolve its one-damage tap ability through the stack."
+
+[[scenario.card]]
+label = "attacker"
+owner = 0
+definition = "RAV-WATCHWOLF"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.card]]
+label = "sagittars"
+owner = 1
+definition = "RAV-SELESNYA-SAGITTARS"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "declare_attackers"
+player = 0
+attackers = ["attacker"]
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "activate_ability"
+player = 1
+card = "sagittars"
+ability = "tap-damage-attacker-or-blocker"
+target = "permanent:attacker"
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[scenario.expected]
+life = [20, 20]
+zones = ["attacker:battlefield", "sagittars:battlefield"]
+powers = ["attacker:3", "sagittars:2"]
+toughnesses = ["attacker:3", "sagittars:5"]
+tapped = ["attacker:true", "sagittars:true"]
+stack_size = 0
+priority = 0
+event_markers = ["AttackersDeclared", "AbilityActivated", "DamageDealtToPermanent", "AbilityResolved"]
+digest = "fnv1a64:e423632d2abc667b"

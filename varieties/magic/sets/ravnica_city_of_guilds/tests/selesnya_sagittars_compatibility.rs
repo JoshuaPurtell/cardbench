@@ -1,4 +1,4 @@
-//! Bounded public contract for Selesnya Sagittars' static Reach behavior.
+//! Public contract for Selesnya Sagittars' static Reach behavior.
 
 use std::collections::BTreeSet;
 
@@ -8,7 +8,7 @@ use cardbench_magic_engine::{
 use cardbench_magic_rav::{RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, run_all_scenarios};
 
 #[test]
-fn selesnya_sagittars_definition_is_explicit_about_the_omitted_activation() {
+fn selesnya_sagittars_definition_retains_its_reach_static_rule() {
     let sagittars = card_definitions()
         .into_iter()
         .find(|definition| definition.id == "RAV-SELESNYA-SAGITTARS")
@@ -29,11 +29,17 @@ fn selesnya_sagittars_definition_is_explicit_about_the_omitted_activation() {
     assert!(sagittars.effects.is_empty());
     assert_eq!(
         sagittars.supported_rules,
-        ["colored-cost-casting", "base-characteristics", "reach"]
+        [
+            "full-rules-fidelity",
+            "colored-cost-casting",
+            "base-characteristics",
+            "reach",
+            "tap-damage-attacking-or-blocking-creature",
+        ]
     );
     assert!(
-        !RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&sagittars.id),
-        "the omitted tap-to-damage activation keeps this definition bounded"
+        RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&sagittars.id),
+        "the represented tap-to-damage activation completes this definition"
     );
 }
 
