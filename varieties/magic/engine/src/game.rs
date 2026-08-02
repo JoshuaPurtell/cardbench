@@ -2151,23 +2151,28 @@ impl Game {
     }
 
     /// Activates a bound nonmana ability while paying an immutable registered
-    /// generalized cost profile.  The concrete counter and return selections
-    /// are submitted by the policy in the same priority action; an invalid
-    /// later component rolls every preceding mana, life, counter, and zone
-    /// mutation back through the enclosing transaction.
+    /// generalized cost profile.  The concrete counter, return, and optional
+    /// generic/hybrid mana selections are submitted by the policy in the same
+    /// priority action; an invalid later component rolls every preceding mana,
+    /// life, counter, and zone mutation back through the enclosing transaction.
     #[allow(clippy::needless_pass_by_value)] // Owned request crosses the atomic state boundary.
     pub fn activate_ability_with_generalized_costs(
         &mut self,
         player: PlayerId,
         activation: GeneralizedAbilityActivation,
     ) -> Result<(), RulesError> {
+        let GeneralizedAbilityActivation {
+            activation,
+            cost_payment,
+            mana_payment_selection,
+        } = activation;
         self.atomic_transition(|game| {
             game.require_priority(player)?;
             game.activate_ability_impl(
                 player,
-                activation.activation,
-                None,
-                &activation.cost_payment,
+                activation,
+                mana_payment_selection.as_ref(),
+                &cost_payment,
             )?;
             game.flush_pending_dies_triggers();
             game.check_state_based_actions()?;
@@ -2208,6 +2213,16 @@ impl Game {
                 "source does not have the requested activated ability",
             ))?
             .clone();
+        if ability
+            .effects
+            .iter()
+            .any(Effect::requires_explicit_mana_spend)
+            && mana_payment_selection.is_none()
+        {
+            return Err(RulesError::IllegalAction(
+                "a spent-mana conditional activated ability requires an explicit payment selection",
+            ));
+        }
         let generalized_cost = self
             .generalized_activated_ability_costs
             .get(&(definition_id, ability.id))
@@ -2382,15 +2397,18 @@ impl Game {
             mana_payment_selection.cloned(),
         )?;
         let mut paid_pool = self.players[player.0].mana_pool.clone();
-        if let Some(selection) = mana_payment_selection {
-            paid_pool
-                .pay_selected(&cost_context.effective_mana_cost, selection)
-                .map_err(RulesError::Mana)?;
+        let mana_spent = if let Some(selection) = mana_payment_selection {
+            Some(
+                paid_pool
+                    .pay_selected(&cost_context.effective_mana_cost, selection)
+                    .map_err(RulesError::Mana)?,
+            )
         } else {
             paid_pool
                 .pay(&cost_context.effective_mana_cost)
                 .map_err(RulesError::Mana)?;
-        }
+            None
+        };
         if ability.tap_cost {
             if source.tapped {
                 return Err(RulesError::IllegalAction(
@@ -2408,7 +2426,7 @@ impl Game {
             }
         }
         self.players[player.0].mana_pool = paid_pool;
-        self.record_activated_ability_cost_context_if_modified(cost_context.clone());
+        self.record_activated_ability_cost_context_if_provenanced(cost_context.clone());
         if cost_context.effective_mana_cost.mana_value() > 0 {
             self.record_event(GameEvent::AbilityManaPaid {
                 player,
@@ -2517,7 +2535,7 @@ impl Game {
             target_incarnations,
             effects: ability.effects,
             chosen_x: generalized_cost_payment.chosen_x,
-            mana_spent: None,
+            mana_spent,
             convoke_symbols: 0,
             generic_cost_reduction: 0,
         });
@@ -2682,7 +2700,7 @@ impl Game {
                 ability: ability.id,
             });
         }
-        self.record_activated_ability_cost_context_if_modified(cost_context);
+        self.record_activated_ability_cost_context_if_provenanced(cost_context);
 
         if ability.tap_cost {
             self.objects
@@ -8096,6 +8114,22 @@ impl Game {
                         "stack ability lacks or fabricates its selected X value",
                     ));
                 }
+                if self
+                    .activated_abilities
+                    .get(definition.id)
+                    .and_then(|abilities| abilities.get(ability_id))
+                    .is_some_and(|ability| {
+                        ability
+                            .effects
+                            .iter()
+                            .any(Effect::requires_explicit_mana_spend)
+                    })
+                    && stack_object.mana_spent.as_ref().is_none_or(Vec::is_empty)
+                {
+                    return Err(RulesError::IllegalAction(
+                        "a spent-mana conditional stack ability lacks its payment receipt",
+                    ));
+                }
             }
             if !is_ability
                 && !is_virtual_copy
@@ -9337,15 +9371,19 @@ impl Game {
         })
     }
 
-    /// Emits calculated-cost provenance only when at least one live modifier
-    /// actually changed the activation.  Untaxed legacy traces retain their
-    /// established receipts, while a taxed or reduced cost remains replayable
-    /// from its base symbols and exact live source incarnations.
-    fn record_activated_ability_cost_context_if_modified(
+    /// Emits calculated-cost provenance when a live modifier changed the
+    /// activation or the controller supplied a generic/hybrid allocation.
+    /// Untaxed legacy deterministic traces retain their established receipts,
+    /// while an explicit allocation is part of the source-incarnation-bound
+    /// cost transaction rather than a later stack-state guess.
+    fn record_activated_ability_cost_context_if_provenanced(
         &mut self,
         context: ActivatedAbilityCostContext,
     ) {
-        if !context.increases.is_empty() || !context.reductions.is_empty() {
+        if !context.increases.is_empty()
+            || !context.reductions.is_empty()
+            || context.payment_selection.is_some()
+        {
             self.record_event(GameEvent::ActivatedAbilityCostCalculated { context });
         }
     }
@@ -17277,10 +17315,12 @@ impl Game {
                 continue;
             };
             if !matches!(context.kind, ActivatedAbilityKind::NonMana)
-                || (context.increases.is_empty() && context.reductions.is_empty())
+                || (context.increases.is_empty()
+                    && context.reductions.is_empty()
+                    && context.payment_selection.is_none())
             {
                 return Err(RulesError::IllegalAction(
-                    "activated-cost receipt lacks a supported nonmana modification",
+                    "activated-cost receipt lacks a supported modifier or selected payment",
                 ));
             }
             Self::validate_mana_cost(&context.base_mana_cost)?;
@@ -17340,12 +17380,68 @@ impl Game {
                     "activated-cost receipt does not match its ability binding",
                 ));
             }
-            if let Some(selection) = &context.payment_selection
-                && (selection.generic.len() != usize::from(context.effective_mana_cost.generic)
-                    || selection.hybrid.len() != context.effective_mana_cost.hybrid.len())
+            let selected_colors = if let Some(selection) = &context.payment_selection {
+                if selection.generic.len() != usize::from(context.effective_mana_cost.generic)
+                    || selection.hybrid.len() != context.effective_mana_cost.hybrid.len()
+                    || selection
+                        .hybrid
+                        .iter()
+                        .zip(&context.effective_mana_cost.hybrid)
+                        .any(|(color, symbol)| *color != symbol.first && *color != symbol.second)
+                {
+                    return Err(RulesError::IllegalAction(
+                        "activated-cost receipt has an invalid mana selection",
+                    ));
+                }
+                let mut colors = context.effective_mana_cost.colored.clone();
+                colors.extend(selection.hybrid.iter().copied());
+                colors.extend(selection.generic.iter().copied());
+                Some(colors)
+            } else {
+                None
+            };
+            let activation = self.event_log[index + 1..]
+                .iter()
+                .find_map(|event| match event {
+                    GameEvent::AbilityActivated {
+                        player,
+                        source,
+                        source_incarnation,
+                        ability,
+                        ..
+                    } => Some((*player, *source, *source_incarnation, *ability)),
+                    _ => None,
+                })
+                .ok_or(RulesError::IllegalAction(
+                    "activated-cost receipt lacks a subsequent ability activation",
+                ))?;
+            if activation
+                != (
+                    context.acting_player,
+                    context.source,
+                    context.source_incarnation,
+                    context.ability_id,
+                )
             {
                 return Err(RulesError::IllegalAction(
-                    "activated-cost receipt has an invalid mana selection",
+                    "activated-cost receipt does not match its ability activation provenance",
+                ));
+            }
+            if let Some(colors) = selected_colors
+                && self.stack.iter().any(|stack_object| {
+                    stack_object.card == context.source
+                        && stack_object.source_incarnation == context.source_incarnation
+                        && stack_object.ability_id == Some(context.ability_id)
+                })
+                && !self.stack.iter().any(|stack_object| {
+                    stack_object.card == context.source
+                        && stack_object.source_incarnation == context.source_incarnation
+                        && stack_object.ability_id == Some(context.ability_id)
+                        && stack_object.mana_spent.as_ref() == Some(&colors)
+                })
+            {
+                return Err(RulesError::IllegalAction(
+                    "live activated ability lacks its selected mana provenance",
                 ));
             }
             let adjustment_matches = |adjustment: &ActivatedAbilityCostAdjustment,

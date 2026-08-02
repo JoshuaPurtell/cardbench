@@ -172,6 +172,7 @@ fn generalized_costs_are_policy_selected_atomic_and_provenanced() {
                 return_permanents: vec![returned],
                 chosen_x: Some(3),
             },
+            mana_payment_selection: None,
         },
     )
     .expect("one atomic generalized payment is legal");
@@ -245,6 +246,7 @@ fn failed_generalized_cost_payment_rolls_back_every_prior_component() {
                 return_permanents: vec![returned],
                 chosen_x: Some(4),
             },
+            mana_payment_selection: None,
         },
     );
     assert!(result.is_err(), "{result:?}");

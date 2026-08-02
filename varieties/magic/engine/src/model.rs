@@ -591,10 +591,17 @@ pub struct AbilityCostPayment {
 }
 
 /// A normal ability activation plus its typed generalized-cost selections.
+///
+/// `mana_payment_selection` deliberately reuses the engine's ordinary
+/// generic/hybrid allocation model instead of introducing a second payment
+/// representation.  It is one component of this same priority action: the
+/// engine preflights it together with every life, counter, return, discard,
+/// tap, sacrifice, and X component before any cost mutation is committed.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct GeneralizedAbilityActivation {
     pub activation: AbilityActivation,
     pub cost_payment: AbilityCostPayment,
+    pub mana_payment_selection: Option<ManaPaymentSelection>,
 }
 
 /// A replacement event quantity that can be modified by a live permanent.
@@ -1920,8 +1927,9 @@ pub enum Effect {
 }
 
 impl Effect {
-    /// Whether resolving this instruction is defined only from the spell's
-    /// explicit mana-payment receipt rather than a deterministic pool drain.
+    /// Whether resolving this instruction is defined only from a stack
+    /// object's explicit mana-payment receipt rather than a deterministic
+    /// pool drain.
     #[must_use]
     pub const fn requires_explicit_mana_spend(&self) -> bool {
         matches!(
@@ -2990,9 +2998,9 @@ pub struct StackObject {
     /// without an X instruction retain `None`; the value is authoritative at
     /// resolution and is never reconstructed from payment colors.
     pub chosen_x: Option<u8>,
-    /// Full color receipt for an explicitly selected spell payment. `None`
-    /// denotes the legacy deterministic payment path, which is deliberately
-    /// unavailable to effects that inspect colors spent to cast the spell.
+    /// Full color receipt for an explicitly selected spell or activated-ability
+    /// payment. `None` denotes the legacy deterministic payment path, which
+    /// is deliberately unavailable to effects that inspect colors spent.
     pub mana_spent: Option<Vec<Color>>,
     /// Number of cost symbols paid by Convoke while this spell was cast. The
     /// stack retains this cast-time provenance because a source of a generic
