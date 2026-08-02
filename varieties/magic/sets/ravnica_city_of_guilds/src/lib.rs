@@ -1841,9 +1841,9 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             effects: vec![Effect::DestroyTargetNonblackCreature],
         },
         // Full fidelity: normal colored-cost creature casting, static Fear,
-        // the shared immediate hand-zone Transmute operation, and the
-        // selected-creature sacrifice self-regeneration activation are all
-        // represented by existing expansion-neutral substrates.
+        // the stack-backed private Transmute search, and the selected-creature
+        // sacrifice self-regeneration activation are represented by existing
+        // expansion-neutral substrates.
         CardDefinition {
             id: "RAV-DIMIR-HOUSE-GUARD",
             name: "Dimir House Guard",
@@ -1858,7 +1858,7 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 "colored-cost-casting",
                 "base-characteristics",
                 "fear",
-                "immediate-hand-zone-transmute-compatibility",
+                "stack-backed-private-transmute",
                 "sacrifice-creature-regenerate",
             ],
             power: Some(2),

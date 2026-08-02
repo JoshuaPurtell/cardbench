@@ -31,7 +31,7 @@ fn dimir_house_guard_exposes_its_static_fear_and_transmute_slice() {
             "colored-cost-casting",
             "base-characteristics",
             "fear",
-            "immediate-hand-zone-transmute-compatibility",
+            "stack-backed-private-transmute",
             "sacrifice-creature-regenerate",
         ]
     );

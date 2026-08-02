@@ -1,4 +1,4 @@
-//! Public static and immediate-hand-zone contract for Dimir House Guard.
+//! Public static and stack-Transmute contract for Dimir House Guard.
 
 use cardbench_magic_rav::{RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, run_all_scenarios};
 
@@ -15,7 +15,7 @@ fn dimir_house_guard_is_explicit_about_its_supported_rules() {
             "colored-cost-casting",
             "base-characteristics",
             "fear",
-            "immediate-hand-zone-transmute-compatibility",
+            "stack-backed-private-transmute",
             "sacrifice-creature-regenerate",
         ]
     );

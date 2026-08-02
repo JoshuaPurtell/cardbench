@@ -37,7 +37,7 @@ fn dimir_house_guard_sacrifices_a_controlled_creature_for_a_regeneration_shield(
             "colored-cost-casting",
             "base-characteristics",
             "fear",
-            "immediate-hand-zone-transmute-compatibility",
+            "stack-backed-private-transmute",
             "sacrifice-creature-regenerate",
         ]
     );
