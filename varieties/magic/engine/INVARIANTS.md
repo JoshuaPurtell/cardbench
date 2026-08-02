@@ -424,8 +424,9 @@ Oracle Magic rules coverage.
   from mana spent nor silently defaulted. An activated or triggered ability
   cannot fabricate this spell-only provenance; a virtual copy instead keeps
   the original spell's retained color. Resolution uses only the retained value
-  to install controller-team temporary protection, so later policy state or
-  mana-pool changes cannot alter it.
+  to install controller-team temporary protection or a target's temporary
+  replacement color, so later policy state or mana-pool changes cannot alter
+  it.
 - A spent-mana global modifier uses that same stack-owned receipt. When its
   named color is present, it snapshots every current battlefield creature only
   after preceding instructions in that spell have resolved, installs one
@@ -719,9 +720,10 @@ Oracle Magic rules coverage.
   explicit colorless costs but cannot appear in a card's color set, be chosen
   by a "choose a color" mana ability, satisfy a colored or hybrid symbol, or
   satisfy a Convoke color contribution. Token specifications are checked when
-  a token is created (and by the invariant audit), while layer-five color
-  changes are rejected before installation. A typed nonbasic land may produce
-  it through the same bound mana-ability receipts as colored mana.
+  a token is created (and by the invariant audit), while additive and
+  replacement layer-five color changes are rejected before installation. A
+  typed nonbasic land may produce it through the same bound mana-ability
+  receipts as colored mana.
 - Colored symbol repetitions are also counted in a widened `u16` requirement
   before any pool slot is debited. A cost above a bounded color slot's
   representable capacity rejects atomically; it cannot saturate into a cheaper
@@ -1240,6 +1242,12 @@ Oracle Magic rules coverage.
   timestamp order within a layer. End-of-turn effects expire during cleanup;
   marked damage clears there. An effect removed because its source or target
   leaves the battlefield emits an explicit expiration lifecycle receipt.
+- A layer-five `ReplaceColorsWith` effect clears the currently derived color
+  set and installs exactly one colored card color at its timestamp. It is not
+  an additive grant, so a multicolor target is exactly the selected color
+  until expiry; any later layer-five change still applies in timestamp order.
+  The effect is target-incarnation-bound and therefore cannot affect a new
+  creature object after the original target changes zones.
 - Every continuous effect names extant source and target objects, has a unique
   positive monotonic timestamp, captures both endpoint incarnations, and has a
   valid duration. A permanent-duration effect cannot outlive either matching
