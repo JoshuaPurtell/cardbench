@@ -1722,6 +1722,11 @@ Oracle Magic rules coverage.
   turn's cleanup; target departure still expires it immediately. In contrast,
   a permanent-duration effect remains source-dependent and expires when either
   matching battlefield endpoint leaves.
+- A public continuous-effect installation is one atomic engine transition. A
+  rejected request restores the target's runtime state, live-effect list, and
+  canonical receipt log exactly. In particular, `AddDamageShield` requires a
+  strictly positive amount before installation, and the live-effect invariant
+  rejects any nonpositive shield that bypasses the public constructor.
 - `ShareControllerCreatureKeywordsUntilEndOfTurn` snapshots every controlled
   creature's derived keywords once before installing any layer-six effect. For
   each recipient, evidence comes only from a distinct controlled creature, so

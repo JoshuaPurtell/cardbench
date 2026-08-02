@@ -12,7 +12,7 @@ const CREATURE: &str = "COUNTER-PAIR-CREATURE";
 const PLUS: &str = "COUNTER-PAIR-PLUS";
 const MINUS: &str = "COUNTER-PAIR-MINUS";
 
-fn definition(id: &'static str, card_type: CardType, effects: Vec<Effect>) -> CardDefinition {
+fn definition(id: &'static str, card_type: &CardType, effects: Vec<Effect>) -> CardDefinition {
     CardDefinition {
         id,
         name: id,
@@ -23,8 +23,8 @@ fn definition(id: &'static str, card_type: CardType, effects: Vec<Effect>) -> Ca
         card_types: BTreeSet::from([card_type.clone()]),
         is_basic_land: false,
         supported_rules: &["counter-pair-SBA-probe"],
-        power: (card_type == CardType::Creature).then_some(2),
-        toughness: (card_type == CardType::Creature).then_some(2),
+        power: (card_type == &CardType::Creature).then_some(2),
+        toughness: (card_type == &CardType::Creature).then_some(2),
         keywords: vec![],
         effects,
     }
@@ -67,10 +67,10 @@ fn state_based_actions_cancel_plus_and_minus_counter_pairs() {
     let opponent = PlayerId(1);
     let mut game = Game::new(
         [
-            definition(CREATURE, CardType::Creature, vec![]),
+            definition(CREATURE, &CardType::Creature, vec![]),
             definition(
                 PLUS,
-                CardType::Instant,
+                &CardType::Instant,
                 vec![Effect::AddCountersToTarget {
                     counter: CounterKind::PlusOnePlusOne,
                     amount: 2,
@@ -78,7 +78,7 @@ fn state_based_actions_cancel_plus_and_minus_counter_pairs() {
             ),
             definition(
                 MINUS,
-                CardType::Instant,
+                &CardType::Instant,
                 vec![Effect::AddCountersToTarget {
                     counter: CounterKind::MinusOneMinusOne,
                     amount: 1,

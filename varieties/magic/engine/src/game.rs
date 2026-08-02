@@ -12747,6 +12747,11 @@ impl Game {
                     "continuous effects may not add the colorless mana kind as a card color",
                 ));
             }
+            if matches!(&effect.change, ContinuousChange::AddDamageShield(amount) if *amount <= 0) {
+                return Err(RulesError::IllegalAction(
+                    "continuous damage shield has a nonpositive amount",
+                ));
+            }
             if matches!(
                 effect.change,
                 ContinuousChange::ControlledCreatureCountPowerToughness
