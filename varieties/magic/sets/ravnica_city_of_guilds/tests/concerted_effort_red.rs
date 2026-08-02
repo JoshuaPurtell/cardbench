@@ -18,7 +18,10 @@ fn concerted_effort_requires_its_upkeep_shared_keyword_contract() {
         ManaCost::with_colors(3, [Color::White])
     );
     assert_eq!(definition.colors, BTreeSet::from([Color::White]));
-    assert_eq!(definition.card_types, BTreeSet::from([CardType::Enchantment]));
+    assert_eq!(
+        definition.card_types,
+        BTreeSet::from([CardType::Enchantment])
+    );
     assert!(
         definition
             .supported_rules

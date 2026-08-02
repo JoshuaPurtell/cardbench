@@ -3,8 +3,8 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardDefinition, CardType, ContinuousChange, Duration, Effect, Game, GameEvent,
-    Keyword, ManaCost, PlayerId, Target, Zone,
+    CardDefinition, CardType, ContinuousChange, Duration, Effect, Game, GameEvent, Keyword,
+    ManaCost, PlayerId, Target, Zone,
 };
 
 const SOURCE: &str = "TEST-TEMPORARY-EFFECT-SOURCE";
@@ -74,8 +74,7 @@ fn resolving_end_of_turn_effect_survives_its_battlefield_source_departure() {
         },
     )
     .expect("response destroys the effect's former source");
-    game.pass_priority(PlayerId(1))
-        .expect("responder passes");
+    game.pass_priority(PlayerId(1)).expect("responder passes");
     game.pass_priority(PlayerId(0))
         .expect("destroy spell resolves");
 
