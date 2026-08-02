@@ -1,5 +1,7 @@
 # Magic engine bug ledger
 
+| `control-change-derived-controller-substrate-missing` | Engine continuous-effect / object-control gap — high severity, blocks control-changing cards and corrupts controller-relative rules when approximated | Open | Exact red command from `varieties/magic`: `cargo test -p cardbench-magic-engine --test control_change_red -- --nocapture`. The compiler reports that `Effect::GainControlTargetUntilEndOfTurn`, `ContinuousChange::ChangeController`, `Game::controller_of`, and `GameEvent::ControllerChanged` do not exist. As a result, the engine cannot express a timestamped layer-2 change of controller, show a stolen permanent to the new controller, apply temporary control through cleanup, or recheck an attached Aura whose `ControlledCreature` restriction becomes illegal. The red synthetic contract adds no expansion-specific card name or rules text. |
+
 This is a public discovery ledger for the Rust RAV engine slice. It deliberately
 separates engine defects from policy/harness outcomes. Each open engine item is
 reproduced by `cargo run -p cardbench-magic-policies --bin rav-engine-audit`
