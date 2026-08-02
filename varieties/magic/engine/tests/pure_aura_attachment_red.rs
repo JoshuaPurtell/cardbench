@@ -105,6 +105,7 @@ fn explicit_zero_change_aura_binding_is_a_valid_typed_attachment_contract() {
         kind: AttachmentKind::Aura,
         target: TargetRequirement::Creature,
         changes: vec![],
+        granted_activated_abilities: vec![],
     }])
     .expect("an explicit pure-Aura binding is accepted");
     game.validate_invariants()

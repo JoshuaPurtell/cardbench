@@ -367,6 +367,8 @@ fn execute_scenario(specification: &ScenarioSpec) -> Result<ScenarioResult, Stri
     .map_err(rules_error)?;
     game.register_static_attack_restrictions(rav_static_attack_restriction_bindings())
         .map_err(rules_error)?;
+    game.register_attachment_bindings(crate::rav_attachment_bindings())
+        .map_err(rules_error)?;
     game.register_static_entry_restriction_bindings(crate::rav_static_entry_restriction_bindings())
         .map_err(rules_error)?;
     game.register_cost_reduction_bindings(rav_cost_reduction_bindings())
@@ -583,6 +585,13 @@ fn execute_action(
                     binding.card_definition == definition && binding.ability.id == action.ability
                 })
                 .map(|binding| binding.ability.id)
+                .or_else(|| {
+                    crate::rav_attachment_bindings()
+                        .into_iter()
+                        .flat_map(|binding| binding.granted_activated_abilities)
+                        .find(|ability| ability.id == action.ability)
+                        .map(|ability| ability.id)
+                })
                 .ok_or_else(|| {
                     format!(
                         "unknown RAV activated ability `{}` for `{definition}`",

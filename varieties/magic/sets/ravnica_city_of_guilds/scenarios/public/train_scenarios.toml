@@ -11497,3 +11497,116 @@ stack_size = 0
 priority = 0
 event_markers = ["AdditionalCreatureTappedAsAbilityCost", "AbilityActivated", "GlobalCombatDamagePreventionCreated", "AbilityResolved"]
 digest = "fnv1a64:78c904f7c4329189"
+
+[[scenario]]
+id = "rav_galvanic_arc_attached_tap_damage"
+seed = 172
+description = "Resolve Galvanic Arc onto an older creature, then activate the attachment-granted tap ability through the ordinary stack and priority window to deal three damage to a selected player."
+
+[[scenario.card]]
+label = "arc"
+owner = 0
+definition = "RAV-GALVANIC-ARC"
+zone = "hand"
+
+[[scenario.card]]
+label = "target"
+owner = 0
+definition = "RAV-WATCHWOLF"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.card]]
+label = "mountain1"
+owner = 0
+definition = "RAV-MOUNTAIN"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "mountain2"
+owner = 0
+definition = "RAV-MOUNTAIN"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "mountain3"
+owner = 0
+definition = "RAV-MOUNTAIN"
+zone = "battlefield"
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "mountain1"
+color = "red"
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "mountain2"
+color = "red"
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "mountain3"
+color = "red"
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "arc"
+target = "permanent:target"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "activate_ability"
+player = 0
+card = "target"
+ability = "attached-tap-deal-three-to-player-or-creature"
+target = "player:1"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+life = [20, 17]
+zones = ["arc:battlefield", "target:battlefield"]
+tapped = ["target:true"]
+stack_size = 0
+priority = 0
+mana = ["0:red:0"]
+event_markers = ["SpellCast", "AttachmentEstablishedWithoutContinuousEffect", "AbilityActivated", "DamageDealtToPlayer", "AbilityResolved"]
+digest = "fnv1a64:61db41ce6d78089e"

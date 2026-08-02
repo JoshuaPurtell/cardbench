@@ -1154,6 +1154,24 @@ impl Game {
                     "attachment binding lacks a matching stack effect",
                 ));
             }
+            if binding
+                .granted_activated_abilities
+                .iter()
+                .enumerate()
+                .any(|(index, ability)| {
+                    binding.granted_activated_abilities[..index]
+                        .iter()
+                        .any(|previous| previous.id == ability.id)
+                })
+                || binding
+                    .granted_activated_abilities
+                    .iter()
+                    .any(|ability| Self::validate_activated_ability_definition(ability).is_err())
+            {
+                return Err(RulesError::IllegalAction(
+                    "attachment binding has an invalid or duplicate granted activated ability",
+                ));
+            }
             if next_bindings
                 .insert(binding.card_definition, binding)
                 .is_some()
@@ -2364,19 +2382,25 @@ impl Game {
                 "this permanent's nonmana activated abilities are suppressed",
             ));
         }
-        let definition_id =
+        let source_definition_id =
             self.effective_definition_id(activation.source)?
                 .ok_or(RulesError::IllegalAction(
                     "a token has no definition-bound activated ability",
                 ))?;
-        let ability = self
-            .activated_abilities
-            .get(definition_id)
-            .and_then(|abilities| abilities.get(activation.ability_id))
-            .ok_or(RulesError::IllegalAction(
-                "source does not have the requested activated ability",
-            ))?
-            .clone();
+        let direct_ability = self
+            .activated_ability_for_definition(source_definition_id, activation.ability_id)
+            .map(|ability| (source_definition_id, ability.clone()));
+        let attached_ability = if direct_ability.is_some() {
+            None
+        } else {
+            self.attached_granted_activated_ability(activation.source, activation.ability_id)?
+        };
+        let (definition_id, ability) =
+            direct_ability
+                .or(attached_ability)
+                .ok_or(RulesError::IllegalAction(
+                    "source does not have the requested activated ability",
+                ))?;
         if ability
             .effects
             .iter()
@@ -3889,6 +3913,95 @@ impl Game {
         Ok(false)
     }
 
+    /// Resolves an immutable definition-bound activated ability, including an
+    /// attachment binding's granted ability.  The latter is keyed by the
+    /// attachment definition because the attached permanent remains the game
+    /// object that activates it.
+    fn activated_ability_for_definition(
+        &self,
+        definition: &'static str,
+        ability_id: &'static str,
+    ) -> Option<&ActivatedAbility> {
+        self.activated_abilities
+            .get(definition)
+            .and_then(|abilities| abilities.get(ability_id))
+            .or_else(|| {
+                self.attachment_bindings
+                    .get(definition)
+                    .and_then(|binding| {
+                        binding
+                            .granted_activated_abilities
+                            .iter()
+                            .find(|ability| ability.id == ability_id)
+                    })
+            })
+    }
+
+    /// Resolves an ability supplied by a currently live attachment.  Both the
+    /// attachment and target incarnations are checked before returning the
+    /// immutable binding: a departed Aura, or an Aura still pointing at an
+    /// old incarnation of a returned permanent, grants nothing.
+    fn attached_granted_activated_ability(
+        &self,
+        source: ObjectId,
+        ability_id: &'static str,
+    ) -> Result<Option<(&'static str, ActivatedAbility)>, RulesError> {
+        let source_incarnation = self.object(source)?.incarnation;
+        for attachment in self.all_battlefield_cards() {
+            let attachment_object = self.object(attachment)?;
+            if attachment_object.attached_to != Some(source)
+                || attachment_object.attached_to_incarnation != Some(source_incarnation)
+            {
+                continue;
+            }
+            let Some(definition) = self.effective_definition_id(attachment)? else {
+                continue;
+            };
+            let Some(ability) = self
+                .attachment_bindings
+                .get(definition)
+                .and_then(|binding| {
+                    binding
+                        .granted_activated_abilities
+                        .iter()
+                        .find(|ability| ability.id == ability_id)
+                })
+            else {
+                continue;
+            };
+            return Ok(Some((definition, ability.clone())));
+        }
+        Ok(None)
+    }
+
+    /// A generated ability remains a normal stack object after its attachment
+    /// departs.  Stack validation therefore first prefers the source's live
+    /// intrinsic binding and then identifies the immutable attachment grant
+    /// by its complete stored ability shape.  Ambiguous attachment grants are
+    /// rejected rather than letting a replay choose an arbitrary provider.
+    fn attachment_granted_ability_matching_stack(
+        &self,
+        stack_object: &StackObject,
+    ) -> Option<(&'static str, &ActivatedAbility)> {
+        let ability_id = stack_object.ability_id?;
+        let mut matches = self
+            .attachment_bindings
+            .iter()
+            .flat_map(|(definition, binding)| {
+                binding
+                    .granted_activated_abilities
+                    .iter()
+                    .map(move |ability| (*definition, ability))
+            })
+            .filter(|(_, ability)| {
+                ability.id == ability_id
+                    && ability.targets.len() == stack_object.target_count()
+                    && ability.effects == stack_object.effects
+            });
+        let found = matches.next()?;
+        matches.next().is_none().then_some(found)
+    }
+
     fn nonmana_activated_abilities_suppressed(&self, source: ObjectId) -> bool {
         self.continuous_effects.iter().any(|effect| {
             effect.target == source
@@ -4311,6 +4424,7 @@ impl Game {
                 kind: AttachmentKind::Aura,
                 target: *target,
                 changes: changes.clone(),
+                granted_activated_abilities: vec![],
             })),
             _ => Err(RulesError::IllegalAction(
                 "an attachment definition has multiple attachment effects",
@@ -9042,6 +9156,15 @@ impl Game {
             if let Some(ability_id) = stack_object.ability_id {
                 let transmute =
                     ability_id == TRANSMUTE_ABILITY_ID && definition.transmute_cost().is_some();
+                let activated = (!transmute)
+                    .then(|| {
+                        self.activated_ability_for_definition(definition.id, ability_id)
+                            .map(|ability| (definition.id, ability))
+                            .or_else(|| {
+                                self.attachment_granted_ability_matching_stack(stack_object)
+                            })
+                    })
+                    .flatten();
                 let (effects_match, target_count) = if transmute {
                     (
                         matches!(
@@ -9057,16 +9180,13 @@ impl Game {
                         0,
                     )
                 } else {
-                    let activated = self
-                        .activated_abilities
-                        .get(definition.id)
-                        .and_then(|abilities| abilities.get(ability_id));
                     let triggered = self
                         .triggered_abilities
                         .get(definition.id)
                         .and_then(|abilities| abilities.get(ability_id));
                     let (effects, target_count, trigger_condition) = activated
-                        .map(|ability| (&ability.effects, ability.targets.len(), None))
+                        .as_ref()
+                        .map(|(_, ability)| (&ability.effects, ability.targets.len(), None))
                         .or_else(|| {
                             triggered.map(|ability| {
                                 (
@@ -9153,15 +9273,11 @@ impl Game {
                         "stack ability does not match its bound definition",
                     ));
                 }
-                let has_x_cost = self
-                    .activated_abilities
-                    .get(definition.id)
-                    .and_then(|abilities| abilities.get(ability_id))
-                    .is_some_and(|ability| {
-                        self.generalized_activated_ability_costs
-                            .get(&(definition.id, ability.id))
-                            .is_some_and(|cost| cost.has_x_cost)
-                    });
+                let has_x_cost = activated.is_some_and(|(binding_definition, ability)| {
+                    self.generalized_activated_ability_costs
+                        .get(&(binding_definition, ability.id))
+                        .is_some_and(|cost| cost.has_x_cost)
+                });
                 if has_x_cost != stack_object.chosen_x.is_some() {
                     return Err(RulesError::IllegalAction(
                         "stack ability lacks or fabricates its selected X value",
@@ -9172,17 +9288,12 @@ impl Game {
                         "stack ability fabricates a spell-only chosen color",
                     ));
                 }
-                if self
-                    .activated_abilities
-                    .get(definition.id)
-                    .and_then(|abilities| abilities.get(ability_id))
-                    .is_some_and(|ability| {
-                        ability
-                            .effects
-                            .iter()
-                            .any(Effect::requires_explicit_mana_spend)
-                    })
-                    && stack_object.mana_spent.as_ref().is_none_or(Vec::is_empty)
+                if activated.is_some_and(|(_, ability)| {
+                    ability
+                        .effects
+                        .iter()
+                        .any(Effect::requires_explicit_mana_spend)
+                }) && stack_object.mana_spent.as_ref().is_none_or(Vec::is_empty)
                 {
                     return Err(RulesError::IllegalAction(
                         "a spent-mana conditional stack ability lacks its payment receipt",
@@ -9620,10 +9731,23 @@ impl Game {
                     .iter()
                     .enumerate()
                     .any(|(index, change)| binding.changes[..index].contains(change))
+                || binding
+                    .granted_activated_abilities
+                    .iter()
+                    .enumerate()
+                    .any(|(index, ability)| {
+                        binding.granted_activated_abilities[..index]
+                            .iter()
+                            .any(|previous| previous.id == ability.id)
+                    })
+                || binding
+                    .granted_activated_abilities
+                    .iter()
+                    .any(|ability| Self::validate_activated_ability_definition(ability).is_err())
                 || !has_matching_effect
             {
                 return Err(RulesError::IllegalAction(
-                    "attachment binding has invalid source, effect, target, or duplicate change",
+                    "attachment binding has invalid source, effect, target, change, or granted ability",
                 ));
             }
         }
@@ -19974,9 +20098,7 @@ impl Game {
                                 ..
                             } if activation_source == source => {
                                 found_bound_activation = self
-                                    .activated_abilities
-                                    .get(definition)
-                                    .and_then(|abilities| abilities.get(ability))
+                                    .activated_ability_for_definition(definition, ability)
                                     .is_some_and(|binding| {
                                         binding.effects.iter().any(|effect| {
                                             matches!(
@@ -20862,9 +20984,7 @@ impl Game {
                 continue;
             }
             let binding = self
-                .activated_abilities
-                .get(source_definition)
-                .and_then(|abilities| abilities.get(ability))
+                .activated_ability_for_definition(source_definition, ability)
                 .ok_or(RulesError::IllegalAction(
                     "sacrifice-cost receipt names an unbound ability",
                 ))?;
@@ -21072,9 +21192,7 @@ impl Game {
                 continue;
             }
             let ability = self
-                .activated_abilities
-                .get(source_definition)
-                .and_then(|abilities| abilities.get(ability_id))
+                .activated_ability_for_definition(source_definition, ability_id)
                 .ok_or(RulesError::IllegalAction(
                     "discard-cost receipt names an unbound ability",
                 ))?;
@@ -21134,9 +21252,7 @@ impl Game {
                 continue;
             }
             let bound = self
-                .activated_abilities
-                .get(source_definition)
-                .and_then(|abilities| abilities.get(ability))
+                .activated_ability_for_definition(source_definition, ability)
                 .ok_or(RulesError::IllegalAction(
                     "additional tap-cost receipt names an unbound ability",
                 ))?;

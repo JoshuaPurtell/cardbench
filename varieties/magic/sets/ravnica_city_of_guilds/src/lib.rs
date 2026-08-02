@@ -41,8 +41,9 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 171] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 172] = [
     "RAV-CHAR",
+    "RAV-GALVANIC-ARC",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
     "RAV-PUTREFY",
@@ -266,6 +267,32 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 },
                 Effect::DealDamageController { amount: 2 },
             ],
+        },
+        // Full fidelity: the Aura itself has no persistent characteristic
+        // change, but its live attachment grants the enchanted creature a
+        // stack-backed tap ability. The attachment binding retains that
+        // provenance and revokes the grant when either endpoint changes.
+        CardDefinition {
+            id: "RAV-GALVANIC-ARC",
+            name: "Galvanic Arc",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(2, [Color::Red]),
+            colors: colors([Color::Red]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Enchantment]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "aura-enchant-creature",
+                "aura-grants-tap-three-damage-to-player-or-creature",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![Effect::AttachSourceToTarget {
+                target: TargetRequirement::Creature,
+                changes: vec![],
+            }],
         },
         // Bounded fidelity: the live source reduces only generic cost on
         // noncreature spells, then its retained spell target is
@@ -6311,12 +6338,37 @@ fn grifters_blade_attachment_changes() -> Vec<ContinuousChange> {
 /// auditable by the expansion-neutral Equipment lifecycle.
 #[must_use]
 pub fn rav_attachment_bindings() -> Vec<AttachmentBinding> {
-    vec![AttachmentBinding {
-        card_definition: "RAV-GRIFTERS-BLADE",
-        kind: AttachmentKind::Equipment,
-        target: TargetRequirement::ControlledCreature,
-        changes: grifters_blade_attachment_changes(),
-    }]
+    vec![
+        AttachmentBinding {
+            card_definition: "RAV-GRIFTERS-BLADE",
+            kind: AttachmentKind::Equipment,
+            target: TargetRequirement::ControlledCreature,
+            changes: grifters_blade_attachment_changes(),
+            granted_activated_abilities: vec![],
+        },
+        AttachmentBinding {
+            card_definition: "RAV-GALVANIC-ARC",
+            kind: AttachmentKind::Aura,
+            target: TargetRequirement::Creature,
+            changes: vec![],
+            granted_activated_abilities: vec![ActivatedAbility {
+                id: "attached-tap-deal-three-to-player-or-creature",
+                mana_cost: ManaCost::new(0),
+                tap_cost: true,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![TargetRequirement::PlayerOrCreature],
+                effects: vec![Effect::DealDamage {
+                    amount: 3,
+                    target: TargetRequirement::PlayerOrCreature,
+                }],
+            }],
+        },
+    ]
 }
 
 /// Battlefield-only static characteristic bindings supplied by the RAV set.
@@ -7627,6 +7679,7 @@ fn fresh_game() -> Result<Game, RulesError> {
         rav_static_continuous_effect_bindings(),
     )?;
     game.register_static_attack_restrictions(rav_static_attack_restriction_bindings())?;
+    game.register_attachment_bindings(rav_attachment_bindings())?;
     game.register_static_entry_restriction_bindings(rav_static_entry_restriction_bindings())?;
     game.register_cost_reduction_bindings(rav_cost_reduction_bindings())?;
     game.register_activated_ability_cost_modifier_bindings(

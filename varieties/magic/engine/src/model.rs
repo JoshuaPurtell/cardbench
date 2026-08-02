@@ -2884,6 +2884,13 @@ pub struct AttachmentBinding {
     pub kind: AttachmentKind,
     pub target: TargetRequirement,
     pub changes: Vec<ContinuousChange>,
+    /// Nonmana abilities a live attachment grants to its exact attached
+    /// permanent. The granted permanent remains the ability source: it pays
+    /// tap and other source costs, owns targets, and persists on the stack
+    /// after the attachment later leaves. The attachment's binding definition
+    /// remains receipt provenance so replay can distinguish this generated
+    /// ability from an intrinsic ability with the same source object.
+    pub granted_activated_abilities: Vec<ActivatedAbility>,
 }
 
 /// Immutable expansion data for a static continuous effect. The effect is

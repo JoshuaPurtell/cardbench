@@ -103,12 +103,14 @@ fn fixture() -> Game {
             kind: AttachmentKind::Equipment,
             target: TargetRequirement::Creature,
             changes: attachment_changes(),
+            granted_activated_abilities: vec![],
         },
         AttachmentBinding {
             card_definition: AURA,
             kind: AttachmentKind::Aura,
             target: TargetRequirement::ControlledCreature,
             changes: vec![ContinuousChange::AddKeyword(Keyword::Haste)],
+            granted_activated_abilities: vec![],
         },
     ])
     .expect("typed attachment bindings register before game start");
