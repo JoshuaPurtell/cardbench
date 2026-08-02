@@ -131,3 +131,11 @@ fn crown_of_convergence_resolves_to_its_full_controller_library_definition() {
         Ok("RAV-CROWN-OF-CONVERGENCE")
     );
 }
+
+#[test]
+fn bloodletter_quill_resolves_to_its_full_counter_definition() {
+    assert_eq!(
+        executable_definition_id_for_collector(254),
+        Ok("RAV-BLOODLETTER-QUILL")
+    );
+}

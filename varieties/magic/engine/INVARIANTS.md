@@ -633,8 +633,16 @@ Oracle Magic rules coverage.
   atomically restores the resolving stack object, event log, and counter map.
   Generic target-counter instructions require a live permanent at casting and
   resolution. This bounded substrate does not yet represent counters on
-  players or nonbattlefield objects, nor a counter-removal *activation cost*;
-  it represents typed add/remove resolving effects.
+  players or nonbattlefield objects. Typed counter-removal activation costs are
+  explicitly selected and paid through the generalized activated-cost boundary;
+  ordinary typed add/remove effects remain distinct resolving instructions.
+- A source-counter-derived life-loss instruction reads only the resolving
+  source's exact live battlefield incarnation after every preceding stack
+  instruction has completed. It emits no loss when that source has departed or
+  has no represented counter total. A positive materialization records a valid
+  `SourceCounterLifeLoss` provenance receipt immediately followed by the equal
+  ordinary `LifeLost` mutation; an orphaned, invalid-kind, nonpositive, or
+  mismatched pair fails the invariant audit.
 - A registered quantity replacement has a catalogued permanent source, a
   multiplier of at least two, and is fixed before the game begins. When tokens
   are created or a represented counter is placed, only live battlefield
