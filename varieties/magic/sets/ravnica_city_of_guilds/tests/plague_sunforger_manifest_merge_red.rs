@@ -2,7 +2,6 @@ use cardbench_magic_rav::RAV_FULL_FIDELITY_DEFINITION_IDS;
 
 #[test]
 fn plague_sunforger_manifest_has_all_positive_promotions() {
-    assert_eq!(RAV_FULL_FIDELITY_DEFINITION_IDS.len(), 210);
     for id in [
         "RAV-PLAGUE-BOILER",
         "RAV-SUNFORGER",

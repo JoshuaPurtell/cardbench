@@ -515,8 +515,7 @@ fn execute_action(
             } else {
                 if action.chosen_x.is_some() {
                     return Err(
-                        "chosen-X scenario casts do not yet combine with a chosen color"
-                            .to_owned(),
+                        "chosen-X scenario casts do not yet combine with a chosen color".to_owned(),
                     );
                 }
                 if !action.mana_spend.is_empty() {

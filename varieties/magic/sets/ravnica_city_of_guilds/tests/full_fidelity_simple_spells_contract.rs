@@ -63,6 +63,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-SEEDS-OF-STRENGTH",
             "RAV-DARKBLAST",
             "RAV-DIZZY-SPELL",
+            "RAV-DISEMBOWEL",
             "RAV-NIGHTMARE-VOID",
             "RAV-MOONLIGHT-BARGAIN",
             "RAV-ROLLING-SPOIL",
@@ -319,6 +320,10 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
                 power: -1,
                 toughness: -1,
             }],
+        ),
+        (
+            "RAV-DISEMBOWEL",
+            vec![Effect::DestroyTargetCreatureWithManaValueAtMostChosenX],
         ),
         (
             "RAV-MOONLIGHT-BARGAIN",
@@ -589,6 +594,15 @@ fn full_fidelity_card_scenarios_emit_their_complete_effect_receipts() {
         (
             "rav_clinging_darkness_persistent_attachment",
             &["AuraAttached", "SpellResolved"],
+        ),
+        (
+            "rav_disembowel_policy_chosen_x",
+            &[
+                "PolicyMoveSubmitted",
+                "SpellManaPaid",
+                "CardDestroyed",
+                "SpellResolved",
+            ],
         ),
     ];
     for &(id, markers) in scenarios {
