@@ -3661,6 +3661,7 @@ impl Game {
                 | DecisionContinuation::CounterUnlessPaysMana { .. }
                 | DecisionContinuation::ConditionalPrivateDiscard { .. }
                 | DecisionContinuation::TargetPlayerManaColor { .. }
+                | DecisionContinuation::TargetPlayerLibraryTopMayGraveyard { .. }
                 | DecisionContinuation::RetargetActivatedAbility { .. } => None,
             })
             .map(|(source, destination, may_fail_to_find)| {
@@ -3720,6 +3721,7 @@ impl Game {
                 | DecisionContinuation::CounterUnlessPaysMana { .. }
                 | DecisionContinuation::ConditionalPrivateDiscard { .. }
                 | DecisionContinuation::TargetPlayerManaColor { .. }
+                | DecisionContinuation::TargetPlayerLibraryTopMayGraveyard { .. }
                 | DecisionContinuation::RetargetActivatedAbility { .. } => None,
             });
         let optional_triggered_ability_choice = self
@@ -3767,6 +3769,7 @@ impl Game {
                 | DecisionContinuation::CounterUnlessPaysMana { .. }
                 | DecisionContinuation::ConditionalPrivateDiscard { .. }
                 | DecisionContinuation::TargetPlayerManaColor { .. }
+                | DecisionContinuation::TargetPlayerLibraryTopMayGraveyard { .. }
                 | DecisionContinuation::RetargetActivatedAbility { .. } => None,
             })
             .map(|(source, ability)| {
@@ -3824,6 +3827,7 @@ impl Game {
                 | DecisionContinuation::CounterUnlessPaysMana { .. }
                 | DecisionContinuation::ConditionalPrivateDiscard { .. }
                 | DecisionContinuation::TargetPlayerManaColor { .. }
+                | DecisionContinuation::TargetPlayerLibraryTopMayGraveyard { .. }
                 | DecisionContinuation::RetargetActivatedAbility { .. } => None,
             });
         let mut opponent_life = Vec::new();
@@ -7022,6 +7026,26 @@ impl Game {
                     color,
                 )
             }
+            DecisionContinuation::TargetPlayerLibraryTopMayGraveyard {
+                source,
+                source_incarnation,
+                controller,
+                ability,
+                target,
+                top_card,
+            } => {
+                let selected = Self::validate_object_decision_selection(&decision, selection)?;
+                self.resolve_target_player_library_top_may_graveyard_decision(
+                    &decision,
+                    source,
+                    source_incarnation,
+                    controller,
+                    ability,
+                    target,
+                    top_card,
+                    selected.into_iter().next(),
+                )
+            }
             DecisionContinuation::RetargetActivatedAbility {
                 source_stack_item,
                 controller,
@@ -7044,6 +7068,77 @@ impl Game {
                 )
             }
         }
+    }
+
+    /// Commits the explicit may-choice after a controller privately inspected
+    /// one target player's current library top.  The suspended ability and
+    /// exact hidden-card snapshot are both revalidated before any zone move,
+    /// so an answer cannot affect a later library state.
+    #[allow(clippy::too_many_arguments)] // The complete private-decision provenance is one atomic rule action.
+    fn resolve_target_player_library_top_may_graveyard_decision(
+        &mut self,
+        decision: &PendingDecision,
+        source: ObjectId,
+        source_incarnation: u64,
+        controller: PlayerId,
+        ability: &'static str,
+        target: PlayerId,
+        top_card: ObjectId,
+        selected: Option<ObjectId>,
+    ) -> Result<(), RulesError> {
+        let stack_object = self.stack.last().cloned().ok_or(RulesError::IllegalAction(
+            "target-player library-top choice escaped its stack ability",
+        ))?;
+        let expected_options = vec![DecisionOption::Object(top_card)];
+        if decision.kind != DecisionKind::TargetPlayerLibraryTopMayGraveyard
+            || decision.visibility != DecisionVisibility::Private
+            || decision.player != controller
+            || decision.options != expected_options
+            || decision.min_selections != 0
+            || decision.max_selections != 1
+            || stack_object.card != source
+            || stack_object.source_incarnation != source_incarnation
+            || stack_object.controller != controller
+            || stack_object.ability_id != Some(ability)
+            || stack_object.targets.as_slice() != [Target::Player(target)]
+            || stack_object.effects.as_slice()
+                != [Effect::LookAtTargetPlayerTopLibraryMayPutIntoGraveyard]
+            || !self.target_matches_for_controller(
+                controller,
+                Target::Player(target),
+                TargetRequirement::Player,
+            )
+            || self.players[target.0].library.last().copied() != Some(top_card)
+            || self.zone_of(top_card) != Some(Zone::Library)
+            || self
+                .object(top_card)
+                .map_or(true, |object| object.owner != target)
+            || selected.is_some_and(|card| card != top_card)
+        {
+            return Err(RulesError::IllegalAction(
+                "target-player library-top choice no longer matches its private stack snapshot",
+            ));
+        }
+
+        self.stack.pop().ok_or(RulesError::IllegalAction(
+            "target-player library-top choice stack ability disappeared before resolution",
+        ))?;
+        self.complete_pending_decision(decision)?;
+        if selected.is_some() {
+            self.move_to_zone(top_card, Zone::Graveyard)?;
+        }
+        self.record_event(GameEvent::AbilityResolved {
+            source,
+            source_incarnation,
+            ability,
+        });
+        self.check_state_based_actions()?;
+        self.flush_pending_land_entry_triggers()?;
+        self.flush_pending_damage_triggers();
+        self.flush_pending_life_gain_triggers();
+        self.flush_pending_dies_triggers();
+        self.priority = self.priority_after_resolution();
+        Ok(())
     }
 
     #[allow(clippy::too_many_arguments, clippy::too_many_lines)] // The captured lower stack item is one stale-safe continuation.
@@ -9613,6 +9708,8 @@ impl Game {
         self.validate_generalized_activated_cost_event_order()?;
         let outstanding_private_opponent_library_choices =
             Self::validate_private_opponent_library_choice_event_order(&self.event_log)?;
+        let outstanding_target_player_library_top_choices =
+            Self::validate_target_player_library_top_choice_event_order(&self.event_log)?;
         self.validate_ability_sacrifice_cost_event_order()?;
         self.validate_ability_discard_cost_event_order()?;
         Self::validate_effect_discard_event_order(&self.event_log)?;
@@ -9775,6 +9872,25 @@ impl Game {
             ));
         }
         self.validate_pending_decision()?;
+        let expected_target_player_library_top_choices = self
+            .pending_decision
+            .as_ref()
+            .and_then(|decision| {
+                matches!(
+                    decision.continuation,
+                    DecisionContinuation::TargetPlayerLibraryTopMayGraveyard { .. }
+                )
+                .then_some(decision.id)
+            })
+            .into_iter()
+            .collect::<BTreeSet<_>>();
+        if outstanding_target_player_library_top_choices
+            != expected_target_player_library_top_choices
+        {
+            return Err(RulesError::IllegalAction(
+                "target-player library-top receipts disagree with the live decision boundary",
+            ));
+        }
         if let Some(choice) = &self.pending_optional_trigger_choice {
             let top = self.stack.last().ok_or(RulesError::IllegalAction(
                 "optional trigger decision escaped its stack object",
@@ -12325,6 +12441,14 @@ impl Game {
             ));
         }
         for effect in &definition.effects {
+            if matches!(
+                effect,
+                Effect::LookAtTargetPlayerTopLibraryMayPutIntoGraveyard
+            ) {
+                return Err(RulesError::IllegalAction(
+                    "target-player library-top may-choice is valid only on an activated ability",
+                ));
+            }
             if matches!(effect, Effect::AddManaToTargetPlayer { .. }) {
                 return Err(RulesError::IllegalAction(
                     "materialized target-player mana effect escaped into a card definition",
@@ -12528,6 +12652,7 @@ impl Game {
                 | Effect::ReturnSourceAttachedPermanentToHand
                 | Effect::LookAtTopCardsChooseForLifeOrGraveyard { .. }
                 | Effect::LookAtTopCardsOfTargetOpponentExileOne { .. }
+                | Effect::LookAtTargetPlayerTopLibraryMayPutIntoGraveyard
                 | Effect::ShuffleGraveyardsIntoLibraries
                 | Effect::ReturnControlledCreatureToHand
                 | Effect::ReturnControlledLandToHand
@@ -12665,6 +12790,9 @@ impl Game {
             return Ok(());
         }
         if self.suspend_top_trigger_for_effect_object_choice()? {
+            return Ok(());
+        }
+        if self.suspend_top_ability_for_target_player_library_top_may_graveyard_choice()? {
             return Ok(());
         }
         if self.suspend_top_ability_for_private_opponent_library_exile_choice()? {
@@ -14103,6 +14231,90 @@ impl Game {
             });
         self.priority = controller;
         self.consecutive_passes = 0;
+        Ok(true)
+    }
+
+    /// Opens the generic private one-card decision used by a target-player
+    /// top-library inspection.  Unlike the older opponent-only exile path,
+    /// this deliberately permits the controller to target any living player
+    /// and to decline the graveyard move after seeing the exact top card.
+    fn suspend_top_ability_for_target_player_library_top_may_graveyard_choice(
+        &mut self,
+    ) -> Result<bool, RulesError> {
+        if self.pending_decision.is_some()
+            || self.pending_private_library_choice.is_some()
+            || self.pending_private_opponent_library_exile_choice.is_some()
+        {
+            return Err(RulesError::IllegalAction(
+                "a second private-library choice attempted to open during resolution",
+            ));
+        }
+        let Some(top) = self.stack.last() else {
+            return Ok(false);
+        };
+        let (source, source_incarnation, controller, ability, target) = match (
+            top.ability_id,
+            top.targets.as_slice(),
+            top.effects.as_slice(),
+        ) {
+            (
+                Some(ability),
+                [Target::Player(target)],
+                [Effect::LookAtTargetPlayerTopLibraryMayPutIntoGraveyard],
+            ) => (
+                top.card,
+                top.source_incarnation,
+                top.controller,
+                ability,
+                *target,
+            ),
+            _ => return Ok(false),
+        };
+        // An illegal target follows the ordinary all-targets-illegal stack
+        // path; it must not expose a hidden top card.
+        if !self.target_matches_for_controller(
+            controller,
+            Target::Player(target),
+            TargetRequirement::Player,
+        ) {
+            return Ok(false);
+        }
+        let Some(top_card) = self.players[target.0].library.last().copied() else {
+            // Looking at an empty library has no private information and the
+            // may instruction simply resolves without an artificial choice.
+            return Ok(false);
+        };
+        self.open_pending_decision(
+            controller,
+            DecisionVisibility::Private,
+            DecisionKind::TargetPlayerLibraryTopMayGraveyard,
+            0,
+            1,
+            vec![DecisionOption::Object(top_card)],
+            DecisionContinuation::TargetPlayerLibraryTopMayGraveyard {
+                source,
+                source_incarnation,
+                controller,
+                ability,
+                target,
+                top_card,
+            },
+        )?;
+        let decision = self
+            .pending_decision
+            .as_ref()
+            .ok_or(RulesError::IllegalAction(
+                "private target-library decision failed to open",
+            ))?
+            .id;
+        self.record_event(GameEvent::PrivateTargetPlayerLibraryTopChoiceOpened {
+            decision,
+            controller,
+            source,
+            source_incarnation,
+            ability,
+            target,
+        });
         Ok(true)
     }
 
@@ -18438,6 +18650,20 @@ impl Game {
                     "private opponent-library choice effect bypassed its resolution boundary",
                 ));
             }
+            Effect::LookAtTargetPlayerTopLibraryMayPutIntoGraveyard => {
+                let Some(Target::Player(target)) = target else {
+                    return Err(RulesError::IllegalAction(
+                        "target-player library-top effect lacks a player target",
+                    ));
+                };
+                if !self.players[target.0].library.is_empty() {
+                    return Err(RulesError::IllegalAction(
+                        "target-player library-top choice effect bypassed its resolution boundary",
+                    ));
+                }
+                // Looking at an empty library reveals no card and the
+                // optional zone move has no object to apply to.
+            }
             Effect::ShuffleGraveyardsIntoLibraries => {
                 for player_index in 0..self.players.len() {
                     let player = PlayerId(player_index);
@@ -20372,6 +20598,16 @@ impl Game {
                 "basic-land-type choices are valid only on activated abilities",
             ));
         }
+        if ability.effects.iter().any(|effect| {
+            matches!(
+                effect,
+                Effect::LookAtTargetPlayerTopLibraryMayPutIntoGraveyard
+            )
+        }) {
+            return Err(RulesError::IllegalAction(
+                "target-player library-top may-choice is valid only on an activated ability",
+            ));
+        }
         Self::validate_cast_effects_for_ability(&ability.effects)
     }
 
@@ -20393,6 +20629,7 @@ impl Game {
         Ok(())
     }
 
+    #[allow(clippy::too_many_lines)] // Closed-world effect validation keeps binding invariants auditable.
     fn validate_cast_effects_for_ability(effects: &[Effect]) -> Result<(), RulesError> {
         let private_opponent_library_choice_effects = effects
             .iter()
@@ -20406,6 +20643,17 @@ impl Game {
         if private_opponent_library_choice_effects > 0 && effects.len() != 1 {
             return Err(RulesError::IllegalAction(
                 "a private opponent-library choice ability must contain exactly one effect",
+            ));
+        }
+        if effects.iter().any(|effect| {
+            matches!(
+                effect,
+                Effect::LookAtTargetPlayerTopLibraryMayPutIntoGraveyard
+            )
+        }) && effects.len() != 1
+        {
+            return Err(RulesError::IllegalAction(
+                "target-player library-top may-choice ability must contain exactly one effect",
             ));
         }
         if effects
@@ -23000,6 +23248,57 @@ impl Game {
         Ok(opened_choices.values().sum())
     }
 
+    /// A private target-player library-top opening must follow its exact
+    /// generic decision receipt and remain pending until that decision's
+    /// matching completion. The opening contains no hidden card identity, but
+    /// it still records source, target, and incarnation provenance for audit.
+    fn validate_target_player_library_top_choice_event_order(
+        events: &[GameEvent],
+    ) -> Result<BTreeSet<DecisionId>, RulesError> {
+        let mut open = BTreeMap::<DecisionId, PlayerId>::new();
+        for (index, event) in events.iter().enumerate() {
+            match event {
+                GameEvent::PrivateTargetPlayerLibraryTopChoiceOpened {
+                    decision,
+                    controller,
+                    ..
+                } => {
+                    if !matches!(
+                        events.get(index.wrapping_sub(1)),
+                        Some(GameEvent::DecisionOpened {
+                            decision: opened_decision,
+                            player,
+                            kind: DecisionKind::TargetPlayerLibraryTopMayGraveyard,
+                            visibility: DecisionVisibility::Private,
+                            min_selections: 0,
+                            max_selections: 1,
+                        }) if opened_decision == decision && player == controller
+                    ) || open.insert(*decision, *controller).is_some()
+                    {
+                        return Err(RulesError::IllegalAction(
+                            "target-player library-top opening lacks its matching private decision",
+                        ));
+                    }
+                }
+                GameEvent::DecisionCompleted {
+                    decision,
+                    player,
+                    kind: DecisionKind::TargetPlayerLibraryTopMayGraveyard,
+                } => {
+                    if let Some(controller) = open.remove(decision)
+                        && controller != *player
+                    {
+                        return Err(RulesError::IllegalAction(
+                            "target-player library-top completion has the wrong controller",
+                        ));
+                    }
+                }
+                _ => {}
+            }
+        }
+        Ok(open.into_keys().collect())
+    }
+
     /// A discard performed by a resolving effect must immediately enter its
     /// owner's graveyard. This is distinct from an activation's explicit
     /// `DiscardedAsAbilityCost` receipt, which is audited separately.
@@ -24852,6 +25151,46 @@ impl Game {
                 {
                     return Err(RulesError::IllegalAction(
                         "target-player mana decision violates its stack and recipient boundary",
+                    ));
+                }
+            }
+            DecisionContinuation::TargetPlayerLibraryTopMayGraveyard {
+                source,
+                source_incarnation,
+                controller,
+                ability,
+                target,
+                top_card,
+            } => {
+                let stack = self.stack.last().ok_or(RulesError::IllegalAction(
+                    "target-player library-top decision escaped its stack ability",
+                ))?;
+                if decision.kind != DecisionKind::TargetPlayerLibraryTopMayGraveyard
+                    || decision.visibility != DecisionVisibility::Private
+                    || decision.player != *controller
+                    || stack.card != *source
+                    || stack.source_incarnation != *source_incarnation
+                    || stack.controller != *controller
+                    || stack.ability_id != Some(*ability)
+                    || stack.targets.as_slice() != [Target::Player(*target)]
+                    || stack.effects.as_slice()
+                        != [Effect::LookAtTargetPlayerTopLibraryMayPutIntoGraveyard]
+                    || !self.target_matches_for_controller(
+                        *controller,
+                        Target::Player(*target),
+                        TargetRequirement::Player,
+                    )
+                    || self.players[target.0].library.last().copied() != Some(*top_card)
+                    || self.zone_of(*top_card) != Some(Zone::Library)
+                    || self
+                        .object(*top_card)
+                        .map_or(true, |object| object.owner != *target)
+                    || decision.options != [DecisionOption::Object(*top_card)]
+                    || decision.min_selections != 0
+                    || decision.max_selections != 1
+                {
+                    return Err(RulesError::IllegalAction(
+                        "target-player library-top decision violates its private stack snapshot",
                     ));
                 }
             }

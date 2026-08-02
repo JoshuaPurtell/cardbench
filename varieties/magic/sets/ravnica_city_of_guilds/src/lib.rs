@@ -122,6 +122,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 196] = [
     "RAV-SELESNYA-EVANGEL",
     "RAV-SELESNYA-GUILDMAGE",
     "RAV-GOLGARI-GUILDMAGE",
+    "RAV-LURKING-INFORMANT",
     "RAV-SANDSOWER",
     "RAV-DIVEBOMBER-GRIFFIN",
     "RAV-DROMAD-PUREBRED",
@@ -4261,6 +4262,38 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
+        // Full fidelity: a player-targeted stack activation pays generic two
+        // and taps this hybrid creature, then suspends for the controller's
+        // private, explicit may-choice over the exact current top card of the
+        // selected player's library. Candidate identity never enters the
+        // public event log; the optional graveyard movement does.
+        CardDefinition {
+            id: "RAV-LURKING-INFORMANT",
+            name: "Lurking Informant",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_hybrid(
+                1,
+                [],
+                [HybridManaSymbol {
+                    first: Color::Blue,
+                    second: Color::Black,
+                }],
+            ),
+            colors: colors([Color::Blue, Color::Black]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "hybrid-cost-casting",
+                "base-characteristics",
+                "tap-two-target-player-private-top-library-may-graveyard",
+            ],
+            power: Some(1),
+            toughness: Some(2),
+            keywords: vec![],
+            effects: vec![],
+        },
         // Full fidelity: this creature has ordinary Flying plus a stack-backed
         // Blue activation that moves only its exact live incarnation to its
         // owner's library and shuffles that owner. The operation deliberately
@@ -7158,6 +7191,22 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 discard_cards: 0,
                 targets: vec![cardbench_magic_engine::TargetRequirement::Player],
                 effects: vec![Effect::DiscardTargetPlayer { count: 1 }],
+            },
+        },
+        ActivatedAbilityBinding {
+            card_definition: "RAV-LURKING-INFORMANT",
+            ability: ActivatedAbility {
+                id: "two-tap-target-player-top-library-may-graveyard",
+                mana_cost: ManaCost::new(2),
+                tap_cost: true,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![TargetRequirement::Player],
+                effects: vec![Effect::LookAtTargetPlayerTopLibraryMayPutIntoGraveyard],
             },
         },
     ]

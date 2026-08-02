@@ -2293,6 +2293,12 @@ pub enum Effect {
     LookAtTopCardsOfTargetOpponentExileOne {
         count: u8,
     },
+    /// Suspend a targeted activated ability while its controller privately
+    /// inspects the current top card of the target player's library. The
+    /// controller then explicitly chooses whether that exact card moves to
+    /// its owner's graveyard. The empty-library branch resolves normally
+    /// without opening a decision.
+    LookAtTargetPlayerTopLibraryMayPutIntoGraveyard,
     /// Move every player's graveyard into that player's library, then shuffle
     /// each library. This is an untargeted, owner-preserving zone operation.
     ShuffleGraveyardsIntoLibraries,
@@ -2491,6 +2497,9 @@ impl Effect {
             Self::CreateTokenForTargetOpponent { .. } => Some(TargetRequirement::Opponent),
             Self::LookAtTopCardsOfTargetOpponentExileOne { .. } => {
                 Some(TargetRequirement::Opponent)
+            }
+            Self::LookAtTargetPlayerTopLibraryMayPutIntoGraveyard => {
+                Some(TargetRequirement::Player)
             }
             Self::DestroyTargetLand | Self::DestroyTargetLandAndUntapSourceIfNonbasic => {
                 Some(TargetRequirement::Land)
@@ -3354,6 +3363,10 @@ pub enum DecisionKind {
     /// card colors. This is a public no-priority decision because both the
     /// target and the received mana are public game information.
     TargetPlayerManaColor,
+    /// The controller of a resolving targeted activated ability privately
+    /// inspects the exact current top of the target player's library and may
+    /// select it for an ordinary graveyard zone change.
+    TargetPlayerLibraryTopMayGraveyard,
     /// The controller of a resolving effect selects one different legal
     /// replacement target for an exact single-target activated stack item.
     RetargetActivatedAbility,
@@ -3587,6 +3600,17 @@ pub enum DecisionContinuation {
         source_incarnation: u64,
         controller: PlayerId,
         recipient: PlayerId,
+    },
+    /// Resumes a target-player top-library inspection. `top_card` is the
+    /// exact private snapshot, so a stale policy response can never move a
+    /// later top card after any library mutation.
+    TargetPlayerLibraryTopMayGraveyard {
+        source: ObjectId,
+        source_incarnation: u64,
+        controller: PlayerId,
+        ability: &'static str,
+        target: PlayerId,
+        top_card: ObjectId,
     },
     /// Resumes a resolving spell after its controller chooses a different
     /// legal target for one lower single-target activated ability. The source
@@ -3956,6 +3980,18 @@ pub enum GameEvent {
         ability: &'static str,
         opponent: PlayerId,
         count: u8,
+    },
+    /// A resolving activated ability opened a private one-card inspection of
+    /// the target player's current library top. `decision` connects this
+    /// receipt to the generic no-priority decision lifecycle; the hidden card
+    /// identity remains absent from the public log.
+    PrivateTargetPlayerLibraryTopChoiceOpened {
+        decision: DecisionId,
+        controller: PlayerId,
+        source: ObjectId,
+        source_incarnation: u64,
+        ability: &'static str,
+        target: PlayerId,
     },
     /// A resolving private-library choice paid life for the selected cards.
     /// This is distinct from damage and from a mana-ability life-payment cost.
