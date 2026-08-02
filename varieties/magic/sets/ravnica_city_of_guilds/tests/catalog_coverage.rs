@@ -73,14 +73,14 @@ fn executable_slice_size_is_explicit_and_does_not_masquerade_as_set_coverage() {
         .collect::<std::collections::BTreeSet<_>>();
 
     // Twenty executable basic-land printings collapse to five names. The
-    // two hundred and fifty executable nonbasic names include the positive
+    // two hundred and fifty-one executable nonbasic names include the positive
     // full-fidelity manifest entries; all others remain deliberately bounded
     // compatibility slices. The full-fidelity Clinging Darkness and
     // Moldervine Cloak entries use the bounded static-modifier Aura substrate;
     // regeneration remains independently capability-gated.
-    assert_eq!(executable_printings, 270);
-    assert_eq!(executable_names.len(), 255);
-    assert_eq!(catalog_only_names.len(), 36);
+    assert_eq!(executable_printings, 271);
+    assert_eq!(executable_names.len(), 256);
+    assert_eq!(catalog_only_names.len(), 35);
     assert!(executable_names.is_disjoint(&catalog_only_names));
 }
 
@@ -105,6 +105,14 @@ fn disembowel_resolves_to_its_bounded_chosen_x_definition() {
     assert_eq!(
         executable_definition_id_for_collector(85),
         Ok("RAV-DISEMBOWEL")
+    );
+}
+
+#[test]
+fn consult_the_necrosages_resolves_to_its_bounded_modal_definition() {
+    assert_eq!(
+        executable_definition_id_for_collector(199),
+        Ok("RAV-CONSULT-THE-NECROSAGES")
     );
 }
 
