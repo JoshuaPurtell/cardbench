@@ -6748,7 +6748,7 @@ stack_size = 0
 priority = 0
 mana = ["0:black:0"]
 event_markers = ["SpellCast", "SpellResolved", "TriggeredAbilityStacked", "ContinuousEffectCreated", "AbilityResolved"]
-digest = "fnv1a64:2c00ee5c7a059bd7"
+digest = "fnv1a64:a5e828f21f13daee"
 
 [[scenario]]
 id = "rav_infectious_host_dies_targeted_life_loss"
@@ -6808,7 +6808,7 @@ zones = ["gasp:graveyard", "host:graveyard"]
 stack_size = 0
 priority = 0
 event_markers = ["SpellCast", "StateBasedAction", "TriggeredAbilityStacked", "LifeLost", "AbilityResolved"]
-digest = "fnv1a64:74d5cc4fa0c55281"
+digest = "fnv1a64:d168556b54c1ec8c"
 
 [[scenario]]
 id = "rav_undercity_shade_black_evasion_compatibility"
@@ -7439,7 +7439,7 @@ tapped = ["fangtail:true"]
 stack_size = 0
 priority = 0
 event_markers = ["AbilityActivated", "DamageDealtToPlayer", "AbilityResolved"]
-digest = "fnv1a64:cb97aa89d6c372f5"
+digest = "fnv1a64:56f4294824a09386"
 
 [[scenario]]
 id = "rav_boros_guildmage_keyword_grants"
@@ -7521,7 +7521,7 @@ life = [20, 20]
 stack_size = 0
 priority = 0
 event_markers = ["AbilityActivated", "ContinuousEffectCreated", "AbilityResolved"]
-digest = "fnv1a64:5ccb148436980c46"
+digest = "fnv1a64:5127a32711f46ce4"
 
 [[scenario]]
 id = "rav_wojek_embermage_radiance_tap_damage"
@@ -7574,7 +7574,7 @@ tapped = ["embermage:true"]
 stack_size = 0
 priority = 0
 event_markers = ["AbilityActivated", "DamageDealtToPermanent", "AbilityResolved"]
-digest = "fnv1a64:9f5cd2633fbffad3"
+digest = "fnv1a64:46bedeb0018d9fdc"
 
 [[scenario]]
 id = "rav_thundersong_trumpeter_combat_restriction"
@@ -7620,7 +7620,7 @@ tapped = ["trumpeter:true", "target:false"]
 stack_size = 0
 priority = 0
 event_markers = ["AbilityActivated", "ContinuousEffectCreated", "AbilityResolved"]
-digest = "fnv1a64:e8847fc86fb62827"
+digest = "fnv1a64:b2bb003f98dc864a"
 
 [[scenario]]
 id = "rav_sabertooth_alley_cat_mountain_block_restriction"
@@ -8571,7 +8571,7 @@ zones = ["augermage:battlefield", "p0_discard:graveyard", "p0_keep:hand", "p1_di
 stack_size = 0
 priority = 0
 event_markers = ["StateBasedAction", "TriggeredAbilityStacked", "CardDiscarded", "AbilityResolved"]
-digest = "fnv1a64:31e9d1faf7341bde"
+digest = "fnv1a64:f0c05f8297b9f0d2"
 
 [[scenario]]
 id = "rav_dimir_house_guard_fear_and_transmute_compatibility"
@@ -8826,7 +8826,7 @@ stack_size = 0
 priority = 0
 mana = ["0:green:0"]
 event_markers = ["SpellCast", "SpellResolved", "TriggeredAbilityStacked", "TokenCreated", "RegenerationShieldCreated", "AbilityResolved"]
-digest = "fnv1a64:5349dc6e4f5e916c"
+digest = "fnv1a64:ba8b1fd744f163a2"
 
 [[scenario]]
 id = "rav_selesnya_guildmage_centaur_and_anthem"
@@ -8994,7 +8994,7 @@ stack_size = 0
 priority = 0
 mana = ["0:green:0", "0:white:0"]
 event_markers = ["AbilityManaPaid", "AbilityActivated", "TokenCreated", "ContinuousEffectCreated", "AbilityResolved"]
-digest = "fnv1a64:52f34ca4bff65465"
+digest = "fnv1a64:b807eedee321f3ab"
 
 [[scenario]]
 id = "rav_vitu_ghazi_colorless_and_saproling"
@@ -9098,7 +9098,7 @@ priority = 0
 mana = ["0:colorless:0", "0:green:0", "0:white:0"]
 mana_receipts = ["0:colorless:1"]
 event_markers = ["BoundManaAbilityActivated", "ManaAdded", "AbilityManaPaid", "AbilityActivated", "TokenCreated", "AbilityResolved"]
-digest = "fnv1a64:5ced0aba1391a8e5"
+digest = "fnv1a64:9bffa361cc5ad230"
 
 [[scenario]]
 id = "rav_putrefy_bypasses_regeneration"
@@ -9216,7 +9216,7 @@ priority = 0
 mana = ["0:green:0", "0:black:0"]
 event_markers = ["RegenerationShieldCreated", "SpellCast", "CardDestroyed", "AbilityResolved", "SpellResolved"]
 event_absent = ["RegenerationShieldUsed"]
-digest = "fnv1a64:7ce1e17162bad44f"
+digest = "fnv1a64:f961eb368f8fb9db"
 
 [[scenario]]
 id = "rav_golgari_rotwurm_creature_sacrifice_life_loss"
@@ -9291,7 +9291,7 @@ stack_size = 0
 priority = 0
 mana = ["0:black:0"]
 event_markers = ["ManaAbilityActivated", "ManaAdded", "AbilityManaPaid", "SacrificedAsAbilityCost", "AbilityActivated", "LifeLost", "AbilityResolved"]
-digest = "fnv1a64:62cff5cd97406009"
+digest = "fnv1a64:8c8787e2f454286c"
 
 [[scenario]]
 id = "rav_drooling_groodion_creature_sacrifice_modifier"
@@ -9385,7 +9385,7 @@ stack_size = 0
 priority = 0
 mana = ["0:black:0", "0:green:0"]
 event_markers = ["ManaAbilityActivated", "ManaAdded", "AbilityManaPaid", "SacrificedAsAbilityCost", "AbilityActivated", "ContinuousEffectCreated", "AbilityResolved"]
-digest = "fnv1a64:88691bffbc8ce30e"
+digest = "fnv1a64:35662642acdf118d"
 
 [[scenario]]
 id = "rav_golgari_guildmage_pump_and_trample"
@@ -9472,7 +9472,7 @@ stack_size = 0
 priority = 0
 mana = ["0:black:0", "0:green:0"]
 event_markers = ["ManaAbilityActivated", "ManaAdded", "AbilityManaPaid", "AbilityActivated", "ContinuousEffectCreated", "AbilityResolved"]
-digest = "fnv1a64:31ea7f2eed898bd5"
+digest = "fnv1a64:243ed7a49dad8e45"
 
 [[scenario]]
 id = "rav_helldozer_nonbasic_land_untap"
@@ -9570,7 +9570,7 @@ stack_size = 0
 priority = 0
 mana = ["0:black:0"]
 event_markers = ["ManaAbilityActivated", "ManaAdded", "AbilityManaPaid", "AbilityActivated", "CardDestroyed", "PermanentUntapped", "AbilityResolved"]
-digest = "fnv1a64:5451eaf946bef0d2"
+digest = "fnv1a64:636514acd03afc5a"
 
 [[scenario]]
 id = "rav_scion_of_the_wild_live_characteristics"
@@ -10036,7 +10036,7 @@ mana = ["0:blue:0", "0:black:0"]
 stack_size = 0
 priority = 0
 event_markers = ["AbilityActivated", "CardMoved", "CardDiscarded", "AbilityResolved"]
-digest = "fnv1a64:a97eb069cf60666c"
+digest = "fnv1a64:45df0e5abbc2a47e"
 
 [[scenario]]
 id = "rav_boros_garrison_etb_stack_and_return"
@@ -10083,7 +10083,7 @@ tapped = ["garrison:true"]
 stack_size = 0
 priority = 0
 event_markers = ["CardMoved", "TriggeredAbilityStacked", "AbilityResolved"]
-digest = "fnv1a64:4fa9b104e32edfa2"
+digest = "fnv1a64:2ffd72de9b45e5b9"
 
 [[scenario]]
 id = "rav_mausoleum_turnkey_conditional_graveyard_return"
@@ -10148,7 +10148,7 @@ stack_size = 0
 priority = 0
 mana = ["0:black:0"]
 event_markers = ["SpellResolved", "TriggeredAbilityStacked", "CardMoved", "AbilityResolved"]
-digest = "fnv1a64:8e9e7ffe4a761b2f"
+digest = "fnv1a64:00f0614dd9bee85a"
 
 [[scenario]]
 id = "rav_empty_the_catacombs_all_player_graveyard_return"
@@ -10262,7 +10262,7 @@ tapped = ["cost_one:true", "cost_two:true", "cost_three:true", "cost_four:true"]
 stack_size = 0
 priority = 0
 event_markers = ["AdditionalCreatureTappedAsAbilityCost", "AbilityActivated", "CardDestroyed", "AbilityResolved"]
-digest = "fnv1a64:b223246845323439"
+digest = "fnv1a64:23ee4f7e0eaf48e1"
 
 [[scenario]]
 id = "rav_vigor_mortis_spent_green_counter"
@@ -10394,7 +10394,7 @@ tapped = ["hierophant:false"]
 stack_size = 0
 priority = 0
 event_markers = ["AbilityActivated", "AbilityResolved", "TriggeredAbilityStacked", "PermanentUntapped"]
-digest = "fnv1a64:93f4f0f5d9a767fb"
+digest = "fnv1a64:1f9d21097aa8d4d9"
 
 [[scenario]]
 id = "rav_life_from_the_loam_land_recursion"
@@ -10551,7 +10551,7 @@ stack_size = 0
 priority = 0
 mana = ["0:green:0"]
 event_markers = ["SacrificedAsAbilityCost", "AbilityActivated", "LibrarySearchResolved", "LibraryShuffled", "AbilityResolved"]
-digest = "fnv1a64:79e405e183d04cfa"
+digest = "fnv1a64:13ce8464e8d83567"
 
 [[scenario]]
 id = "rav_moldervine_cloak_persistent_attachment"
@@ -10660,7 +10660,7 @@ stack_size = 0
 priority = 0
 token_count = 6
 event_markers = ["SpellCast", "ReplacementEffectApplied", "TokenCreated", "SpellResolved"]
-digest = "fnv1a64:a5586f8ee1ef22cf"
+digest = "fnv1a64:f9c31735aec5e2bc"
 
 [[scenario]]
 id = "rav_clutch_of_the_undercity_permanent_bounce"

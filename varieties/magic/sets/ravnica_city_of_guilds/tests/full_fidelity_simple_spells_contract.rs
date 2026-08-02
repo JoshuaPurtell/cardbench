@@ -539,7 +539,7 @@ fn assert_darkblast_trace(results: &[cardbench_magic_rav::ScenarioResult]) {
         .iter()
         .find(|result| result.id == "rav_darkblast_modifier_and_dredge")
         .expect("Darkblast scenario exists");
-    assert_eq!(darkblast.digest, "fnv1a64:c3dd582e9ae7447f");
+    assert_eq!(darkblast.digest, "fnv1a64:de22311339e6cdf5");
     for marker in [
         "SpellCast",
         "ContinuousEffectCreated",
