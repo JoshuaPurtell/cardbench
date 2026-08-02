@@ -38,6 +38,7 @@ fn pass_pair(game: &mut Game) {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // Counter, draw, loss, and cost-payment receipts form one transcript.
 fn bloodletter_quill_orders_counter_draw_dynamic_loss_and_counter_cost_receipts() {
     let mut game = game();
     let quill = game
