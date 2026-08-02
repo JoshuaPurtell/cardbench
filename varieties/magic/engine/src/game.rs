@@ -10663,12 +10663,25 @@ impl Game {
                 for blocker in assigned_blockers {
                     let attacker_incarnation = self.object(*attacker)?.incarnation;
                     let blocker_incarnation = self.object(*blocker)?.incarnation;
-                    if !combat.block_history.contains(&CombatBlockHistory {
+                    let has_live_history = combat.block_history.contains(&CombatBlockHistory {
                         attacker: *attacker,
                         attacker_incarnation,
                         blocker: *blocker,
                         blocker_incarnation,
-                    }) {
+                    });
+                    // A blocker that died or regenerated remains in the
+                    // assignment vector until combat ends, but its current
+                    // object incarnation no longer matches the declaration.
+                    // The preserved history is still authoritative for that
+                    // exact prior blocker incarnation.
+                    let has_departed_history = (combat.removed_from_combat.contains(blocker)
+                        || self.zone_of(*blocker) != Some(Zone::Battlefield))
+                        && combat.block_history.iter().any(|history| {
+                            history.attacker == *attacker
+                                && history.attacker_incarnation == attacker_incarnation
+                                && history.blocker == *blocker
+                        });
+                    if !has_live_history && !has_departed_history {
                         return Err(RulesError::IllegalAction(
                             "current blocker assignment lacks block-history provenance",
                         ));
