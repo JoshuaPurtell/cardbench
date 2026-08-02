@@ -142,6 +142,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-CLINGING-DARKNESS",
             "RAV-URSAPINE",
             "RAV-TRANSLUMINANT",
+            "RAV-TWILIGHT-DROVER",
             "RAV-ELVISH-SKYSWEEPER",
             "RAV-CONVOLUTE",
             "RAV-SHAMBLING-SHELL",
