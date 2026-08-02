@@ -5334,6 +5334,20 @@ impl Game {
         if has_pending_return {
             return;
         }
+        self.expire_linked_hand_exile_group(source, source_incarnation, controller);
+    }
+
+    /// Removes one source-linked hand-exile group and retains only its
+    /// historical receipt. This is also used during CR 800.4a departure:
+    /// that transition removes every stack object owned by the departing
+    /// player, so even a return instruction that was once pending can no
+    /// longer consume the group.
+    fn expire_linked_hand_exile_group(
+        &mut self,
+        source: ObjectId,
+        source_incarnation: u64,
+        controller: PlayerId,
+    ) {
         let key = (source, source_incarnation);
         let Some(group) = self.linked_hand_exile_groups.remove(&key) else {
             return;
@@ -29105,6 +29119,11 @@ impl Game {
                 // unavailable; exact block history remains available only as
                 // historical provenance for delayed effects.
                 self.remove_from_combat(object);
+                let source_incarnation = self.objects[&object].incarnation;
+                let source_controller = self
+                    .controller_of(object)
+                    .expect("departing battlefield source must have a controller");
+                self.expire_linked_hand_exile_group(object, source_incarnation, source_controller);
             }
             self.remove_from_all_zones(object);
             self.stack
