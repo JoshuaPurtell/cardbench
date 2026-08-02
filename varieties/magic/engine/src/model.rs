@@ -526,6 +526,36 @@ pub struct ReplacementEffectBinding {
     pub effect: ReplacementEffect,
 }
 
+/// One currently applicable way to replace a prospective damage event.
+///
+/// This intentionally names only the bounded damage replacement substrate:
+/// target-specific shields, permanent-local shields/protection, and the
+/// existing redirection effect.  The identity is fully serializable and is
+/// revalidated when the affected player submits it, so a policy cannot apply
+/// a stale or fabricated replacement.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DamageReplacementChoice {
+    /// Redirect all of the bounded prospective event from `protected` to the
+    /// already-selected destination.
+    Redirect {
+        id: u64,
+        source: ObjectId,
+        protected: ObjectId,
+        destination: Target,
+    },
+    /// Consume a target-specific prevention shield.
+    TargetedShield {
+        id: u64,
+        source: ObjectId,
+        target: Target,
+    },
+    /// Consume a permanent's legacy, continuous-effect-backed damage shield.
+    PermanentShield { permanent: ObjectId },
+    /// Apply protection or a color-specific prevention keyword on the named
+    /// permanent.  The source color is rechecked when selected.
+    SourceColorPrevention { permanent: ObjectId },
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TriggeredAbility {
     pub id: &'static str,
@@ -2270,6 +2300,7 @@ pub enum PolicyMoveKind {
     ChooseLibrarySearchCard,
     ChooseTriggeredAbilityTargets,
     ChooseTriggeredAbilityEffectObject,
+    ChooseDamageReplacement,
     ResolveOptionalTriggeredAbility,
     Transmute,
     PassPriority,
@@ -2875,6 +2906,15 @@ pub enum GameEvent {
         from: ObjectId,
         to: Target,
         amount: i32,
+    },
+    /// The affected player chose this applicable replacement while a bounded
+    /// prospective damage event waited at a no-priority decision boundary.
+    /// The following prevention, redirection, or ordinary damage receipt is
+    /// the authoritative committed consequence.
+    DamageReplacementApplied {
+        affected_player: PlayerId,
+        target: Target,
+        replacement: DamageReplacementChoice,
     },
     DamagePrevented {
         source: ObjectId,

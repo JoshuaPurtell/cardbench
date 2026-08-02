@@ -10,8 +10,8 @@ mod game;
 mod model;
 
 pub use game::{
-    CardView, CastRequest, ConvokeContribution, ConvokePayment, Game, GameView,
-    LibrarySearchChoiceView, PolicyAction, PrivateLibraryChoiceView, RulesError,
+    CardView, CastRequest, ConvokeContribution, ConvokePayment, DamageReplacementChoiceView, Game,
+    GameView, LibrarySearchChoiceView, PolicyAction, PrivateLibraryChoiceView, RulesError,
     TransmuteSearchView, TriggeredAbilityEffectObjectChoiceView,
 };
 pub use model::{
@@ -21,7 +21,7 @@ pub use model::{
     BasicLandManaAbilityActivation, BasicLandType, BasicLandTypeBinding, CardDefinition,
     CardObject, CardType, CastPaymentManaAbility, Characteristics, Color, CombatBlock,
     ContinuousChange, ContinuousEffect, CostReductionBinding, CounterKind, CreatureSubtype,
-    DeckEntry, DeckList, DeckRules, DeckValidationError, DelayedAction, DelayedActionId,
+    DamageReplacementChoice, DeckEntry, DeckList, DeckRules, DeckValidationError, DelayedAction, DelayedActionId,
     DelayedActionKind, DelayedActionTiming, Duration, Effect, GameEvent, HybridManaSymbol, Keyword,
     LandEntryBinding, Layer, LibrarySearchDestination, LibrarySearchRequirement,
     LibrarySearchSelection, LinkedExileGroup, LinkedExileGroupId, LinkedExileMember,

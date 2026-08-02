@@ -84,28 +84,46 @@ fn damage_cannot_be_prevented_retains_damage_redirection() {
         [],
         [],
         [],
-        [ActivatedAbilityBinding {
-            card_definition: REDIRECTOR,
-            ability: ActivatedAbility {
-                id: "redirect-two",
-                mana_cost: ManaCost::new(0),
-                tap_cost: false,
-                sorcery_speed: false,
-                additional_tap_creatures: 0,
-                sacrifice_source: false,
-                sacrifice_creatures: 0,
-                sacrifice_lands: 0,
-                discard_cards: 0,
-                targets: vec![
-                    TargetRequirement::Creature,
-                    TargetRequirement::PlayerOrCreature,
-                ],
-                effects: vec![
-                    Effect::BeginDamageRedirection { amount: 2 },
-                    Effect::CompleteDamageRedirection,
-                ],
+        [
+            ActivatedAbilityBinding {
+                card_definition: REDIRECTOR,
+                ability: ActivatedAbility {
+                    id: "redirect-two",
+                    mana_cost: ManaCost::new(0),
+                    tap_cost: false,
+                    sorcery_speed: false,
+                    additional_tap_creatures: 0,
+                    sacrifice_source: false,
+                    sacrifice_creatures: 0,
+                    sacrifice_lands: 0,
+                    discard_cards: 0,
+                    targets: vec![
+                        TargetRequirement::Creature,
+                        TargetRequirement::PlayerOrCreature,
+                    ],
+                    effects: vec![
+                        Effect::BeginDamageRedirection { amount: 2 },
+                        Effect::CompleteDamageRedirection,
+                    ],
+                },
             },
-        }],
+            ActivatedAbilityBinding {
+                card_definition: REDIRECTOR,
+                ability: ActivatedAbility {
+                    id: "shield-two",
+                    mana_cost: ManaCost::new(0),
+                    tap_cost: false,
+                    sorcery_speed: false,
+                    additional_tap_creatures: 0,
+                    sacrifice_source: false,
+                    sacrifice_creatures: 0,
+                    sacrifice_lands: 0,
+                    discard_cards: 0,
+                    targets: vec![TargetRequirement::PlayerOrCreature],
+                    effects: vec![Effect::AddTargetDamageShieldUntilEndOfTurn { amount: 2 }],
+                },
+            },
+        ],
     )
     .expect("fixture game initializes");
     let redirector = game
@@ -117,6 +135,20 @@ fn damage_cannot_be_prevented_retains_damage_redirection() {
     let source = game
         .add_card(caster, RED_SOURCE, Zone::Hand)
         .expect("damage source enters hand");
+
+    game.activate_ability(
+        caster,
+        AbilityActivation {
+            source: redirector,
+            ability_id: "shield-two",
+            sacrifice_sources: vec![],
+            additional_tap_creatures: vec![],
+            discard_cards: vec![],
+            targets: vec![Target::Permanent(target)],
+        },
+    )
+    .expect("prevention shield activates");
+    pass_pair(&mut game);
 
     game.activate_ability(
         caster,
@@ -161,11 +193,17 @@ fn damage_cannot_be_prevented_retains_damage_redirection() {
         "the redirection destination must receive the redirected damage"
     );
     assert!(
-        game
-            .canonical_event_log()
+        game.canonical_event_log()
             .iter()
             .any(|event| event.contains("DamageRedirected")),
         "non-prevention redirection must remain visible in the event log"
+    );
+    assert!(
+        !game
+            .canonical_event_log()
+            .iter()
+            .any(|event| event.contains("DamagePrevented")),
+        "damage that cannot be prevented must bypass the prevention shield"
     );
     game.validate_invariants()
         .expect("replacement precedence leaves a valid game state");

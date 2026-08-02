@@ -17,6 +17,7 @@ use crate::{
     ReplacementEventKind, StackEffectResolution, StackObject, StackResolutionPlan,
     StaticAttackRestriction, StaticAttackRestrictionBinding, StaticContinuousEffectBinding, Step,
     Target, TargetRequirement, TokenSpec, TriggerCondition, TriggeredAbilityBinding, Zone,
+    DamageReplacementChoice,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -142,6 +143,15 @@ pub enum PolicyAction {
         ability: &'static str,
         selected: Option<ObjectId>,
     },
+    /// Selects one applicable replacement for a prospective damage event.
+    /// This is a no-priority decision made by the affected player while the
+    /// original one-effect damage spell remains on the stack.
+    ChooseDamageReplacement {
+        source: ObjectId,
+        source_incarnation: u64,
+        target: Target,
+        replacement: DamageReplacementChoice,
+    },
     /// Accepts or declines an optional triggered mana payment after every
     /// player has passed. A conditional target is supplied only when paying.
     ResolveOptionalTriggeredAbility {
@@ -205,6 +215,7 @@ impl PolicyAction {
             Self::ChooseTriggeredAbilityEffectObject { .. } => {
                 PolicyMoveKind::ChooseTriggeredAbilityEffectObject
             }
+            Self::ChooseDamageReplacement { .. } => PolicyMoveKind::ChooseDamageReplacement,
             Self::ResolveOptionalTriggeredAbility { .. } => {
                 PolicyMoveKind::ResolveOptionalTriggeredAbility
             }
@@ -305,6 +316,19 @@ pub struct TriggeredAbilityEffectObjectChoiceView {
     pub candidates: Vec<CardView>,
 }
 
+/// Public, stale-safe details for a prospective damage event requiring an
+/// affected-player replacement choice. Unlike hidden-zone choices, all of
+/// these identities are already public battlefield/player information.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DamageReplacementChoiceView {
+    pub source: ObjectId,
+    pub source_incarnation: u64,
+    pub target: Target,
+    pub target_incarnation: Option<u64>,
+    pub amount: i32,
+    pub replacements: Vec<DamageReplacementChoice>,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct GameView {
     pub player: PlayerId,
@@ -338,6 +362,9 @@ pub struct GameView {
     pub triggered_ability_target_choice: Option<TriggeredAbilityTargetChoiceView>,
     pub optional_triggered_ability_choice: Option<OptionalTriggeredAbilityChoiceView>,
     pub triggered_ability_effect_object_choice: Option<TriggeredAbilityEffectObjectChoiceView>,
+    /// Present only to the affected player while a bounded prospective damage
+    /// event requires replacement ordering.
+    pub damage_replacement_choice: Option<DamageReplacementChoiceView>,
     /// Legal controller-owned library choices for each transmute card in hand.
     pub transmute_searches: Vec<TransmuteSearchView>,
     pub own_battlefield: Vec<CardView>,
@@ -525,6 +552,8 @@ struct PendingDamageRedirection {
 
 #[derive(Clone, Debug)]
 struct DamageRedirection {
+    id: u64,
+    source: ObjectId,
     protected: ObjectId,
     destination: Target,
     remaining: i32,
@@ -533,10 +562,28 @@ struct DamageRedirection {
 
 #[derive(Clone, Debug)]
 struct DamagePreventionShield {
+    id: u64,
     source: ObjectId,
     target: Target,
     remaining: i32,
     expires_turn: u32,
+}
+
+/// A deliberately narrow resumable damage-resolution continuation.  It is
+/// opened only for a single targeted `DealDamage` instant/sorcery with two or
+/// more live applicable replacements. The top stack item remains in place;
+/// there is no priority until the affected player selects one legal effect.
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct PendingDamageReplacementChoice {
+    source: ObjectId,
+    source_incarnation: u64,
+    controller: PlayerId,
+    affected_player: PlayerId,
+    original_target: Target,
+    target: Target,
+    target_incarnation: Option<u64>,
+    amount: i32,
+    used: Vec<DamageReplacementChoice>,
 }
 
 /// A deterministic, two-or-more-player Magic game state.
@@ -607,6 +654,7 @@ pub struct Game {
     pending_trigger_target_choices: Vec<PendingTriggeredAbilityTargetChoice>,
     pending_optional_trigger_choice: Option<PendingOptionalTriggeredAbilityChoice>,
     pending_trigger_effect_object_choice: Option<PendingTriggeredEffectObjectChoice>,
+    pending_damage_replacement_choice: Option<PendingDamageReplacementChoice>,
     /// A resolving rule may prevent every represented library search until the
     /// current turn ends. It is deliberately a turn number, rather than a
     /// boolean, so invariant checks detect an expired marker crossing a turn
@@ -837,6 +885,7 @@ impl Game {
             pending_trigger_target_choices: Vec::new(),
             pending_optional_trigger_choice: None,
             pending_trigger_effect_object_choice: None,
+            pending_damage_replacement_choice: None,
             library_search_prevented_until: None,
             pending_trigger_events: Vec::new(),
             pending_trigger_placements: Vec::new(),
@@ -2458,6 +2507,26 @@ impl Game {
                     })
             })
             .transpose()?;
+        let damage_replacement_choice = self
+            .pending_damage_replacement_choice
+            .as_ref()
+            .filter(|choice| choice.affected_player == player)
+            .map(|choice| {
+                Ok(DamageReplacementChoiceView {
+                    source: choice.source,
+                    source_incarnation: choice.source_incarnation,
+                    target: choice.target,
+                    target_incarnation: choice.target_incarnation,
+                    amount: choice.amount,
+                    replacements: self.damage_replacement_candidates(
+                        choice.source,
+                        choice.target,
+                        choice.amount,
+                        &choice.used,
+                    )?,
+                })
+            })
+            .transpose()?;
         let mut opponent_life = Vec::new();
         let mut opponent_battlefield = Vec::new();
         for opponent in self
@@ -2521,6 +2590,7 @@ impl Game {
             triggered_ability_target_choice,
             optional_triggered_ability_choice,
             triggered_ability_effect_object_choice,
+            damage_replacement_choice,
             transmute_searches,
             own_battlefield,
             opponent_battlefield,
@@ -2534,6 +2604,7 @@ impl Game {
 
     /// Submits one policy proposal through normal rules enforcement and records the
     /// accepted move in the canonical event log.
+    #[allow(clippy::too_many_lines)] // One public action boundary centralizes invariant-audited dispatch.
     pub fn submit_policy_move(
         &mut self,
         player: PlayerId,
@@ -2572,6 +2643,20 @@ impl Game {
                 selected,
             } => {
                 self.choose_triggered_ability_effect_object(player, source, ability, selected)?;
+            }
+            PolicyAction::ChooseDamageReplacement {
+                source,
+                source_incarnation,
+                target,
+                replacement,
+            } => {
+                self.choose_damage_replacement(
+                    player,
+                    source,
+                    source_incarnation,
+                    target,
+                    replacement,
+                )?;
             }
             PolicyAction::ResolveOptionalTriggeredAbility {
                 source,
@@ -4029,6 +4114,11 @@ impl Game {
                 "trigger effect-object choice must resolve before priority can pass",
             ));
         }
+        if self.pending_damage_replacement_choice.is_some() {
+            return Err(RulesError::IllegalAction(
+                "damage replacement choice must resolve before priority can pass",
+            ));
+        }
         if self.step == Step::DeclareAttackers
             && self
                 .combat
@@ -5236,6 +5326,55 @@ impl Game {
                 ));
             }
         }
+        if let Some(choice) = &self.pending_damage_replacement_choice {
+            let top = self.stack.last().ok_or(RulesError::IllegalAction(
+                "damage replacement choice escaped its stack spell",
+            ))?;
+            let stack_shape_matches = matches!(
+                top.effects.as_slice(),
+                [Effect::DealDamage { amount, .. }] if *amount > 0
+            );
+            let target_is_current =
+                self.damage_target_incarnation(choice.target)? == choice.target_incarnation;
+            let candidates = self.damage_replacement_candidates(
+                choice.source,
+                choice.target,
+                choice.amount,
+                &choice.used,
+            )?;
+            let used_are_unique = !choice
+                .used
+                .iter()
+                .enumerate()
+                .any(|(index, effect)| choice.used[index + 1..].contains(effect));
+            if top.card != choice.source
+                || top.source_incarnation != choice.source_incarnation
+                || top.controller != choice.controller
+                || top.ability_id.is_some()
+                || top.targets.as_slice() != [choice.original_target]
+                || !stack_shape_matches
+                || !self.stack_target_incarnation_matches(top, 0, choice.original_target)
+                || choice.amount <= 0
+                || !target_is_current
+                || self.affected_player_for_damage_target(choice.target)? != choice.affected_player
+                || candidates.len() < 2
+                || !used_are_unique
+                || self.priority != choice.affected_player
+                || self.consecutive_passes != 0
+                || self.players[choice.affected_player.0].lost
+                || self.pending_draw_replacement.is_some()
+                || self.pending_private_library_choice.is_some()
+                || self.pending_private_opponent_library_exile_choice.is_some()
+                || self.pending_library_search_choice.is_some()
+                || !self.pending_trigger_target_choices.is_empty()
+                || self.pending_optional_trigger_choice.is_some()
+                || self.pending_trigger_effect_object_choice.is_some()
+            {
+                return Err(RulesError::IllegalAction(
+                    "damage replacement choice escaped its no-priority resolution boundary",
+                ));
+            }
+        }
         if self
             .library_search_prevented_until
             .is_some_and(|until_turn| until_turn != self.turn)
@@ -6099,9 +6238,14 @@ impl Game {
         }
         for redirect in &self.damage_redirections {
             self.object(redirect.protected)?;
-            if redirect.remaining <= 0 || redirect.expires_turn < self.turn {
+            self.object(redirect.source)?;
+            if redirect.id == 0
+                || redirect.id >= self.next_timestamp
+                || redirect.remaining <= 0
+                || redirect.expires_turn < self.turn
+            {
                 return Err(RulesError::IllegalAction(
-                    "damage redirection has invalid remaining amount or lifetime",
+                    "damage redirection has invalid identity, remaining amount, or lifetime",
                 ));
             }
             if !matches!(
@@ -6112,6 +6256,16 @@ impl Game {
                     "damage redirection destination has invalid target shape",
                 ));
             }
+        }
+        let mut redirection_ids = BTreeSet::new();
+        if self
+            .damage_redirections
+            .iter()
+            .any(|redirect| !redirection_ids.insert(redirect.id))
+        {
+            return Err(RulesError::IllegalAction(
+                "damage redirection identifiers are not unique",
+            ));
         }
         if let Some(pending) = &self.pending_damage_redirection {
             self.object(pending.source)?;
@@ -6124,9 +6278,13 @@ impl Game {
         }
         for shield in &self.damage_prevention_shields {
             self.object(shield.source)?;
-            if shield.remaining <= 0 || shield.expires_turn < self.turn {
+            if shield.id == 0
+                || shield.id >= self.next_timestamp
+                || shield.remaining <= 0
+                || shield.expires_turn < self.turn
+            {
                 return Err(RulesError::IllegalAction(
-                    "damage prevention shield has invalid remaining amount or lifetime",
+                    "damage prevention shield has invalid identity, remaining amount, or lifetime",
                 ));
             }
             if !self.target_matches(shield.target, TargetRequirement::PlayerOrCreature) {
@@ -6134,6 +6292,16 @@ impl Game {
                     "damage prevention shield has an illegal target",
                 ));
             }
+        }
+        let mut prevention_shield_ids = BTreeSet::new();
+        if self
+            .damage_prevention_shields
+            .iter()
+            .any(|shield| !prevention_shield_ids.insert(shield.id))
+        {
+            return Err(RulesError::IllegalAction(
+                "damage prevention shield identifiers are not unique",
+            ));
         }
         if let Some(combat) = &self.combat {
             if !matches!(
@@ -7013,6 +7181,9 @@ impl Game {
         if self.suspend_top_ability_for_private_opponent_library_exile_choice()? {
             return Ok(());
         }
+        if self.suspend_top_stack_item_for_damage_replacement_choice()? {
+            return Ok(());
+        }
         let stack_object = self.stack.pop().ok_or(RulesError::IllegalAction(
             "attempted to resolve an empty stack",
         ))?;
@@ -7305,6 +7476,72 @@ impl Game {
         self.flush_pending_dies_triggers();
         self.priority = self.priority_after_resolution();
         Ok(())
+    }
+
+    /// Opens the bounded no-priority damage-replacement boundary. This first
+    /// slice intentionally supports only one targeted direct-damage spell;
+    /// complex multi-instruction and partial-redirection continuations remain
+    /// on the existing deterministic path until they receive their own red
+    /// regression and resumable stack representation.
+    fn suspend_top_stack_item_for_damage_replacement_choice(&mut self) -> Result<bool, RulesError> {
+        if self.pending_damage_replacement_choice.is_some() {
+            return Err(RulesError::IllegalAction(
+                "a second damage replacement choice attempted to open during resolution",
+            ));
+        }
+        let Some(top) = self.stack.last() else {
+            return Ok(false);
+        };
+        let (source, source_incarnation, controller, target, amount, requirement) = match (
+            top.ability_id,
+            top.targets.as_slice(),
+            top.effects.as_slice(),
+        ) {
+            (
+                None,
+                [target],
+                [
+                    Effect::DealDamage {
+                        amount,
+                        target: requirement,
+                    },
+                ],
+            ) => (
+                top.card,
+                top.source_incarnation,
+                top.controller,
+                *target,
+                i32::from(*amount),
+                *requirement,
+            ),
+            _ => return Ok(false),
+        };
+        if amount <= 0
+            || !self.stack_target_incarnation_matches(top, 0, target)
+            || !self.target_matches_for_source(controller, source, target, requirement)
+        {
+            // The ordinary resolver owns malformed/illegal target handling.
+            return Ok(false);
+        }
+        let candidates = self.damage_replacement_candidates(source, target, amount, &[])?;
+        if candidates.len() < 2 {
+            return Ok(false);
+        }
+        let affected_player = self.affected_player_for_damage_target(target)?;
+        self.pending_damage_replacement_choice = Some(PendingDamageReplacementChoice {
+            source,
+            source_incarnation,
+            controller,
+            affected_player,
+            original_target: target,
+            target,
+            target_incarnation: self.damage_target_incarnation(target)?,
+            amount,
+            used: Vec::new(),
+        });
+        self.priority = affected_player;
+        self.consecutive_passes = 0;
+        Ok(true)
     }
 
     /// Opens a no-priority boundary for a stack item whose typed library
@@ -8062,6 +8299,101 @@ impl Game {
         })
     }
 
+    /// Resolves one affected-player replacement choice. The selected effect is
+    /// applied exactly once, then applicability is recomputed against the
+    /// transformed prospective event before damage is committed.
+    fn choose_damage_replacement(
+        &mut self,
+        player: PlayerId,
+        source: ObjectId,
+        source_incarnation: u64,
+        target: Target,
+        replacement: DamageReplacementChoice,
+    ) -> Result<(), RulesError> {
+        self.atomic_transition(|game| {
+            let mut pending =
+                game.pending_damage_replacement_choice
+                    .take()
+                    .ok_or(RulesError::IllegalAction(
+                        "no prospective damage event is awaiting replacement selection",
+                    ))?;
+            if player != pending.affected_player
+                || source != pending.source
+                || source_incarnation != pending.source_incarnation
+                || target != pending.target
+            {
+                return Err(RulesError::IllegalAction(
+                    "submitted damage replacement identity does not match the pending event",
+                ));
+            }
+            if pending.target_incarnation != game.damage_target_incarnation(pending.target)? {
+                return Err(RulesError::IllegalAction(
+                    "prospective damage target changed incarnation before replacement selection",
+                ));
+            }
+            let candidates = game.damage_replacement_candidates(
+                pending.source,
+                pending.target,
+                pending.amount,
+                &pending.used,
+            )?;
+            if candidates.len() < 2 || !candidates.contains(&replacement) {
+                return Err(RulesError::IllegalAction(
+                    "submitted damage replacement is not one of the live choice options",
+                ));
+            }
+            game.apply_damage_replacement(&mut pending, replacement)?;
+            let original_target = pending.original_target;
+            match game.advance_damage_replacement_pipeline(pending)? {
+                Some(next) => {
+                    game.priority = next.affected_player;
+                    game.consecutive_passes = 0;
+                    game.pending_damage_replacement_choice = Some(next);
+                }
+                None => game.finish_suspended_damage_replacement_spell(
+                    source,
+                    source_incarnation,
+                    original_target,
+                )?,
+            }
+            Ok(())
+        })
+    }
+
+    /// Finishes the one-effect instant/sorcery retained by the bounded
+    /// replacement decision. The direct-damage instruction has already
+    /// committed (or been fully prevented), so this records only the normal
+    /// spell terminal lifecycle and its post-resolution trigger/SBA boundary.
+    fn finish_suspended_damage_replacement_spell(
+        &mut self,
+        source: ObjectId,
+        source_incarnation: u64,
+        original_target: Target,
+    ) -> Result<(), RulesError> {
+        let stack_object = self.stack.pop().ok_or(RulesError::IllegalAction(
+            "damage replacement decision escaped its stack spell",
+        ))?;
+        if stack_object.card != source
+            || stack_object.source_incarnation != source_incarnation
+            || stack_object.ability_id.is_some()
+            || stack_object.targets.as_slice() != [original_target]
+            || !matches!(stack_object.effects.as_slice(), [Effect::DealDamage { .. }])
+        {
+            return Err(RulesError::IllegalAction(
+                "damage replacement continuation has an invalid stack shape",
+            ));
+        }
+        self.record_event(GameEvent::SpellResolved { card: source });
+        self.move_to_spell_terminal_zone(source)?;
+        self.check_state_based_actions()?;
+        self.flush_pending_dies_triggers();
+        self.flush_pending_damage_triggers();
+        self.flush_pending_life_gain_triggers();
+        self.flush_pending_dies_triggers();
+        self.priority = self.priority_after_resolution();
+        Ok(())
+    }
+
     fn choose_triggered_ability_effect_object(
         &mut self,
         player: PlayerId,
@@ -8549,6 +8881,331 @@ impl Game {
         })
     }
 
+    /// Lists every represented replacement applicable to one prospective
+    /// damage event. A previously used replacement is excluded even if its
+    /// source remains live, preventing one effect from recursively replacing
+    /// its own result.  This is intentionally bounded to the existing RAV
+    /// shields/protection/redirection substrate; it does not claim general
+    /// replacement-effect coverage for arbitrary future effects.
+    fn damage_replacement_candidates(
+        &self,
+        source: ObjectId,
+        target: Target,
+        amount: i32,
+        used: &[DamageReplacementChoice],
+    ) -> Result<Vec<DamageReplacementChoice>, RulesError> {
+        if amount <= 0 {
+            return Ok(Vec::new());
+        }
+        let mut candidates = Vec::new();
+        let prevention_allowed = !self.damage_cannot_be_prevented(source);
+        match target {
+            Target::Permanent(permanent) => {
+                // A bounded redirected event must be wholly redirected. The
+                // legacy direct path retains support for partial redirects;
+                // that broader continuation is an explicit future extension.
+                for redirect in &self.damage_redirections {
+                    let candidate = DamageReplacementChoice::Redirect {
+                        id: redirect.id,
+                        source: redirect.source,
+                        protected: redirect.protected,
+                        destination: redirect.destination,
+                    };
+                    if redirect.protected == permanent
+                        && redirect.remaining >= amount
+                        && redirect.destination != target
+                        && self.target_matches(
+                            redirect.destination,
+                            TargetRequirement::PlayerOrCreature,
+                        )
+                        && !used.contains(&candidate)
+                    {
+                        candidates.push(candidate);
+                    }
+                }
+                if prevention_allowed {
+                    if self.target_prevents_damage_from_source(source, permanent) {
+                        let candidate =
+                            DamageReplacementChoice::SourceColorPrevention { permanent };
+                        if !used.contains(&candidate) {
+                            candidates.push(candidate);
+                        }
+                    }
+                    for shield in &self.damage_prevention_shields {
+                        let candidate = DamageReplacementChoice::TargetedShield {
+                            id: shield.id,
+                            source: shield.source,
+                            target: shield.target,
+                        };
+                        if shield.target == target
+                            && shield.remaining > 0
+                            && shield.expires_turn >= self.turn
+                            && !used.contains(&candidate)
+                        {
+                            candidates.push(candidate);
+                        }
+                    }
+                    if self.object(permanent)?.damage_shield > 0 {
+                        let candidate = DamageReplacementChoice::PermanentShield { permanent };
+                        if !used.contains(&candidate) {
+                            candidates.push(candidate);
+                        }
+                    }
+                }
+            }
+            Target::Player(_) => {
+                if prevention_allowed {
+                    for shield in &self.damage_prevention_shields {
+                        let candidate = DamageReplacementChoice::TargetedShield {
+                            id: shield.id,
+                            source: shield.source,
+                            target: shield.target,
+                        };
+                        if shield.target == target
+                            && shield.remaining > 0
+                            && shield.expires_turn >= self.turn
+                            && !used.contains(&candidate)
+                        {
+                            candidates.push(candidate);
+                        }
+                    }
+                }
+            }
+            Target::Spell(card) => return Err(RulesError::IllegalTarget(Target::Spell(card))),
+            Target::SacrificePermanent(card) => {
+                return Err(RulesError::IllegalTarget(Target::SacrificePermanent(card)));
+            }
+        }
+        Ok(candidates)
+    }
+
+    fn affected_player_for_damage_target(&self, target: Target) -> Result<PlayerId, RulesError> {
+        match target {
+            Target::Player(player) if !self.player(player)?.lost => Ok(player),
+            Target::Permanent(permanent) => Ok(self.object(permanent)?.controller),
+            Target::Player(player) => {
+                Err(RulesError::IllegalAction(if self.player(player)?.lost {
+                    "an eliminated player cannot choose a damage replacement"
+                } else {
+                    "damage replacement target has no affected player"
+                }))
+            }
+            Target::Spell(card) => Err(RulesError::IllegalTarget(Target::Spell(card))),
+            Target::SacrificePermanent(card) => {
+                Err(RulesError::IllegalTarget(Target::SacrificePermanent(card)))
+            }
+        }
+    }
+
+    fn damage_target_incarnation(&self, target: Target) -> Result<Option<u64>, RulesError> {
+        match target {
+            Target::Player(_) => Ok(None),
+            Target::Permanent(permanent) => Ok(Some(self.object(permanent)?.incarnation)),
+            Target::Spell(card) => Err(RulesError::IllegalTarget(Target::Spell(card))),
+            Target::SacrificePermanent(card) => {
+                Err(RulesError::IllegalTarget(Target::SacrificePermanent(card)))
+            }
+        }
+    }
+
+    #[allow(clippy::too_many_lines)] // Each typed replacement owns a distinct state/event transition.
+    fn apply_damage_replacement(
+        &mut self,
+        pending: &mut PendingDamageReplacementChoice,
+        replacement: DamageReplacementChoice,
+    ) -> Result<(), RulesError> {
+        let candidates = self.damage_replacement_candidates(
+            pending.source,
+            pending.target,
+            pending.amount,
+            &pending.used,
+        )?;
+        if !candidates.contains(&replacement) {
+            return Err(RulesError::IllegalAction(
+                "submitted damage replacement is no longer applicable",
+            ));
+        }
+        self.record_event(GameEvent::DamageReplacementApplied {
+            affected_player: pending.affected_player,
+            target: pending.target,
+            replacement,
+        });
+        match replacement {
+            DamageReplacementChoice::Redirect {
+                id,
+                source: redirect_source,
+                protected,
+                destination,
+            } => {
+                let exhausted = {
+                    let redirect = self
+                        .damage_redirections
+                        .iter_mut()
+                        .find(|redirect| {
+                            redirect.id == id
+                                && redirect.source == redirect_source
+                                && redirect.protected == protected
+                                && redirect.destination == destination
+                                && redirect.remaining >= pending.amount
+                        })
+                        .ok_or(RulesError::IllegalAction(
+                            "damage redirection disappeared before selection",
+                        ))?;
+                    redirect.remaining -= pending.amount;
+                    redirect.remaining == 0
+                };
+                self.record_event(GameEvent::DamageRedirected {
+                    source: pending.source,
+                    from: protected,
+                    to: destination,
+                    amount: pending.amount,
+                });
+                if exhausted {
+                    self.damage_redirections
+                        .retain(|candidate| candidate.id != id);
+                }
+                pending.target = destination;
+                pending.target_incarnation = self.damage_target_incarnation(destination)?;
+                pending.affected_player = self.affected_player_for_damage_target(destination)?;
+            }
+            DamageReplacementChoice::TargetedShield {
+                id,
+                source: shield_source,
+                target,
+            } => {
+                let shield = self
+                    .damage_prevention_shields
+                    .iter_mut()
+                    .find(|shield| {
+                        shield.id == id
+                            && shield.source == shield_source
+                            && shield.target == target
+                            && shield.remaining > 0
+                    })
+                    .ok_or(RulesError::IllegalAction(
+                        "damage-prevention shield disappeared before selection",
+                    ))?;
+                let prevented = pending.amount.min(shield.remaining);
+                shield.remaining -= prevented;
+                if shield.remaining == 0 {
+                    self.damage_prevention_shields
+                        .retain(|candidate| candidate.id != id);
+                }
+                pending.amount -= prevented;
+                self.record_event(GameEvent::DamagePrevented {
+                    source: pending.source,
+                    target,
+                    amount: prevented,
+                });
+            }
+            DamageReplacementChoice::PermanentShield { permanent } => {
+                let object = self
+                    .objects
+                    .get_mut(&permanent)
+                    .ok_or(RulesError::UnknownCard(permanent))?;
+                let prevented = pending.amount.min(object.damage_shield);
+                if prevented <= 0 {
+                    return Err(RulesError::IllegalAction(
+                        "permanent damage shield disappeared before selection",
+                    ));
+                }
+                object.damage_shield -= prevented;
+                pending.amount -= prevented;
+                self.record_event(GameEvent::DamagePrevented {
+                    source: pending.source,
+                    target: Target::Permanent(permanent),
+                    amount: prevented,
+                });
+            }
+            DamageReplacementChoice::SourceColorPrevention { permanent } => {
+                if !self.target_prevents_damage_from_source(pending.source, permanent) {
+                    return Err(RulesError::IllegalAction(
+                        "color prevention disappeared before selection",
+                    ));
+                }
+                let prevented = pending.amount;
+                pending.amount = 0;
+                self.record_event(GameEvent::DamagePrevented {
+                    source: pending.source,
+                    target: Target::Permanent(permanent),
+                    amount: prevented,
+                });
+            }
+        }
+        pending.used.push(replacement);
+        Ok(())
+    }
+
+    /// Applies required single replacements until the prospective event is
+    /// ready to commit or needs another affected-player choice.  Only the
+    /// latter returns `Some`; replacement receipts precede any resulting
+    /// `DamageDealt*` receipt, so triggers see committed damage only.
+    fn advance_damage_replacement_pipeline(
+        &mut self,
+        mut pending: PendingDamageReplacementChoice,
+    ) -> Result<Option<PendingDamageReplacementChoice>, RulesError> {
+        loop {
+            if pending.amount == 0 {
+                return Ok(None);
+            }
+            let candidates = self.damage_replacement_candidates(
+                pending.source,
+                pending.target,
+                pending.amount,
+                &pending.used,
+            )?;
+            match candidates.as_slice() {
+                [] => {
+                    self.commit_damage_event(pending.source, pending.target, pending.amount)?;
+                    return Ok(None);
+                }
+                [replacement] => self.apply_damage_replacement(&mut pending, *replacement)?,
+                _ => return Ok(Some(pending)),
+            }
+        }
+    }
+
+    fn commit_damage_event(
+        &mut self,
+        source: ObjectId,
+        target: Target,
+        amount: i32,
+    ) -> Result<(), RulesError> {
+        if amount <= 0 {
+            return Ok(());
+        }
+        match target {
+            Target::Player(player) => {
+                self.player(player)?;
+                self.players[player.0].life -= i64::from(amount);
+                self.record_event(GameEvent::DamageDealtToPlayer {
+                    source,
+                    player,
+                    amount,
+                });
+                self.enqueue_damage_triggers(source, amount)?;
+            }
+            Target::Permanent(permanent) => {
+                self.objects
+                    .get_mut(&permanent)
+                    .ok_or(RulesError::UnknownCard(permanent))?
+                    .damage += amount;
+                self.record_event(GameEvent::DamageDealtToPermanent {
+                    source,
+                    permanent,
+                    amount,
+                });
+                self.enqueue_damage_triggers(source, amount)?;
+                self.enqueue_received_damage_triggers(permanent, amount)?;
+            }
+            Target::Spell(card) => return Err(RulesError::IllegalTarget(Target::Spell(card))),
+            Target::SacrificePermanent(card) => {
+                return Err(RulesError::IllegalTarget(Target::SacrificePermanent(card)));
+            }
+        }
+        Ok(())
+    }
+
     fn install_damage_prevention_shield(
         &mut self,
         source: ObjectId,
@@ -8561,11 +9218,13 @@ impl Game {
         self.object(source)?;
         let amount = i32::from(amount);
         self.damage_prevention_shields.push(DamagePreventionShield {
+            id: self.next_timestamp,
             source,
             target,
             remaining: amount,
             expires_turn: self.turn,
         });
+        self.next_timestamp += 1;
         self.record_event(GameEvent::DamageShieldCreated {
             source,
             target,
@@ -8594,53 +9253,50 @@ impl Game {
         permanent: ObjectId,
         amount: i32,
     ) -> Result<(), RulesError> {
-        // CR 615.1: a source whose damage cannot be prevented also bypasses
-        // damage-redirection replacement effects. Check this before looking
-        // up a destination so the keyword has precedence over every
-        // represented prevention or redirection layer.
-        if !self.damage_cannot_be_prevented(source) {
-            let redirect_index = self
-                .damage_redirections
-                .iter()
-                .position(|redirect| redirect.protected == permanent && redirect.remaining > 0);
-            if let Some(index) = redirect_index {
-                let destination = self.damage_redirections[index].destination;
-                let destination_is_legal = self
-                    .target_matches(destination, TargetRequirement::PlayerOrCreature)
-                    && destination != Target::Permanent(permanent);
-                if destination_is_legal {
-                    let redirected = amount.min(self.damage_redirections[index].remaining);
-                    self.damage_redirections[index].remaining -= redirected;
-                    self.record_event(GameEvent::DamageRedirected {
-                        source,
-                        from: permanent,
-                        to: destination,
-                        amount: redirected,
-                    });
-                    match destination {
-                        Target::Player(player) => {
-                            self.deal_damage_to_player(source, player, redirected)?;
-                        }
-                        Target::Permanent(target) => {
-                            self.deal_damage_to_permanent(source, target, redirected)?;
-                        }
-                        Target::Spell(_) | Target::SacrificePermanent(_) => {
-                            return Err(RulesError::IllegalTarget(destination));
-                        }
+        // “Can't be prevented” excludes only prevention effects. A Razia-like
+        // redirection is a non-prevention replacement, so it remains
+        // applicable and may produce a new prospective damage recipient.
+        let redirect_index = self
+            .damage_redirections
+            .iter()
+            .position(|redirect| redirect.protected == permanent && redirect.remaining > 0);
+        if let Some(index) = redirect_index {
+            let destination = self.damage_redirections[index].destination;
+            let destination_is_legal = self
+                .target_matches(destination, TargetRequirement::PlayerOrCreature)
+                && destination != Target::Permanent(permanent);
+            if destination_is_legal {
+                let redirected = amount.min(self.damage_redirections[index].remaining);
+                self.damage_redirections[index].remaining -= redirected;
+                self.record_event(GameEvent::DamageRedirected {
+                    source,
+                    from: permanent,
+                    to: destination,
+                    amount: redirected,
+                });
+                match destination {
+                    Target::Player(player) => {
+                        self.deal_damage_to_player(source, player, redirected)?;
                     }
-                    if amount == redirected {
-                        if self.damage_redirections[index].remaining == 0 {
-                            self.damage_redirections.remove(index);
-                        }
-                        return Ok(());
+                    Target::Permanent(target) => {
+                        self.deal_damage_to_permanent(source, target, redirected)?;
                     }
+                    Target::Spell(_) | Target::SacrificePermanent(_) => {
+                        return Err(RulesError::IllegalTarget(destination));
+                    }
+                }
+                if amount == redirected {
                     if self.damage_redirections[index].remaining == 0 {
                         self.damage_redirections.remove(index);
                     }
-                    return self.deal_damage_to_permanent(source, permanent, amount - redirected);
+                    return Ok(());
                 }
-                self.damage_redirections.remove(index);
+                if self.damage_redirections[index].remaining == 0 {
+                    self.damage_redirections.remove(index);
+                }
+                return self.deal_damage_to_permanent(source, permanent, amount - redirected);
             }
+            self.damage_redirections.remove(index);
         }
         let (prevented, consumes_shield) = if self.damage_cannot_be_prevented(source) {
             (0, false)
@@ -9248,11 +9904,14 @@ impl Game {
                     return Ok(());
                 };
                 self.damage_redirections.push(DamageRedirection {
+                    id: self.next_timestamp,
+                    source: pending.source,
                     protected: pending.protected,
                     destination,
                     remaining: pending.remaining,
                     expires_turn: self.turn,
                 });
+                self.next_timestamp += 1;
             }
             Effect::ModifyTargetPtUntilEndOfTurn { power, toughness } => {
                 let target = Self::target_permanent(target)?;
@@ -13165,6 +13824,11 @@ impl Game {
                 "trigger effect-object choice must resolve before priority actions",
             ));
         }
+        if self.pending_damage_replacement_choice.is_some() {
+            return Err(RulesError::IllegalAction(
+                "damage replacement choice must resolve before priority actions",
+            ));
+        }
         if self.players[player.0].lost {
             return Err(RulesError::IllegalAction("an eliminated player cannot act"));
         }
@@ -13282,6 +13946,9 @@ impl Game {
         }
         if let Some(choice) = &self.pending_trigger_effect_object_choice {
             return choice.chooser;
+        }
+        if let Some(choice) = &self.pending_damage_replacement_choice {
+            return choice.affected_player;
         }
         match (&self.combat, self.step) {
             (Some(combat), Step::DeclareAttackers)
