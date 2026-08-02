@@ -2067,6 +2067,12 @@ pub enum Effect {
     /// the ability stays on the stack and resolves even if the source has
     /// already changed zones.
     ReturnSourceToOwnersHand,
+    /// Move the resolving source object to its owner's library and shuffle
+    /// that owner's library, but only while the exact battlefield incarnation
+    /// that created the stack object is still present. This keeps zone and
+    /// shuffle ownership separate from the ability controller when a control
+    /// effect changes the source before activation.
+    MoveSourceToOwnersLibraryAndShuffle,
     /// Move one targeted creature from the battlefield to its owner's exile
     /// zone.  This is a zone-change instruction rather than lethal damage, so
     /// it bypasses regeneration and preserves the target's normal
@@ -2263,6 +2269,7 @@ impl Effect {
             | Self::LookAtTopCardsChooseForLifeOrGraveyard { .. }
             | Self::ShuffleGraveyardsIntoLibraries
             | Self::ReturnSourceToOwnersHand
+            | Self::MoveSourceToOwnersLibraryAndShuffle
             | Self::ModifySourcePtUntilEndOfTurn { .. }
             | Self::RemoveSourceKeywordUntilEndOfTurn { .. }
             | Self::AddSourceDamageShieldUntilEndOfTurn { .. }

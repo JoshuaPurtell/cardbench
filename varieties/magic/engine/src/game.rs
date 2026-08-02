@@ -10718,6 +10718,7 @@ impl Game {
                 | Effect::ReturnOpponentCreatureToHand
                 | Effect::PutTargetCreatureOnOwnersLibraryTop
                 | Effect::ReturnSourceToOwnersHand
+                | Effect::MoveSourceToOwnersLibraryAndShuffle
                 | Effect::ModifyControllerCreaturesPtUntilEndOfTurn { .. }
                 | Effect::RadianceUntapAndModifyUntilEndOfTurn { .. }
                 | Effect::RadianceModifyPtUntilEndOfTurn { .. }
@@ -15744,6 +15745,27 @@ impl Game {
                     && self.object_has_incarnation(source, source_incarnation)
                 {
                     self.move_to_zone(source, Zone::Hand)?;
+                }
+            }
+            Effect::MoveSourceToOwnersLibraryAndShuffle => {
+                // A stack ability retains last-known source identity, not a
+                // license to move a later incarnation sharing this stable
+                // object id. Ownership is immutable across control changes,
+                // so both the zone transition and deterministic shuffle use
+                // the source owner's library rather than this ability's
+                // controller library.
+                if self.zone_of(source) == Some(Zone::Battlefield)
+                    && self.object_has_incarnation(source, source_incarnation)
+                {
+                    let owner = self.object(source)?.owner;
+                    self.move_to_zone(source, Zone::Library)?;
+                    self.shuffle_library(owner);
+                    let cards =
+                        u16::try_from(self.players[owner.0].library.len()).unwrap_or(u16::MAX);
+                    self.record_event(GameEvent::LibraryShuffled {
+                        player: owner,
+                        cards,
+                    });
                 }
             }
         }

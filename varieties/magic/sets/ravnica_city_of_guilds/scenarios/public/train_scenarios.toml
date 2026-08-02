@@ -533,6 +533,61 @@ event_markers = ["ContinuousEffectCreated", "AuraAttached", "TriggeredAbilitySta
 digest = "fnv1a64:c62054edce85b939"
 
 [[scenario]]
+id = "rav_cerulean_sphinx_owner_library_shuffle"
+seed = 211
+description = "Activate Cerulean Sphinx, move its exact battlefield incarnation to its owner's library, then record the deterministic owner-library shuffle before the ability resolves."
+
+[[scenario.card]]
+label = "sphinx"
+owner = 0
+definition = "RAV-CERULEAN-SPHINX"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "library_card"
+owner = 0
+definition = "RAV-WATCHWOLF"
+zone = "library"
+
+[[scenario.card]]
+label = "island"
+owner = 0
+definition = "RAV-ISLAND"
+zone = "battlefield"
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "island"
+color = "blue"
+
+[[scenario.action]]
+kind = "activate_ability"
+player = 0
+card = "sphinx"
+ability = "shuffle-source-into-owner-library"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["sphinx:library", "library_card:library"]
+stack_size = 0
+priority = 0
+mana = ["0:blue:0"]
+event_markers = ["AbilityManaPaid", "AbilityActivated", "CardMoved", "LibraryShuffled", "AbilityResolved"]
+digest = "fnv1a64:c8d601a41abb5ac1"
+
+[[scenario]]
 id = "rav_dryads_caress_life"
 seed = 0
 description = "Resolve the bounded Dryad's Caress controller-life-gain component."

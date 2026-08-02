@@ -15,24 +15,14 @@ use cardbench_magic_rav::{card_definitions, run_all_scenarios};
 #[allow(clippy::too_many_lines)] // Explicit base-fact matrix is intentionally audit-friendly.
 fn easy_creature_wave_one_is_exactly_bounded_to_public_base_facts() {
     let definitions = card_definitions();
-    let expected = [
-        (
-            "RAV-CERULEAN-SPHINX",
-            "Cerulean Sphinx",
-            ManaCost::with_colors(4, [Color::Blue, Color::Blue]),
-            BTreeSet::from([Color::Blue]),
-            5,
-            5,
-        ),
-        (
-            "RAV-ZEPHYR-SPIRIT",
-            "Zephyr Spirit",
-            ManaCost::with_colors(5, [Color::Blue]),
-            BTreeSet::from([Color::Blue]),
-            0,
-            6,
-        ),
-    ];
+    let expected = [(
+        "RAV-ZEPHYR-SPIRIT",
+        "Zephyr Spirit",
+        ManaCost::with_colors(5, [Color::Blue]),
+        BTreeSet::from([Color::Blue]),
+        0,
+        6,
+    )];
 
     for (id, name, mana_cost, colors, power, toughness) in expected {
         let definition = definitions

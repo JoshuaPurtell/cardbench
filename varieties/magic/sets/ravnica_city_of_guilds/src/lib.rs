@@ -40,7 +40,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 161] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 162] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -89,6 +89,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 161] = [
     "RAV-CONCLAVE-EQUENAUT",
     "RAV-SNAPPING-DRAKE",
     "RAV-TATTERED-DRAKE",
+    "RAV-CERULEAN-SPHINX",
     "RAV-HUNTED-PHANTASM",
     "RAV-GOLIATH-SPIDER",
     "RAV-COURIER-HAWK",
@@ -3620,17 +3621,31 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed flying and activated library
-        // behavior are deliberately omitted from this compatibility slice.
-        bounded_creature_chassis(
-            "RAV-CERULEAN-SPHINX",
-            "Cerulean Sphinx",
-            ManaCost::with_colors(4, [Color::Blue, Color::Blue]),
-            colors([Color::Blue]),
-            5,
-            5,
-        ),
+        // Full fidelity: this creature has ordinary Flying plus a stack-backed
+        // Blue activation that moves only its exact live incarnation to its
+        // owner's library and shuffles that owner. The operation deliberately
+        // does not follow a temporary controller.
+        CardDefinition {
+            id: "RAV-CERULEAN-SPHINX",
+            name: "Cerulean Sphinx",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(4, [Color::Blue, Color::Blue]),
+            colors: colors([Color::Blue]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "flying",
+                "activated-source-owner-library-shuffle",
+            ],
+            power: Some(5),
+            toughness: Some(5),
+            keywords: vec![Keyword::Flying],
+            effects: vec![],
+        },
         // Full fidelity: normal colored-cost creature casting, base
         // characteristics, unblockability, and its stack-backed targeted ETB
         // token trigger are represented. The shared trigger substrate exposes
@@ -5364,6 +5379,22 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 discard_cards: 0,
                 targets: vec![],
                 effects: vec![Effect::RegenerateSource],
+            },
+        },
+        ActivatedAbilityBinding {
+            card_definition: "RAV-CERULEAN-SPHINX",
+            ability: ActivatedAbility {
+                id: "shuffle-source-into-owner-library",
+                mana_cost: ManaCost::with_colors(0, [Color::Blue]),
+                tap_cost: false,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![],
+                effects: vec![Effect::MoveSourceToOwnersLibraryAndShuffle],
             },
         },
         ActivatedAbilityBinding {
