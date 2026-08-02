@@ -8402,7 +8402,7 @@ impl Game {
                 self.finish_trigger_effect_object_choice(source, ability, |game| {
                     if let Some(permanent) = selected {
                         if game.zone_of(permanent) != Some(Zone::Battlefield)
-                            || game.object(permanent)?.controller != player
+                            || game.controller_of(permanent)? != player
                             || !game
                                 .characteristics(permanent)?
                                 .card_types
@@ -23181,8 +23181,8 @@ impl Game {
                         self.all_battlefield_cards()
                             .into_iter()
                             .filter(|card| {
-                                self.object(*card)
-                                    .is_ok_and(|object| object.controller == decision.player)
+                                self.controller_of(*card)
+                                    .is_ok_and(|controller| controller == decision.player)
                                     && self.characteristics(*card).is_ok_and(|characteristics| {
                                         characteristics.card_types.contains(&CardType::Creature)
                                     })

@@ -8,9 +8,9 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardDefinition, CardType, Color, ContinuousChange, DecisionSelection, Duration, Effect,
-    Game, GameEvent, ManaCost, PlayerId, TriggerCondition, TriggeredAbility,
-    TriggeredAbilityBinding, Zone,
+    CardDefinition, CardType, Color, ContinuousChange, DecisionSelection, Duration, Effect, Game,
+    GameEvent, ManaCost, PlayerId, TriggerCondition, TriggeredAbility, TriggeredAbilityBinding,
+    Zone,
 };
 
 const TRIGGER_SOURCE: &str = "TST-TRIGGERED-SACRIFICE-DERIVED-CONTROL-SOURCE";
@@ -37,7 +37,8 @@ fn creature(id: &'static str) -> CardDefinition {
 
 fn pass_pair(game: &mut Game) {
     let first = game.priority;
-    game.pass_priority(first).expect("first priority pass succeeds");
+    game.pass_priority(first)
+        .expect("first priority pass succeeds");
     let second = game.priority;
     game.pass_priority(second)
         .expect("second priority pass resolves the trigger into its choice");
@@ -101,7 +102,10 @@ fn triggered_sacrifice_choice_accepts_a_creature_the_controller_stole() {
         .pending_decision
         .expect("resolving trigger opens a public sacrifice decision");
     assert!(
-        decision.candidates.iter().any(|candidate| candidate.id == stolen),
+        decision
+            .candidates
+            .iter()
+            .any(|candidate| candidate.id == stolen),
         "the decision projects every creature the trigger controller currently controls"
     );
     game.submit_decision(
