@@ -12844,24 +12844,27 @@ impl Game {
                 if !attackers.insert(*attacker) {
                     return Err(RulesError::IllegalAction("invalid combat attacker state"));
                 }
-                if self.zone_of(*attacker) == Some(Zone::Battlefield) {
-                    let object = self.object(*attacker)?;
-                    if object.controller_changed_turn >= self.turn
-                        && !combat.hasty_attackers.contains(attacker)
-                    {
-                        return Err(RulesError::IllegalAction(
-                            "same-turn attacker lacks haste declaration provenance",
-                        ));
-                    }
-                    let currently_vigilant = self
-                        .characteristics(*attacker)?
-                        .keywords
-                        .contains(&Keyword::Vigilance);
-                    if currently_vigilant != combat.vigilant_attackers.contains(attacker) {
-                        return Err(RulesError::IllegalAction(
-                            "vigilance declaration provenance disagrees with attacker keyword",
-                        ));
-                    }
+                if self.zone_of(*attacker) != Some(Zone::Battlefield) {
+                    return Err(RulesError::IllegalAction(
+                        "live combat attacker is not a battlefield object",
+                    ));
+                }
+                let object = self.object(*attacker)?;
+                if object.controller_changed_turn >= self.turn
+                    && !combat.hasty_attackers.contains(attacker)
+                {
+                    return Err(RulesError::IllegalAction(
+                        "same-turn attacker lacks haste declaration provenance",
+                    ));
+                }
+                let currently_vigilant = self
+                    .characteristics(*attacker)?
+                    .keywords
+                    .contains(&Keyword::Vigilance);
+                if currently_vigilant != combat.vigilant_attackers.contains(attacker) {
+                    return Err(RulesError::IllegalAction(
+                        "vigilance declaration provenance disagrees with attacker keyword",
+                    ));
                 }
             }
             if !combat.vigilant_attackers.is_subset(&attackers) {
@@ -22024,6 +22027,12 @@ impl Game {
                 self.enqueue_another_creature_leaves_battlefield_triggers(card)?;
                 self.enqueue_another_creature_dies_triggers(card)?;
                 self.enqueue_controlled_nontoken_creature_dies_triggers(card)?;
+                // Tokens cease to exist instead of taking an ordinary zone
+                // move, but their live combat membership still ends at the
+                // same battlefield-departure boundary.  Preserve immutable
+                // block history while removing the current attacker or
+                // blocker assignment before its object record disappears.
+                self.remove_from_combat(card);
             }
             self.remove_from_all_zones(card);
             self.objects.remove(&card);
