@@ -206,11 +206,18 @@ Oracle Magic rules coverage.
   placement follows the source permanent's `CardMoved { to: Battlefield }`
   receipt; resolution emits the draw/effect receipts before its terminal
   `TriggeredAbilityResolved` receipt.
-- A target-bearing attack trigger cannot select a stable-order fixture target.
-  It remains outside the stack at a no-priority policy boundary, exposes one
-  ordered legal option set per target occurrence only to its controller, and
-  emits `TriggeredAbilityStacked` only after that controller submits the exact
-  pending source, ability, and a legal target for every slot. Rejected choices
+- A target-bearing trigger cannot select a stable-order fixture target. It
+  remains outside the stack in a public, id-bearing
+  `DecisionKind::TriggeredAbilityTargets` continuation, whose captured source
+  incarnation, source colors, controller, registered ability identity, and
+  ordered target requirements are audited before it can complete. The
+  controller submits `DecisionSelection::Targets` with one legal target per
+  occurrence; non-`DistinctCreature` occurrences may name the same legal
+  target more than once, while `DistinctCreature` occurrences may not. The
+  compatibility `ChooseTriggeredAbilityTargets` action is only a checked shim
+  over the live exact `DecisionId`. `DecisionCompleted` precedes
+  `TriggeredAbilityStacked`; rejected stale, wrong-controller, wrong-source,
+  wrong-ability, wrong-cardinality, illegal, or distinctness-violating answers
   leave the pending decision, stack, zones, mana, and event log unchanged.
 - Every migrated no-priority choice occupies the one typed, clonable
   `PendingDecision` state slot. Its positive `DecisionId` is strictly less
@@ -228,27 +235,28 @@ Oracle Magic rules coverage.
   older policies dispatch through the same continuation but new policies must
   use the id-bearing generic action.
 - This first unified-decision migration covers policy-submitted one-card
-  library searches, triggered discard/sacrifice object choices, multi-block
-  combat order, spell-copy targets, concurrent token/counter quantity
-  replacement ordering, and bounded direct-damage prevention/redirection.
+  library searches, trigger target selection and triggered discard/sacrifice
+  object choices, multi-block combat order, spell-copy targets, concurrent
+  token/counter quantity replacement ordering, and bounded direct-damage
+  prevention/redirection.
   Library
   search and discard options are private: only the deciding player's
   `GameView` contains their candidate identities, while a public sacrifice
   option is projected safely to its deciding controller. `DecisionContinuation`
-  holds only typed cloned data, never a resolver closure. Future target,
-  optional-cost, color, partial-redirection, and arbitrary replacement-event
-  composition remain separate bounded decision families until migrated to it.
+  holds only typed cloned data, never a resolver closure. Optional-cost, color,
+  partial-redirection, and arbitrary replacement-event composition remain
+  separate bounded decision families until migrated to it.
 - Every represented trigger condition captures one source/controller/payload
   event and reaches a common active-player-first placement pipeline after its
-  enclosing action. A target-bearing event stays outside the stack until its
-  controller chooses every legal target; later events cannot overtake that
-  pending placement. Dynamic damage-trigger instructions use the captured
-  positive amount, not a later damage accumulator. A targetless optional
-  trigger opens the same accept/decline boundary even with a zero mana cost.
-  The represented one-effect all-player-discard and controller-creature-
-  sacrifice triggers keep their stack object live while the relevant chooser
-  submits a legal current hand or battlefield object; no deterministic fixture
-  selection may move a card or permanent.
+  enclosing action. A target-bearing event stays outside the stack in its
+  generic target decision until its controller chooses every legal target;
+  later events cannot overtake that pending placement. Dynamic damage-trigger
+  instructions use the captured positive amount, not a later damage
+  accumulator. A targetless optional trigger opens the same accept/decline
+  boundary even with a zero mana cost. The represented one-effect all-player-
+  discard and controller-creature-sacrifice triggers keep their stack object
+  live while the relevant chooser submits a legal current hand or battlefield
+  object; no deterministic fixture selection may move a card or permanent.
 - Every simultaneous controller group with two or more represented triggers
   opens one public `TriggeredAbilityOrder` decision before any member of that
   group reaches the stack. Its options and submitted permutation are exact,
