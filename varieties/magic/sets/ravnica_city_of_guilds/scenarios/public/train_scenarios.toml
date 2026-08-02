@@ -7500,6 +7500,96 @@ event_absent = ["SpellCast"]
 digest = "fnv1a64:2f605545433a3cb0"
 
 [[scenario]]
+id = "rav_zephyr_spirit_blocks_return"
+seed = 165
+description = "Commit Zephyr Spirit as a legal blocker, then resolve its source-relative trigger through the ordinary post-block priority window."
+triggers = true
+
+[[scenario.card]]
+label = "attacker"
+owner = 0
+definition = "RAV-WATCHWOLF"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.card]]
+label = "zephyr"
+owner = 1
+definition = "RAV-ZEPHYR-SPIRIT"
+zone = "battlefield"
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "declare_attackers"
+player = 0
+attackers = ["attacker"]
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "declare_blockers"
+player = 1
+attackers = ["attacker:zephyr"]
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["attacker:battlefield", "zephyr:hand"]
+tapped = ["attacker:true"]
+stack_size = 0
+priority = 0
+event_markers = ["AttackersDeclared", "BlockersDeclared", "TriggeredAbilityStacked", "CardMoved", "AbilityResolved"]
+event_absent = ["SpellCast"]
+digest = "fnv1a64:de31ebf62989e5ef"
+
+[[scenario]]
 id = "rav_flame_kin_zealot_etb_team_trigger"
 seed = 52
 description = "Cast Flame-Kin Zealot, put its enter trigger on the stack, and resolve the team-wide +1/+1 and haste effect."

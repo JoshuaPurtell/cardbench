@@ -1399,6 +1399,7 @@ impl Game {
                         | TriggerCondition::AnotherCreatureDies
                         | TriggerCondition::OpponentCardPutIntoGraveyard
                         | TriggerCondition::Attacks
+                        | TriggerCondition::Blocks
                         | TriggerCondition::CastsNoncreatureSpell
                 )
                 || binding.ability.targets
@@ -6518,6 +6519,8 @@ impl Game {
         mut groups: Vec<(ObjectId, Vec<ObjectId>)>,
     ) -> Result<(), RulesError> {
         let Some((attacker, blockers)) = groups.first().cloned() else {
+            self.enqueue_block_triggers()?;
+            self.flush_pending_trigger_events()?;
             self.priority = self.priority_after_resolution();
             self.consecutive_passes = 0;
             return Ok(());
@@ -8140,6 +8143,7 @@ impl Game {
         Self::validate_attachment_detach_event_order(&self.event_log)?;
         Self::validate_delayed_action_event_order(&self.event_log)?;
         Self::validate_trigger_order_event_order(&self.event_log)?;
+        self.validate_blocks_trigger_event_order()?;
         self.validate_linked_exile_state()?;
         Self::validate_spell_mana_payment_event_order(&self.event_log)?;
         Self::validate_counter_unless_pays_payment_event_order(&self.event_log)?;
@@ -8493,6 +8497,7 @@ impl Game {
                             | TriggerCondition::AnotherCreatureDies
                             | TriggerCondition::OpponentCardPutIntoGraveyard
                             | TriggerCondition::Attacks
+                            | TriggerCondition::Blocks
                             | TriggerCondition::CastsNoncreatureSpell
                     )
                     || ability.targets
@@ -13118,6 +13123,55 @@ impl Game {
                     ability,
                     payload: TriggerEventPayload::None,
                 });
+        }
+        Ok(())
+    }
+
+    /// Queues source-specific triggers for creatures that were actually
+    /// committed as legal blockers.  This runs only after every mandatory
+    /// blocker-order decision has completed: an attempted or rejected block
+    /// never reaches this hook, and no trigger may open a priority window in
+    /// the middle of CR 509.2's no-priority ordering work.
+    fn enqueue_block_triggers(&mut self) -> Result<(), RulesError> {
+        let blockers = self
+            .combat
+            .as_ref()
+            .ok_or(RulesError::IllegalAction("combat was not initialized"))?
+            .blockers
+            .values()
+            .flatten()
+            .copied()
+            .collect::<Vec<_>>();
+        for source in blockers {
+            // Tokens have no catalog definition and therefore cannot carry a
+            // definition-bound Blocks trigger.  Their legal block remains
+            // part of combat; it simply has no bound trigger to enqueue.
+            if self.object(source)?.token.is_some() {
+                continue;
+            }
+            let definition = self.card_definition(source)?.id;
+            let controller = self.controller_of(source)?;
+            let source_colors = self.characteristics(source)?.colors;
+            let source_incarnation = self.object(source)?.incarnation;
+            let triggers = self
+                .triggered_abilities
+                .get(definition)
+                .into_iter()
+                .flat_map(|abilities| abilities.values())
+                .filter(|ability| ability.condition == TriggerCondition::Blocks)
+                .cloned()
+                .collect::<Vec<_>>();
+            for ability in triggers {
+                self.pending_trigger_events
+                    .push(PendingTriggeredAbilityEvent {
+                        source,
+                        source_incarnation,
+                        source_colors: source_colors.clone(),
+                        controller,
+                        ability,
+                        payload: TriggerEventPayload::None,
+                    });
+            }
         }
         Ok(())
     }
@@ -19093,6 +19147,55 @@ impl Game {
             if terminated == live {
                 return Err(RulesError::IllegalAction(
                     "spell-copy receipts disagree with the live virtual stack state",
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// A Blocks trigger is valid only when its own source appears as a
+    /// committed blocker in the immediately preceding blocker-declaration
+    /// boundary.  This replay audit rejects an attacker, another creature, or
+    /// a trigger fabricated after combat had already advanced.
+    fn validate_blocks_trigger_event_order(&self) -> Result<(), RulesError> {
+        for (stacked_index, event) in self.event_log.iter().enumerate() {
+            let GameEvent::TriggeredAbilityStacked {
+                source, ability, ..
+            } = event
+            else {
+                continue;
+            };
+            let Some(definition) = self.object(*source)?.definition else {
+                continue;
+            };
+            let is_blocks_trigger = self
+                .triggered_abilities
+                .get(definition)
+                .and_then(|abilities| abilities.get(ability))
+                .is_some_and(|binding| binding.condition == TriggerCondition::Blocks);
+            if !is_blocks_trigger {
+                continue;
+            }
+            let Some((declaration_index, assignments)) = self.event_log[..stacked_index]
+                .iter()
+                .enumerate()
+                .rev()
+                .find_map(|(index, prior)| match prior {
+                    GameEvent::BlockersDeclared { assignments, .. } => Some((index, assignments)),
+                    _ => None,
+                })
+            else {
+                return Err(RulesError::IllegalAction(
+                    "blocks trigger lacks a preceding blocker declaration",
+                ));
+            };
+            if self.event_log[declaration_index + 1..stacked_index]
+                .iter()
+                .any(|prior| matches!(prior, GameEvent::StepBegan { .. }))
+                || !assignments.iter().any(|(_, blocker)| blocker == source)
+            {
+                return Err(RulesError::IllegalAction(
+                    "blocks trigger does not name a committed current-combat blocker",
                 ));
             }
         }

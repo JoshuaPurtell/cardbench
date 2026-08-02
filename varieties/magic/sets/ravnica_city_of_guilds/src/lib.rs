@@ -41,7 +41,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 163] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 164] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -205,6 +205,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 163] = [
     "RAV-LOXODON-GATEKEEPER",
     "RAV-THREE-DREAMS",
     "RAV-CONCLAVES-BLESSING",
+    "RAV-ZEPHYR-SPIRIT",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -3771,17 +3772,30 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed blocking trigger is deliberately
-        // omitted from this compatibility slice.
-        bounded_creature_chassis(
-            "RAV-ZEPHYR-SPIRIT",
-            "Zephyr Spirit",
-            ManaCost::with_colors(5, [Color::Blue]),
-            colors([Color::Blue]),
-            0,
-            6,
-        ),
+        // Full fidelity: the source's own Blocks trigger queues only after
+        // legal blocker commitment and required damage-order choices, then
+        // returns that exact source incarnation to its owner's hand through
+        // the ordinary stack lifecycle.
+        CardDefinition {
+            id: "RAV-ZEPHYR-SPIRIT",
+            name: "Zephyr Spirit",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(5, [Color::Blue]),
+            colors: colors([Color::Blue]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "blocks-return-source-owner-hand",
+            ],
+            power: Some(0),
+            toughness: Some(6),
+            keywords: vec![],
+            effects: vec![],
+        },
         // Full fidelity for the exercised deterministic trigger path: another
         // creature dying stacks the source-identified all-player discard
         // ability. The effect's card selections are visible through explicit
@@ -6510,6 +6524,17 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                 optional: false,
                 targets: vec![],
                 effects: vec![Effect::DrawController],
+            },
+        },
+        TriggeredAbilityBinding {
+            card_definition: "RAV-ZEPHYR-SPIRIT",
+            ability: TriggeredAbility {
+                id: "blocks-return-source-owner-hand",
+                condition: TriggerCondition::Blocks,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![Effect::ReturnSourceToOwnersHand],
             },
         },
         TriggeredAbilityBinding {

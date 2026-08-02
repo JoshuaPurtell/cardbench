@@ -346,6 +346,10 @@ pub enum TriggerCondition {
     /// The source was declared as an attacker. A triggered optional mana cost
     /// is paid only on resolution, after the post-declaration priority window.
     Attacks,
+    /// The source was committed as a legal blocker. This is observed only
+    /// after the defending player has completed blocker declaration (and any
+    /// required attacker damage-order decisions), before ordinary priority.
+    Blocks,
     /// A noncreature spell was cast by this permanent's controller. The
     /// triggering stack item retains that exact spell as its target.
     CastsNoncreatureSpell,

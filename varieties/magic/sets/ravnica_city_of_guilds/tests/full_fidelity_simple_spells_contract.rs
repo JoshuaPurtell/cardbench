@@ -176,6 +176,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-LOXODON-GATEKEEPER",
             "RAV-THREE-DREAMS",
             "RAV-CONCLAVES-BLESSING",
+            "RAV-ZEPHYR-SPIRIT",
         ]
     );
     let definitions = card_definitions();
