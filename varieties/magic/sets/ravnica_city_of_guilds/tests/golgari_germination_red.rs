@@ -2,9 +2,7 @@
 
 use std::collections::BTreeSet;
 
-use cardbench_magic_engine::{
-    CardType, Color, Effect, ManaCost, TokenSpec, TriggerCondition,
-};
+use cardbench_magic_engine::{CardType, Color, Effect, ManaCost, TokenSpec, TriggerCondition};
 use cardbench_magic_rav::{
     RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, rav_triggered_ability_bindings,
 };
@@ -25,11 +23,16 @@ fn golgari_germination_requires_a_controlled_nontoken_creature_dies_trigger() {
         germination.colors,
         BTreeSet::from([Color::Black, Color::Green])
     );
-    assert_eq!(germination.card_types, BTreeSet::from([CardType::Enchantment]));
+    assert_eq!(
+        germination.card_types,
+        BTreeSet::from([CardType::Enchantment])
+    );
     assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&germination.id));
-    assert!(germination
-        .supported_rules
-        .contains(&"controlled-nontoken-creature-dies-create-saproling"));
+    assert!(
+        germination
+            .supported_rules
+            .contains(&"controlled-nontoken-creature-dies-create-saproling")
+    );
 
     let trigger = rav_triggered_ability_bindings()
         .into_iter()

@@ -28,9 +28,11 @@ fn cloudstone_curio_has_the_full_colorless_etb_choice_contract() {
         RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&curio.id),
         "Cloudstone Curio needs the complete optional, source-relative ETB bounce path"
     );
-    assert!(curio
-        .supported_rules
-        .contains(&"controlled-nonartifact-etb-may-bounce-another-sharing-card-type"));
+    assert!(
+        curio
+            .supported_rules
+            .contains(&"controlled-nonartifact-etb-may-bounce-another-sharing-card-type")
+    );
 }
 
 #[test]
@@ -44,5 +46,8 @@ fn cloudstone_curio_binds_a_controller_scoped_nonartifact_entry_trigger() {
         TriggerCondition::ControlledNonartifactPermanentEntersBattlefield
     );
     assert!(binding.ability.optional, "the return remains a may choice");
-    assert!(binding.ability.targets.is_empty(), "the printed ability does not target");
+    assert!(
+        binding.ability.targets.is_empty(),
+        "the printed ability does not target"
+    );
 }
