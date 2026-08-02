@@ -85,6 +85,16 @@ Oracle Magic rules coverage.
   activated, its complete typed ability shape is retained by the ordinary
   stack object and remains resolvable if the attachment departs in response;
   replay rejects an ambiguous or fabricated attachment-grant stack ability.
+- A spell may snapshot its resolving controller's current creature permanents
+  and install an exact typed activated-ability grant on each recipient as a
+  timestamped layer-six end-of-turn continuous effect. Every recipient retains
+  its own source identity, controller, tap cost, and target validation; the
+  effect source is receipt provenance only. A later creature is not a
+  recipient, and a recipient's zone change immediately expires its grant by
+  exact incarnation. An activation made while the grant is live remains an
+  ordinary stack object after that expiry or its source's departure; historical
+  stack validation matches the immutable grant shape and rejects ambiguous or
+  fabricated provider bindings.
 - A timestamped layer-seven attachment change may scale power and toughness by
   the number of other creatures controlled by its target's current controller.
   The target itself is excluded, opposing creatures never contribute, and the

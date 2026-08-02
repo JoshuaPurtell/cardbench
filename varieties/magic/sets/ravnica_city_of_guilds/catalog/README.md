@@ -50,8 +50,8 @@ different eligible Aura or decline a successful search in this slice. That
 choice fidelity remains unsupported, so Auratouched Mage is not in
 `RAV_FULL_FIDELITY_DEFINITION_IDS`.
 
-The current catalog partition is 173 full / 54 partial / 64 catalog-only unique
-names (188 / 54 / 64 printings). The independently checked coverage-report
+The current catalog partition is 174 full / 54 partial / 63 catalog-only unique
+names (189 / 54 / 63 printings). The independently checked coverage-report
 binary emits the same partition.
 
 `RAV_FULL_FIDELITY_DEFINITION_IDS` is a deliberately small positive manifest,
@@ -74,6 +74,12 @@ target, resolution, damage, continuous-effect, and state-based-action rules;
 this repository retains only CardBench-authored semantic operations, never card
 rules text. Every other executable definition remains a bounded compatibility
 slice unless it is explicitly added to that manifest after the same audit.
+
+Flame Fusillade is a positive-manifest entry. Its resolving spell snapshots
+only the caster's current creatures and gives each a typed layer-six tap
+activation through cleanup. The recipient remains the ability source; source
+or recipient departure after activation cannot erase the normal stack object,
+while cleanup and recipient re-entry revoke the grant for future activations.
 
 Faith's Fetters is also a positive-manifest entry. Its typed enchant-permanent
 attachment carries reusable combat and nonmana-activation restrictions while
