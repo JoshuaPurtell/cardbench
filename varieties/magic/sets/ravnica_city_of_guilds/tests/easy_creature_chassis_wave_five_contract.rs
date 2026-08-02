@@ -1,9 +1,8 @@
 //! Public contract for the first collector-range creature batch.
 //!
 //! The generic chassis entries expose only normal casting and base
-//! characteristics. Sandsower and Divebomber Griffin now have separate
-//! full-fidelity activation contracts, while Drift of Phantasms records its bounded
-//! Defender/immediate-Transmute compatibility slice.
+//! characteristics. Sandsower, Divebomber Griffin, Drift of Phantasms, and
+//! Ethereal Usher now have separate full-fidelity contracts.
 
 use std::collections::BTreeSet;
 
@@ -14,24 +13,14 @@ use cardbench_magic_rav::{card_definitions, run_all_scenarios};
 #[allow(clippy::too_many_lines)] // Explicit base-fact matrix is audit-friendly.
 fn first_range_creature_chassis_is_exactly_bounded_to_public_base_facts() {
     let definitions = card_definitions();
-    let expected = [
-        (
-            "RAV-DRAKE-FAMILIAR",
-            "Drake Familiar",
-            ManaCost::with_colors(1, [Color::Blue]),
-            BTreeSet::from([Color::Blue]),
-            2,
-            1,
-        ),
-        (
-            "RAV-ETHEREAL-USHER",
-            "Ethereal Usher",
-            ManaCost::with_colors(5, [Color::Blue]),
-            BTreeSet::from([Color::Blue]),
-            2,
-            3,
-        ),
-    ];
+    let expected = [(
+        "RAV-DRAKE-FAMILIAR",
+        "Drake Familiar",
+        ManaCost::with_colors(1, [Color::Blue]),
+        BTreeSet::from([Color::Blue]),
+        2,
+        1,
+    )];
 
     for (id, name, mana_cost, colors, power, toughness) in expected {
         let definition = definitions
@@ -70,6 +59,26 @@ fn first_range_creature_chassis_is_exactly_bounded_to_public_base_facts() {
             "base-characteristics",
             "defender",
             "flying",
+            "transmute",
+        ]
+    );
+
+    let usher = definitions
+        .iter()
+        .find(|definition| definition.id == "RAV-ETHEREAL-USHER")
+        .expect("Ethereal Usher definition exists");
+    assert_eq!(usher.name, "Ethereal Usher");
+    assert_eq!(usher.mana_cost, ManaCost::with_colors(5, [Color::Blue]));
+    assert_eq!(usher.colors, BTreeSet::from([Color::Blue]));
+    assert_eq!(usher.card_types, BTreeSet::from([CardType::Creature]));
+    assert_eq!((usher.power, usher.toughness), (Some(2), Some(3)));
+    assert_eq!(
+        usher.supported_rules,
+        [
+            "full-rules-fidelity",
+            "colored-cost-casting",
+            "base-characteristics",
+            "activated-target-unblockable-until-end-of-turn",
             "transmute",
         ]
     );

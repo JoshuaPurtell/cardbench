@@ -41,7 +41,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 170] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 171] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -158,6 +158,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 170] = [
     "RAV-BELLTOWER-SPHINX",
     "RAV-COMPULSIVE-RESEARCH",
     "RAV-DRIFT-OF-PHANTASMS",
+    "RAV-ETHEREAL-USHER",
     "RAV-FLIGHT-OF-FANCY",
     "RAV-FLOW-OF-IDEAS",
     "RAV-SURVEILLING-SPRITE",
@@ -4893,17 +4894,33 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             ],
             effects: vec![],
         },
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed evasion and hand-zone transmute
-        // behavior are deliberately omitted from this compatibility slice.
-        bounded_creature_chassis(
-            "RAV-ETHEREAL-USHER",
-            "Ethereal Usher",
-            ManaCost::with_colors(5, [Color::Blue]),
-            colors([Color::Blue]),
-            2,
-            3,
-        ),
+        // Full fidelity: the Blue tap activation installs the existing
+        // source-relative blocker restriction, while Transmute is a normal
+        // hand-zone ability with a stack object and private library search.
+        CardDefinition {
+            id: "RAV-ETHEREAL-USHER",
+            name: "Ethereal Usher",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(5, [Color::Blue]),
+            colors: colors([Color::Blue]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "activated-target-unblockable-until-end-of-turn",
+                "transmute",
+            ],
+            power: Some(2),
+            toughness: Some(3),
+            keywords: vec![Keyword::Transmute(ManaCost::with_colors(
+                1,
+                [Color::Blue, Color::Blue],
+            ))],
+            effects: vec![],
+        },
         // Compatibility scope: normal colored-cost creature casting, base
         // characteristics, Defender, and the existing immediate hand-zone
         // Transmute operation. Its entry-triggered library search remains
@@ -6103,6 +6120,24 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 discard_cards: 0,
                 targets: vec![cardbench_magic_engine::TargetRequirement::Creature],
                 effects: vec![Effect::PreventTargetBlockingSourceUntilEndOfTurn],
+            },
+        },
+        ActivatedAbilityBinding {
+            card_definition: "RAV-ETHEREAL-USHER",
+            ability: ActivatedAbility {
+                id: "tap-target-unblockable",
+                mana_cost: ManaCost::with_colors(0, [Color::Blue]),
+                tap_cost: true,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![TargetRequirement::Creature],
+                effects: vec![Effect::ModifyTargetKeywordUntilEndOfTurn {
+                    keyword: Keyword::Unblockable,
+                }],
             },
         },
         ActivatedAbilityBinding {
