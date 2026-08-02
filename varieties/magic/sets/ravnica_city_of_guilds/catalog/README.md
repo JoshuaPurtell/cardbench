@@ -49,8 +49,8 @@ a zone move. The fetched Aura's ordinary ETB trigger is queued only after the
 Mage trigger's terminal receipt. The opponent sees neither unselected Aura
 identities nor a private decision projection.
 
-The current catalog partition is 236 full / 21 partial / 34 catalog-only unique
-names (251 / 21 / 34 printings). The independently checked coverage-report
+The current catalog partition is 237 full / 20 partial / 34 catalog-only unique
+names (252 / 20 / 34 printings). The independently checked coverage-report
 binary emits the same partition.
 
 Bramble Elemental is full-fidelity through the expansion-neutral, current-
@@ -71,6 +71,11 @@ tapped, resolves its mandatory controller-land return through the ordinary
 target/stack lifecycle, and has its distinct fixed two-color mana bundle. The
 live trace covers self-return and excludes an opponent's land; its returned
 card uses the normal owner-indexed hand transition.
+
+Dimir House Guard is a positive-manifest entry. Its static Fear and immediate
+hand-zone Transmute path are paired with a stack-backed activation that
+requires one selected controlled creature sacrifice and creates a source-bound
+regeneration shield only after the ordinary priority cycle.
 
 Spawnbroker is a positive-manifest entry through the expansion-neutral paired-
 target control-exchange instruction. Its ETB target decision retains both

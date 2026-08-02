@@ -43,7 +43,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 236] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 237] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
@@ -138,6 +138,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 236] = [
     "RAV-SELESNYA-GUILDMAGE",
     "RAV-GOLGARI-GUILDMAGE",
     "RAV-DIMIR-GUILDMAGE",
+    "RAV-DIMIR-HOUSE-GUARD",
     "RAV-LURKING-INFORMANT",
     "RAV-SANDSOWER",
     "RAV-DIVEBOMBER-GRIFFIN",
@@ -1832,11 +1833,10 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             ))],
             effects: vec![Effect::DestroyTargetNonblackCreature],
         },
-        // Compatibility scope: normal colored-cost creature casting, static
-        // Fear, and the shared immediate hand-zone Transmute operation. Its
-        // sacrifice-to-regenerate activation remains explicitly outside this
-        // bounded slice because the engine does not yet model a selected
-        // controlled-creature sacrifice cost for non-mana abilities.
+        // Full fidelity: normal colored-cost creature casting, static Fear,
+        // the shared immediate hand-zone Transmute operation, and the
+        // selected-creature sacrifice self-regeneration activation are all
+        // represented by existing expansion-neutral substrates.
         CardDefinition {
             id: "RAV-DIMIR-HOUSE-GUARD",
             name: "Dimir House Guard",
@@ -1847,10 +1847,12 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             card_types: types([CardType::Creature]),
             is_basic_land: false,
             supported_rules: &[
+                "full-rules-fidelity",
                 "colored-cost-casting",
                 "base-characteristics",
                 "fear",
                 "immediate-hand-zone-transmute-compatibility",
+                "sacrifice-creature-regenerate",
             ],
             power: Some(2),
             toughness: Some(3),
@@ -6715,6 +6717,22 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 additional_tap_creatures: 0,
                 sacrifice_source: false,
                 sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![],
+                effects: vec![Effect::RegenerateSource],
+            },
+        },
+        ActivatedAbilityBinding {
+            card_definition: "RAV-DIMIR-HOUSE-GUARD",
+            ability: ActivatedAbility {
+                id: "sacrifice-creature-regenerate",
+                mana_cost: ManaCost::new(0),
+                tap_cost: false,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 1,
                 sacrifice_lands: 0,
                 discard_cards: 0,
                 targets: vec![],

@@ -1,4 +1,4 @@
-//! Red regression for Dimir House Guard's executable compatibility boundary.
+//! Public static-characteristics regression for Dimir House Guard.
 
 use std::collections::BTreeSet;
 
@@ -6,7 +6,7 @@ use cardbench_magic_engine::{CardType, Color, Keyword, ManaCost};
 use cardbench_magic_rav::{RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions};
 
 #[test]
-fn dimir_house_guard_exposes_its_static_fear_and_bounded_transmute_slice() {
+fn dimir_house_guard_exposes_its_static_fear_and_transmute_slice() {
     let guard = card_definitions()
         .into_iter()
         .find(|definition| definition.id == "RAV-DIMIR-HOUSE-GUARD")
@@ -27,14 +27,16 @@ fn dimir_house_guard_exposes_its_static_fear_and_bounded_transmute_slice() {
     assert_eq!(
         guard.supported_rules,
         [
+            "full-rules-fidelity",
             "colored-cost-casting",
             "base-characteristics",
             "fear",
             "immediate-hand-zone-transmute-compatibility",
+            "sacrifice-creature-regenerate",
         ]
     );
     assert!(
-        !RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&guard.id),
-        "the sacrifice-to-regenerate activation remains outside this bounded slice"
+        RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&guard.id),
+        "the full-fidelity activation is covered by its dedicated stack regression"
     );
 }

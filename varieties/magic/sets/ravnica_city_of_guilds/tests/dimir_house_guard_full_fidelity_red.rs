@@ -80,20 +80,24 @@ fn dimir_house_guard_sacrifices_a_controlled_creature_for_a_regeneration_shield(
     let sacrifice_index = game
         .event_log
         .iter()
-        .position(|event| matches!(
-            event,
-            GameEvent::SacrificedAsAbilityCost { source, permanent, .. }
-                if *source == guard && *permanent == offering
-        ))
+        .position(|event| {
+            matches!(
+                event,
+                GameEvent::SacrificedAsAbilityCost { source, permanent, .. }
+                    if *source == guard && *permanent == offering
+            )
+        })
         .expect("sacrifice-cost receipt exists");
     let activation_index = game
         .event_log
         .iter()
-        .position(|event| matches!(
-            event,
-            GameEvent::AbilityActivated { source, ability, .. }
-                if *source == guard && *ability == "sacrifice-creature-regenerate"
-        ))
+        .position(|event| {
+            matches!(
+                event,
+                GameEvent::AbilityActivated { source, ability, .. }
+                    if *source == guard && *ability == "sacrifice-creature-regenerate"
+            )
+        })
         .expect("activation receipt exists");
     assert!(
         sacrifice_index < activation_index,
@@ -103,7 +107,8 @@ fn dimir_house_guard_sacrifices_a_controlled_creature_for_a_regeneration_shield(
     let first = game.priority;
     game.pass_priority(first).expect("controller passes");
     let second = game.priority;
-    game.pass_priority(second).expect("opponent resolves ability");
+    game.pass_priority(second)
+        .expect("opponent resolves ability");
     println!(
         "Dimir House Guard full-fidelity trace: {:?}",
         game.canonical_event_log()

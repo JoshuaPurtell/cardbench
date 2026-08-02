@@ -9302,7 +9302,7 @@ digest = "fnv1a64:f0c05f8297b9f0d2"
 [[scenario]]
 id = "rav_dimir_house_guard_fear_and_transmute_compatibility"
 seed = 128
-description = "Use Dimir House Guard's supported immediate hand-zone Transmute path, then reject a nonblack, nonartifact creature's block against its static Fear. Its sacrifice-to-regenerate activation remains outside this bounded slice."
+description = "Use Dimir House Guard's immediate hand-zone Transmute path, then reject a nonblack, nonartifact creature's block against its static Fear. Its selected-creature sacrifice regeneration is covered by the direct stack trace contract."
 
 [[scenario.card]]
 label = "guard_in_hand"
