@@ -75,6 +75,12 @@ Oracle Magic rules coverage.
   `AttachmentEstablishedWithoutContinuousEffect`, which must not be paired
   with a synthetic layer receipt. `AttachmentDetached` names a previously
   attached Equipment, including one with no declared changes.
+- A timestamped layer-seven attachment change may scale power and toughness by
+  the number of other creatures controlled by its target's current controller.
+  The target itself is excluded, opposing creatures never contribute, and the
+  value is derived whenever characteristics are read; ordinary creature
+  departure or control change therefore recalculates it without a stale
+  counter or synthetic layer receipt.
   A suppression change rejects only nonmana activated abilities before any
   cost or receipt; mana abilities remain legal.
 - A source-relative Aura instruction reads only the permanent currently

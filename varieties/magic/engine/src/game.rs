@@ -3612,6 +3612,26 @@ impl Game {
                         .toughness
                         .map(|current| current + i32::from(*toughness));
                 }
+                ContinuousChange::ModifyPowerToughnessForEachOtherCreatureControlledByTarget {
+                    power_per_creature,
+                    toughness_per_creature,
+                } => {
+                    let count = i32::try_from(self.controlled_creature_count_other_than(
+                        self.controller_of(card)?,
+                        Some(card),
+                    ))
+                    .map_err(|_| {
+                        RulesError::IllegalAction(
+                            "other controlled creature count exceeds supported range",
+                        )
+                    })?;
+                    characteristics.power = characteristics
+                        .power
+                        .map(|current| current + i32::from(*power_per_creature) * count);
+                    characteristics.toughness = characteristics
+                        .toughness
+                        .map(|current| current + i32::from(*toughness_per_creature) * count);
+                }
                 ContinuousChange::ControlledCreatureCountPowerToughness
                 | ContinuousChange::OtherControlledCreaturesModifyPowerToughness { .. }
                 | ContinuousChange::OtherControlledCreaturesAddKeyword(_)
@@ -3751,8 +3771,17 @@ impl Game {
     }
 
     fn controlled_creature_count(&self, controller: PlayerId) -> usize {
+        self.controlled_creature_count_other_than(controller, None)
+    }
+
+    fn controlled_creature_count_other_than(
+        &self,
+        controller: PlayerId,
+        excluded: Option<ObjectId>,
+    ) -> usize {
         self.all_battlefield_cards()
             .into_iter()
+            .filter(|card| Some(*card) != excluded)
             .filter(|card| self.controller_of(*card) == Ok(controller))
             .filter(|card| {
                 self.objects.get(card).is_some_and(|object| {

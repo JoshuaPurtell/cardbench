@@ -2555,6 +2555,13 @@ pub enum ContinuousChange {
         power: i16,
         toughness: i16,
     },
+    /// A timestamped layer-seven modifier that scales by the number of other
+    /// creatures controlled by the continuous effect's target controller.
+    /// The target itself is excluded even if it later changes controller.
+    ModifyPowerToughnessForEachOtherCreatureControlledByTarget {
+        power_per_creature: i16,
+        toughness_per_creature: i16,
+    },
     /// A static characteristic-defining effect that sets the source's power
     /// and toughness to the live number of creatures controlled by that
     /// permanent's controller. It is registered as immutable expansion data,
@@ -2600,6 +2607,7 @@ impl ContinuousChange {
             | Self::ControlledCreaturesAddKeywordIfSourceEnchanted(_)
             | Self::SuppressNonManaActivatedAbilities => Layer::Ability,
             Self::ModifyPowerToughness { .. }
+            | Self::ModifyPowerToughnessForEachOtherCreatureControlledByTarget { .. }
             | Self::ControlledCreatureCountPowerToughness
             | Self::OtherControlledCreaturesModifyPowerToughness { .. } => Layer::PowerToughness,
         }
