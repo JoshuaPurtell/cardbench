@@ -1389,8 +1389,11 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             }],
         },
         // Compatibility scope: normal creature casting, base characteristics,
-        // and the shared Dredge replacement. Its printed upkeep and end-step
-        // behavior is intentionally unsupported.
+        // the shared Dredge replacement, and both beginning-of-upkeep
+        // triggers. The source-present counter sweep is typed and preserves
+        // the controller's simultaneous-trigger ordering choice; the
+        // source-departure last-known-information edge remains explicitly
+        // outside this initial compatibility slice.
         CardDefinition {
             id: "RAV-NECROPLASM",
             name: "Necroplasm",
@@ -1400,7 +1403,13 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Creature]),
             is_basic_land: false,
-            supported_rules: &["dredge", "base-characteristics"],
+            supported_rules: &[
+                "dredge",
+                "base-characteristics",
+                "upkeep-add-plus-one-counter",
+                "upkeep-destroy-creatures-by-plus-one-counter-mana-value",
+                "source-departure-last-known-counter-value-not-implemented",
+            ],
             power: Some(1),
             toughness: Some(1),
             keywords: vec![Keyword::Dredge(2)],
@@ -7830,6 +7839,35 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                     counter: CounterKind::Named("plague"),
                     amount: 1,
                 }],
+            },
+        },
+        TriggeredAbilityBinding {
+            card_definition: "RAV-NECROPLASM",
+            ability: TriggeredAbility {
+                id: "upkeep-add-plus-one-counter",
+                condition: TriggerCondition::BeginningOfUpkeep,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![Effect::AddCountersToSource {
+                    counter: CounterKind::PlusOnePlusOne,
+                    amount: 1,
+                }],
+            },
+        },
+        TriggeredAbilityBinding {
+            card_definition: "RAV-NECROPLASM",
+            ability: TriggeredAbility {
+                id: "upkeep-destroy-creatures-by-plus-one-counter-mana-value",
+                condition: TriggerCondition::BeginningOfUpkeep,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![
+                    Effect::DestroyAllCreaturesWithManaValueEqualToSourceCounters {
+                        counter: CounterKind::PlusOnePlusOne,
+                    },
+                ],
             },
         },
         TriggeredAbilityBinding {

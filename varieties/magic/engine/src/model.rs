@@ -2306,6 +2306,15 @@ pub enum Effect {
     DestroyAllNonlandPermanentsWithManaValue {
         mana_value: i16,
     },
+    /// At resolution, read the current `counter` quantity on the exact
+    /// battlefield source and destroy every creature with that mana value.
+    /// This deliberately differs from the source-sacrifice nonland sweep:
+    /// simultaneous upkeep triggers can change the source's counter total
+    /// before this instruction resolves, so it must not be precomputed at
+    /// trigger placement.
+    DestroyAllCreaturesWithManaValueEqualToSourceCounters {
+        counter: CounterKind,
+    },
     /// Counter one targeted instant or sorcery spell. This is intentionally a
     /// semantic effect rather than a copied card-text string.
     CounterTargetInstantOrSorcerySpell,
@@ -2738,6 +2747,7 @@ impl Effect {
             | Self::DestroyAllNonTokenCreatures
             | Self::DestroyAllNonlandPermanentsWithManaValueEqualToSourceCounters { .. }
             | Self::DestroyAllNonlandPermanentsWithManaValue { .. }
+            | Self::DestroyAllCreaturesWithManaValueEqualToSourceCounters { .. }
             | Self::DestroyCombatDamagedCreature
             | Self::DestroyCapturedCreature { .. }
             | Self::DestroyCapturedCombatParticipants { .. }

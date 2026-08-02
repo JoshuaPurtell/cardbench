@@ -9,9 +9,9 @@ use std::fs;
 
 use cardbench_magic_engine::{
     AbilityActivation, AbilityCostPayment, BasicLandManaAbilityActivation, CastPaymentManaAbility,
-    CastRequest, Color, CombatBlock, ConvokeContribution, ConvokePayment, DecisionSelection,
-    Effect, Game, GeneralizedAbilityActivation, ManaAbilityActivation, ManaPaymentSelection,
-    ObjectId, PlayerId, PolicyAction, RulesError, Target, Zone,
+    CastRequest, Color, CombatBlock, ConvokeContribution, ConvokePayment, DecisionKind,
+    DecisionSelection, Effect, Game, GeneralizedAbilityActivation, ManaAbilityActivation,
+    ManaPaymentSelection, ObjectId, PlayerId, PolicyAction, RulesError, Target, Zone,
 };
 
 use crate::{
@@ -88,6 +88,11 @@ struct ActionSpec {
     /// and retains it on the stack for resolution-time target legality.
     chosen_x: Option<u8>,
     attackers: Vec<String>,
+    /// Explicit controller ordering for a simultaneous triggered-ability
+    /// group. Entries use `source_label:ability_id`, keeping the public
+    /// policy decision boundary visible in the fixture rather than relying on
+    /// source/binding insertion order.
+    trigger_order: Vec<String>,
     ability: String,
     color: String,
     pay: bool,
@@ -312,6 +317,7 @@ fn set_action_field(
         "mana_spend" => action.mana_spend = parse_string_array(value, line_number)?,
         "chosen_x" => action.chosen_x = Some(parse_number(value, line_number)?),
         "attackers" => action.attackers = parse_string_array(value, line_number)?,
+        "trigger_order" => action.trigger_order = parse_string_array(value, line_number)?,
         "ability" => action.ability = parse_string(value, line_number)?,
         "color" => action.color = parse_string(value, line_number)?,
         "pay" => action.pay = parse_bool(value, line_number)?,
@@ -544,6 +550,45 @@ fn execute_action(
             }
         }
         "pass" => game.pass_priority(player).map_err(rules_error),
+        "order_triggers" => {
+            let decision = game
+                .view_for_player(player)
+                .map_err(rules_error)?
+                .pending_decision
+                .ok_or_else(|| "no simultaneous-trigger ordering decision is pending".to_owned())?;
+            if decision.kind != DecisionKind::TriggeredAbilityOrder {
+                return Err(
+                    "pending decision is not a simultaneous-trigger ordering choice".to_owned(),
+                );
+            }
+            let order = action
+                .trigger_order
+                .iter()
+                .map(|entry| {
+                    let (label, ability) = split_pair(entry, "trigger-order entry")?;
+                    let source = lookup(labels, label)?;
+                    decision
+                        .trigger_candidates
+                        .iter()
+                        .copied()
+                        .find(|candidate| {
+                            candidate.source == source && candidate.ability == ability
+                        })
+                        .ok_or_else(|| {
+                            format!("trigger-order entry `{entry}` is not a pending candidate")
+                        })
+                })
+                .collect::<Result<Vec<_>, String>>()?;
+            game.submit_policy_move(
+                player,
+                "rav-scenario.order-triggers.v1",
+                PolicyAction::SubmitDecision {
+                    decision: decision.id,
+                    selection: DecisionSelection::TriggerOrder(order),
+                },
+            )
+            .map_err(rules_error)
+        }
         "declare_attackers" => {
             let attackers = action
                 .attackers

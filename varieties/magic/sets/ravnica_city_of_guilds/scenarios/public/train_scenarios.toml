@@ -2693,7 +2693,7 @@ digest = "fnv1a64:8c3f2096289bda01"
 [[scenario]]
 id = "rav_necroplasm_dredge_and_cast_slice"
 seed = 0
-description = "Replace a draw with Necroplasm's supported Dredge value and cast its supported 1/1 base creature. Its printed turn-trigger behavior is outside this compatibility slice."
+description = "Replace a draw with Necroplasm's Dredge value and cast its 1/1 base creature; the separate upkeep scenario submits its simultaneous-trigger order explicitly."
 
 [[scenario.card]]
 label = "necroplasm"
@@ -2746,6 +2746,63 @@ zones = ["necroplasm:battlefield", "mill_one:graveyard", "mill_two:graveyard"]
 powers = ["necroplasm:1"]
 event_markers = ["Dredged", "SpellCast", "SpellResolved"]
 digest = "fnv1a64:79b89fce27f506dd"
+
+[[scenario]]
+id = "rav_necroplasm_ordered_upkeep_counter_sweep"
+seed = 0
+triggers = true
+description = "At the first upkeep, submit Necroplasm's sweep below its counter trigger so the resolution-time +1/+1 counter value destroys exactly the one-mana creature."
+
+[[scenario.card]]
+label = "necroplasm"
+owner = 0
+definition = "RAV-NECROPLASM"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "mana_one"
+owner = 0
+definition = "RAV-ELVES-OF-DEEP-SHADOW"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "mana_two"
+owner = 1
+definition = "RAV-WATCHWOLF"
+zone = "battlefield"
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "order_triggers"
+player = 0
+trigger_order = ["necroplasm:upkeep-destroy-creatures-by-plus-one-counter-mana-value", "necroplasm:upkeep-add-plus-one-counter"]
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["necroplasm:battlefield", "mana_one:graveyard", "mana_two:battlefield"]
+powers = ["necroplasm:2", "mana_two:3"]
+stack_size = 0
+priority = 0
+event_markers = ["DecisionOpened", "TriggeredAbilityOrderChosen", "TriggeredAbilityStacked", "CounterPlaced", "CardDestroyed", "AbilityResolved"]
+digest = "fnv1a64:09d4754914b6db04"
 
 [[scenario]]
 id = "rav_grave_shell_scarab_dredge_and_cast_slice"

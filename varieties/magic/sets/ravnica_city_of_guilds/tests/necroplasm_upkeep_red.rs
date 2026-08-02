@@ -5,7 +5,9 @@
 //! `+1/+1` counter quantity when it resolves, rather than being a
 //! card-specific precomputed value.
 
-use cardbench_magic_engine::{CounterKind, Effect, Game, ManaCost, PlayerId};
+use cardbench_magic_engine::{
+    CounterKind, DecisionKind, DecisionSelection, Effect, Game, GameEvent, ManaCost, PlayerId, Zone,
+};
 use cardbench_magic_rav::{
     card_definitions, rav_activated_ability_bindings, rav_additional_spell_cost_bindings,
     rav_basic_land_type_bindings, rav_mana_ability_bindings, rav_triggered_ability_bindings,
@@ -67,6 +69,15 @@ fn necroplasm_requires_both_upkeep_bindings_and_counter_sweep_contract() {
                     amount: 1,
                 }]
     }));
+    assert!(bindings.iter().any(|ability| {
+        ability.id == "upkeep-destroy-creatures-by-plus-one-counter-mana-value"
+            && ability.effects
+                == [
+                    Effect::DestroyAllCreaturesWithManaValueEqualToSourceCounters {
+                        counter: CounterKind::PlusOnePlusOne,
+                    },
+                ]
+    }));
 
     let mut game = game();
     game.put_on_battlefield(PlayerId(0), definition.id)
@@ -80,4 +91,77 @@ fn necroplasm_requires_both_upkeep_bindings_and_counter_sweep_contract() {
             .is_some(),
         "the controller must order both simultaneous upkeep triggers before priority"
     );
+}
+
+fn pass_pair(game: &mut Game) {
+    let first = game.priority;
+    game.pass_priority(first).expect("first priority pass");
+    let second = game.priority;
+    game.pass_priority(second)
+        .expect("second priority pass resolves");
+}
+
+#[test]
+fn necroplasm_sweep_reads_the_counter_after_the_controller_orders_upkeep_triggers() {
+    let mut game = game();
+    let necroplasm = game
+        .put_on_battlefield(PlayerId(0), "RAV-NECROPLASM")
+        .expect("Necroplasm begins on battlefield");
+    let mana_value_one = game
+        .put_on_battlefield(PlayerId(0), "RAV-ELVES-OF-DEEP-SHADOW")
+        .expect("one-mana creature begins on battlefield");
+    let mana_value_two = game
+        .put_on_battlefield(PlayerId(1), "RAV-WATCHWOLF")
+        .expect("two-mana creature begins on battlefield");
+    game.begin_game().expect("game reaches the first upkeep");
+
+    let decision = game
+        .view_for_player(PlayerId(0))
+        .expect("controller view is available")
+        .pending_decision
+        .expect("Necroplasm's simultaneous triggers require an order");
+    assert_eq!(decision.kind, DecisionKind::TriggeredAbilityOrder);
+    let sweep = *decision
+        .trigger_candidates
+        .iter()
+        .find(|entry| entry.ability == "upkeep-destroy-creatures-by-plus-one-counter-mana-value")
+        .expect("sweep trigger is an orderable candidate");
+    let counter = *decision
+        .trigger_candidates
+        .iter()
+        .find(|entry| entry.ability == "upkeep-add-plus-one-counter")
+        .expect("counter trigger is an orderable candidate");
+    game.submit_decision(
+        PlayerId(0),
+        decision.id,
+        // The first selected member goes lower on the stack.  Put the sweep
+        // there so the counter trigger resolves first and its new count is
+        // read by the later sweep resolution.
+        DecisionSelection::TriggerOrder(vec![sweep, counter]),
+    )
+    .expect("controller orders counter to resolve before the sweep");
+    pass_pair(&mut game);
+    pass_pair(&mut game);
+
+    println!(
+        "Necroplasm ordered-upkeep trace: {:#?}",
+        game.canonical_event_log()
+    );
+    assert_eq!(game.zone_of(necroplasm), Some(Zone::Battlefield));
+    assert_eq!(game.zone_of(mana_value_one), Some(Zone::Graveyard));
+    assert_eq!(game.zone_of(mana_value_two), Some(Zone::Battlefield));
+    assert_eq!(
+        game.object(necroplasm)
+            .expect("Necroplasm remains live")
+            .counters
+            .get(&CounterKind::PlusOnePlusOne),
+        Some(&1)
+    );
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::CardDestroyed { source, card }
+            if *source == necroplasm && *card == mana_value_one
+    )));
+    game.validate_invariants()
+        .expect("the resolution-time counter sweep preserves invariants");
 }

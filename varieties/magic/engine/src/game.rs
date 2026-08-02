@@ -13662,6 +13662,7 @@ impl Game {
                     ..
                 }
                 | Effect::DestroyAllNonlandPermanentsWithManaValue { .. }
+                | Effect::DestroyAllCreaturesWithManaValueEqualToSourceCounters { .. }
                 | Effect::CounterTargetInstantOrSorcerySpell
                 | Effect::CounterTargetSpell
                 | Effect::CounterTargetNoncreatureSpell
@@ -19769,6 +19770,51 @@ impl Game {
                     self.destroy_permanent(source, permanent)?;
                 }
             }
+            Effect::DestroyAllCreaturesWithManaValueEqualToSourceCounters { counter } => {
+                if !counter.is_valid() {
+                    return Err(RulesError::IllegalAction(
+                        "source-counter creature sweep requires a valid counter kind",
+                    ));
+                }
+                // This instruction intentionally samples at resolution.  A
+                // controller can order simultaneous upkeep triggers so an
+                // earlier one changes the counter total before this stack
+                // item resolves.  A departed/re-entered source is a no-op in
+                // this bounded source-present substrate; it must never read a
+                // later incarnation's counters.
+                if self.zone_of(source) != Some(Zone::Battlefield)
+                    || !self.object_has_incarnation(source, source_incarnation)
+                {
+                    return Ok(());
+                }
+                let mana_value = self
+                    .object(source)?
+                    .counters
+                    .get(counter)
+                    .copied()
+                    .unwrap_or_default();
+                if mana_value < 0 {
+                    return Err(RulesError::IllegalAction(
+                        "source-counter creature sweep observed a negative counter quantity",
+                    ));
+                }
+                let creatures = self
+                    .all_battlefield_cards()
+                    .into_iter()
+                    .filter(|candidate| {
+                        self.characteristics(*candidate)
+                            .is_ok_and(|characteristics| {
+                                characteristics.card_types.contains(&CardType::Creature)
+                            })
+                            && self
+                                .permanent_mana_value(*candidate)
+                                .is_ok_and(|candidate_value| candidate_value == mana_value)
+                    })
+                    .collect::<Vec<_>>();
+                for creature in creatures {
+                    self.destroy_permanent(source, creature)?;
+                }
+            }
             Effect::CounterTargetInstantOrSorcerySpell
             | Effect::CounterTargetSpell
             | Effect::CounterTargetNoncreatureSpell => {
@@ -22129,6 +22175,19 @@ impl Game {
                 "graveyard-to-hand trigger requires one positive source-controller life-gain effect",
             ));
         }
+        if ability.effects.iter().any(|effect| {
+            matches!(
+                effect,
+                Effect::DestroyAllCreaturesWithManaValueEqualToSourceCounters { .. }
+            )
+        }) && (ability.condition != TriggerCondition::BeginningOfUpkeep
+            || !ability.targets.is_empty()
+            || ability.effects.len() != 1)
+        {
+            return Err(RulesError::IllegalAction(
+                "source-counter creature sweep requires one target-free beginning-of-upkeep trigger",
+            ));
+        }
         if matches!(
             ability.condition,
             TriggerCondition::CastsNoncreatureSpell
@@ -22241,6 +22300,15 @@ impl Game {
                 if !counter.is_valid() {
                     return Err(RulesError::IllegalAction(
                         "source-counter sweep requires a valid counter kind",
+                    ));
+                }
+            }
+            if let Effect::DestroyAllCreaturesWithManaValueEqualToSourceCounters { counter } =
+                effect
+            {
+                if !counter.is_valid() {
+                    return Err(RulesError::IllegalAction(
+                        "source-counter creature sweep requires a valid counter kind",
                     ));
                 }
             }
