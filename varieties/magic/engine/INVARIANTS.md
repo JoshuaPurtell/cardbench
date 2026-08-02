@@ -23,8 +23,11 @@ Oracle Magic rules coverage.
   may follow it.
 - On a player-loss transition, objects owned by that player leave this game
   and emit `ObjectLeftGame`; a non-owned object under that player's control is
-  exiled to its owner. No departed player's object may later appear in a zone,
-  on the stack, in combat, or in an effect.
+  exiled to its owner. A stack-only virtual spell copy controlled by that
+  player has no owner-zone move, so it instead ceases with one
+  `SpellCopyLeftGame { copy, original, controller }` receipt. No departed
+  player's object or virtual copy may later appear in a zone, on the stack, in
+  combat, or in an effect.
 - Every object exists in exactly one player zone or exactly once as the card of
   a stack object. An object cannot be in two zones, or on both the stack and in
   a zone.
@@ -1180,7 +1183,17 @@ Oracle Magic rules coverage.
   Its copied definition, effects, target-incarnation provenance, mana-spend
   snapshot, and source provenance must agree with that original. It leaves no
   card in a terminal zone: resolution records `SpellCopyResolved` and a
-  rules-counter records `SpellCopyCounteredByRules`.
+  rules-counter records `SpellCopyCounteredByRules`. If its controller leaves
+  a continuing multiplayer game, it is removed before that player's physical
+  objects and records `SpellCopyLeftGame`; this is its third and final valid
+  terminal lifecycle outcome.
+- A copy receipt has one unique nonzero identity and one immutable original /
+  controller pair. Its receipt history must therefore show exactly one of a
+  live virtual stack object, `SpellCopyResolved`, `SpellCopyCounteredByRules`,
+  or `SpellCopyLeftGame`; no copy may be live after any terminal receipt or
+  have two terminal receipts. A scenario event-log reset is rejected while a
+  virtual copy is live, preserving the opening `SpellCopied` provenance that
+  the lifecycle audit requires.
 - A copy whose target set may be changed suspends through the same monotonic
   `DecisionId` state machine as other public choices. Its options are public
   legal target values, its cardinality equals the original spell's target-slot
