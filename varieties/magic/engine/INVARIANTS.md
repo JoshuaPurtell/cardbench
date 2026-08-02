@@ -240,10 +240,16 @@ Oracle Magic rules coverage.
   toughness; and dredge values are positive.
 - A registered basic-land type line names exactly one basic-land definition and
   its singleton intrinsic mana color agrees with the typed land identity.
-  `CardView` preserves that identity, and a typed intrinsic activation cannot
-  produce a different color. A cast-payment basic-land request must name one
-  such typed land and its intrinsic color; it cannot use an untyped land or
-  produce a different color while paying a spell cost.
+  `CardView` preserves the derived current identity, and a typed intrinsic
+  activation cannot produce a different color. A timestamped layer-four
+  `ReplaceBasicLandType` effect may replace a live land's type through the
+  current turn; each affected land then has exactly the chosen type's
+  intrinsic one-color mana ability while retaining its other represented
+  abilities. Nonlands cannot receive this change, an opponent land is not
+  silently selected by a controller-scoped effect, and expiration restores
+  the definition-bound type. A cast-payment basic-land request must name a
+  currently typed land and its current intrinsic color; it cannot use an
+  untyped land or produce a different color while paying a spell cost.
 - A registered static entry restriction names a permanent source, is immutable
   before the game begins, and is rechecked from the battlefield at each
   ordinary entry. Its first represented rule applies to opponents' artifacts,
@@ -777,6 +783,13 @@ Oracle Magic rules coverage.
   `AdditionalCreatureTappedAsAbilityCost` immediately before its matching
   `AbilityActivated`; the invariant audit rejects orphaned, duplicate,
   wrong-source, or wrong-cardinality receipts.
+- A bound activated ability may require exactly one policy-submitted
+  `BasicLandType` choice. That semantic choice is neither a permanent target
+  nor a source of object-incarnation provenance: it is validated before any
+  mana payment, materialized into the immutable stack-effect payload, and
+  cannot be omitted, duplicated, or supplied to an ability that does not
+  declare it. A rejected choice leaves the mana pool, stack, and event log
+  unchanged.
 - A composite one-target modifier retains exactly one creature target slot on
   its stack object even when it installs both a layer-seven power/toughness
   change and a layer-six keyword grant. Both effects use that same legal
