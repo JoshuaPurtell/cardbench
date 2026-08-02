@@ -181,12 +181,20 @@ fn mixed_basic_and_bound_cast_payment_has_one_ordered_receipt_lifecycle() {
                 player,
                 card: spell
             },
+            GameEvent::ObjectIncarnationAdvanced {
+                object: spell,
+                incarnation: 2,
+            },
             GameEvent::PriorityPassed { player },
             GameEvent::PriorityPassed { player: opponent },
             GameEvent::SpellResolved { card: spell },
             GameEvent::CardMoved {
                 card: spell,
                 to: Zone::Battlefield,
+            },
+            GameEvent::ObjectIncarnationAdvanced {
+                object: spell,
+                incarnation: 3,
             },
         ],
         "each payment receipt is complete before the next payment and the spell has one terminal stack lifecycle"

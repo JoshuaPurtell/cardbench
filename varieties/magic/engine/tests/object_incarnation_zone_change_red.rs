@@ -9,7 +9,9 @@ use std::collections::BTreeSet;
 use cardbench_magic_engine::{
     AbilityActivation, ActivatedAbility, ActivatedAbilityBinding, BasicLandManaAbilityActivation,
     BasicLandType, BasicLandTypeBinding, CardDefinition, CardType, CastPaymentManaAbility,
-    CastRequest, Color, Effect, Game, ManaCost, ManaPaymentSelection, PlayerId, Target, Zone,
+    CastRequest, Color, ContinuousChange, Duration, Effect, Game, GameEvent, ManaCost,
+    ManaPaymentSelection, PlayerId, Target, TriggerCondition, TriggeredAbility,
+    TriggeredAbilityBinding, Zone,
 };
 
 const SOURCE: &str = "INCARNATION-SOURCE";
@@ -173,6 +175,22 @@ fn source_relative_effect_cannot_modify_a_returned_source_incarnation() {
     game.begin_game().expect("fixture game begins");
 
     let original_incarnation = game.object(source).expect("source exists").incarnation;
+    game.add_continuous_effect(
+        source,
+        source,
+        ContinuousChange::ModifyPowerToughness {
+            power: 1,
+            toughness: 1,
+        },
+        Duration::EndOfTurn(game.turn),
+    )
+    .expect("old incarnation receives a temporary modifier");
+    assert_eq!(
+        game.characteristics(source)
+            .expect("source has characteristics before leaving")
+            .power,
+        Some(2)
+    );
     game.activate_ability(
         caster,
         AbilityActivation {
@@ -185,6 +203,11 @@ fn source_relative_effect_cannot_modify_a_returned_source_incarnation() {
         },
     )
     .expect("self-pump is placed on the stack");
+    assert_eq!(
+        game.stack.last().map(|item| item.source_incarnation),
+        Some(original_incarnation),
+        "the stack retains the source incarnation at activation time"
+    );
     game.pass_priority(caster)
         .expect("caster passes to responder");
     game.cast_spell(
@@ -226,6 +249,11 @@ fn source_relative_effect_cannot_modify_a_returned_source_incarnation() {
         returned_incarnation > original_incarnation,
         "the returned permanent must be a new rules object"
     );
+    assert_eq!(
+        game.stack.last().map(|item| item.source_incarnation),
+        Some(original_incarnation),
+        "a returned source may not rewrite the historical stack source"
+    );
 
     pass_pair(&mut game);
     eprintln!(
@@ -240,15 +268,97 @@ fn source_relative_effect_cannot_modify_a_returned_source_incarnation() {
         Some(1),
         "the old ability must not modify the returned source incarnation"
     );
+    assert_eq!(
+        game.canonical_event_log()
+            .iter()
+            .filter(|event| {
+                event.contains("ContinuousEffectCreated")
+                    && event.contains(&format!("target: {source:?}"))
+            })
+            .count(),
+        1,
+        "only the old-incarnation modifier may have been created; the old ability must not create another on the returned incarnation"
+    );
     assert!(
-        !game.canonical_event_log().iter().any(|event| {
-            event.contains("ContinuousEffectCreated")
-                && event.contains(&format!("target: {source:?}"))
-        }),
-        "the old ability must not create a continuous effect on the returned incarnation"
+        game.canonical_event_log()
+            .iter()
+            .any(|event| event.contains("ContinuousEffectExpired")),
+        "the continuous effect on the old incarnation must expire at departure"
     );
     game.validate_invariants()
         .expect("failed source-relative resolution leaves a valid state");
+}
+
+#[test]
+fn a_dies_trigger_retains_battlefield_source_provenance_after_departure() {
+    let controller = PlayerId(0);
+    let mut game = Game::new_with_all_bindings_and_triggers(
+        definitions(),
+        2,
+        [],
+        [BasicLandTypeBinding {
+            card_definition: FOREST,
+            land_type: BasicLandType::Forest,
+        }],
+        [],
+        [],
+        [TriggeredAbilityBinding {
+            card_definition: SOURCE,
+            ability: TriggeredAbility {
+                id: "dies-life",
+                condition: TriggerCondition::Dies,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![Effect::GainLifeController { amount: 1 }],
+            },
+        }],
+    )
+    .expect("trigger fixture initializes");
+    let source = game
+        .put_on_battlefield(controller, SOURCE)
+        .expect("source enters battlefield");
+    game.begin_game().expect("fixture game begins");
+    let battlefield_incarnation = game.object(source).expect("source exists").incarnation;
+
+    game.add_continuous_effect(
+        source,
+        source,
+        ContinuousChange::ModifyPowerToughness {
+            power: -1,
+            toughness: -1,
+        },
+        Duration::EndOfTurn(game.turn),
+    )
+    .expect("SBA kills the source and stacks its dies trigger");
+    assert_eq!(game.zone_of(source), Some(Zone::Graveyard));
+    assert_eq!(
+        game.stack.last().map(|item| item.source_incarnation),
+        Some(battlefield_incarnation),
+        "a dies trigger must retain the dead battlefield incarnation, not its graveyard incarnation"
+    );
+    assert!(
+        game.object(source)
+            .expect("source remains allocated")
+            .incarnation
+            > battlefield_incarnation
+    );
+    assert!(
+        game.event_log.iter().any(|event| matches!(
+            event,
+            GameEvent::TriggeredAbilityStacked {
+                source: event_source,
+                source_incarnation,
+                ability: "dies-life",
+                ..
+            } if *event_source == source && *source_incarnation == battlefield_incarnation
+        )),
+        "the public trigger receipt must retain the historical battlefield incarnation"
+    );
+    pass_pair(&mut game);
+    assert_eq!(game.players[controller.0].life, 21);
+    game.validate_invariants()
+        .expect("historical dies-trigger provenance is invariant-valid");
 }
 
 #[test]

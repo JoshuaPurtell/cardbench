@@ -68,7 +68,7 @@ fn dimir_guildmage_resolves_target_player_draw_then_resolution_time_discard() {
     assert_eq!(game.zone_of(discarded), Some(Zone::Graveyard));
     assert!(game.event_log.iter().any(|event| matches!(
         event,
-        GameEvent::AbilityResolved { source, ability }
+        GameEvent::AbilityResolved { source, ability, .. }
             if *source == guildmage && *ability == "target-player-draw"
     )));
     assert!(game.event_log.iter().any(|event| matches!(

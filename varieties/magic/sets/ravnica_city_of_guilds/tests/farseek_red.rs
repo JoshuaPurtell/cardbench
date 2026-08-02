@@ -161,7 +161,7 @@ fn farseek_land_entry_waits_for_its_spell_to_finish_before_triggering() {
         .expect("opponent resolves trigger");
     assert!(game.event_log.iter().any(|event| matches!(
         event,
-        GameEvent::AbilityResolved { source, ability }
+        GameEvent::AbilityResolved { source, ability, .. }
             if *source == stone_seeder && *ability == "landfall-untap-source"
     )));
     game.validate_invariants()

@@ -115,7 +115,7 @@ fn dowsing_shaman_returns_only_a_controller_enchantment_card_after_stack_resolut
     )));
     assert!(game.event_log.iter().any(|event| matches!(
         event,
-        GameEvent::AbilityResolved { source, ability }
+        GameEvent::AbilityResolved { source, ability, .. }
             if *source == shaman && *ability == "return-target-enchantment-from-graveyard"
     )));
     game.validate_invariants()

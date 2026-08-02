@@ -61,6 +61,7 @@ fn failed_resolution_restores_the_final_pass_and_authoritative_stack() {
     game.stack = vec![
         StackObject {
             card: target,
+            source_incarnation: 1,
             controller: responder,
             ability_id: None,
             targets: vec![],
@@ -73,6 +74,7 @@ fn failed_resolution_restores_the_final_pass_and_authoritative_stack() {
         },
         StackObject {
             card: malformed,
+            source_incarnation: 1,
             controller: caster,
             ability_id: None,
             targets: vec![Target::Spell(target)],

@@ -277,6 +277,7 @@ fn stone_seeder_hierophant_observes_an_opponents_land_entry() {
                 controller: PlayerId(0),
                 source: event_source,
                 ability: "landfall-untap-source",
+                ..
             } if *event_source == source
         )
     }));

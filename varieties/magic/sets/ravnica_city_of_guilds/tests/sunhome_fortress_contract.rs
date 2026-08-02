@@ -153,7 +153,7 @@ fn sunhome_grants_double_strike_through_a_typed_stack_activation() {
     )));
     assert!(game.event_log.iter().any(|event| matches!(
         event,
-        GameEvent::AbilityResolved { source, ability }
+        GameEvent::AbilityResolved { source, ability, .. }
             if *source == land && *ability == "grant-target-double-strike"
     )));
     game.validate_invariants()

@@ -87,7 +87,7 @@ fn grave_shell_scarab_sacrifices_as_cost_then_draws_on_resolution() {
     assert!(sacrifice < activated, "the source is sacrificed as a cost");
     assert!(game.event_log.iter().any(|event| matches!(
         event,
-        GameEvent::AbilityResolved { source, ability }
+        GameEvent::AbilityResolved { source, ability, .. }
             if *source == scarab && *ability == "sacrifice-source-draw"
     )));
     game.validate_invariants()

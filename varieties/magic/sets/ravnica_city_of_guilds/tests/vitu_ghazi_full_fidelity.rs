@@ -179,7 +179,7 @@ fn vitu_ghazi_mana_pays_its_stack_backed_saproling_activation() {
     )));
     assert!(game.event_log.iter().any(|event| matches!(
         event,
-        GameEvent::AbilityResolved { source, ability }
+        GameEvent::AbilityResolved { source, ability, .. }
             if *source == token_land && *ability == "create-green-saproling"
     )));
     game.validate_invariants()

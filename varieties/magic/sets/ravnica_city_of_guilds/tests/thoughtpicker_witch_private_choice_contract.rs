@@ -136,6 +136,7 @@ fn witch_keeps_ability_on_stack_for_a_controller_private_opponent_library_choice
             ability,
             opponent,
             count,
+            ..
         } if *controller == PlayerId(0)
             && *source == witch
             && *ability == "sacrifice-creature-private-opponent-top-two-exile"
@@ -144,7 +145,7 @@ fn witch_keeps_ability_on_stack_for_a_controller_private_opponent_library_choice
     )));
     assert!(game.event_log.iter().any(|event| matches!(
         event,
-        GameEvent::AbilityResolved { source, ability }
+        GameEvent::AbilityResolved { source, ability, .. }
             if *source == witch && *ability == "sacrifice-creature-private-opponent-top-two-exile"
     )));
     game.validate_invariants()

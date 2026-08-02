@@ -154,7 +154,7 @@ fn perilous_forays_land_entry_waits_for_its_ability_to_finish_before_triggering(
         .position(|event| {
             matches!(
                 event,
-                GameEvent::AbilityResolved { source, ability }
+                GameEvent::AbilityResolved { source, ability, .. }
                     if *source == forays && *ability == "sacrifice-creature-search-basic-land"
             )
         })

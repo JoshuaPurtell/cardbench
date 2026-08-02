@@ -86,7 +86,7 @@ fn mausoleum_turnkey_stacks_and_resolves_when_another_creature_remains() {
     assert!(game.event_log.iter().any(|event| {
         matches!(
             event,
-            GameEvent::AbilityResolved { source, ability }
+            GameEvent::AbilityResolved { source, ability, .. }
                 if *source == turnkey && *ability == "conditional-graveyard-return"
         )
     }));

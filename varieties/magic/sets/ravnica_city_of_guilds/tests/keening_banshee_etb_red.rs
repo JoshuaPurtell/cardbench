@@ -110,7 +110,7 @@ fn keening_banshee_stacks_and_resolves_its_targeted_etb_modifier() {
     )));
     assert!(game.event_log.iter().any(|event| matches!(
         event,
-        GameEvent::AbilityResolved { source, ability }
+        GameEvent::AbilityResolved { source, ability, .. }
             if *source == banshee && *ability == "etb-target-minus-two"
     )));
 }

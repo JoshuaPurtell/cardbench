@@ -450,6 +450,7 @@ struct PendingLibrarySearchChoice {
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct PendingTriggeredAbilityTargetChoice {
     source: ObjectId,
+    source_incarnation: u64,
     controller: PlayerId,
     ability: crate::TriggeredAbility,
     effects: Vec<Effect>,
@@ -458,6 +459,7 @@ struct PendingTriggeredAbilityTargetChoice {
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct PendingOptionalTriggeredAbilityChoice {
     source: ObjectId,
+    source_incarnation: u64,
     controller: PlayerId,
     ability: crate::TriggeredAbility,
 }
@@ -507,6 +509,7 @@ enum TriggerEventPayload {
 #[derive(Clone, Debug)]
 struct PendingTriggeredAbilityEvent {
     source: ObjectId,
+    source_incarnation: u64,
     controller: PlayerId,
     ability: crate::TriggeredAbility,
     payload: TriggerEventPayload,
@@ -1323,6 +1326,7 @@ impl Game {
                 damage_shield: 0,
                 counters: BTreeMap::new(),
                 attached_to: None,
+                attached_to_incarnation: None,
                 entered_turn: self.turn,
                 token: None,
             },
@@ -1925,6 +1929,7 @@ impl Game {
         let target_incarnations = self.target_incarnations(&activation.targets);
         self.stack.push(StackObject {
             card: activation.source,
+            source_incarnation: source.incarnation,
             controller: player,
             ability_id: Some(ability.id),
             targets: activation.targets,
@@ -1938,6 +1943,7 @@ impl Game {
         self.record_event(GameEvent::AbilityActivated {
             player,
             source: activation.source,
+            source_incarnation: source.incarnation,
             ability: ability.id,
         });
         self.consecutive_passes = 0;
@@ -2784,7 +2790,13 @@ impl Game {
 
     fn source_has_live_aura_attachment(&self, source: ObjectId) -> Result<bool, RulesError> {
         for aura in self.all_battlefield_cards() {
-            if self.is_aura_like(aura)? && self.object(aura)?.attached_to == Some(source) {
+            if self.is_aura_like(aura)?
+                && self.object(aura)?.attached_to == Some(source)
+                && self
+                    .object(aura)?
+                    .attached_to_incarnation
+                    .is_some_and(|incarnation| self.object_has_incarnation(source, incarnation))
+            {
                 return Ok(true);
             }
         }
@@ -2890,6 +2902,8 @@ impl Game {
             _ => {}
         }
         let layer = change.layer();
+        let source_incarnation = self.object(source)?.incarnation;
+        let target_incarnation = self.object(target)?.incarnation;
         if let ContinuousChange::AddDamageShield(amount) = &change {
             self.objects
                 .get_mut(&target)
@@ -2898,7 +2912,9 @@ impl Game {
         }
         self.continuous_effects.push(ContinuousEffect {
             source,
+            source_incarnation,
             target,
+            target_incarnation,
             change,
             duration,
             timestamp: self.next_timestamp,
@@ -2928,6 +2944,7 @@ impl Game {
         {
             return Err(RulesError::IllegalTarget(Target::Permanent(target)));
         }
+        let target_incarnation = self.object(target)?.incarnation;
         let object = self
             .objects
             .get_mut(&aura)
@@ -2937,6 +2954,7 @@ impl Game {
                 "an aura-like permanent was already attached",
             ));
         }
+        object.attached_to_incarnation = Some(target_incarnation);
         for change in changes {
             self.install_continuous_effect(aura, target, change, Duration::Permanent)?;
         }
@@ -3599,10 +3617,11 @@ impl Game {
                 },
             });
         }
-        self.remove_from_all_zones(request.card);
+        let source_incarnation = self.move_to_stack(request.card)?;
         let target_incarnations = self.target_incarnations(&spell_targets);
         self.stack.push(StackObject {
             card: request.card,
+            source_incarnation,
             controller: player,
             ability_id: None,
             targets: spell_targets,
@@ -3631,6 +3650,10 @@ impl Game {
         self.record_event(GameEvent::SpellCast {
             player,
             card: request.card,
+        });
+        self.record_event(GameEvent::ObjectIncarnationAdvanced {
+            object: request.card,
+            incarnation: source_incarnation,
         });
         if !definition.card_types.contains(&CardType::Creature) {
             self.enqueue_cast_noncreature_triggers(player, request.card)?;
@@ -3806,7 +3829,7 @@ impl Game {
             self.pending_draw_replacement = None;
             return result;
         }
-        let Some(card) = self.players[player.0].library.pop() else {
+        let Some(card) = self.players[player.0].library.last().copied() else {
             self.lose_player(player, "attempted to draw from an empty library");
             self.normalize_priority_after_elimination()?;
             self.record_game_end_if_needed();
@@ -3815,11 +3838,7 @@ impl Game {
             }
             return Ok(());
         };
-        self.players[player.0].hand.push(card);
-        self.record_event(GameEvent::CardMoved {
-            card,
-            to: Zone::Hand,
-        });
+        self.move_to_zone(card, Zone::Hand)?;
         if resolves_pending_draw {
             self.pending_draw_replacement = None;
         }
@@ -3832,7 +3851,7 @@ impl Game {
     /// already passed through stack timing and target legality.
     fn draw_card_from_spell_effect(&mut self, player: PlayerId) -> Result<(), RulesError> {
         self.player(player)?;
-        let Some(card) = self.players[player.0].library.pop() else {
+        let Some(card) = self.players[player.0].library.last().copied() else {
             self.lose_player(player, "attempted to draw from an empty library");
             self.normalize_priority_after_elimination()?;
             // The enclosing stack resolver still owes its `AbilityResolved`
@@ -3840,11 +3859,7 @@ impl Game {
             // only after that receipt so the terminal event stays last.
             return Ok(());
         };
-        self.players[player.0].hand.push(card);
-        self.record_event(GameEvent::CardMoved {
-            card,
-            to: Zone::Hand,
-        });
+        self.move_to_zone(card, Zone::Hand)?;
         Ok(())
     }
 
@@ -4051,6 +4066,7 @@ impl Game {
                 "private opponent-library choice no longer matches the live stack ability",
             ));
         }
+        let source_incarnation = stack_object.source_incarnation;
         let expected_cards = self.players[choice.opponent.0]
             .library
             .iter()
@@ -4094,7 +4110,11 @@ impl Game {
         if let Some(card) = selected {
             self.move_to_zone(card, Zone::Exile)?;
         }
-        self.record_event(GameEvent::AbilityResolved { source, ability });
+        self.record_event(GameEvent::AbilityResolved {
+            source,
+            source_incarnation,
+            ability,
+        });
         self.check_state_based_actions()?;
         self.flush_pending_land_entry_triggers()?;
         self.flush_pending_damage_triggers();
@@ -4137,7 +4157,7 @@ impl Game {
                 "only the resolving controller may submit this library search choice",
             ));
         }
-        let (ability, chosen_x) = {
+        let (ability, chosen_x, source_incarnation) = {
             let top = self.stack.last().ok_or(RulesError::IllegalAction(
                 "library search choice has no live stack item",
             ))?;
@@ -4157,7 +4177,7 @@ impl Game {
                     "library search choice no longer matches the live stack item",
                 ));
             }
-            (top.ability_id, top.chosen_x)
+            (top.ability_id, top.chosen_x, top.source_incarnation)
         };
         let expected_cards =
             self.library_search_candidates(player, &choice.requirement, chosen_x)?;
@@ -4218,7 +4238,11 @@ impl Game {
         self.record_event(GameEvent::LibraryShuffled { player, cards });
 
         if let Some(ability) = ability {
-            self.record_event(GameEvent::AbilityResolved { source, ability });
+            self.record_event(GameEvent::AbilityResolved {
+                source,
+                source_incarnation,
+                ability,
+            });
         } else {
             self.record_event(GameEvent::SpellResolved { card: source });
             self.move_to_spell_terminal_zone(source)?;
@@ -4266,20 +4290,12 @@ impl Game {
         for _ in 0..amount {
             let milled = self.players[player.0]
                 .library
-                .pop()
+                .last()
+                .copied()
                 .ok_or(RulesError::IllegalAction("library changed during dredge"))?;
-            self.players[player.0].graveyard.push(milled);
-            self.record_event(GameEvent::CardMoved {
-                card: milled,
-                to: Zone::Graveyard,
-            });
+            self.move_to_zone(milled, Zone::Graveyard)?;
         }
-        self.remove_from_all_zones(card);
-        self.players[player.0].hand.push(card);
-        self.record_event(GameEvent::CardMoved {
-            card,
-            to: Zone::Hand,
-        });
+        self.move_to_zone(card, Zone::Hand)?;
         self.record_event(GameEvent::Dredged {
             player,
             card,
@@ -4484,7 +4500,9 @@ impl Game {
                 if !self.is_aura_like(aura)? {
                     continue;
                 }
-                let attached_to = self.object(aura)?.attached_to;
+                let object = self.object(aura)?;
+                let attached_to = object.attached_to;
+                let attached_to_incarnation = object.attached_to_incarnation;
                 let requirement =
                     self.aura_attachment_requirement(aura)?
                         .ok_or(RulesError::IllegalAction(
@@ -4492,6 +4510,9 @@ impl Game {
                         ))?;
                 let attached_to_live_permanent = attached_to.is_some_and(|target| {
                     self.zone_of(target) == Some(Zone::Battlefield)
+                        && attached_to_incarnation.is_some_and(|incarnation| {
+                            self.object_has_incarnation(target, incarnation)
+                        })
                         && self.target_matches_for_source(
                             self.objects[&aura].controller,
                             aura,
@@ -4628,6 +4649,7 @@ impl Game {
             ));
         }
         Self::validate_mana_ability_event_order(&self.event_log)?;
+        Self::validate_object_incarnation_event_order(&self.event_log)?;
         Self::validate_library_search_event_order(&self.event_log)?;
         Self::validate_aura_attachment_event_order(&self.event_log)?;
         Self::validate_spell_mana_payment_event_order(&self.event_log)?;
@@ -5249,6 +5271,16 @@ impl Game {
             }
             let object = self.object(stack_object.card)?;
             self.player(stack_object.controller)?;
+            if stack_object.source_incarnation == 0 {
+                return Err(RulesError::IllegalAction(
+                    "stack object has no source incarnation provenance",
+                ));
+            }
+            if !is_ability && object.incarnation != stack_object.source_incarnation {
+                return Err(RulesError::IllegalAction(
+                    "stack spell does not retain its current stack incarnation",
+                ));
+            }
             if self.players[stack_object.controller.0].lost {
                 return Err(RulesError::IllegalAction(
                     "a departed player controls a stack object",
@@ -5656,8 +5688,14 @@ impl Game {
         }
         let mut effect_timestamps = BTreeSet::new();
         for effect in &self.continuous_effects {
-            self.object(effect.source)?;
-            self.object(effect.target)?;
+            if effect.source_incarnation == 0
+                || effect.target_incarnation == 0
+                || !self.object_has_incarnation(effect.target, effect.target_incarnation)
+            {
+                return Err(RulesError::IllegalAction(
+                    "continuous effect target incarnation is stale or invalid",
+                ));
+            }
             if matches!(effect.change, ContinuousChange::AddColor(Color::Colorless)) {
                 return Err(RulesError::IllegalAction(
                     "continuous effects may not add the colorless mana kind as a card color",
@@ -5693,7 +5731,9 @@ impl Game {
                 }
                 Duration::Permanent
                     if self.zone_of(effect.source) != Some(Zone::Battlefield)
-                        || self.zone_of(effect.target) != Some(Zone::Battlefield) =>
+                        || self.zone_of(effect.target) != Some(Zone::Battlefield)
+                        || !self
+                            .object_has_incarnation(effect.source, effect.source_incarnation) =>
                 {
                     return Err(RulesError::IllegalAction(
                         "permanent continuous effect outlived a battlefield endpoint",
@@ -5705,7 +5745,7 @@ impl Game {
         for aura in self.all_battlefield_cards() {
             let object = self.object(aura)?;
             if object.token.is_some() {
-                if object.attached_to.is_some() {
+                if object.attached_to.is_some() || object.attached_to_incarnation.is_some() {
                     return Err(RulesError::IllegalAction(
                         "a token permanent retains an attachment target",
                     ));
@@ -5731,7 +5771,7 @@ impl Game {
                 })
                 .collect::<Vec<_>>();
             if attachment_specs.is_empty() {
-                if object.attached_to.is_some() {
+                if object.attached_to.is_some() || object.attached_to_incarnation.is_some() {
                     return Err(RulesError::IllegalAction(
                         "a non-aura permanent retains an attachment target",
                     ));
@@ -5746,8 +5786,15 @@ impl Game {
             let target = object.attached_to.ok_or(RulesError::IllegalAction(
                 "a battlefield aura-like permanent has no attachment target",
             ))?;
+            let target_incarnation =
+                object
+                    .attached_to_incarnation
+                    .ok_or(RulesError::IllegalAction(
+                        "a battlefield aura-like permanent lacks target incarnation provenance",
+                    ))?;
             let (requirement, changes) = &attachment_specs[0];
             if self.zone_of(target) != Some(Zone::Battlefield)
+                || !self.object_has_incarnation(target, target_incarnation)
                 || !self.target_matches_for_source(
                     object.controller,
                     aura,
@@ -5766,6 +5813,8 @@ impl Game {
                     .filter(|effect| {
                         effect.source == aura
                             && effect.target == target
+                            && effect.source_incarnation == object.incarnation
+                            && effect.target_incarnation == target_incarnation
                             && effect.duration == Duration::Permanent
                             && &effect.change == change
                     })
@@ -6672,6 +6721,7 @@ impl Game {
         {
             self.pending_optional_trigger_choice = Some(PendingOptionalTriggeredAbilityChoice {
                 source: top.card,
+                source_incarnation: top.source_incarnation,
                 controller: top.controller,
                 ability: ability.clone(),
             });
@@ -6717,6 +6767,7 @@ impl Game {
             if let Some(ability) = stack_object.ability_id {
                 self.record_event(GameEvent::AbilityCounteredByRules {
                     source: stack_object.card,
+                    source_incarnation: stack_object.source_incarnation,
                     ability,
                 });
             } else {
@@ -6821,6 +6872,7 @@ impl Game {
                     }
                     self.resolve_effect(
                         stack_object.card,
+                        stack_object.source_incarnation,
                         stack_object.controller,
                         stack_object.chosen_x,
                         stack_object.mana_spent.as_deref(),
@@ -6884,6 +6936,7 @@ impl Game {
                         } else {
                             self.resolve_effect(
                                 stack_object.card,
+                                stack_object.source_incarnation,
                                 stack_object.controller,
                                 stack_object.chosen_x,
                                 stack_object.mana_spent.as_deref(),
@@ -6926,6 +6979,7 @@ impl Game {
             }
             self.record_event(GameEvent::AbilityResolved {
                 source: stack_object.card,
+                source_incarnation: stack_object.source_incarnation,
                 ability,
             });
             self.check_state_based_actions()?;
@@ -7111,7 +7165,7 @@ impl Game {
         let Some(top) = self.stack.last() else {
             return Ok(false);
         };
-        let (source, ability, controller, opponent, count) = match (
+        let (source, source_incarnation, ability, controller, opponent, count) = match (
             top.ability_id,
             top.targets.as_slice(),
             top.effects.as_slice(),
@@ -7120,7 +7174,14 @@ impl Game {
                 Some(ability),
                 [Target::Player(opponent)],
                 [Effect::LookAtTopCardsOfTargetOpponentExileOne { count }],
-            ) => (top.card, ability, top.controller, *opponent, *count),
+            ) => (
+                top.card,
+                top.source_incarnation,
+                ability,
+                top.controller,
+                *opponent,
+                *count,
+            ),
             _ => return Ok(false),
         };
         if count == 0 {
@@ -7147,6 +7208,7 @@ impl Game {
         self.record_event(GameEvent::PrivateOpponentLibraryChoiceOpened {
             controller,
             source,
+            source_incarnation,
             ability,
             opponent,
             count: u8::try_from(cards.len()).map_err(|_| {
@@ -7213,6 +7275,7 @@ impl Game {
                 self.pending_trigger_events
                     .push(PendingTriggeredAbilityEvent {
                         source,
+                        source_incarnation: self.object(source)?.incarnation,
                         controller,
                         ability,
                         payload: TriggerEventPayload::ExactTargets(vec![Target::Spell(spell)]),
@@ -7285,6 +7348,31 @@ impl Game {
         controller: PlayerId,
         condition: TriggerCondition,
     ) {
+        let source_incarnation = match self.object(source) {
+            Ok(object) => object.incarnation,
+            Err(_) => return,
+        };
+        self.enqueue_triggers_for_source_at_incarnation(
+            source,
+            source_incarnation,
+            definition,
+            controller,
+            condition,
+        );
+    }
+
+    /// Queues a trigger using a last-known source incarnation captured when
+    /// its condition occurred.  Dies triggers call this after zone movement,
+    /// when querying the card again would otherwise report its graveyard
+    /// incarnation instead of the historical battlefield object.
+    fn enqueue_triggers_for_source_at_incarnation(
+        &mut self,
+        source: ObjectId,
+        source_incarnation: u64,
+        definition: &'static str,
+        controller: PlayerId,
+        condition: TriggerCondition,
+    ) {
         let triggers = self
             .triggered_abilities
             .get(definition)
@@ -7309,6 +7397,7 @@ impl Game {
             self.pending_trigger_events
                 .push(PendingTriggeredAbilityEvent {
                     source,
+                    source_incarnation,
                     controller,
                     ability,
                     payload: TriggerEventPayload::None,
@@ -7389,6 +7478,7 @@ impl Game {
                 self.pending_trigger_target_choices
                     .push(PendingTriggeredAbilityTargetChoice {
                         source: event.source,
+                        source_incarnation: event.source_incarnation,
                         controller: event.controller,
                         ability: event.ability,
                         effects,
@@ -7435,6 +7525,7 @@ impl Game {
         let target_incarnations = self.target_incarnations(&targets);
         self.stack.push(StackObject {
             card: event.source,
+            source_incarnation: event.source_incarnation,
             controller: event.controller,
             ability_id: Some(event.ability.id),
             targets,
@@ -7448,6 +7539,7 @@ impl Game {
         self.record_event(GameEvent::TriggeredAbilityStacked {
             controller: event.controller,
             source: event.source,
+            source_incarnation: event.source_incarnation,
             ability: event.ability.id,
         });
         self.consecutive_passes = 0;
@@ -7461,8 +7553,15 @@ impl Game {
         let controller = self.active_player;
         let sources = self.players[controller.0].battlefield.clone();
         for source in sources {
-            let object = self.object(source)?;
-            if object.controller != controller || object.token.is_some() {
+            let (source_controller, source_is_token, source_incarnation) = {
+                let object = self.object(source)?;
+                (
+                    object.controller,
+                    object.token.is_some(),
+                    object.incarnation,
+                )
+            };
+            if source_controller != controller || source_is_token {
                 continue;
             }
             let definition = self.card_definition(source)?.id;
@@ -7478,6 +7577,7 @@ impl Game {
                 self.pending_trigger_events
                     .push(PendingTriggeredAbilityEvent {
                         source,
+                        source_incarnation,
                         controller,
                         ability,
                         payload: TriggerEventPayload::None,
@@ -7609,6 +7709,7 @@ impl Game {
             let target_incarnations = game.target_incarnations(&targets);
             game.stack.push(StackObject {
                 card: choice.source,
+                source_incarnation: choice.source_incarnation,
                 controller: choice.controller,
                 ability_id: Some(choice.ability.id),
                 targets,
@@ -7622,6 +7723,7 @@ impl Game {
             game.record_event(GameEvent::TriggeredAbilityStacked {
                 controller: choice.controller,
                 source: choice.source,
+                source_incarnation: choice.source_incarnation,
                 ability: choice.ability.id,
             });
             game.consecutive_passes = 0;
@@ -7807,9 +7909,14 @@ impl Game {
                 "trigger effect-object choice no longer matches its stack ability",
             ));
         }
+        let source_incarnation = top.source_incarnation;
         self.stack.pop();
         apply(self)?;
-        self.record_event(GameEvent::AbilityResolved { source, ability });
+        self.record_event(GameEvent::AbilityResolved {
+            source,
+            source_incarnation,
+            ability,
+        });
         self.check_state_based_actions()?;
         self.flush_pending_land_entry_triggers()?;
         self.flush_pending_damage_triggers();
@@ -7921,6 +8028,7 @@ impl Game {
             self.pending_trigger_events
                 .push(PendingTriggeredAbilityEvent {
                     source,
+                    source_incarnation: self.object(source)?.incarnation,
                     controller,
                     ability,
                     payload: TriggerEventPayload::None,
@@ -7962,6 +8070,7 @@ impl Game {
             self.pending_trigger_events
                 .push(PendingTriggeredAbilityEvent {
                     source,
+                    source_incarnation: self.object(source)?.incarnation,
                     controller,
                     ability,
                     payload: TriggerEventPayload::DamageAmount(damage_amount),
@@ -8003,6 +8112,7 @@ impl Game {
             self.pending_trigger_events
                 .push(PendingTriggeredAbilityEvent {
                     source: recipient,
+                    source_incarnation: self.object(recipient)?.incarnation,
                     controller,
                     ability,
                     payload: TriggerEventPayload::DamageAmount(damage_amount),
@@ -8015,12 +8125,23 @@ impl Game {
     /// zones. Unlike damage-batch triggers this is stacked immediately at the
     /// state-based-action boundary, while retaining the dead card object as
     /// the historical source for resolution and event auditing.
-    fn enqueue_dies_triggers(&mut self, source: ObjectId, definition: &'static str) {
+    fn enqueue_dies_triggers(
+        &mut self,
+        source: ObjectId,
+        source_incarnation: u64,
+        definition: &'static str,
+    ) {
         let controller = self
             .object(source)
             .expect("dies source remains available for trigger provenance")
             .controller;
-        self.enqueue_triggers_for_source(source, definition, controller, TriggerCondition::Dies);
+        self.enqueue_triggers_for_source_at_incarnation(
+            source,
+            source_incarnation,
+            definition,
+            controller,
+            TriggerCondition::Dies,
+        );
     }
 
     /// Captures every battlefield permanent with an "another creature dies"
@@ -8080,11 +8201,16 @@ impl Game {
             .into_iter()
             .filter_map(|source| {
                 let definition = self.card_definition(source).ok()?.id;
-                let controller = self.object(source).ok()?.controller;
-                (controller == life_gain_player).then_some((source, definition, controller))
+                let object = self.object(source).ok()?;
+                (object.controller == life_gain_player).then_some((
+                    source,
+                    definition,
+                    object.controller,
+                    object.incarnation,
+                ))
             })
             .collect::<Vec<_>>();
-        for (source, definition, controller) in sources {
+        for (source, definition, controller, source_incarnation) in sources {
             let triggers = self
                 .triggered_abilities
                 .get(definition)
@@ -8097,6 +8223,7 @@ impl Game {
                 self.pending_trigger_events
                     .push(PendingTriggeredAbilityEvent {
                         source,
+                        source_incarnation,
                         controller,
                         ability,
                         payload: TriggerEventPayload::None,
@@ -8319,9 +8446,11 @@ impl Game {
     }
 
     #[allow(clippy::too_many_lines)] // Effect dispatch stays centralized so stack resolution has one rules path.
+    #[allow(clippy::too_many_arguments)] // The stack snapshot is passed explicitly for replayable resolution provenance.
     fn resolve_effect(
         &mut self,
         source: ObjectId,
+        source_incarnation: u64,
         controller: PlayerId,
         chosen_x: Option<u8>,
         mana_spent: Option<&[Color]>,
@@ -8562,7 +8691,9 @@ impl Game {
                 });
             }
             Effect::AddPlusOneCounterToSource => {
-                if self.zone_of(source) == Some(Zone::Battlefield) {
+                if self.zone_of(source) == Some(Zone::Battlefield)
+                    && self.object_has_incarnation(source, source_incarnation)
+                {
                     self.place_counter(source, source, CounterKind::PlusOnePlusOne, 1)?;
                 }
             }
@@ -8574,7 +8705,9 @@ impl Game {
                 self.place_counter(source, target, CounterKind::PlusOnePlusOne, 1)?;
             }
             Effect::AddCountersToSource { counter, amount } => {
-                if self.zone_of(source) == Some(Zone::Battlefield) {
+                if self.zone_of(source) == Some(Zone::Battlefield)
+                    && self.object_has_incarnation(source, source_incarnation)
+                {
                     self.place_counter(source, source, *counter, *amount)?;
                 }
             }
@@ -8586,7 +8719,9 @@ impl Game {
                 self.place_counter(source, target, *counter, *amount)?;
             }
             Effect::RemoveCountersFromSource { counter, amount } => {
-                if self.zone_of(source) == Some(Zone::Battlefield) {
+                if self.zone_of(source) == Some(Zone::Battlefield)
+                    && self.object_has_incarnation(source, source_incarnation)
+                {
                     self.remove_counter(source, source, *counter, *amount)?;
                 }
             }
@@ -8813,6 +8948,7 @@ impl Game {
                 let protected = Self::target_permanent(target)?;
                 if *amount <= 0
                     || self.zone_of(source) != Some(Zone::Battlefield)
+                    || !self.object_has_incarnation(source, source_incarnation)
                     || self.zone_of(protected) != Some(Zone::Battlefield)
                     || !self
                         .object(protected)
@@ -8909,6 +9045,7 @@ impl Game {
                     .card_types
                     .contains(&CardType::Creature)
                     || self.zone_of(source) != Some(Zone::Battlefield)
+                    || !self.object_has_incarnation(source, source_incarnation)
                 {
                     return Err(RulesError::IllegalTarget(Target::Permanent(target)));
                 }
@@ -8920,7 +9057,9 @@ impl Game {
                 )?;
             }
             Effect::ModifySourcePtUntilEndOfTurn { power, toughness } => {
-                if self.zone_of(source) != Some(Zone::Battlefield) {
+                if self.zone_of(source) != Some(Zone::Battlefield)
+                    || !self.object_has_incarnation(source, source_incarnation)
+                {
                     return Ok(());
                 }
                 self.install_continuous_effect(
@@ -8934,7 +9073,9 @@ impl Game {
                 )?;
             }
             Effect::RemoveSourceKeywordUntilEndOfTurn { keyword } => {
-                if self.zone_of(source) != Some(Zone::Battlefield) {
+                if self.zone_of(source) != Some(Zone::Battlefield)
+                    || !self.object_has_incarnation(source, source_incarnation)
+                {
                     return Ok(());
                 }
                 self.install_continuous_effect(
@@ -8945,7 +9086,10 @@ impl Game {
                 )?;
             }
             Effect::AddSourceDamageShieldUntilEndOfTurn { amount } => {
-                if *amount <= 0 || self.zone_of(source) != Some(Zone::Battlefield) {
+                if *amount <= 0
+                    || self.zone_of(source) != Some(Zone::Battlefield)
+                    || !self.object_has_incarnation(source, source_incarnation)
+                {
                     return Ok(());
                 }
                 self.install_continuous_effect(
@@ -8973,6 +9117,7 @@ impl Game {
             }
             Effect::RegenerateSource => {
                 if self.zone_of(source) == Some(Zone::Battlefield)
+                    && self.object_has_incarnation(source, source_incarnation)
                     && self.characteristics(source).is_ok_and(|characteristics| {
                         characteristics.card_types.contains(&CardType::Creature)
                     })
@@ -9013,6 +9158,7 @@ impl Game {
                 self.destroy_permanent(source, land)?;
                 if target_was_nonbasic
                     && self.zone_of(source) == Some(Zone::Battlefield)
+                    && self.object_has_incarnation(source, source_incarnation)
                     && self.object(source)?.tapped
                 {
                     self.objects
@@ -9114,7 +9260,10 @@ impl Game {
                 }
             }
             Effect::UntapSource => {
-                if self.zone_of(source) == Some(Zone::Battlefield) && self.object(source)?.tapped {
+                if self.zone_of(source) == Some(Zone::Battlefield)
+                    && self.object_has_incarnation(source, source_incarnation)
+                    && self.object(source)?.tapped
+                {
                     self.objects
                         .get_mut(&source)
                         .ok_or(RulesError::UnknownCard(source))?
@@ -9497,13 +9646,9 @@ impl Game {
             Effect::ShuffleGraveyardsIntoLibraries => {
                 for player_index in 0..self.players.len() {
                     let player = PlayerId(player_index);
-                    let cards = std::mem::take(&mut self.players[player_index].graveyard);
+                    let cards = self.players[player_index].graveyard.clone();
                     for card in cards {
-                        self.players[player_index].library.push(card);
-                        self.record_event(GameEvent::CardMoved {
-                            card,
-                            to: Zone::Library,
-                        });
+                        self.move_to_zone(card, Zone::Library)?;
                     }
                     let count =
                         u16::try_from(self.players[player_index].library.len()).unwrap_or(u16::MAX);
@@ -10412,6 +10557,7 @@ impl Game {
                 damage_shield: 0,
                 counters: BTreeMap::new(),
                 attached_to: None,
+                attached_to_incarnation: None,
                 entered_turn: self.turn,
                 token: Some(token),
             },
@@ -10434,13 +10580,14 @@ impl Game {
             return Ok(());
         }
         let was_battlefield = self.zone_of(card) == Some(Zone::Battlefield);
+        let battlefield_incarnation = self.object(card)?.incarnation;
         let definition = self.card_definition(card)?.id;
         if was_battlefield {
             self.enqueue_another_creature_dies_triggers(card)?;
         }
         self.move_to_zone(card, Zone::Graveyard)?;
         if was_battlefield {
-            self.enqueue_dies_triggers(card, definition);
+            self.enqueue_dies_triggers(card, battlefield_incarnation, definition);
         }
         Ok(())
     }
@@ -10453,21 +10600,41 @@ impl Game {
         }
     }
 
+    /// Moves a spell card from a normal zone onto the stack.  The stack is a
+    /// rules-relevant zone even though it is represented separately from the
+    /// player zone vectors, so this transition must create a new incarnation
+    /// before stack provenance is captured.
+    fn move_to_stack(&mut self, card: ObjectId) -> Result<u64, RulesError> {
+        self.object(card)?;
+        self.advance_object_incarnation(card)?;
+        self.remove_from_all_zones(card);
+        Ok(self.object(card)?.incarnation)
+    }
+
+    /// Advances the stable card's monotonic zone-change identity and records
+    /// the replay-visible provenance receipt.  Callers must perform exactly
+    /// one real rules-zone transition after this succeeds.
+    fn advance_object_incarnation(&mut self, card: ObjectId) -> Result<(), RulesError> {
+        let incarnation =
+            self.object(card)?
+                .incarnation
+                .checked_add(1)
+                .ok_or(RulesError::IllegalAction(
+                    "object incarnation counter overflowed",
+                ))?;
+        self.objects
+            .get_mut(&card)
+            .ok_or(RulesError::UnknownCard(card))?
+            .incarnation = incarnation;
+        Ok(())
+    }
+
     fn move_to_zone(&mut self, card: ObjectId, zone: Zone) -> Result<(), RulesError> {
         let object = self.object(card)?.clone();
         let previous_zone = self.zone_of(card);
-        if previous_zone != Some(zone) {
-            let incarnation =
-                object
-                    .incarnation
-                    .checked_add(1)
-                    .ok_or(RulesError::IllegalAction(
-                        "object incarnation counter overflowed",
-                    ))?;
-            self.objects
-                .get_mut(&card)
-                .ok_or(RulesError::UnknownCard(card))?
-                .incarnation = incarnation;
+        let advanced_incarnation = previous_zone != Some(zone);
+        if advanced_incarnation {
+            self.advance_object_incarnation(card)?;
         }
         let left_battlefield =
             previous_zone == Some(Zone::Battlefield) && zone != Zone::Battlefield;
@@ -10483,6 +10650,10 @@ impl Game {
                 .get_mut(&card)
                 .ok_or(RulesError::UnknownCard(card))?
                 .attached_to = None;
+            self.objects
+                .get_mut(&card)
+                .ok_or(RulesError::UnknownCard(card))?
+                .attached_to_incarnation = None;
         }
         let destination_owner = if zone == Zone::Battlefield {
             object.controller
@@ -10498,10 +10669,17 @@ impl Game {
             battlefield_object.damage = 0;
             battlefield_object.damage_shield = 0;
             battlefield_object.attached_to = None;
+            battlefield_object.attached_to_incarnation = None;
             battlefield_object.entered_turn = self.turn;
         }
         self.place_in_zone(destination_owner, card, zone)?;
         self.record_event(GameEvent::CardMoved { card, to: zone });
+        if advanced_incarnation {
+            self.record_event(GameEvent::ObjectIncarnationAdvanced {
+                object: card,
+                incarnation: self.object(card)?.incarnation,
+            });
+        }
         if left_battlefield {
             // Permanent effects cease when either their source or target
             // changes zones. End-of-turn effects from instants remain because
@@ -11031,6 +11209,53 @@ impl Game {
         Ok(())
     }
 
+    /// Audits public incarnation receipts independently of the current game
+    /// state.  A source may legitimately have left the game later, so replay
+    /// checks only require each known stable object id to advance strictly and
+    /// never use zero or an unallocated id.
+    fn validate_object_incarnation_event_order(events: &[GameEvent]) -> Result<(), RulesError> {
+        let mut last = BTreeMap::<ObjectId, u64>::new();
+        for (index, event) in events.iter().enumerate() {
+            let GameEvent::ObjectIncarnationAdvanced {
+                object,
+                incarnation,
+            } = event
+            else {
+                continue;
+            };
+            if object.0 == 0 || *incarnation == 0 {
+                return Err(RulesError::IllegalAction(
+                    "object incarnation receipt has an invalid identity",
+                ));
+            }
+            if last
+                .get(object)
+                .is_some_and(|previous| *incarnation <= *previous)
+            {
+                return Err(RulesError::IllegalAction(
+                    "object incarnation receipts do not increase monotonically",
+                ));
+            }
+            let predecessor = index
+                .checked_sub(1)
+                .and_then(|previous| events.get(previous));
+            let follows_zone_transition = matches!(
+                predecessor,
+                Some(GameEvent::CardMoved { card, .. }) if card == object
+            ) || matches!(
+                predecessor,
+                Some(GameEvent::SpellCast { card, .. }) if card == object
+            );
+            if !follows_zone_transition {
+                return Err(RulesError::IllegalAction(
+                    "object incarnation receipt is not adjacent to its zone transition",
+                ));
+            }
+            last.insert(*object, *incarnation);
+        }
+        Ok(())
+    }
+
     /// Audits the causally significant mana-ability receipt sequences. These
     /// are state-machine invariants rather than UI diagnostics: a replay must
     /// never claim that a cast used a mana ability unless every activation,
@@ -11501,24 +11726,40 @@ impl Game {
     }
 
     fn validate_ability_event_order(&self) -> Result<(), RulesError> {
-        let mut open = BTreeMap::<(ObjectId, &'static str), usize>::new();
+        let mut open = BTreeMap::<(ObjectId, u64, &'static str), usize>::new();
         for event in &self.event_log {
             match event {
                 GameEvent::AbilityActivated {
-                    source, ability, ..
+                    source,
+                    source_incarnation,
+                    ability,
+                    ..
                 }
                 | GameEvent::TriggeredAbilityStacked {
-                    source, ability, ..
+                    source,
+                    source_incarnation,
+                    ability,
+                    ..
                 } => {
-                    *open.entry((*source, *ability)).or_default() += 1;
+                    *open
+                        .entry((*source, *source_incarnation, *ability))
+                        .or_default() += 1;
                 }
-                GameEvent::AbilityResolved { source, ability }
-                | GameEvent::AbilityCounteredByRules { source, ability } => {
-                    let count =
-                        open.get_mut(&(*source, *ability))
-                            .ok_or(RulesError::IllegalAction(
-                                "ability terminal receipt lacks an activation receipt",
-                            ))?;
+                GameEvent::AbilityResolved {
+                    source,
+                    source_incarnation,
+                    ability,
+                }
+                | GameEvent::AbilityCounteredByRules {
+                    source,
+                    source_incarnation,
+                    ability,
+                } => {
+                    let count = open
+                        .get_mut(&(*source, *source_incarnation, *ability))
+                        .ok_or(RulesError::IllegalAction(
+                            "ability terminal receipt lacks an activation receipt",
+                        ))?;
                     if *count == 0 {
                         return Err(RulesError::IllegalAction(
                             "ability has more terminal receipts than activations",
@@ -11534,10 +11775,14 @@ impl Game {
             .iter()
             .filter(|item| item.ability_id.is_some())
             .fold(
-                BTreeMap::<(ObjectId, &'static str), usize>::new(),
+                BTreeMap::<(ObjectId, u64, &'static str), usize>::new(),
                 |mut counts, item| {
                     *counts
-                        .entry((item.card, item.ability_id.expect("checked above")))
+                        .entry((
+                            item.card,
+                            item.source_incarnation,
+                            item.ability_id.expect("checked above"),
+                        ))
                         .or_default() += 1;
                     counts
                 },
@@ -11711,19 +11956,27 @@ impl Game {
     fn validate_private_opponent_library_choice_event_order(
         events: &[GameEvent],
     ) -> Result<usize, RulesError> {
-        let mut open_abilities = BTreeMap::<(ObjectId, &'static str), usize>::new();
-        let mut opened_choices = BTreeMap::<(ObjectId, &'static str), usize>::new();
+        let mut open_abilities = BTreeMap::<(ObjectId, u64, &'static str), usize>::new();
+        let mut opened_choices = BTreeMap::<(ObjectId, u64, &'static str), usize>::new();
         for event in events {
             match event {
                 GameEvent::AbilityActivated {
-                    source, ability, ..
+                    source,
+                    source_incarnation,
+                    ability,
+                    ..
                 } => {
-                    *open_abilities.entry((*source, *ability)).or_default() += 1;
+                    *open_abilities
+                        .entry((*source, *source_incarnation, *ability))
+                        .or_default() += 1;
                 }
                 GameEvent::PrivateOpponentLibraryChoiceOpened {
-                    source, ability, ..
+                    source,
+                    source_incarnation,
+                    ability,
+                    ..
                 } => {
-                    let key = (*source, *ability);
+                    let key = (*source, *source_incarnation, *ability);
                     let open = open_abilities.get(&key).copied().unwrap_or_default();
                     let choices = opened_choices.entry(key).or_default();
                     *choices += 1;
@@ -11733,9 +11986,17 @@ impl Game {
                         ));
                     }
                 }
-                GameEvent::AbilityResolved { source, ability }
-                | GameEvent::AbilityCounteredByRules { source, ability } => {
-                    let key = (*source, *ability);
+                GameEvent::AbilityResolved {
+                    source,
+                    source_incarnation,
+                    ability,
+                }
+                | GameEvent::AbilityCounteredByRules {
+                    source,
+                    source_incarnation,
+                    ability,
+                } => {
+                    let key = (*source, *source_incarnation, *ability);
                     // Triggered abilities have terminal receipts too, but this
                     // provenance audit owns only activated abilities. An
                     // unrelated trigger (for example Civic Wayfinder's ETB)
@@ -11995,6 +12256,7 @@ impl Game {
                 player,
                 source,
                 ability,
+                ..
             } = event
             else {
                 continue;
@@ -12202,6 +12464,7 @@ impl Game {
                 player,
                 source,
                 ability,
+                ..
             } = event
             else {
                 continue;
@@ -12648,10 +12911,21 @@ impl Game {
         })
     }
 
+    fn object_has_incarnation(&self, object: ObjectId, incarnation: u64) -> bool {
+        self.object(object)
+            .is_ok_and(|current| current.incarnation == incarnation)
+    }
+
     fn effect_is_active(&self, effect: &ContinuousEffect) -> bool {
+        if !self.object_has_incarnation(effect.target, effect.target_incarnation) {
+            return false;
+        }
         match effect.duration {
             Duration::EndOfTurn(turn) => turn == self.turn,
-            Duration::Permanent => self.zone_of(effect.source) == Some(Zone::Battlefield),
+            Duration::Permanent => {
+                self.zone_of(effect.source) == Some(Zone::Battlefield)
+                    && self.object_has_incarnation(effect.source, effect.source_incarnation)
+            }
         }
     }
 
@@ -12732,19 +13006,14 @@ impl Game {
             self.stack
                 .retain(|stack_object| stack_object.card != object);
             let owner = self.objects[&object].owner;
-            self.remove_from_all_zones(object);
+            self.move_to_zone(object, Zone::Exile)
+                .expect("controlled object must have a valid owner exile zone");
             self.regeneration_shields.remove(&object);
             let object_state = self
                 .objects
                 .get_mut(&object)
                 .expect("controlled object was collected from this game");
             object_state.controller = owner;
-            self.players[owner.0].exile.push(object);
-            self.record_event(GameEvent::CardMoved {
-                card: object,
-                to: Zone::Exile,
-            });
-            self.expire_continuous_effects_involving(object);
         }
     }
 

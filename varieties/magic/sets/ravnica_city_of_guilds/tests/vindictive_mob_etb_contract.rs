@@ -127,7 +127,7 @@ fn mob_trigger_sacrifices_another_controlled_creature_before_itself() {
     )));
     assert!(game.event_log.iter().any(|event| matches!(
         event,
-        GameEvent::AbilityResolved { source, ability }
+        GameEvent::AbilityResolved { source, ability, .. }
             if *source == mob && *ability == "etb-sacrifice-controller-creature"
     )));
     game.validate_invariants().expect("Mob sacrifice is valid");

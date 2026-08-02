@@ -2035,6 +2035,10 @@ pub struct CardObject {
     /// explicit so attachment cleanup and its persistent layer effect are
     /// auditable rather than inferred from a card name or target history.
     pub attached_to: Option<ObjectId>,
+    /// Incarnation captured with `attached_to`.  This prevents an Aura from
+    /// silently treating a later incarnation of the same physical card as the
+    /// object it was attached to before a zone change.
+    pub attached_to_incarnation: Option<u64>,
     pub entered_turn: u32,
     pub token: Option<TokenSpec>,
 }
@@ -2129,7 +2133,15 @@ pub enum Duration {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ContinuousEffect {
     pub source: ObjectId,
+    /// The source incarnation that created this effect.  Stable public card
+    /// identity alone cannot keep a persistent effect alive across a source
+    /// zone change and later return.
+    pub source_incarnation: u64,
     pub target: ObjectId,
+    /// The target incarnation this effect is allowed to modify.  A physical
+    /// card can retain its public id after leaving and re-entering, but the
+    /// returned permanent is a new rules object.
+    pub target_incarnation: u64,
     pub change: ContinuousChange,
     pub duration: Duration,
     pub timestamp: u64,
@@ -2288,6 +2300,11 @@ impl PlayerState {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct StackObject {
     pub card: ObjectId,
+    /// The exact incarnation that became this spell or produced this ability.
+    /// An ability may resolve after its source left the battlefield, but it
+    /// must never treat a later incarnation with the same public id as its
+    /// historical source for source-relative instructions.
+    pub source_incarnation: u64,
     pub controller: PlayerId,
     /// `None` denotes a spell; `Some` denotes a non-mana activated ability
     /// whose source is `card` and whose printed identity is the bound id.
@@ -2413,6 +2430,14 @@ pub enum GameEvent {
         card: ObjectId,
         to: Zone,
     },
+    /// A physical card moved to a new zone (including the stack) and became a
+    /// new rules object.  The stable id remains public; this receipt carries
+    /// the monotonic incarnation needed to replay stack and effect provenance
+    /// without conflating a returned object with its former self.
+    ObjectIncarnationAdvanced {
+        object: ObjectId,
+        incarnation: u64,
+    },
     /// The named controller inspected these currently top library cards while
     /// a resolving instruction was suspended for a private choice. The cards'
     /// identities are not exposed through an opponent `GameView`.
@@ -2426,6 +2451,7 @@ pub enum GameEvent {
     PrivateOpponentLibraryChoiceOpened {
         controller: PlayerId,
         source: ObjectId,
+        source_incarnation: u64,
         ability: &'static str,
         opponent: PlayerId,
         count: u8,
@@ -2619,11 +2645,17 @@ pub enum GameEvent {
     AbilityActivated {
         player: PlayerId,
         source: ObjectId,
+        /// The source's incarnation at activation time.  A stable object ID
+        /// can leave and return before its ability resolves.
+        source_incarnation: u64,
         ability: &'static str,
     },
     TriggeredAbilityStacked {
         controller: PlayerId,
         source: ObjectId,
+        /// The historical incarnation that caused this trigger.  Dies
+        /// triggers normally name a prior battlefield incarnation.
+        source_incarnation: u64,
         ability: &'static str,
     },
     AbilityManaPaid {
@@ -2685,6 +2717,7 @@ pub enum GameEvent {
     },
     AbilityResolved {
         source: ObjectId,
+        source_incarnation: u64,
         ability: &'static str,
     },
     SpellCounteredByRules {
@@ -2692,6 +2725,7 @@ pub enum GameEvent {
     },
     AbilityCounteredByRules {
         source: ObjectId,
+        source_incarnation: u64,
         ability: &'static str,
     },
     /// A spell still resolved because it retained another legal target, but

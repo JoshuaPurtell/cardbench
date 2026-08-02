@@ -81,6 +81,7 @@ fn resolution_completes_when_its_draw_eliminates_its_controller() {
         [
             format!("SpellManaPaid {{ player: {caster:?}, card: {spell:?}, colors: [Blue] }}"),
             format!("SpellCast {{ player: {caster:?}, card: {spell:?} }}"),
+            format!("ObjectIncarnationAdvanced {{ object: {spell:?}, incarnation: 2 }}"),
             format!("PriorityPassed {{ player: {caster:?} }}"),
             format!("PriorityPassed {{ player: {responder:?} }}"),
             format!(

@@ -40,6 +40,7 @@ fn invariant_audit_rejects_an_unsupported_instant_fabricated_onto_the_stack() {
     game.players[controller.0].hand.clear();
     game.stack.push(StackObject {
         card: spell,
+        source_incarnation: 1,
         controller,
         ability_id: None,
         targets: Vec::<Target>::new(),

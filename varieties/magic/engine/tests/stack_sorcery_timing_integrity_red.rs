@@ -42,6 +42,7 @@ fn invariant_audit_rejects_a_sorcery_fabricated_onto_an_opponents_turn() {
     game.players[nonactive_player.0].hand.clear();
     game.stack.push(StackObject {
         card: spell,
+        source_incarnation: 1,
         controller: nonactive_player,
         ability_id: None,
         targets: Vec::<Target>::new(),

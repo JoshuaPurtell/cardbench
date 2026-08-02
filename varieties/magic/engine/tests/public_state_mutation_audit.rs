@@ -110,6 +110,7 @@ fn mutation_audit_rejects_zone_and_stack_corruption() {
         .expect("known instant enters hand");
     zone_and_stack.stack.push(StackObject {
         card,
+        source_incarnation: 1,
         controller: first,
         ability_id: None,
         targets: vec![Target::Player(second)],
@@ -132,6 +133,7 @@ fn mutation_audit_rejects_zone_and_stack_corruption() {
     fabricated_stack_target.players[first.0].hand.clear();
     fabricated_stack_target.stack.push(StackObject {
         card,
+        source_incarnation: 1,
         controller: first,
         ability_id: None,
         targets: vec![Target::Player(second), Target::Player(first)],
@@ -153,6 +155,7 @@ fn mutation_audit_rejects_zone_and_stack_corruption() {
     let mut unknown_stack_card = game(2);
     unknown_stack_card.stack.push(StackObject {
         card: ObjectId(999),
+        source_incarnation: 1,
         controller: first,
         ability_id: None,
         targets: vec![],
@@ -234,7 +237,9 @@ fn mutation_audit_rejects_effect_and_step_marker_corruption() {
         .expect("target permanent enters battlefield");
     zero_timestamp.continuous_effects.push(ContinuousEffect {
         source,
+        source_incarnation: 1,
         target,
+        target_incarnation: 1,
         change: ContinuousChange::ModifyPowerToughness {
             power: 1,
             toughness: 1,
@@ -253,7 +258,9 @@ fn mutation_audit_rejects_effect_and_step_marker_corruption() {
         .expect("target permanent enters battlefield");
     stale_duration.continuous_effects.push(ContinuousEffect {
         source,
+        source_incarnation: 1,
         target,
+        target_incarnation: 1,
         change: ContinuousChange::AddColor(Color::Red),
         duration: Duration::EndOfTurn(stale_duration.turn + 1),
         timestamp: 1,

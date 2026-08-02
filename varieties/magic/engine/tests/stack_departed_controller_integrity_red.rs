@@ -40,6 +40,7 @@ fn invariant_audit_rejects_a_lost_players_spell_left_on_the_stack() {
     game.players[departed.0].hand.clear();
     game.stack.push(StackObject {
         card: spell,
+        source_incarnation: 1,
         controller: departed,
         ability_id: None,
         targets: Vec::<Target>::new(),

@@ -336,7 +336,7 @@ fn policy_draw_replacement_rejects_interleaved_priority_and_invalid_choices_atom
     assert!(dredged < receipt);
     assert_eq!(
         events.len(),
-        5,
+        8,
         "rejected proposals never receive a receipt"
     );
     assert_invariants(&game);
@@ -385,8 +385,9 @@ fn policy_may_take_the_normal_draw_even_when_dredge_is_available() {
         game.event_log.as_slice(),
         [
             GameEvent::CardMoved { card, to: Zone::Hand },
+            GameEvent::ObjectIncarnationAdvanced { object, incarnation: 2 },
             GameEvent::PolicyMoveSubmitted { player, kind: PolicyMoveKind::Draw, .. },
-        ] if *card == normal_draw && *player == deciding_player
+        ] if *card == normal_draw && *object == normal_draw && *player == deciding_player
     ));
     assert_invariants(&game);
 }

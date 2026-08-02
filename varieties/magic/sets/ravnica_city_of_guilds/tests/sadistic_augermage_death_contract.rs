@@ -102,6 +102,7 @@ fn another_creature_dying_stacks_then_resolves_all_player_discards() {
             GameEvent::AbilityResolved {
                 source,
                 ability: "another-creature-dies-each-player-discards",
+                ..
             } if *source == augermage
         )
     }));

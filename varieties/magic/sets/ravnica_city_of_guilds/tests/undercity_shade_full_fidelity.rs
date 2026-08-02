@@ -72,7 +72,7 @@ fn undercity_shade_retains_its_cast_cost_and_pumps_on_stack_resolution() {
     )));
     assert!(game.event_log.iter().any(|event| matches!(
         event,
-        GameEvent::AbilityResolved { source, ability }
+        GameEvent::AbilityResolved { source, ability, .. }
             if *source == shade && *ability == "pump-plus-one-plus-one"
     )));
     game.validate_invariants()

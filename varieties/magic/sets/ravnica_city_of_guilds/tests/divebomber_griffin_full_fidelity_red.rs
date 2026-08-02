@@ -71,7 +71,7 @@ fn divebomber_griffin_sacrifices_to_damage_a_declared_attacker() {
     );
     assert!(game.event_log.iter().any(|event| matches!(
         event,
-        GameEvent::AbilityResolved { source, ability }
+        GameEvent::AbilityResolved { source, ability, .. }
             if *source == griffin && *ability == "sacrifice-deal-three-to-attacker-or-blocker"
     )));
     game.validate_invariants()

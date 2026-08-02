@@ -100,7 +100,7 @@ fn ursapine_requires_its_targeted_green_pump_binding_and_stack_trace() {
     )));
     assert!(game.event_log.iter().any(|event| matches!(
         event,
-        GameEvent::AbilityResolved { source, ability }
+        GameEvent::AbilityResolved { source, ability, .. }
             if *source == ursapine && *ability == "ursapine-target-pump"
     )));
     game.validate_invariants()

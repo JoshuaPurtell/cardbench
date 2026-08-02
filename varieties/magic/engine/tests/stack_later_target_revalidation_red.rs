@@ -103,11 +103,13 @@ fn second_targeted_instruction_skips_a_spell_target_removed_by_the_first() {
             format!("PriorityPassed {{ player: {caster:?} }}"),
             format!("SpellCountered {{ card: {lower:?}, source: {response:?} }}"),
             format!("CardMoved {{ card: {lower:?}, to: Graveyard }}"),
+            format!("ObjectIncarnationAdvanced {{ object: {lower:?}, incarnation: 3 }}"),
             format!(
                 "TargetInstructionSkipped {{ card: {response:?}, effect_index: 1, target: Spell({lower:?}) }}"
             ),
             format!("SpellResolved {{ card: {response:?} }}"),
             format!("CardMoved {{ card: {response:?}, to: Graveyard }}"),
+            format!("ObjectIncarnationAdvanced {{ object: {response:?}, incarnation: 3 }}"),
         ],
         "the first counter, later target skip, and response lifecycle have one canonical order"
     );

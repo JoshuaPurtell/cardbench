@@ -113,7 +113,7 @@ fn flame_kin_zealot_enters_and_resolves_its_team_trigger() {
     assert!(watchwolf_characteristics.keywords.contains(&Keyword::Haste));
     assert!(game.event_log.iter().any(|event| matches!(
         event,
-        GameEvent::AbilityResolved { source, ability }
+        GameEvent::AbilityResolved { source, ability, .. }
             if *source == zealot && *ability == "etb-team-pump-haste"
     )));
 }

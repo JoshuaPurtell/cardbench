@@ -70,7 +70,7 @@ fn wojek_embermage_radiance_damages_the_target_and_shared_color_creature() {
     assert_eq!(game.object(shared).expect("shared remains").damage, 1);
     assert!(game.event_log.iter().any(|event| matches!(
         event,
-        GameEvent::AbilityResolved { source: resolved, ability }
+        GameEvent::AbilityResolved { source: resolved, ability, .. }
             if *resolved == source && *ability == "tap-radiance-one-damage"
     )));
 }

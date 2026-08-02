@@ -133,6 +133,10 @@ fn paid_bundle_mana_ability_can_pay_a_spell_cost_without_pre_floating() {
                 player,
                 card: spell,
             },
+            cardbench_magic_engine::GameEvent::ObjectIncarnationAdvanced {
+                object: spell,
+                incarnation: 2,
+            },
         ],
         "payment-context, activation-cost, output, and spell receipts retain causal order"
     );

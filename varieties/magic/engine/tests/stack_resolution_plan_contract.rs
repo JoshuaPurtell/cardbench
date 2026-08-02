@@ -8,6 +8,7 @@ use cardbench_magic_engine::{
 fn three_target_object(targets: Vec<Target>) -> StackObject {
     StackObject {
         card: ObjectId(7),
+        source_incarnation: 1,
         controller: PlayerId(0),
         ability_id: None,
         targets,

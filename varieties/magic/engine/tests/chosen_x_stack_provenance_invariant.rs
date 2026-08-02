@@ -50,6 +50,7 @@ fn invariant_rejects_a_chosen_x_receipt_that_cannot_pay_printed_cost_plus_x() {
     game.players[0].hand.clear();
     game.stack.push(StackObject {
         card: spell,
+        source_incarnation: 1,
         controller: PlayerId(0),
         ability_id: None,
         targets: vec![Target::Permanent(target)],
