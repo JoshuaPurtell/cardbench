@@ -18,8 +18,10 @@ fn dream_leash_requires_a_permanent_aura_that_uses_its_current_controller() {
         definition.card_types,
         [CardType::Enchantment].into_iter().collect()
     );
-    assert!(definition
-        .supported_rules
-        .contains(&"aura-enchant-permanent-source-controller-control"));
+    assert!(
+        definition
+            .supported_rules
+            .contains(&"aura-enchant-permanent-source-controller-control")
+    );
     assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&definition.id));
 }

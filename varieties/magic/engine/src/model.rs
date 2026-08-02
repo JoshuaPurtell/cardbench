@@ -2457,6 +2457,11 @@ pub enum ContinuousChange {
     /// changes in timestamp order without moving the object between its
     /// owner's zone vectors.
     ChangeController(PlayerId),
+    /// A timestamped layer-two effect whose controller is read from its live
+    /// source. This is distinct from a seat-bound `ChangeController`: an Aura
+    /// control effect must not bake in the controller that happened to cast
+    /// it, and it expires with the source's ordinary battlefield lifecycle.
+    ChangeControllerToSourceController,
     AddCardType(CardType),
     AddColor(Color),
     AddKeyword(Keyword),
@@ -2496,7 +2501,7 @@ impl ContinuousChange {
     #[must_use]
     pub const fn layer(&self) -> Layer {
         match self {
-            Self::ChangeController(_) => Layer::Control,
+            Self::ChangeController(_) | Self::ChangeControllerToSourceController => Layer::Control,
             Self::AddCardType(_) => Layer::Type,
             Self::AddColor(_) => Layer::Color,
             Self::AddKeyword(_)

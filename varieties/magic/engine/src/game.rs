@@ -1617,9 +1617,29 @@ impl Game {
     /// stay owner-indexed throughout; controlling a permanent never performs
     /// a hidden zone move.
     pub fn controller_of(&self, card: ObjectId) -> Result<PlayerId, RulesError> {
+        self.controller_of_with_control_sources(card, &mut BTreeSet::new())
+    }
+
+    /// Evaluates the represented layer-two control slice while retaining a
+    /// small dependency stack. Source-relative control is deliberately
+    /// derived instead of materialized at attachment time, so a later legal
+    /// control change to the Aura propagates to its enchanted permanent.
+    /// Cyclic fabricated state fails closed rather than recursing forever or
+    /// assigning an arbitrary controller.
+    fn controller_of_with_control_sources(
+        &self,
+        card: ObjectId,
+        visiting: &mut BTreeSet<ObjectId>,
+    ) -> Result<PlayerId, RulesError> {
+        if !visiting.insert(card) {
+            return Err(RulesError::IllegalAction(
+                "source-relative control effect forms a dependency cycle",
+            ));
+        }
         let object = self.object(card)?;
         let mut controller = object.controller;
         if self.zone_of(card) != Some(Zone::Battlefield) {
+            visiting.remove(&card);
             return Ok(controller);
         }
         let mut effects = self
@@ -1628,16 +1648,26 @@ impl Game {
             .filter(|effect| {
                 effect.target == card
                     && self.effect_is_active(effect)
-                    && matches!(effect.change, ContinuousChange::ChangeController(_))
+                    && matches!(
+                        effect.change,
+                        ContinuousChange::ChangeController(_)
+                            | ContinuousChange::ChangeControllerToSourceController
+                    )
             })
             .collect::<Vec<_>>();
         effects.sort_by_key(|effect| effect.timestamp);
         for effect in effects {
-            if let ContinuousChange::ChangeController(next) = effect.change {
-                controller = next;
+            match effect.change {
+                ContinuousChange::ChangeController(next) => controller = next,
+                ContinuousChange::ChangeControllerToSourceController => {
+                    controller =
+                        self.controller_of_with_control_sources(effect.source, visiting)?;
+                }
+                _ => unreachable!("control-effect filter returned a non-control change"),
             }
         }
         self.player(controller)?;
+        visiting.remove(&card);
         Ok(controller)
     }
 
@@ -3511,6 +3541,7 @@ impl Game {
                         .retain(|candidate| candidate != keyword);
                 }
                 ContinuousChange::ChangeController(_)
+                | ContinuousChange::ChangeControllerToSourceController
                 | ContinuousChange::CannotBlockSource(_)
                 | ContinuousChange::AddDamageShield(_)
                 | ContinuousChange::SuppressNonManaActivatedAbilities => {}
@@ -3713,12 +3744,18 @@ impl Game {
                 "a static continuous change cannot be installed dynamically",
             ));
         }
-        if let ContinuousChange::ChangeController(controller) = &change {
-            if self.player(*controller)?.lost {
+        match &change {
+            ContinuousChange::ChangeController(controller) if self.player(*controller)?.lost => {
                 return Err(RulesError::IllegalAction(
                     "a departed player cannot control a permanent",
                 ));
             }
+            ContinuousChange::ChangeControllerToSourceController if source == target => {
+                return Err(RulesError::IllegalAction(
+                    "source-relative control cannot name its source as target",
+                ));
+            }
+            _ => {}
         }
         match duration {
             Duration::Permanent
@@ -3742,13 +3779,16 @@ impl Game {
             _ => {}
         }
         let layer = change.layer();
-        let control_destination = match &change {
-            ContinuousChange::ChangeController(controller) => Some(*controller),
-            _ => None,
-        };
+        let is_control_change = matches!(
+            change,
+            ContinuousChange::ChangeController(_)
+                | ContinuousChange::ChangeControllerToSourceController
+        );
+        let control_before = is_control_change
+            .then(|| self.control_projection())
+            .transpose()?;
         let source_incarnation = self.object(source)?.incarnation;
         let target_incarnation = self.object(target)?.incarnation;
-        let controller_before = self.controller_of(target)?;
         if let ContinuousChange::AddDamageShield(amount) = &change {
             self.objects
                 .get_mut(&target)
@@ -3770,19 +3810,8 @@ impl Game {
             target,
             layer,
         });
-        if let Some(controller) = control_destination {
-            if controller_before != controller {
-                self.objects
-                    .get_mut(&target)
-                    .ok_or(RulesError::UnknownCard(target))?
-                    .controller_changed_turn = self.turn;
-                self.record_event(GameEvent::ControllerChanged {
-                    source,
-                    target,
-                    from: controller_before,
-                    to: controller,
-                });
-            }
+        if let Some(control_before) = control_before {
+            self.record_control_reversions(&control_before)?;
         }
         Ok(())
     }
@@ -8800,7 +8829,23 @@ impl Game {
                     "a static continuous change appeared in the timestamped effect list",
                 ));
             }
-            if let ContinuousChange::ChangeController(controller) = effect.change {
+            if matches!(
+                effect.change,
+                ContinuousChange::ChangeController(_)
+                    | ContinuousChange::ChangeControllerToSourceController
+            ) {
+                let controller = match effect.change {
+                    ContinuousChange::ChangeController(controller) => controller,
+                    ContinuousChange::ChangeControllerToSourceController => {
+                        if effect.source == effect.target {
+                            return Err(RulesError::IllegalAction(
+                                "source-relative control targets its own source",
+                            ));
+                        }
+                        self.controller_of(effect.source)?
+                    }
+                    _ => unreachable!("control-effect match returned a non-control change"),
+                };
                 if self.players.get(controller.0).is_none() || self.players[controller.0].lost {
                     return Err(RulesError::IllegalAction(
                         "control effect names an invalid or departed controller",
@@ -15669,6 +15714,23 @@ impl Game {
     fn move_to_zone(&mut self, card: ObjectId, zone: Zone) -> Result<(), RulesError> {
         let object = self.object(card)?.clone();
         let previous_zone = self.zone_of(card);
+        let left_battlefield =
+            previous_zone == Some(Zone::Battlefield) && zone != Zone::Battlefield;
+        // Layer-two state has to be sampled before this object advances its
+        // incarnation. Once the source has left, `effect_is_active` correctly
+        // hides the expired effect; using that post-departure projection would
+        // lose the required controller-reversion receipt.
+        let control_before_expiration = if left_battlefield {
+            let expired = self
+                .continuous_effects
+                .iter()
+                .filter(|effect| effect.source == card || effect.target == card)
+                .cloned()
+                .collect::<Vec<_>>();
+            Some(self.control_targets_before_expiration(&expired)?)
+        } else {
+            None
+        };
         let advanced_incarnation = previous_zone != Some(zone);
         if advanced_incarnation {
             self.advance_object_incarnation(card)?;
@@ -15679,8 +15741,6 @@ impl Game {
             self.effect_created_cast_permissions.remove(&card);
             self.graveyard_cast_permissions.remove(&card);
         }
-        let left_battlefield =
-            previous_zone == Some(Zone::Battlefield) && zone != Zone::Battlefield;
         self.remove_from_all_zones(card);
         let expired_copy = if left_battlefield {
             self.objects
@@ -15750,7 +15810,10 @@ impl Game {
             // Permanent effects cease when either their source or target
             // changes zones. End-of-turn effects from instants remain because
             // their source was never a battlefield permanent.
-            self.expire_continuous_effects_involving(card);
+            self.expire_continuous_effects_involving_with_control_before(
+                card,
+                control_before_expiration,
+            );
         }
         Ok(())
     }
@@ -15866,6 +15929,18 @@ impl Game {
     }
 
     fn expire_continuous_effects_involving(&mut self, card: ObjectId) {
+        self.expire_continuous_effects_involving_with_control_before(card, None);
+    }
+
+    /// Removes all effects with the departed object as either source or
+    /// target. A normal battlefield departure supplies its layer-two
+    /// projection captured before the source changes incarnation; teardown
+    /// paths without that boundary retain the existing fail-closed snapshot.
+    fn expire_continuous_effects_involving_with_control_before(
+        &mut self,
+        card: ObjectId,
+        control_before: Option<BTreeMap<ObjectId, (PlayerId, ObjectId)>>,
+    ) {
         self.damage_redirections
             .retain(|redirect| redirect.protected != card);
         let expired_shields = self
@@ -15888,9 +15963,10 @@ impl Game {
             .filter(|effect| effect.source == card || effect.target == card)
             .cloned()
             .collect::<Vec<_>>();
-        let control_before = self
-            .control_targets_before_expiration(&expired)
-            .unwrap_or_default();
+        let control_before = control_before.unwrap_or_else(|| {
+            self.control_targets_before_expiration(&expired)
+                .unwrap_or_default()
+        });
         self.continuous_effects
             .retain(|effect| effect.source != card && effect.target != card);
         for effect in expired {
@@ -15911,37 +15987,75 @@ impl Game {
         &self,
         expired: &[ContinuousEffect],
     ) -> Result<BTreeMap<ObjectId, (PlayerId, ObjectId)>, RulesError> {
-        let mut targets = BTreeMap::new();
-        for effect in expired {
-            if !matches!(effect.change, ContinuousChange::ChangeController(_))
-                || self.zone_of(effect.target) != Some(Zone::Battlefield)
-            {
-                continue;
-            }
-            let controller = self.controller_of(effect.target)?;
-            targets
-                .entry(effect.target)
-                .or_insert((controller, effect.source));
-        }
-        Ok(targets)
+        expired
+            .iter()
+            .any(|effect| {
+                matches!(
+                    effect.change,
+                    ContinuousChange::ChangeController(_)
+                        | ContinuousChange::ChangeControllerToSourceController
+                )
+            })
+            .then(|| self.control_projection())
+            .transpose()
+            .map(Option::unwrap_or_default)
+    }
+
+    /// Captures every live derived controller together with the source whose
+    /// current layer-two effect determines it. A global snapshot is required
+    /// because changing control of one source-relative controller can also
+    /// change a downstream enchanted permanent without creating or expiring
+    /// a second continuous effect.
+    fn control_projection(&self) -> Result<BTreeMap<ObjectId, (PlayerId, ObjectId)>, RulesError> {
+        self.all_battlefield_cards()
+            .into_iter()
+            .map(|target| {
+                Ok((
+                    target,
+                    (
+                        self.controller_of(target)?,
+                        self.active_control_effect_source(target).unwrap_or(target),
+                    ),
+                ))
+            })
+            .collect()
+    }
+
+    fn active_control_effect_source(&self, target: ObjectId) -> Option<ObjectId> {
+        self.continuous_effects
+            .iter()
+            .filter(|effect| {
+                effect.target == target
+                    && self.effect_is_active(effect)
+                    && matches!(
+                        effect.change,
+                        ContinuousChange::ChangeController(_)
+                            | ContinuousChange::ChangeControllerToSourceController
+                    )
+            })
+            .max_by_key(|effect| effect.timestamp)
+            .map(|effect| effect.source)
     }
 
     fn record_control_reversions(
         &mut self,
         before: &BTreeMap<ObjectId, (PlayerId, ObjectId)>,
     ) -> Result<(), RulesError> {
-        for (target, (from, source)) in before {
+        for (target, (from, fallback_source)) in before {
             if self.zone_of(*target) != Some(Zone::Battlefield) {
                 continue;
             }
             let to = self.controller_of(*target)?;
             if *from != to {
+                let source = self
+                    .active_control_effect_source(*target)
+                    .unwrap_or(*fallback_source);
                 self.objects
                     .get_mut(target)
                     .ok_or(RulesError::UnknownCard(*target))?
                     .controller_changed_turn = self.turn;
                 self.record_event(GameEvent::ControllerChanged {
-                    source: *source,
+                    source,
                     target: *target,
                     from: *from,
                     to,
@@ -16501,8 +16615,22 @@ impl Game {
             if !requires_continuous_effect {
                 continue;
             }
+            // A layer-two attachment can immediately propagate through an
+            // existing source-relative control chain. Those `ControllerChanged`
+            // receipts remain one causal batch between the final linked
+            // effect and the attachment receipt; no unrelated state change is
+            // allowed to intervene.
+            let mut effect_index = index;
+            while effect_index > 0
+                && matches!(
+                    events.get(effect_index - 1),
+                    Some(GameEvent::ControllerChanged { .. })
+                )
+            {
+                effect_index -= 1;
+            }
             if !matches!(
-                events.get(index.checked_sub(1).ok_or(RulesError::IllegalAction(
+                events.get(effect_index.checked_sub(1).ok_or(RulesError::IllegalAction(
                     "attachment receipt lacks its continuous-effect receipt",
                 ))?),
                 Some(GameEvent::ContinuousEffectCreated {

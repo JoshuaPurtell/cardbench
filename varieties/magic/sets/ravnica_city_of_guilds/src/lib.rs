@@ -41,7 +41,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 141] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 142] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -149,6 +149,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 141] = [
     "RAV-VINDICTIVE-MOB",
     "RAV-BELLTOWER-SPHINX",
     "RAV-FLIGHT-OF-FANCY",
+    "RAV-DREAM-LEASH",
     "RAV-MARK-OF-EVICTION",
     "RAV-VEDALKEN-ENTRANCER",
     "RAV-TIDEWATER-MINION",
@@ -3128,6 +3129,34 @@ pub fn card_definitions() -> Vec<CardDefinition> {
         },
         // Full fidelity: Defender and the tap activation that mills a target
         // player for two cards are both typed engine rules.
+        CardDefinition {
+            id: "RAV-DREAM-LEASH",
+            name: "Dream Leash",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(3, [Color::Blue, Color::Blue]),
+            colors: colors([Color::Blue]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Enchantment]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "aura-enchant-permanent-source-controller-control",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![Effect::AttachSourceToTarget {
+                target: TargetRequirement::Permanent,
+                changes: vec![ContinuousChange::ChangeControllerToSourceController],
+            }],
+        },
+        // Full fidelity: the control effect is derived from the live Aura
+        // source rather than the player who happened to cast it. Attachment
+        // and source departure use the shared layer-two lifecycle.
+        // Full fidelity: the Aura attaches only to a creature, then its
+        // active-controller upkeep trigger reads that exact live attachment
+        // endpoint when it resolves. Returning the creature follows the
+        // normal owner-hand lifecycle, after which SBA cleans up the Aura.
         CardDefinition {
             id: "RAV-MARK-OF-EVICTION",
             name: "Mark of Eviction",

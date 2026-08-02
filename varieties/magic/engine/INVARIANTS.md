@@ -1115,14 +1115,18 @@ Oracle Magic rules coverage.
   battlefield endpoint; an end-of-turn effect belongs to the current turn
   only and may retain its historical source after a spell has left the stack.
   In either duration, it cannot apply to a target that has left and returned.
-- A layer-two `ChangeController` effect names one living player and one live
-  battlefield permanent. Active effects apply in timestamp order, so the most
-  recent applicable effect determines `Game::controller_of`; its source and
-  target incarnations prevent a previous object from retaining control after a
-  zone change. Installation records `ContinuousEffectCreated` then, when the
-  derived controller actually changes, `ControllerChanged`. Expiration or a
-  source departure records the ordinary expiration receipt before an audited
-  controller-reversion receipt. The base controller is never mutated.
+- A layer-two control effect names one live battlefield permanent and is
+  either seat-bound (`ChangeController`) or source-relative
+  (`ChangeControllerToSourceController`). Active effects apply in timestamp
+  order, so the most recent applicable effect determines `Game::controller_of`;
+  a source-relative effect follows that source's live derived controller rather
+  than baking in its caster. Its dependency graph must be acyclic, and every
+  endpoint incarnation prevents a previous object from retaining control after
+  a zone change. Installation records `ContinuousEffectCreated` then, when the
+  derived controller actually changes, `ControllerChanged`. A battlefield
+  departure snapshots the affected targets before source incarnation advances,
+  then records expiration before every audited controller-reversion receipt.
+  The base controller is never mutated.
 - A permanent records the turn of its most recent controller change. Attacking
   and tap-symbol ability checks use that provenance—not merely battlefield
   entry—so a creature stolen this turn is summoning sick for its new controller
