@@ -1207,6 +1207,20 @@ Oracle Magic rules coverage.
   movement when `found` is absent. Either battlefield destination may queue
   ordinary entry-trigger work only after the search source reaches its own
   terminal stack lifecycle.
+- A policy-submitted search-and-cast continuation is an exact one-effect
+  activated-ability stack boundary. It opens only for the resolving controller,
+  exposes only current matching instant candidates, and accepts one selected
+  card plus that spell's normal typed targets (or a legal failure to find).
+  The engine validates the source and source incarnation, candidate snapshot,
+  selected card, and eventual spell targets before it emits a one-shot,
+  exact-card, exact-incarnation `Library` cast permission. Its receipt order is
+  `DecisionCompleted → LibrarySearchResolved → SpellCastFromPermission →
+  SpellCast → LibraryShuffled → AbilityResolved`; opponents receive priority
+  only after the parent ability has completed and the selected spell is the
+  live top stack object. A source-Equipment detach generalized cost is legal
+  only for a currently attached Equipment and atomically expires its linked
+  attachment effects before `AbilityActivated`; a rejected payment mutates no
+  mana, attachments, stack, or receipts.
 - A policy-submitted batch library search uses an expansion-neutral typed
   predicate and either `ZeroOrMore { maximum }`,
   `ZeroOrMoreDistinctNames { maximum }`, or `Exactly(count)` selection
