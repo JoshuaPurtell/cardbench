@@ -35,10 +35,10 @@ fn coverage_categories_partition_every_printing_and_unique_name() {
         }
     }
 
-    assert_eq!(full_names.len(), 229);
-    assert_eq!(full_printings, 244);
-    assert_eq!(partial_names.len(), 28);
-    assert_eq!(partial_printings, 28);
+    assert_eq!(full_names.len(), 230);
+    assert_eq!(full_printings, 245);
+    assert_eq!(partial_names.len(), 27);
+    assert_eq!(partial_printings, 27);
     assert_eq!(catalog_only_names.len(), 34);
     assert_eq!(catalog_only_printings, 34);
     assert_eq!(

@@ -43,7 +43,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 229] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 230] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
@@ -226,6 +226,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 229] = [
     "RAV-SELESNYA-SAGITTARS",
     "RAV-AUTOCHTHON-WURM",
     "RAV-TWILIGHT-DROVER",
+    "RAV-TROPHY-HUNTER",
     "RAV-ELVISH-SKYSWEEPER",
     "RAV-CONVOLUTE",
     "RAV-CONSULT-THE-NECROSAGES",
@@ -5285,17 +5286,29 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed flying-creature interaction is
-        // deliberately omitted from this compatibility slice.
-        bounded_creature_chassis(
-            "RAV-TROPHY-HUNTER",
-            "Trophy Hunter",
-            ManaCost::with_colors(2, [Color::Green]),
-            colors([Color::Green]),
-            2,
-            3,
-        ),
+        // Full fidelity: the green activation retains its Flying-only target
+        // restriction through priority and resolution, then adds the source
+        // counter only after the target's ordinary destruction lifecycle.
+        CardDefinition {
+            id: "RAV-TROPHY-HUNTER",
+            name: "Trophy Hunter",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(2, [Color::Green]),
+            colors: colors([Color::Green]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "activated-flying-destruction-source-counter",
+            ],
+            power: Some(2),
+            toughness: Some(3),
+            keywords: vec![],
+            effects: vec![],
+        },
         // Full fidelity: a single green mana targets a creature and gives it
         // +1/+1 through the ordinary stack and layer-seven lifecycle.
         CardDefinition {
@@ -6577,6 +6590,25 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 discard_cards: 0,
                 targets: vec![cardbench_magic_engine::TargetRequirement::FlyingCreature],
                 effects: vec![Effect::DestroyTargetFlyingCreature],
+            },
+        },
+        ActivatedAbilityBinding {
+            card_definition: "RAV-TROPHY-HUNTER",
+            ability: ActivatedAbility {
+                id: "destroy-flying-add-plus-one-counter",
+                mana_cost: ManaCost::with_colors(0, [Color::Green]),
+                tap_cost: false,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![cardbench_magic_engine::TargetRequirement::FlyingCreature],
+                effects: vec![
+                    Effect::DestroyTargetFlyingCreature,
+                    Effect::AddPlusOneCounterToSource,
+                ],
             },
         },
         ActivatedAbilityBinding {
@@ -9646,7 +9678,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 184);
+        assert_eq!(first.len(), 185);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

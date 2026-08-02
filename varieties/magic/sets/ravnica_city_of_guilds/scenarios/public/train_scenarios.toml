@@ -11193,6 +11193,66 @@ event_markers = ["CardMoved", "TriggeredAbilityStacked", "CounterPlaced", "Abili
 digest = "fnv1a64:de4dceec892cc0d2"
 
 [[scenario]]
+id = "rav_trophy_hunter_flying_destruction_counter"
+seed = 185
+description = "Activate Trophy Hunter on a Flying creature, resolve its normal destruction, then place its source +1/+1 counter."
+
+[[scenario.card]]
+label = "hunter"
+owner = 0
+definition = "RAV-TROPHY-HUNTER"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.card]]
+label = "forest"
+owner = 0
+definition = "RAV-FOREST"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.card]]
+label = "flyer"
+owner = 1
+definition = "RAV-BIRDS-OF-PARADISE"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.action]]
+kind = "begin_game"
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "forest"
+color = "green"
+
+[[scenario.action]]
+kind = "activate_ability"
+player = 0
+card = "hunter"
+ability = "destroy-flying-add-plus-one-counter"
+target = "permanent:flyer"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["hunter:battlefield", "forest:battlefield", "flyer:graveyard"]
+powers = ["hunter:3"]
+toughnesses = ["hunter:4"]
+mana = ["0:green:0"]
+stack_size = 0
+priority = 0
+event_markers = ["AbilityManaPaid", "AbilityActivated", "CardDestroyed", "CounterPlaced", "AbilityResolved"]
+digest = "fnv1a64:322d196306fb9445"
+
+[[scenario]]
 id = "rav_life_from_the_loam_land_recursion"
 seed = 151
 description = "Resolve Life from the Loam's bounded controller-graveyard land recursion while retaining its Dredge 3 characteristic."
