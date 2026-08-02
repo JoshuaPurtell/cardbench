@@ -42,7 +42,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 184] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 185] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
@@ -157,6 +157,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 184] = [
     "RAV-MNEMONIC-NEXUS",
     "RAV-PEEL-FROM-REALITY",
     "RAV-QUICKCHANGE",
+    "RAV-REROUTE",
     "RAV-SINS-OF-THE-PAST",
     "RAV-SEWERDREG",
     "RAV-VOTARY-OF-THE-CONCLAVE",
@@ -1488,6 +1489,41 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![
                 Effect::ReplaceTargetCreatureColorsWithChosenColorUntilEndOfTurn,
+                Effect::DrawController,
+            ],
+        },
+        // Full fidelity: each activated ability receives its own public stack
+        // identity, so the policy can select exactly one live one-target
+        // ability at resolution and replace its target with a different legal
+        // target before the controller draws.
+        CardDefinition {
+            id: "RAV-REROUTE",
+            name: "Reroute",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_hybrid(
+                0,
+                [],
+                [HybridManaSymbol {
+                    first: Color::Blue,
+                    second: Color::Red,
+                }],
+            ),
+            colors: colors([Color::Blue, Color::Red]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Instant]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "hybrid-cost-casting",
+                "target-single-target-activated-stack-ability",
+                "resolution-time-different-legal-target-choice",
+                "controller-draw",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![
+                Effect::ChangeTargetOfTargetActivatedAbility,
                 Effect::DrawController,
             ],
         },

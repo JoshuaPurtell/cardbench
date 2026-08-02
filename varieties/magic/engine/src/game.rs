@@ -24,10 +24,11 @@ use crate::{
     ManaCost, ManaPaymentSelection, ObjectId, PendingDecision, PlayerId, PlayerState,
     PolicyMoveKind, QuantityReplacementResolution, ReplacementChoice, ReplacementEffect,
     ReplacementEffectBinding, ReplacementEventKind, ResolutionPaymentManaAbility,
-    StackEffectResolution, StackObject, StackResolutionPlan, StaticAttackRestriction,
-    StaticAttackRestrictionBinding, StaticContinuousEffectBinding, StaticEntryRestriction,
-    StaticEntryRestrictionBinding, StaticLibraryTopRevealBinding, StaticLibraryTopRevealScope,
-    Step, TRANSMUTE_ABILITY_ID, Target, TargetRequirement, TokenSpec, TriggerCondition,
+    StackEffectResolution, StackObject, StackObjectId, StackResolutionPlan,
+    StaticAttackRestriction, StaticAttackRestrictionBinding, StaticContinuousEffectBinding,
+    StaticEntryRestriction, StaticEntryRestrictionBinding, StaticLibraryTopRevealBinding,
+    StaticLibraryTopRevealScope, Step, TRANSMUTE_ABILITY_ID, Target, TargetRequirement,
+    TokenSpec, TriggerCondition,
     TriggerOrderEntry, TriggeredAbilityBinding, TriggeredEffectObjectDecisionKind, Zone,
 };
 
@@ -320,6 +321,19 @@ pub struct CardView {
     pub can_attack: bool,
 }
 
+/// Public identity and target provenance for one activated ability currently
+/// on the stack. The id is deliberately a stack-item id rather than the
+/// source card id: one permanent may create multiple identical abilities
+/// before either resolves.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ActivatedAbilityStackView {
+    pub id: StackObjectId,
+    pub source: CardView,
+    pub ability: &'static str,
+    pub controller: PlayerId,
+    pub targets: Vec<Target>,
+}
+
 /// A card currently revealed at the top of one player's library by a live
 /// public static effect. `owner` identifies the library rather than the card's
 /// current controller, so an ordinary control-changing effect cannot make a
@@ -496,6 +510,10 @@ pub struct GameView {
     /// narrow projection to submit a legal counterspell target without seeing
     /// either player's hidden zones.
     pub stack_spells: Vec<CardView>,
+    /// Public activated-ability stack identities and target occurrences.
+    /// Policies use these identities for effects that retarget an individual
+    /// activated ability, even when another ability has the same source.
+    pub stack_activated_abilities: Vec<ActivatedAbilityStackView>,
     pub stack_depth: usize,
 }
 
@@ -796,6 +814,7 @@ pub struct Game {
     event_log_integrity: Vec<GameEvent>,
     seated_player_count: usize,
     next_object_id: u64,
+    next_stack_object_id: u64,
     next_timestamp: u64,
     /// The next identity assigned to an opened typed decision. It is never
     /// rewound by a successful continuation, so stale policy responses cannot
@@ -1052,6 +1071,7 @@ impl Game {
             event_log_integrity: Vec::new(),
             seated_player_count: player_count,
             next_object_id: 1,
+            next_stack_object_id: 1,
             next_timestamp: 1,
             next_decision_id: 1,
             departed_card_definitions: BTreeMap::new(),
@@ -2930,7 +2950,9 @@ impl Game {
             })
             .collect();
         let target_incarnations = self.target_incarnations(&targets);
+        let stack_item = self.allocate_stack_object_id();
         self.stack.push(StackObject {
+            id: stack_item,
             card: activation.source,
             source_incarnation: source.incarnation,
             source_colors,
@@ -3394,11 +3416,19 @@ impl Game {
         self.event_log.push(event);
     }
 
-    /// Projects the top card of every nonempty library covered by a live
-    /// source. A binding can reveal every player or only the source's current
-    /// controller. It deliberately has no cache: the final owner-indexed
-    /// library entry is the sole visible identity, so every ordinary library
-    /// transition is reflected on the next policy view.
+    /// Allocates one stack-only identity. A card object may create several
+    /// concurrent activated stack items, so this cannot reuse `ObjectId`.
+    fn allocate_stack_object_id(&mut self) -> StackObjectId {
+        let id = StackObjectId(self.next_stack_object_id);
+        self.next_stack_object_id += 1;
+        id
+    }
+
+    /// Projects exactly the currently top card of each nonempty library when
+    /// a registered reveal source is live. A binding can reveal every player
+    /// or only the source's current controller. It deliberately has no cache:
+    /// the final owner-indexed library entry is the sole visible identity, so
+    /// every ordinary library transition is reflected on the next policy view.
     fn revealed_library_tops(&self) -> Result<Vec<RevealedLibraryTopView>, RulesError> {
         let mut reveal_every_player = false;
         let mut revealed_owners = BTreeSet::new();
@@ -3562,7 +3592,8 @@ impl Game {
                 | DecisionContinuation::DamageReplacement { .. }
                 | DecisionContinuation::CounterUnlessPaysMana { .. }
                 | DecisionContinuation::ConditionalPrivateDiscard { .. }
-                | DecisionContinuation::TargetPlayerManaColor { .. } => None,
+                | DecisionContinuation::TargetPlayerManaColor { .. }
+                | DecisionContinuation::RetargetActivatedAbility { .. } => None,
             })
             .map(|(source, destination, may_fail_to_find)| {
                 self.decision_candidate_cards(
@@ -3620,7 +3651,8 @@ impl Game {
                 | DecisionContinuation::DamageReplacement { .. }
                 | DecisionContinuation::CounterUnlessPaysMana { .. }
                 | DecisionContinuation::ConditionalPrivateDiscard { .. }
-                | DecisionContinuation::TargetPlayerManaColor { .. } => None,
+                | DecisionContinuation::TargetPlayerManaColor { .. }
+                | DecisionContinuation::RetargetActivatedAbility { .. } => None,
             });
         let optional_triggered_ability_choice = self
             .pending_optional_trigger_choice
@@ -3666,7 +3698,8 @@ impl Game {
                 | DecisionContinuation::DamageReplacement { .. }
                 | DecisionContinuation::CounterUnlessPaysMana { .. }
                 | DecisionContinuation::ConditionalPrivateDiscard { .. }
-                | DecisionContinuation::TargetPlayerManaColor { .. } => None,
+                | DecisionContinuation::TargetPlayerManaColor { .. }
+                | DecisionContinuation::RetargetActivatedAbility { .. } => None,
             })
             .map(|(source, ability)| {
                 self.decision_candidate_cards(
@@ -3722,7 +3755,8 @@ impl Game {
                 | DecisionContinuation::QuantityReplacement { .. }
                 | DecisionContinuation::CounterUnlessPaysMana { .. }
                 | DecisionContinuation::ConditionalPrivateDiscard { .. }
-                | DecisionContinuation::TargetPlayerManaColor { .. } => None,
+                | DecisionContinuation::TargetPlayerManaColor { .. }
+                | DecisionContinuation::RetargetActivatedAbility { .. } => None,
             });
         let mut opponent_life = Vec::new();
         let mut opponent_battlefield = Vec::new();
@@ -3768,6 +3802,22 @@ impl Game {
             .iter()
             .map(|stack_object| self.stack_card_view(stack_object))
             .collect::<Result<Vec<_>, _>>()?;
+        let stack_activated_abilities = self
+            .stack
+            .iter()
+            .filter_map(|stack_object| {
+                stack_object.ability_id.map(|ability| {
+                    self.stack_card_view(stack_object)
+                        .map(|source| ActivatedAbilityStackView {
+                            id: stack_object.id,
+                            source,
+                            ability,
+                            controller: stack_object.controller,
+                            targets: stack_object.targets.clone(),
+                        })
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
         Ok(GameView {
             player,
             active_player: self.active_player,
@@ -3798,6 +3848,7 @@ impl Game {
             attackers_declared,
             blockers_declared,
             stack_spells,
+            stack_activated_abilities,
             stack_depth: self.stack.len(),
         })
     }
@@ -5158,7 +5209,9 @@ impl Game {
                     let participants =
                         self.captured_combat_participants(target, target_incarnation);
                     let source_colors = self.card_definition(source)?.colors.clone();
+                    let stack_item = self.allocate_stack_object_id();
                     self.stack.push(StackObject {
+                        id: stack_item,
                         card: source,
                         source_incarnation,
                         source_colors,
@@ -6042,7 +6095,9 @@ impl Game {
         }
         let source_incarnation = self.move_to_stack(request.card)?;
         let target_incarnations = self.target_incarnations(&spell_targets);
+        let stack_item = self.allocate_stack_object_id();
         self.stack.push(StackObject {
+            id: stack_item,
             card: request.card,
             source_incarnation,
             source_colors: definition.colors.clone(),
@@ -6829,7 +6884,143 @@ impl Game {
                     color,
                 )
             }
+            DecisionContinuation::RetargetActivatedAbility {
+                source_stack_item,
+                controller,
+                target_stack_item,
+                target_requirement,
+                original_target,
+            } => {
+                let selected = Self::validate_target_decision_selection(&decision, selection)?;
+                let new_target = selected.first().copied().ok_or(RulesError::IllegalAction(
+                    "activated-ability retarget decision lacks its selected target",
+                ))?;
+                self.resolve_activated_ability_retarget_decision(
+                    &decision,
+                    source_stack_item,
+                    controller,
+                    target_stack_item,
+                    target_requirement,
+                    original_target,
+                    new_target,
+                )
+            }
         }
+    }
+
+    #[allow(clippy::too_many_arguments, clippy::too_many_lines)] // The captured lower stack item is one stale-safe continuation.
+    fn resolve_activated_ability_retarget_decision(
+        &mut self,
+        decision: &PendingDecision,
+        source_stack_item: StackObjectId,
+        controller: PlayerId,
+        target_stack_item: StackObjectId,
+        target_requirement: TargetRequirement,
+        original_target: Target,
+        new_target: Target,
+    ) -> Result<(), RulesError> {
+        let source_position = self
+            .stack
+            .iter()
+            .position(|stack_object| stack_object.id == source_stack_item)
+            .ok_or(RulesError::IllegalAction(
+                "activated-ability retarget decision lost its resolving spell",
+            ))?;
+        let target_position = self
+            .stack
+            .iter()
+            .position(|stack_object| stack_object.id == target_stack_item)
+            .ok_or(RulesError::IllegalAction(
+                "activated-ability retarget decision lost its target stack item",
+            ))?;
+        let source_stack = self.stack[source_position].clone();
+        let target_stack = self.stack[target_position].clone();
+        let expected_options = self
+            .legal_trigger_targets_for_colors(
+                target_stack.controller,
+                &target_stack.source_colors,
+                target_requirement,
+            )
+            .into_iter()
+            .filter(|target| *target != original_target)
+            .map(DecisionOption::Target)
+            .collect::<Vec<_>>();
+        if source_position + 1 != self.stack.len()
+            || target_position >= source_position
+            || decision.kind != DecisionKind::RetargetActivatedAbility
+            || decision.visibility != DecisionVisibility::Public
+            || decision.player != controller
+            || source_stack.controller != controller
+            || source_stack.ability_id.is_some()
+            || source_stack.targets.as_slice() != [Target::ActivatedAbility(target_stack_item)]
+            || source_stack.effects.as_slice()
+                != [
+                    Effect::ChangeTargetOfTargetActivatedAbility,
+                    Effect::DrawController,
+                ]
+            || target_stack.ability_id.is_none()
+            || target_stack.target_count() != 1
+            || target_stack.targets.as_slice() != [original_target]
+            || target_stack
+                .effects
+                .iter()
+                .find_map(Effect::target_requirement)
+                != Some(target_requirement)
+            || new_target == original_target
+            || !self.target_matches_for_colors(
+                target_stack.controller,
+                new_target,
+                target_requirement,
+                &target_stack.source_colors,
+            )
+            || decision.options != expected_options
+            || decision.min_selections != 1
+            || decision.max_selections != 1
+        {
+            return Err(RulesError::IllegalAction(
+                "activated-ability retarget decision violates stack provenance",
+            ));
+        }
+        let new_target_incarnation = self.target_incarnations(&[new_target])[0];
+        let target_stack = self
+            .stack
+            .get_mut(target_position)
+            .ok_or(RulesError::IllegalAction(
+                "activated-ability retarget target disappeared before mutation",
+            ))?;
+        target_stack.targets[0] = new_target;
+        target_stack.target_incarnations[0] = new_target_incarnation;
+        self.complete_pending_decision(decision)?;
+        self.record_event(GameEvent::ActivatedAbilityTargetChanged {
+            source: source_stack.card,
+            target_ability: target_stack_item,
+            previous: original_target,
+            new: new_target,
+        });
+        let resolved = self.stack.pop().ok_or(RulesError::IllegalAction(
+            "retargeting spell disappeared before its terminal resolution",
+        ))?;
+        if resolved.id != source_stack_item {
+            return Err(RulesError::IllegalAction(
+                "retargeting spell changed stack identity before terminal resolution",
+            ));
+        }
+        self.draw_card_from_spell_effect(controller)?;
+        if self.objects.contains_key(&resolved.card) {
+            self.record_event(GameEvent::SpellResolved {
+                card: resolved.card,
+            });
+            self.move_to_spell_terminal_zone(resolved.card)?;
+        }
+        self.check_state_based_actions()?;
+        self.flush_pending_dies_triggers();
+        self.flush_pending_land_entry_triggers()?;
+        self.flush_pending_damage_triggers();
+        self.flush_pending_life_gain_triggers();
+        self.flush_pending_dies_triggers();
+        self.restore_priority_after_stack_resolution();
+        self.record_game_end_if_needed();
+        Ok(())
     }
 
     #[allow(clippy::too_many_arguments)] // Captured stack and payment provenance are intentionally explicit.
@@ -7818,7 +8009,9 @@ impl Game {
                 original: original.card,
             },
         );
+        let stack_item = self.allocate_stack_object_id();
         self.stack.push(StackObject {
+            id: stack_item,
             card: copy,
             source_incarnation: original.source_incarnation,
             source_colors: original.source_colors.clone(),
@@ -8635,7 +8828,9 @@ impl Game {
             card,
         });
         self.move_to_zone(card, Zone::Graveyard)?;
+        let stack_item = self.allocate_stack_object_id();
         self.stack.push(StackObject {
+            id: stack_item,
             card,
             source_incarnation: source.incarnation,
             source_colors: definition.colors.clone(),
@@ -9176,6 +9371,8 @@ impl Game {
             || self.players.get(self.active_player.0).is_none()
             || self.players.get(self.priority.0).is_none()
             || self.turn == 0
+            || self.next_object_id == 0
+            || self.next_stack_object_id == 0
         {
             return Err(RulesError::IllegalAction("invalid seated-player state"));
         }
@@ -9766,7 +9963,16 @@ impl Game {
             }
         }
         let mut stack_cards = BTreeSet::new();
+        let mut stack_item_ids = BTreeSet::new();
         for (stack_index, stack_object) in self.stack.iter().enumerate() {
+            if stack_object.id.0 == 0
+                || stack_object.id.0 >= self.next_stack_object_id
+                || !stack_item_ids.insert(stack_object.id)
+            {
+                return Err(RulesError::IllegalAction(
+                    "stack object identities are not unique and monotonic",
+                ));
+            }
             let is_ability = stack_object.ability_id.is_some();
             let is_virtual_copy = self.virtual_spell_copies.contains_key(&stack_object.card);
             let stack_card_conflict = if is_ability || is_virtual_copy {
@@ -10286,6 +10492,22 @@ impl Game {
                     {
                         return Err(RulesError::IllegalAction(
                             "a stack spell target must be lower than its source",
+                        ));
+                    }
+                }
+                if let Target::ActivatedAbility(target_stack_item) = target {
+                    let target_index = self
+                        .stack
+                        .iter()
+                        .position(|candidate| candidate.id == *target_stack_item)
+                        .ok_or(RulesError::IllegalTarget(*target))?;
+                    let target_stack = &self.stack[target_index];
+                    if target_index >= stack_index
+                        || target_stack.ability_id.is_none()
+                        || target_stack.target_count() != 1
+                    {
+                        return Err(RulesError::IllegalAction(
+                            "an activated-ability stack target must identify a lower one-target ability",
                         ));
                     }
                 }
@@ -11996,6 +12218,7 @@ impl Game {
                 | Effect::CreateTokenForTargetOpponent { .. }
                 | Effect::AddOneManaOfTargetPlayersChosenColor
                 | Effect::AttachSourceToTarget { .. }
+                | Effect::ChangeTargetOfTargetActivatedAbility
                 | Effect::GainControlTargetUntilEndOfTurn
                 | Effect::AddPlusOneCounterToSource
                 | Effect::LoseLifeEachOpponentEqualToControlledCreatures
@@ -12169,6 +12392,9 @@ impl Game {
             });
             self.priority = top.controller;
             self.consecutive_passes = 0;
+            return Ok(());
+        }
+        if self.suspend_top_stack_item_for_activated_ability_retarget_choice()? {
             return Ok(());
         }
         if self.suspend_top_stack_item_for_spell_copy_target_choice()? {
@@ -12345,6 +12571,11 @@ impl Game {
                             Target::BasicLandType(land_type) => {
                                 return Err(RulesError::IllegalTarget(Target::BasicLandType(
                                     land_type,
+                                )));
+                            }
+                            Target::ActivatedAbility(stack_item) => {
+                                return Err(RulesError::IllegalTarget(Target::ActivatedAbility(
+                                    stack_item,
                                 )));
                             }
                         }
@@ -12950,6 +13181,92 @@ impl Game {
     /// controller submits the exact `DecisionId`; no priority action can
     /// interleave between seeing public target candidates and creating the
     /// copy.
+    /// Opens the no-priority target replacement decision for the one-target
+    /// activated-ability retarget slice. The lower ability retains a distinct
+    /// stack identity, so two same-source activations cannot be conflated.
+    fn suspend_top_stack_item_for_activated_ability_retarget_choice(
+        &mut self,
+    ) -> Result<bool, RulesError> {
+        if self.pending_decision.is_some() {
+            return Err(RulesError::IllegalAction(
+                "a second typed decision attempted to open during activated-ability retargeting",
+            ));
+        }
+        let Some(top) = self.stack.last() else {
+            return Ok(false);
+        };
+        let (source_stack_item, controller, target_stack_item) = match (
+            top.ability_id,
+            top.targets.as_slice(),
+            top.effects.as_slice(),
+        ) {
+            (
+                None,
+                [Target::ActivatedAbility(target_stack_item)],
+                [
+                    Effect::ChangeTargetOfTargetActivatedAbility,
+                    Effect::DrawController,
+                ],
+            ) => (top.id, top.controller, *target_stack_item),
+            _ => return Ok(false),
+        };
+        let Some(target_position) = self
+            .stack
+            .iter()
+            .position(|stack_object| stack_object.id == target_stack_item)
+        else {
+            return Ok(false);
+        };
+        let source_position = self.stack.len() - 1;
+        let target_stack = &self.stack[target_position];
+        if target_position >= source_position
+            || target_stack.ability_id.is_none()
+            || target_stack.target_count() != 1
+        {
+            return Ok(false);
+        }
+        let target_requirement = target_stack
+            .effects
+            .iter()
+            .find_map(Effect::target_requirement)
+            .ok_or(RulesError::IllegalAction(
+                "single-target activated stack item lacks a target requirement",
+            ))?;
+        let original_target = target_stack.targets[0];
+        let options = self
+            .legal_trigger_targets_for_colors(
+                target_stack.controller,
+                &target_stack.source_colors,
+                target_requirement,
+            )
+            .into_iter()
+            .filter(|target| *target != original_target)
+            .map(DecisionOption::Target)
+            .collect::<Vec<_>>();
+        if options.is_empty() {
+            // There is no different legal target. The ordinary resolver
+            // performs a no-op target-change instruction before any following
+            // effects, preserving the rest of this spell's resolution.
+            return Ok(false);
+        }
+        self.open_pending_decision(
+            controller,
+            DecisionVisibility::Public,
+            DecisionKind::RetargetActivatedAbility,
+            1,
+            1,
+            options,
+            DecisionContinuation::RetargetActivatedAbility {
+                source_stack_item,
+                controller,
+                target_stack_item,
+                target_requirement,
+                original_target,
+            },
+        )?;
+        Ok(true)
+    }
+
     fn suspend_top_stack_item_for_spell_copy_target_choice(&mut self) -> Result<bool, RulesError> {
         if self.pending_decision.is_some() {
             return Err(RulesError::IllegalAction(
@@ -13972,7 +14289,9 @@ impl Game {
         effects: Vec<Effect>,
     ) {
         let target_incarnations = self.target_incarnations(&targets);
+        let stack_item = self.allocate_stack_object_id();
         self.stack.push(StackObject {
+            id: stack_item,
             card: event.source,
             source_incarnation: event.source_incarnation,
             source_colors: event.source_colors.clone(),
@@ -14118,6 +14437,11 @@ impl Game {
             .map(Target::Player)
             .chain(self.objects.keys().copied().map(Target::Permanent))
             .chain(self.stack.iter().map(|item| Target::Spell(item.card)))
+            .chain(
+                self.stack
+                    .iter()
+                    .map(|item| Target::ActivatedAbility(item.id)),
+            )
             .filter(|target| {
                 self.target_matches_for_colors(controller, *target, requirement, source_colors)
             })
@@ -15178,6 +15502,11 @@ impl Game {
             Target::BasicLandType(land_type) => {
                 return Err(RulesError::IllegalTarget(Target::BasicLandType(land_type)));
             }
+            Target::ActivatedAbility(stack_item) => {
+                return Err(RulesError::IllegalTarget(Target::ActivatedAbility(
+                    stack_item,
+                )));
+            }
         }
         Ok(candidates)
     }
@@ -15232,6 +15561,9 @@ impl Game {
             Target::BasicLandType(land_type) => {
                 Err(RulesError::IllegalTarget(Target::BasicLandType(land_type)))
             }
+            Target::ActivatedAbility(stack_item) => Err(RulesError::IllegalTarget(
+                Target::ActivatedAbility(stack_item),
+            )),
         }
     }
 
@@ -15246,6 +15578,9 @@ impl Game {
             Target::BasicLandType(land_type) => {
                 Err(RulesError::IllegalTarget(Target::BasicLandType(land_type)))
             }
+            Target::ActivatedAbility(stack_item) => Err(RulesError::IllegalTarget(
+                Target::ActivatedAbility(stack_item),
+            )),
         }
     }
 
@@ -15481,6 +15816,11 @@ impl Game {
             }
             Target::BasicLandType(land_type) => {
                 return Err(RulesError::IllegalTarget(Target::BasicLandType(land_type)));
+            }
+            Target::ActivatedAbility(stack_item) => {
+                return Err(RulesError::IllegalTarget(Target::ActivatedAbility(
+                    stack_item,
+                )));
             }
         }
         Ok(())
@@ -15760,7 +16100,10 @@ impl Game {
                             redirected,
                         )?;
                     }
-                    Target::Spell(_) | Target::SacrificePermanent(_) | Target::BasicLandType(_) => {
+                    Target::Spell(_)
+                    | Target::SacrificePermanent(_)
+                    | Target::BasicLandType(_)
+                    | Target::ActivatedAbility(_) => {
                         return Err(RulesError::IllegalTarget(destination));
                     }
                 }
@@ -15898,6 +16241,12 @@ impl Game {
         target: Option<Target>,
     ) -> Result<(), RulesError> {
         match effect {
+            Effect::ChangeTargetOfTargetActivatedAbility => {
+                // A different legal target would have opened the typed
+                // no-priority continuation before this generic dispatcher.
+                // With none available, the target-change instruction is an
+                // ordinary no-op and later effects still resolve.
+            }
             Effect::DealDamage { amount, .. } => match target
                 .ok_or(RulesError::IllegalAction("missing damage target"))?
             {
@@ -15918,6 +16267,9 @@ impl Game {
                 }
                 Target::BasicLandType(land_type) => {
                     return Err(RulesError::IllegalTarget(Target::BasicLandType(land_type)));
+                }
+                Target::ActivatedAbility(stack_item) => {
+                    return Err(RulesError::IllegalTarget(Target::ActivatedAbility(stack_item)));
                 }
             },
             Effect::GainControlTargetUntilEndOfTurn => {
@@ -16158,6 +16510,11 @@ impl Game {
                                 land_type,
                             )));
                         }
+                        Target::ActivatedAbility(stack_item) => {
+                            return Err(RulesError::IllegalTarget(
+                                Target::ActivatedAbility(stack_item),
+                            ));
+                        }
                     }
                 }
             }
@@ -16192,6 +16549,9 @@ impl Game {
                     }
                     Target::BasicLandType(land_type) => {
                         return Err(RulesError::IllegalTarget(Target::BasicLandType(land_type)));
+                    }
+                    Target::ActivatedAbility(stack_item) => {
+                        return Err(RulesError::IllegalTarget(Target::ActivatedAbility(stack_item)));
                     }
                 }
             }
@@ -17739,6 +18099,9 @@ impl Game {
             Some(Target::BasicLandType(land_type)) => {
                 Err(RulesError::IllegalTarget(Target::BasicLandType(land_type)))
             }
+            Some(Target::ActivatedAbility(stack_item)) => Err(RulesError::IllegalTarget(
+                Target::ActivatedAbility(stack_item),
+            )),
             None => Err(RulesError::IllegalAction("missing permanent target")),
         }
     }
@@ -17784,6 +18147,9 @@ impl Game {
             Some(Target::BasicLandType(land_type)) => {
                 Err(RulesError::IllegalTarget(Target::BasicLandType(land_type)))
             }
+            Some(Target::ActivatedAbility(stack_item)) => Err(RulesError::IllegalTarget(
+                Target::ActivatedAbility(stack_item),
+            )),
             None => Err(RulesError::IllegalAction("missing spell target")),
         }
     }
@@ -17800,7 +18166,7 @@ impl Game {
                 | Target::SacrificePermanent(card) => {
                     self.object(*card).ok().map(|object| object.incarnation)
                 }
-                Target::Player(_) | Target::BasicLandType(_) => None,
+                Target::Player(_) | Target::BasicLandType(_) | Target::ActivatedAbility(_) => None,
             })
             .collect()
     }
@@ -17828,7 +18194,7 @@ impl Game {
                 self.object(card)
                     .is_ok_and(|object| object.incarnation == expected)
             }
-            Target::Player(_) | Target::BasicLandType(_) => true,
+            Target::Player(_) | Target::BasicLandType(_) | Target::ActivatedAbility(_) => true,
         }
     }
 
@@ -17953,6 +18319,14 @@ impl Game {
                         && !self.virtual_spell_copies.contains_key(&card)
                 })
             }
+            (
+                Target::ActivatedAbility(stack_item),
+                TargetRequirement::ActivatedAbilityWithSingleTarget,
+            ) => self.stack.iter().any(|stack_object| {
+                stack_object.id == stack_item
+                    && stack_object.ability_id.is_some()
+                    && stack_object.target_count() == 1
+            }),
             _ => false,
         }
     }
@@ -18085,6 +18459,7 @@ impl Game {
             }
             Target::Player(_)
             | Target::Spell(_)
+            | Target::ActivatedAbility(_)
             | Target::SacrificePermanent(_)
             | Target::BasicLandType(_) => false,
         }
@@ -18149,6 +18524,9 @@ impl Game {
                     | TargetRequirement::Spell
                     | TargetRequirement::PhysicalSpell
                     | TargetRequirement::NoncreatureSpell
+            ) | (
+                Target::ActivatedAbility(_),
+                TargetRequirement::ActivatedAbilityWithSingleTarget
             )
         )
     }
@@ -23713,6 +24091,76 @@ impl Game {
                 {
                     return Err(RulesError::IllegalAction(
                         "target-player mana decision violates its stack and recipient boundary",
+                    ));
+                }
+            }
+            DecisionContinuation::RetargetActivatedAbility {
+                source_stack_item,
+                controller,
+                target_stack_item,
+                target_requirement,
+                original_target,
+            } => {
+                let source_position = self
+                    .stack
+                    .iter()
+                    .position(|candidate| candidate.id == *source_stack_item);
+                let target_position = self
+                    .stack
+                    .iter()
+                    .position(|candidate| candidate.id == *target_stack_item);
+                let source_stack = source_position.and_then(|position| self.stack.get(position));
+                let target_stack = target_position.and_then(|position| self.stack.get(position));
+                let expected_options = target_stack
+                    .map(|target_stack| {
+                        self.legal_trigger_targets_for_colors(
+                            target_stack.controller,
+                            &target_stack.source_colors,
+                            *target_requirement,
+                        )
+                        .into_iter()
+                        .filter(|target| *target != *original_target)
+                        .map(DecisionOption::Target)
+                        .collect::<Vec<_>>()
+                    })
+                    .unwrap_or_default();
+                let source_shape_matches = source_stack.is_some_and(|source_stack| {
+                    source_stack.ability_id.is_none()
+                        && source_stack.controller == *controller
+                        && source_stack.targets.as_slice()
+                            == [Target::ActivatedAbility(*target_stack_item)]
+                        && source_stack.effects.as_slice()
+                            == [
+                                Effect::ChangeTargetOfTargetActivatedAbility,
+                                Effect::DrawController,
+                            ]
+                });
+                let target_shape_matches = target_stack.is_some_and(|target_stack| {
+                    target_stack.ability_id.is_some()
+                        && target_stack.target_count() == 1
+                        && target_stack.targets.as_slice() == [*original_target]
+                        && target_stack
+                            .effects
+                            .iter()
+                            .find_map(Effect::target_requirement)
+                            == Some(*target_requirement)
+                });
+                if decision.kind != DecisionKind::RetargetActivatedAbility
+                    || decision.visibility != DecisionVisibility::Public
+                    || decision.player != *controller
+                    || source_position != Some(self.stack.len().saturating_sub(1))
+                    || target_position.is_none_or(|position| {
+                        source_position.is_none_or(|source| position >= source)
+                    })
+                    || !source_shape_matches
+                    || !target_shape_matches
+                    || expected_options.is_empty()
+                    || decision.options != expected_options
+                    || decision.min_selections != 1
+                    || decision.max_selections != 1
+                {
+                    return Err(RulesError::IllegalAction(
+                        "activated-ability retarget decision violates stack identity or target provenance",
                     ));
                 }
             }

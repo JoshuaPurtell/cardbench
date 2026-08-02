@@ -10,10 +10,10 @@ mod game;
 mod model;
 
 pub use game::{
-    CardView, CastRequest, ConvokeContribution, ConvokePayment, DamageReplacementChoiceView, Game,
-    GameView, LibrarySearchChoiceView, PendingDecisionView, PolicyAction, PrivateLibraryChoiceView,
-    RevealedLibraryTopView, RulesError, TransmuteSearchView,
-    TriggeredAbilityEffectObjectChoiceView,
+    ActivatedAbilityStackView, CardView, CastRequest, ConvokeContribution, ConvokePayment,
+    DamageReplacementChoiceView, Game, GameView, LibrarySearchChoiceView, PendingDecisionView,
+    PolicyAction, PrivateLibraryChoiceView, RevealedLibraryTopView, RulesError,
+    TransmuteSearchView, TriggeredAbilityEffectObjectChoiceView,
 };
 pub use model::{
     AbilityActivation, AbilityCostPayment, ActivatedAbility, ActivatedAbilityBinding,
@@ -38,7 +38,7 @@ pub use model::{
     ManaCost, ManaPaymentSelection, ManaPool, ObjectId, PendingDecision, PlayerId, PlayerState,
     PolicyMoveKind, QuantityReplacementResolution, ReplacementChoice, ReplacementEffect,
     ReplacementEffectBinding, ReplacementEventKind, ResolutionPaymentManaAbility,
-    SharedKeywordFamily, StackEffectResolution, StackObject, StackResolutionPlan,
+    SharedKeywordFamily, StackEffectResolution, StackObject, StackObjectId, StackResolutionPlan,
     StackTargetArityError, StaticAttackRestriction, StaticAttackRestrictionBinding,
     StaticContinuousEffectBinding, StaticEntryRestriction, StaticEntryRestrictionBinding,
     StaticLibraryTopRevealBinding, StaticLibraryTopRevealScope, Step, TRANSMUTE_ABILITY_ID, Target,

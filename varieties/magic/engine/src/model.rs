@@ -4,6 +4,12 @@ use std::collections::{BTreeMap, BTreeSet};
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct ObjectId(pub u64);
 
+/// A stable, monotonic identity for one individual stack item.  It is distinct
+/// from a source [`ObjectId`]: one permanent can create multiple otherwise
+/// identical activated abilities before either resolves.
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct StackObjectId(pub u64);
+
 /// Index of a seated player in turn order.
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub struct PlayerId(pub usize);
@@ -1397,6 +1403,11 @@ pub enum TargetRequirement {
     /// Any noncreature spell currently on the stack, including represented
     /// permanent artifact and enchantment spells.
     NoncreatureSpell,
+    /// One live activated ability on the stack that has exactly one ordinary
+    /// target occurrence.  The `StackObjectId` target keeps distinct same-
+    /// source activations addressable without conflating source card identity
+    /// with one stack item.
+    ActivatedAbilityWithSingleTarget,
     /// A card in the resolving spell controller's graveyard. The controller
     /// qualification stays in `Game` so this target remains reusable by other
     /// expansions.
@@ -1434,6 +1445,10 @@ pub enum Target {
     /// `ObjectId` remains stable while the card changes zones, so the engine
     /// verifies that it is still a qualifying spell when the effect resolves.
     Spell(ObjectId),
+    /// One individual activated ability stack item. Unlike [`Self::Spell`],
+    /// this names no physical card and cannot be reconstructed from its
+    /// source object because identical source activations may coexist.
+    ActivatedAbility(StackObjectId),
     /// An explicitly selected permanent used to pay a spell's bound additional
     /// sacrifice cost. This is intentionally not a spell target: it is removed
     /// from the request before the spell is placed on the stack and it never
@@ -1789,6 +1804,11 @@ pub enum Effect {
     /// intentionally a stack-only operation so public live-game setup cannot
     /// inject cards into a hand after the game has begun.
     DrawController,
+    /// Replace the one target of the targeted activated ability during this
+    /// effect's resolution. The resolving controller supplies one different
+    /// legal target at the typed no-priority decision boundary; a following
+    /// ordinary effect may then continue the same stack object.
+    ChangeTargetOfTargetActivatedAbility,
     /// Snapshot the resolving controller's live permanents with the stated
     /// registered basic-land type, then make that many ordinary spell-effect
     /// draws. The type-line lookup is expansion-neutral and does not infer a
@@ -2453,6 +2473,9 @@ impl Effect {
             Self::CounterTargetPhysicalSpellThenMillItsControllerByManaValueIfManaColorSpent {
                 ..
             } => Some(TargetRequirement::PhysicalSpell),
+            Self::ChangeTargetOfTargetActivatedAbility => {
+                Some(TargetRequirement::ActivatedAbilityWithSingleTarget)
+            }
             Self::SacrificeCreatureOrCounterTargetSpell => {
                 Some(TargetRequirement::NoncreatureSpell)
             }
@@ -3266,6 +3289,9 @@ pub enum DecisionKind {
     /// card colors. This is a public no-priority decision because both the
     /// target and the received mana are public game information.
     TargetPlayerManaColor,
+    /// The controller of a resolving effect selects one different legal
+    /// replacement target for an exact single-target activated stack item.
+    RetargetActivatedAbility,
 }
 
 /// One public member of an APNAP simultaneous-trigger ordering group.
@@ -3487,6 +3513,17 @@ pub enum DecisionContinuation {
         controller: PlayerId,
         recipient: PlayerId,
     },
+    /// Resumes a resolving spell after its controller chooses a different
+    /// legal target for one lower single-target activated ability. The source
+    /// stack identity is retained separately from the physical card so a
+    /// stale answer cannot alter a later activation of the same permanent.
+    RetargetActivatedAbility {
+        source_stack_item: StackObjectId,
+        controller: PlayerId,
+        target_stack_item: StackObjectId,
+        target_requirement: TargetRequirement,
+        original_target: Target,
+    },
 }
 
 /// One serializable, no-priority decision boundary. Candidate options remain
@@ -3621,6 +3658,9 @@ impl PlayerState {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct StackObject {
+    /// Unique identity for this individual stack item, including activated
+    /// abilities whose `card` remains their shared source object.
+    pub id: StackObjectId,
     pub card: ObjectId,
     /// The exact incarnation that became this spell or produced this ability.
     /// An ability may resolve after its source left the battlefield, but it
@@ -4253,6 +4293,16 @@ pub enum GameEvent {
         source: ObjectId,
         source_incarnation: u64,
         ability: &'static str,
+    },
+    /// A resolving stack effect replaced the sole target of an exact lower
+    /// activated ability. The old and new targets are public game objects;
+    /// the stack-item identity prevents same-source activations from being
+    /// conflated in replay.
+    ActivatedAbilityTargetChanged {
+        source: ObjectId,
+        target_ability: StackObjectId,
+        previous: Target,
+        new: Target,
     },
     SpellCounteredByRules {
         card: ObjectId,
