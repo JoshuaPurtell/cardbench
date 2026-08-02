@@ -49,8 +49,8 @@ a zone move. The fetched Aura's ordinary ETB trigger is queued only after the
 Mage trigger's terminal receipt. The opponent sees neither unselected Aura
 identities nor a private decision projection.
 
-The current catalog partition is 203 full / 52 partial / 36 catalog-only unique
-names (218 / 52 / 36 printings). The independently checked coverage-report
+The current catalog partition is 204 full / 51 partial / 36 catalog-only unique
+names (219 / 51 / 36 printings). The independently checked coverage-report
 binary emits the same partition.
 
 `RAV_FULL_FIDELITY_DEFINITION_IDS` is a deliberately small positive manifest,
@@ -58,7 +58,8 @@ not an inference from executable status. Char, Lightning Helix, Scatter the
 Seeds, Guardian of Vitu-Ghazi, Last Gasp, Elves of Deep Shadow, Boros Recruit,
 Nightguard Patrol, Watchwolf, Glass Golem, Junktroller,
 Cleansing Beam, Rally the Righteous, Wojek Siren, Rain of Embers, Dogpile,
-Overwhelm, Gather Courage, Seeds of Strength, Darkblast, Greater Mossdog,
+Overwhelm, Gather Courage, Seeds of Strength, Darkblast, Greater Mossdog, and
+Stinkweed Imp,
 Seismic Spike, Incite Hysteria, Searing Meditation, the
 four RAV Signets, the five RAV basic lands, Conclave Equenaut, Snapping Drake,
 Goliath Spider, Courier Hawk, Skyknight Legionnaire, Birds of Paradise, and
@@ -154,14 +155,15 @@ back every source, pool, stack, and log mutation if a later payment fails. The
 four RAV Signets are separately positive-manifest entries because their
 definition-bound abilities use the same ordered atomic cast-payment boundary.
 
-The creature batch for Golgari Thug, Stinkweed Imp, and Root-Kin Ally is
-explicitly compatibility-bounded. Golgari Thug supports only normal creature
-casting, base characteristics, and the shared Dredge replacement; Stinkweed Imp
-adds its static Flying evasion slice; Root-Kin Ally supports only normal creature
-casting, base characteristics, and the shared Convoke payment hook. Every other
-printed ability on those cards is unsupported, including their card-specific
-triggered or combat behavior. The checked-in definitions and public scenarios
-make that omission visible without reproducing card rules text.
+Golgari Thug and Root-Kin Ally remain explicitly compatibility-bounded. Golgari
+Thug supports only normal creature casting, base characteristics, and the shared
+Dredge replacement; Root-Kin Ally supports only normal creature casting, base
+characteristics, and the shared Convoke payment hook. Stinkweed Imp instead is a
+positive-manifest card: its static Flying and shared Dredge behavior are joined by
+the existing exact-incarnation combat-damage-recipient trigger. The trigger has no
+free target choice and destroys only the creature that actually received the
+combat damage. The checked-in definitions and public scenarios make each remaining
+omission visible without reproducing card rules text.
 
 The generic-keyword coverage batch for Conclave Phalanx, Golgari Grave-Troll,
 Necroplasm, Grave-Shell Scarab, Shambling Shell, and Autochthon Wurm follows
@@ -408,11 +410,12 @@ subsequent state-based action.
 
 The following bounded keyword wave adds the static Defender slice for Torpid
 Moloch and the static Flying slices for Belltower Sphinx, Screeching Griffin,
-Tattered Drake, Stinkweed Imp, Woebringer Demon, and Vulturous Zombie. Their
-trigger, activation, regeneration, damage-triggered destruction, upkeep-
-sacrifice, and graveyard-triggered counter behavior remains outside the
-executable scope, so each has a focused compatibility trace plus an ignored
-full-fidelity probe rather than a positive-manifest claim.
+Tattered Drake, Woebringer Demon, and Vulturous Zombie. Their trigger,
+activation, regeneration, damage-triggered destruction, upkeep-sacrifice, and
+graveyard-triggered counter behavior remains outside the executable scope, so each
+has a focused compatibility trace plus an ignored full-fidelity probe rather than
+a positive-manifest claim. Stinkweed Imp has since graduated separately through
+the exact combat-damage trigger substrate.
 
 Carven Caryatid's full trigger binding is published through
 `rav_triggered_ability_bindings`; its focused traces cover both the ordinary
