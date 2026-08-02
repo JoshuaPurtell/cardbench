@@ -43,7 +43,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 197] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 198] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
@@ -233,6 +233,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 197] = [
     "RAV-CLOUDSTONE-CURIO",
     "RAV-TERRARION",
     "RAV-GRIFTERS-BLADE",
+    "RAV-PARIAHS-SHIELD",
     "RAV-FESTIVAL-OF-THE-GUILDPACT",
     "RAV-FLICKERFORM",
     "RAV-SUPPRESSION-FIELD",
@@ -3550,6 +3551,29 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Flash],
             effects: vec![],
         },
+        // Full fidelity: this colorless Equipment costs `{5}`, has a
+        // sorcery-speed `{3}` equip activation, and installs a persistent
+        // non-prevention replacement while attached.
+        CardDefinition {
+            id: "RAV-PARIAHS-SHIELD",
+            name: "Pariah's Shield",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::new(5),
+            colors: BTreeSet::new(),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Artifact]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colorless-cost-casting",
+                "equipment-all-damage-to-equipped-creature-to-controller",
+                "sorcery-speed-equip-three",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![],
+        },
         // This definition is complete for the public RAV Birds of Paradise
         // card: normal creature characteristics, Flying, and its one explicit
         // chosen-color tap mana ability all use shared, directly tested rules
@@ -6539,6 +6563,25 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
             },
         },
         ActivatedAbilityBinding {
+            card_definition: "RAV-PARIAHS-SHIELD",
+            ability: ActivatedAbility {
+                id: "equip-damage-redirection",
+                mana_cost: ManaCost::new(3),
+                tap_cost: false,
+                sorcery_speed: true,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![TargetRequirement::ControlledCreature],
+                effects: vec![Effect::AttachSourceToTarget {
+                    target: TargetRequirement::ControlledCreature,
+                    changes: pariahs_shield_attachment_changes(),
+                }],
+            },
+        },
+        ActivatedAbilityBinding {
             card_definition: "RAV-PEREGRINE-MASK",
             ability: ActivatedAbility {
                 id: "equip-defender-flying-first-strike",
@@ -7219,6 +7262,10 @@ fn grifters_blade_attachment_changes() -> Vec<ContinuousChange> {
     }]
 }
 
+fn pariahs_shield_attachment_changes() -> Vec<ContinuousChange> {
+    vec![ContinuousChange::RedirectDamageToAttachmentController]
+}
+
 fn peregrine_mask_attachment_changes() -> Vec<ContinuousChange> {
     vec![
         ContinuousChange::AddKeyword(Keyword::Defender),
@@ -7247,6 +7294,13 @@ pub fn rav_attachment_bindings() -> Vec<AttachmentBinding> {
             kind: AttachmentKind::Equipment,
             target: TargetRequirement::ControlledCreature,
             changes: grifters_blade_attachment_changes(),
+            granted_activated_abilities: vec![],
+        },
+        AttachmentBinding {
+            card_definition: "RAV-PARIAHS-SHIELD",
+            kind: AttachmentKind::Equipment,
+            target: TargetRequirement::ControlledCreature,
+            changes: pariahs_shield_attachment_changes(),
             granted_activated_abilities: vec![],
         },
         AttachmentBinding {

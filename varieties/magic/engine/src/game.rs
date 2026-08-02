@@ -4159,6 +4159,7 @@ impl Game {
                 ContinuousChange::ChangeController(_)
                 | ContinuousChange::ChangeControllerToSourceController
                 | ContinuousChange::GrantActivatedAbility(_)
+                | ContinuousChange::RedirectDamageToAttachmentController
                 | ContinuousChange::CannotBlockSource(_)
                 | ContinuousChange::AddDamageShield(_)
                 | ContinuousChange::SuppressNonManaActivatedAbilities => {}
@@ -11179,6 +11180,25 @@ impl Game {
             if let ContinuousChange::GrantActivatedAbility(ability) = &effect.change {
                 Self::validate_activated_ability_definition(ability)?;
             }
+            if effect.change == ContinuousChange::RedirectDamageToAttachmentController {
+                let binding = self.attachment_binding_for(effect.source)?.ok_or(
+                    RulesError::IllegalAction(
+                        "attached damage redirection has no attachment binding",
+                    ),
+                )?;
+                let attachment = self.object(effect.source)?;
+                if !binding
+                    .changes
+                    .contains(&ContinuousChange::RedirectDamageToAttachmentController)
+                    || attachment.attached_to != Some(effect.target)
+                    || attachment.attached_to_incarnation != Some(effect.target_incarnation)
+                    || self.player(self.controller_of(effect.source)?)?.lost
+                {
+                    return Err(RulesError::IllegalAction(
+                        "attached damage redirection lacks live endpoint provenance",
+                    ));
+                }
+            }
             if matches!(
                 effect.change,
                 ContinuousChange::ChangeController(_)
@@ -16059,6 +16079,57 @@ impl Game {
             })
     }
 
+    /// Lists the persistent non-prevention replacements created by live
+    /// source-attached effects. The attachment's current controller is read
+    /// when damage would be dealt, rather than being frozen at equip time.
+    /// Both endpoint incarnations and the attachment relationship are checked
+    /// before exposing a public replacement choice.
+    fn attached_damage_redirection_candidates(
+        &self,
+        permanent: ObjectId,
+        used: &[DamageReplacementChoice],
+    ) -> Result<Vec<DamageReplacementChoice>, RulesError> {
+        let protected_incarnation = self.object(permanent)?.incarnation;
+        let mut candidates = Vec::new();
+        for effect in &self.continuous_effects {
+            if effect.target != permanent
+                || effect.target_incarnation != protected_incarnation
+                || effect.change != ContinuousChange::RedirectDamageToAttachmentController
+                || !self.effect_is_active(effect)
+            {
+                continue;
+            }
+            let attachment = self.object(effect.source)?;
+            let has_exact_attachment = attachment.attached_to == Some(permanent)
+                && attachment.attached_to_incarnation == Some(protected_incarnation);
+            let Some(binding) = self.attachment_binding_for(effect.source)? else {
+                continue;
+            };
+            if !has_exact_attachment
+                || !binding
+                    .changes
+                    .contains(&ContinuousChange::RedirectDamageToAttachmentController)
+            {
+                continue;
+            }
+            let destination = self.controller_of(effect.source)?;
+            if self.player(destination)?.lost {
+                continue;
+            }
+            let candidate = DamageReplacementChoice::AttachedRedirect {
+                attachment: effect.source,
+                attachment_incarnation: effect.source_incarnation,
+                protected: permanent,
+                protected_incarnation,
+                destination,
+            };
+            if !used.contains(&candidate) {
+                candidates.push(candidate);
+            }
+        }
+        Ok(candidates)
+    }
+
     /// Lists every represented replacement applicable to one prospective
     /// damage event. A previously used replacement is excluded even if its
     /// source remains live, preventing one effect from recursively replacing
@@ -16079,6 +16150,7 @@ impl Game {
         let prevention_allowed = !self.damage_cannot_be_prevented(source);
         match target {
             Target::Permanent(permanent) => {
+                candidates.extend(self.attached_damage_redirection_candidates(permanent, used)?);
                 // A bounded redirected event must be wholly redirected. The
                 // legacy direct path retains support for partial redirects;
                 // that broader continuation is an explicit future extension.
@@ -16328,6 +16400,25 @@ impl Game {
                 pending.target = destination;
                 pending.target_incarnation = self.damage_target_incarnation(destination)?;
                 pending.affected_player = self.affected_player_for_damage_target(destination)?;
+            }
+            DamageReplacementChoice::AttachedRedirect {
+                protected,
+                destination,
+                ..
+            } => {
+                // Candidate membership above revalidates the live attachment,
+                // source controller, and both object incarnations. The
+                // replacement is persistent, so it is merely marked used for
+                // this prospective packet and is not consumed.
+                self.record_event(GameEvent::DamageRedirected {
+                    source: pending.source,
+                    from: protected,
+                    to: Target::Player(destination),
+                    amount: pending.amount,
+                });
+                pending.target = Target::Player(destination);
+                pending.target_incarnation = None;
+                pending.affected_player = destination;
             }
             DamageReplacementChoice::TargetedShield {
                 id,
@@ -16724,6 +16815,23 @@ impl Game {
         // “Can't be prevented” excludes only prevention effects. A Razia-like
         // redirection is a non-prevention replacement, so it remains
         // applicable and may produce a new prospective damage recipient.
+        if let Some(DamageReplacementChoice::AttachedRedirect {
+            protected,
+            destination,
+            ..
+        }) = self
+            .attached_damage_redirection_candidates(permanent, &[])?
+            .into_iter()
+            .next()
+        {
+            self.record_event(GameEvent::DamageRedirected {
+                source,
+                from: protected,
+                to: Target::Player(destination),
+                amount,
+            });
+            return self.deal_damage_to_player(source, destination, amount);
+        }
         let redirect_index = self
             .damage_redirections
             .iter()

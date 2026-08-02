@@ -794,6 +794,16 @@ pub enum DamageReplacementChoice {
         protected: ObjectId,
         destination: Target,
     },
+    /// A persistent replacement supplied by one exact live attachment. It
+    /// retains both endpoint incarnations, so an old Equipment cannot redirect
+    /// damage after leaving, re-entering, or moving to another creature.
+    AttachedRedirect {
+        attachment: ObjectId,
+        attachment_incarnation: u64,
+        protected: ObjectId,
+        protected_incarnation: u64,
+        destination: PlayerId,
+    },
     /// Consume a target-specific prevention shield.
     TargetedShield {
         id: u64,
@@ -2972,6 +2982,11 @@ pub enum ContinuousChange {
     /// costs, while the continuous-effect source supplies duration and
     /// receipt provenance.
     GrantActivatedAbility(ActivatedAbility),
+    /// A source-attached layer-six replacement: all damage that would be
+    /// dealt to the exact attached permanent is dealt to the attachment's
+    /// current controller instead. This is not prevention, has no bounded
+    /// quantity, and ends with the ordinary attachment lifecycle.
+    RedirectDamageToAttachmentController,
     CannotBlockSource(ObjectId),
     AddDamageShield(i16),
     ModifyPowerToughness {
@@ -3033,6 +3048,7 @@ impl ContinuousChange {
             Self::AddKeyword(_)
             | Self::RemoveKeyword(_)
             | Self::GrantActivatedAbility(_)
+            | Self::RedirectDamageToAttachmentController
             | Self::CannotBlockSource(_)
             | Self::AddDamageShield(_)
             | Self::OtherControlledCreaturesAddKeyword(_)
