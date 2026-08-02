@@ -8,8 +8,8 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardDefinition, CardType, CastRequest, Color, CombatBlock, Effect, Game, ManaCost, PlayerId,
-    Target, TargetRequirement, TriggerCondition, TriggeredAbility, TriggeredAbilityBinding, Zone,
+    CardDefinition, CardType, CastRequest, Color, CombatBlock, Effect, Game, GameEvent, ManaCost,
+    PlayerId, Target, TriggerCondition, TriggeredAbility, TriggeredAbilityBinding, Zone,
 };
 
 fn card(
@@ -76,31 +76,22 @@ fn combat_damage_trigger_must_retain_the_creature_that_received_damage() {
             vec![],
         ),
     ];
-    // The current broad DealsDamage condition has no event-recipient payload,
-    // so it incorrectly asks the controller to choose *any* creature.  Green
-    // replaces this compatibility binding with a combat-recipient condition
-    // and a non-targeting "that creature" effect.
+    // This generic condition carries the combat recipient as event provenance,
+    // so the triggered ability has no target-selection decision.
     let binding = TriggeredAbilityBinding {
         card_definition: "COMBAT-DAMAGE-SOURCE",
         ability: TriggeredAbility {
             id: "destroy-combat-damaged-creature",
-            condition: TriggerCondition::DealsDamage,
+            condition: TriggerCondition::DealsCombatDamageToCreature,
             mana_cost: ManaCost::new(0),
             optional: false,
-            targets: vec![TargetRequirement::DistinctCreature],
-            effects: vec![Effect::DestroyDistinctTargetCreature],
+            targets: vec![],
+            effects: vec![Effect::DestroyCombatDamagedCreature],
         },
     };
-    let mut game = Game::new_with_all_bindings_and_triggers(
-        definitions,
-        2,
-        [],
-        [],
-        [],
-        [],
-        [binding],
-    )
-    .expect("synthetic trigger game builds");
+    let mut game =
+        Game::new_with_all_bindings_and_triggers(definitions, 2, [], [], [], [], [binding])
+            .expect("synthetic trigger game builds");
     let source = game
         .add_card(PlayerId(0), "COMBAT-DAMAGE-SOURCE", Zone::Battlefield)
         .expect("source begins on battlefield");
@@ -127,12 +118,16 @@ fn combat_damage_trigger_must_retain_the_creature_that_received_damage() {
     )
     .expect("declare blocker");
     game.pass_priority(PlayerId(0)).expect("pass blockers");
-    game.pass_priority(PlayerId(1)).expect("resolve combat damage");
+    game.pass_priority(PlayerId(1))
+        .expect("resolve combat damage");
 
     let view = game
         .view_for_player(PlayerId(0))
         .expect("source controller view");
-    println!("combat-recipient red trace: {:?}", game.canonical_event_log());
+    println!(
+        "combat-recipient red trace: {:?}",
+        game.canonical_event_log()
+    );
     assert!(
         view.triggered_ability_target_choice.is_none(),
         "combat damage must identify its recipient; it cannot open a free target choice such as {unrelated:?}"
@@ -142,6 +137,18 @@ fn combat_damage_trigger_must_retain_the_creature_that_received_damage() {
         Some(Zone::Battlefield),
         "only the creature that received combat damage may be affected"
     );
+    game.pass_priority(PlayerId(0))
+        .expect("pass combat-damage trigger");
+    game.pass_priority(PlayerId(1))
+        .expect("resolve combat-damage trigger");
+    assert_eq!(game.zone_of(recipient), Some(Zone::Graveyard));
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::CardDestroyed { source: effect_source, card }
+            if *effect_source == source && *card == recipient
+    )));
+    game.validate_invariants()
+        .expect("combat trace remains valid");
 }
 
 #[test]
@@ -169,32 +176,28 @@ fn opponent_graveyard_trigger_observes_a_discard_from_hand() {
             vec![Effect::DrawController],
         ),
     ];
-    // The existing battlefield-death observer intentionally cannot see a
-    // hand-to-graveyard move. Green replaces it with the generic opponent
-    // graveyard condition, which applies regardless of the prior zone.
+    // This condition observes every ordinary opponent-owned card move to a
+    // graveyard, including the hand-to-graveyard discard below.
     let binding = TriggeredAbilityBinding {
         card_definition: "OPPONENT-GRAVEYARD-OBSERVER",
         ability: TriggeredAbility {
             id: "opponent-card-to-graveyard-grow",
-            condition: TriggerCondition::AnotherCreatureDies,
+            condition: TriggerCondition::OpponentCardPutIntoGraveyard,
             mana_cost: ManaCost::new(0),
             optional: false,
             targets: vec![],
             effects: vec![Effect::AddPlusOneCounterToSource],
         },
     };
-    let mut game = Game::new_with_all_bindings_and_triggers(
-        definitions,
-        2,
-        [],
-        [],
-        [],
-        [],
-        [binding],
-    )
-    .expect("synthetic trigger game builds");
+    let mut game =
+        Game::new_with_all_bindings_and_triggers(definitions, 2, [], [], [], [], [binding])
+            .expect("synthetic trigger game builds");
     let observer = game
-        .add_card(PlayerId(0), "OPPONENT-GRAVEYARD-OBSERVER", Zone::Battlefield)
+        .add_card(
+            PlayerId(0),
+            "OPPONENT-GRAVEYARD-OBSERVER",
+            Zone::Battlefield,
+        )
         .expect("observer begins on battlefield");
     let discard = game
         .add_card(PlayerId(0), "DISCARD-SPELL", Zone::Hand)
@@ -217,11 +220,17 @@ fn opponent_graveyard_trigger_observes_a_discard_from_hand() {
     )
     .expect("cast discard spell");
     game.pass_priority(PlayerId(0)).expect("caster passes");
-    game.pass_priority(PlayerId(1)).expect("resolve discard spell");
-    game.pass_priority(PlayerId(0)).expect("pass pending trigger");
-    game.pass_priority(PlayerId(1)).expect("resolve pending trigger");
+    game.pass_priority(PlayerId(1))
+        .expect("resolve discard spell");
+    game.pass_priority(PlayerId(0))
+        .expect("pass pending trigger");
+    game.pass_priority(PlayerId(1))
+        .expect("resolve pending trigger");
 
-    println!("opponent-graveyard red trace: {:?}", game.canonical_event_log());
+    println!(
+        "opponent-graveyard red trace: {:?}",
+        game.canonical_event_log()
+    );
     assert_eq!(game.zone_of(discarded), Some(Zone::Graveyard));
     assert_eq!(
         game.characteristics(observer)
@@ -230,4 +239,11 @@ fn opponent_graveyard_trigger_observes_a_discard_from_hand() {
         Some(2),
         "a card entering an opponent's graveyard from hand must trigger the observer"
     );
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::CounterPlaced { source, card, .. }
+            if *source == observer && *card == observer
+    )));
+    game.validate_invariants()
+        .expect("opponent-graveyard trace remains valid");
 }

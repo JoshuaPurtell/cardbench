@@ -524,6 +524,13 @@ enum TriggerEventPayload {
     /// Damage has already happened. Dynamic damage-trigger effects must use
     /// this captured amount instead of inspecting a later game state.
     DamageAmount(i16),
+    /// The exact battlefield object that received the combat damage, retained
+    /// independently of a stable object id so a later zone change cannot make
+    /// a "that creature" instruction affect a new incarnation.
+    CombatDamageRecipient {
+        permanent: ObjectId,
+        incarnation: u64,
+    },
     /// The event itself identifies the trigger's sole target. This is used
     /// for the represented Blood Funnel cast trigger, where the triggering
     /// spell is not a policy-selected target.
@@ -1237,9 +1244,11 @@ impl Game {
                         | TriggerCondition::BeginningOfUpkeep
                         | TriggerCondition::LifeGained
                         | TriggerCondition::DealsDamage
+                        | TriggerCondition::DealsCombatDamageToCreature
                         | TriggerCondition::ReceivesDamage
                         | TriggerCondition::Dies
                         | TriggerCondition::AnotherCreatureDies
+                        | TriggerCondition::OpponentCardPutIntoGraveyard
                         | TriggerCondition::Attacks
                         | TriggerCondition::CastsNoncreatureSpell
                 )
@@ -1255,6 +1264,7 @@ impl Game {
                     "trigger binding requires a permanent and matching target requirements",
                 ));
             }
+            Self::validate_triggered_ability_definition(&binding.ability)?;
             let abilities = game
                 .triggered_abilities
                 .entry(binding.card_definition)
@@ -6626,9 +6636,11 @@ impl Game {
                             | TriggerCondition::BeginningOfUpkeep
                             | TriggerCondition::LifeGained
                             | TriggerCondition::DealsDamage
+                            | TriggerCondition::DealsCombatDamageToCreature
                             | TriggerCondition::ReceivesDamage
                             | TriggerCondition::Dies
                             | TriggerCondition::AnotherCreatureDies
+                            | TriggerCondition::OpponentCardPutIntoGraveyard
                             | TriggerCondition::Attacks
                             | TriggerCondition::CastsNoncreatureSpell
                     )
@@ -6643,7 +6655,7 @@ impl Game {
                         "triggered ability binding has invalid target requirements",
                     ));
                 }
-                Self::validate_cast_effects_for_ability(&ability.effects)?;
+                Self::validate_triggered_ability_definition(ability)?;
             }
         }
         for (definition_id, costs) in &self.additional_spell_costs {
@@ -6943,6 +6955,19 @@ impl Game {
                                         ) if *count > 0
                                     ) || bound == actual
                                 })
+                    } else if trigger_condition
+                        == Some(TriggerCondition::DealsCombatDamageToCreature)
+                    {
+                        matches!(
+                            (effects.as_slice(), stack_object.effects.as_slice()),
+                            (
+                                [Effect::DestroyCombatDamagedCreature],
+                                [Effect::DestroyCapturedCreature {
+                                    creature,
+                                    incarnation,
+                                }]
+                            ) if creature.0 > 0 && *incarnation > 0
+                        )
                     } else {
                         *effects == stack_object.effects
                     };
@@ -8356,6 +8381,14 @@ impl Game {
         for effect in &definition.effects {
             if matches!(
                 effect,
+                Effect::DestroyCombatDamagedCreature | Effect::DestroyCapturedCreature { .. }
+            ) {
+                return Err(RulesError::IllegalAction(
+                    "event-provenance destruction effects are valid only on matching triggered abilities",
+                ));
+            }
+            if matches!(
+                effect,
                 Effect::LookAtTopCardsChooseForLifeOrGraveyard { count: 0, .. }
                     | Effect::LookAtTopCardsChooseForLifeOrGraveyard {
                         life_per_card: ..=0,
@@ -8439,6 +8472,8 @@ impl Game {
                 | Effect::AddPlusOneCounterToTarget
                 | Effect::DestroyTargetArtifactOrCreatureNoRegeneration
                 | Effect::DestroyDistinctTargetCreature
+                | Effect::DestroyCombatDamagedCreature
+                | Effect::DestroyCapturedCreature { .. }
                 | Effect::DestroyTargetCreatureWithManaValueAtMostChosenX
                 | Effect::TapTargetCreature
                 | Effect::UntapSource
@@ -9388,7 +9423,9 @@ impl Game {
             let effects = Self::materialize_trigger_effects(&event.ability, &event.payload);
             let exact_targets = match &event.payload {
                 TriggerEventPayload::ExactTargets(targets) => Some(targets.clone()),
-                TriggerEventPayload::None | TriggerEventPayload::DamageAmount(_) => None,
+                TriggerEventPayload::None
+                | TriggerEventPayload::DamageAmount(_)
+                | TriggerEventPayload::CombatDamageRecipient { .. } => None,
             };
             if let Some(targets) = exact_targets {
                 if targets.len() == event.ability.targets.len()
@@ -9458,6 +9495,16 @@ impl Game {
                     Effect::MillTargetPlayerFromSourceDamage,
                     TriggerEventPayload::DamageAmount(amount),
                 ) => Effect::MillTargetPlayer { count: *amount },
+                (
+                    Effect::DestroyCombatDamagedCreature,
+                    TriggerEventPayload::CombatDamageRecipient {
+                        permanent,
+                        incarnation,
+                    },
+                ) => Effect::DestroyCapturedCreature {
+                    creature: *permanent,
+                    incarnation: *incarnation,
+                },
                 (effect, _) => effect,
             })
             .collect()
@@ -10078,6 +10125,55 @@ impl Game {
         Ok(())
     }
 
+    /// Captures triggers whose condition is combat damage reaching a creature.
+    /// The recipient is held as an exact-incarnation payload rather than a
+    /// later selected target, which preserves both the non-targeting semantics
+    /// of "that creature" and the new-object boundary after zone changes.
+    fn enqueue_combat_damage_to_creature_triggers(
+        &mut self,
+        source: ObjectId,
+        recipient: ObjectId,
+    ) -> Result<(), RulesError> {
+        if self.zone_of(source) != Some(Zone::Battlefield)
+            || self.object(source)?.token.is_some()
+            || self.zone_of(recipient) != Some(Zone::Battlefield)
+            || !self
+                .characteristics(recipient)?
+                .card_types
+                .contains(&CardType::Creature)
+        {
+            return Ok(());
+        }
+        let definition = self.card_definition(source)?.id;
+        let controller = self.controller_of(source)?;
+        let source_incarnation = self.object(source)?.incarnation;
+        let source_colors = self.characteristics(source)?.colors;
+        let recipient_incarnation = self.object(recipient)?.incarnation;
+        let triggers = self
+            .triggered_abilities
+            .get(definition)
+            .into_iter()
+            .flat_map(|abilities| abilities.values())
+            .filter(|ability| ability.condition == TriggerCondition::DealsCombatDamageToCreature)
+            .cloned()
+            .collect::<Vec<_>>();
+        for ability in triggers {
+            self.pending_trigger_events
+                .push(PendingTriggeredAbilityEvent {
+                    source,
+                    source_incarnation,
+                    source_colors: source_colors.clone(),
+                    controller,
+                    ability,
+                    payload: TriggerEventPayload::CombatDamageRecipient {
+                        permanent: recipient,
+                        incarnation: recipient_incarnation,
+                    },
+                });
+        }
+        Ok(())
+    }
+
     /// Queues triggers caused by a permanent receiving positive damage. This
     /// intentionally does not require the recipient to remain on the
     /// battlefield: state-based actions run after the complete damage batch,
@@ -10189,6 +10285,57 @@ impl Game {
             );
         }
         Ok(())
+    }
+
+    /// Captures every live permanent that observes a card entering an
+    /// opponent's graveyard. This is deliberately a zone-transition observer,
+    /// not a battlefield-death observer: its caller receives every ordinary
+    /// non-token move to a graveyard, including discards, mills, countered
+    /// spells, sacrifice costs, and destruction.
+    fn enqueue_opponent_graveyard_triggers(&mut self, graveyard_owner: PlayerId) {
+        let sources = self
+            .all_battlefield_cards()
+            .into_iter()
+            .filter_map(|source| {
+                let object = self.object(source).ok()?;
+                if object.token.is_some() {
+                    return None;
+                }
+                let controller = self.controller_of(source).ok()?;
+                (controller != graveyard_owner).then(|| {
+                    Some((
+                        source,
+                        self.card_definition(source).ok()?.id,
+                        controller,
+                        object.incarnation,
+                        self.characteristics(source).ok()?.colors,
+                    ))
+                })?
+            })
+            .collect::<Vec<_>>();
+        for (source, definition, controller, source_incarnation, source_colors) in sources {
+            let triggers = self
+                .triggered_abilities
+                .get(definition)
+                .into_iter()
+                .flat_map(|abilities| abilities.values())
+                .filter(|ability| {
+                    ability.condition == TriggerCondition::OpponentCardPutIntoGraveyard
+                })
+                .cloned()
+                .collect::<Vec<_>>();
+            for ability in triggers {
+                self.pending_trigger_events
+                    .push(PendingTriggeredAbilityEvent {
+                        source,
+                        source_incarnation,
+                        source_colors: source_colors.clone(),
+                        controller,
+                        ability,
+                        payload: TriggerEventPayload::None,
+                    });
+            }
+        }
     }
 
     /// Captures life-gain triggers only from permanents controlled by the
@@ -10665,6 +10812,35 @@ impl Game {
     ) -> Result<(), RulesError> {
         let source_colors = self.characteristics(source)?.colors;
         self.deal_damage_to_permanent_from_colors(source, &source_colors, permanent, amount)
+    }
+
+    /// Commits one combat-damage assignment and, only when positive damage
+    /// actually reached that exact recipient, captures the recipient for
+    /// source-bound combat-damage triggers.  Prevention and redirection can
+    /// remove or transform the event, so the receipt rather than the proposed
+    /// assignment is the authoritative trigger boundary.
+    fn deal_combat_damage_to_permanent(
+        &mut self,
+        source: ObjectId,
+        permanent: ObjectId,
+        amount: i32,
+    ) -> Result<(), RulesError> {
+        let event_start = self.event_log.len();
+        self.deal_damage_to_permanent(source, permanent, amount)?;
+        let dealt = self.event_log[event_start..].iter().any(|event| {
+            matches!(
+                event,
+                GameEvent::DamageDealtToPermanent {
+                    source: event_source,
+                    permanent: event_permanent,
+                    amount: event_amount,
+                } if *event_source == source && *event_permanent == permanent && *event_amount > 0
+            )
+        });
+        if dealt {
+            self.enqueue_combat_damage_to_creature_triggers(source, permanent)?;
+        }
+        Ok(())
     }
 
     fn deal_damage_to_permanent_from_colors(
@@ -11641,6 +11817,21 @@ impl Game {
                     return Err(RulesError::IllegalTarget(Target::Permanent(target)));
                 }
                 self.destroy_permanent(source, target)?;
+            }
+            Effect::DestroyCombatDamagedCreature => {
+                return Err(RulesError::IllegalAction(
+                    "combat-damage trigger effect was not materialized from event provenance",
+                ));
+            }
+            Effect::DestroyCapturedCreature {
+                creature,
+                incarnation,
+            } => {
+                if self.zone_of(*creature) == Some(Zone::Battlefield)
+                    && self.object_has_incarnation(*creature, *incarnation)
+                {
+                    self.destroy_permanent(source, *creature)?;
+                }
             }
             Effect::DestroyTargetCreatureWithManaValueAtMostChosenX => {
                 let target = Self::target_permanent(target)?;
@@ -12857,7 +13048,7 @@ impl Game {
             }
         }
         for (source, permanent, amount) in permanent_damage {
-            self.deal_damage_to_permanent(source, permanent, amount)?;
+            self.deal_combat_damage_to_permanent(source, permanent, amount)?;
         }
         for (source, player, amount) in player_damage {
             self.deal_damage_to_player(source, player, amount)?;
@@ -13199,6 +13390,9 @@ impl Game {
                 incarnation: self.object(card)?.incarnation,
             });
         }
+        if zone == Zone::Graveyard && advanced_incarnation {
+            self.enqueue_opponent_graveyard_triggers(destination_owner);
+        }
         if let Some(copy) = expired_copy {
             self.record_event(GameEvent::PermanentCopyExpired {
                 target: card,
@@ -13515,6 +13709,55 @@ impl Game {
                 "activated ability targets do not match effect order",
             ));
         }
+        if ability
+            .effects
+            .iter()
+            .any(|effect| matches!(effect, Effect::DestroyCombatDamagedCreature))
+        {
+            return Err(RulesError::IllegalAction(
+                "combat-damage provenance destruction requires a triggered ability",
+            ));
+        }
+        Self::validate_cast_effects_for_ability(&ability.effects)
+    }
+
+    fn validate_triggered_ability_definition(
+        ability: &crate::TriggeredAbility,
+    ) -> Result<(), RulesError> {
+        if ability.id.is_empty() {
+            return Err(RulesError::IllegalAction(
+                "triggered ability lacks an identity",
+            ));
+        }
+        Self::validate_mana_cost(&ability.mana_cost)?;
+        let effect_targets = ability
+            .effects
+            .iter()
+            .filter_map(Effect::target_requirement)
+            .collect::<Vec<_>>();
+        if effect_targets != ability.targets {
+            return Err(RulesError::IllegalAction(
+                "triggered ability targets do not match effect order",
+            ));
+        }
+        if ability.condition == TriggerCondition::DealsCombatDamageToCreature
+            && (!ability.targets.is_empty()
+                || ability.effects.as_slice() != [Effect::DestroyCombatDamagedCreature])
+        {
+            return Err(RulesError::IllegalAction(
+                "combat-damage creature trigger requires one non-targeting provenance destruction effect",
+            ));
+        }
+        if ability.condition != TriggerCondition::DealsCombatDamageToCreature
+            && ability
+                .effects
+                .iter()
+                .any(|effect| matches!(effect, Effect::DestroyCombatDamagedCreature))
+        {
+            return Err(RulesError::IllegalAction(
+                "combat-damage provenance destruction has the wrong trigger condition",
+            ));
+        }
         Self::validate_cast_effects_for_ability(&ability.effects)
     }
 
@@ -13552,6 +13795,11 @@ impl Game {
             ));
         }
         for effect in effects {
+            if matches!(effect, Effect::DestroyCapturedCreature { .. }) {
+                return Err(RulesError::IllegalAction(
+                    "materialized event-provenance effect escaped onto an ability binding",
+                ));
+            }
             if effect.requires_chosen_x() {
                 return Err(RulesError::IllegalAction(
                     "chosen-X effects are valid only on spells",

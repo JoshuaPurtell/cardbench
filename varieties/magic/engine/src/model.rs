@@ -290,6 +290,10 @@ pub enum TriggerCondition {
     /// the receipt is emitted, so a life-gain trigger cannot inspect a later
     /// or unrelated damage event.
     DealsDamage,
+    /// The source dealt positive combat damage to a creature. The triggering
+    /// recipient is captured with its exact battlefield incarnation, so a
+    /// later "that creature" instruction is not a free target choice.
+    DealsCombatDamageToCreature,
     /// The source received positive damage. The source may leave the
     /// battlefield during state-based actions before this trigger is stacked.
     ReceivesDamage,
@@ -300,6 +304,11 @@ pub enum TriggerCondition {
     /// either object, so simultaneous deaths retain their normal historical
     /// trigger provenance.
     AnotherCreatureDies,
+    /// A card entered a graveyard owned by a player other than this source's
+    /// current controller. The prior zone is intentionally unconstrained:
+    /// discards, mills, destroyed permanents, countered spells, and costs all
+    /// produce the same expansion-neutral observed event.
+    OpponentCardPutIntoGraveyard,
     /// The source was declared as an attacker. A triggered optional mana cost
     /// is paid only on resolution, after the post-declaration priority window.
     Attacks,
@@ -1669,6 +1678,18 @@ pub enum Effect {
     /// Destroy one target creature while preserving the distinct-target
     /// provenance required by a multi-target spell such as Hex.
     DestroyDistinctTargetCreature,
+    /// Destroy the creature that received the combat damage which caused this
+    /// trigger. This bound triggered-effect template is materialized into an
+    /// exact object-incarnation instruction before it reaches the stack.
+    DestroyCombatDamagedCreature,
+    /// Runtime-only materialization of [`Self::DestroyCombatDamagedCreature`].
+    /// It is not legal in a printed card or registered ability binding. A
+    /// recipient that changed zones before resolution is not affected through
+    /// its stable object id.
+    DestroyCapturedCreature {
+        creature: ObjectId,
+        incarnation: u64,
+    },
     /// Destroy one targeted creature only when its mana value is no greater
     /// than the explicit X paid while casting this spell. This is intentionally
     /// separate from a generic destruction effect so the X-bound survives
@@ -1958,6 +1979,8 @@ impl Effect {
             | Self::ModifyControllerCreaturesPtUntilEndOfTurn { .. }
             | Self::AddKeywordToControllerCreaturesUntilEndOfTurn { .. }
             | Self::DestroyAllNonTokenCreatures
+            | Self::DestroyCombatDamagedCreature
+            | Self::DestroyCapturedCreature { .. }
             | Self::ExileAttachedCreatureAndAurasUntilEndStep => None,
         }
     }
