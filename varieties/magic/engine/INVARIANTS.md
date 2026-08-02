@@ -661,8 +661,11 @@ Oracle Magic rules coverage.
   Convoke. The value, actual Convoke-symbol count, and applied generic
   reduction are retained as cast-time stack provenance—not inferred from a
   later battlefield query—and the mana receipt must contain exactly the
-  remaining payment-symbol count. Stack abilities never carry a chosen-X
-  value. Both cast-time and resolution-time checks read this same value, so a
+  remaining payment-symbol count. A stack-using activated ability may carry a
+  chosen-X value only when its immutable generalized cost profile requires it;
+  its `AbilityXCostChosen` receipt occurs during payment and its actual generic
+  amount is added before live increases/reductions. Both cast-time and
+  resolution-time checks read their respective retained values, so a
   fabricated or undersized receipt fails the invariant audit before it is
   treated as a legal state transition.
 - A registered activated-cost modifier has a catalogued permanent source, a
@@ -684,6 +687,30 @@ Oracle Magic rules coverage.
   audit rejects a fabricated source/incarnation, unsupported scope, duplicate
   binding, invalid adjustment, changed colored requirement, incorrect effective
   total, missing effective-payment receipt, or malformed explicit selection.
+- An expansion may register one nonempty immutable
+  `GeneralizedActivatedAbilityCost` profile for an already-bound stack-using
+  activated ability before the game begins. Its concrete choices arrive only
+  in the normal priority action `GeneralizedAbilityActivation`; this is not a
+  resolution-time pending decision and therefore cannot interleave with a
+  stack continuation. Counter-source selection has exact ordered arity and
+  names either the source required by its profile or a live controlled
+  permanent. Counter totals are aggregated by `(permanent, CounterKind)`
+  before any mutation, so repeated declared removals cannot overspend the
+  same counters. Every `CounterRemovedAsAbilityCost` receipt is immediately
+  followed by an equal ordinary `CounterRemoved` receipt. A return-cost
+  selection has exact ordered arity, requires the source first when required,
+  otherwise names distinct controlled battlefield permanents, and every
+  `ReturnedAsAbilityCost` receipt is immediately followed by its owner-hand
+  move (and structural incarnation receipt). A positive life payment may not
+  exceed the controller's current life and records `AbilityLifePaid`. The
+  complete mana/life/counter/return/X block is validated against exactly one
+  subsequent `AbilityActivated` receipt; missing, fabricated, duplicated, or
+  mismatched components fail the replay audit. A later invalid component rolls
+  back every earlier debit, zone move, stack mutation, and receipt. The
+  initial public entry point deliberately does not yet combine explicit
+  generic/hybrid mana-color selection with generalized-cost payment; that
+  compositional API remains an explicit follow-up rather than silently using
+  deterministic spending.
 - An expansion may bind an explicit additional spell cost to a nonland
   definition. Its `CastRequest` selection follows ordinary effect targets but
   never enters the resulting stack object's target slots. A bound controlled-
