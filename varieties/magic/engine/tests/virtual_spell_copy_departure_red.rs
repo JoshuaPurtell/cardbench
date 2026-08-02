@@ -92,9 +92,9 @@ fn player_loss_removes_their_virtual_spell_copy_from_a_continuing_game() {
         .event_log
         .iter()
         .find_map(|event| match event {
-            GameEvent::SpellCopied { copy, controller, .. } if *controller == departing => {
-                Some(*copy)
-            }
+            GameEvent::SpellCopied {
+                copy, controller, ..
+            } if *controller == departing => Some(*copy),
             _ => None,
         })
         .expect("copy effect created a virtual spell copy");
@@ -119,6 +119,14 @@ fn player_loss_removes_their_virtual_spell_copy_from_a_continuing_game() {
         game.stack.is_empty(),
         "a player who left the game cannot retain a virtual spell copy on the stack"
     );
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::SpellCopyLeftGame {
+            copy: departed_copy,
+            original,
+            controller,
+        } if *departed_copy == copy && *original == ping && *controller == departing
+    )));
     game.validate_invariants()
         .expect("no stack object remains controlled by the departed player");
 }

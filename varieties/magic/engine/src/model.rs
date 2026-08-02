@@ -3537,6 +3537,15 @@ pub enum GameEvent {
         copy: ObjectId,
         original: ObjectId,
     },
+    /// A player left a continuing multiplayer game while controlling this
+    /// stack-only spell copy. Copies have no owner-zone transition, so this
+    /// distinct terminal receipt prevents the departed controller from being
+    /// silently retained by the stack.
+    SpellCopyLeftGame {
+        copy: ObjectId,
+        original: ObjectId,
+        controller: PlayerId,
+    },
     AbilityCounteredByRules {
         source: ObjectId,
         source_incarnation: u64,

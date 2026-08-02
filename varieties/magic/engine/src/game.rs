@@ -2872,6 +2872,7 @@ impl Game {
         self.terminal_event_emitted
             || self.pending_decision.is_some()
             || self.stack.iter().any(|item| item.ability_id.is_some())
+            || !self.virtual_spell_copies.is_empty()
             || !self.spell_timing_exceptions.is_empty()
             || !self.delayed_actions.is_empty()
             || self.objects.values().any(|object| {
@@ -16933,6 +16934,93 @@ impl Game {
                 "a visible spell-cast receipt has no live stack object or terminal outcome",
             ));
         }
+        self.validate_virtual_spell_copy_event_order()?;
+        Ok(())
+    }
+
+    /// Virtual spell copies are not cards and therefore do not participate in
+    /// the physical-spell receipt scan above. They still need exactly one
+    /// replay-visible terminal outcome: resolution, rules countering, or a
+    /// controller leaving a multiplayer game.
+    fn validate_virtual_spell_copy_event_order(&self) -> Result<(), RulesError> {
+        let mut copies = BTreeMap::<ObjectId, (ObjectId, PlayerId, bool)>::new();
+        for event in &self.event_log {
+            match event {
+                GameEvent::SpellCopied {
+                    copy,
+                    original,
+                    controller,
+                    ..
+                } => {
+                    if copy.0 == 0
+                        || copy == original
+                        || self.player(*controller).is_err()
+                        || copies
+                            .insert(*copy, (*original, *controller, false))
+                            .is_some()
+                    {
+                        return Err(RulesError::IllegalAction(
+                            "spell-copy receipts do not form a unique valid lifecycle",
+                        ));
+                    }
+                }
+                GameEvent::SpellCopyResolved { copy, original }
+                | GameEvent::SpellCopyCounteredByRules { copy, original } => {
+                    let Some((expected_original, _, terminated)) = copies.get_mut(copy) else {
+                        return Err(RulesError::IllegalAction(
+                            "spell-copy terminal receipt lacks a copy receipt",
+                        ));
+                    };
+                    if *expected_original != *original || *terminated {
+                        return Err(RulesError::IllegalAction(
+                            "spell-copy terminal receipt conflicts with copy provenance",
+                        ));
+                    }
+                    *terminated = true;
+                }
+                GameEvent::SpellCopyLeftGame {
+                    copy,
+                    original,
+                    controller,
+                } => {
+                    let Some((expected_original, expected_controller, terminated)) =
+                        copies.get_mut(copy)
+                    else {
+                        return Err(RulesError::IllegalAction(
+                            "departed spell-copy receipt lacks a copy receipt",
+                        ));
+                    };
+                    if *expected_original != *original
+                        || *expected_controller != *controller
+                        || *terminated
+                    {
+                        return Err(RulesError::IllegalAction(
+                            "departed spell-copy receipt conflicts with copy provenance",
+                        ));
+                    }
+                    *terminated = true;
+                }
+                _ => {}
+            }
+        }
+        for (copy, (original, controller, terminated)) in copies {
+            let live = self
+                .virtual_spell_copies
+                .get(&copy)
+                .is_some_and(|metadata| {
+                    metadata.original == original
+                        && self.stack.iter().any(|stack_object| {
+                            stack_object.card == copy
+                                && stack_object.controller == controller
+                                && stack_object.ability_id.is_none()
+                        })
+                });
+            if terminated == live {
+                return Err(RulesError::IllegalAction(
+                    "spell-copy receipts disagree with the live virtual stack state",
+                ));
+            }
+        }
         Ok(())
     }
 
@@ -19101,6 +19189,31 @@ impl Game {
     /// zone. This must occur inside the loss transition, not as a later policy
     /// action, so no stale object can receive priority or participate in SBA.
     fn remove_departing_players_objects(&mut self, player: PlayerId) {
+        // CR 800.4a applies to every object a departing player controls,
+        // including stack-only copies that have no owner-zone membership and
+        // therefore cannot be reached by the physical owned-object loop.
+        let departing_copies = self
+            .stack
+            .iter()
+            .filter_map(|stack_object| {
+                (stack_object.controller == player
+                    && self.virtual_spell_copies.contains_key(&stack_object.card))
+                .then_some(stack_object.card)
+            })
+            .collect::<Vec<_>>();
+        for copy in departing_copies {
+            let metadata = self
+                .virtual_spell_copies
+                .remove(&copy)
+                .expect("virtual copy selected from its live stack metadata");
+            self.stack.retain(|stack_object| stack_object.card != copy);
+            self.record_event(GameEvent::SpellCopyLeftGame {
+                copy,
+                original: metadata.original,
+                controller: player,
+            });
+        }
+
         let owned_objects = self
             .objects
             .iter()
