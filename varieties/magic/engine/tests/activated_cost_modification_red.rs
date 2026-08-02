@@ -383,6 +383,7 @@ fn increases_apply_before_reductions_and_leave_colored_symbols_intact() {
         matches!(event, GameEvent::AbilityResolved {
             source: resolved_source,
             ability: "red-ability",
+            ..
         } if *resolved_source == source)
     }));
     game.validate_invariants()
