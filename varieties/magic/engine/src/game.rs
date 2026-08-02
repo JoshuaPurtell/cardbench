@@ -11159,10 +11159,21 @@ impl Game {
                     | LibrarySearchDestination::BattlefieldTapped => Zone::Battlefield,
                     LibrarySearchDestination::Hand => Zone::Hand,
                 };
+                let preceding_index = index.checked_sub(1).ok_or(RulesError::IllegalAction(
+                    "library-search receipt lacks selected-card movement",
+                ))?;
+                let move_index = match events.get(preceding_index) {
+                    Some(GameEvent::ObjectIncarnationAdvanced { object, .. }) if object == card => {
+                        preceding_index
+                            .checked_sub(1)
+                            .ok_or(RulesError::IllegalAction(
+                                "library-search incarnation receipt lacks selected-card movement",
+                            ))?
+                    }
+                    _ => preceding_index,
+                };
                 if !matches!(
-                    events.get(index.checked_sub(1).ok_or(RulesError::IllegalAction(
-                        "library-search receipt lacks selected-card movement",
-                    ))?),
+                    events.get(move_index),
                     Some(GameEvent::CardMoved { card: moved, to }) if moved == card && *to == expected_zone
                 ) {
                     return Err(RulesError::IllegalAction(
