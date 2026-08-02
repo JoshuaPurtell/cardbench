@@ -10,6 +10,7 @@ use cardbench_magic_engine::{
 
 const SHIELD: &str = "DEPARTED-REPLACEMENT-SOURCE-SHIELD";
 const KILLER: &str = "DEPARTED-REPLACEMENT-SOURCE-KILLER";
+const PING: &str = "DEPARTED-REPLACEMENT-SOURCE-PING";
 
 fn instant(id: &'static str, effects: Vec<Effect>) -> CardDefinition {
     CardDefinition {
@@ -47,6 +48,13 @@ fn departed_spell_owner_does_not_invalidate_a_persistent_player_shield() {
                     target: TargetRequirement::Player,
                 }],
             ),
+            instant(
+                PING,
+                vec![Effect::DealDamage {
+                    amount: 1,
+                    target: TargetRequirement::Player,
+                }],
+            ),
         ],
         3,
     )
@@ -57,6 +65,9 @@ fn departed_spell_owner_does_not_invalidate_a_persistent_player_shield() {
     let killer = game
         .add_card(survivor, KILLER, Zone::Hand)
         .expect("survivor holds lethal damage");
+    let ping = game
+        .add_card(survivor, PING, Zone::Hand)
+        .expect("survivor holds a one-damage follow-up");
 
     game.pass_priority(survivor)
         .expect("first player passes to shield controller");
@@ -100,6 +111,29 @@ fn departed_spell_owner_does_not_invalidate_a_persistent_player_shield() {
 
     assert!(game.players[departing_source_owner.0].lost);
     assert!(game.object(shield).is_err());
+    let life_before_ping = game.players[survivor.0].life;
+    game.cast_spell(
+        survivor,
+        CastRequest {
+            card: ping,
+            targets: vec![Target::Player(survivor)],
+            convoke: vec![],
+            payment_mana_abilities: vec![],
+        },
+    )
+    .expect("a surviving player may cast into the historical shield");
+    game.pass_priority(survivor)
+        .expect("caster passes the follow-up spell");
+    game.pass_priority(bystander)
+        .expect("bystander resolves the follow-up spell");
+    assert_eq!(
+        game.players[survivor.0].life, life_before_ping,
+        "the one-shot shield still prevents its remaining point after source departure"
+    );
+    assert!(game.event_log.iter().any(|event| {
+        matches!(event, GameEvent::DamagePrevented { source, target, amount }
+            if *source == ping && *target == Target::Player(survivor) && *amount == 1)
+    }));
     game.validate_invariants()
         .expect("the player-targeted shield remains auditable after source removal");
 }

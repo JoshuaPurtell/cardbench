@@ -12660,8 +12660,8 @@ impl Game {
         }
         for redirect in &self.damage_redirections {
             self.object(redirect.protected)?;
-            self.object(redirect.source)?;
-            if redirect.id == 0
+            if !self.object_identity_is_live_or_historically_departed(redirect.source)
+                || redirect.id == 0
                 || redirect.id >= self.next_timestamp
                 || redirect.remaining <= 0
                 || redirect.expires_turn < self.turn
@@ -12699,8 +12699,8 @@ impl Game {
             }
         }
         for shield in &self.damage_prevention_shields {
-            self.object(shield.source)?;
-            if shield.id == 0
+            if !self.object_identity_is_live_or_historically_departed(shield.source)
+                || shield.id == 0
                 || shield.id >= self.next_timestamp
                 || shield.remaining <= 0
                 || shield.expires_turn < self.turn
@@ -12727,8 +12727,8 @@ impl Game {
         }
         let mut combat_prevention_ids = BTreeSet::new();
         for prevention in &self.combat_damage_preventions {
-            self.object(prevention.source)?;
-            if prevention.id == 0
+            if !self.object_identity_is_live_or_historically_departed(prevention.source)
+                || prevention.id == 0
                 || prevention.id >= self.next_timestamp
                 || prevention.expires_turn < self.turn
                 || prevention.creature_incarnation == 0
@@ -12757,6 +12757,7 @@ impl Game {
                 || prevention.id >= self.next_timestamp
                 || prevention.source.0 == 0
                 || prevention.source.0 >= self.next_object_id
+                || !self.object_identity_is_live_or_historically_departed(prevention.source)
                 || prevention.expires_turn < self.turn
             {
                 return Err(RulesError::IllegalAction(
@@ -28986,6 +28987,22 @@ impl Game {
     fn object_has_incarnation(&self, object: ObjectId, incarnation: u64) -> bool {
         self.object(object)
             .is_ok_and(|current| current.incarnation == incarnation)
+    }
+
+    /// A replacement effect may legally outlive a normal spell source and,
+    /// in multiplayer, even the later game departure of that spell's owner.
+    /// Its source is still meaningful event provenance, but no longer a live
+    /// object that may be dereferenced for characteristics or ownership.
+    fn object_identity_is_live_or_historically_departed(&self, object: ObjectId) -> bool {
+        self.objects.contains_key(&object)
+            || self.event_log.iter().any(|event| {
+                matches!(
+                    event,
+                    GameEvent::ObjectLeftGame { object: departed, .. }
+                        | GameEvent::TokenCeasedToExist { token: departed }
+                        if *departed == object
+                )
+            })
     }
 
     fn effect_is_active(&self, effect: &ContinuousEffect) -> bool {
