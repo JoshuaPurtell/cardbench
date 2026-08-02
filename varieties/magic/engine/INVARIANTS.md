@@ -75,6 +75,16 @@ Oracle Magic rules coverage.
   `AttachmentEstablishedWithoutContinuousEffect`, which must not be paired
   with a synthetic layer receipt. `AttachmentDetached` names a previously
   attached Equipment, including one with no declared changes.
+  An attachment binding may additionally grant a duplicate-free set of typed
+  nonmana activated abilities. Such a grant is available only to the exact
+  live attached permanent incarnation; its attachment immediately revokes it
+  on either endpoint's departure, reattachment, or illegal-attachment SBA.
+  The attached permanent remains the activation source for tap costs, target
+  legality, damage, and controller checks, while `AbilityActivated.definition`
+  records the immutable attachment binding that supplied the grant. Once
+  activated, its complete typed ability shape is retained by the ordinary
+  stack object and remains resolvable if the attachment departs in response;
+  replay rejects an ambiguous or fabricated attachment-grant stack ability.
 - A timestamped layer-seven attachment change may scale power and toughness by
   the number of other creatures controlled by its target's current controller.
   The target itself is excluded, opposing creatures never contribute, and the
