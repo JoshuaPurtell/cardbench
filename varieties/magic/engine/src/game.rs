@@ -1067,7 +1067,6 @@ impl Game {
                 AttachmentKind::Equipment => definition.card_types.contains(&CardType::Artifact),
             };
             if !valid_source
-                || binding.changes.is_empty()
                 || !Self::attachment_target_requirement_is_permanent(binding.target)
                 || binding
                     .changes
@@ -3851,16 +3850,25 @@ impl Game {
                 Duration::Permanent,
             )?;
         }
-        match binding.kind {
-            AttachmentKind::Aura => self.record_event(GameEvent::AuraAttached {
-                aura: attachment,
+        if binding.changes.is_empty() {
+            self.record_event(GameEvent::AttachmentEstablishedWithoutContinuousEffect {
+                attachment,
                 target,
-            }),
-            AttachmentKind::Equipment => self.record_event(GameEvent::EquipmentAttached {
-                equipment: attachment,
-                target,
+                kind: binding.kind,
                 previous,
-            }),
+            });
+        } else {
+            match binding.kind {
+                AttachmentKind::Aura => self.record_event(GameEvent::AuraAttached {
+                    aura: attachment,
+                    target,
+                }),
+                AttachmentKind::Equipment => self.record_event(GameEvent::EquipmentAttached {
+                    equipment: attachment,
+                    target,
+                    previous,
+                }),
+            }
         }
         Ok(())
     }
@@ -8654,7 +8662,6 @@ impl Game {
             };
             if binding.card_definition != *definition_id
                 || !source_type_is_valid
-                || binding.changes.is_empty()
                 || !Self::attachment_target_requirement_is_permanent(binding.target)
                 || binding
                     .changes
@@ -16420,6 +16427,8 @@ impl Game {
     /// linked continuous effects and exposing the attached endpoint to later
     /// state-based actions. It immediately follows the final matching effect
     /// receipt so replay cannot describe a modifier without an attachment.
+    /// A zero-change attachment instead has its own explicit receipt, which
+    /// must not pretend to have installed an effect.
     fn validate_attachment_event_order(events: &[GameEvent]) -> Result<(), RulesError> {
         for (index, event) in events.iter().enumerate() {
             let (attachment, target) = match event {
@@ -16444,6 +16453,26 @@ impl Game {
                 ));
             }
         }
+        for (index, event) in events.iter().enumerate() {
+            let GameEvent::AttachmentEstablishedWithoutContinuousEffect {
+                attachment, target, ..
+            } = event
+            else {
+                continue;
+            };
+            if matches!(
+                index.checked_sub(1).and_then(|previous| events.get(previous)),
+                Some(GameEvent::ContinuousEffectCreated {
+                    source,
+                    target: effect_target,
+                    ..
+                }) if source == attachment && effect_target == target
+            ) {
+                return Err(RulesError::IllegalAction(
+                    "zero-change attachment receipt follows a continuous effect",
+                ));
+            }
+        }
         Ok(())
     }
 
@@ -16456,6 +16485,13 @@ impl Game {
             match event {
                 GameEvent::EquipmentAttached { equipment, .. } => {
                     attached.insert(*equipment);
+                }
+                GameEvent::AttachmentEstablishedWithoutContinuousEffect {
+                    attachment,
+                    kind: AttachmentKind::Equipment,
+                    ..
+                } => {
+                    attached.insert(*attachment);
                 }
                 GameEvent::AttachmentDetached {
                     attachment,

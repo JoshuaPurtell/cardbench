@@ -58,7 +58,7 @@ Oracle Magic rules coverage.
   still eligible to return. Those receipts are replay-audited against their
   schedule; ordinary `CardMoved` and incarnation receipts remain zone truth.
 - An attachment binding has one typed source kind (`Aura` or `Equipment`),
-  one permanent-only target restriction, and a nonempty duplicate-free set of
+  one permanent-only target restriction, and a duplicate-free set of optional
   linked continuous changes. Aura bindings require an Enchantment source and
   matching permanent-spell attachment effect; Equipment bindings require an
   Artifact source and matching activated attachment effect. A live Aura has
@@ -69,7 +69,10 @@ Oracle Magic rules coverage.
   effects, and leaves it on the battlefield when an endpoint becomes illegal.
   Every live attachment has exactly one permanent effect per declared change.
   `AuraAttached` and `EquipmentAttached` immediately follow the final linked
-  effect receipt; `AttachmentDetached` names a previously attached Equipment.
+  effect receipt. A zero-change attachment instead emits
+  `AttachmentEstablishedWithoutContinuousEffect`, which must not be paired
+  with a synthetic layer receipt. `AttachmentDetached` names a previously
+  attached Equipment, including one with no declared changes.
   A suppression change rejects only nonmana activated abilities before any
   cost or receipt; mana abilities remain legal.
 - A non-token object has exactly one catalog definition; a token has exactly

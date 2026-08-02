@@ -3,8 +3,8 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardDefinition, CardType, CastRequest, Effect, Game, ManaCost, PlayerId, Target,
-    TargetRequirement, Zone,
+    AttachmentBinding, AttachmentKind, CardDefinition, CardType, CastRequest, Effect, Game,
+    ManaCost, PlayerId, Target, TargetRequirement, Zone,
 };
 
 const CREATURE: &str = "TST-PURE-AURA-CREATURE";
@@ -84,4 +84,29 @@ fn zero_change_aura_attaches_and_preserves_auditable_lifecycle() {
     );
     game.validate_invariants()
         .expect("pure Aura attachment has a valid receipt lifecycle");
+}
+
+#[test]
+fn explicit_zero_change_aura_binding_is_a_valid_typed_attachment_contract() {
+    let mut game = Game::new(
+        vec![definition(
+            AURA,
+            CardType::Enchantment,
+            vec![Effect::AttachSourceToTarget {
+                target: TargetRequirement::Creature,
+                changes: vec![],
+            }],
+        )],
+        2,
+    )
+    .expect("synthetic pure-Aura game builds");
+    game.register_attachment_bindings([AttachmentBinding {
+        card_definition: AURA,
+        kind: AttachmentKind::Aura,
+        target: TargetRequirement::Creature,
+        changes: vec![],
+    }])
+    .expect("an explicit pure-Aura binding is accepted");
+    game.validate_invariants()
+        .expect("pure Aura binding preserves invariant validity");
 }

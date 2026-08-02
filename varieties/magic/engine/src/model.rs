@@ -3423,8 +3423,8 @@ pub enum GameEvent {
         top_to_bottom: Vec<ObjectId>,
     },
     /// A resolving Aura-like permanent established its explicit attachment
-    /// after entering the battlefield and after its persistent layer effect
-    /// was installed.
+    /// after entering the battlefield and after its final persistent layer
+    /// effect was installed.
     AuraAttached {
         aura: ObjectId,
         target: ObjectId,
@@ -3435,6 +3435,16 @@ pub enum GameEvent {
     EquipmentAttached {
         equipment: ObjectId,
         target: ObjectId,
+        previous: Option<ObjectId>,
+    },
+    /// A legal Aura or Equipment attachment established no persistent layer
+    /// effect. This is distinct from an attachment receipt that must follow a
+    /// `ContinuousEffectCreated` record, so replay can preserve the complete
+    /// lifecycle of pure attachments such as Flickerform.
+    AttachmentEstablishedWithoutContinuousEffect {
+        attachment: ObjectId,
+        target: ObjectId,
+        kind: AttachmentKind,
         previous: Option<ObjectId>,
     },
     /// A non-Aura attachment stopped modifying its former target. Equipment
