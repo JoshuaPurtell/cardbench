@@ -50,14 +50,14 @@ different eligible Aura or decline a successful search in this slice. That
 choice fidelity remains unsupported, so Auratouched Mage is not in
 `RAV_FULL_FIDELITY_DEFINITION_IDS`.
 
-The current catalog partition is 181 full / 54 partial / 56 catalog-only unique
-names (196 / 54 / 56 printings). The independently checked coverage-report
+The current catalog partition is 183 full / 54 partial / 54 catalog-only unique
+names (198 / 54 / 54 printings). The independently checked coverage-report
 binary emits the same partition.
 
 `RAV_FULL_FIDELITY_DEFINITION_IDS` is a deliberately small positive manifest,
 not an inference from executable status. Char, Lightning Helix, Scatter the
 Seeds, Guardian of Vitu-Ghazi, Last Gasp, Elves of Deep Shadow, Boros Recruit,
-Nightguard Patrol, Watchwolf, Glass Golem,
+Nightguard Patrol, Watchwolf, Glass Golem, Junktroller,
 Cleansing Beam, Rally the Righteous, Wojek Siren, Rain of Embers, Dogpile,
 Overwhelm, Gather Courage, Seeds of Strength, Darkblast, Greater Mossdog,
 Seismic Spike, Incite Hysteria, Searing Meditation, the
