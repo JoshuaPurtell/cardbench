@@ -1,5 +1,6 @@
 use cardbench_magic_engine::{
-    AbilityActivation, Color, Game, GameEvent, PlayerId, RulesError, Target, Zone,
+    AbilityActivation, Color, DecisionSelection, Game, GameEvent, PlayerId, RulesError, Target,
+    Zone,
 };
 use cardbench_magic_rav::{
     card_definitions, rav_activated_ability_bindings, rav_additional_spell_cost_bindings,
@@ -34,7 +35,7 @@ fn activation(
 }
 
 #[test]
-fn dimir_guildmage_resolves_target_player_draw_then_resolution_time_discard() {
+fn dimir_guildmage_resolves_target_player_draw_then_recipient_private_discard() {
     let controller = PlayerId(0);
     let mut game = rav_game();
     let guildmage = game
@@ -61,7 +62,18 @@ fn dimir_guildmage_resolves_target_player_draw_then_resolution_time_discard() {
         .expect("instant-speed discard activation");
     game.pass_priority(controller).expect("controller passes");
     game.pass_priority(PlayerId(1))
-        .expect("target player resolves discard ability");
+        .expect("target player opens private discard choice");
+    let decision = game
+        .view_for_player(PlayerId(1))
+        .expect("target view")
+        .pending_decision
+        .expect("recipient-private discard decision opens");
+    game.submit_decision(
+        PlayerId(1),
+        decision.id,
+        DecisionSelection::Objects(vec![discarded]),
+    )
+    .expect("target chooses the discarded hand card");
 
     println!("Dimir Guildmage trace: {:?}", game.event_log);
     assert_eq!(game.zone_of(drawn), Some(Zone::Hand));

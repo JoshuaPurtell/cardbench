@@ -5,7 +5,7 @@ use cardbench_magic_engine::{
 use cardbench_magic_rav::{RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions};
 
 #[test]
-fn nightmare_void_targets_one_player_and_discards_that_players_oldest_hand_card() {
+fn nightmare_void_targets_one_player_and_suspends_for_their_private_discard_choice() {
     let caster = PlayerId(0);
     let target = PlayerId(1);
     let mut game = Game::new(card_definitions(), 2).expect("RAV catalog constructs");

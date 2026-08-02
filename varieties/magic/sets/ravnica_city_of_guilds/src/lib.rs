@@ -1877,9 +1877,10 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![Effect::DestroyTargetCreatureWithManaValueAtMostChosenX],
         },
-        // Full fidelity within the current deterministic discard-choice
-        // boundary: player targeting is a stack slot and the selected card is
-        // the target player's oldest hand entry when this spell resolves.
+        // Full fidelity: player targeting remains a stack slot and, at
+        // resolution, the targeted player makes an exact private selection
+        // from their current hand. The suspended stack item retains both
+        // target and hand-snapshot provenance until that selection completes.
         CardDefinition {
             id: "RAV-NIGHTMARE-VOID",
             name: "Nightmare Void",
@@ -1893,7 +1894,7 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 "full-rules-fidelity",
                 "targeted-discard",
                 "dredge",
-                "deterministic-discard-choice",
+                "recipient-private-discard-choice",
             ],
             power: None,
             toughness: None,
@@ -4419,9 +4420,9 @@ pub fn card_definitions() -> Vec<CardDefinition> {
         },
         // Bounded compatibility scope: either color pays each hybrid symbol,
         // and the two target-player activations use the normal stack. The
-        // target player's hidden-hand choice for discard remains deterministic
-        // until policies can submit it, so this does not enter the positive
-        // full-fidelity manifest.
+        // discard activation suspends for the target player's private card
+        // choice; unrelated hybrid and activation coverage still keeps this
+        // card out of the positive full-fidelity manifest.
         CardDefinition {
             id: "RAV-DIMIR-GUILDMAGE",
             name: "Dimir Guildmage",
@@ -4448,7 +4449,7 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 "hybrid-cost-casting",
                 "base-characteristics",
                 "sorcery-speed-target-player-draw",
-                "target-player-resolution-time-discard",
+                "target-player-recipient-private-discard",
             ],
             power: Some(2),
             toughness: Some(2),
