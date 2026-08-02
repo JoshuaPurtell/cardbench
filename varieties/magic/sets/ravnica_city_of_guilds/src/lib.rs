@@ -108,6 +108,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 212] = [
     "RAV-STINKWEED-IMP",
     "RAV-GOLGARI-THUG",
     "RAV-GOLGARI-BROWNSCALE",
+    "RAV-GOLGARI-GRAVE-TROLL",
     "RAV-BOROS-SIGNET",
     "RAV-DIMIR-SIGNET",
     "RAV-GOLGARI-SIGNET",
@@ -1157,11 +1158,10 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Dredge(3)],
             effects: vec![Effect::ReturnUpToThreeControllerGraveyardLandCardsToHand],
         },
-        // Compatibility scope: normal creature casting, base characteristics,
-        // and the engine's existing Dredge replacement. The printed counter-
-        // based entry behavior and regeneration activation are intentionally
-        // unsupported. Its printed 0/0 base characteristics are retained; an
-        // unmodified resolved permanent will therefore be removed by SBAs.
+        // Full fidelity: this base-zero creature receives its persistent
+        // graveyard-derived +1/+1 counters in the entry replacement boundary,
+        // before state-based actions. Its counter-removal regeneration is an
+        // ordinary stack ability with an atomic physical counter cost.
         CardDefinition {
             id: "RAV-GOLGARI-GRAVE-TROLL",
             name: "Golgari Grave-Troll",
@@ -1172,9 +1172,11 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             card_types: types([CardType::Creature]),
             is_basic_land: false,
             supported_rules: &[
+                "full-rules-fidelity",
                 "dredge",
                 "base-characteristics",
-                "zero-toughness-state-based-action",
+                "entry-plus-one-counters-equal-controller-graveyard-creature-cards",
+                "remove-plus-one-counter-regenerate",
             ],
             power: Some(0),
             toughness: Some(0),
@@ -6522,6 +6524,22 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
             },
         },
         ActivatedAbilityBinding {
+            card_definition: "RAV-GOLGARI-GRAVE-TROLL",
+            ability: ActivatedAbility {
+                id: "remove-plus-one-counter-regenerate",
+                mana_cost: ManaCost::new(1),
+                tap_cost: false,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![],
+                effects: vec![Effect::RegenerateSource],
+            },
+        },
+        ActivatedAbilityBinding {
             card_definition: "RAV-SANDSOWER",
             ability: ActivatedAbility {
                 id: "tap-target-creature",
@@ -7666,6 +7684,10 @@ pub fn rav_static_entry_restriction_bindings() -> Vec<StaticEntryRestrictionBind
             card_definition: "RAV-TERRARION",
             restriction: StaticEntryRestriction::SourceEntersTapped,
         },
+        StaticEntryRestrictionBinding {
+            card_definition: "RAV-GOLGARI-GRAVE-TROLL",
+            restriction: StaticEntryRestriction::SourceEntersWithPlusOneCountersEqualToControllerGraveyardCreatureCards,
+        },
     ]
 }
 
@@ -8435,6 +8457,18 @@ pub fn rav_generalized_activated_ability_cost_bindings() -> Vec<ActivatedAbility
                 counter_removals: vec![ActivatedCounterCost {
                     target: ActivatedCounterCostTarget::Source,
                     counter: CounterKind::Named("blood"),
+                    amount: 1,
+                }],
+                ..GeneralizedActivatedAbilityCost::default()
+            },
+        },
+        ActivatedAbilityCostBinding {
+            card_definition: "RAV-GOLGARI-GRAVE-TROLL",
+            ability_id: "remove-plus-one-counter-regenerate",
+            cost: GeneralizedActivatedAbilityCost {
+                counter_removals: vec![ActivatedCounterCost {
+                    target: ActivatedCounterCostTarget::Source,
+                    counter: CounterKind::PlusOnePlusOne,
                     amount: 1,
                 }],
                 ..GeneralizedActivatedAbilityCost::default()

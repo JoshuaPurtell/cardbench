@@ -3280,6 +3280,12 @@ pub enum StaticEntryRestriction {
     /// source-relative but is applied during the same ordinary entry boundary
     /// as all other static entry restrictions.
     SourceEntersTapped,
+    /// The creature source enters with one +1/+1 counter for each creature
+    /// card in its controller's graveyard. The count is sampled after the
+    /// normal zone transition, but before state-based actions or triggered
+    /// abilities can run. This is an entry replacement rather than an ETB
+    /// trigger, so a base 0/0 source can remain on the battlefield.
+    SourceEntersWithPlusOneCountersEqualToControllerGraveyardCreatureCards,
 }
 
 /// Immutable expansion data for a static entry replacement. Sources are
@@ -4217,6 +4223,21 @@ pub enum GameEvent {
         card: ObjectId,
         counter: CounterKind,
         amount: i16,
+    },
+    /// A source-relative entry replacement sampled the entering controller's
+    /// graveyard and placed persistent +1/+1 counters before state-based
+    /// actions. `base_amount` is the sampled creature-card count; an ordinary
+    /// quantity replacement can make `applied_amount` larger. Both source and
+    /// permanent retain their exact entry incarnation for replay auditing.
+    PermanentEnteredWithCounters {
+        permanent: ObjectId,
+        permanent_incarnation: u64,
+        controller: PlayerId,
+        source: ObjectId,
+        source_incarnation: u64,
+        counter: CounterKind,
+        base_amount: i16,
+        applied_amount: i16,
     },
     /// A resolving spell or ability removed a persistent positive quantity of
     /// one typed counter from a live battlefield permanent. The final count

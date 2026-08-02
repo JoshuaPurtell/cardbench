@@ -2578,7 +2578,7 @@ digest = "fnv1a64:cbf29ce484222325"
 [[scenario]]
 id = "rav_golgari_grave_troll_dredge_slice"
 seed = 0
-description = "Replace a draw with Golgari Grave-Troll's supported Dredge value, then cast its printed 0/0 base creature and observe the supported zero-toughness state-based action. Its counter-based entry behavior and regeneration activation are outside this compatibility slice."
+description = "Replace a draw with Golgari Grave-Troll's Dredge value, then cast it with three creature cards in its controller's graveyard. The entry replacement supplies three counters before SBAs; its policy-submitted counter cost then creates a regeneration shield."
 
 [[scenario.card]]
 label = "troll"
@@ -2622,6 +2622,24 @@ owner = 0
 definition = "RAV-FOREST"
 zone = "library"
 
+[[scenario.card]]
+label = "grave_one"
+owner = 0
+definition = "RAV-WATCHWOLF"
+zone = "graveyard"
+
+[[scenario.card]]
+label = "grave_two"
+owner = 0
+definition = "RAV-GOLGARI-BROWNSCALE"
+zone = "graveyard"
+
+[[scenario.card]]
+label = "grave_three"
+owner = 0
+definition = "RAV-SEWERDREG"
+zone = "graveyard"
+
 [[scenario.action]]
 kind = "draw"
 player = 0
@@ -2630,7 +2648,7 @@ dredge = "troll"
 [[scenario.mana]]
 player = 0
 color = "green"
-amount = 1
+amount = 2
 
 [[scenario.mana]]
 player = 0
@@ -2641,6 +2659,22 @@ amount = 4
 kind = "cast"
 player = 0
 card = "troll"
+mana_spend = ["generic:red", "generic:red", "generic:red", "generic:red"]
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "activate_ability"
+player = 0
+card = "troll"
+ability = "remove-plus-one-counter-regenerate"
+counter_sources = ["troll"]
 
 [[scenario.action]]
 kind = "pass"
@@ -2651,9 +2685,10 @@ kind = "pass"
 player = 1
 
 [scenario.expected]
-zones = ["troll:graveyard", "mill_one:graveyard", "mill_two:graveyard", "mill_three:graveyard", "mill_four:graveyard", "mill_five:graveyard", "mill_six:graveyard"]
-event_markers = ["Dredged", "SpellCast", "SpellResolved", "StateBasedAction"]
-digest = "fnv1a64:60c49ba05e586fa4"
+zones = ["troll:battlefield", "mill_one:graveyard", "mill_two:graveyard", "mill_three:graveyard", "mill_four:graveyard", "mill_five:graveyard", "mill_six:graveyard"]
+event_markers = ["Dredged", "SpellCast", "SpellResolved", "CounterPlaced", "PermanentEnteredWithCounters", "CounterRemovedAsAbilityCost", "RegenerationShieldCreated", "AbilityResolved"]
+event_absent = ["StateBasedAction"]
+digest = "fnv1a64:8c3f2096289bda01"
 
 [[scenario]]
 id = "rav_necroplasm_dredge_and_cast_slice"

@@ -1793,6 +1793,15 @@ impl Game {
                     "a static entry restriction requires a permanent source",
                 ));
             }
+            if matches!(
+                binding.restriction,
+                StaticEntryRestriction::SourceEntersWithPlusOneCountersEqualToControllerGraveyardCreatureCards
+            ) && !definition.card_types.contains(&CardType::Creature)
+            {
+                return Err(RulesError::IllegalAction(
+                    "graveyard-count entry counters require a creature source",
+                ));
+            }
             let restrictions = self
                 .static_entry_restrictions
                 .entry(binding.card_definition)
@@ -5836,10 +5845,11 @@ impl Game {
         Ok(false)
     }
 
-    /// Applies the first stable-object-id-ordered live entry restriction that
-    /// changes this permanent's entry. The restriction has already affected
-    /// the permanent by the time its receipt is emitted, but no target, stack,
-    /// or priority boundary is introduced.
+    /// Applies each relevant stable-object-id-ordered live entry replacement
+    /// during one ordinary battlefield transition. The replacement has already
+    /// affected the permanent by the time its receipt is emitted, but no
+    /// target, stack, priority, or state-based-action boundary is introduced.
+    #[allow(clippy::too_many_lines)] // One atomic entry boundary preserves replacement ordering without hidden state.
     fn apply_static_entry_restriction(&mut self, permanent: ObjectId) -> Result<(), RulesError> {
         self.require_zone(permanent, Zone::Battlefield)?;
         let entrant_controller = self.controller_of(permanent)?;
@@ -5854,39 +5864,98 @@ impl Game {
         }
         let mut sources = self.all_battlefield_cards();
         sources.sort_unstable();
-        let source = sources.into_iter().find(|source| {
-            self.effective_definition_id(*source)
-                .ok()
-                .flatten()
-                .and_then(|definition| self.static_entry_restrictions.get(definition))
-                .is_some_and(|restrictions| {
-                    (*source == permanent
-                        && restrictions.contains(&StaticEntryRestriction::SourceEntersTapped))
-                        || (*source != permanent
-                            && self
-                                .controller_of(*source)
-                                .is_ok_and(|controller| controller != entrant_controller)
-                            && restrictions.contains(
-                                &StaticEntryRestriction::OpponentsArtifactsCreaturesAndLandsEnterTapped,
-                            ))
-                })
-        });
-        let Some(source) = source else {
-            return Ok(());
-        };
-        let source_incarnation = self.object(source)?.incarnation;
         let permanent_incarnation = self.object(permanent)?.incarnation;
-        self.objects
-            .get_mut(&permanent)
-            .ok_or(RulesError::UnknownCard(permanent))?
-            .tapped = true;
-        self.record_event(GameEvent::PermanentEnteredTapped {
-            permanent,
-            permanent_incarnation,
-            controller: entrant_controller,
-            source,
-            source_incarnation,
-        });
+        let mut entered_tapped = false;
+        for source in sources {
+            let Some(definition) = self.effective_definition_id(source)? else {
+                continue;
+            };
+            let Some(restrictions) = self.static_entry_restrictions.get(definition).cloned() else {
+                continue;
+            };
+            let source_incarnation = self.object(source)?.incarnation;
+            for restriction in restrictions {
+                match restriction {
+                    StaticEntryRestriction::SourceEntersTapped
+                        if source == permanent && !entered_tapped =>
+                    {
+                        self.objects
+                            .get_mut(&permanent)
+                            .ok_or(RulesError::UnknownCard(permanent))?
+                            .tapped = true;
+                        self.record_event(GameEvent::PermanentEnteredTapped {
+                            permanent,
+                            permanent_incarnation,
+                            controller: entrant_controller,
+                            source,
+                            source_incarnation,
+                        });
+                        entered_tapped = true;
+                    }
+                    StaticEntryRestriction::OpponentsArtifactsCreaturesAndLandsEnterTapped
+                        if source != permanent
+                            && !entered_tapped
+                            && self
+                                .controller_of(source)
+                                .is_ok_and(|controller| controller != entrant_controller) =>
+                    {
+                        self.objects
+                            .get_mut(&permanent)
+                            .ok_or(RulesError::UnknownCard(permanent))?
+                            .tapped = true;
+                        self.record_event(GameEvent::PermanentEnteredTapped {
+                            permanent,
+                            permanent_incarnation,
+                            controller: entrant_controller,
+                            source,
+                            source_incarnation,
+                        });
+                        entered_tapped = true;
+                    }
+                    StaticEntryRestriction::SourceEntersWithPlusOneCountersEqualToControllerGraveyardCreatureCards
+                        if source == permanent =>
+                    {
+                        let base_amount = i16::try_from(
+                            self.players[entrant_controller.0]
+                                .graveyard
+                                .iter()
+                                .filter(|card| {
+                                    self.card_definition(**card).is_ok_and(|definition| {
+                                        definition.card_types.contains(&CardType::Creature)
+                                    })
+                                })
+                                .count(),
+                        )
+                        .map_err(|_| {
+                            RulesError::IllegalAction(
+                                "graveyard creature-card entry count exceeds supported range",
+                            )
+                        })?;
+                        let applied_amount = if base_amount == 0 {
+                            0
+                        } else {
+                            self.place_counter(
+                                source,
+                                permanent,
+                                CounterKind::PlusOnePlusOne,
+                                base_amount,
+                            )?
+                        };
+                        self.record_event(GameEvent::PermanentEnteredWithCounters {
+                            permanent,
+                            permanent_incarnation,
+                            controller: entrant_controller,
+                            source,
+                            source_incarnation,
+                            counter: CounterKind::PlusOnePlusOne,
+                            base_amount,
+                            applied_amount,
+                        });
+                    }
+                    _ => {}
+                }
+            }
+        }
         Ok(())
     }
 
@@ -10343,6 +10412,7 @@ impl Game {
         self.validate_mana_ability_sacrifice_cost_event_order()?;
         Self::validate_object_incarnation_event_order(&self.event_log)?;
         self.validate_static_entry_restriction_event_order()?;
+        self.validate_static_entry_counter_replacement_event_order()?;
         self.validate_land_entry_life_payment_event_order()?;
         Self::validate_permanent_copy_event_order(&self.event_log)?;
         Self::validate_library_search_event_order(&self.event_log)?;
@@ -11636,6 +11706,14 @@ impl Game {
             {
                 return Err(RulesError::IllegalAction(
                     "static entry-restriction binding has invalid source or duplicates",
+                ));
+            }
+            if restrictions.contains(
+                &StaticEntryRestriction::SourceEntersWithPlusOneCountersEqualToControllerGraveyardCreatureCards,
+            ) && !definition.card_types.contains(&CardType::Creature)
+            {
+                return Err(RulesError::IllegalAction(
+                    "graveyard-count entry counter binding lacks a creature source",
                 ));
             }
         }
@@ -21342,7 +21420,7 @@ impl Game {
         card: ObjectId,
         counter: CounterKind,
         amount: i16,
-    ) -> Result<(), RulesError> {
+    ) -> Result<i16, RulesError> {
         if !counter.is_valid() || amount <= 0 {
             return Err(RulesError::IllegalAction(
                 "counter placement requires a valid positive counter",
@@ -21355,7 +21433,8 @@ impl Game {
             ReplacementEventKind::CounterPlacement { counter },
             amount,
         )?;
-        self.place_counter_after_replacement(source, card, counter, amount)
+        self.place_counter_after_replacement(source, card, counter, amount)?;
+        Ok(amount)
     }
 
     /// Commits a positive counter-placement event after its replacement chain
@@ -23190,6 +23269,111 @@ impl Game {
             }) {
                 return Err(RulesError::IllegalAction(
                     "tapped-entry receipt source lacks the declared restriction",
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// An entry-counter receipt must describe the same source-relative
+    /// replacement that produced the immediately preceding counter placement.
+    /// The counter is deliberately committed before any state-based action,
+    /// which protects base-zero creatures without pretending the operation is
+    /// an enter-the-battlefield trigger. The sampled graveyard size cannot be
+    /// replayed from a public log because setup zones intentionally have no
+    /// receipts, but the binding, entry boundary, exact incarnation, counter
+    /// type, and replacement-adjusted physical placement remain auditable.
+    fn validate_static_entry_counter_replacement_event_order(&self) -> Result<(), RulesError> {
+        for (index, event) in self.event_log.iter().enumerate() {
+            let GameEvent::PermanentEnteredWithCounters {
+                permanent,
+                permanent_incarnation,
+                controller,
+                source,
+                source_incarnation,
+                counter,
+                base_amount,
+                applied_amount,
+            } = event
+            else {
+                continue;
+            };
+            if permanent != source
+                || *permanent_incarnation == 0
+                || *source_incarnation != *permanent_incarnation
+                || *counter != CounterKind::PlusOnePlusOne
+                || *base_amount < 0
+                || *applied_amount < 0
+                || self.players.get(controller.0).is_none()
+            {
+                return Err(RulesError::IllegalAction(
+                    "entry-counter receipt has invalid source, incarnation, or amount provenance",
+                ));
+            }
+            if (*base_amount == 0) != (*applied_amount == 0) {
+                return Err(RulesError::IllegalAction(
+                    "entry-counter receipt has an impossible zero/nonzero replacement result",
+                ));
+            }
+            let source_definition = self
+                .object(*source)
+                .ok()
+                .and_then(|object| object.definition)
+                .or_else(|| self.departed_card_definitions.get(source).copied())
+                .ok_or(RulesError::IllegalAction(
+                    "entry-counter receipt names no known source definition",
+                ))?;
+            if !self
+                .static_entry_restrictions
+                .get(source_definition)
+                .is_some_and(|restrictions| {
+                    restrictions.contains(
+                        &StaticEntryRestriction::SourceEntersWithPlusOneCountersEqualToControllerGraveyardCreatureCards,
+                    )
+                })
+            {
+                return Err(RulesError::IllegalAction(
+                    "entry-counter receipt source lacks the declared replacement",
+                ));
+            }
+            let entry_index = self.event_log[..index]
+                .iter()
+                .rposition(|candidate| {
+                    matches!(
+                        candidate,
+                        GameEvent::CardMoved {
+                            card,
+                            to: Zone::Battlefield,
+                        } if card == permanent
+                    )
+                })
+                .ok_or(RulesError::IllegalAction(
+                    "entry-counter receipt lacks its battlefield transition",
+                ))?;
+            if self.event_log[entry_index + 1..index]
+                .iter()
+                .any(|candidate| matches!(candidate, GameEvent::StateBasedAction { .. }))
+            {
+                return Err(RulesError::IllegalAction(
+                    "entry-counter replacement occurred after a state-based action",
+                ));
+            }
+            if *base_amount > 0
+                && !matches!(
+                    self.event_log.get(index.wrapping_sub(1)),
+                    Some(GameEvent::CounterPlaced {
+                        source: placed_source,
+                        card,
+                        counter: placed_counter,
+                        amount,
+                    }) if placed_source == source
+                        && card == permanent
+                        && placed_counter == counter
+                        && amount == applied_amount
+                )
+            {
+                return Err(RulesError::IllegalAction(
+                    "entry-counter receipt lacks its immediate physical counter placement",
                 ));
             }
         }

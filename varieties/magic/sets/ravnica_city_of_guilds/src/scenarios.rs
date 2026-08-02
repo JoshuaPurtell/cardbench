@@ -8,19 +8,19 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 
 use cardbench_magic_engine::{
-    AbilityActivation, BasicLandManaAbilityActivation, CastPaymentManaAbility, CastRequest, Color,
-    CombatBlock, ConvokeContribution, ConvokePayment, DecisionSelection, Effect, Game,
-    ManaAbilityActivation, ManaPaymentSelection, ObjectId, PlayerId, PolicyAction, RulesError,
-    Target, Zone,
+    AbilityActivation, AbilityCostPayment, BasicLandManaAbilityActivation, CastPaymentManaAbility,
+    CastRequest, Color, CombatBlock, ConvokeContribution, ConvokePayment, DecisionSelection, Effect,
+    Game, GeneralizedAbilityActivation, ManaAbilityActivation, ManaPaymentSelection, ObjectId,
+    PlayerId, PolicyAction, RulesError, Target, Zone,
 };
 
 use crate::{
     ScenarioResult, card_definitions, event_digest, rav_activated_ability_bindings,
     rav_additional_spell_cost_bindings, rav_basic_land_type_bindings, rav_cost_reduction_bindings,
-    rav_damage_replacement_effect_bindings, rav_mana_ability_bindings,
-    rav_replacement_effect_bindings, rav_static_attack_restriction_bindings,
-    rav_static_continuous_effect_bindings, rav_static_library_top_reveal_bindings,
-    rav_triggered_ability_bindings, set_root,
+    rav_damage_replacement_effect_bindings, rav_generalized_activated_ability_cost_bindings,
+    rav_mana_ability_bindings, rav_replacement_effect_bindings,
+    rav_static_attack_restriction_bindings, rav_static_continuous_effect_bindings,
+    rav_static_library_top_reveal_bindings, rav_triggered_ability_bindings, set_root,
 };
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -70,6 +70,9 @@ struct ActionSpec {
     /// additional tap cost. This preserves the same policy-visible choice
     /// boundary as direct `AbilityActivation` submission.
     additional_tap_creatures: Vec<String>,
+    /// Explicit source or controlled-permanent selections paid as generalized
+    /// counter-removal costs. This stays separate from spell/ability targets.
+    counter_sources: Vec<String>,
     convoke: Vec<String>,
     /// `source_label:ability_id` definition-bound entries or
     /// `source_label:basic-land` typed intrinsic entries activated only while
@@ -303,6 +306,7 @@ fn set_action_field(
         "additional_taps" => {
             action.additional_tap_creatures = parse_string_array(value, line_number)?;
         }
+        "counter_sources" => action.counter_sources = parse_string_array(value, line_number)?,
         "convoke" => action.convoke = parse_string_array(value, line_number)?,
         "payment_mana" => action.payment_mana = parse_string_array(value, line_number)?,
         "mana_spend" => action.mana_spend = parse_string_array(value, line_number)?,
@@ -394,6 +398,10 @@ fn execute_scenario(specification: &ScenarioSpec) -> Result<ScenarioResult, Stri
         .map_err(rules_error)?;
     game.register_activated_ability_cost_modifier_bindings(
         crate::rav_activated_ability_cost_modifier_bindings(),
+    )
+    .map_err(rules_error)?;
+    game.register_generalized_activated_ability_cost_bindings(
+        rav_generalized_activated_ability_cost_bindings(),
     )
     .map_err(rules_error)?;
     game.register_replacement_effect_bindings(rav_replacement_effect_bindings())
@@ -660,26 +668,43 @@ fn execute_action(
                     .map(|target| parse_target(target, labels))
                     .collect::<Result<Vec<_>, _>>()?
             };
-            game.activate_ability(
-                player,
-                AbilityActivation {
-                    source,
-                    ability_id,
-                    sacrifice_sources: action
-                        .sacrifice_sources
-                        .iter()
-                        .map(|permanent| lookup(labels, permanent))
-                        .collect::<Result<Vec<_>, _>>()?,
-                    additional_tap_creatures: action
-                        .additional_tap_creatures
-                        .iter()
-                        .map(|permanent| lookup(labels, permanent))
-                        .collect::<Result<Vec<_>, _>>()?,
-                    discard_cards: vec![],
-                    targets,
-                },
-            )
-            .map_err(rules_error)
+            let activation = AbilityActivation {
+                source,
+                ability_id,
+                sacrifice_sources: action
+                    .sacrifice_sources
+                    .iter()
+                    .map(|permanent| lookup(labels, permanent))
+                    .collect::<Result<Vec<_>, _>>()?,
+                additional_tap_creatures: action
+                    .additional_tap_creatures
+                    .iter()
+                    .map(|permanent| lookup(labels, permanent))
+                    .collect::<Result<Vec<_>, _>>()?,
+                discard_cards: vec![],
+                targets,
+            };
+            if action.counter_sources.is_empty() {
+                game.activate_ability(player, activation)
+                    .map_err(rules_error)
+            } else {
+                game.activate_ability_with_generalized_costs(
+                    player,
+                    GeneralizedAbilityActivation {
+                        activation,
+                        cost_payment: AbilityCostPayment {
+                            counter_sources: action
+                                .counter_sources
+                                .iter()
+                                .map(|permanent| lookup(labels, permanent))
+                                .collect::<Result<Vec<_>, _>>()?,
+                            ..AbilityCostPayment::default()
+                        },
+                        mana_payment_selection: None,
+                    },
+                )
+                .map_err(rules_error)
+            }
         }
         "choose_trigger_targets" => {
             let source = lookup(labels, &action.card)?;

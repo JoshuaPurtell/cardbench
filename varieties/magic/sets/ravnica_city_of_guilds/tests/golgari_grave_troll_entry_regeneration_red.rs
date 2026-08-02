@@ -6,13 +6,14 @@
 //! shield on the stack.
 
 use cardbench_magic_engine::{
-    AbilityActivation, CastRequest, Color, CounterKind, Effect, Game, GameEvent, ManaCost,
-    PlayerId, Zone,
+    AbilityActivation, AbilityCostPayment, CastRequest, Color, CounterKind, Effect, Game,
+    GameEvent, GeneralizedAbilityActivation, ManaCost, PlayerId, Zone,
 };
 use cardbench_magic_rav::{
     RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, rav_activated_ability_bindings,
-    rav_additional_spell_cost_bindings, rav_basic_land_type_bindings, rav_mana_ability_bindings,
-    rav_static_entry_restriction_bindings,
+    rav_additional_spell_cost_bindings, rav_basic_land_type_bindings,
+    rav_generalized_activated_ability_cost_bindings, rav_mana_ability_bindings,
+    rav_replacement_effect_bindings, rav_static_entry_restriction_bindings,
 };
 
 fn resolve_top(game: &mut Game) {
@@ -63,6 +64,10 @@ fn golgari_grave_troll_enters_with_graveyard_counters_and_regenerates() {
     .expect("RAV game builds");
     game.register_static_entry_restriction_bindings(rav_static_entry_restriction_bindings())
         .expect("entry bindings register");
+    game.register_generalized_activated_ability_cost_bindings(
+        rav_generalized_activated_ability_cost_bindings(),
+    )
+    .expect("generalized counter costs register");
     let troll = game
         .add_card(controller, "RAV-GOLGARI-GRAVE-TROLL", Zone::Hand)
         .expect("Troll begins in hand");
@@ -111,15 +116,22 @@ fn golgari_grave_troll_enters_with_graveyard_counters_and_regenerates() {
         } if *source == troll && *card == troll
     )));
 
-    game.activate_ability(
+    game.activate_ability_with_generalized_costs(
         controller,
-        AbilityActivation {
-            source: troll,
-            ability_id: "remove-plus-one-counter-regenerate",
-            sacrifice_sources: vec![],
-            additional_tap_creatures: vec![],
-            discard_cards: vec![],
-            targets: vec![],
+        GeneralizedAbilityActivation {
+            activation: AbilityActivation {
+                source: troll,
+                ability_id: "remove-plus-one-counter-regenerate",
+                sacrifice_sources: vec![],
+                additional_tap_creatures: vec![],
+                discard_cards: vec![],
+                targets: vec![],
+            },
+            cost_payment: AbilityCostPayment {
+                counter_sources: vec![troll],
+                ..AbilityCostPayment::default()
+            },
+            mana_payment_selection: None,
         },
     )
     .expect("one generic mana and one counter activate regeneration");
@@ -132,7 +144,10 @@ fn golgari_grave_troll_enters_with_graveyard_counters_and_regenerates() {
         "the counter cost is paid before the ability reaches the stack"
     );
     resolve_top(&mut game);
-    println!("Golgari Grave-Troll full-fidelity trace: {:?}", game.canonical_event_log());
+    println!(
+        "Golgari Grave-Troll full-fidelity trace: {:?}",
+        game.canonical_event_log()
+    );
     assert!(game.event_log.iter().any(|event| matches!(
         event,
         GameEvent::RegenerationShieldCreated { source, target }
@@ -140,4 +155,81 @@ fn golgari_grave_troll_enters_with_graveyard_counters_and_regenerates() {
     )));
     game.validate_invariants()
         .expect("Grave-Troll entry and counter-cost regeneration preserve invariants");
+}
+
+#[test]
+fn grave_troll_entry_counters_use_the_normal_quantity_replacement_chain() {
+    let controller = PlayerId(0);
+    let mut game = Game::new(card_definitions(), 2).expect("RAV game builds");
+    game.register_static_entry_restriction_bindings(rav_static_entry_restriction_bindings())
+        .expect("entry bindings register");
+    game.register_replacement_effect_bindings(rav_replacement_effect_bindings())
+        .expect("quantity-replacement bindings register");
+    game.put_on_battlefield(controller, "RAV-DOUBLING-SEASON")
+        .expect("Doubling Season starts live");
+    let troll = game
+        .add_card(controller, "RAV-GOLGARI-GRAVE-TROLL", Zone::Hand)
+        .expect("Troll begins in hand");
+    for definition in ["RAV-WATCHWOLF", "RAV-GOLGARI-BROWNSCALE", "RAV-SEWERDREG"] {
+        game.add_card(controller, definition, Zone::Graveyard)
+            .expect("three creature cards begin in controller graveyard");
+    }
+    game.grant_mana(controller, Color::Green, 5)
+        .expect("Troll cast payment exists");
+    game.cast_spell(
+        controller,
+        CastRequest {
+            card: troll,
+            targets: vec![],
+            convoke: vec![],
+            payment_mana_abilities: vec![],
+        },
+    )
+    .expect("Troll casts");
+    resolve_top(&mut game);
+
+    assert_eq!(game.zone_of(troll), Some(Zone::Battlefield));
+    assert_eq!(
+        game.object(troll)
+            .expect("Troll survives entry")
+            .counters
+            .get(&CounterKind::PlusOnePlusOne),
+        Some(&6),
+        "Doubling Season replaces the one three-counter entry event once"
+    );
+    assert!(game.event_log.windows(3).any(|events| {
+        matches!(
+            events,
+            [
+                GameEvent::ReplacementEffectApplied {
+                    affected_player: PlayerId(0),
+                    event: cardbench_magic_engine::ReplacementEventKind::CounterPlacement {
+                        counter: CounterKind::PlusOnePlusOne,
+                    },
+                    original_amount: 3,
+                    replacement_amount: 6,
+                    ..
+                },
+                GameEvent::CounterPlaced {
+                    source,
+                    card,
+                    counter: CounterKind::PlusOnePlusOne,
+                    amount: 6,
+                },
+                GameEvent::PermanentEnteredWithCounters {
+                    permanent,
+                    source: entry_source,
+                    counter: CounterKind::PlusOnePlusOne,
+                    base_amount: 3,
+                    applied_amount: 6,
+                    ..
+                },
+            ] if *source == troll
+                && *card == troll
+                && *permanent == troll
+                && *entry_source == troll
+        )
+    }));
+    game.validate_invariants()
+        .expect("quantity-replaced Grave-Troll entry preserves invariants");
 }
