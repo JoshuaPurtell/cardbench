@@ -41,7 +41,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 142] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 143] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -169,6 +169,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 142] = [
     "RAV-SEED-SPARK",
     "RAV-LEAVE-NO-TRACE",
     "RAV-HUNTED-LAMMASU",
+    "RAV-HUNTED-HORROR",
     "RAV-HOUR-OF-RECKONING",
     "RAV-OATHSWORN-GIANT",
     "RAV-VETERAN-ARMORER",
@@ -511,10 +512,9 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             }],
         },
         // Compatibility scope: normal colored-cost casting, base
-        // Compatibility scope: normal colored-cost casting, base
-        // characteristics, Trample, and the targeted-opponent ETB token
-        // creation are represented. The green Centaurs carry their typed
-        // protection from black through the shared protection substrate.
+        // Full fidelity: colored casting, Trample, and the targeted-opponent
+        // ETB token creation (including protection-bearing Centaurs) are typed
+        // through the expansion-neutral trigger and token substrates.
         CardDefinition {
             id: "RAV-HUNTED-HORROR",
             name: "Hunted Horror",
@@ -525,6 +525,7 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             card_types: types([CardType::Creature]),
             is_basic_land: false,
             supported_rules: &[
+                "full-rules-fidelity",
                 "colored-cost-casting",
                 "base-characteristics",
                 "trample",
