@@ -50,8 +50,8 @@ different eligible Aura or decline a successful search in this slice. That
 choice fidelity remains unsupported, so Auratouched Mage is not in
 `RAV_FULL_FIDELITY_DEFINITION_IDS`.
 
-The current catalog partition is 198 full / 54 partial / 39 catalog-only unique
-names (213 / 54 / 39 printings). The independently checked coverage-report
+The current catalog partition is 199 full / 54 partial / 38 catalog-only unique
+names (214 / 54 / 38 printings). The independently checked coverage-report
 binary emits the same partition.
 
 `RAV_FULL_FIDELITY_DEFINITION_IDS` is a deliberately small positive manifest,
@@ -74,6 +74,13 @@ target, resolution, damage, continuous-effect, and state-based-action rules;
 this repository retains only CardBench-authored semantic operations, never card
 rules text. Every other executable definition remains a bounded compatibility
 slice unless it is explicitly added to that manifest after the same audit.
+
+Bottled Cloister is a positive-manifest entry. Its two upkeep triggers use the
+same reusable source-incarnation hand-exile group: an opponent's upkeep moves
+the controller's current hand to exile, and the controller's upkeep returns
+only those exact exile incarnations before the following draw instruction. A
+source departure with no pending return ability records group expiry while the
+cards correctly remain in exile; a later re-entry cannot reclaim them.
 
 Flame Fusillade is a positive-manifest entry. Its resolving spell snapshots
 only the caster's current creatures and gives each a typed layer-six tap

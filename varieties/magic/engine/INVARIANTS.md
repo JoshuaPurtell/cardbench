@@ -52,6 +52,17 @@ Oracle Magic rules coverage.
   The primary creature returns first; linked Auras follow in stable object-id
   order and may attach only through a new ordinary legality-checked attachment
   to that returned incarnation.
+- A source-linked hand-exile group is keyed by one positive source identity
+  and exact source incarnation, has one valid controller, and contains a
+  nonempty duplicate-free set of owner-matching cards that remain in `Exile`
+  at their captured exact incarnations. It remains live only while that source
+  incarnation is on the battlefield or an already-stacked return instruction
+  still names it. A hand card leaving its captured exile incarnation is
+  removed from the group; source departure without such a pending return
+  emits `LinkedHandExileExpired` and cannot leave unreachable private state.
+  `HandExiledWithSource`, `LinkedHandExileReturned`, and expiry receipts name
+  nonempty, unique public object identities while ordinary zone/incarnation
+  receipts remain the authoritative transition sequence.
 - A delayed linked-exile action has a nonzero unique action identity, typed
   `EndStep` timing, and a due turn no earlier than the current turn. It is
   consumed exactly once with its group, removing both from suspended state.
