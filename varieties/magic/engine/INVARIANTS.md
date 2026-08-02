@@ -54,14 +54,21 @@ Oracle Magic rules coverage.
   `DelayedActionConsumed` records only the duplicate-free subset that was
   still eligible to return. Those receipts are replay-audited against their
   schedule; ordinary `CardMoved` and incarnation receipts remain zone truth.
-- An Aura definition owns exactly one typed attachment instruction. Its live
-  target must remain a battlefield permanent satisfying that enchant
-  restriction, and each declared attachment-linked continuous change has
-  exactly one permanent effect with the Aura as source and attached object as
-  target. If either endpoint or legality disappears, the ordinary SBA removes
-  the Aura and all linked effects expire. A suppression change rejects only
-  nonmana activated abilities before any cost or receipt; mana abilities remain
-  legal. `AuraAttached` follows the final linked-effect receipt.
+- An attachment binding has one typed source kind (`Aura` or `Equipment`),
+  one permanent-only target restriction, and a nonempty duplicate-free set of
+  linked continuous changes. Aura bindings require an Enchantment source and
+  matching permanent-spell attachment effect; Equipment bindings require an
+  Artifact source and matching activated attachment effect. A live Aura has
+  exactly one legal attached target; if either endpoint or legality
+  disappears, the ordinary SBA moves it to its graveyard and expires every
+  linked effect. Equipment may be unattached; its attach activation may move
+  it only between legal endpoint incarnations, expires only its prior linked
+  effects, and leaves it on the battlefield when an endpoint becomes illegal.
+  Every live attachment has exactly one permanent effect per declared change.
+  `AuraAttached` and `EquipmentAttached` immediately follow the final linked
+  effect receipt; `AttachmentDetached` names a previously attached Equipment.
+  A suppression change rejects only nonmana activated abilities before any
+  cost or receipt; mana abilities remain legal.
 - A non-token object has exactly one catalog definition; a token has exactly
   one token specification and exists only on the battlefield. An object cannot
   be both, and no nonpermanent card can occupy the battlefield.
@@ -976,17 +983,15 @@ Oracle Magic rules coverage.
   combat, triggers, cost reductions, replacement effects, and attachment
   legality query the same derived controller. Leaving the battlefield always
   uses the owner destination, even when another player controlled it.
-- An Aura-like modifier is established only while its resolving permanent is
-  entering the battlefield against one legal creature target. The resulting
-  `AuraAttached` receipt immediately follows its matching permanent
-  layer-seven `ContinuousEffectCreated` receipt. A live Aura-like permanent
-  has exactly one live creature attachment and exactly one matching permanent
-  modifier; a non-Aura or token has no attachment target. When the attached
-  creature leaves or becomes illegal, state-based actions move the Aura to its
-  graveyard and normal zone cleanup expires its modifier before another player
-  can act. Its attachment records the attached target's incarnation, so a
-  prior attachment cannot become attached to a newly returned object with the
-  same stable ID.
+- Aura spells and no-cast Aura entry share the same typed target, protection,
+  controller-relative restriction, endpoint-incarnation, linked-effect, and
+  receipt rules. A no-cast entry validates before moving the Aura, so an
+  illegal target leaves both zones and the event log unchanged. Equipment
+  attachment is stack-backed through an ordinary activated ability; source
+  departure expires every linked effect, while target departure or changed
+  legality produces an unattached Equipment and an `AttachmentDetached`
+  receipt. No attachment may follow a stable object ID across a zone change or
+  silently modify a returned incarnation.
 - The bounded linked-exile resolver intentionally stores no closures. Its
   typed group and delayed-action records remain invariant-valid while the
   creature and every linked Aura are suspended in exile, and the consuming
