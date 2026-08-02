@@ -164,10 +164,13 @@ ETB using the shared resolution-time count. Their focused traces cover
 `CounterPlaced`, and `LifeGained` receipts. Siege Wurm and Autochthon Wurm
 remain compatibility-bounded because controller-chosen arbitrary trample
 allocation is not yet represented.
-Golgari Brownscale, Stinkweed Imp, and Golgari Thug instead are positive-manifest
+Golgari Brownscale, Golgari Grave-Troll, Stinkweed Imp, and Golgari Thug instead
+are positive-manifest
 cards. Brownscale's Dredge replacement retains its exact prior graveyard
 incarnation and queues its life trigger only for a resulting graveyard-to-hand
-move. The Imp's
+move. Grave-Troll now counts controller-graveyard creatures as entry counters
+before state-based actions and exposes its typed counter-removal regeneration
+activation; the Doubling Season replacement trace is covered separately. The Imp's
 static Flying and shared Dredge behavior are joined by the existing
 exact-incarnation combat-damage-recipient trigger, which has no free target choice
 and destroys only the creature that actually received the combat damage. The Thug
