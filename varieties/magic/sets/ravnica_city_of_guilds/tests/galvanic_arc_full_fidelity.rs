@@ -44,6 +44,7 @@ fn resolve_top(game: &mut Game) {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // The full attachment/response trace is the contract.
 fn galvanic_arc_grants_the_enchanted_creature_a_stack_backed_tap_damage_ability() {
     let controller = PlayerId(0);
     let opponent = PlayerId(1);

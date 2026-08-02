@@ -42,12 +42,13 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 176] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 177] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
+    "RAV-BLOCKBUSTER",
     "RAV-PUTREFY",
     "RAV-GLIMPSE-THE-UNTHINKABLE",
     "RAV-GAZE-OF-THE-GORGON",
@@ -825,6 +826,29 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             toughness: None,
             keywords: vec![],
             effects: vec![Effect::DestroyTargetArtifact, Effect::DrawController],
+        },
+        // Full fidelity: the colorless artifact has one ordinary generic
+        // tap activation. Existing global-damage resolution snapshots all
+        // creatures, damages both players, then lets normal SBAs handle
+        // lethal creatures after the complete batch.
+        CardDefinition {
+            id: "RAV-BLOCKBUSTER",
+            name: "Blockbuster",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::new(4),
+            colors: BTreeSet::new(),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Artifact]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colorless-artifact-casting",
+                "tap-global-creature-and-player-damage",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![],
         },
         // Full fidelity: target legality is artifact-or-creature at cast and
         // resolution, while this destruction instruction deliberately
@@ -5395,6 +5419,22 @@ pub fn rav_land_entry_bindings() -> Vec<LandEntryBinding> {
 #[allow(clippy::too_many_lines)]
 pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
     vec![
+        ActivatedAbilityBinding {
+            card_definition: "RAV-BLOCKBUSTER",
+            ability: ActivatedAbility {
+                id: "tap-global-creature-and-player-damage",
+                mana_cost: ManaCost::new(3),
+                tap_cost: true,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![],
+                effects: vec![Effect::DealDamageToEachCreatureAndPlayer { amount: 3 }],
+            },
+        },
         ActivatedAbilityBinding {
             card_definition: "RAV-FLICKERFORM",
             ability: ActivatedAbility {

@@ -23,6 +23,7 @@ fn game_with_rav_bindings() -> Game {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // The counter/mill response trace is the contract.
 fn induce_paranoia_counters_a_physical_spell_then_mills_that_spells_controller() {
     let caster = PlayerId(0);
     let responder = PlayerId(1);

@@ -67,6 +67,7 @@ fn gaze_has_exact_hybrid_targeted_delayed_combat_definition() {
 }
 
 #[test]
+#[allow(clippy::similar_names, clippy::too_many_lines)] // The full turn trace is the contract.
 fn gaze_regenerates_target_then_uses_exact_block_history_at_end_of_combat() {
     let mut game = Game::new(card_definitions(), 2).expect("RAV fixture builds");
     add_opening_library(&mut game, PlayerId(0));

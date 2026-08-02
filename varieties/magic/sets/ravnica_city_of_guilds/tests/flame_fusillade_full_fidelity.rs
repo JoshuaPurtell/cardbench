@@ -90,6 +90,7 @@ fn activation(source: cardbench_magic_engine::ObjectId, target: Target) -> Abili
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // The complete layer/activation lifetime is the contract.
 fn flame_fusillade_grants_only_current_controller_creatures_and_revokes_at_cleanup() {
     let controller = PlayerId(0);
     let opponent = PlayerId(1);
