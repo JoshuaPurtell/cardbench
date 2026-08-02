@@ -443,6 +443,10 @@ Oracle Magic rules coverage.
   discard and controller-creature-sacrifice triggers keep their stack object
   live while the relevant chooser submits a legal current hand or battlefield
   object; no deterministic fixture selection may move a card or permanent.
+  A controller-creature-sacrifice candidate and its final payment both query
+  `controller_of`, never the owner-bound base controller, so a player may
+  choose a creature they currently control through a layer-two effect; its
+  normal owner-indexed graveyard move then ends the temporary control effect.
 - A `Blocks` trigger is observed only for a creature that was successfully
   committed as a legal blocker. It waits until the defender's complete
   declaration and every required attacker damage-order decision have finished,
