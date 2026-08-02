@@ -1390,6 +1390,17 @@ impl Game {
                 ));
             }
             Self::validate_generalized_activated_ability_cost(&binding.cost)?;
+            if binding.cost.sacrifice_land_basic_type.is_some()
+                && self
+                    .activated_abilities
+                    .get(binding.card_definition)
+                    .and_then(|abilities| abilities.get(binding.ability_id))
+                    .is_none_or(|ability| ability.sacrifice_lands == 0)
+            {
+                return Err(RulesError::IllegalAction(
+                    "a typed land-sacrifice cost requires at least one bound land sacrifice",
+                ));
+            }
             if self
                 .generalized_activated_ability_costs
                 .insert((binding.card_definition, binding.ability_id), binding.cost)
@@ -2770,6 +2781,12 @@ impl Game {
                 return Err(RulesError::IllegalAction(
                     "this activated ability requires a sacrificed land",
                 ));
+            } else if let Some(required_land_type) = generalized_cost.sacrifice_land_basic_type {
+                if self.basic_land_type(*permanent)? != Some(required_land_type) {
+                    return Err(RulesError::IllegalAction(
+                        "this activated ability requires a sacrificed land with the bound basic-land type",
+                    ));
+                }
             }
         }
         if activation.discard_cards.len() != usize::from(ability.discard_cards) {
@@ -22094,6 +22111,7 @@ impl Game {
             let mut counter_payments = Vec::new();
             let mut return_payments = Vec::new();
             let mut hand_library_payments = Vec::new();
+            let mut typed_land_sacrifices = Vec::new();
             let mut x_payments = Vec::new();
             let mut index = activation_index;
             while let Some(previous) = index.checked_sub(1) {
@@ -22180,6 +22198,13 @@ impl Game {
                         }
                         hand_library_payments.push(*card);
                     }
+                    GameEvent::SacrificedAsAbilityCost {
+                        player: receipt_player,
+                        source: receipt_source,
+                        permanent,
+                    } if receipt_player == player && receipt_source == source => {
+                        typed_land_sacrifices.push(*permanent);
+                    }
                     GameEvent::AbilityXCostChosen {
                         player: receipt_player,
                         source: receipt_source,
@@ -22199,6 +22224,7 @@ impl Game {
             counter_payments.reverse();
             return_payments.reverse();
             hand_library_payments.reverse();
+            typed_land_sacrifices.reverse();
             x_payments.reverse();
             let expected_life = (profile.life_payment > 0).then_some(profile.life_payment);
             if life_payments.as_slice() != expected_life.as_slice() {
@@ -22251,6 +22277,22 @@ impl Game {
                 return Err(RulesError::IllegalAction(
                     "activated hand-to-library cost receipts do not match their bound cost",
                 ));
+            }
+            if let Some(required_land_type) = profile.sacrifice_land_basic_type {
+                let bound_land_count = self
+                    .activated_abilities
+                    .get(*definition)
+                    .and_then(|abilities| abilities.get(*ability))
+                    .map_or(0, |bound| usize::from(bound.sacrifice_lands));
+                if typed_land_sacrifices.len() != bound_land_count
+                    || typed_land_sacrifices.iter().any(|permanent| {
+                        self.basic_land_type(*permanent) != Ok(Some(required_land_type))
+                    })
+                {
+                    return Err(RulesError::IllegalAction(
+                        "typed land-sacrifice receipts do not match their bound basic-land type",
+                    ));
+                }
             }
             if profile.has_x_cost != (x_payments.len() == 1) {
                 return Err(RulesError::IllegalAction(

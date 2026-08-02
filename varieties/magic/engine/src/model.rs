@@ -614,6 +614,12 @@ pub struct GeneralizedActivatedAbilityCost {
     /// listed order, making the final selection the top card when a future
     /// card needs more than one.
     pub put_hand_cards_on_library_top: u8,
+    /// When present, every ordinary land sacrifice selected for this ability
+    /// must currently have this exact basic-land type. The selected objects
+    /// remain the normal `AbilityActivation.sacrifice_sources` input, so this
+    /// constraint adds semantic type legality without creating a second cost
+    /// selection channel.
+    pub sacrifice_land_basic_type: Option<BasicLandType>,
     /// Whether this ability has one player-chosen nonnegative `{X}` generic
     /// symbol in addition to its bound printed mana cost.
     pub has_x_cost: bool,
@@ -627,6 +633,7 @@ impl GeneralizedActivatedAbilityCost {
             && !self.return_source_to_hand
             && self.return_controlled_permanents == 0
             && self.put_hand_cards_on_library_top == 0
+            && self.sacrifice_land_basic_type.is_none()
             && !self.has_x_cost
     }
 }

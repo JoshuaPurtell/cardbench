@@ -57,6 +57,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 192] = [
     "RAV-GLIMPSE-THE-UNTHINKABLE",
     "RAV-GAZE-OF-THE-GORGON",
     "RAV-DROOLING-GROODION",
+    "RAV-DARK-HEART-OF-THE-WOOD",
     "RAV-GOLGARI-ROTWURM",
     "RAV-SCATTER-THE-SEEDS",
     "RAV-DOUBLING-SEASON",
@@ -5611,6 +5612,28 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
+        // Full fidelity: this Green enchantment's normal stack activation
+        // pays one Green mana and sacrifices one selected controlled Forest
+        // before it resolves to gain its controller three life.
+        CardDefinition {
+            id: "RAV-DARK-HEART-OF-THE-WOOD",
+            name: "Dark Heart of the Wood",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(0, [Color::Green]),
+            colors: colors([Color::Green]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Enchantment]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "activated-green-sacrifice-forest-gain-three-life",
+                "typed-basic-land-sacrifice-cost",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![],
+        },
         basic_land("RAV-PLAINS", "Plains", BasicLandType::Plains),
         basic_land("RAV-ISLAND", "Island", BasicLandType::Island),
         basic_land("RAV-SWAMP", "Swamp", BasicLandType::Swamp),
@@ -6105,6 +6128,22 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 discard_cards: 0,
                 targets: vec![cardbench_magic_engine::TargetRequirement::FlyingCreature],
                 effects: vec![Effect::DestroyTargetFlyingCreature],
+            },
+        },
+        ActivatedAbilityBinding {
+            card_definition: "RAV-DARK-HEART-OF-THE-WOOD",
+            ability: ActivatedAbility {
+                id: "green-sacrifice-forest-gain-three-life",
+                mana_cost: ManaCost::with_colors(0, [Color::Green]),
+                tap_cost: false,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 1,
+                discard_cards: 0,
+                targets: vec![],
+                effects: vec![Effect::GainLifeController { amount: 3 }],
             },
         },
         ActivatedAbilityBinding {
@@ -7857,6 +7896,14 @@ pub fn rav_generalized_activated_ability_cost_bindings() -> Vec<ActivatedAbility
                     counter: CounterKind::Named("blood"),
                     amount: 1,
                 }],
+                ..GeneralizedActivatedAbilityCost::default()
+            },
+        },
+        ActivatedAbilityCostBinding {
+            card_definition: "RAV-DARK-HEART-OF-THE-WOOD",
+            ability_id: "green-sacrifice-forest-gain-three-life",
+            cost: GeneralizedActivatedAbilityCost {
+                sacrifice_land_basic_type: Some(BasicLandType::Forest),
                 ..GeneralizedActivatedAbilityCost::default()
             },
         },
