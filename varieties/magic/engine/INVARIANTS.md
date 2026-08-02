@@ -697,6 +697,16 @@ Oracle Magic rules coverage.
   stack object. A card that inspects paid colors rejects legacy deterministic
   `cast_spell`, so engine-selected generic draining never masquerades as the
   controller's choice.
+- `PolicyAction::CastWithPayment` is the policy-facing dispatch for that same
+  cast transaction. It supplies exactly one explicit generic/hybrid allocation
+  and an optional chosen-X value, then delegates to the ordinary selected-spend
+  or chosen-X path; it never has a second cost-calculation or payment rule.
+  Consequently, the normal `SpellManaPaid → SpellCast` receipt pair and the
+  stack object's chosen-X, mana-spent, Convoke, and reduction provenance remain
+  authoritative. `PolicyMoveSubmitted { kind: Cast }` is written only after a
+  successful complete action. A malformed allocation, missing required X, or
+  spurious X therefore leaves mana sources, mana pool, zones, stack, pass
+  sequence, and event log unchanged—including no accepted policy-move receipt.
 - A spell instruction that depends on a chosen `X` cannot use ordinary
   `cast_spell`: the caller must submit one explicit nonnegative value and an
   explicit payment allocation for every remaining symbol after reductions and

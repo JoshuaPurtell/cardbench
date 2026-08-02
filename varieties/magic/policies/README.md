@@ -26,6 +26,12 @@ and submit it through `Game::submit_policy_move`. A successful submission adds a
 `PolicyMoveSubmitted` event in the same canonical log as the resulting cast,
 priority, resolution, damage, life, and token events.
 
+For a represented spell whose cast needs a player-selected X or generic/hybrid
+mana allocation, a policy submits `PolicyAction::CastWithPayment` rather than
+falling back to the deterministic `Cast` path. It uses the same atomic engine
+cost transaction and receipts (`SpellManaPaid` before `SpellCast`); a malformed
+selection is rejected without an accepted policy-move receipt or partial cost.
+
 At a normal Draw step, the engine pauses at a mandatory replacement-decision
 boundary rather than treating that decision as priority. The default policy
 chooses `PolicyAction::Draw { dredge: None }`; Golgari dredge/grind instead
