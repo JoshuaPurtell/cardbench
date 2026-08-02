@@ -42,7 +42,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 177] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 178] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
@@ -178,6 +178,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 177] = [
     "RAV-TIDEWATER-MINION",
     "RAV-SUNHOME-FORTRESS",
     "RAV-VITU-GHAZI",
+    "RAV-DUSKMANTLE-HOUSE-OF-SHADOW",
     "RAV-NULLMAGE-SHEPHERD",
     "RAV-VIGOR-MORTIS",
     "RAV-STONE-SEEDER-HIEROPHANT",
@@ -5289,6 +5290,24 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
+        // Full fidelity: this colorless land has no intrinsic mana ability;
+        // its sole typed activation taps to mill one selected player through
+        // the shared player-target stack effect.
+        CardDefinition {
+            id: "RAV-DUSKMANTLE-HOUSE-OF-SHADOW",
+            name: "Duskmantle, House of Shadow",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::new(0),
+            colors: BTreeSet::new(),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Land]),
+            is_basic_land: false,
+            supported_rules: &["full-rules-fidelity", "tap-target-player-mill-one"],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![],
+        },
         basic_land("RAV-PLAINS", "Plains", BasicLandType::Plains),
         basic_land("RAV-ISLAND", "Island", BasicLandType::Island),
         basic_land("RAV-SWAMP", "Swamp", BasicLandType::Swamp),
@@ -6240,6 +6259,22 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                     token: TokenSpec::saproling(),
                     count: 1,
                 }],
+            },
+        },
+        ActivatedAbilityBinding {
+            card_definition: "RAV-DUSKMANTLE-HOUSE-OF-SHADOW",
+            ability: ActivatedAbility {
+                id: "tap-target-player-mill-one",
+                mana_cost: ManaCost::new(0),
+                tap_cost: true,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![TargetRequirement::Player],
+                effects: vec![Effect::MillTargetPlayer { count: 1 }],
             },
         },
         ActivatedAbilityBinding {
