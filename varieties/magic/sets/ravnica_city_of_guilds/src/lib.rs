@@ -2732,12 +2732,36 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
-        // Full fidelity: this colorless artifact carries one ordinary
-        // stack-backed `{1}, {T}` activation whose sole typed target is a
-        // creature permanent.
+        // Full fidelity: this colorless artifact costs `{2}` and carries one
+        // ordinary stack-backed `{3}, {T}` activation. At resolution it taps
+        // one creature, then returns this exact permanent incarnation to its
+        // owner's hand through the shared source-return instruction.
         CardDefinition {
             id: "RAV-CYCLOPEAN-SNARE",
             name: "Cyclopean Snare",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::new(2),
+            colors: BTreeSet::new(),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Artifact]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colorless-cost-casting",
+                "generic-three-tap-target-creature-return-source",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![],
+        },
+        // Full fidelity: this Equipment costs `{3}`, has Flash, attaches to
+        // one controlled creature through its ordinary target-bearing ETB
+        // trigger when possible, and retains its separate sorcery-speed
+        // `{1}` equip activation through the shared attachment lifecycle.
+        CardDefinition {
+            id: "RAV-GRIFTERS-BLADE",
+            name: "Grifter's Blade",
             set_code: SET_CODE,
             mana_cost: ManaCost::new(3),
             colors: BTreeSet::new(),
@@ -2747,34 +2771,14 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             supported_rules: &[
                 "full-rules-fidelity",
                 "colorless-cost-casting",
-                "generic-one-tap-target-creature",
-            ],
-            power: None,
-            toughness: None,
-            keywords: vec![],
-            effects: vec![],
-        },
-        // Full fidelity: this Equipment's permanent +1/+1 attachment is
-        // distinct from a temporary modifier and its equip activation is
-        // constrained to sorcery speed by the shared attachment lifecycle.
-        CardDefinition {
-            id: "RAV-GRIFTERS-BLADE",
-            name: "Grifter's Blade",
-            set_code: SET_CODE,
-            mana_cost: ManaCost::new(1),
-            colors: BTreeSet::new(),
-            mana_colors: BTreeSet::new(),
-            card_types: types([CardType::Artifact]),
-            is_basic_land: false,
-            supported_rules: &[
-                "full-rules-fidelity",
-                "colorless-cost-casting",
+                "flash",
+                "etb-attach-to-controlled-creature",
                 "equipment-plus-one-plus-one",
                 "sorcery-speed-equip-one",
             ],
             power: None,
             toughness: None,
-            keywords: vec![],
+            keywords: vec![Keyword::Flash],
             effects: vec![],
         },
         // This definition is complete for the public RAV Birds of Paradise
@@ -5008,7 +5012,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
             card_definition: "RAV-CYCLOPEAN-SNARE",
             ability: ActivatedAbility {
                 id: "tap-target-creature",
-                mana_cost: ManaCost::new(1),
+                mana_cost: ManaCost::new(3),
                 tap_cost: true,
                 sorcery_speed: false,
                 additional_tap_creatures: 0,
@@ -5017,7 +5021,7 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 sacrifice_lands: 0,
                 discard_cards: 0,
                 targets: vec![TargetRequirement::Creature],
-                effects: vec![Effect::TapTargetCreature],
+                effects: vec![Effect::TapTargetCreature, Effect::ReturnSourceToOwnersHand],
             },
         },
         ActivatedAbilityBinding {
@@ -5048,9 +5052,9 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 sacrifice_creatures: 0,
                 sacrifice_lands: 0,
                 discard_cards: 0,
-                targets: vec![TargetRequirement::Creature],
+                targets: vec![TargetRequirement::ControlledCreature],
                 effects: vec![Effect::AttachSourceToTarget {
-                    target: TargetRequirement::Creature,
+                    target: TargetRequirement::ControlledCreature,
                     changes: grifters_blade_attachment_changes(),
                 }],
             },
@@ -5581,7 +5585,7 @@ pub fn rav_attachment_bindings() -> Vec<AttachmentBinding> {
     vec![AttachmentBinding {
         card_definition: "RAV-GRIFTERS-BLADE",
         kind: AttachmentKind::Equipment,
-        target: TargetRequirement::Creature,
+        target: TargetRequirement::ControlledCreature,
         changes: grifters_blade_attachment_changes(),
     }]
 }
@@ -5683,6 +5687,25 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                 optional: false,
                 targets: vec![],
                 effects: vec![Effect::GainLifeController { amount: 4 }],
+            },
+        },
+        // This ordinary target-bearing ETB trigger uses the same Equipment
+        // attachment lifecycle as an Equip activation. If no controlled
+        // creature is legal when it would be stacked, the generic trigger
+        // scheduler leaves the Blade unattached rather than inventing a
+        // target or skipping its ordinary permanent entry.
+        TriggeredAbilityBinding {
+            card_definition: "RAV-GRIFTERS-BLADE",
+            ability: TriggeredAbility {
+                id: "etb-attach-to-controlled-creature",
+                condition: TriggerCondition::EntersBattlefield,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![TargetRequirement::ControlledCreature],
+                effects: vec![Effect::AttachSourceToTarget {
+                    target: TargetRequirement::ControlledCreature,
+                    changes: grifters_blade_attachment_changes(),
+                }],
             },
         },
         TriggeredAbilityBinding {

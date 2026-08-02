@@ -1085,20 +1085,30 @@ impl Game {
                         target == binding.target && changes == binding.changes
                     })
                 }),
-                AttachmentKind::Equipment => self
-                    .activated_abilities
-                    .get(binding.card_definition)
-                    .is_some_and(|abilities| {
-                        abilities.values().any(|ability| {
-                            ability.effects.iter().any(|effect| {
-                                Self::attachment_effect_spec(effect).is_some_and(
-                                    |(target, changes)| {
-                                        target == binding.target && changes == binding.changes
-                                    },
-                                )
+                AttachmentKind::Equipment => {
+                    let matches_effect = |effects: &[Effect]| {
+                        effects.iter().any(|effect| {
+                            Self::attachment_effect_spec(effect).is_some_and(|(target, changes)| {
+                                target == binding.target && changes == binding.changes
                             })
                         })
-                    }),
+                    };
+                    self.activated_abilities
+                        .get(binding.card_definition)
+                        .is_some_and(|abilities| {
+                            abilities
+                                .values()
+                                .any(|ability| matches_effect(&ability.effects))
+                        })
+                        || self
+                            .triggered_abilities
+                            .get(binding.card_definition)
+                            .is_some_and(|abilities| {
+                                abilities
+                                    .values()
+                                    .any(|ability| matches_effect(&ability.effects))
+                            })
+                }
             };
             if !has_matching_effect {
                 return Err(RulesError::IllegalAction(
@@ -4937,6 +4947,7 @@ impl Game {
         let timing_exception = effect_permission
             .is_some_and(|permission| permission.timing == CastTiming::AsThoughInstant);
         if !definition.card_types.contains(&CardType::Instant)
+            && !definition.keywords.contains(&Keyword::Flash)
             && !timing_exception
             && (player != self.active_player || !self.step.is_main() || !self.stack.is_empty())
         {
@@ -8229,6 +8240,7 @@ impl Game {
             if !is_ability
                 && !is_virtual_copy
                 && !definition.card_types.contains(&CardType::Instant)
+                && !definition.keywords.contains(&Keyword::Flash)
                 && !self.spell_timing_exceptions.contains(&stack_object.card)
                 && (stack_index != 0
                     || stack_object.controller != self.active_player
@@ -8709,20 +8721,30 @@ impl Game {
                         target == binding.target && changes == binding.changes
                     })
                 }),
-                AttachmentKind::Equipment => self
-                    .activated_abilities
-                    .get(definition_id)
-                    .is_some_and(|abilities| {
-                        abilities.values().any(|ability| {
-                            ability.effects.iter().any(|effect| {
-                                Self::attachment_effect_spec(effect).is_some_and(
-                                    |(target, changes)| {
-                                        target == binding.target && changes == binding.changes
-                                    },
-                                )
+                AttachmentKind::Equipment => {
+                    let matches_effect = |effects: &[Effect]| {
+                        effects.iter().any(|effect| {
+                            Self::attachment_effect_spec(effect).is_some_and(|(target, changes)| {
+                                target == binding.target && changes == binding.changes
                             })
                         })
-                    }),
+                    };
+                    self.activated_abilities
+                        .get(definition_id)
+                        .is_some_and(|abilities| {
+                            abilities
+                                .values()
+                                .any(|ability| matches_effect(&ability.effects))
+                        })
+                        || self
+                            .triggered_abilities
+                            .get(definition_id)
+                            .is_some_and(|abilities| {
+                                abilities
+                                    .values()
+                                    .any(|ability| matches_effect(&ability.effects))
+                            })
+                }
             };
             if binding.card_definition != *definition_id
                 || !source_type_is_valid
@@ -10098,6 +10120,7 @@ impl Game {
                 | Effect::ReturnControlledCreatureToHand
                 | Effect::ReturnControlledLandToHand
                 | Effect::ReturnOpponentCreatureToHand
+                | Effect::ReturnSourceToOwnersHand
                 | Effect::ModifyControllerCreaturesPtUntilEndOfTurn { .. }
                 | Effect::RadianceUntapAndModifyUntilEndOfTurn { .. }
                 | Effect::RadianceModifyPtUntilEndOfTurn { .. }
@@ -10251,7 +10274,7 @@ impl Game {
             }
             self.check_state_based_actions()?;
             self.flush_pending_dies_triggers();
-            self.priority = self.priority_after_resolution();
+            self.restore_priority_after_stack_resolution();
             return Ok(());
         }
         let StackResolutionPlan::Resolve {
@@ -10478,7 +10501,7 @@ impl Game {
             self.flush_pending_damage_triggers();
             self.flush_pending_life_gain_triggers();
             self.flush_pending_dies_triggers();
-            self.priority = self.priority_after_resolution();
+            self.restore_priority_after_stack_resolution();
             return Ok(());
         }
         if let Some(copy) = self.virtual_spell_copies.remove(&stack_object.card) {
@@ -10492,7 +10515,7 @@ impl Game {
             self.flush_pending_damage_triggers();
             self.flush_pending_life_gain_triggers();
             self.flush_pending_dies_triggers();
-            self.priority = self.priority_after_resolution();
+            self.restore_priority_after_stack_resolution();
             return Ok(());
         }
         if !self.objects.contains_key(&stack_object.card) {
@@ -10501,7 +10524,7 @@ impl Game {
             // library draw). `ObjectLeftGame` is then the source's terminal
             // stack lifecycle receipt; do not manufacture a later resolution
             // or zone-move receipt by dereferencing the removed object.
-            self.priority = self.priority_after_resolution();
+            self.restore_priority_after_stack_resolution();
             self.record_game_end_if_needed();
             return Ok(());
         }
@@ -10549,7 +10572,7 @@ impl Game {
         self.flush_pending_damage_triggers();
         self.flush_pending_life_gain_triggers();
         self.flush_pending_dies_triggers();
-        self.priority = self.priority_after_resolution();
+        self.restore_priority_after_stack_resolution();
         Ok(())
     }
 
@@ -14641,6 +14664,17 @@ impl Game {
                     return Err(RulesError::IllegalTarget(Target::Permanent(target)));
                 }
                 self.move_to_zone(target, Zone::Hand)?;
+            }
+            Effect::ReturnSourceToOwnersHand => {
+                // A resolving ability uses last-known source identity. If its
+                // source left and re-entered, the new permanent is not the
+                // historical source and must not be returned merely because
+                // its stable object id matches.
+                if self.zone_of(source) == Some(Zone::Battlefield)
+                    && self.object_has_incarnation(source, source_incarnation)
+                {
+                    self.move_to_zone(source, Zone::Hand)?;
+                }
             }
         }
         Ok(())
@@ -18988,6 +19022,21 @@ impl Game {
             self.next_player(self.active_player)
         } else {
             self.active_player
+        }
+    }
+
+    /// A resolver normally returns priority to the active player.  A
+    /// resolution-time decision is different: the decision opener has already
+    /// assigned priority to its required controller and ordinary priority must
+    /// remain blocked until that typed continuation completes.
+    fn restore_priority_after_stack_resolution(&mut self) {
+        if self.pending_decision.is_none()
+            && self.pending_optional_trigger_choice.is_none()
+            && self.pending_private_library_choice.is_none()
+            && self.pending_private_opponent_library_exile_choice.is_none()
+            && self.pending_draw_replacement.is_none()
+        {
+            self.priority = self.priority_after_resolution();
         }
     }
 

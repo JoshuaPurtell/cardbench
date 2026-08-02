@@ -147,13 +147,18 @@ fn cyclopean_snare_pays_taps_and_resolves_on_the_stack() {
     let target = game
         .put_on_battlefield(PlayerId(1), "RAV-WATCHWOLF")
         .expect("target creature enters");
-    let plains = game
-        .put_on_battlefield(PlayerId(0), "RAV-PLAINS")
-        .expect("Plains enters before the measured game");
+    let plains = (0..3)
+        .map(|_| {
+            game.put_on_battlefield(PlayerId(0), "RAV-PLAINS")
+                .expect("Plains enters before the measured game")
+        })
+        .collect::<Vec<_>>();
     game.begin_game().expect("game starts");
     advance_to_precombat_main(&mut game);
-    game.activate_mana_ability(PlayerId(0), plains, Color::White)
-        .expect("generic activation payment is available");
+    for land in plains {
+        game.activate_mana_ability(PlayerId(0), land, Color::White)
+            .expect("generic activation payment is available");
+    }
     game.activate_ability(
         PlayerId(0),
         AbilityActivation {
@@ -168,8 +173,8 @@ fn cyclopean_snare_pays_taps_and_resolves_on_the_stack() {
     .expect("Snare activation is legal");
     resolve_top(&mut game);
     println!("Cyclopean Snare trace: {:#?}", game.canonical_event_log());
-    assert!(game.object(snare).expect("Snare exists").tapped);
     assert!(game.object(target).expect("target exists").tapped);
+    assert_eq!(game.zone_of(snare), Some(Zone::Hand));
     assert!(game.event_log.iter().any(|event| matches!(
         event,
         GameEvent::AbilityManaPaid { source, ability, .. }
@@ -179,6 +184,10 @@ fn cyclopean_snare_pays_taps_and_resolves_on_the_stack() {
         event,
         GameEvent::PermanentTapped { source, card }
             if *source == snare && *card == target
+    )));
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::CardMoved { card, to: Zone::Hand } if *card == snare
     )));
     game.validate_invariants()
         .expect("Snare activation event sequence is valid");

@@ -1140,6 +1140,10 @@ pub enum Keyword {
     /// This creature can attack and pay a tap cost on the turn it entered
     /// under its controller's control.
     Haste,
+    /// This card may be cast at instant timing even when it is not an Instant.
+    /// The timing check reads this printed characteristic from its definition
+    /// before the card has entered the battlefield.
+    Flash,
     /// If able, this creature must be assigned at least one blocker when it
     /// attacks. The combat declaration path enforces the restriction after
     /// all blockers have been submitted.
@@ -1952,6 +1956,12 @@ pub enum Effect {
     /// hand. This remains distinct so paired targets cannot silently select
     /// two creatures on one side.
     ReturnOpponentCreatureToHand,
+    /// Return the resolving source object to its owner's hand only while the
+    /// exact incarnation that created the stack object remains on the
+    /// battlefield. This is a resolution instruction, not an activation cost:
+    /// the ability stays on the stack and resolves even if the source has
+    /// already changed zones.
+    ReturnSourceToOwnersHand,
     /// Move one targeted creature from the battlefield to its owner's exile
     /// zone.  This is a zone-change instruction rather than lethal damage, so
     /// it bypasses regeneration and preserves the target's normal
@@ -2118,6 +2128,7 @@ impl Effect {
             | Self::ReturnSourceAttachedPermanentToHand
             | Self::LookAtTopCardsChooseForLifeOrGraveyard { .. }
             | Self::ShuffleGraveyardsIntoLibraries
+            | Self::ReturnSourceToOwnersHand
             | Self::ModifySourcePtUntilEndOfTurn { .. }
             | Self::RemoveSourceKeywordUntilEndOfTurn { .. }
             | Self::AddSourceDamageShieldUntilEndOfTurn { .. }
