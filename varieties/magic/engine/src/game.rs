@@ -7533,6 +7533,38 @@ impl Game {
                 "virtual spell-copy state has an invalid identity or orphaned stack object",
             ));
         }
+        if self
+            .effect_created_cast_permissions
+            .iter()
+            .any(|(card, permission)| {
+                let expected_zone = match permission.zone {
+                    CastPermissionZone::Graveyard => Zone::Graveyard,
+                    CastPermissionZone::Exile => Zone::Exile,
+                };
+                card.0 == 0
+                    || permission.source.0 == 0
+                    || permission.source_incarnation == 0
+                    || permission.card_incarnation == 0
+                    || permission.expires_turn != self.turn
+                    || self.player(permission.player).is_err()
+                    || self
+                        .player(permission.player)
+                        .is_ok_and(|player| player.lost)
+                    || self.zone_of(*card) != Some(expected_zone)
+                    || self
+                        .stack
+                        .iter()
+                        .any(|stack_object| stack_object.card == *card)
+                    || !self.object(*card).is_ok_and(|object| {
+                        object.owner == permission.player
+                            && object.incarnation == permission.card_incarnation
+                    })
+            })
+        {
+            return Err(RulesError::IllegalAction(
+                "effect-created cast permission has stale zone, player, or incarnation provenance",
+            ));
+        }
         if self.spell_timing_exceptions.iter().any(|card| {
             !self.stack.iter().any(|stack_object| {
                 stack_object.card == *card
