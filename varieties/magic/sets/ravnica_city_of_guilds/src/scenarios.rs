@@ -593,6 +593,74 @@ fn execute_action(
             )
             .map_err(rules_error)
         }
+        "choose_trigger_targets" => {
+            let source = lookup(labels, &action.card)?;
+            let definition = game.card_definition(source).map_err(rules_error)?.id;
+            let ability_id = rav_triggered_ability_bindings()
+                .into_iter()
+                .find(|binding| {
+                    binding.card_definition == definition && binding.ability.id == action.ability
+                })
+                .map(|binding| binding.ability.id)
+                .ok_or_else(|| {
+                    format!(
+                        "unknown RAV triggered ability `{}` for `{definition}`",
+                        action.ability
+                    )
+                })?;
+            let targets = if action.targets.is_empty() {
+                (!action.target.is_empty())
+                    .then_some(action.target.as_str())
+                    .into_iter()
+                    .map(|target| parse_target(target, labels))
+                    .collect::<Result<Vec<_>, _>>()?
+            } else {
+                action
+                    .targets
+                    .iter()
+                    .map(|target| parse_target(target, labels))
+                    .collect::<Result<Vec<_>, _>>()?
+            };
+            game.submit_policy_move(
+                player,
+                "rav-scenario.choose-trigger-targets.v1",
+                cardbench_magic_engine::PolicyAction::ChooseTriggeredAbilityTargets {
+                    source,
+                    ability: ability_id,
+                    targets,
+                },
+            )
+            .map_err(rules_error)
+        }
+        "choose_trigger_effect_object" => {
+            let source = lookup(labels, &action.card)?;
+            let definition = game.card_definition(source).map_err(rules_error)?.id;
+            let ability_id = rav_triggered_ability_bindings()
+                .into_iter()
+                .find(|binding| {
+                    binding.card_definition == definition && binding.ability.id == action.ability
+                })
+                .map(|binding| binding.ability.id)
+                .ok_or_else(|| {
+                    format!(
+                        "unknown RAV triggered ability `{}` for `{definition}`",
+                        action.ability
+                    )
+                })?;
+            let selected = (!action.found.is_empty())
+                .then(|| lookup(labels, &action.found))
+                .transpose()?;
+            game.submit_policy_move(
+                player,
+                "rav-scenario.choose-trigger-effect-object.v1",
+                cardbench_magic_engine::PolicyAction::ChooseTriggeredAbilityEffectObject {
+                    source,
+                    ability: ability_id,
+                    selected,
+                },
+            )
+            .map_err(rules_error)
+        }
         _ => Err(format!("unknown action kind `{}`", action.kind)),
     };
     match (result, action.expected_error.is_empty()) {

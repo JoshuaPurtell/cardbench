@@ -6603,6 +6603,13 @@ kind = "pass"
 player = 1
 
 [[scenario.action]]
+kind = "choose_trigger_targets"
+player = 0
+card = "horror"
+ability = "etb-opponent-centaurs"
+target = "player:1"
+
+[[scenario.action]]
 kind = "pass"
 player = 0
 
@@ -6617,7 +6624,7 @@ stack_size = 0
 priority = 0
 mana = ["0:black:0"]
 event_markers = ["SpellCast", "SpellResolved", "TriggeredAbilityStacked", "TokenCreated", "AbilityResolved"]
-digest = "fnv1a64:bee1157cb84b6e57"
+digest = "fnv1a64:8882f647d8a00059"
 
 [[scenario]]
 id = "rav_keening_banshee_etb_modifier"
@@ -6719,6 +6726,13 @@ kind = "pass"
 player = 1
 
 [[scenario.action]]
+kind = "choose_trigger_targets"
+player = 0
+card = "banshee"
+ability = "etb-target-minus-two"
+target = "permanent:target"
+
+[[scenario.action]]
 kind = "pass"
 player = 0
 
@@ -6734,12 +6748,12 @@ stack_size = 0
 priority = 0
 mana = ["0:black:0"]
 event_markers = ["SpellCast", "SpellResolved", "TriggeredAbilityStacked", "ContinuousEffectCreated", "AbilityResolved"]
-digest = "fnv1a64:e8d8ac54c1e8b438"
+digest = "fnv1a64:f535e5ed2a831334"
 
 [[scenario]]
 id = "rav_infectious_host_dies_targeted_life_loss"
 seed = 61
-description = "Destroy Infectious Host, stack its dies trigger after state-based actions, and make the deterministically selected opponent lose two life without dealing damage."
+description = "Destroy Infectious Host, explicitly target the opponent with its dies trigger after state-based actions, and make that player lose two life without dealing damage."
 triggers = true
 
 [[scenario.card]]
@@ -6774,6 +6788,13 @@ kind = "pass"
 player = 1
 
 [[scenario.action]]
+kind = "choose_trigger_targets"
+player = 0
+card = "host"
+ability = "dies-target-player-life-loss"
+target = "player:1"
+
+[[scenario.action]]
 kind = "pass"
 player = 0
 
@@ -6787,7 +6808,7 @@ zones = ["gasp:graveyard", "host:graveyard"]
 stack_size = 0
 priority = 0
 event_markers = ["SpellCast", "StateBasedAction", "TriggeredAbilityStacked", "LifeLost", "AbilityResolved"]
-digest = "fnv1a64:911b129f50a167fe"
+digest = "fnv1a64:a3188611c7a3479e"
 
 [[scenario]]
 id = "rav_undercity_shade_black_evasion_compatibility"
@@ -8531,12 +8552,26 @@ player = 0
 kind = "pass"
 player = 1
 
+[[scenario.action]]
+kind = "choose_trigger_effect_object"
+player = 0
+card = "augermage"
+ability = "another-creature-dies-each-player-discards"
+found = "p0_discard"
+
+[[scenario.action]]
+kind = "choose_trigger_effect_object"
+player = 1
+card = "augermage"
+ability = "another-creature-dies-each-player-discards"
+found = "p1_discard"
+
 [scenario.expected]
 zones = ["augermage:battlefield", "p0_discard:graveyard", "p0_keep:hand", "p1_discard:graveyard", "victim:graveyard"]
 stack_size = 0
 priority = 0
 event_markers = ["StateBasedAction", "TriggeredAbilityStacked", "CardDiscarded", "AbilityResolved"]
-digest = "fnv1a64:2d321976a5119fc0"
+digest = "fnv1a64:f214eb35bb280cf1"
 
 [[scenario]]
 id = "rav_dimir_house_guard_fear_and_transmute_compatibility"
@@ -8747,6 +8782,13 @@ kind = "pass"
 player = 1
 
 [[scenario.action]]
+kind = "choose_trigger_targets"
+player = 0
+card = "troll"
+ability = "etb-opponent-faeries"
+target = "player:1"
+
+[[scenario.action]]
 kind = "pass"
 player = 0
 
@@ -8784,7 +8826,7 @@ stack_size = 0
 priority = 0
 mana = ["0:green:0"]
 event_markers = ["SpellCast", "SpellResolved", "TriggeredAbilityStacked", "TokenCreated", "RegenerationShieldCreated", "AbilityResolved"]
-digest = "fnv1a64:6356df19129c5049"
+digest = "fnv1a64:ab6dd96ea893fc21"
 
 [[scenario]]
 id = "rav_selesnya_guildmage_centaur_and_anthem"
@@ -10021,6 +10063,13 @@ player = 0
 card = "garrison"
 
 [[scenario.action]]
+kind = "choose_trigger_targets"
+player = 0
+card = "garrison"
+ability = "return-controlled-land"
+target = "permanent:plains"
+
+[[scenario.action]]
 kind = "pass"
 player = 0
 
@@ -10034,7 +10083,7 @@ tapped = ["garrison:true"]
 stack_size = 0
 priority = 0
 event_markers = ["CardMoved", "TriggeredAbilityStacked", "AbilityResolved"]
-digest = "fnv1a64:807296db04919c75"
+digest = "fnv1a64:3a087eee95786069"
 
 [[scenario]]
 id = "rav_mausoleum_turnkey_conditional_graveyard_return"
@@ -10079,6 +10128,13 @@ kind = "pass"
 player = 1
 
 [[scenario.action]]
+kind = "choose_trigger_targets"
+player = 0
+card = "turnkey"
+ability = "conditional-graveyard-return"
+target = "permanent:target"
+
+[[scenario.action]]
 kind = "pass"
 player = 0
 
@@ -10092,7 +10148,7 @@ stack_size = 0
 priority = 0
 mana = ["0:black:0"]
 event_markers = ["SpellResolved", "TriggeredAbilityStacked", "CardMoved", "AbilityResolved"]
-digest = "fnv1a64:d5d31dfe6196de47"
+digest = "fnv1a64:9cd2018baf59b3fb"
 
 [[scenario]]
 id = "rav_empty_the_catacombs_all_player_graveyard_return"
