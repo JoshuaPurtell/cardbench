@@ -224,9 +224,10 @@ Oracle Magic rules coverage.
   search and discard options are private: only the deciding player's
   `GameView` contains their candidate identities, while a public sacrifice
   option is projected safely to its deciding controller. `DecisionContinuation`
-  holds only typed cloned data, never a resolver closure; future target,
-  optional-cost, color, ordering, replacement, and combat choices remain
-  separate bounded decision families until migrated to this slot.
+  holds only typed cloned data, never a resolver closure; public multi-block
+  combat-damage ordering also uses this slot. Future target, optional-cost,
+  color, and replacement choices remain separate bounded decision families
+  until migrated to it.
 - Every represented trigger condition captures one source/controller/payload
   event and reaches a common active-player-first placement pipeline after its
   enclosing action. A target-bearing event stays outside the stack until its
@@ -911,13 +912,20 @@ Oracle Magic rules coverage.
   recorded as player/permanent damage events, then state-based actions run.
   A creature with zero or negative power assigns no combat damage and emits no
   damage event; negative power can never increase life or remove marked damage.
-  Every nonempty blocker group retains declaration order and every blocker is
-  globally unique across the combat. Each live eligible blocker assigns its
-  complete positive power. A blocked nontrample attacker with one live blocker
-  assigns its complete positive power to that blocker; with several blockers,
-  the bounded compatibility assignment first gives each remaining lethal in
-  order, then assigns any nontrampling remainder to the first blocker so damage
-  is never silently dropped.
+  Every nonempty blocker group begins in defender declaration order and every
+  blocker is globally unique across the combat. Before priority, the attacking
+  player receives one public `CombatDamageOrder` decision for each group with
+  more than one blocker. Its exact option set is a fixed-cardinality
+  permutation; `DecisionOpened → DecisionCompleted → CombatDamageOrderChosen`
+  records the no-priority lifecycle and then the public result. A stale,
+  duplicate, partial, foreign-player, or out-of-group selection is atomic. The
+  ordered-attacker provenance is a subset of declared multi-block groups and
+  all such groups must be ordered before either combat-damage step. Each live
+  eligible blocker assigns its complete positive power. A blocked nontrample
+  attacker with one live blocker assigns its complete positive power to that
+  blocker; with several blockers, assignment first gives each remaining lethal
+  damage in the submitted order, then assigns any nontrampling remainder to
+  the first ordered blocker so damage is never silently dropped.
   Alternative combat restrictions and other unsupported combat rules must be
   reported as capability gaps rather than approximated.
 - `trampling_attackers` is declaration provenance only: it is a subset of the
@@ -925,13 +933,18 @@ Oracle Magic rules coverage.
   combat damage, Trample is evaluated from the attacker's live characteristics,
   so a later supported characteristic change can affect assignment without
   corrupting the historical declaration. The bounded substrate retains every
-  blocker in declaration order. A positive-power live Trample attacker assigns
+  attacker-submitted blocker order. A positive-power live Trample attacker assigns
   each live blocker's remaining lethal damage (after marked damage) in that
   order, then its positive excess exactly once to the fixed defender; if all
   blockers have left combat, all its positive assignment goes to that defender.
-  Explicit damage-order choice, deathtouch, and prevention/replacement
-  interactions remain explicit capability gaps rather than approximated damage
-  assignment.
+  For a source with `Deathtouch`, one positive assigned point is lethal to
+  each creature regardless of toughness. Every committed positive
+  deathtouch-damage packet sets source-quality provenance on the target
+  incarnation; SBA treats that marker as lethal, even if the source later loses
+  Deathtouch, and clears it together with marked damage at regeneration,
+  cleanup, and battlefield re-entry. Combat prevention/replacement ordering and
+  arbitrary player-selected assignment amounts remain explicit capability gaps
+  rather than approximated damage assignment.
 - When an attacking or blocking creature has first strike at the damage-step
   boundary, a dedicated `FirstStrikeCombatDamage` step precedes normal combat
   damage. Its recorded source set is a subset of the declared combatants and
