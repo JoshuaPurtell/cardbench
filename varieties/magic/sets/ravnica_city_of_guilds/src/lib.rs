@@ -43,7 +43,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 201] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 202] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
@@ -220,6 +220,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 201] = [
     "RAV-GATE-HOUND",
     "RAV-BLAZING-ARCHON",
     "RAV-CAREGIVER",
+    "RAV-BENEVOLENT-ANCESTOR",
     "RAV-BOROS-FURY-SHIELD",
     "RAV-BATHE-IN-LIGHT",
     "RAV-LIGHT-OF-SANCTION",
@@ -4614,10 +4615,10 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
-        // Compatibility scope: normal colored-cost creature casting, base
-        // characteristics, and Defender. Its damage-prevention activation
-        // remains deliberately unsupported, so this is not a full-fidelity
-        // card.
+        // Full fidelity: normal colored-cost creature casting, base
+        // characteristics, Defender, and the stack-backed tap activation
+        // that installs one target-side damage-prevention shield through the
+        // current turn's cleanup.
         CardDefinition {
             id: "RAV-BENEVOLENT-ANCESTOR",
             name: "Benevolent Ancestor",
@@ -4627,7 +4628,13 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Creature]),
             is_basic_land: false,
-            supported_rules: &["colored-cost-casting", "base-characteristics", "defender"],
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "defender",
+                "tap-prevent-one-damage-to-target",
+            ],
             power: Some(0),
             toughness: Some(4),
             keywords: vec![Keyword::Defender],
@@ -6998,6 +7005,22 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 sacrifice_lands: 0,
                 discard_cards: 0,
                 targets: vec![cardbench_magic_engine::TargetRequirement::PlayerOrCreature],
+                effects: vec![Effect::AddTargetDamageShieldUntilEndOfTurn { amount: 1 }],
+            },
+        },
+        ActivatedAbilityBinding {
+            card_definition: "RAV-BENEVOLENT-ANCESTOR",
+            ability: ActivatedAbility {
+                id: "tap-prevent-one-damage",
+                mana_cost: ManaCost::new(0),
+                tap_cost: true,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![TargetRequirement::PlayerOrCreature],
                 effects: vec![Effect::AddTargetDamageShieldUntilEndOfTurn { amount: 1 }],
             },
         },

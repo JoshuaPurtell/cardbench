@@ -1,8 +1,4 @@
-//! Red coverage probe for Benevolent Ancestor's shared Defender rule.
-//!
-//! Its damage-prevention activation remains intentionally outside this bounded
-//! slice; this probe requests only the static keyword already supported by the
-//! engine.
+//! Regression for Benevolent Ancestor's shared Defender rule.
 
 use std::collections::BTreeSet;
 
@@ -10,7 +6,7 @@ use cardbench_magic_engine::{CardType, Color, Keyword, ManaCost};
 use cardbench_magic_rav::card_definitions;
 
 #[test]
-fn benevolent_ancestor_exposes_its_supported_defender_compatibility_slice() {
+fn benevolent_ancestor_exposes_its_defender_rule() {
     let ancestor = card_definitions()
         .into_iter()
         .find(|definition| definition.id == "RAV-BENEVOLENT-ANCESTOR")
@@ -25,7 +21,12 @@ fn benevolent_ancestor_exposes_its_supported_defender_compatibility_slice() {
     assert!(ancestor.effects.is_empty());
     assert_eq!(
         ancestor.supported_rules,
-        ["colored-cost-casting", "base-characteristics", "defender"],
-        "the prevention activation remains intentionally bounded"
+        [
+            "full-rules-fidelity",
+            "colored-cost-casting",
+            "base-characteristics",
+            "defender",
+            "tap-prevent-one-damage-to-target",
+        ]
     );
 }

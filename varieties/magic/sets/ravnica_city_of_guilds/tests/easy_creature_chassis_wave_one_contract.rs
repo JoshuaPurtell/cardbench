@@ -105,7 +105,13 @@ fn easy_creature_wave_one_is_exactly_bounded_to_public_base_facts() {
     assert!(ancestor.effects.is_empty());
     assert_eq!(
         ancestor.supported_rules,
-        ["colored-cost-casting", "base-characteristics", "defender"]
+        [
+            "full-rules-fidelity",
+            "colored-cost-casting",
+            "base-characteristics",
+            "defender",
+            "tap-prevent-one-damage-to-target",
+        ]
     );
 
     let griffin = definitions

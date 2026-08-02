@@ -1,4 +1,4 @@
-//! Bounded public contract for Benevolent Ancestor's shared Defender behavior.
+//! Full public contract for Benevolent Ancestor's Defender behavior.
 
 use std::collections::BTreeSet;
 
@@ -8,7 +8,7 @@ use cardbench_magic_engine::{
 use cardbench_magic_rav::{RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, run_all_scenarios};
 
 #[test]
-fn benevolent_ancestor_definition_is_explicit_about_the_omitted_activation() {
+fn benevolent_ancestor_definition_records_its_complete_targeted_prevention_activation() {
     let ancestor = card_definitions()
         .into_iter()
         .find(|definition| definition.id == "RAV-BENEVOLENT-ANCESTOR")
@@ -23,11 +23,17 @@ fn benevolent_ancestor_definition_is_explicit_about_the_omitted_activation() {
     assert!(ancestor.effects.is_empty());
     assert_eq!(
         ancestor.supported_rules,
-        ["colored-cost-casting", "base-characteristics", "defender"]
+        [
+            "full-rules-fidelity",
+            "colored-cost-casting",
+            "base-characteristics",
+            "defender",
+            "tap-prevent-one-damage-to-target",
+        ]
     );
     assert!(
-        !RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&ancestor.id),
-        "the omitted damage-prevention activation keeps this definition bounded"
+        RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&ancestor.id),
+        "the Defender and targeted prevention activation complete this definition"
     );
 }
 
