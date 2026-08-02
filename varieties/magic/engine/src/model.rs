@@ -2260,6 +2260,10 @@ pub enum Effect {
     /// library. The target retains its exact graveyard incarnation while the
     /// stack item waits to resolve.
     PutTargetGraveyardCardOnOwnersLibraryBottom,
+    /// Move the resolving source controller's current library top to the
+    /// bottom of that same library. This is a library reorder, not a zone
+    /// transition: the selected card retains its current object incarnation.
+    PutTopCardOfControllerLibraryOnBottom,
     /// Return the resolving source object to its owner's hand only while the
     /// exact incarnation that created the stack object remains on the
     /// battlefield. This is a resolution instruction, not an activation cost:
@@ -2494,6 +2498,7 @@ impl Effect {
             | Self::ReturnSourceAttachedPermanentToHand
             | Self::LookAtTopCardsChooseForLifeOrGraveyard { .. }
             | Self::ShuffleGraveyardsIntoLibraries
+            | Self::PutTopCardOfControllerLibraryOnBottom
             | Self::ReturnSourceToOwnersHand
             | Self::MoveSourceToOwnersLibraryAndShuffle
             | Self::ModifySourcePtUntilEndOfTurn { .. }
@@ -2907,6 +2912,15 @@ pub enum ContinuousChange {
     /// every creature controlled by the source's controller, but only while
     /// at least one live Aura is attached to the source.
     ControlledCreaturesAddKeywordIfSourceEnchanted(Keyword),
+    /// A battlefield-only static layer-seven effect. If the source
+    /// controller's current library top is a creature card, every creature
+    /// that player controls which shares at least one card color with that
+    /// top card receives this modifier. The source need only be a permanent;
+    /// it need not be a creature itself.
+    ControlledCreaturesSharingTopLibraryCreatureCardColorsModifyPowerToughness {
+        power: i16,
+        toughness: i16,
+    },
     /// The affected permanent's activated nonmana abilities cannot be
     /// activated. Mana abilities remain legal and continue to bypass the stack.
     SuppressNonManaActivatedAbilities,
@@ -2931,7 +2945,10 @@ impl ContinuousChange {
             Self::ModifyPowerToughness { .. }
             | Self::ModifyPowerToughnessForEachOtherCreatureControlledByTarget { .. }
             | Self::ControlledCreatureCountPowerToughness
-            | Self::OtherControlledCreaturesModifyPowerToughness { .. } => Layer::PowerToughness,
+            | Self::OtherControlledCreaturesModifyPowerToughness { .. }
+            | Self::ControlledCreaturesSharingTopLibraryCreatureCardColorsModifyPowerToughness {
+                ..
+            } => Layer::PowerToughness,
         }
     }
 }
@@ -3011,6 +3028,19 @@ pub struct StaticContinuousEffectBinding {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct StaticLibraryTopRevealBinding {
     pub card_definition: &'static str,
+    /// The owner-indexed library or libraries that become public while an
+    /// exact live source remains on the battlefield.
+    pub scope: StaticLibraryTopRevealScope,
+}
+
+/// The public-library scope of one immutable static binding. A source may
+/// reveal every player's current top card or only the library belonging to its
+/// live controller; the latter must follow control changes rather than the
+/// source's immutable owner.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum StaticLibraryTopRevealScope {
+    EveryPlayer,
+    SourceController,
 }
 
 /// A battlefield-only rule that restricts combat declarations without changing
@@ -3989,6 +4019,13 @@ pub enum GameEvent {
     LibraryReordered {
         player: PlayerId,
         top_to_bottom: Vec<ObjectId>,
+    },
+    /// A resolving effect moved the named current library top below every
+    /// other card in the same owner-indexed library. No zone or incarnation
+    /// changed; this receipt is the public ordering provenance.
+    LibraryTopMovedToBottom {
+        player: PlayerId,
+        card: ObjectId,
     },
     /// A private top-library partition was committed. Candidate and selected
     /// identities deliberately remain absent; ordinary public zone moves are

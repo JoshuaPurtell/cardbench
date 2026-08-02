@@ -41,7 +41,7 @@ pub use model::{
     SharedKeywordFamily, StackEffectResolution, StackObject, StackResolutionPlan,
     StackTargetArityError, StaticAttackRestriction, StaticAttackRestrictionBinding,
     StaticContinuousEffectBinding, StaticEntryRestriction, StaticEntryRestrictionBinding,
-    StaticLibraryTopRevealBinding, Step, TRANSMUTE_ABILITY_ID, Target, TargetRequirement,
-    TokenSpec, TriggerCondition, TriggerOrderEntry, TriggeredAbility, TriggeredAbilityBinding,
-    TriggeredEffectObjectDecisionKind, Zone,
+    StaticLibraryTopRevealBinding, StaticLibraryTopRevealScope, Step, TRANSMUTE_ABILITY_ID, Target,
+    TargetRequirement, TokenSpec, TriggerCondition, TriggerOrderEntry, TriggeredAbility,
+    TriggeredAbilityBinding, TriggeredEffectObjectDecisionKind, Zone,
 };

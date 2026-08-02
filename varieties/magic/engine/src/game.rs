@@ -26,9 +26,9 @@ use crate::{
     ReplacementEffectBinding, ReplacementEventKind, ResolutionPaymentManaAbility,
     StackEffectResolution, StackObject, StackResolutionPlan, StaticAttackRestriction,
     StaticAttackRestrictionBinding, StaticContinuousEffectBinding, StaticEntryRestriction,
-    StaticEntryRestrictionBinding, StaticLibraryTopRevealBinding, Step, TRANSMUTE_ABILITY_ID,
-    Target, TargetRequirement, TokenSpec, TriggerCondition, TriggerOrderEntry,
-    TriggeredAbilityBinding, TriggeredEffectObjectDecisionKind, Zone,
+    StaticEntryRestrictionBinding, StaticLibraryTopRevealBinding, StaticLibraryTopRevealScope,
+    Step, TRANSMUTE_ABILITY_ID, Target, TargetRequirement, TokenSpec, TriggerCondition,
+    TriggerOrderEntry, TriggeredAbilityBinding, TriggeredEffectObjectDecisionKind, Zone,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -752,7 +752,7 @@ pub struct Game {
     static_attack_restrictions: BTreeMap<&'static str, Vec<StaticAttackRestriction>>,
     static_entry_restrictions: BTreeMap<&'static str, Vec<StaticEntryRestriction>>,
     static_continuous_effects: BTreeMap<&'static str, Vec<ContinuousChange>>,
-    static_library_top_reveals: BTreeSet<&'static str>,
+    static_library_top_reveals: BTreeMap<&'static str, StaticLibraryTopRevealScope>,
     cost_reductions: BTreeMap<&'static str, CostReductionBinding>,
     activated_ability_cost_modifiers: BTreeMap<&'static str, Vec<ActivatedAbilityCostModifier>>,
     generalized_activated_ability_costs:
@@ -1021,7 +1021,7 @@ impl Game {
             static_attack_restrictions: BTreeMap::new(),
             static_entry_restrictions: BTreeMap::new(),
             static_continuous_effects: BTreeMap::new(),
-            static_library_top_reveals: BTreeSet::new(),
+            static_library_top_reveals: BTreeMap::new(),
             cost_reductions: BTreeMap::new(),
             activated_ability_cost_modifiers: BTreeMap::new(),
             generalized_activated_ability_costs: BTreeMap::new(),
@@ -1754,6 +1754,9 @@ impl Game {
             let change_requires_only_permanent = matches!(
                 binding.change,
                 ContinuousChange::ControlledCreaturesAddKeyword(_)
+                    | ContinuousChange::ControlledCreaturesSharingTopLibraryCreatureCardColorsModifyPowerToughness {
+                        ..
+                    }
             );
             if !(definition.is_creature()
                 || (definition.is_permanent() && change_requires_only_permanent))
@@ -1764,6 +1767,9 @@ impl Game {
                         | ContinuousChange::OtherControlledCreaturesAddKeyword(_)
                         | ContinuousChange::ControlledCreaturesAddKeyword(_)
                         | ContinuousChange::ControlledCreaturesAddKeywordIfSourceEnchanted(_)
+                        | ContinuousChange::ControlledCreaturesSharingTopLibraryCreatureCardColorsModifyPowerToughness {
+                            ..
+                        }
                 )
             {
                 return Err(RulesError::IllegalAction(
@@ -1808,9 +1814,10 @@ impl Game {
                     "a static library-reveal binding requires a permanent source",
                 ));
             }
-            if !self
+            if self
                 .static_library_top_reveals
-                .insert(binding.card_definition)
+                .insert(binding.card_definition, binding.scope)
+                .is_some()
             {
                 return Err(RulesError::IllegalAction(
                     "duplicate static library-reveal binding",
@@ -3387,30 +3394,32 @@ impl Game {
         self.event_log.push(event);
     }
 
-    /// Projects exactly the currently top card of each nonempty library when
-    /// a registered reveal source is live. It deliberately has no cache: the
-    /// final element of the owner-indexed library vector is the sole visible
-    /// identity, so every ordinary library transition is reflected on the
-    /// next policy view without an event-log-only side channel.
+    /// Projects the top card of every nonempty library covered by a live
+    /// source. A binding can reveal every player or only the source's current
+    /// controller. It deliberately has no cache: the final owner-indexed
+    /// library entry is the sole visible identity, so every ordinary library
+    /// transition is reflected on the next policy view.
     fn revealed_library_tops(&self) -> Result<Vec<RevealedLibraryTopView>, RulesError> {
-        let reveal_is_active =
-            self.all_battlefield_cards()
-                .into_iter()
-                .try_fold(false, |active, source| {
-                    if active {
-                        return Ok(true);
-                    }
-                    Ok(self
-                        .effective_definition_id(source)?
-                        .is_some_and(|definition| {
-                            self.static_library_top_reveals.contains(definition)
-                        }))
-                })?;
-        if !reveal_is_active {
+        let mut reveal_every_player = false;
+        let mut revealed_owners = BTreeSet::new();
+        for source in self.all_battlefield_cards() {
+            let Some(definition) = self.effective_definition_id(source)? else {
+                continue;
+            };
+            match self.static_library_top_reveals.get(definition) {
+                Some(StaticLibraryTopRevealScope::EveryPlayer) => reveal_every_player = true,
+                Some(StaticLibraryTopRevealScope::SourceController) => {
+                    revealed_owners.insert(self.controller_of(source)?);
+                }
+                None => {}
+            }
+        }
+        if !reveal_every_player && revealed_owners.is_empty() {
             return Ok(Vec::new());
         }
         self.players
             .iter()
+            .filter(|player| reveal_every_player || revealed_owners.contains(&player.id))
             .filter_map(|player| player.library.last().map(|card| (player.id, *card)))
             .map(|(owner, card)| {
                 self.card_view(card)
@@ -4056,7 +4065,10 @@ impl Game {
                 | ContinuousChange::OtherControlledCreaturesModifyPowerToughness { .. }
                 | ContinuousChange::OtherControlledCreaturesAddKeyword(_)
                 | ContinuousChange::ControlledCreaturesAddKeyword(_)
-                | ContinuousChange::ControlledCreaturesAddKeywordIfSourceEnchanted(_) => {
+                | ContinuousChange::ControlledCreaturesAddKeywordIfSourceEnchanted(_)
+                | ContinuousChange::ControlledCreaturesSharingTopLibraryCreatureCardColorsModifyPowerToughness {
+                    ..
+                } => {
                     return Err(RulesError::IllegalAction(
                         "a static continuous change cannot be a timestamped effect",
                     ));
@@ -4156,6 +4168,34 @@ impl Game {
                 if !characteristics.keywords.contains(keyword) {
                     characteristics.keywords.push(keyword.clone());
                 }
+                Ok(())
+            }
+            ContinuousChange::ControlledCreaturesSharingTopLibraryCreatureCardColorsModifyPowerToughness {
+                power,
+                toughness,
+            } => {
+                let controller = self.controller_of(source)?;
+                if controller != self.controller_of(card)?
+                    || !characteristics.card_types.contains(&CardType::Creature)
+                {
+                    return Ok(());
+                }
+                let Some(top) = self.players[controller.0].library.last().copied() else {
+                    return Ok(());
+                };
+                let top_definition = self.card_definition(top)?;
+                if !top_definition.is_creature()
+                    || top_definition.colors.is_empty()
+                    || characteristics.colors.is_disjoint(&top_definition.colors)
+                {
+                    return Ok(());
+                }
+                characteristics.power = characteristics
+                    .power
+                    .map(|current| current + i32::from(*power));
+                characteristics.toughness = characteristics
+                    .toughness
+                    .map(|current| current + i32::from(*toughness));
                 Ok(())
             }
             _ => Err(RulesError::IllegalAction(
@@ -4449,6 +4489,9 @@ impl Game {
                 | ContinuousChange::OtherControlledCreaturesAddKeyword(_)
                 | ContinuousChange::ControlledCreaturesAddKeyword(_)
                 | ContinuousChange::ControlledCreaturesAddKeywordIfSourceEnchanted(_)
+                | ContinuousChange::ControlledCreaturesSharingTopLibraryCreatureCardColorsModifyPowerToughness {
+                    ..
+                }
         ) {
             return Err(RulesError::IllegalAction(
                 "a static continuous change cannot be installed dynamically",
@@ -9183,6 +9226,7 @@ impl Game {
         self.validate_static_entry_restriction_event_order()?;
         Self::validate_permanent_copy_event_order(&self.event_log)?;
         Self::validate_library_search_event_order(&self.event_log)?;
+        self.validate_library_top_move_event_order()?;
         self.validate_attachment_event_order(&self.event_log)?;
         Self::validate_attachment_detach_event_order(&self.event_log)?;
         Self::validate_delayed_action_event_order(&self.event_log)?;
@@ -10365,9 +10409,15 @@ impl Game {
                 .catalog
                 .get(definition_id)
                 .ok_or(RulesError::UnknownDefinition(definition_id))?;
-            let changes_require_only_permanent = changes
-                .iter()
-                .all(|change| matches!(change, ContinuousChange::ControlledCreaturesAddKeyword(_)));
+            let changes_require_only_permanent = changes.iter().all(|change| {
+                matches!(
+                    change,
+                    ContinuousChange::ControlledCreaturesAddKeyword(_)
+                        | ContinuousChange::ControlledCreaturesSharingTopLibraryCreatureCardColorsModifyPowerToughness {
+                            ..
+                        }
+                )
+            });
             if !(definition.is_creature()
                 || (definition.is_permanent() && changes_require_only_permanent))
                 || changes.is_empty()
@@ -10379,6 +10429,9 @@ impl Game {
                             | ContinuousChange::OtherControlledCreaturesAddKeyword(_)
                             | ContinuousChange::ControlledCreaturesAddKeyword(_)
                             | ContinuousChange::ControlledCreaturesAddKeywordIfSourceEnchanted(_)
+                            | ContinuousChange::ControlledCreaturesSharingTopLibraryCreatureCardColorsModifyPowerToughness {
+                                ..
+                            }
                     )
                 })
             {
@@ -10396,7 +10449,7 @@ impl Game {
                 ));
             }
         }
-        for definition_id in &self.static_library_top_reveals {
+        for definition_id in self.static_library_top_reveals.keys() {
             let definition = self
                 .catalog
                 .get(definition_id)
@@ -10582,6 +10635,9 @@ impl Game {
                     | ContinuousChange::OtherControlledCreaturesAddKeyword(_)
                     | ContinuousChange::ControlledCreaturesAddKeyword(_)
                     | ContinuousChange::ControlledCreaturesAddKeywordIfSourceEnchanted(_)
+                    | ContinuousChange::ControlledCreaturesSharingTopLibraryCreatureCardColorsModifyPowerToughness {
+                        ..
+                    }
             ) {
                 return Err(RulesError::IllegalAction(
                     "a static continuous change appeared in the timestamped effect list",
@@ -12023,6 +12079,7 @@ impl Game {
                 | Effect::ReturnOpponentCreatureToHand
                 | Effect::PutTargetCreatureOnOwnersLibraryTop
                 | Effect::PutTargetGraveyardCardOnOwnersLibraryBottom
+                | Effect::PutTopCardOfControllerLibraryOnBottom
                 | Effect::ReturnSourceToOwnersHand
                 | Effect::MoveSourceToOwnersLibraryAndShuffle
                 | Effect::ModifyControllerCreaturesPtUntilEndOfTurn { .. }
@@ -17625,6 +17682,16 @@ impl Game {
                 }
                 library.insert(0, target);
             }
+            Effect::PutTopCardOfControllerLibraryOnBottom => {
+                let library = &mut self.players[controller.0].library;
+                if let Some(card) = library.pop() {
+                    library.insert(0, card);
+                    self.record_event(GameEvent::LibraryTopMovedToBottom {
+                        player: controller,
+                        card,
+                    });
+                }
+            }
             Effect::ReturnSourceToOwnersHand => {
                 // A resolving ability uses last-known source identity. If its
                 // source left and re-entered, the new permanent is not the
@@ -19849,6 +19916,63 @@ impl Game {
             {
                 return Err(RulesError::IllegalAction(
                     "library reorder receipt lacks a unique prior public reveal",
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// A direct top-to-bottom library rotation is not a zone transition, so
+    /// it needs its own small public receipt boundary. It names a real card
+    /// owned by the affected player and must be consumed by the enclosing
+    /// stack object's terminal event before another priority or step boundary;
+    /// an unrelated later action cannot masquerade as the rotation's
+    /// resolution. Other instructions from that same resolving object may
+    /// legitimately emit receipts between the rotation and its terminal event.
+    fn validate_library_top_move_event_order(&self) -> Result<(), RulesError> {
+        for (index, event) in self.event_log.iter().enumerate() {
+            let GameEvent::LibraryTopMovedToBottom { player, card } = event else {
+                continue;
+            };
+            let card_has_matching_owner = match self.object(*card) {
+                Ok(object) => object.owner == *player,
+                // A player may leave after an otherwise valid historical
+                // receipt. Their physical cards are then absent by CR 800.4a,
+                // but the terminal removal record preserves their ownership.
+                Err(_) => self.event_log[index.saturating_add(1)..]
+                    .iter()
+                    .any(|event| {
+                        matches!(
+                            event,
+                            GameEvent::ObjectLeftGame { object, owner }
+                                if *object == *card && *owner == *player
+                        )
+                    }),
+            };
+            if self.players.get(player.0).is_none() || !card_has_matching_owner {
+                return Err(RulesError::IllegalAction(
+                    "library top-to-bottom receipt has invalid player or card ownership",
+                ));
+            }
+            let closes_before_boundary = self.event_log[index + 1..]
+                .iter()
+                .take_while(|next| {
+                    !matches!(
+                        next,
+                        GameEvent::PriorityPassed { .. }
+                            | GameEvent::StepBegan { .. }
+                            | GameEvent::GameEnded { .. }
+                    )
+                })
+                .any(|next| {
+                    matches!(
+                        next,
+                        GameEvent::AbilityResolved { .. } | GameEvent::SpellResolved { .. }
+                    )
+                });
+            if !closes_before_boundary {
+                return Err(RulesError::IllegalAction(
+                    "library top-to-bottom receipt lacks a stack resolution before priority advances",
                 ));
             }
         }

@@ -3,8 +3,9 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    AbilityActivation, ActivatedAbility, ActivatedAbilityBinding, CardDefinition, CardType, Color,
-    ContinuousChange, Effect, Game, GameEvent, ManaCost, PlayerId,
+    AbilityActivation, ActivatedAbility, ActivatedAbilityBinding, ActivatedManaAbility,
+    CardDefinition, CardType, Color, ContinuousChange, Effect, Game, GameEvent,
+    ManaAbilityActivation, ManaAbilityBinding, ManaAbilityOutput, ManaCost, PlayerId,
     StaticContinuousEffectBinding, StaticLibraryTopRevealBinding, StaticLibraryTopRevealScope,
     Zone,
 };
@@ -14,6 +15,8 @@ const GREEN_CREATURE: &str = "TST-GREEN-CREATURE";
 const BLUE_CREATURE: &str = "TST-BLUE-CREATURE";
 const RED_CREATURE: &str = "TST-RED-CREATURE";
 const NONCREATURE: &str = "TST-NONCREATURE";
+const GREEN_SOURCE: &str = "TST-GREEN-SOURCE";
+const WHITE_SOURCE: &str = "TST-WHITE-SOURCE";
 
 fn definition(
     id: &'static str,
@@ -39,6 +42,7 @@ fn definition(
     }
 }
 
+#[allow(clippy::too_many_lines)] // Fixture binds all three independent Crown rules explicitly.
 fn game() -> Game {
     let mut game = Game::new_with_all_bindings_and_static_continuous_effects(
         [
@@ -77,9 +81,46 @@ fn game() -> Game {
                 None,
                 None,
             ),
+            definition(
+                GREEN_SOURCE,
+                BTreeSet::new(),
+                BTreeSet::from([CardType::Land]),
+                None,
+                None,
+            ),
+            definition(
+                WHITE_SOURCE,
+                BTreeSet::new(),
+                BTreeSet::from([CardType::Land]),
+                None,
+                None,
+            ),
         ],
         2,
-        [],
+        [
+            ManaAbilityBinding {
+                card_definition: GREEN_SOURCE,
+                ability: ActivatedManaAbility {
+                    id: "green",
+                    tap_cost: true,
+                    output: ManaAbilityOutput::Fixed(Color::Green),
+                    amount: 1,
+                    life_payment: None,
+                    controller_damage: None,
+                },
+            },
+            ManaAbilityBinding {
+                card_definition: WHITE_SOURCE,
+                ability: ActivatedManaAbility {
+                    id: "white",
+                    tap_cost: true,
+                    output: ManaAbilityOutput::Fixed(Color::White),
+                    amount: 1,
+                    life_payment: None,
+                    controller_damage: None,
+                },
+            },
+        ],
         [],
         [],
         [ActivatedAbilityBinding {
@@ -116,6 +157,7 @@ fn game() -> Game {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // Visibility, layer state, payment, and event ordering are one contract.
 fn controller_top_creature_reveals_only_that_library_buffs_shared_colors_and_rotates() {
     let mut game = game();
     let crown = game
@@ -139,15 +181,32 @@ fn controller_top_creature_reveals_only_that_library_buffs_shared_colors_and_rot
     let opponent_top = game
         .add_card(PlayerId(1), RED_CREATURE, Zone::Library)
         .expect("opponent library top remains hidden");
-    game.grant_mana(PlayerId(0), Color::Green, 1)
-        .expect("green setup mana");
-    game.grant_mana(PlayerId(0), Color::White, 1)
-        .expect("white setup mana");
+    let green_source = game
+        .put_on_battlefield(PlayerId(0), GREEN_SOURCE)
+        .expect("green source setup");
+    let white_source = game
+        .put_on_battlefield(PlayerId(0), WHITE_SOURCE)
+        .expect("white source setup");
     game.begin_game().expect("game starts");
 
-    assert_eq!(game.characteristics(green).expect("green characteristics").power, Some(3));
-    assert_eq!(game.characteristics(blue).expect("blue characteristics").power, Some(2));
-    assert_eq!(game.characteristics(red).expect("red characteristics").power, Some(2));
+    assert_eq!(
+        game.characteristics(green)
+            .expect("green characteristics")
+            .power,
+        Some(3)
+    );
+    assert_eq!(
+        game.characteristics(blue)
+            .expect("blue characteristics")
+            .power,
+        Some(2)
+    );
+    assert_eq!(
+        game.characteristics(red)
+            .expect("red characteristics")
+            .power,
+        Some(2)
+    );
     let visible = game
         .view_for_player(PlayerId(1))
         .expect("opponent public view")
@@ -155,6 +214,25 @@ fn controller_top_creature_reveals_only_that_library_buffs_shared_colors_and_rot
     assert_eq!(visible.len(), 1, "Crown never reveals an opponent library");
     assert_eq!(visible[0].owner, PlayerId(0));
     assert_eq!(visible[0].card.id, top);
+
+    game.activate_bound_mana_ability(
+        PlayerId(0),
+        ManaAbilityActivation {
+            source: green_source,
+            ability_id: "green",
+            chosen_color: None,
+        },
+    )
+    .expect("green source produces mana");
+    game.activate_bound_mana_ability(
+        PlayerId(0),
+        ManaAbilityActivation {
+            source: white_source,
+            ability_id: "white",
+            chosen_color: None,
+        },
+    )
+    .expect("white source produces mana");
 
     game.activate_ability(
         PlayerId(0),
@@ -172,7 +250,12 @@ fn controller_top_creature_reveals_only_that_library_buffs_shared_colors_and_rot
     game.pass_priority(PlayerId(1)).expect("opponent passes");
 
     assert_eq!(game.players[0].library, vec![top, bottom]);
-    assert_eq!(game.characteristics(green).expect("green characteristics").power, Some(2));
+    assert_eq!(
+        game.characteristics(green)
+            .expect("green characteristics")
+            .power,
+        Some(2)
+    );
     assert!(game.event_log.iter().any(|event| matches!(
         event,
         GameEvent::LibraryTopMovedToBottom { player: PlayerId(0), card } if *card == top
@@ -182,12 +265,13 @@ fn controller_top_creature_reveals_only_that_library_buffs_shared_colors_and_rot
         GameEvent::AbilityResolved { source, ability, .. }
             if *source == crown && *ability == "rotate-controller-library-top-to-bottom"
     )));
-    assert!(game
-        .view_for_player(PlayerId(1))
-        .expect("opponent public view after rotation")
-        .revealed_library_tops
-        .iter()
-        .all(|view| view.owner == PlayerId(0) && view.card.id != opponent_top));
+    assert!(
+        game.view_for_player(PlayerId(1))
+            .expect("opponent public view after rotation")
+            .revealed_library_tops
+            .iter()
+            .all(|view| view.owner == PlayerId(0) && view.card.id != opponent_top)
+    );
     eprintln!("crown_top_library_trace={:?}", game.canonical_event_log());
     game.validate_invariants()
         .expect("Crown static and rotation lifecycle remains invariant-valid");

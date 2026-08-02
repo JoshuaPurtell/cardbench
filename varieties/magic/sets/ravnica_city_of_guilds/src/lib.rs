@@ -6906,6 +6906,7 @@ pub fn rav_static_continuous_effect_bindings() -> Vec<StaticContinuousEffectBind
 pub fn rav_static_library_top_reveal_bindings() -> Vec<StaticLibraryTopRevealBinding> {
     vec![StaticLibraryTopRevealBinding {
         card_definition: "RAV-WIZENED-SNITCHES",
+        scope: cardbench_magic_engine::StaticLibraryTopRevealScope::EveryPlayer,
     }]
 }
 

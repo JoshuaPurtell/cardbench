@@ -3,7 +3,8 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardDefinition, CardType, Color, Game, ManaCost, PlayerId, StaticLibraryTopRevealBinding, Zone,
+    CardDefinition, CardType, Color, Game, ManaCost, PlayerId, StaticLibraryTopRevealBinding,
+    StaticLibraryTopRevealScope, Zone,
 };
 
 const REVEALER: &str = "TST-LIBRARY-REVEALER";
@@ -44,16 +45,19 @@ fn static_library_reveal_projects_only_live_tops_to_every_view() {
     assert!(
         game.register_static_library_top_reveal_bindings([StaticLibraryTopRevealBinding {
             card_definition: FIRST,
+            scope: StaticLibraryTopRevealScope::EveryPlayer,
         }])
         .is_err()
     );
     game.register_static_library_top_reveal_bindings([StaticLibraryTopRevealBinding {
         card_definition: REVEALER,
+        scope: StaticLibraryTopRevealScope::EveryPlayer,
     }])
     .expect("permanent source binding registers");
     assert!(
         game.register_static_library_top_reveal_bindings([StaticLibraryTopRevealBinding {
             card_definition: REVEALER,
+            scope: StaticLibraryTopRevealScope::EveryPlayer,
         }])
         .is_err()
     );
