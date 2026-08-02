@@ -1164,6 +1164,15 @@ Oracle Magic rules coverage.
   receipt therefore precedes the corresponding positive source-aware
   `LifeLost` receipt and the spell's terminal resolution lifecycle. An
   illegal target rejects atomically before costs, stack placement, or receipts.
+- A `GraveyardCard` target is a current public card in any player's graveyard,
+  captured with its current incarnation at activation. It is rechecked when
+  the stack item resolves; a legal
+  `PutTargetGraveyardCardOnOwnersLibraryBottom` transition uses the target's
+  immutable owner rather than its activator or current controller, emits the
+  ordinary `CardMoved { to: Library }` and incarnation-advance receipts, and
+  inserts that card below every card already in that owner's library before
+  the terminal ability receipt. A departed or re-entered target is illegal
+  rather than a cross-zone no-op.
 - Turn numbers are never zero, and the consecutive-pass counter is always
   below the number of surviving players outside its atomic resolution/step
   transition. A draw-replacement marker can exist only for the active player
