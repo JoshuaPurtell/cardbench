@@ -152,3 +152,50 @@ fn root_kin_ally_counters_exact_convoke_contributors_but_not_other_creatures() {
     game.validate_invariants()
         .expect("Root-Kin Ally ETB stays invariant-valid");
 }
+
+#[test]
+fn root_kin_ally_etb_resolves_without_fabricating_a_convoke_contributor() {
+    let caster = PlayerId(0);
+    let opponent = PlayerId(1);
+    let mut game = game();
+    let ally = game
+        .add_card(caster, "RAV-ROOT-KIN-ALLY", Zone::Hand)
+        .expect("Root-Kin Ally exists");
+    let bystander = game
+        .put_on_battlefield(caster, "RAV-WATCHWOLF")
+        .expect("ordinary noncontributing creature");
+    advance_to_precombat_main(&mut game);
+    game.add_mana_from_action(caster, Color::Green, 4)
+        .expect("full Root-Kin mana is available");
+    game.clear_event_log();
+
+    game.cast_spell(
+        caster,
+        CastRequest {
+            card: ally,
+            targets: vec![],
+            convoke: vec![],
+            payment_mana_abilities: vec![],
+        },
+    )
+    .expect("Root-Kin casts without Convoke");
+    game.pass_priority(caster).expect("caster passes spell");
+    game.pass_priority(opponent)
+        .expect("opponent passes spell and stacks the empty ETB");
+    game.pass_priority(caster).expect("caster passes empty ETB");
+    game.pass_priority(opponent)
+        .expect("opponent resolves empty ETB without a fabricated contributor");
+
+    println!("Root-Kin Ally no-Convoke trace: {:?}", game.event_log);
+    assert!(game
+        .object(bystander)
+        .expect("bystander remains")
+        .counters
+        .is_empty());
+    assert!(game.event_log.iter().any(|event| {
+        matches!(event, GameEvent::AbilityResolved { ability, .. }
+            if *ability == "etb-counter-exact-convoke-contributors")
+    }));
+    game.validate_invariants()
+        .expect("empty Convoke provenance stays invariant-valid");
+}
