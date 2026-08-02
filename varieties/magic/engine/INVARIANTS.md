@@ -197,6 +197,29 @@ Oracle Magic rules coverage.
   emits `TriggeredAbilityStacked` only after that controller submits the exact
   pending source, ability, and a legal target for every slot. Rejected choices
   leave the pending decision, stack, zones, mana, and event log unchanged.
+- Every migrated no-priority choice occupies the one typed, clonable
+  `PendingDecision` state slot. Its positive `DecisionId` is strictly less
+  than the next monotonic id, is never reused after completion, names one
+  living deciding player, and has distinct typed options with a valid
+  inclusive min/max cardinality. `DecisionOpened` and `DecisionCompleted`
+  form one unique, matching public receipt lifecycle per id; neither receipt
+  contains hidden candidate or selection identities.
+- `PolicyAction::SubmitDecision` must supply the currently live exact id and a
+  selection whose type, cardinality, uniqueness, and options match the typed
+  continuation. A stale id, different player, duplicate, out-of-range count,
+  or illegal option rejects atomically. While the decision remains open,
+  priority cannot pass or interleave, the suspended stack item remains stable,
+  and no other pending decision family may coexist. Compatibility actions for
+  older policies dispatch through the same continuation but new policies must
+  use the id-bearing generic action.
+- This first unified-decision migration covers policy-submitted one-card
+  library searches and triggered discard/sacrifice object choices. Library
+  search and discard options are private: only the deciding player's
+  `GameView` contains their candidate identities, while a public sacrifice
+  option is projected safely to its deciding controller. `DecisionContinuation`
+  holds only typed cloned data, never a resolver closure; future target,
+  optional-cost, color, ordering, replacement, and combat choices remain
+  separate bounded decision families until migrated to this slot.
 - Every represented trigger condition captures one source/controller/payload
   event and reaches a common active-player-first placement pipeline after its
   enclosing action. A target-bearing event stays outside the stack until its
@@ -705,12 +728,13 @@ Oracle Magic rules coverage.
   library and selects no more than one card satisfying its expansion-neutral
   predicate. A deterministic selector remains an explicitly bounded
   compatibility mode. A policy-submitted selector instead suspends its
-  one-effect resolving stack item with zero passes and its controller as the
-  decision player; only that controller sees the ordered matching candidates.
-  Their submitted object must still be in that snapshot and match the typed
-  predicate (including a spell's retained chosen X). `None` is legal only
-  when the search permits failure to find or has no candidates. Priority and
-  every unrelated choice reject atomically while the boundary is open.
+  one-effect resolving stack item with zero passes in a private
+  `PendingDecision`; only that controller sees the ordered matching candidates.
+  Their `DecisionId`-bearing submitted object must still be in that snapshot
+  and match the typed predicate (including a spell's retained chosen X).
+  `None` is legal only when the search permits failure to find or has no
+  candidates. Priority and every unrelated choice reject atomically while the
+  boundary is open.
   Completion records a normal `CardMoved` entry to its exact declared
   destination (`Battlefield`, `BattlefieldTapped`, or `Hand`) before
   `LibrarySearchResolved`, immediately follows the latter with that
