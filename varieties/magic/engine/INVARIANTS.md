@@ -1465,12 +1465,15 @@ Oracle Magic rules coverage.
 - Declare-blockers cannot begin without an attacker declaration, and combat
   damage cannot begin without both declarations. A participant may leave after
   declaration, so later combat bookkeeping preserves the exact declared pair
-  without dereferencing a vanished token. Before blockers are declared, every
-  blocker map, block-history record, ordered-damage group, departed-blocker
-  marker, and evasion-qualified blocker set must be empty. An ordinary
-  battlefield departure removes that permanent from *live* combat membership
-  before its zone incarnation advances; historical block records remain only
-  for delayed effects and must never make the priority transition roll back.
+  without dereferencing a vanished token. A current live blocker assignment
+  requires its current exact incarnation in that history; a departed blocker
+  or ceased token instead requires a matching immutable declared pair and may
+  have no remaining `CardObject`. Before blockers are declared, every blocker
+  map, block-history record, ordered-damage group, departed-blocker marker,
+  and evasion-qualified blocker set must be empty. An ordinary battlefield
+  departure removes that permanent from *live* combat membership before its
+  zone incarnation advances; historical block records remain only for delayed
+  effects and must never make the priority transition roll back.
 - `unblockable_attackers` is declaration provenance only: it is a subset of
   the uniquely declared attackers and no blocker map entry may name one of
   those attackers. A rejected block writes no `BlockersDeclared` receipt.
