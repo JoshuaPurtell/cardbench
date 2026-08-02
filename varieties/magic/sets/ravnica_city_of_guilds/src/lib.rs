@@ -40,7 +40,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 148] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 149] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -179,6 +179,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 148] = [
     "RAV-GATE-HOUND",
     "RAV-BLAZING-ARCHON",
     "RAV-CAREGIVER",
+    "RAV-BOROS-FURY-SHIELD",
     "RAV-FAITHS-FETTERS",
     "RAV-CHANT-OF-VITU-GHAZI",
     "RAV-CENTAUR-SAFEGUARD",
@@ -2081,6 +2082,30 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             toughness: Some(1),
             keywords: vec![],
             effects: vec![],
+        },
+        // Full fidelity: this one-target combat prevention effect keeps the
+        // target creature's exact incarnation through combat and observes the
+        // explicit generic-mana color receipt at resolution.
+        CardDefinition {
+            id: "RAV-BOROS-FURY-SHIELD",
+            name: "Boros Fury-Shield",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(2, [Color::White]),
+            colors: colors([Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Instant]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "prevent-target-creatures-combat-damage-and-red-spend-controller-damage",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![Effect::PreventTargetCreatureCombatDamageUntilEndOfTurn {
+                damage_target_controller_equal_to_power_if_mana_color_spent: Some(Color::Red),
+            }],
         },
         CardDefinition {
             id: "RAV-FAITHS-FETTERS",
