@@ -2,7 +2,7 @@ use cardbench_magic_rav::RAV_FULL_FIDELITY_DEFINITION_IDS;
 
 #[test]
 fn pariahs_shield_lurking_manifest_has_all_positive_promotions() {
-    assert_eq!(RAV_FULL_FIDELITY_DEFINITION_IDS.len(), 209);
+    assert_eq!(RAV_FULL_FIDELITY_DEFINITION_IDS.len(), 210);
     for id in [
         "RAV-PARIAHS-SHIELD",
         "RAV-LURKING-INFORMANT",
