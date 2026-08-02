@@ -140,6 +140,7 @@ fn bloodletter_quill_orders_counter_draw_dynamic_loss_and_counter_cost_receipts(
             cost_payment: AbilityCostPayment {
                 counter_sources: vec![quill],
                 return_permanents: vec![],
+                hand_cards_to_library_top: vec![],
                 chosen_x: None,
             },
             mana_payment_selection: None,
