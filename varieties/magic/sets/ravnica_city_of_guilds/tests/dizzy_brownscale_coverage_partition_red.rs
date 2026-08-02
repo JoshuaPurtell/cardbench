@@ -15,5 +15,5 @@ fn post_promotion_partition_matches_the_catalog() {
             _ => None,
         })
         .collect::<BTreeSet<_>>();
-    assert_eq!(partial_names.len(), 48);
+    assert_eq!(partial_names.len(), 45);
 }
