@@ -10922,6 +10922,18 @@ impl Game {
                     "targeted discard must request at least one card",
                 ));
             }
+            if let Effect::ShareControllerCreatureKeywordsUntilEndOfTurn { families } = effect {
+                if families.is_empty()
+                    || families
+                        .iter()
+                        .enumerate()
+                        .any(|(index, family)| families[index + 1..].contains(family))
+                {
+                    return Err(RulesError::IllegalAction(
+                        "shared-keyword effect requires each family exactly once",
+                    ));
+                }
+            }
             if matches!(
                 effect,
                 Effect::SearchControllerLibrary {
@@ -11019,6 +11031,7 @@ impl Game {
                 | Effect::RegenerateTargetCreature
                 | Effect::RegenerateSource
                 | Effect::AddKeywordToControllerCreaturesUntilEndOfTurn { .. }
+                | Effect::ShareControllerCreatureKeywordsUntilEndOfTurn { .. }
                 | Effect::ReplaceControllerLandsWithChosenBasicLandTypeUntilEndOfTurn
                 | Effect::ReplaceControllerLandsBasicLandTypeUntilEndOfTurn { .. }
                 | Effect::AddChosenColorProtectionToControllerCreaturesUntilEndOfTurn
@@ -15921,6 +15934,57 @@ impl Game {
                     )?;
                 }
             }
+            Effect::ShareControllerCreatureKeywordsUntilEndOfTurn { families } => {
+                // Capture every recipient's current derived keywords before
+                // installing the first effect. This makes a keyword received
+                // during this resolution unavailable as evidence for a later
+                // recipient, and retains concrete Protection/Landwalk values.
+                let creatures = self
+                    .all_battlefield_cards()
+                    .into_iter()
+                    .filter(|candidate| {
+                        self.controller_of(*candidate) == Ok(controller)
+                            && self.characteristics(*candidate).is_ok_and(|characteristics| {
+                                characteristics.card_types.contains(&CardType::Creature)
+                            })
+                    })
+                    .map(|creature| {
+                        self.characteristics(creature)
+                            .map(|characteristics| (creature, characteristics.keywords))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+
+                let shared = creatures
+                    .iter()
+                    .map(|(recipient, _)| {
+                        let mut keywords = Vec::new();
+                        for (candidate, characteristics) in &creatures {
+                            if candidate == recipient {
+                                continue;
+                            }
+                            for keyword in characteristics {
+                                if families.iter().any(|family| family.includes(keyword))
+                                    && !keywords.contains(keyword)
+                                {
+                                    keywords.push(keyword.clone());
+                                }
+                            }
+                        }
+                        (*recipient, keywords)
+                    })
+                    .collect::<Vec<_>>();
+
+                for (recipient, keywords) in shared {
+                    for keyword in keywords {
+                        self.install_continuous_effect(
+                            source,
+                            recipient,
+                            ContinuousChange::AddKeyword(keyword),
+                            Duration::EndOfTurn(self.turn),
+                        )?;
+                    }
+                }
+            }
             Effect::AddChosenColorProtectionToControllerCreaturesUntilEndOfTurn => {
                 let color = chosen_color.ok_or(RulesError::IllegalAction(
                     "chosen-color protection resolved without a chosen color",
@@ -17856,15 +17920,20 @@ impl Game {
         let expired = self
             .continuous_effects
             .iter()
-            .filter(|effect| effect.source == card || effect.target == card)
+            .filter(|effect| {
+                effect.target == card
+                    || (effect.source == card && effect.duration == Duration::Permanent)
+            })
             .cloned()
             .collect::<Vec<_>>();
         let control_before = control_before.unwrap_or_else(|| {
             self.control_targets_before_expiration(&expired)
                 .unwrap_or_default()
         });
-        self.continuous_effects
-            .retain(|effect| effect.source != card && effect.target != card);
+        self.continuous_effects.retain(|effect| {
+            effect.target != card
+                && (effect.source != card || effect.duration != Duration::Permanent)
+        });
         for effect in expired {
             self.remove_damage_shield_for_effect(&effect);
             self.record_event(GameEvent::ContinuousEffectExpired {

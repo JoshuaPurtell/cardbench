@@ -1257,6 +1257,36 @@ pub enum Keyword {
     Transmute(ManaCost),
 }
 
+/// One of the ability families that can be copied as a temporary shared
+/// characteristic.  The typed families deliberately exclude generic keyword
+/// copying: effects such as Concerted Effort must enumerate their own bounded
+/// rules vocabulary, while preserving the exact color or land type carried by
+/// `Protection` and `Landwalk`.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum SharedKeywordFamily {
+    Flying,
+    FirstStrike,
+    DoubleStrike,
+    Landwalk,
+    Protection,
+    Trample,
+}
+
+impl SharedKeywordFamily {
+    #[must_use]
+    pub const fn includes(self, keyword: &Keyword) -> bool {
+        matches!(
+            (self, keyword),
+            (Self::Flying, Keyword::Flying)
+                | (Self::FirstStrike, Keyword::FirstStrike)
+                | (Self::DoubleStrike, Keyword::DoubleStrike)
+                | (Self::Landwalk, Keyword::Landwalk(_) | Keyword::Mountainwalk)
+                | (Self::Protection, Keyword::Protection(_))
+                | (Self::Trample, Keyword::Trample)
+        )
+    }
+}
+
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum TargetRequirement {
     Any,
@@ -1969,6 +1999,14 @@ pub enum Effect {
     AddKeywordToControllerCreaturesUntilEndOfTurn {
         keyword: Keyword,
     },
+    /// For every controller-owned creature, snapshot the named keyword
+    /// families held by its *other* controller-owned creatures and grant the
+    /// exact matching instances until end of turn. The snapshot is completed
+    /// before any layer-six effect is installed, so a freshly granted ability
+    /// cannot cascade to later recipients during the same resolution.
+    ShareControllerCreatureKeywordsUntilEndOfTurn {
+        families: Vec<SharedKeywordFamily>,
+    },
     /// Template for an activated ability whose controller chooses one of the
     /// five basic land types as it is activated. The request choice is
     /// materialized into the typed variant below before it reaches the stack.
@@ -2368,6 +2406,7 @@ impl Effect {
             | Self::UntapSource
             | Self::ModifyControllerCreaturesPtUntilEndOfTurn { .. }
             | Self::AddKeywordToControllerCreaturesUntilEndOfTurn { .. }
+            | Self::ShareControllerCreatureKeywordsUntilEndOfTurn { .. }
             | Self::ReplaceControllerLandsWithChosenBasicLandTypeUntilEndOfTurn
             | Self::ReplaceControllerLandsBasicLandTypeUntilEndOfTurn { .. }
             | Self::AddChosenColorProtectionToControllerCreaturesUntilEndOfTurn

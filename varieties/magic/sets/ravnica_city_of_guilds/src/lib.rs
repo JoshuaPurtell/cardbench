@@ -30,10 +30,10 @@ use cardbench_magic_engine::{
     DamageReplacementEffectBinding, DeckEntry, DeckList, DeckRules, Effect, Game, HybridManaSymbol,
     Keyword, LandEntryBinding, LibrarySearchDestination, LibrarySearchRequirement,
     LibrarySearchSelection, ManaAbilityBinding, ManaAbilityOutput, ManaBundle, ManaCost, PlayerId,
-    ReplacementEffect, ReplacementEffectBinding, RulesError, StaticAttackRestriction,
-    StaticAttackRestrictionBinding, StaticContinuousEffectBinding, StaticEntryRestriction,
-    StaticEntryRestrictionBinding, Target, TargetRequirement, TokenSpec, TriggerCondition,
-    TriggeredAbility, TriggeredAbilityBinding, Zone,
+    ReplacementEffect, ReplacementEffectBinding, RulesError, SharedKeywordFamily,
+    StaticAttackRestriction, StaticAttackRestrictionBinding, StaticContinuousEffectBinding,
+    StaticEntryRestriction, StaticEntryRestrictionBinding, Target, TargetRequirement, TokenSpec,
+    TriggerCondition, TriggeredAbility, TriggeredAbilityBinding, Zone,
 };
 
 pub const SET_CODE: &str = "RAV";
@@ -199,6 +199,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 168] = [
     "RAV-BATHE-IN-LIGHT",
     "RAV-LIGHT-OF-SANCTION",
     "RAV-FAITHS-FETTERS",
+    "RAV-CONCERTED-EFFORT",
     "RAV-CHANT-OF-VITU-GHAZI",
     "RAV-CENTAUR-SAFEGUARD",
     "RAV-CYCLOPEAN-SNARE",
@@ -2199,6 +2200,31 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             toughness: None,
             keywords: vec![],
             effects: vec![Effect::AddChosenColorProtectionToControllerCreaturesUntilEndOfTurn],
+        },
+        // Full fidelity: every upkeep uses a single pre-installation
+        // characteristic snapshot. For each controller-owned creature, only
+        // the exact keyword instances held by another controller creature in
+        // the printed ability families become layer-six grants this turn.
+        CardDefinition {
+            id: "RAV-CONCERTED-EFFORT",
+            name: "Concerted Effort",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(3, [Color::White]),
+            colors: colors([Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Enchantment]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "upkeep-controller-creature-keyword-sharing",
+                "exact-protection-and-landwalk-instances",
+                "other-creature-only-snapshot",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![],
         },
         // Full fidelity: the static controller-relative prevention is bound
         // through derived creature characteristics and is live only while
@@ -6321,6 +6347,26 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                 optional: false,
                 targets: vec![],
                 effects: vec![Effect::ReturnSourceAttachedPermanentToHand],
+            },
+        },
+        TriggeredAbilityBinding {
+            card_definition: "RAV-CONCERTED-EFFORT",
+            ability: TriggeredAbility {
+                id: "upkeep-share-controller-creature-keywords",
+                condition: TriggerCondition::BeginningOfUpkeep,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![Effect::ShareControllerCreatureKeywordsUntilEndOfTurn {
+                    families: vec![
+                        SharedKeywordFamily::Flying,
+                        SharedKeywordFamily::FirstStrike,
+                        SharedKeywordFamily::DoubleStrike,
+                        SharedKeywordFamily::Landwalk,
+                        SharedKeywordFamily::Protection,
+                        SharedKeywordFamily::Trample,
+                    ],
+                }],
             },
         },
         TriggeredAbilityBinding {

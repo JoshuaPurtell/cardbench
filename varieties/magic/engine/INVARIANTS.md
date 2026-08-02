@@ -1308,6 +1308,19 @@ Oracle Magic rules coverage.
   battlefield endpoint; an end-of-turn effect belongs to the current turn
   only and may retain its historical source after a spell has left the stack.
   In either duration, it cannot apply to a target that has left and returned.
+- An end-of-turn effect created by a resolved instruction is independent of a
+  former battlefield source. Source departure preserves it through that
+  turn's cleanup; target departure still expires it immediately. In contrast,
+  a permanent-duration effect remains source-dependent and expires when either
+  matching battlefield endpoint leaves.
+- `ShareControllerCreatureKeywordsUntilEndOfTurn` snapshots every controlled
+  creature's derived keywords once before installing any layer-six effect. For
+  each recipient, evidence comes only from a distinct controlled creature, so
+  the recipient cannot copy its own ability and no newly granted keyword can
+  cascade during the same resolution. Its declared typed family list is
+  nonempty and duplicate-free; only those families are copied, preserving the
+  exact `Protection(color)` and `Landwalk(type)` value. Every created grant is
+  recipient-incarnation-bound and expires at that turn's cleanup.
 - A layer-two control effect names one live battlefield permanent and is
   either seat-bound (`ChangeController`) or source-relative
   (`ChangeControllerToSourceController`). Active effects apply in timestamp

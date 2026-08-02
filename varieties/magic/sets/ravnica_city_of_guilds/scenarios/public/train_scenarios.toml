@@ -533,6 +533,55 @@ event_markers = ["ContinuousEffectCreated", "AuraAttached", "TriggeredAbilitySta
 digest = "fnv1a64:c62054edce85b939"
 
 [[scenario]]
+id = "rav_concerted_effort_upkeep_snapshot"
+seed = 166
+description = "Resolve Concerted Effort's beginning-of-upkeep trigger and snapshot Flying and First Strike from other controller creatures into temporary layer-six grants."
+triggers = true
+
+[[scenario.card]]
+label = "concerted"
+owner = 0
+definition = "RAV-CONCERTED-EFFORT"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "flyer"
+owner = 0
+definition = "RAV-SKYKNIGHT-LEGIONNAIRE"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "first_striker"
+owner = 0
+definition = "RAV-NIGHTGUARD-PATROL"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "recipient"
+owner = 0
+definition = "RAV-WATCHWOLF"
+zone = "battlefield"
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["concerted:battlefield", "flyer:battlefield", "first_striker:battlefield", "recipient:battlefield"]
+stack_size = 0
+priority = 0
+event_markers = ["StepBegan", "TriggeredAbilityStacked", "ContinuousEffectCreated", "AbilityResolved"]
+digest = "fnv1a64:f4f14688b45f4b54"
+
+[[scenario]]
 id = "rav_quickchange_color_replacement"
 seed = 164
 description = "Cast Quickchange with a policy-submitted Red color, replace a multicolor creature target's complete color set in layer five, then draw one card."
