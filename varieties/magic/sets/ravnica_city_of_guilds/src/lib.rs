@@ -41,7 +41,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 140] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 141] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -179,6 +179,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 140] = [
     "RAV-CENTAUR-SAFEGUARD",
     "RAV-CYCLOPEAN-SNARE",
     "RAV-GRIFTERS-BLADE",
+    "RAV-FESTIVAL-OF-THE-GUILDPACT",
     "RAV-FLICKERFORM",
     "RAV-SUPPRESSION-FIELD",
     "RAV-LOXODON-GATEKEEPER",
@@ -2096,6 +2097,30 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             toughness: None,
             keywords: vec![Keyword::Convoke],
             effects: vec![Effect::GainLifeForEachCreature],
+        },
+        // Full fidelity: the spell-level chosen-X receipt pays the printed
+        // additional generic amount, then creates an independent shield for
+        // its controller before the ordinary card draw and terminal move.
+        CardDefinition {
+            id: "RAV-FESTIVAL-OF-THE-GUILDPACT",
+            name: "Festival of the Guildpact",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(0, [Color::White]),
+            colors: colors([Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Instant]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "chosen-x-controller-damage-prevention-and-draw",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![
+                Effect::AddControllerDamageShieldEqualToChosenXUntilEndOfTurn,
+                Effect::DrawController,
+            ],
         },
         // Full fidelity: ordinary Aura attachment preserves the exact source
         // and target incarnations used by Flickerform's stack-backed blink.
