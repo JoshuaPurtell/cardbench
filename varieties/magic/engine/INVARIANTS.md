@@ -840,6 +840,13 @@ Oracle Magic rules coverage.
   recorded as player/permanent damage events, then state-based actions run.
   A creature with zero or negative power assigns no combat damage and emits no
   damage event; negative power can never increase life or remove marked damage.
+  Every nonempty blocker group retains declaration order and every blocker is
+  globally unique across the combat. Each live eligible blocker assigns its
+  complete positive power. A blocked nontrample attacker with one live blocker
+  assigns its complete positive power to that blocker; with several blockers,
+  the bounded compatibility assignment first gives each remaining lethal in
+  order, then assigns any nontrampling remainder to the first blocker so damage
+  is never silently dropped.
   Alternative combat restrictions and other unsupported combat rules must be
   reported as capability gaps rather than approximated.
 - `trampling_attackers` is declaration provenance only: it is a subset of the
