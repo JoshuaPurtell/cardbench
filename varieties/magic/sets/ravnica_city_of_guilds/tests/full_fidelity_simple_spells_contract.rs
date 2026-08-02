@@ -193,6 +193,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-CONCERTED-EFFORT",
             "RAV-CHANT-OF-VITU-GHAZI",
             "RAV-CENTAUR-SAFEGUARD",
+            "RAV-BLOODLETTER-QUILL",
             "RAV-CYCLOPEAN-SNARE",
             "RAV-TERRARION",
             "RAV-GRIFTERS-BLADE",
