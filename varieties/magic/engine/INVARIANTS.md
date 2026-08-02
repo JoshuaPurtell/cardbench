@@ -877,6 +877,27 @@ Oracle Magic rules coverage.
 
 ## Effects and state-based actions
 
+- A permanent copy is a layer-one snapshot applied before every implemented
+  continuous-effect layer (4--7) and before counter-derived layer-seven
+  modifiers. Its `CopiableValues` are either one catalog card definition or
+  one validated token specification. They never include marked damage,
+  counters, tapped/controller/attachment state, or any static or timestamped
+  derived effect on the copy source.
+- A live copied snapshot belongs only to one battlefield incarnation, names a
+  distinct source with a positive source incarnation and globally unique,
+  positive timestamp, and names an extant catalog definition or valid token
+  specification. Source departure does not revoke that snapshot: it is a
+  copied value, not a source-dependent continuous effect. When the target
+  leaves the battlefield, the snapshot clears before its new incarnation can
+  be observed and the canonical trace emits one `PermanentCopyExpired` record
+  after the ordinary zone/incarnation receipts.
+- `PermanentCopied` carries the exact source and target incarnations plus the
+  layer-one timestamp. Copying a card makes its definition-bound activated
+  abilities and static bindings use that captured definition; copying a token
+  changes a card's characteristics without changing the card into a token.
+  `AbilityActivated` records its effective definition at activation, so a
+  later source or target zone change cannot make a historical copied ability
+  fail replay validation against its resumed printed definition.
 - Continuous effects are applied in the implemented layer order (4--7), then
   timestamp order within a layer. End-of-turn effects expire during cleanup;
   marked damage clears there. An effect removed because its source or target
