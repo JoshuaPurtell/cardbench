@@ -661,6 +661,17 @@ struct CombatDamagePrevention {
     expires_turn: u32,
 }
 
+/// A target-free prevention effect that replaces every combat-damage packet
+/// for one turn. It is deliberately independent of the source's current zone
+/// and incarnation once its stack object has resolved, matching an activated
+/// ability's ordinary effect lifetime.
+#[derive(Clone, Debug)]
+struct GlobalCombatDamagePrevention {
+    id: u64,
+    source: ObjectId,
+    expires_turn: u32,
+}
+
 /// A deliberately narrow resumable damage-resolution continuation.  It is
 /// opened only for a single targeted `DealDamage` instant/sorcery with two or
 /// more live applicable replacements. The top stack item remains in place;
@@ -785,6 +796,7 @@ pub struct Game {
     damage_redirections: Vec<DamageRedirection>,
     damage_prevention_shields: Vec<DamagePreventionShield>,
     combat_damage_preventions: Vec<CombatDamagePrevention>,
+    global_combat_damage_preventions: Vec<GlobalCombatDamagePrevention>,
 }
 
 impl Game {
@@ -1011,6 +1023,7 @@ impl Game {
             damage_redirections: Vec::new(),
             damage_prevention_shields: Vec::new(),
             combat_damage_preventions: Vec::new(),
+            global_combat_damage_preventions: Vec::new(),
         };
         // Construction is the first observable state-machine boundary. Do not
         // hand a caller a game whose immutable catalog or initial seats already
@@ -9949,6 +9962,23 @@ impl Game {
                 ));
             }
         }
+        let mut global_combat_prevention_ids = BTreeSet::new();
+        for prevention in &self.global_combat_damage_preventions {
+            self.object(prevention.source)?;
+            if prevention.id == 0
+                || prevention.id >= self.next_timestamp
+                || prevention.expires_turn < self.turn
+            {
+                return Err(RulesError::IllegalAction(
+                    "global combat damage prevention has invalid identity or lifetime",
+                ));
+            }
+            if !global_combat_prevention_ids.insert(prevention.id) {
+                return Err(RulesError::IllegalAction(
+                    "global combat damage prevention identifiers are not unique",
+                ));
+            }
+        }
         if let Some(combat) = &self.combat {
             if !matches!(
                 self.step,
@@ -11028,6 +11058,7 @@ impl Game {
                 | Effect::AddControllerDamageShieldEqualToChosenXUntilEndOfTurn
                 | Effect::AddTargetDamageShieldUntilEndOfTurn { .. }
                 | Effect::PreventTargetCreatureCombatDamageUntilEndOfTurn { .. }
+                | Effect::PreventAllCombatDamageUntilEndOfTurn
                 | Effect::RegenerateTargetCreature
                 | Effect::RegenerateSource
                 | Effect::AddKeywordToControllerCreaturesUntilEndOfTurn { .. }
@@ -14496,6 +14527,25 @@ impl Game {
         Ok(())
     }
 
+    fn install_global_combat_damage_prevention(
+        &mut self,
+        source: ObjectId,
+    ) -> Result<(), RulesError> {
+        self.object(source)?;
+        self.global_combat_damage_preventions
+            .push(GlobalCombatDamagePrevention {
+                id: self.next_timestamp,
+                source,
+                expires_turn: self.turn,
+            });
+        self.next_timestamp += 1;
+        self.record_event(GameEvent::GlobalCombatDamagePreventionCreated {
+            source,
+            expires_turn: self.turn,
+        });
+        Ok(())
+    }
+
     fn combat_damage_prevented_by(&self, source: ObjectId) -> Option<ObjectId> {
         if self.damage_cannot_be_prevented(source) {
             return None;
@@ -14509,6 +14559,12 @@ impl Game {
                     && self.object_has_incarnation(source, prevention.creature_incarnation)
             })
             .map(|prevention| prevention.source)
+            .or_else(|| {
+                self.global_combat_damage_preventions
+                    .iter()
+                    .find(|prevention| prevention.expires_turn >= self.turn)
+                    .map(|prevention| prevention.source)
+            })
     }
 
     /// Applies every live source-bound amount replacement once in stable
@@ -15659,6 +15715,9 @@ impl Game {
                         self.deal_damage_to_player(source, creature_controller, power)?;
                     }
                 }
+            }
+            Effect::PreventAllCombatDamageUntilEndOfTurn => {
+                self.install_global_combat_damage_prevention(source)?;
             }
             Effect::RegenerateTargetCreature => {
                 let target = Self::target_permanent(target)?;
@@ -17126,6 +17185,14 @@ impl Game {
                     .collect::<Vec<_>>();
                 self.combat_damage_preventions
                     .retain(|prevention| prevention.expires_turn != self.turn);
+                let expired_global_combat_preventions = self
+                    .global_combat_damage_preventions
+                    .iter()
+                    .filter(|prevention| prevention.expires_turn == self.turn)
+                    .cloned()
+                    .collect::<Vec<_>>();
+                self.global_combat_damage_preventions
+                    .retain(|prevention| prevention.expires_turn != self.turn);
                 let expired_shields = self
                     .damage_prevention_shields
                     .iter()
@@ -17147,6 +17214,11 @@ impl Game {
                     self.record_event(GameEvent::CombatDamagePreventionExpired {
                         source: prevention.source,
                         creature: prevention.creature,
+                    });
+                }
+                for prevention in expired_global_combat_preventions {
+                    self.record_event(GameEvent::GlobalCombatDamagePreventionExpired {
+                        source: prevention.source,
                     });
                 }
                 for shield in expired_shields {

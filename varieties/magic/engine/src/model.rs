@@ -1924,6 +1924,12 @@ pub enum Effect {
     PreventTargetCreatureCombatDamageUntilEndOfTurn {
         damage_target_controller_equal_to_power_if_mana_color_spent: Option<Color>,
     },
+    /// Prevent every combat-damage packet through the current turn. This is
+    /// intentionally target-free and source-independent after resolution, so
+    /// an activated ability such as Glare of Subdual can create the ordinary
+    /// temporary prevention effect without treating each combatant as a
+    /// hidden target choice.
+    PreventAllCombatDamageUntilEndOfTurn,
     /// Put one regeneration replacement shield on a targeted creature. The
     /// shield is consumed only by the next destruction event; it does not
     /// prevent damage, sacrifice, or a zero-toughness state-based action.
@@ -2402,6 +2408,7 @@ impl Effect {
             | Self::RemoveSourceKeywordUntilEndOfTurn { .. }
             | Self::AddSourceDamageShieldUntilEndOfTurn { .. }
             | Self::AddControllerDamageShieldEqualToChosenXUntilEndOfTurn
+            | Self::PreventAllCombatDamageUntilEndOfTurn
             | Self::RegenerateSource
             | Self::UntapSource
             | Self::ModifyControllerCreaturesPtUntilEndOfTurn { .. }
@@ -4197,6 +4204,16 @@ pub enum GameEvent {
     CombatDamagePreventionExpired {
         source: ObjectId,
         creature: ObjectId,
+    },
+    /// A resolving spell or ability installed an independent prevention
+    /// record for every combat-damage packet through the stated turn.
+    GlobalCombatDamagePreventionCreated {
+        source: ObjectId,
+        expires_turn: u32,
+    },
+    /// A target-free all-combat-damage prevention record ended at cleanup.
+    GlobalCombatDamagePreventionExpired {
+        source: ObjectId,
     },
     LifeGained {
         player: PlayerId,

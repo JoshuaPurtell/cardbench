@@ -11453,3 +11453,47 @@ mana = ["0:green:0"]
 token_count = 2
 event_markers = ["SpellCast", "ContinuousEffectCreated", "AuraAttached", "TriggeredAbilityStacked", "TokenCreated", "AbilityResolved", "SpellResolved"]
 digest = "fnv1a64:c62054edce85b939"
+
+[[scenario]]
+id = "rav_glare_of_subdual_global_combat_prevention"
+seed = 166
+description = "Activate Glare of Subdual by explicitly tapping one controlled creature, then resolve its target-free global combat-damage prevention record through the normal stack window."
+
+[[scenario.card]]
+label = "glare"
+owner = 0
+definition = "RAV-GLARE-OF-SUBDUAL"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "cost_creature"
+owner = 0
+definition = "RAV-WATCHWOLF"
+zone = "battlefield"
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "activate_ability"
+player = 0
+card = "glare"
+ability = "prevent-all-combat-damage"
+additional_taps = ["cost_creature"]
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["glare:battlefield", "cost_creature:battlefield"]
+tapped = ["glare:false", "cost_creature:true"]
+stack_size = 0
+priority = 0
+event_markers = ["AdditionalCreatureTappedAsAbilityCost", "AbilityActivated", "GlobalCombatDamagePreventionCreated", "AbilityResolved"]
+digest = "fnv1a64:78c904f7c4329189"

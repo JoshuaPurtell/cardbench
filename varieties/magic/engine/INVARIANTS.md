@@ -1255,6 +1255,16 @@ Oracle Magic rules coverage.
   cleanup, and battlefield re-entry. Combat prevention/replacement ordering and
   arbitrary player-selected assignment amounts remain explicit capability gaps
   rather than approximated damage assignment.
+- A target-free all-combat-damage prevention record is valid only when it has
+  a unique nonzero identity, an existing provenance source, and an unexpired
+  turn-bound lifetime. It is source-independent after the stack object
+  resolves: the creating permanent may leave the battlefield without revoking
+  prevention. Each prospective combat-damage packet first respects the
+  source's `DamageCannotBePrevented` status, then may emit exactly one
+  `CombatDamagePrevented` receipt naming a live matching target-specific or
+  global prevention source. Cleanup removes every current-turn global record
+  and records one matching `GlobalCombatDamagePreventionExpired` receipt, so
+  the prevention cannot leak into a later turn.
 - When an attacking or blocking creature has first strike at the damage-step
   boundary, a dedicated `FirstStrikeCombatDamage` step precedes normal combat
   damage. Its recorded source set is a subset of the declared combatants and

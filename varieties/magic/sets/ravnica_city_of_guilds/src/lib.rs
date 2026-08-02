@@ -41,7 +41,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 169] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 170] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -50,6 +50,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 169] = [
     "RAV-GOLGARI-ROTWURM",
     "RAV-SCATTER-THE-SEEDS",
     "RAV-DOUBLING-SEASON",
+    "RAV-GLARE-OF-SUBDUAL",
     "RAV-CHORD-OF-CALLING",
     "RAV-SCION-OF-THE-WILD",
     "RAV-GUARDIAN-OF-VITU-GHAZI",
@@ -496,6 +497,29 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 target: TargetRequirement::Creature,
                 changes: vec![ContinuousChange::AddKeyword(Keyword::Trample)],
             }],
+        },
+        // Full fidelity: Glare's two activated abilities share the same
+        // explicit one-creature tap cost while retaining their distinct
+        // target-free/global-prevention versus targeted-tap resolutions.
+        CardDefinition {
+            id: "RAV-GLARE-OF-SUBDUAL",
+            name: "Glare of Subdual",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(2, [Color::Green, Color::White]),
+            colors: colors([Color::Green, Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Enchantment]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "tap-untapped-controlled-creature-tap-target-creature",
+                "tap-untapped-controlled-creature-prevent-all-combat-damage",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![],
         },
         // Compatibility scope: the controller life-gain component only. The
         // selected graveyard-card return is intentionally not approximated.
@@ -5740,6 +5764,38 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                     token: TokenSpec::saproling(),
                     count: 1,
                 }],
+            },
+        },
+        ActivatedAbilityBinding {
+            card_definition: "RAV-GLARE-OF-SUBDUAL",
+            ability: ActivatedAbility {
+                id: "tap-target-creature",
+                mana_cost: ManaCost::new(0),
+                tap_cost: false,
+                sorcery_speed: false,
+                additional_tap_creatures: 1,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![TargetRequirement::Creature],
+                effects: vec![Effect::TapTargetCreature],
+            },
+        },
+        ActivatedAbilityBinding {
+            card_definition: "RAV-GLARE-OF-SUBDUAL",
+            ability: ActivatedAbility {
+                id: "prevent-all-combat-damage",
+                mana_cost: ManaCost::new(0),
+                tap_cost: false,
+                sorcery_speed: false,
+                additional_tap_creatures: 1,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![],
+                effects: vec![Effect::PreventAllCombatDamageUntilEndOfTurn],
             },
         },
         ActivatedAbilityBinding {
