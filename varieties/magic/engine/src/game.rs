@@ -4832,13 +4832,16 @@ impl Game {
         change: ContinuousChange,
         duration: Duration,
     ) -> Result<(), RulesError> {
-        self.require_game_in_progress()?;
-        self.install_continuous_effect(source, target, change, duration)?;
-        // A public installation is a completed state-changing transition, so
-        // its new characteristics must reach the SBA fixed point before a
-        // caller receives control again.
-        self.check_state_based_actions()?;
-        self.validate_invariants()
+        self.atomic_transition(|game| {
+            game.require_game_in_progress()?;
+            game.install_continuous_effect(source, target, change, duration)?;
+            // A public installation is a completed state-changing transition,
+            // so its new characteristics must reach the SBA fixed point before
+            // a caller receives control again. The enclosing transaction also
+            // rolls back an unexpected later SBA or invariant failure.
+            game.check_state_based_actions()?;
+            Ok(())
+        })
     }
 
     /// Installs an effect while a spell is resolving. The resolver performs
@@ -4861,6 +4864,11 @@ impl Game {
         ) {
             return Err(RulesError::IllegalAction(
                 "continuous effects may not add the colorless mana kind as a card color",
+            ));
+        }
+        if matches!(&change, ContinuousChange::AddDamageShield(amount) if *amount <= 0) {
+            return Err(RulesError::IllegalAction(
+                "damage shield effect requires a positive amount",
             ));
         }
         if matches!(change, ContinuousChange::ReplaceBasicLandType(_))
