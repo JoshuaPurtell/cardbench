@@ -42,9 +42,10 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 173] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 174] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
+    "RAV-FLAME-FUSILLADE",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
     "RAV-PUTREFY",
@@ -295,6 +296,47 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 target: TargetRequirement::Creature,
                 changes: vec![],
             }],
+        },
+        // Full fidelity: resolving the sorcery snapshots the controller's
+        // current creatures, granting each an ordinary stack-backed tap
+        // damage ability through cleanup. The layer-six grants carry the
+        // provider provenance while every recipient remains its own source.
+        CardDefinition {
+            id: "RAV-FLAME-FUSILLADE",
+            name: "Flame Fusillade",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(3, [Color::Red]),
+            colors: colors([Color::Red]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Sorcery]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "controller-creature-tap-one-damage-grant-until-end-of-turn",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![
+                Effect::GrantActivatedAbilityToControllerCreaturesUntilEndOfTurn {
+                    ability: ActivatedAbility {
+                        id: "granted-tap-deal-one-to-player-or-creature",
+                        mana_cost: ManaCost::new(0),
+                        tap_cost: true,
+                        sorcery_speed: false,
+                        additional_tap_creatures: 0,
+                        sacrifice_source: false,
+                        sacrifice_creatures: 0,
+                        sacrifice_lands: 0,
+                        discard_cards: 0,
+                        targets: vec![TargetRequirement::PlayerOrCreature],
+                        effects: vec![Effect::DealDamage {
+                            amount: 1,
+                            target: TargetRequirement::PlayerOrCreature,
+                        }],
+                    },
+                },
+            ],
         },
         // Bounded fidelity: the live source reduces only generic cost on
         // noncreature spells, then its retained spell target is

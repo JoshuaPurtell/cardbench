@@ -2450,12 +2450,17 @@ impl Game {
         } else {
             self.attached_granted_activated_ability(activation.source, activation.ability_id)?
         };
-        let (definition_id, ability) =
-            direct_ability
-                .or(attached_ability)
-                .ok_or(RulesError::IllegalAction(
-                    "source does not have the requested activated ability",
-                ))?;
+        let continuous_ability = if direct_ability.is_some() || attached_ability.is_some() {
+            None
+        } else {
+            self.continuous_granted_activated_ability(activation.source, activation.ability_id)?
+        };
+        let (definition_id, ability) = direct_ability
+            .or(attached_ability)
+            .or(continuous_ability)
+            .ok_or(RulesError::IllegalAction(
+            "source does not have the requested activated ability",
+        ))?;
         if ability
             .effects
             .iter()
@@ -3844,6 +3849,7 @@ impl Game {
                 }
                 ContinuousChange::ChangeController(_)
                 | ContinuousChange::ChangeControllerToSourceController
+                | ContinuousChange::GrantActivatedAbility(_)
                 | ContinuousChange::CannotBlockSource(_)
                 | ContinuousChange::AddDamageShield(_)
                 | ContinuousChange::SuppressNonManaActivatedAbilities => {}
@@ -4024,6 +4030,16 @@ impl Game {
                             .find(|ability| ability.id == ability_id)
                     })
             })
+            .or_else(|| {
+                self.catalog.get(definition).and_then(|definition| {
+                    definition.effects.iter().find_map(|effect| match effect {
+                        Effect::GrantActivatedAbilityToControllerCreaturesUntilEndOfTurn {
+                            ability,
+                        } if ability.id == ability_id => Some(ability),
+                        _ => None,
+                    })
+                })
+            })
     }
 
     /// Resolves an ability supplied by a currently live attachment.  Both the
@@ -4063,6 +4079,53 @@ impl Game {
         Ok(None)
     }
 
+    /// Resolves a layer-six ability grant supplied to a currently live exact
+    /// object incarnation.  Identical grants from the same provider compose
+    /// without creating an artificial policy choice; distinct providers that
+    /// reuse an id fail closed until the public activation request can carry
+    /// a provider identity.
+    fn continuous_granted_activated_ability(
+        &self,
+        source: ObjectId,
+        ability_id: &'static str,
+    ) -> Result<Option<(&'static str, ActivatedAbility)>, RulesError> {
+        let source_incarnation = self.object(source)?.incarnation;
+        let mut matches = self
+            .continuous_effects
+            .iter()
+            .filter(|effect| {
+                effect.target == source
+                    && effect.target_incarnation == source_incarnation
+                    && self.effect_is_active(effect)
+            })
+            .filter_map(|effect| match &effect.change {
+                ContinuousChange::GrantActivatedAbility(ability) if ability.id == ability_id => {
+                    Some((effect, ability))
+                }
+                _ => None,
+            })
+            .map(|(effect, ability)| {
+                let definition = self
+                    .effective_definition_id(effect.source)?
+                    .or_else(|| self.departed_card_definitions.get(&effect.source).copied())
+                    .ok_or(RulesError::IllegalAction(
+                        "continuous ability grant source has no card definition",
+                    ))?;
+                Ok((definition, ability.clone()))
+            })
+            .collect::<Result<Vec<_>, RulesError>>()?
+            .into_iter();
+        let Some(found) = matches.next() else {
+            return Ok(None);
+        };
+        if matches.any(|candidate| candidate != found) {
+            return Err(RulesError::IllegalAction(
+                "distinct continuous ability grants share one activation id",
+            ));
+        }
+        Ok(Some(found))
+    }
+
     /// A generated ability remains a normal stack object after its attachment
     /// departs.  Stack validation therefore first prefers the source's live
     /// intrinsic binding and then identifies the immutable attachment grant
@@ -4085,6 +4148,34 @@ impl Game {
             .filter(|(_, ability)| {
                 ability.id == ability_id
                     && ability.targets.len() == stack_object.target_count()
+                    && ability.effects == stack_object.effects
+            });
+        let found = matches.next()?;
+        matches.next().is_none().then_some(found)
+    }
+
+    /// A temporary grant can expire when its recipient later changes zones,
+    /// but an ability legally activated beforehand remains on the stack.  The
+    /// immutable spell-effect binding supplies the historical stack shape for
+    /// invariant replay without claiming that the old grant is still live.
+    fn continuous_granted_ability_matching_stack(
+        &self,
+        stack_object: &StackObject,
+    ) -> Option<(&'static str, &ActivatedAbility)> {
+        let ability_id = stack_object.ability_id?;
+        let mut matches = self
+            .catalog
+            .iter()
+            .flat_map(|(definition, card)| {
+                card.effects.iter().filter_map(move |effect| match effect {
+                    Effect::GrantActivatedAbilityToControllerCreaturesUntilEndOfTurn {
+                        ability,
+                    } if ability.id == ability_id => Some((*definition, ability)),
+                    _ => None,
+                })
+            })
+            .filter(|(_, ability)| {
+                ability.targets.len() == stack_object.target_count()
                     && ability.effects == stack_object.effects
             });
         let found = matches.next()?;
@@ -4191,6 +4282,9 @@ impl Game {
             return Err(RulesError::IllegalAction(
                 "a static continuous change cannot be installed dynamically",
             ));
+        }
+        if let ContinuousChange::GrantActivatedAbility(ability) = &change {
+            Self::validate_activated_ability_definition(ability)?;
         }
         match &change {
             ContinuousChange::ChangeController(controller) if self.player(*controller)?.lost => {
@@ -9252,6 +9346,9 @@ impl Game {
                             .or_else(|| {
                                 self.attachment_granted_ability_matching_stack(stack_object)
                             })
+                            .or_else(|| {
+                                self.continuous_granted_ability_matching_stack(stack_object)
+                            })
                     })
                     .flatten();
                 let (effects_match, target_count) = if transmute {
@@ -9961,6 +10058,9 @@ impl Game {
                 return Err(RulesError::IllegalAction(
                     "a static continuous change appeared in the timestamped effect list",
                 ));
+            }
+            if let ContinuousChange::GrantActivatedAbility(ability) = &effect.change {
+                Self::validate_activated_ability_definition(ability)?;
             }
             if matches!(
                 effect.change,
@@ -11145,6 +11245,11 @@ impl Game {
             ));
         }
         for effect in &definition.effects {
+            if let Effect::GrantActivatedAbilityToControllerCreaturesUntilEndOfTurn { ability } =
+                effect
+            {
+                Self::validate_activated_ability_definition(ability)?;
+            }
             if matches!(
                 effect,
                 Effect::DestroyCombatDamagedCreature | Effect::DestroyCapturedCreature { .. }
@@ -11288,6 +11393,7 @@ impl Game {
                 | Effect::RegenerateTargetCreature
                 | Effect::RegenerateSource
                 | Effect::AddKeywordToControllerCreaturesUntilEndOfTurn { .. }
+                | Effect::GrantActivatedAbilityToControllerCreaturesUntilEndOfTurn { .. }
                 | Effect::ShareControllerCreatureKeywordsUntilEndOfTurn { .. }
                 | Effect::ReplaceControllerLandsWithChosenBasicLandTypeUntilEndOfTurn
                 | Effect::ReplaceControllerLandsBasicLandTypeUntilEndOfTurn { .. }
@@ -16215,6 +16321,30 @@ impl Game {
                         source,
                         creature,
                         ContinuousChange::AddKeyword(keyword.clone()),
+                        Duration::EndOfTurn(self.turn),
+                    )?;
+                }
+            }
+            Effect::GrantActivatedAbilityToControllerCreaturesUntilEndOfTurn { ability } => {
+                // Snapshot eligible recipients before installing the first
+                // layer-six grant. A creature that enters later is not a
+                // recipient, while a granted ability remains ordinary stack
+                // state after this resolving spell moves to its graveyard.
+                let creatures = self
+                    .all_battlefield_cards()
+                    .into_iter()
+                    .filter(|candidate| {
+                        self.controller_of(*candidate) == Ok(controller)
+                            && self.characteristics(*candidate).is_ok_and(|characteristics| {
+                                characteristics.card_types.contains(&CardType::Creature)
+                            })
+                    })
+                    .collect::<Vec<_>>();
+                for creature in creatures {
+                    self.install_continuous_effect(
+                        source,
+                        creature,
+                        ContinuousChange::GrantActivatedAbility(ability.clone()),
                         Duration::EndOfTurn(self.turn),
                     )?;
                 }

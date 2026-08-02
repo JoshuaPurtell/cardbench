@@ -2005,6 +2005,14 @@ pub enum Effect {
     AddKeywordToControllerCreaturesUntilEndOfTurn {
         keyword: Keyword,
     },
+    /// Grant this exact stack-backed activated ability to the resolving
+    /// controller's current creatures through cleanup. Recipients are
+    /// snapshotted at resolution, so later creatures do not gain it; each
+    /// individual grant remains tied to the recipient's current object
+    /// incarnation and disappears on an ordinary zone change.
+    GrantActivatedAbilityToControllerCreaturesUntilEndOfTurn {
+        ability: ActivatedAbility,
+    },
     /// For every controller-owned creature, snapshot the named keyword
     /// families held by its *other* controller-owned creatures and grant the
     /// exact matching instances until end of turn. The snapshot is completed
@@ -2413,6 +2421,7 @@ impl Effect {
             | Self::UntapSource
             | Self::ModifyControllerCreaturesPtUntilEndOfTurn { .. }
             | Self::AddKeywordToControllerCreaturesUntilEndOfTurn { .. }
+            | Self::GrantActivatedAbilityToControllerCreaturesUntilEndOfTurn { .. }
             | Self::ShareControllerCreatureKeywordsUntilEndOfTurn { .. }
             | Self::ReplaceControllerLandsWithChosenBasicLandTypeUntilEndOfTurn
             | Self::ReplaceControllerLandsBasicLandTypeUntilEndOfTurn { .. }
@@ -2770,6 +2779,11 @@ pub enum ContinuousChange {
     ReplaceColorsWith(Color),
     AddKeyword(Keyword),
     RemoveKeyword(Keyword),
+    /// A timestamped layer-six grant of an exact stack-backed activated
+    /// ability. The recipient remains the ability source and pays its own
+    /// costs, while the continuous-effect source supplies duration and
+    /// receipt provenance.
+    GrantActivatedAbility(ActivatedAbility),
     CannotBlockSource(ObjectId),
     AddDamageShield(i16),
     ModifyPowerToughness {
@@ -2821,6 +2835,7 @@ impl ContinuousChange {
             Self::AddColor(_) | Self::ReplaceColorsWith(_) => Layer::Color,
             Self::AddKeyword(_)
             | Self::RemoveKeyword(_)
+            | Self::GrantActivatedAbility(_)
             | Self::CannotBlockSource(_)
             | Self::AddDamageShield(_)
             | Self::OtherControlledCreaturesAddKeyword(_)
