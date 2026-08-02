@@ -1,8 +1,8 @@
 //! Red discovery regression for Trophy Hunter's typed Flying destruction.
 
 use cardbench_magic_engine::{
-    AbilityActivation, Color, CounterKind, Effect, Game, GameEvent, ManaCost, ObjectId,
-    PlayerId, Target, TargetRequirement, Zone,
+    AbilityActivation, Color, CounterKind, Effect, Game, GameEvent, ManaCost, ObjectId, PlayerId,
+    Target, TargetRequirement, Zone,
 };
 use cardbench_magic_rav::{
     RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, rav_activated_ability_bindings,
@@ -57,7 +57,10 @@ fn trophy_hunter_requires_flying_destruction_then_source_counter() {
                 && binding.ability.id == "destroy-flying-add-plus-one-counter"
         })
         .expect("Trophy Hunter activation binding exists");
-    assert_eq!(binding.ability.mana_cost, ManaCost::with_colors(0, [Color::Green]));
+    assert_eq!(
+        binding.ability.mana_cost,
+        ManaCost::with_colors(0, [Color::Green])
+    );
     assert!(!binding.ability.tap_cost);
     assert_eq!(binding.ability.targets, [TargetRequirement::FlyingCreature]);
     assert_eq!(
@@ -106,7 +109,9 @@ fn trophy_hunter_requires_flying_destruction_then_source_counter() {
     );
     assert_eq!(
         (
-            game.characteristics(hunter).expect("Hunter characteristics").power,
+            game.characteristics(hunter)
+                .expect("Hunter characteristics")
+                .power,
             game.characteristics(hunter)
                 .expect("Hunter characteristics")
                 .toughness,
@@ -141,7 +146,11 @@ fn trophy_hunter_rejects_nonflying_target_before_mana_payment() {
         .expect("nonflying target begins on battlefield");
     pay_green(&mut game);
     game.clear_event_log();
-    let mana_before = game.player(PlayerId(0)).expect("player exists").mana_pool.clone();
+    let mana_before = game
+        .player(PlayerId(0))
+        .expect("player exists")
+        .mana_pool
+        .clone();
     let result = game.activate_ability(
         PlayerId(0),
         AbilityActivation {
@@ -154,7 +163,10 @@ fn trophy_hunter_rejects_nonflying_target_before_mana_payment() {
         },
     );
     assert!(result.is_err(), "a nonflying target is illegal");
-    assert_eq!(game.player(PlayerId(0)).expect("player exists").mana_pool, mana_before);
+    assert_eq!(
+        game.player(PlayerId(0)).expect("player exists").mana_pool,
+        mana_before
+    );
     assert!(game.event_log.is_empty());
     game.validate_invariants()
         .expect("rejected Hunter activation preserves invariants");
