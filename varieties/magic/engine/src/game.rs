@@ -14226,6 +14226,7 @@ impl Game {
                 | Effect::UntapTargetLand
                 | Effect::UntapTargetPermanent
                 | Effect::DestroyTargetArtifactOrEnchantment
+                | Effect::ReturnTargetEnchantmentToOwnersHand
                 | Effect::ReturnTargetCardToHand
                 | Effect::ReturnTargetCreatureCardToHand
                 | Effect::ReturnTargetEnchantmentCardToHand
@@ -21320,6 +21321,14 @@ impl Game {
                     player: target_controller,
                     amount: *amount,
                 });
+            }
+            Effect::ReturnTargetEnchantmentToOwnersHand => {
+                let target = Self::target_permanent(target)?;
+                if !self.target_matches(Target::Permanent(target), TargetRequirement::Enchantment)
+                {
+                    return Err(RulesError::IllegalTarget(Target::Permanent(target)));
+                }
+                self.move_to_zone(target, Zone::Hand)?;
             }
             Effect::ReturnTargetCardToHand => {
                 let target = Self::target_permanent(target)?;

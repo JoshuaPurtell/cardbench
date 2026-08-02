@@ -2445,6 +2445,10 @@ pub enum Effect {
     ReturnTargetPermanentToHandAndLoseControllerLife {
         amount: i16,
     },
+    /// Return the targeted battlefield enchantment to its owner's hand. The
+    /// normal target-incarnation and zone-transition path keeps this separate
+    /// from a permanent bounce that also changes a player's life total.
+    ReturnTargetEnchantmentToOwnersHand,
     /// Return the targeted card from the resolving spell controller's
     /// graveyard to that player's hand.
     ReturnTargetCardToHand,
@@ -2702,7 +2706,9 @@ impl Effect {
             }
             Self::UntapTargetLand => Some(TargetRequirement::Land),
             Self::DestroyTargetArtifact => Some(TargetRequirement::Artifact),
-            Self::RadianceDestroyEnchantments => Some(TargetRequirement::Enchantment),
+            Self::RadianceDestroyEnchantments | Self::ReturnTargetEnchantmentToOwnersHand => {
+                Some(TargetRequirement::Enchantment)
+            }
             Self::DestroyTargetFlyingCreature => Some(TargetRequirement::FlyingCreature),
             Self::DestroyTargetArtifactOrCreatureNoRegeneration => {
                 Some(TargetRequirement::ArtifactOrCreature)

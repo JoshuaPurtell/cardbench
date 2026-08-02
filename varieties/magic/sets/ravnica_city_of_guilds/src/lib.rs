@@ -123,6 +123,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 231] = [
     "RAV-FOREST",
     "RAV-CONCLAVE-EQUENAUT",
     "RAV-SNAPPING-DRAKE",
+    "RAV-DRAKE-FAMILIAR",
     "RAV-SPAWNBROKER",
     "RAV-TATTERED-DRAKE",
     "RAV-TERRAFORMER",
@@ -5675,17 +5676,29 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed entry-triggered behavior is
-        // deliberately omitted from this compatibility slice.
-        bounded_creature_chassis(
-            "RAV-DRAKE-FAMILIAR",
-            "Drake Familiar",
-            ManaCost::with_colors(1, [Color::Blue]),
-            colors([Color::Blue]),
-            2,
-            1,
-        ),
+        // Full fidelity: its Flying and target-bearing ETB return use the
+        // ordinary trigger stack and owner-indexed hand transition.
+        CardDefinition {
+            id: "RAV-DRAKE-FAMILIAR",
+            name: "Drake Familiar",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(1, [Color::Blue]),
+            colors: colors([Color::Blue]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "flying",
+                "etb-target-enchantment-owner-hand",
+            ],
+            power: Some(2),
+            toughness: Some(1),
+            keywords: vec![Keyword::Flying],
+            effects: vec![],
+        },
         // Full fidelity: static Defender/Flying and the rules-defined
         // hand-zone Transmute ability. The latter is an ordinary stack
         // ability: costs discard this physical card, then a private library
@@ -8397,6 +8410,17 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                 optional: false,
                 targets: vec![],
                 effects: vec![Effect::DrawController],
+            },
+        },
+        TriggeredAbilityBinding {
+            card_definition: "RAV-DRAKE-FAMILIAR",
+            ability: TriggeredAbility {
+                id: "etb-return-target-enchantment-owner-hand",
+                condition: TriggerCondition::EntersBattlefield,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![TargetRequirement::Enchantment],
+                effects: vec![Effect::ReturnTargetEnchantmentToOwnersHand],
             },
         },
         TriggeredAbilityBinding {

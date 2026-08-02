@@ -1,8 +1,9 @@
 //! Public contract for the first collector-range creature batch.
 //!
-//! The generic chassis entries expose only normal casting and base
-//! characteristics. Sandsower, Divebomber Griffin, Drift of Phantasms, and
-//! Ethereal Usher now have separate full-fidelity contracts.
+//! The former generic chassis entries are promoted only when their complete
+//! card-specific contracts become public. Sandsower, Divebomber Griffin,
+//! Drake Familiar, Drift of Phantasms, and Ethereal Usher have separate
+//! full-fidelity contracts.
 
 use std::collections::BTreeSet;
 
@@ -11,36 +12,8 @@ use cardbench_magic_rav::{card_definitions, run_all_scenarios};
 
 #[test]
 #[allow(clippy::too_many_lines)] // Explicit base-fact matrix is audit-friendly.
-fn first_range_creature_chassis_is_exactly_bounded_to_public_base_facts() {
+fn first_range_creature_promotions_leave_only_explicit_bounded_chassis() {
     let definitions = card_definitions();
-    let expected = [(
-        "RAV-DRAKE-FAMILIAR",
-        "Drake Familiar",
-        ManaCost::with_colors(1, [Color::Blue]),
-        BTreeSet::from([Color::Blue]),
-        2,
-        1,
-    )];
-
-    for (id, name, mana_cost, colors, power, toughness) in expected {
-        let definition = definitions
-            .iter()
-            .find(|definition| definition.id == id)
-            .unwrap_or_else(|| panic!("missing public RAV definition {id}"));
-        assert_eq!(definition.name, name, "{id}");
-        assert_eq!(definition.mana_cost, mana_cost, "{id}");
-        assert_eq!(definition.colors, colors, "{id}");
-        assert_eq!(definition.card_types, BTreeSet::from([CardType::Creature]));
-        assert_eq!(definition.power, Some(power), "{id}");
-        assert_eq!(definition.toughness, Some(toughness), "{id}");
-        assert_eq!(
-            definition.supported_rules,
-            ["colored-cost-casting", "base-characteristics"],
-            "{id} must not present unsupported card-specific behavior"
-        );
-        assert!(definition.keywords.is_empty(), "{id}");
-        assert!(definition.effects.is_empty(), "{id}");
-    }
 
     let drift = definitions
         .iter()
