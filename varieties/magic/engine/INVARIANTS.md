@@ -689,12 +689,19 @@ Oracle Magic rules coverage.
   action (including a spell, mana ability, pass, or weakness report), and its
   submitted `PolicyAction::Draw` receipt follows the resulting draw or dredge
   events.
-- `GameView` never exposes an opponent's hand or library, nor does it expose a
-  departed player as an opponent life-total or battlefield target. It projects
-  only the controller-owned, mana-value-matching library cards for each
-  transmute card in that controller's hand, allowing an honest search decision
-  without granting general hidden-library access. A suspended typed library
-  search similarly projects only its resolving controller's matching candidate
+- `GameView` never exposes an opponent's hand or ordinary hidden library, nor
+  does it expose a departed player as an opponent life-total or battlefield
+  target. A live registered static top-library reveal source is the narrow
+  exception: every seated policy view receives exactly one `CardView` for the
+  current final element of each nonempty owner-indexed library, with no second
+  card or cached prior top. The projection is recomputed from live battlefield
+  source definitions and ordinary library zones, so draws, shuffles, zone
+  changes, and source departure immediately change or revoke it without a
+  synthetic visibility receipt. It otherwise projects only the
+  controller-owned, mana-value-matching library cards for each transmute card
+  in that controller's hand, allowing an honest search decision without
+  granting general hidden-library access. A suspended typed library search
+  similarly projects only its resolving controller's matching candidate
   identities; opponents receive no candidate list or selected-card identity
   before the ordinary zone-move receipt.
 - While a draw replacement is pending, `GameView` projects only the deciding
@@ -1408,6 +1415,12 @@ Oracle Magic rules coverage.
   declaration mutates any tapped state, combat provenance, or event log. A
   rejected declaration is therefore atomic; normal source departure revokes
   the restriction without a synthetic event or stale combat marker.
+- Static top-library reveal bindings are immutable pregame data that name only
+  permanent definitions. Duplicate, unknown, nonpermanent, or live-game
+  registration is rejected atomically. A binding supplies public information
+  only while at least one permanent using its effective definition is actually
+  on the battlefield; copies therefore use their copied definition, while a
+  departed source leaves no persistent or mutable reveal record behind.
 - State-based actions run to a fixed point after relevant changes. The current
   slice moves creatures with zero-or-less toughness or lethal marked damage,
   and marks players with zero-or-less life as lost. Each action emits an
