@@ -116,21 +116,28 @@ fn private_aura_search_filters_non_auras_and_rejects_same_printed_name() {
     assert_eq!(decision.min_selections, 0);
     assert_eq!(decision.max_selections, 3);
     assert_eq!(decision.candidates.len(), 3);
-    assert!(!decision.candidates.iter().any(|candidate| candidate.id == non_aura));
-    assert!(game
-        .view_for_player(PlayerId(1))
-        .expect("opponent view")
-        .pending_decision
-        .is_none());
+    assert!(
+        !decision
+            .candidates
+            .iter()
+            .any(|candidate| candidate.id == non_aura)
+    );
+    assert!(
+        game.view_for_player(PlayerId(1))
+            .expect("opponent view")
+            .pending_decision
+            .is_none()
+    );
 
     let events_before = game.canonical_event_log();
-    assert!(game
-        .submit_decision(
+    assert!(
+        game.submit_decision(
             PlayerId(0),
             decision.id,
             DecisionSelection::Objects(vec![first_shared, second_shared]),
         )
-        .is_err());
+        .is_err()
+    );
     assert_eq!(game.canonical_event_log(), events_before);
     assert_eq!(game.zone_of(first_shared), Some(Zone::Library));
     assert_eq!(game.zone_of(second_shared), Some(Zone::Library));

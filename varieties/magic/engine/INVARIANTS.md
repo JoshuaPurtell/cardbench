@@ -901,17 +901,24 @@ Oracle Magic rules coverage.
   ordinary entry-trigger work only after the search source reaches its own
   terminal stack lifecycle.
 - A policy-submitted batch library search uses an expansion-neutral typed
-  predicate and either `ZeroOrMore { maximum }` or `Exactly(count)` selection
+  predicate and either `ZeroOrMore { maximum }`,
+  `ZeroOrMoreDistinctNames { maximum }`, or `Exactly(count)` selection
   cardinality. Its candidate identities project only to the resolving
   controller, include only current controller-owned library cards matching the
   typed predicate, and reject stale, duplicate, oversized, or foreign answers
-  atomically. An exact hidden-zone search with too few candidates is a legal
-  zero-card failure-to-find boundary; one that permits failure to find may
-  submit fewer than the requested count. Each selected card moves through the
-  ordinary destination transition (and is revealed first only when the effect
-  requires it); `LibrarySearchBatchResolved` names the ordered selected set
-  and is immediately followed by exactly one controller `LibraryShuffled`
-  receipt.
+  atomically. A distinct-name cardinality additionally rejects two selected
+  cards sharing one printed name even when their definition ids differ. The
+  typed `Aura` predicate accepts only Enchantments carrying one Aura
+  attachment effect, never a non-Aura Enchantment. An exact hidden-zone search
+  with too few candidates is a legal zero-card failure-to-find boundary; one
+  that permits failure to find may submit fewer than the requested count. Each
+  selected card moves through the ordinary destination transition (and is
+  revealed first only when the effect requires it); `LibrarySearchBatchResolved`
+  names the ordered selected set and is immediately followed by exactly one
+  controller `LibraryShuffled` receipt. The receipt auditor preserves each
+  selected card's own `CardRevealed → CardMoved → ObjectIncarnationAdvanced`
+  block, so one selected card's reveal cannot invalidate the prior selected
+  card's move in a batch replay.
 - `RevealTopLibraryCardsAndReorder` snapshots at most its positive requested
   top-card count in current top-to-bottom order, emits one public
   `CardRevealed` receipt for each snapshot member, then opens one public

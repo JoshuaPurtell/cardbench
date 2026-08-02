@@ -75,6 +75,10 @@ pub enum LibrarySearchRequirement {
     /// rather than a display-name predicate, and supplies Transmute's shared
     /// library-search boundary.
     ManaValueExactly(u8),
+    /// An Enchantment card with exactly one typed Aura attachment effect.
+    /// This derives from executable card semantics rather than an untyped
+    /// card name and excludes non-Aura Enchantments.
+    Aura,
     /// A card whose type line contains every requested card type. This is a
     /// typed catalog predicate: it never infers card identity from display
     /// text, and it can represent an expansion-neutral "creature card",
@@ -92,6 +96,10 @@ pub enum LibrarySearchCardinality {
     /// bound. This models effects such as "up to two" without treating an
     /// empty selection as an error.
     ZeroOrMore { maximum: u8 },
+    /// Select any number of matching cards through the inclusive upper bound,
+    /// but never more than one card with the same printed name. This is
+    /// separate from the ordinary duplicate-object selection boundary.
+    ZeroOrMoreDistinctNames { maximum: u8 },
     /// Select exactly this many cards when possible. A policy-submitted
     /// search with `may_fail_to_find` may instead select fewer cards from a
     /// hidden library; otherwise an insufficient candidate set is an ordinary

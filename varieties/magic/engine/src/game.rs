@@ -6634,11 +6634,58 @@ impl Game {
             RulesError::IllegalAction("library search candidates exceed decision range")
         })?;
         match cardinality {
-            LibrarySearchCardinality::ZeroOrMore { maximum } => Ok((0, maximum.min(available))),
+            LibrarySearchCardinality::ZeroOrMore { maximum }
+            | LibrarySearchCardinality::ZeroOrMoreDistinctNames { maximum } => {
+                Ok((0, maximum.min(available)))
+            }
             LibrarySearchCardinality::Exactly(count) if available < count => Ok((0, 0)),
             LibrarySearchCardinality::Exactly(count) if may_fail_to_find => Ok((0, count)),
             LibrarySearchCardinality::Exactly(count) => Ok((count, count)),
         }
+    }
+
+    fn selected_library_search_names_are_distinct(
+        &self,
+        selected: &[ObjectId],
+        cardinality: LibrarySearchCardinality,
+    ) -> Result<bool, RulesError> {
+        if !matches!(
+            cardinality,
+            LibrarySearchCardinality::ZeroOrMoreDistinctNames { .. }
+        ) {
+            return Ok(true);
+        }
+        let mut names = BTreeSet::new();
+        for card in selected {
+            if !names.insert(self.card_definition(*card)?.name) {
+                return Ok(false);
+            }
+        }
+        Ok(true)
+    }
+
+    fn deterministic_multi_library_search_selection(
+        &self,
+        candidates: Vec<ObjectId>,
+        cardinality: LibrarySearchCardinality,
+        maximum: u8,
+    ) -> Result<Vec<ObjectId>, RulesError> {
+        let mut selected = Vec::new();
+        let mut names = BTreeSet::new();
+        let distinct_names = matches!(
+            cardinality,
+            LibrarySearchCardinality::ZeroOrMoreDistinctNames { .. }
+        );
+        for card in candidates {
+            if distinct_names && !names.insert(self.card_definition(card)?.name) {
+                continue;
+            }
+            selected.push(card);
+            if selected.len() == usize::from(maximum) {
+                break;
+            }
+        }
+        Ok(selected)
     }
 
     #[allow(clippy::too_many_arguments, clippy::too_many_lines)] // The effect-owned search contract is intentionally explicit.
@@ -6698,6 +6745,7 @@ impl Game {
             || decision.min_selections != expected_min
             || decision.max_selections != expected_max
             || selected.iter().any(|card| !candidates.contains(card))
+            || !self.selected_library_search_names_are_distinct(&selected, cardinality)?
         {
             return Err(RulesError::IllegalAction(
                 "multi-card library search candidates changed before selection",
@@ -7329,10 +7377,9 @@ impl Game {
             ),
         )?;
         let selected = match selection {
-            LibrarySearchSelection::DeterministicFirstMatch => candidates
-                .into_iter()
-                .take(usize::from(maximum))
-                .collect::<Vec<_>>(),
+            LibrarySearchSelection::DeterministicFirstMatch => {
+                self.deterministic_multi_library_search_selection(candidates, cardinality, maximum)?
+            }
             LibrarySearchSelection::PolicySubmitted { .. } if prevented => Vec::new(),
             LibrarySearchSelection::PolicySubmitted { .. } => {
                 return Err(RulesError::IllegalAction(
@@ -7413,6 +7460,15 @@ impl Game {
             }
             LibrarySearchRequirement::ManaValueExactly(mana_value) => {
                 Ok(definition.mana_cost.mana_value() == *mana_value)
+            }
+            LibrarySearchRequirement::Aura => {
+                Ok(definition.card_types.contains(&CardType::Enchantment)
+                    && definition
+                        .effects
+                        .iter()
+                        .filter_map(Self::attachment_effect_spec)
+                        .count()
+                        == 1)
             }
             LibrarySearchRequirement::CardTypes(types) => {
                 Ok(!types.is_empty() && types.is_subset(&definition.card_types))
@@ -16564,10 +16620,30 @@ impl Game {
                 LibrarySearchDestination::Hand => Zone::Hand,
             };
             let mut cursor = index;
+            let mut later_selected_card = None;
             for card in found.iter().rev() {
-                let preceding = cursor.checked_sub(1).ok_or(RulesError::IllegalAction(
+                let mut preceding = cursor.checked_sub(1).ok_or(RulesError::IllegalAction(
                     "multi-card library-search receipt lacks selected-card movement",
                 ))?;
+                // A revealed batch records each selected card's public reveal
+                // immediately before that card's own ordinary move. When the
+                // replay walk has just consumed a later selected card, skip
+                // only that exact reveal before looking for the prior card's
+                // move/incarnation block.
+                if later_selected_card.is_some_and(|later| {
+                    matches!(
+                        events.get(preceding),
+                        Some(GameEvent::CardRevealed {
+                            player: revealed,
+                            card: revealed_card,
+                            ..
+                        }) if *revealed == *player && *revealed_card == later
+                    )
+                }) {
+                    preceding = preceding.checked_sub(1).ok_or(RulesError::IllegalAction(
+                        "multi-card library-search reveal lacks a prior selected-card movement",
+                    ))?;
+                }
                 let move_index = match events.get(preceding) {
                     Some(GameEvent::ObjectIncarnationAdvanced { object, .. }) if object == card => {
                         preceding.checked_sub(1).ok_or(RulesError::IllegalAction(
@@ -16586,6 +16662,7 @@ impl Game {
                     ));
                 }
                 cursor = move_index;
+                later_selected_card = Some(*card);
             }
             if !matches!(
                 events.get(index + 1),
