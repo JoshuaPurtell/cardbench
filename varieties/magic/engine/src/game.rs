@@ -4747,6 +4747,35 @@ impl Game {
             });
         }
 
+        self.schedule_linked_exile_return(controller, source, source_incarnation, members)
+    }
+
+    /// Schedules a typed end-step return for one primary creature and any
+    /// linked Auras. The group is deliberately source-agnostic: an Aura may
+    /// create a multi-member group, while a spell, artifact, or land ability
+    /// can retain one primary creature after its source has left the game.
+    fn schedule_linked_exile_return(
+        &mut self,
+        controller: PlayerId,
+        source: ObjectId,
+        source_incarnation: u64,
+        members: Vec<LinkedExileMember>,
+    ) -> Result<(), RulesError> {
+        if source.0 == 0
+            || source_incarnation == 0
+            || self.player(controller)?.lost
+            || members.is_empty()
+            || members
+                .iter()
+                .filter(|member| member.role == LinkedExileMemberRole::PrimaryCreature)
+                .count()
+                != 1
+        {
+            return Err(RulesError::IllegalAction(
+                "linked exile return has invalid source or member provenance",
+            ));
+        }
+
         let group = LinkedExileGroupId(self.next_linked_exile_group_id);
         self.next_linked_exile_group_id =
             self.next_linked_exile_group_id
@@ -4790,6 +4819,29 @@ impl Game {
             members,
         });
         Ok(())
+    }
+
+    /// Exiles one target creature and keeps only its freshly-created exile
+    /// incarnation in a source-agnostic end-step return group. This is the
+    /// single-object counterpart to Aura-relative linked exile and is safe
+    /// when the resolving spell or activating artifact later changes zones.
+    fn exile_target_creature_until_end_step(
+        &mut self,
+        source: ObjectId,
+        source_incarnation: u64,
+        controller: PlayerId,
+        target: ObjectId,
+    ) -> Result<(), RulesError> {
+        if !self.target_matches(Target::Permanent(target), TargetRequirement::Creature) {
+            return Err(RulesError::IllegalTarget(Target::Permanent(target)));
+        }
+        self.move_to_zone(target, Zone::Exile)?;
+        let member = LinkedExileMember {
+            object: target,
+            exile_incarnation: self.object(target)?.incarnation,
+            role: LinkedExileMemberRole::PrimaryCreature,
+        };
+        self.schedule_linked_exile_return(controller, source, source_incarnation, vec![member])
     }
 
     fn member_is_still_in_linked_exile(&self, member: LinkedExileMember) -> bool {
@@ -11684,6 +11736,7 @@ impl Game {
                 | Effect::GrantGraveyardCastPermissionUntilEndOfTurn
                 | Effect::GrantExileCastPermissionUntilEndOfTurn { .. }
                 | Effect::ExileTargetCreature
+                | Effect::ExileTargetCreatureUntilEndStep
                 | Effect::ExileTargetPermanent
                 | Effect::ExileAttachedCreatureAndAurasUntilEndStep => continue,
                 Effect::AddCountersToSource { counter, amount }
@@ -16939,6 +16992,15 @@ impl Game {
             Effect::ExileTargetCreature | Effect::ExileTargetPermanent => {
                 let target = Self::target_permanent(target)?;
                 self.move_to_zone(target, Zone::Exile)?;
+            }
+            Effect::ExileTargetCreatureUntilEndStep => {
+                let target = Self::target_permanent(target)?;
+                self.exile_target_creature_until_end_step(
+                    source,
+                    source_incarnation,
+                    controller,
+                    target,
+                )?;
             }
             Effect::ExileAttachedCreatureAndAurasUntilEndStep => {
                 self.exile_attached_creature_and_auras_until_end_step(

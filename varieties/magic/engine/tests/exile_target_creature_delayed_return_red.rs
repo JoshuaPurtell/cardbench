@@ -7,8 +7,8 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardDefinition, CardType, CastRequest, DelayedActionTiming, Effect, Game, GameEvent,
-    ManaCost, PlayerId, Step, Target, Zone,
+    CardDefinition, CardType, CastRequest, DelayedActionTiming, Effect, Game, GameEvent, ManaCost,
+    PlayerId, Step, Target, Zone,
 };
 
 const CREATURE: &str = "TST-DELAYED-EXILE-CREATURE";
@@ -87,7 +87,10 @@ fn targeted_creature_exile_returns_at_end_step_with_its_own_delayed_receipt() {
     .expect("blink casts");
     pass_pair(&mut game);
     assert_eq!(game.zone_of(creature), Some(Zone::Exile));
-    let exile_incarnation = game.object(creature).expect("exiled card exists").incarnation;
+    let exile_incarnation = game
+        .object(creature)
+        .expect("exiled card exists")
+        .incarnation;
     let (action, group) = game
         .event_log
         .iter()
@@ -107,7 +110,10 @@ fn targeted_creature_exile_returns_at_end_step_with_its_own_delayed_receipt() {
     assert_eq!(game.zone_of(creature), Some(Zone::Battlefield));
     assert_eq!(game.controller_of(creature), Ok(PlayerId(1)));
     assert!(
-        game.object(creature).expect("returned creature exists").incarnation > exile_incarnation,
+        game.object(creature)
+            .expect("returned creature exists")
+            .incarnation
+            > exile_incarnation,
         "return is a fresh battlefield object"
     );
     assert!(game.event_log.iter().any(|event| matches!(

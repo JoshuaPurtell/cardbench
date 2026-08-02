@@ -2223,6 +2223,11 @@ pub enum Effect {
     /// it bypasses regeneration and preserves the target's normal
     /// zone-departure lifecycle.
     ExileTargetCreature,
+    /// Exile one targeted creature and schedule an exact-incarnation return
+    /// at the beginning of the appropriate end step. Unlike the Aura-linked
+    /// group operation, this retains one creature even if its source leaves
+    /// as an activation cost or resolves from a spell.
+    ExileTargetCreatureUntilEndStep,
     /// Move a creature that is currently attacking or blocking to exile.
     /// This remains distinct from `ExileTargetCreature`, whose target may be
     /// any battlefield creature.
@@ -2315,6 +2320,7 @@ impl Effect {
             | Self::BeginDamageRedirection { .. }
             | Self::PreventTargetBlockingSourceUntilEndOfTurn
             | Self::ExileTargetCreature
+            | Self::ExileTargetCreatureUntilEndStep
             | Self::TapTargetCreature
             | Self::RegenerateTargetCreature
             | Self::RegenerateTargetCreatureAndScheduleCombatHistoryDestruction
