@@ -1027,6 +1027,14 @@ fn stateful_policy_campaign_preserves_invariants_across_sixty_four_seeded_traces
 }
 
 #[test]
+fn seed_six_preserves_combat_block_history_exact_incarnations() {
+    // Focused red regression for the campaign failure at operation 126:
+    // a legal pass during DeclareBlockers is rejected by the combat-history
+    // provenance audit after a token/creature incarnation has departed.
+    let _ = run_trace(0x0000_0000_0000_0006);
+}
+
+#[test]
 fn stateful_policy_transcripts_replay_identically_for_the_same_seed() {
     for seed in [0, 1, 0xC0FF_EE12_3456_7890, u64::MAX] {
         let first = run_trace(seed);
