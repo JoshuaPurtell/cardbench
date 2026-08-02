@@ -22,7 +22,8 @@ use crate::{
     ReplacementEffectBinding, ReplacementEventKind, StackEffectResolution, StackObject,
     StackResolutionPlan, StaticAttackRestriction, StaticAttackRestrictionBinding,
     StaticContinuousEffectBinding, Step, TRANSMUTE_ABILITY_ID, Target, TargetRequirement,
-    TokenSpec, TriggerCondition, TriggeredAbilityBinding, TriggeredEffectObjectDecisionKind, Zone,
+    TokenSpec, TriggerCondition, TriggerOrderEntry, TriggeredAbilityBinding,
+    TriggeredEffectObjectDecisionKind, Zone,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -366,6 +367,10 @@ pub struct PendingDecisionView {
     /// library and hand selections.
     pub target_candidates: Vec<Target>,
     pub candidates: Vec<CardView>,
+    /// Public identities available only for a simultaneous-trigger ordering
+    /// continuation. A source can expose more than one independently
+    /// orderable triggered ability, so these are not card candidates.
+    pub trigger_candidates: Vec<TriggerOrderEntry>,
 }
 
 /// Public, stale-safe details for a prospective damage event requiring an
@@ -580,6 +585,18 @@ struct PendingTriggeredAbilityEvent {
     payload: TriggerEventPayload,
 }
 
+/// A queued APNAP controller group. A singleton is stacked directly; a group
+/// with two or more members opens one explicit ordering decision before any
+/// of its entries can reach the stack.
+#[derive(Clone, Debug)]
+enum PendingTriggerPlacement {
+    Ordered(PendingTriggeredAbilityEvent),
+    UnorderedGroup {
+        controller: PlayerId,
+        events: Vec<PendingTriggeredAbilityEvent>,
+    },
+}
+
 #[derive(Clone, Debug)]
 struct PendingDamageRedirection {
     source: ObjectId,
@@ -703,6 +720,10 @@ pub struct Game {
     pending_private_library_choice: Option<PendingPrivateLibraryChoice>,
     pending_private_opponent_library_exile_choice: Option<PendingPrivateOpponentLibraryExileChoice>,
     pending_decision: Option<PendingDecision>,
+    /// The exact event payload for an open `TriggeredAbilityOrder` decision.
+    /// It is kept outside the public decision projection so only public source
+    /// identities, not materialized effects, cross the policy boundary.
+    pending_trigger_order_group: Option<Vec<PendingTriggeredAbilityEvent>>,
     pending_trigger_target_choices: Vec<PendingTriggeredAbilityTargetChoice>,
     pending_optional_trigger_choice: Option<PendingOptionalTriggeredAbilityChoice>,
     pending_damage_replacement_choice: Option<PendingDamageReplacementChoice>,
@@ -716,7 +737,7 @@ pub struct Game {
     /// placement queue preserves that order while target-bearing triggers wait
     /// for their controllers' no-priority choices.
     pending_trigger_events: Vec<PendingTriggeredAbilityEvent>,
-    pending_trigger_placements: Vec<PendingTriggeredAbilityEvent>,
+    pending_trigger_placements: Vec<PendingTriggerPlacement>,
     /// Land entries produced while a spell or ability resolves. Their trigger
     /// batches wait until that enclosing stack object has completed its own
     /// terminal lifecycle, matching the ordinary post-resolution trigger
@@ -939,6 +960,7 @@ impl Game {
             pending_private_library_choice: None,
             pending_private_opponent_library_exile_choice: None,
             pending_decision: None,
+            pending_trigger_order_group: None,
             pending_trigger_target_choices: Vec::new(),
             pending_optional_trigger_choice: None,
             pending_damage_replacement_choice: None,
@@ -2925,6 +2947,7 @@ impl Game {
                         max_selections: decision.max_selections,
                         target_candidates: Self::decision_target_candidates(decision),
                         candidates,
+                        trigger_candidates: Self::decision_trigger_candidates(decision),
                     })
             })
             .transpose()?;
@@ -2941,7 +2964,8 @@ impl Game {
                 } => Some((*source, *destination, *may_fail_to_find)),
                 DecisionContinuation::TriggeredEffectObject { .. }
                 | DecisionContinuation::CombatDamageOrder { .. }
-                | DecisionContinuation::SpellCopyTargets { .. } => None,
+                | DecisionContinuation::SpellCopyTargets { .. }
+                | DecisionContinuation::TriggeredAbilityOrder { .. } => None,
             })
             .map(|(source, destination, may_fail_to_find)| {
                 self.decision_candidate_cards(
@@ -3011,7 +3035,8 @@ impl Game {
                 } => Some((*source, *ability)),
                 DecisionContinuation::LibrarySearch { .. }
                 | DecisionContinuation::CombatDamageOrder { .. }
-                | DecisionContinuation::SpellCopyTargets { .. } => None,
+                | DecisionContinuation::SpellCopyTargets { .. }
+                | DecisionContinuation::TriggeredAbilityOrder { .. } => None,
             })
             .map(|(source, ability)| {
                 self.decision_candidate_cards(
@@ -4113,7 +4138,7 @@ impl Game {
         self.consecutive_passes = 0;
         self.check_state_based_actions()?;
         self.flush_pending_dies_triggers();
-        self.enqueue_enter_triggers(card, definition_id, player);
+        self.enqueue_enter_triggers(card, definition_id, player)?;
         self.enqueue_land_entry_triggers(player)?;
         Ok(())
     }
@@ -4276,7 +4301,7 @@ impl Game {
         for attacker in attackers {
             self.enqueue_attack_triggers(*attacker)?;
         }
-        self.flush_pending_trigger_events();
+        self.flush_pending_trigger_events()?;
         self.consecutive_passes = 0;
         // CR 508.2: the active player receives priority after attackers are
         // declared. Declaration itself is a turn-based action, not a normal
@@ -5372,6 +5397,11 @@ impl Game {
                     &selected,
                 )
             }
+            DecisionContinuation::TriggeredAbilityOrder { controller } => {
+                let selected =
+                    Self::validate_trigger_order_decision_selection(&decision, selection)?;
+                self.resolve_triggered_ability_order_decision(&decision, controller, selected)
+            }
         }
     }
 
@@ -5400,6 +5430,88 @@ impl Game {
             }
         }
         Ok(selected)
+    }
+
+    fn validate_trigger_order_decision_selection(
+        decision: &PendingDecision,
+        selection: DecisionSelection,
+    ) -> Result<Vec<TriggerOrderEntry>, RulesError> {
+        let DecisionSelection::TriggerOrder(selected) = selection else {
+            return Err(RulesError::IllegalAction(
+                "this decision requires a triggered-ability ordering",
+            ));
+        };
+        let count = u8::try_from(selected.len())
+            .map_err(|_| RulesError::IllegalAction("trigger order exceeds engine range"))?;
+        if count != decision.min_selections || count != decision.max_selections {
+            return Err(RulesError::IllegalAction(
+                "trigger order must contain every simultaneous ability exactly once",
+            ));
+        }
+        let mut seen = HashSet::new();
+        for entry in &selected {
+            if entry.source.0 == 0
+                || entry.source_incarnation == 0
+                || entry.ability.is_empty()
+                || !seen.insert(*entry)
+                || !decision
+                    .options
+                    .contains(&DecisionOption::TriggerOrder(*entry))
+            {
+                return Err(RulesError::IllegalAction(
+                    "trigger order contains a duplicate, malformed, or foreign ability",
+                ));
+            }
+        }
+        Ok(selected)
+    }
+
+    fn resolve_triggered_ability_order_decision(
+        &mut self,
+        decision: &PendingDecision,
+        controller: PlayerId,
+        selected: Vec<TriggerOrderEntry>,
+    ) -> Result<(), RulesError> {
+        let events = self
+            .pending_trigger_order_group
+            .take()
+            .ok_or(RulesError::IllegalAction(
+                "trigger-order decision has no pending APNAP group",
+            ))?;
+        let expected = events
+            .iter()
+            .map(Self::trigger_order_entry)
+            .collect::<Vec<_>>();
+        if controller != decision.player
+            || selected.len() != events.len()
+            || selected.iter().any(|entry| !expected.contains(entry))
+        {
+            return Err(RulesError::IllegalAction(
+                "trigger-order decision no longer matches its APNAP group",
+            ));
+        }
+        self.complete_pending_decision(decision)?;
+        self.record_event(GameEvent::TriggeredAbilityOrderChosen {
+            controller,
+            order: selected.clone(),
+        });
+        let mut ordered_events = Vec::with_capacity(selected.len());
+        for entry in selected {
+            let index = events
+                .iter()
+                .position(|event| Self::trigger_order_entry(event) == entry)
+                .ok_or(RulesError::IllegalAction(
+                    "selected trigger disappeared from its APNAP group",
+                ))?;
+            ordered_events.push(events[index].clone());
+        }
+        self.pending_trigger_placements.splice(
+            0..0,
+            ordered_events
+                .into_iter()
+                .map(PendingTriggerPlacement::Ordered),
+        );
+        self.advance_pending_trigger_placements()
     }
 
     /// Returns the still-unordered multi-block groups in a deterministic
@@ -5836,7 +5948,7 @@ impl Game {
         if let Some((card, definition, controller)) = entered_permanent
             && self.zone_of(card) == Some(Zone::Battlefield)
         {
-            self.enqueue_enter_triggers(card, definition, controller);
+            self.enqueue_enter_triggers(card, definition, controller)?;
             if self.card_definition(card)?.is_land() {
                 self.queue_land_entry_trigger_batch(controller)?;
             }
@@ -6498,6 +6610,12 @@ impl Game {
         }
         if !self.pending_trigger_placements.is_empty()
             && self.pending_trigger_target_choices.is_empty()
+            && !matches!(
+                self.pending_decision
+                    .as_ref()
+                    .map(|decision| &decision.continuation),
+                Some(DecisionContinuation::TriggeredAbilityOrder { .. })
+            )
         {
             return Err(RulesError::IllegalAction(
                 "trigger placement batch escaped without its target decision",
@@ -6515,6 +6633,7 @@ impl Game {
         Self::validate_attachment_event_order(&self.event_log)?;
         Self::validate_attachment_detach_event_order(&self.event_log)?;
         Self::validate_delayed_action_event_order(&self.event_log)?;
+        Self::validate_trigger_order_event_order(&self.event_log)?;
         self.validate_linked_exile_state()?;
         Self::validate_spell_mana_payment_event_order(&self.event_log)?;
         self.validate_additional_spell_cost_event_order()?;
@@ -9348,7 +9467,7 @@ impl Game {
         self.check_state_based_actions()?;
         self.flush_pending_dies_triggers();
         if permanent_resolution {
-            self.enqueue_enter_triggers(stack_object.card, definition_id, entering_controller);
+            self.enqueue_enter_triggers(stack_object.card, definition_id, entering_controller)?;
             if entering_is_land {
                 self.enqueue_land_entry_triggers(entering_controller)?;
             }
@@ -9742,14 +9861,14 @@ impl Game {
         source: ObjectId,
         definition: &'static str,
         controller: PlayerId,
-    ) {
+    ) -> Result<(), RulesError> {
         self.enqueue_triggers_for_source(
             source,
             definition,
             controller,
             TriggerCondition::EntersBattlefield,
         );
-        self.flush_pending_trigger_events();
+        self.flush_pending_trigger_events()
     }
 
     /// A cast trigger retains the exact spell that caused it, rather than
@@ -9796,7 +9915,7 @@ impl Game {
                     });
             }
         }
-        self.flush_pending_trigger_events();
+        self.flush_pending_trigger_events()?;
         Ok(())
     }
 
@@ -9835,7 +9954,7 @@ impl Game {
                 );
             }
         }
-        self.flush_pending_trigger_events();
+        self.flush_pending_trigger_events()?;
         Ok(())
     }
 
@@ -9933,36 +10052,63 @@ impl Game {
     /// therefore sit lower on the stack), followed by each next living seat.
     /// Within one controller the public binding/source order remains stable
     /// until policy-supplied ordering is added as a later decision layer.
-    fn flush_pending_trigger_events(&mut self) {
+    fn flush_pending_trigger_events(&mut self) -> Result<(), RulesError> {
         let events = std::mem::take(&mut self.pending_trigger_events);
         if events.is_empty() {
-            return;
+            return Ok(());
         }
         for offset in 0..self.players.len() {
             let controller = PlayerId((self.active_player.0 + offset) % self.players.len());
             if self.players[controller.0].lost {
                 continue;
             }
-            self.pending_trigger_placements.extend(
-                events
-                    .iter()
-                    .filter(|event| event.controller == controller)
-                    .cloned(),
-            );
+            let group = events
+                .iter()
+                .filter(|event| event.controller == controller)
+                .cloned()
+                .collect::<Vec<_>>();
+            match group.len() {
+                0 => {}
+                1 => self
+                    .pending_trigger_placements
+                    .push(PendingTriggerPlacement::Ordered(
+                        group
+                            .into_iter()
+                            .next()
+                            .expect("singleton group has one event"),
+                    )),
+                _ => {
+                    self.pending_trigger_placements
+                        .push(PendingTriggerPlacement::UnorderedGroup {
+                            controller,
+                            events: group,
+                        });
+                }
+            }
         }
-        self.advance_pending_trigger_placements();
+        self.advance_pending_trigger_placements()
     }
 
     /// Continues a deterministic trigger-placement batch until a controller
     /// must choose targets.  It is also called immediately after that choice,
     /// so a later targetless trigger cannot jump ahead of an earlier
     /// target-bearing one while priority remains blocked.
-    fn advance_pending_trigger_placements(&mut self) {
+    fn advance_pending_trigger_placements(&mut self) -> Result<(), RulesError> {
         if !self.pending_trigger_target_choices.is_empty() {
-            return;
+            return Ok(());
         }
         while !self.pending_trigger_placements.is_empty() {
-            let event = self.pending_trigger_placements.remove(0);
+            let placement = self.pending_trigger_placements.remove(0);
+            let event = match placement {
+                PendingTriggerPlacement::Ordered(event) => event,
+                PendingTriggerPlacement::UnorderedGroup { controller, events } => {
+                    if self.players[controller.0].lost {
+                        continue;
+                    }
+                    self.open_trigger_order_decision(controller, events)?;
+                    return Ok(());
+                }
+            };
             if self.players[event.controller.0].lost {
                 continue;
             }
@@ -10018,6 +10164,51 @@ impl Game {
             // The represented trigger has no legal target at its trigger
             // placement boundary, so it cannot become a legal stack object.
         }
+        Ok(())
+    }
+
+    fn trigger_order_entry(event: &PendingTriggeredAbilityEvent) -> TriggerOrderEntry {
+        TriggerOrderEntry {
+            source: event.source,
+            source_incarnation: event.source_incarnation,
+            ability: event.ability.id,
+        }
+    }
+
+    fn open_trigger_order_decision(
+        &mut self,
+        controller: PlayerId,
+        events: Vec<PendingTriggeredAbilityEvent>,
+    ) -> Result<(), RulesError> {
+        if events.len() < 2
+            || events.iter().any(|event| event.controller != controller)
+            || events.iter().enumerate().any(|(index, event)| {
+                events[index + 1..].iter().any(|other| {
+                    Self::trigger_order_entry(other) == Self::trigger_order_entry(event)
+                })
+            })
+        {
+            return Err(RulesError::IllegalAction(
+                "APNAP trigger group has invalid controller or duplicate identity",
+            ));
+        }
+        let count = u8::try_from(events.len())
+            .map_err(|_| RulesError::IllegalAction("APNAP trigger group exceeds engine range"))?;
+        let options = events
+            .iter()
+            .map(|event| DecisionOption::TriggerOrder(Self::trigger_order_entry(event)))
+            .collect();
+        self.open_pending_decision(
+            controller,
+            DecisionVisibility::Public,
+            DecisionKind::TriggeredAbilityOrder,
+            count,
+            count,
+            options,
+            DecisionContinuation::TriggeredAbilityOrder { controller },
+        )?;
+        self.pending_trigger_order_group = Some(events);
+        Ok(())
     }
 
     fn materialize_trigger_effects(
@@ -10131,7 +10322,7 @@ impl Game {
                     });
             }
         }
-        self.flush_pending_trigger_events();
+        self.flush_pending_trigger_events()?;
         Ok(())
     }
 
@@ -10275,7 +10466,7 @@ impl Game {
                 ability: choice.ability.id,
             });
             game.consecutive_passes = 0;
-            game.advance_pending_trigger_placements();
+            game.advance_pending_trigger_placements()?;
             Ok(())
         })
     }
@@ -10931,21 +11122,24 @@ impl Game {
     /// Deferring until costs/effects finish preserves the rule that a trigger
     /// created during an activation cost is stacked after that activation.
     fn flush_pending_dies_triggers(&mut self) {
-        self.flush_pending_trigger_events();
+        self.flush_pending_trigger_events()
+            .expect("dies trigger flush follows a valid rules transition");
     }
 
     /// Pushes all triggers observed during the just-completed damage batch.
     /// Their effects are materialized from the captured event amount before
     /// the `TriggeredAbilityStacked` receipt is emitted.
     fn flush_pending_damage_triggers(&mut self) {
-        self.flush_pending_trigger_events();
+        self.flush_pending_trigger_events()
+            .expect("damage trigger flush follows a valid rules transition");
     }
 
     /// Puts life-gain triggers on the stack after the enclosing effect has
     /// finished. Target legality is rechecked by the normal stack resolver,
     /// while the trigger's source and controller remain historical identities.
     fn flush_pending_life_gain_triggers(&mut self) {
-        self.flush_pending_trigger_events();
+        self.flush_pending_trigger_events()
+            .expect("life-gain trigger flush follows a valid rules transition");
     }
 
     fn damage_cannot_be_prevented(&self, source: ObjectId) -> bool {
@@ -14794,6 +14988,62 @@ impl Game {
         Ok(())
     }
 
+    /// An APNAP order is one complete, nonempty-permutation answer. Its
+    /// identity is public, but the generic decision receipt records only that
+    /// the no-priority boundary opened and completed; this companion receipt
+    /// makes the actual submitted order replay-visible before any ability is
+    /// stacked from that group.
+    fn validate_trigger_order_event_order(events: &[GameEvent]) -> Result<(), RulesError> {
+        for (index, event) in events.iter().enumerate() {
+            match event {
+                GameEvent::DecisionCompleted {
+                    player,
+                    kind: DecisionKind::TriggeredAbilityOrder,
+                    ..
+                } if !matches!(
+                    events.get(index + 1),
+                    Some(GameEvent::TriggeredAbilityOrderChosen { controller, .. })
+                        if controller == player
+                ) =>
+                {
+                    return Err(RulesError::IllegalAction(
+                        "trigger-order decision completion lacks its order receipt",
+                    ));
+                }
+                GameEvent::TriggeredAbilityOrderChosen { controller, order } => {
+                    let Some(GameEvent::DecisionCompleted {
+                        player,
+                        kind: DecisionKind::TriggeredAbilityOrder,
+                        ..
+                    }) = index
+                        .checked_sub(1)
+                        .and_then(|previous| events.get(previous))
+                    else {
+                        return Err(RulesError::IllegalAction(
+                            "trigger-order receipt lacks its decision completion",
+                        ));
+                    };
+                    let mut unique = HashSet::new();
+                    if *controller != *player
+                        || order.len() < 2
+                        || order.iter().any(|entry| {
+                            entry.source.0 == 0
+                                || entry.source_incarnation == 0
+                                || entry.ability.is_empty()
+                                || !unique.insert(*entry)
+                        })
+                    {
+                        return Err(RulesError::IllegalAction(
+                            "trigger-order receipt has invalid controller or duplicate identity",
+                        ));
+                    }
+                }
+                _ => {}
+            }
+        }
+        Ok(())
+    }
+
     fn validate_linked_exile_state(&self) -> Result<(), RulesError> {
         let mut actions_by_group = BTreeMap::<LinkedExileGroupId, usize>::new();
         let mut action_ids = BTreeSet::new();
@@ -16796,7 +17046,7 @@ impl Game {
             .iter()
             .filter_map(|option| match option {
                 DecisionOption::Object(card) => Some(self.card_view(*card)),
-                DecisionOption::Target(_) => None,
+                DecisionOption::Target(_) | DecisionOption::TriggerOrder(_) => None,
             })
             .collect()
     }
@@ -16806,8 +17056,19 @@ impl Game {
             .options
             .iter()
             .filter_map(|option| match option {
-                DecisionOption::Object(_) => None,
                 DecisionOption::Target(target) => Some(*target),
+                DecisionOption::Object(_) | DecisionOption::TriggerOrder(_) => None,
+            })
+            .collect()
+    }
+
+    fn decision_trigger_candidates(decision: &PendingDecision) -> Vec<TriggerOrderEntry> {
+        decision
+            .options
+            .iter()
+            .filter_map(|option| match option {
+                DecisionOption::TriggerOrder(entry) => Some(*entry),
+                DecisionOption::Object(_) | DecisionOption::Target(_) => None,
             })
             .collect()
     }
@@ -16862,7 +17123,9 @@ impl Game {
         }
 
         let Some(decision) = &self.pending_decision else {
-            if receipt_state.values().any(|(_, _, completed)| !completed) {
+            if receipt_state.values().any(|(_, _, completed)| !completed)
+                || self.pending_trigger_order_group.is_some()
+            {
                 return Err(RulesError::IllegalAction(
                     "a decision receipt remains open without pending decision state",
                 ));
@@ -17127,6 +17390,39 @@ impl Game {
                 {
                     return Err(RulesError::IllegalAction(
                         "spell-copy decision violates stack or target provenance",
+                    ));
+                }
+            }
+            DecisionContinuation::TriggeredAbilityOrder { controller } => {
+                let events =
+                    self.pending_trigger_order_group
+                        .as_ref()
+                        .ok_or(RulesError::IllegalAction(
+                            "trigger-order decision escaped its APNAP event group",
+                        ))?;
+                let count = u8::try_from(events.len()).map_err(|_| {
+                    RulesError::IllegalAction("APNAP trigger group exceeds engine range")
+                })?;
+                let expected_options = events
+                    .iter()
+                    .map(|event| DecisionOption::TriggerOrder(Self::trigger_order_entry(event)))
+                    .collect::<Vec<_>>();
+                if decision.kind != DecisionKind::TriggeredAbilityOrder
+                    || decision.visibility != DecisionVisibility::Public
+                    || decision.player != *controller
+                    || events.len() < 2
+                    || events.iter().any(|event| event.controller != *controller)
+                    || events.iter().enumerate().any(|(index, event)| {
+                        events[index + 1..].iter().any(|other| {
+                            Self::trigger_order_entry(other) == Self::trigger_order_entry(event)
+                        })
+                    })
+                    || decision.options != expected_options
+                    || decision.min_selections != count
+                    || decision.max_selections != count
+                {
+                    return Err(RulesError::IllegalAction(
+                        "trigger-order decision violates its APNAP continuation boundary",
                     ));
                 }
             }

@@ -35,6 +35,7 @@ pub use model::{
     PlayerState, PolicyMoveKind, ReplacementEffect, ReplacementEffectBinding, ReplacementEventKind,
     StackEffectResolution, StackObject, StackResolutionPlan, StackTargetArityError,
     StaticAttackRestriction, StaticAttackRestrictionBinding, StaticContinuousEffectBinding, Step,
-    TRANSMUTE_ABILITY_ID, Target, TargetRequirement, TokenSpec, TriggerCondition, TriggeredAbility,
-    TriggeredAbilityBinding, TriggeredEffectObjectDecisionKind, Zone,
+    TRANSMUTE_ABILITY_ID, Target, TargetRequirement, TokenSpec, TriggerCondition,
+    TriggerOrderEntry, TriggeredAbility, TriggeredAbilityBinding,
+    TriggeredEffectObjectDecisionKind, Zone,
 };

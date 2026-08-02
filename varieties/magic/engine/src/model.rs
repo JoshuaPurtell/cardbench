@@ -2601,6 +2601,21 @@ pub enum DecisionKind {
     /// targets before the new virtual stack object exists. This is a
     /// no-priority rules decision, never a free targeting action.
     SpellCopyTargets,
+    /// One APNAP controller orders the simultaneous triggered abilities they
+    /// control before any member of that controller group enters the stack.
+    TriggeredAbilityOrder,
+}
+
+/// One public member of an APNAP simultaneous-trigger ordering group.
+///
+/// Source incarnation is intentionally part of the identity: a source may
+/// have left the battlefield after triggering, and a later incarnation with
+/// the same stable object id must not satisfy a stale ordering response.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub struct TriggerOrderEntry {
+    pub source: ObjectId,
+    pub source_incarnation: u64,
+    pub ability: &'static str,
 }
 
 /// A concrete option retained in typed pending-decision state. This first
@@ -2613,6 +2628,10 @@ pub enum DecisionOption {
     /// distinct variant so a card selected from a private library cannot be
     /// confused with a public target selected for a copied spell.
     Target(Target),
+    /// A public triggered-ability identity available in one exact APNAP
+    /// controller group. It is distinct from an object choice because two
+    /// abilities on the same source are independently orderable.
+    TriggerOrder(TriggerOrderEntry),
 }
 
 /// A submitted answer to a typed decision. The continuation determines which
@@ -2621,6 +2640,7 @@ pub enum DecisionOption {
 pub enum DecisionSelection {
     Objects(Vec<ObjectId>),
     Targets(Vec<Target>),
+    TriggerOrder(Vec<TriggerOrderEntry>),
 }
 
 /// Stateful continuation details for the migrated trigger-effect object
@@ -2670,6 +2690,10 @@ pub enum DecisionContinuation {
         original: ObjectId,
         original_source_incarnation: u64,
     },
+    /// Resumes one controller's group from CR 603.3b. The scheduler retains
+    /// the full event payload; this continuation exposes only public ordering
+    /// identities to the policy surface.
+    TriggeredAbilityOrder { controller: PlayerId },
 }
 
 /// One serializable, no-priority decision boundary. Candidate options remain
@@ -2955,6 +2979,13 @@ pub enum GameEvent {
         decision: DecisionId,
         player: PlayerId,
         kind: DecisionKind,
+    },
+    /// One controller's complete CR 603.3b ordering for an APNAP
+    /// simultaneous-trigger group. This follows the corresponding generic
+    /// decision completion and precedes any member entering the stack.
+    TriggeredAbilityOrderChosen {
+        controller: PlayerId,
+        order: Vec<TriggerOrderEntry>,
     },
     CardMoved {
         card: ObjectId,
