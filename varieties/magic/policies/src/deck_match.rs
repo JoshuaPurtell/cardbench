@@ -443,15 +443,24 @@ pub fn run_rav_reference_deck_matrix(
             }
         }
     }
-    // Every matchup owns an independent Game, catalog, and policy pair. Run
-    // those jobs concurrently, but write them back by job index so the public
-    // result remains deterministic for replay and digest comparisons.
+    // Every matchup owns an independent Game, catalog, and policy pair. Keep
+    // concurrency bounded: the public corpus can contain hundreds of jobs and
+    // one OS thread per job makes the audit slower through scheduler and memory
+    // pressure. Results are still written by job index for deterministic replay.
     let mut ordered_results = vec![None; jobs.len()];
-    std::thread::scope(|scope| {
-        let handles = jobs
-            .into_iter()
-            .enumerate()
-            .map(|(index, (deck_p0, deck_p1, shuffle_seed))| {
+    let available_parallelism = std::thread::available_parallelism()
+        .ok()
+        .map(std::num::NonZeroUsize::get);
+    let worker_limit = reference_matrix_worker_limit(jobs.len(), available_parallelism);
+    for batch_start in (0..jobs.len()).step_by(worker_limit) {
+        let batch_end = (batch_start + worker_limit).min(jobs.len());
+        std::thread::scope(|scope| {
+            let handles = jobs[batch_start..batch_end]
+                .iter()
+                .cloned()
+                .enumerate()
+                .map(|(batch_index, (deck_p0, deck_p1, shuffle_seed))| {
+                    let index = batch_start + batch_index;
                 scope.spawn(move || {
                     let result = run_rav_deck_matchup(
                         DeckMatchConfig {
@@ -468,15 +477,16 @@ pub fn run_rav_reference_deck_matrix(
                     });
                     (index, result)
                 })
-            })
-            .collect::<Vec<_>>();
-        for handle in handles {
-            let (index, result) = handle
-                .join()
-                .expect("reference matrix worker must not panic");
-            ordered_results[index] = Some(result);
-        }
-    });
+                })
+                .collect::<Vec<_>>();
+            for handle in handles {
+                let (index, result) = handle
+                    .join()
+                    .expect("reference matrix worker must not panic");
+                ordered_results[index] = Some(result);
+            }
+        });
+    }
     let mut matches = Vec::with_capacity(ordered_results.len());
     let mut engine_findings = Vec::new();
     for result in ordered_results.into_iter().flatten() {
@@ -489,6 +499,15 @@ pub fn run_rav_reference_deck_matrix(
         matches,
         engine_findings,
     ))
+}
+
+const MAX_REFERENCE_MATRIX_WORKERS: usize = 16;
+
+fn reference_matrix_worker_limit(job_count: usize, parallelism: Option<usize>) -> usize {
+    let available = parallelism
+        .unwrap_or(1)
+        .clamp(1, MAX_REFERENCE_MATRIX_WORKERS);
+    job_count.max(1).min(available)
 }
 
 fn fail_closed_tournament(

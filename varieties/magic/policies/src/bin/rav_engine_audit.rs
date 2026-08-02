@@ -3,6 +3,7 @@
 //! This is intentionally not a policy tournament. Each probe asks whether a
 //! core rule boundary fails loudly and leaves a valid state behind.
 
+use std::io::{self, Write};
 use std::process::ExitCode;
 
 use cardbench_magic_engine::{
@@ -20,7 +21,7 @@ struct Finding {
 
 // Keep the always-on audit within an interactive development cycle. The
 // dedicated `rav-reference-deck-matrix` binary runs the wider eight-seed sweep.
-const POLICY_MATRIX_SEED_COUNT: u64 = 3;
+const DEFAULT_POLICY_MATRIX_SEED_COUNT: u64 = 1;
 
 #[derive(Debug)]
 struct PolicyMatrixProbe {
@@ -30,6 +31,9 @@ struct PolicyMatrixProbe {
 }
 
 fn main() -> ExitCode {
+    println!("schema_version=cardbench.magic.engine-audit.v1");
+    println!("audit_progress=public-api-probes state=started");
+    flush_stdout();
     let mut findings = [
         probe_terminal_game_actions(),
         probe_terminal_game_draw(),
@@ -47,11 +51,13 @@ fn main() -> ExitCode {
     .into_iter()
     .flatten()
     .collect::<Vec<_>>();
-    let policy_matrix = probe_policy_matchup_matrix();
+    println!("audit_progress=public-api-probes state=completed");
+    flush_stdout();
+    let policy_matrix_seed_count = configured_policy_matrix_seed_count();
+    let policy_matrix = probe_policy_matchup_matrix(policy_matrix_seed_count);
     findings.extend(policy_matrix.findings);
-    println!("schema_version=cardbench.magic.engine-audit.v1");
     println!("policy_matrix_deck_count={}", policy_matrix.deck_count);
-    println!("policy_matrix_seed_count={POLICY_MATRIX_SEED_COUNT}");
+    println!("policy_matrix_seed_count={policy_matrix_seed_count}");
     println!("policy_matrix_match_count={}", policy_matrix.match_count);
     println!("finding_count={}", findings.len());
     for finding in &findings {
@@ -64,45 +70,75 @@ fn main() -> ExitCode {
     }
 }
 
+fn configured_policy_matrix_seed_count() -> u64 {
+    std::env::var("RAV_AUDIT_SEED_COUNT")
+        .ok()
+        .and_then(|value| value.parse::<u64>().ok())
+        .filter(|count| *count > 0)
+        .unwrap_or(DEFAULT_POLICY_MATRIX_SEED_COUNT)
+}
+
+fn flush_stdout() {
+    io::stdout().flush().expect("audit progress must flush");
+}
+
 /// Runs every ordered pair of public reference decks. It exercises actual
 /// policy submissions and turns every engine finding, rejection, capability
 /// gap, or bounded incomplete run into an audit failure with deck provenance.
-fn probe_policy_matchup_matrix() -> PolicyMatrixProbe {
+fn probe_policy_matchup_matrix(seed_count: u64) -> PolicyMatrixProbe {
     let deck_count = load_reference_decks().map_or(0, |decks| decks.len());
-    match run_rav_reference_deck_matrix(0..POLICY_MATRIX_SEED_COUNT) {
-        Ok(matrix) => PolicyMatrixProbe {
-            deck_count,
-            match_count: matrix.matches.len(),
-            findings: matrix
-                .failures
-                .into_iter()
-                .map(|failure| match failure {
-                    EngineTournamentFailure::EngineFinding(finding) => Finding {
-                        code: "policy-matrix-engine-finding",
-                        detail: format!("{finding:?}"),
-                    },
-                    EngineTournamentFailure::IncompleteTermination {
-                        deck_ids,
-                        shuffle_seed,
-                        termination,
-                    } => Finding {
-                        code: "policy-matrix-incomplete-run",
-                        detail: format!(
-                            "{}-vs-{}-seed-{shuffle_seed}: {termination:?}",
-                            deck_ids[0], deck_ids[1]
-                        ),
-                    },
-                })
-                .collect(),
-        },
-        Err(error) => PolicyMatrixProbe {
-            deck_count,
-            match_count: 0,
-            findings: vec![Finding {
-                code: "policy-matrix-setup-failed",
-                detail: error,
-            }],
-        },
+    let mut match_count = 0;
+    let mut findings = Vec::new();
+    for seed in 0..seed_count {
+        println!("audit_progress=policy-matrix seed={seed} state=started");
+        flush_stdout();
+        match run_rav_reference_deck_matrix([seed]) {
+            Ok(matrix) => {
+                let seed_match_count = matrix.matches.len();
+                let mut seed_findings = matrix
+                    .failures
+                    .into_iter()
+                    .map(|failure| match failure {
+                        EngineTournamentFailure::EngineFinding(finding) => Finding {
+                            code: "policy-matrix-engine-finding",
+                            detail: format!("{finding:?}"),
+                        },
+                        EngineTournamentFailure::IncompleteTermination {
+                            deck_ids,
+                            shuffle_seed,
+                            termination,
+                        } => Finding {
+                            code: "policy-matrix-incomplete-run",
+                            detail: format!(
+                                "{}-vs-{}-seed-{shuffle_seed}: {termination:?}",
+                                deck_ids[0], deck_ids[1]
+                            ),
+                        },
+                    })
+                    .collect::<Vec<_>>();
+                println!(
+                    "audit_progress=policy-matrix seed={seed} state=completed match_count={seed_match_count} finding_count={}",
+                    seed_findings.len()
+                );
+                flush_stdout();
+                match_count += seed_match_count;
+                findings.append(&mut seed_findings);
+            }
+            Err(error) => {
+                println!("audit_progress=policy-matrix seed={seed} state=failed");
+                flush_stdout();
+                findings.push(Finding {
+                    code: "policy-matrix-setup-failed",
+                    detail: error,
+                });
+                break;
+            }
+        }
+    }
+    PolicyMatrixProbe {
+        deck_count,
+        match_count,
+        findings,
     }
 }
 
