@@ -49,8 +49,8 @@ a zone move. The fetched Aura's ordinary ETB trigger is queued only after the
 Mage trigger's terminal receipt. The opponent sees neither unselected Aura
 identities nor a private decision projection.
 
-The current catalog partition is 213 full / 43 partial / 35 catalog-only unique
-names (228 / 43 / 35 printings). The independently checked coverage-report
+The current catalog partition is 215 full / 41 partial / 35 catalog-only unique
+names (230 / 41 / 35 printings). The independently checked coverage-report
 binary emits the same partition.
 
 `RAV_FULL_FIDELITY_DEFINITION_IDS` is a deliberately small positive manifest,
@@ -145,6 +145,14 @@ and Transmute compatibility slices, but Transmute is executed immediately in thi
 engine rather than as a stack object, so normal response behavior is absent. Their
 deterministic public scenarios assert receipts only for the represented slices.
 These are explicit coverage gaps, not no-op fallbacks or full-fidelity claims.
+
+Infectious Host is a positive-manifest entry. Its controller submits the
+target player for the dies trigger through a public target-bearing decision;
+the selected ability then resolves on the ordinary stack and records the
+non-damage life-loss receipt. The public scenario and focused Rust contract
+cover the `DecisionOpened → DecisionCompleted → TriggeredAbilityStacked →
+LifeLost → AbilityResolved` lifecycle and run the state-machine invariant
+audit after resolution.
 
 The five RAV basic-land definitions are positive-manifest entries. Their typed
 single-color intrinsic mana result, tapping, and basic-land deck-construction
