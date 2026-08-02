@@ -609,6 +609,11 @@ pub struct GeneralizedActivatedAbilityCost {
     /// Number of additional controlled battlefield permanents that must be
     /// selected and returned to their owners' hands as part of the cost.
     pub return_controlled_permanents: u8,
+    /// Number of owned hand cards that must be selected and put on top of
+    /// their owner's library as part of the cost. Selections are committed in
+    /// listed order, making the final selection the top card when a future
+    /// card needs more than one.
+    pub put_hand_cards_on_library_top: u8,
     /// Whether this ability has one player-chosen nonnegative `{X}` generic
     /// symbol in addition to its bound printed mana cost.
     pub has_x_cost: bool,
@@ -621,6 +626,7 @@ impl GeneralizedActivatedAbilityCost {
             && self.counter_removals.is_empty()
             && !self.return_source_to_hand
             && self.return_controlled_permanents == 0
+            && self.put_hand_cards_on_library_top == 0
             && !self.has_x_cost
     }
 }
@@ -643,6 +649,9 @@ pub struct ActivatedAbilityCostBinding {
 pub struct AbilityCostPayment {
     pub counter_sources: Vec<ObjectId>,
     pub return_permanents: Vec<ObjectId>,
+    /// Owned cards put from hand onto the owner's library top as an atomic
+    /// activation cost, in bottom-to-top order.
+    pub hand_cards_to_library_top: Vec<ObjectId>,
     pub chosen_x: Option<u8>,
 }
 
@@ -4242,6 +4251,14 @@ pub enum GameEvent {
         player: PlayerId,
         source: ObjectId,
         permanent: ObjectId,
+    },
+    /// An owned hand card was selected and placed on its owner's library top
+    /// as an activation cost. The ordinary library zone-change receipt
+    /// immediately follows.
+    HandCardPutOnLibraryTopAsAbilityCost {
+        player: PlayerId,
+        source: ObjectId,
+        card: ObjectId,
     },
     /// The policy chose this nonnegative value for one activated ability's
     /// additional generic `{X}` cost. It remains attached to the stack item

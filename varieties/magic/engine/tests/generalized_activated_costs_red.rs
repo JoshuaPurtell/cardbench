@@ -106,6 +106,7 @@ fn fixture() -> Game {
             }],
             return_source_to_hand: false,
             return_controlled_permanents: 1,
+            put_hand_cards_on_library_top: 0,
             has_x_cost: true,
         },
     }])
@@ -170,6 +171,7 @@ fn generalized_costs_are_policy_selected_atomic_and_provenanced() {
             cost_payment: AbilityCostPayment {
                 counter_sources: vec![bearer],
                 return_permanents: vec![returned],
+                hand_cards_to_library_top: vec![],
                 chosen_x: Some(3),
             },
             mana_payment_selection: None,
@@ -244,6 +246,7 @@ fn failed_generalized_cost_payment_rolls_back_every_prior_component() {
             cost_payment: AbilityCostPayment {
                 counter_sources: vec![bearer],
                 return_permanents: vec![returned],
+                hand_cards_to_library_top: vec![],
                 chosen_x: Some(4),
             },
             mana_payment_selection: None,

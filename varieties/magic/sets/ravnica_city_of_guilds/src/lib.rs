@@ -22,19 +22,19 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use cardbench_magic_engine::{
-    ActivatedAbility, ActivatedAbilityBinding, ActivatedAbilityCostModifier,
-    ActivatedAbilityCostModifierBinding, ActivatedManaAbility, AdditionalSpellCost,
-    AdditionalSpellCostBinding, AttachmentBinding, AttachmentKind, BasicLandType,
-    BasicLandTypeBinding, CardDefinition, CardType, CastRequest, Color, ContinuousChange,
-    ConvokeContribution, ConvokePayment, CostReductionBinding, DamageReplacementEffect,
-    DamageReplacementEffectBinding, DeckEntry, DeckList, DeckRules, Effect, Game, HybridManaSymbol,
-    Keyword, LandEntryBinding, LibrarySearchDestination, LibrarySearchRequirement,
-    LibrarySearchSelection, ManaAbilityBinding, ManaAbilityCostBinding, ManaAbilityOutput,
-    ManaBundle, ManaCost, PlayerId, ReplacementEffect, ReplacementEffectBinding, RulesError,
-    SharedKeywordFamily, StaticAttackRestriction, StaticAttackRestrictionBinding,
-    StaticContinuousEffectBinding, StaticEntryRestriction, StaticEntryRestrictionBinding,
-    StaticLibraryTopRevealBinding, Target, TargetRequirement, TokenSpec, TriggerCondition,
-    TriggeredAbility, TriggeredAbilityBinding, Zone,
+    ActivatedAbility, ActivatedAbilityBinding, ActivatedAbilityCostBinding,
+    ActivatedAbilityCostModifier, ActivatedAbilityCostModifierBinding, ActivatedManaAbility,
+    AdditionalSpellCost, AdditionalSpellCostBinding, AttachmentBinding, AttachmentKind,
+    BasicLandType, BasicLandTypeBinding, CardDefinition, CardType, CastRequest, Color,
+    ContinuousChange, ConvokeContribution, ConvokePayment, CostReductionBinding,
+    DamageReplacementEffect, DamageReplacementEffectBinding, DeckEntry, DeckList, DeckRules,
+    Effect, Game, GeneralizedActivatedAbilityCost, HybridManaSymbol, Keyword, LandEntryBinding,
+    LibrarySearchDestination, LibrarySearchRequirement, LibrarySearchSelection, ManaAbilityBinding,
+    ManaAbilityCostBinding, ManaAbilityOutput, ManaBundle, ManaCost, PlayerId, ReplacementEffect,
+    ReplacementEffectBinding, RulesError, SharedKeywordFamily, StaticAttackRestriction,
+    StaticAttackRestrictionBinding, StaticContinuousEffectBinding, StaticEntryRestriction,
+    StaticEntryRestrictionBinding, StaticLibraryTopRevealBinding, Target, TargetRequirement,
+    TokenSpec, TriggerCondition, TriggeredAbility, TriggeredAbilityBinding, Zone,
 };
 
 pub const SET_CODE: &str = "RAV";
@@ -42,7 +42,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 187] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 188] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
@@ -71,6 +71,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 187] = [
     "RAV-GLASS-GOLEM",
     "RAV-OVERGROWN-TOMB",
     "RAV-JUNKTROLLER",
+    "RAV-LEASHLING",
     "RAV-CROWN-OF-CONVERGENCE",
     "RAV-CLEANSING-BEAM",
     "RAV-RALLY-THE-RIGHTEOUS",
@@ -3345,6 +3346,29 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Defender],
             effects: vec![],
         },
+        // Full fidelity: this artifact creature puts one policy-selected
+        // owned hand card on its owner's library top as a cost, then returns
+        // the exact source incarnation to its owner's hand at resolution.
+        CardDefinition {
+            id: "RAV-LEASHLING",
+            name: "Leashling",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::new(6),
+            colors: BTreeSet::new(),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Artifact, CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colorless-artifact-creature-casting",
+                "base-characteristics",
+                "hand-card-top-library-cost-return-source-owner-hand",
+            ],
+            power: Some(3),
+            toughness: Some(3),
+            keywords: vec![],
+            effects: vec![],
+        },
         // Full fidelity: this colorless artifact reveals only its controller's
         // current top library card, applies a live shared-color creature
         // layer-seven modifier when that card is a creature, and has one
@@ -6155,6 +6179,22 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
             },
         },
         ActivatedAbilityBinding {
+            card_definition: "RAV-LEASHLING",
+            ability: ActivatedAbility {
+                id: "hand-card-library-top-return-source",
+                mana_cost: ManaCost::new(0),
+                tap_cost: false,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![],
+                effects: vec![Effect::ReturnSourceToOwnersHand],
+            },
+        },
+        ActivatedAbilityBinding {
             card_definition: "RAV-CYCLOPEAN-SNARE",
             ability: ActivatedAbility {
                 id: "tap-target-creature",
@@ -7681,6 +7721,20 @@ pub fn rav_activated_ability_cost_modifier_bindings() -> Vec<ActivatedAbilityCos
     }]
 }
 
+/// Immutable generalized activation costs used by the executable RAV slice.
+/// Policies submit the concrete hand-card choice with the activation itself.
+#[must_use]
+pub fn rav_generalized_activated_ability_cost_bindings() -> Vec<ActivatedAbilityCostBinding> {
+    vec![ActivatedAbilityCostBinding {
+        card_definition: "RAV-LEASHLING",
+        ability_id: "hand-card-library-top-return-source",
+        cost: GeneralizedActivatedAbilityCost {
+            put_hand_cards_on_library_top: 1,
+            ..GeneralizedActivatedAbilityCost::default()
+        },
+    }]
+}
+
 /// Source-bound quantity replacements supplied by RAV permanents. The engine
 /// checks source control and battlefield membership for each event, so this
 /// registry contains only immutable definition facts.
@@ -8330,6 +8384,9 @@ fn fresh_game() -> Result<Game, RulesError> {
     game.register_cost_reduction_bindings(rav_cost_reduction_bindings())?;
     game.register_activated_ability_cost_modifier_bindings(
         rav_activated_ability_cost_modifier_bindings(),
+    )?;
+    game.register_generalized_activated_ability_cost_bindings(
+        rav_generalized_activated_ability_cost_bindings(),
     )?;
     Ok(game)
 }

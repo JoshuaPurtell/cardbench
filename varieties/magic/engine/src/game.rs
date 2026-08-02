@@ -261,6 +261,12 @@ pub enum PolicyAction {
     ActivateAbility {
         activation: AbilityActivation,
     },
+    /// Activates a non-mana ability that has immutable, expansion-owned
+    /// generalized cost data. The policy supplies only the concrete legal
+    /// selections required to pay that cost in this one atomic action.
+    ActivateAbilityWithGeneralizedCosts {
+        activation: GeneralizedAbilityActivation,
+    },
     DeclareAttackers {
         attackers: Vec<ObjectId>,
     },
@@ -307,7 +313,9 @@ impl PolicyAction {
             | Self::ActivateBoundManaAbilityWithBundleChoice { .. } => {
                 PolicyMoveKind::ActivateBoundManaAbility
             }
-            Self::ActivateAbility { .. } => PolicyMoveKind::ActivateAbility,
+            Self::ActivateAbility { .. } | Self::ActivateAbilityWithGeneralizedCosts { .. } => {
+                PolicyMoveKind::ActivateAbility
+            }
             Self::DeclareAttackers { .. } => PolicyMoveKind::DeclareAttackers,
             Self::DeclareBlockers { .. } => PolicyMoveKind::DeclareBlockers,
             Self::ReportEngineWeakness { .. } => PolicyMoveKind::ReportEngineWeakness,
@@ -2492,6 +2500,7 @@ impl Game {
         let cost_payment = AbilityCostPayment {
             counter_sources: vec![],
             return_permanents: vec![],
+            hand_cards_to_library_top: vec![],
             chosen_x: None,
         };
         self.atomic_transition(|game| {
@@ -2519,6 +2528,7 @@ impl Game {
         let cost_payment = AbilityCostPayment {
             counter_sources: vec![],
             return_permanents: vec![],
+            hand_cards_to_library_top: vec![],
             chosen_x: None,
         };
         self.atomic_transition(|game| {
@@ -2787,6 +2797,7 @@ impl Game {
             &generalized_cost,
             generalized_cost_payment,
             &activation.sacrifice_sources,
+            &activation.discard_cards,
         )?;
         let mut base_mana_cost = ability.mana_cost.clone();
         if let Some(x_value) = generalized_cost_payment.chosen_x {
@@ -2895,6 +2906,14 @@ impl Game {
                 permanent: *permanent,
             });
             self.move_to_zone(*permanent, Zone::Hand)?;
+        }
+        for card in &generalized_cost_payment.hand_cards_to_library_top {
+            self.record_event(GameEvent::HandCardPutOnLibraryTopAsAbilityCost {
+                player,
+                source: activation.source,
+                card: *card,
+            });
+            self.move_to_zone(*card, Zone::Library)?;
         }
         if let Some(x_value) = generalized_cost_payment.chosen_x {
             self.record_event(GameEvent::AbilityXCostChosen {
@@ -3965,6 +3984,9 @@ impl Game {
             }
             PolicyAction::ActivateAbility { activation } => {
                 self.activate_ability(player, activation)?;
+            }
+            PolicyAction::ActivateAbilityWithGeneralizedCosts { activation } => {
+                self.activate_ability_with_generalized_costs(player, activation)?;
             }
             PolicyAction::DeclareAttackers { attackers } => {
                 self.declare_attackers(player, &attackers)?;
@@ -11626,6 +11648,7 @@ impl Game {
         cost: &GeneralizedActivatedAbilityCost,
         payment: &AbilityCostPayment,
         sacrifice_sources: &[ObjectId],
+        discarded_cards: &[ObjectId],
     ) -> Result<Vec<(ObjectId, CounterKind, i16)>, RulesError> {
         if cost.is_empty() {
             if payment != &AbilityCostPayment::default() {
@@ -11742,6 +11765,32 @@ impl Game {
             if sacrifice_sources.contains(permanent) {
                 return Err(RulesError::IllegalAction(
                     "one permanent cannot be both sacrificed and returned as one activation cost",
+                ));
+            }
+        }
+        if payment.hand_cards_to_library_top.len()
+            != usize::from(cost.put_hand_cards_on_library_top)
+        {
+            return Err(RulesError::IllegalAction(
+                "activated hand-to-library cost selection count does not match its binding",
+            ));
+        }
+        let mut hand_cards = BTreeSet::new();
+        for card in &payment.hand_cards_to_library_top {
+            if !hand_cards.insert(*card) {
+                return Err(RulesError::IllegalAction(
+                    "an activated hand-to-library cost cannot select the same card twice",
+                ));
+            }
+            if discarded_cards.contains(card) {
+                return Err(RulesError::IllegalAction(
+                    "one hand card cannot be both put on a library and discarded as one activation cost",
+                ));
+            }
+            self.require_zone(*card, Zone::Hand)?;
+            if self.object(*card)?.owner != player {
+                return Err(RulesError::IllegalAction(
+                    "an activated hand-to-library cost can select only the activating player's card",
                 ));
             }
         }
@@ -21999,6 +22048,7 @@ impl Game {
             let mut life_payments = Vec::new();
             let mut counter_payments = Vec::new();
             let mut return_payments = Vec::new();
+            let mut hand_library_payments = Vec::new();
             let mut x_payments = Vec::new();
             let mut index = activation_index;
             while let Some(previous) = index.checked_sub(1) {
@@ -22069,6 +22119,22 @@ impl Game {
                         }
                         return_payments.push(*permanent);
                     }
+                    GameEvent::HandCardPutOnLibraryTopAsAbilityCost {
+                        player: receipt_player,
+                        source: receipt_source,
+                        card,
+                    } if receipt_player == player && receipt_source == source => {
+                        if !matches!(
+                            self.event_log.get(previous + 1),
+                            Some(GameEvent::CardMoved { card: moved_card, to: Zone::Library })
+                                if moved_card == card
+                        ) {
+                            return Err(RulesError::IllegalAction(
+                                "activated hand-to-library cost receipt lacks its immediate library move",
+                            ));
+                        }
+                        hand_library_payments.push(*card);
+                    }
                     GameEvent::AbilityXCostChosen {
                         player: receipt_player,
                         source: receipt_source,
@@ -22087,6 +22153,7 @@ impl Game {
             life_payments.reverse();
             counter_payments.reverse();
             return_payments.reverse();
+            hand_library_payments.reverse();
             x_payments.reverse();
             let expected_life = (profile.life_payment > 0).then_some(profile.life_payment);
             if life_payments.as_slice() != expected_life.as_slice() {
@@ -22122,6 +22189,22 @@ impl Game {
             if profile.return_source_to_hand && return_payments.first() != Some(source) {
                 return Err(RulesError::IllegalAction(
                     "activated return-cost receipts omit the required source",
+                ));
+            }
+            if hand_library_payments.len() != usize::from(profile.put_hand_cards_on_library_top)
+                || hand_library_payments
+                    .iter()
+                    .copied()
+                    .collect::<BTreeSet<_>>()
+                    .len()
+                    != hand_library_payments.len()
+                || hand_library_payments.iter().any(|card| {
+                    self.object(*card)
+                        .map_or(true, |object| object.owner != *player)
+                })
+            {
+                return Err(RulesError::IllegalAction(
+                    "activated hand-to-library cost receipts do not match their bound cost",
                 ));
             }
             if profile.has_x_cost != (x_payments.len() == 1) {
