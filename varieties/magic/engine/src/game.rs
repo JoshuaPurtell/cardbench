@@ -9543,6 +9543,7 @@ impl Game {
         self.validate_ability_additional_tap_cost_event_order()?;
         Self::validate_counter_lifecycle_events(&self.event_log)?;
         self.validate_counter_removal_receipt_accounting()?;
+        Self::validate_source_counter_life_loss_event_order(&self.event_log)?;
         self.validate_replacement_effect_events()?;
         self.validate_damage_amount_replacement_events()?;
         self.validate_global_combat_damage_prevention_event_order()?;
@@ -12336,6 +12337,14 @@ impl Game {
                 | Effect::GainLifeController { amount }
                 | Effect::MillTargetPlayer { count: amount }
                 | Effect::MillCapturedPlayer { count: amount, .. } => *amount,
+                Effect::LoseLifeControllerForCountersOnSource { counter } => {
+                    if !counter.is_valid() {
+                        return Err(RulesError::IllegalAction(
+                            "source-counter life-loss effect requires a valid counter kind",
+                        ));
+                    }
+                    continue;
+                }
                 Effect::AddManaController { amount, .. }
                 | Effect::AddManaToTargetPlayer { amount, .. } => i16::from(*amount),
                 Effect::CreateToken { .. }
@@ -16453,6 +16462,34 @@ impl Game {
                     amount: *amount,
                 });
             }
+            Effect::LoseLifeControllerForCountersOnSource { counter } => {
+                let amount = if self.zone_of(source) == Some(Zone::Battlefield)
+                    && self.object_has_incarnation(source, source_incarnation)
+                {
+                    self.object(source)?
+                        .counters
+                        .get(counter)
+                        .copied()
+                        .unwrap_or_default()
+                } else {
+                    0
+                };
+                if amount > 0 {
+                    self.record_event(GameEvent::SourceCounterLifeLoss {
+                        source,
+                        source_incarnation,
+                        player: controller,
+                        counter: *counter,
+                        amount,
+                    });
+                    self.players[controller.0].life -= i64::from(amount);
+                    self.record_event(GameEvent::LifeLost {
+                        source,
+                        player: controller,
+                        amount,
+                    });
+                }
+            }
             Effect::LoseLifeEachOpponentEqualToControlledCreatures => {
                 let losses = self
                     .players
@@ -20080,6 +20117,14 @@ impl Game {
                 | Effect::RadianceDealDamageToCreatures { amount }
                 | Effect::RadianceAddTargetDamageShieldUntilEndOfTurn { amount }
                 | Effect::GainLifeController { amount } => *amount,
+                Effect::LoseLifeControllerForCountersOnSource { counter } => {
+                    if !counter.is_valid() {
+                        return Err(RulesError::IllegalAction(
+                            "source-counter life-loss effect requires a valid counter kind",
+                        ));
+                    }
+                    continue;
+                }
                 _ => continue,
             };
             if amount <= 0 {
@@ -22643,6 +22688,46 @@ impl Game {
                     }
                 }
                 _ => {}
+            }
+        }
+        Ok(())
+    }
+
+    /// A source-counter-derived life-loss receipt has no independent state
+    /// mutation: it must be immediately followed by the ordinary `LifeLost`
+    /// receipt with the same source, controller, and materialized amount.
+    /// Keeping the two adjacent makes a fabricated counter-derived loss
+    /// visible to replay while retaining one canonical life-total mutation.
+    fn validate_source_counter_life_loss_event_order(
+        events: &[GameEvent],
+    ) -> Result<(), RulesError> {
+        for (index, event) in events.iter().enumerate() {
+            let GameEvent::SourceCounterLifeLoss {
+                source,
+                source_incarnation,
+                player,
+                counter,
+                amount,
+            } = event
+            else {
+                continue;
+            };
+            if source_incarnation == &0 || !counter.is_valid() || amount <= &0 {
+                return Err(RulesError::IllegalAction(
+                    "source-counter life-loss receipt has invalid provenance",
+                ));
+            }
+            if !matches!(
+                events.get(index + 1),
+                Some(GameEvent::LifeLost {
+                    source: loss_source,
+                    player: loss_player,
+                    amount: loss_amount,
+                }) if loss_source == source && loss_player == player && loss_amount == amount
+            ) {
+                return Err(RulesError::IllegalAction(
+                    "source-counter life-loss receipt lacks its immediate life-loss mutation",
+                ));
             }
         }
         Ok(())

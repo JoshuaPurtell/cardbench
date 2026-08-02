@@ -1652,6 +1652,14 @@ pub enum Effect {
     LoseLifeController {
         amount: i16,
     },
+    /// Make the resolving ability's controller lose life equal to the current
+    /// total of one typed counter on its exact live source incarnation. This
+    /// is evaluated in effect order at resolution, so an immediately
+    /// preceding counter-placement instruction is visible while a source
+    /// that left the battlefield has no retained counter total.
+    LoseLifeControllerForCountersOnSource {
+        counter: CounterKind,
+    },
     /// Each living opponent loses life equal to the number of creatures that
     /// opponent controls as the instruction resolves. Every opponent's count
     /// is independently live, not captured when the ability was triggered.
@@ -2501,6 +2509,7 @@ impl Effect {
             }
             Self::DealDamageController { .. }
             | Self::LoseLifeController { .. }
+            | Self::LoseLifeControllerForCountersOnSource { .. }
             | Self::LoseLifeEachOpponentEqualToControlledCreatures
             | Self::DiscardOneCardEachPlayer
             | Self::SacrificeControllerCreature
@@ -4443,6 +4452,17 @@ pub enum GameEvent {
         source: ObjectId,
         player: PlayerId,
         amount: i32,
+    },
+    /// A resolving source-counter instruction materialized a positive
+    /// controller life-loss amount. The following `LifeLost` receipt records
+    /// the ordinary player-state mutation; this receipt preserves the typed
+    /// counter and exact source-incarnation provenance for replay audits.
+    SourceCounterLifeLoss {
+        source: ObjectId,
+        source_incarnation: u64,
+        player: PlayerId,
+        counter: CounterKind,
+        amount: i16,
     },
     /// A non-damage effect made one target player lose life.
     LifeLost {

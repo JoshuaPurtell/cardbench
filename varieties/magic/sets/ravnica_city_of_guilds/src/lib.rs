@@ -23,10 +23,11 @@ use std::path::{Path, PathBuf};
 
 use cardbench_magic_engine::{
     ActivatedAbility, ActivatedAbilityBinding, ActivatedAbilityCostBinding,
-    ActivatedAbilityCostModifier, ActivatedAbilityCostModifierBinding, ActivatedManaAbility,
-    AdditionalSpellCost, AdditionalSpellCostBinding, AttachmentBinding, AttachmentKind,
-    BasicLandType, BasicLandTypeBinding, CardDefinition, CardType, CastRequest, Color,
-    ContinuousChange, ConvokeContribution, ConvokePayment, CostReductionBinding,
+    ActivatedAbilityCostModifier, ActivatedAbilityCostModifierBinding, ActivatedCounterCost,
+    ActivatedCounterCostTarget, ActivatedManaAbility, AdditionalSpellCost,
+    AdditionalSpellCostBinding, AttachmentBinding, AttachmentKind, BasicLandType,
+    BasicLandTypeBinding, CardDefinition, CardType, CastRequest, Color, ContinuousChange,
+    ConvokeContribution, ConvokePayment, CostReductionBinding, CounterKind,
     DamageReplacementEffect, DamageReplacementEffectBinding, DeckEntry, DeckList, DeckRules,
     Effect, Game, GeneralizedActivatedAbilityCost, HybridManaSymbol, Keyword, LandEntryBinding,
     LibrarySearchDestination, LibrarySearchRequirement, LibrarySearchSelection, ManaAbilityBinding,
@@ -42,7 +43,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 191] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 192] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
@@ -223,6 +224,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 191] = [
     "RAV-CONCERTED-EFFORT",
     "RAV-CHANT-OF-VITU-GHAZI",
     "RAV-CENTAUR-SAFEGUARD",
+    "RAV-BLOODLETTER-QUILL",
     "RAV-CYCLOPEAN-SNARE",
     "RAV-TERRARION",
     "RAV-GRIFTERS-BLADE",
@@ -3302,6 +3304,31 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
+        // Full fidelity: this colorless artifact's first activation places a
+        // typed blood counter before drawing and reading the source's current
+        // counter total for life loss. Its second activation uses the shared
+        // atomic source-counter cost profile rather than a card-specific
+        // payment path.
+        CardDefinition {
+            id: "RAV-BLOODLETTER-QUILL",
+            name: "Bloodletter Quill",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::new(3),
+            colors: BTreeSet::new(),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Artifact]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colorless-artifact-casting",
+                "generic-two-tap-add-blood-draw-lose-life-per-blood",
+                "blue-black-remove-blood-counter",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![],
+        },
         // Public RAV #261 verification establishes that this is a vanilla
         // artifact creature: its published rules field is empty, so this
         // definition does not omit a printed ability.
@@ -6257,6 +6284,47 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
             },
         },
         ActivatedAbilityBinding {
+            card_definition: "RAV-BLOODLETTER-QUILL",
+            ability: ActivatedAbility {
+                id: "two-tap-add-blood-draw-lose-for-blood",
+                mana_cost: ManaCost::new(2),
+                tap_cost: true,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![],
+                effects: vec![
+                    Effect::AddCountersToSource {
+                        counter: CounterKind::Named("blood"),
+                        amount: 1,
+                    },
+                    Effect::DrawController,
+                    Effect::LoseLifeControllerForCountersOnSource {
+                        counter: CounterKind::Named("blood"),
+                    },
+                ],
+            },
+        },
+        ActivatedAbilityBinding {
+            card_definition: "RAV-BLOODLETTER-QUILL",
+            ability: ActivatedAbility {
+                id: "blue-black-remove-blood",
+                mana_cost: ManaCost::with_colors(0, [Color::Blue, Color::Black]),
+                tap_cost: false,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![],
+                effects: vec![],
+            },
+        },
+        ActivatedAbilityBinding {
             card_definition: "RAV-JUNKTROLLER",
             ability: ActivatedAbility {
                 id: "tap-target-graveyard-card-to-owners-library-bottom",
@@ -7768,17 +7836,31 @@ pub fn rav_activated_ability_cost_modifier_bindings() -> Vec<ActivatedAbilityCos
 }
 
 /// Immutable generalized activation costs used by the executable RAV slice.
-/// Policies submit the concrete hand-card choice with the activation itself.
+/// Policies submit every concrete zone or counter choice with the activation.
 #[must_use]
 pub fn rav_generalized_activated_ability_cost_bindings() -> Vec<ActivatedAbilityCostBinding> {
-    vec![ActivatedAbilityCostBinding {
-        card_definition: "RAV-LEASHLING",
-        ability_id: "hand-card-library-top-return-source",
-        cost: GeneralizedActivatedAbilityCost {
-            put_hand_cards_on_library_top: 1,
-            ..GeneralizedActivatedAbilityCost::default()
+    vec![
+        ActivatedAbilityCostBinding {
+            card_definition: "RAV-LEASHLING",
+            ability_id: "hand-card-library-top-return-source",
+            cost: GeneralizedActivatedAbilityCost {
+                put_hand_cards_on_library_top: 1,
+                ..GeneralizedActivatedAbilityCost::default()
+            },
         },
-    }]
+        ActivatedAbilityCostBinding {
+            card_definition: "RAV-BLOODLETTER-QUILL",
+            ability_id: "blue-black-remove-blood",
+            cost: GeneralizedActivatedAbilityCost {
+            counter_removals: vec![ActivatedCounterCost {
+                target: ActivatedCounterCostTarget::Source,
+                counter: CounterKind::Named("blood"),
+                amount: 1,
+            }],
+                ..GeneralizedActivatedAbilityCost::default()
+            },
+        },
+    ]
 }
 
 /// Source-bound quantity replacements supplied by RAV permanents. The engine
