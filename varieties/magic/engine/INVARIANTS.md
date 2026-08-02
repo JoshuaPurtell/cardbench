@@ -766,11 +766,17 @@ Oracle Magic rules coverage.
   complete mana/life/counter/return/X block is validated against exactly one
   subsequent `AbilityActivated` receipt; missing, fabricated, duplicated, or
   mismatched components fail the replay audit. A later invalid component rolls
-  back every earlier debit, zone move, stack mutation, and receipt. The
-  initial public entry point deliberately does not yet combine explicit
-  generic/hybrid mana-color selection with generalized-cost payment; that
-  compositional API remains an explicit follow-up rather than silently using
-  deterministic spending.
+  back every earlier debit, zone move, stack mutation, and receipt.
+  `GeneralizedAbilityActivation` may additionally carry the ordinary typed
+  `ManaPaymentSelection` for every generic and hybrid symbol in its calculated
+  cost. That selection is preflighted in the same transaction, recorded in an
+  `ActivatedAbilityCostCalculated` context bound to the exact source
+  incarnation, and retained as the live stack ability's ordered `mana_spent`
+  colors. The context must lead to the same player/source/incarnation/ability
+  activation; a malformed hybrid color, stale context, or live stack object
+  with different spent colors fails the audit. Effects that inspect mana
+  colors reject deterministic ability payment, just as their spell equivalents
+  do.
 - An expansion may bind an explicit additional spell cost to a nonland
   definition. Its `CastRequest` selection follows ordinary effect targets but
   never enters the resulting stack object's target slots. A bound controlled-
