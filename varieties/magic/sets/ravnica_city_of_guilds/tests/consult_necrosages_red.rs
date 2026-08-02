@@ -79,8 +79,8 @@ fn consult_the_necrosages_requires_a_cast_selected_modal_target_player_effect() 
             .contains(&"target-player-discard-two-private-recipient-selection")
     );
     assert!(
-        !RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&definition.id),
-        "the target-player discard branch remains bounded until its recipient-private card selection exists"
+        RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&definition.id),
+        "the target-player discard branch is full fidelity with its recipient-private card selection"
     );
 }
 

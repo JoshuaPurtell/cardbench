@@ -43,7 +43,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 213] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 214] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
@@ -216,6 +216,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 213] = [
     "RAV-TWILIGHT-DROVER",
     "RAV-ELVISH-SKYSWEEPER",
     "RAV-CONVOLUTE",
+    "RAV-CONSULT-THE-NECROSAGES",
     "RAV-SHAMBLING-SHELL",
     "RAV-DOWSING-SHAMAN",
     "RAV-IVY-DANCER",
@@ -1017,12 +1018,11 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![Effect::MillTargetPlayer { count: 10 }],
         },
-        // Bounded catalog classification: casting retains the controller's
-        // explicit draw or discard mode and materializes its ordinary player
-        // target before the card leaves the hand. The target-discard branch
-        // uses the expansion-neutral recipient-private selection substrate;
-        // positive-manifest promotion remains an explicit later reconciliation
-        // step rather than an implicit consequence of executable status.
+        // Full fidelity: casting retains the controller's explicit draw or
+        // discard mode and materializes its ordinary player target before the
+        // card leaves the hand. The target-discard branch pauses at an exact
+        // recipient-private hand selection; the caster never observes or
+        // chooses the discarded cards.
         CardDefinition {
             id: "RAV-CONSULT-THE-NECROSAGES",
             name: "Consult the Necrosages",
@@ -1033,6 +1033,7 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             card_types: types([CardType::Sorcery]),
             is_basic_land: false,
             supported_rules: &[
+                "full-rules-fidelity",
                 "colored-cost-casting",
                 "caster-selected-modal-target-player-draw-or-discard",
                 "target-player-draw-two",
