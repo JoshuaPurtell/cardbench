@@ -115,3 +115,11 @@ fn junktroller_resolves_to_its_full_graveyard_target_definition() {
         Ok("RAV-JUNKTROLLER")
     );
 }
+
+#[test]
+fn crown_of_convergence_resolves_to_its_full_controller_library_definition() {
+    assert_eq!(
+        executable_definition_id_for_collector(258),
+        Ok("RAV-CROWN-OF-CONVERGENCE")
+    );
+}

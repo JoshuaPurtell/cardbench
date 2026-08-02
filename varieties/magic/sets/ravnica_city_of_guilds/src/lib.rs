@@ -71,6 +71,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 186] = [
     "RAV-GLASS-GOLEM",
     "RAV-OVERGROWN-TOMB",
     "RAV-JUNKTROLLER",
+    "RAV-CROWN-OF-CONVERGENCE",
     "RAV-CLEANSING-BEAM",
     "RAV-RALLY-THE-RIGHTEOUS",
     "RAV-WOJEK-SIREN",
@@ -3344,6 +3345,31 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Defender],
             effects: vec![],
         },
+        // Full fidelity: this colorless artifact reveals only its controller's
+        // current top library card, applies a live shared-color creature
+        // layer-seven modifier when that card is a creature, and has one
+        // ordinary paid library-rotation activation.
+        CardDefinition {
+            id: "RAV-CROWN-OF-CONVERGENCE",
+            name: "Crown of Convergence",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::new(2),
+            colors: BTreeSet::new(),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Artifact]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colorless-artifact-casting",
+                "controller-top-library-revealed",
+                "top-creature-shared-color-creatures-plus-one-plus-one",
+                "green-white-rotate-controller-library-top-to-bottom",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![],
+        },
         // Full fidelity: this colorless artifact costs `{2}` and carries one
         // ordinary stack-backed `{3}, {T}` activation. At resolution it taps
         // one creature, then returns this exact permanent incarnation to its
@@ -6113,6 +6139,22 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
             },
         },
         ActivatedAbilityBinding {
+            card_definition: "RAV-CROWN-OF-CONVERGENCE",
+            ability: ActivatedAbility {
+                id: "green-white-rotate-controller-library-top-to-bottom",
+                mana_cost: ManaCost::with_colors(0, [Color::Green, Color::White]),
+                tap_cost: false,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![],
+                effects: vec![Effect::PutTopCardOfControllerLibraryOnBottom],
+            },
+        },
+        ActivatedAbilityBinding {
             card_definition: "RAV-CYCLOPEAN-SNARE",
             ability: ActivatedAbility {
                 id: "tap-target-creature",
@@ -6939,6 +6981,13 @@ pub fn rav_attachment_bindings() -> Vec<AttachmentBinding> {
 pub fn rav_static_continuous_effect_bindings() -> Vec<StaticContinuousEffectBinding> {
     vec![
         StaticContinuousEffectBinding {
+            card_definition: "RAV-CROWN-OF-CONVERGENCE",
+            change: cardbench_magic_engine::ContinuousChange::ControlledCreaturesSharingTopLibraryCreatureCardColorsModifyPowerToughness {
+                power: 1,
+                toughness: 1,
+            },
+        },
+        StaticContinuousEffectBinding {
             card_definition: "RAV-SCION-OF-THE-WILD",
             change: cardbench_magic_engine::ContinuousChange::ControlledCreatureCountPowerToughness,
         },
@@ -6978,14 +7027,20 @@ pub fn rav_static_continuous_effect_bindings() -> Vec<StaticContinuousEffectBind
 }
 
 /// Battlefield-only public-information bindings supplied by RAV. These do
-/// not create a stack object or cache a reveal receipt: a live source makes
-/// each current library top visible in every policy projection.
+/// not create a stack object or cache a reveal receipt: each binding declares
+/// whether a live source reveals every top card or only its controller's.
 #[must_use]
 pub fn rav_static_library_top_reveal_bindings() -> Vec<StaticLibraryTopRevealBinding> {
-    vec![StaticLibraryTopRevealBinding {
-        card_definition: "RAV-WIZENED-SNITCHES",
-        scope: cardbench_magic_engine::StaticLibraryTopRevealScope::EveryPlayer,
-    }]
+    vec![
+        StaticLibraryTopRevealBinding {
+            card_definition: "RAV-WIZENED-SNITCHES",
+            scope: cardbench_magic_engine::StaticLibraryTopRevealScope::EveryPlayer,
+        },
+        StaticLibraryTopRevealBinding {
+            card_definition: "RAV-CROWN-OF-CONVERGENCE",
+            scope: cardbench_magic_engine::StaticLibraryTopRevealScope::SourceController,
+        },
+    ]
 }
 
 /// Battlefield-only static attack restrictions supplied by the RAV set.
