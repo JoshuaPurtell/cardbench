@@ -1017,6 +1017,35 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![Effect::MillTargetPlayer { count: 10 }],
         },
+        // Bounded compatibility: casting retains the controller's explicit
+        // draw or discard mode and materializes its ordinary player target
+        // before the card leaves the hand. The target-discard branch uses the
+        // current engine's documented deterministic hand ordering until its
+        // recipient-private discard-selection substrate is available, so this
+        // card deliberately remains outside the positive fidelity manifest.
+        CardDefinition {
+            id: "RAV-CONSULT-THE-NECROSAGES",
+            name: "Consult the Necrosages",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(1, [Color::Blue, Color::Black]),
+            colors: colors([Color::Blue, Color::Black]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Sorcery]),
+            is_basic_land: false,
+            supported_rules: &[
+                "colored-cost-casting",
+                "caster-selected-modal-target-player-draw-or-discard",
+                "target-player-draw-two",
+                "target-player-discard-two-deterministic-oldest",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![Effect::ChooseOneOf(vec![
+                vec![Effect::DrawTargetPlayerCards { count: 2 }],
+                vec![Effect::DiscardTargetPlayer { count: 2 }],
+            ])],
+        },
         // Full fidelity: the expansion-neutral delayed-action substrate
         // records exact block-incarnation history, waits until the current
         // turn's end-of-combat boundary, then creates an ordinary stack

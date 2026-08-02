@@ -33,6 +33,7 @@ fn three_target_object(targets: Vec<Target>) -> StackObject {
         ],
         chosen_x: None,
         chosen_color: None,
+        chosen_modal_mode: None,
         mana_spent: None,
         convoke_symbols: 0,
         generic_cost_reduction: 0,

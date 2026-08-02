@@ -1695,6 +1695,15 @@ impl TokenSpec {
 /// Effects are executable semantics, not copied Oracle wording.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Effect {
+    /// Choose exactly one listed effect bundle as the spell is cast.  The
+    /// submitted zero-based mode is retained on the resulting stack object;
+    /// the unresolved card definition never silently defaults to a branch.
+    ///
+    /// This is intentionally a semantic action rather than reproduced card
+    /// wording.  Each chosen bundle is materialized before target validation,
+    /// cost payment, and stack placement, so a mode's targets and resolution
+    /// instructions remain ordinary typed engine behavior.
+    ChooseOneOf(Vec<Vec<Effect>>),
     DealDamage {
         amount: i16,
         target: TargetRequirement,
@@ -1926,6 +1935,13 @@ pub enum Effect {
     /// target slot preserves resolution-time legality instead of treating an
     /// opponent's draw as an untracked controller-side mutation.
     DrawTargetPlayer,
+    /// Draw a positive exact number of cards for one targeted player.  The
+    /// target is one spell target even when the effect performs several
+    /// ordinary draws, matching cards whose single target receives a fixed
+    /// draw quantity.
+    DrawTargetPlayerCards {
+        count: u8,
+    },
     /// Draw three cards for the targeted player, then suspend the resolving
     /// spell for that recipient's private choice of either one land card or
     /// two distinct cards to discard.  The instruction is one semantic unit:
@@ -2583,6 +2599,7 @@ impl Effect {
             Self::LoseLifeTarget { .. }
             | Self::CreateTokenForTargetPlayer { .. }
             | Self::DrawTargetPlayer
+            | Self::DrawTargetPlayerCards { .. }
             | Self::DrawTargetPlayerThenConditionalPrivateDiscard
             | Self::DiscardTargetPlayer { .. }
             | Self::MillTargetPlayer { .. }
@@ -2652,7 +2669,10 @@ impl Effect {
             Self::GrantExileCastPermissionUntilEndOfTurn { .. } => {
                 Some(TargetRequirement::InstantOrSorceryCardInControllerExile)
             }
-            Self::DealDamageController { .. }
+            // A modal placeholder never reaches the stack: cast materializes
+            // the selected bundle before target planning.
+            Self::ChooseOneOf(_)
+            | Self::DealDamageController { .. }
             | Self::LoseLifeController { .. }
             | Self::LoseLifeControllerForCountersOnSource { .. }
             | Self::LoseLifeEachOpponentEqualToControlledCreatures
@@ -3803,6 +3823,7 @@ pub struct PendingDecision {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum PolicyMoveKind {
     Cast,
+    CastWithMode,
     Draw,
     ChoosePrivateLibraryCards,
     ChoosePrivateOpponentLibraryCardToExile,
@@ -3951,6 +3972,11 @@ pub struct StackObject {
     /// The card color explicitly chosen while this spell was cast. Abilities
     /// do not use this field. Virtual spell copies preserve this provenance.
     pub chosen_color: Option<Color>,
+    /// The zero-based branch selected while casting a spell with
+    /// [`Effect::ChooseOneOf`].  It is source-definition provenance, not an
+    /// effect resolver default; activated abilities and nonmodal spells carry
+    /// `None`.
+    pub chosen_modal_mode: Option<u8>,
     /// Full color receipt for an explicitly selected spell or activated-ability
     /// payment. `None` denotes the legacy deterministic payment path, which
     /// is deliberately unavailable to effects that inspect colors spent.
@@ -4502,6 +4528,14 @@ pub enum GameEvent {
         player: PlayerId,
         card: ObjectId,
         color: Color,
+    },
+    /// The caster selected one explicit branch of a modal spell before it
+    /// entered the stack. The stack object retains the same index so a
+    /// replay can reject a substituted resolution branch.
+    SpellModeChosen {
+        player: PlayerId,
+        card: ObjectId,
+        mode: u8,
     },
     SpellCast {
         player: PlayerId,

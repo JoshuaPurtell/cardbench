@@ -141,6 +141,14 @@ pub struct CastRequest {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum PolicyAction {
     Cast(CastRequest),
+    /// Casts one modal spell while explicitly selecting its zero-based
+    /// branch. This remains one priority action: target choices and payment
+    /// are submitted atomically with the branch, while the stack retains the
+    /// resulting mode provenance for resolution-time auditing.
+    CastWithMode {
+        request: CastRequest,
+        mode: u8,
+    },
     /// Casts a spell while supplying the player's complete explicit mana
     /// allocation and, when the represented spell requires it, one chosen
     /// nonnegative `{X}` value.  This is the policy-facing counterpart to
@@ -289,6 +297,7 @@ impl PolicyAction {
             Self::Cast(_) | Self::CastWithPayment { .. } | Self::CastWithColorChoice { .. } => {
                 PolicyMoveKind::Cast
             }
+            Self::CastWithMode { .. } => PolicyMoveKind::CastWithMode,
             Self::Draw { .. } => PolicyMoveKind::Draw,
             Self::ChoosePrivateLibraryCards { .. } => PolicyMoveKind::ChoosePrivateLibraryCards,
             Self::ChoosePrivateOpponentLibraryCardToExile { .. } => {
@@ -3121,6 +3130,7 @@ impl Game {
             effects,
             chosen_x: generalized_cost_payment.chosen_x,
             chosen_color: None,
+            chosen_modal_mode: None,
             mana_spent,
             convoke_symbols: 0,
             generic_cost_reduction: 0,
@@ -4087,6 +4097,9 @@ impl Game {
         let kind = action.kind();
         match action {
             PolicyAction::Cast(request) => self.cast_spell(player, request)?,
+            PolicyAction::CastWithMode { request, mode } => {
+                self.cast_spell_with_mode(player, request, mode)?;
+            }
             PolicyAction::CastWithPayment {
                 request,
                 chosen_x,
@@ -5611,6 +5624,7 @@ impl Game {
                         }],
                         chosen_x: None,
                         chosen_color: None,
+                        chosen_modal_mode: None,
                         mana_spent: None,
                         convoke_symbols: 0,
                         generic_cost_reduction: 0,
@@ -6351,7 +6365,26 @@ impl Game {
 
     #[allow(clippy::needless_pass_by_value)] // Public cast requests remain owned transactional inputs.
     pub fn cast_spell(&mut self, player: PlayerId, request: CastRequest) -> Result<(), RulesError> {
-        self.atomic_transition(|game| game.cast_spell_impl(player, &request, None, None, None))
+        self.atomic_transition(|game| {
+            game.cast_spell_impl(player, &request, None, None, None, None)
+        })
+    }
+
+    /// Casts one modal spell with the policy's explicit zero-based branch.
+    /// The branch is materialized before target validation and payment, then
+    /// retained on the resulting stack item with a public receipt.  This
+    /// intentionally accepts neither an implicit default nor a second
+    /// no-priority decision after the card has left the hand.
+    #[allow(clippy::needless_pass_by_value)] // Owned request crosses the atomic cast boundary.
+    pub fn cast_spell_with_mode(
+        &mut self,
+        player: PlayerId,
+        request: CastRequest,
+        mode: u8,
+    ) -> Result<(), RulesError> {
+        self.atomic_transition(|game| {
+            game.cast_spell_impl(player, &request, None, None, None, Some(mode))
+        })
     }
 
     /// Casts a spell with explicit player-selected colors for all generic and
@@ -6365,7 +6398,7 @@ impl Game {
         selection: ManaPaymentSelection,
     ) -> Result<(), RulesError> {
         self.atomic_transition(|game| {
-            game.cast_spell_impl(player, &request, Some(&selection), None, None)
+            game.cast_spell_impl(player, &request, Some(&selection), None, None, None)
         })
     }
 
@@ -6381,7 +6414,14 @@ impl Game {
         selection: ManaPaymentSelection,
     ) -> Result<(), RulesError> {
         self.atomic_transition(|game| {
-            game.cast_spell_impl(player, &request, Some(&selection), Some(x_value), None)
+            game.cast_spell_impl(
+                player,
+                &request,
+                Some(&selection),
+                Some(x_value),
+                None,
+                None,
+            )
         })
     }
 
@@ -6396,7 +6436,7 @@ impl Game {
         color: Color,
     ) -> Result<(), RulesError> {
         self.atomic_transition(|game| {
-            game.cast_spell_impl(player, &request, None, None, Some(color))
+            game.cast_spell_impl(player, &request, None, None, Some(color), None)
         })
     }
 
@@ -6411,6 +6451,7 @@ impl Game {
         mana_payment_selection: Option<&ManaPaymentSelection>,
         chosen_x: Option<u8>,
         chosen_color: Option<Color>,
+        chosen_modal_mode: Option<u8>,
     ) -> Result<(), RulesError> {
         self.require_priority(player)?;
         let from_graveyard = self
@@ -6441,7 +6482,7 @@ impl Game {
         if !from_graveyard && effect_permission.is_none() {
             self.require_zone(request.card, Zone::Hand)?;
         }
-        let definition = self.card_definition(request.card)?.clone();
+        let mut definition = self.card_definition(request.card)?.clone();
         if definition.is_land() {
             return Err(RulesError::IllegalAction("lands are played, not cast"));
         }
@@ -6450,6 +6491,8 @@ impl Game {
                 "this spell's front-face effect is unsupported; report an engine weakness",
             ));
         }
+        definition.effects =
+            Self::materialize_spell_modal_effects(&definition.effects, chosen_modal_mode)?;
         let requires_chosen_x = definition.effects.iter().any(Effect::requires_chosen_x);
         if requires_chosen_x != chosen_x.is_some() {
             return Err(RulesError::IllegalAction(if requires_chosen_x {
@@ -6628,6 +6671,7 @@ impl Game {
             effects: definition.effects,
             chosen_x,
             chosen_color,
+            chosen_modal_mode,
             mana_spent: mana_spent.clone(),
             convoke_symbols: request.convoke.len(),
             generic_cost_reduction: applied_generic_cost_reduction,
@@ -6637,6 +6681,13 @@ impl Game {
                 player,
                 card: request.card,
                 color,
+            });
+        }
+        if let Some(mode) = chosen_modal_mode {
+            self.record_event(GameEvent::SpellModeChosen {
+                player,
+                card: request.card,
+                mode,
             });
         }
         if let Some(colors) = mana_spent {
@@ -6737,6 +6788,70 @@ impl Game {
             }
         }
         Ok(())
+    }
+
+    /// Expands the one selected [`Effect::ChooseOneOf`] bundle before the
+    /// ordinary cast path plans targets or moves the card from hand. Keeping
+    /// this pure makes the same rule usable by stack invariant validation.
+    fn materialize_spell_modal_effects(
+        effects: &[Effect],
+        chosen_mode: Option<u8>,
+    ) -> Result<Vec<Effect>, RulesError> {
+        let modal_positions = effects
+            .iter()
+            .enumerate()
+            .filter_map(|(index, effect)| matches!(effect, Effect::ChooseOneOf(_)).then_some(index))
+            .collect::<Vec<_>>();
+        match modal_positions.as_slice() {
+            [] if chosen_mode.is_none() => return Ok(effects.to_vec()),
+            [] => {
+                return Err(RulesError::IllegalAction(
+                    "a nonmodal spell cannot select a modal branch",
+                ));
+            }
+            [_] if chosen_mode.is_some() => {}
+            [_] => {
+                return Err(RulesError::IllegalAction(
+                    "a modal spell requires one explicit selected branch",
+                ));
+            }
+            _ => {
+                return Err(RulesError::IllegalAction(
+                    "a spell may contain at most one modal effect instruction",
+                ));
+            }
+        }
+
+        let mut materialized = Vec::new();
+        for effect in effects {
+            let Effect::ChooseOneOf(modes) = effect else {
+                materialized.push(effect.clone());
+                continue;
+            };
+            if modes.len() < 2 {
+                return Err(RulesError::IllegalAction(
+                    "a modal spell requires at least two nonempty branches",
+                ));
+            }
+            let selected = modes
+                .get(usize::from(
+                    chosen_mode.expect("modal branch checked above"),
+                ))
+                .ok_or(RulesError::IllegalAction(
+                    "the selected modal branch is outside the card definition",
+                ))?;
+            if selected.is_empty()
+                || selected
+                    .iter()
+                    .any(|effect| matches!(effect, Effect::ChooseOneOf(_)))
+            {
+                return Err(RulesError::IllegalAction(
+                    "a modal spell branch must be nonempty and cannot nest modal choices",
+                ));
+            }
+            materialized.extend(selected.iter().cloned());
+        }
+        Ok(materialized)
     }
 
     /// Returns the current permanent's copied mana value. A token (including
@@ -8686,6 +8801,7 @@ impl Game {
             effects: original.effects.clone(),
             chosen_x: original.chosen_x,
             chosen_color: original.chosen_color,
+            chosen_modal_mode: original.chosen_modal_mode,
             mana_spent: original.mana_spent.clone(),
             convoke_symbols: original.convoke_symbols,
             generic_cost_reduction: original.generic_cost_reduction,
@@ -9052,6 +9168,7 @@ impl Game {
                     convoke: vec![],
                     payment_mana_abilities: vec![],
                 },
+                None,
                 None,
                 None,
                 None,
@@ -9790,6 +9907,7 @@ impl Game {
             }],
             chosen_x: None,
             chosen_color: None,
+            chosen_modal_mode: None,
             mana_spent: None,
             convoke_symbols: 0,
             generic_cost_reduction: 0,
@@ -11118,7 +11236,15 @@ impl Game {
                     "a non-instant stack object has impossible sorcery timing",
                 ));
             }
-            if !is_ability && definition.effects != stack_object.effects {
+            let expected_spell_effects = if is_ability {
+                None
+            } else {
+                Some(Self::materialize_spell_modal_effects(
+                    &definition.effects,
+                    stack_object.chosen_modal_mode,
+                )?)
+            };
+            if !is_ability && expected_spell_effects.as_ref() != Some(&stack_object.effects) {
                 return Err(RulesError::IllegalAction(
                     "stack effects do not match the card definition",
                 ));
@@ -11334,6 +11460,11 @@ impl Game {
                         "stack ability fabricates a spell-only chosen color",
                     ));
                 }
+                if stack_object.chosen_modal_mode.is_some() {
+                    return Err(RulesError::IllegalAction(
+                        "stack ability fabricates a spell-only selected modal branch",
+                    ));
+                }
                 if activated.is_some_and(|(_, ability)| {
                     ability
                         .effects
@@ -11346,10 +11477,12 @@ impl Game {
                     ));
                 }
             }
+            let stack_effects = expected_spell_effects
+                .as_deref()
+                .unwrap_or(&definition.effects);
             if !is_ability
                 && !is_virtual_copy
-                && definition
-                    .effects
+                && stack_effects
                     .iter()
                     .any(Effect::requires_explicit_mana_spend)
                 && stack_object.mana_spent.as_ref().is_none_or(Vec::is_empty)
@@ -11358,7 +11491,7 @@ impl Game {
                     "a spent-mana conditional stack spell lacks its payment receipt",
                 ));
             }
-            let requires_chosen_x = definition.effects.iter().any(Effect::requires_chosen_x);
+            let requires_chosen_x = stack_effects.iter().any(Effect::requires_chosen_x);
             if !is_ability && requires_chosen_x != stack_object.chosen_x.is_some() {
                 return Err(RulesError::IllegalAction(
                     "a chosen-X stack spell lacks or fabricates its selected value",
@@ -13333,6 +13466,11 @@ impl Game {
                     "targeted discard must request at least one card",
                 ));
             }
+            if matches!(effect, Effect::DrawTargetPlayerCards { count: 0 }) {
+                return Err(RulesError::IllegalAction(
+                    "target-player draw count must be positive",
+                ));
+            }
             if let Effect::ShareControllerCreatureKeywordsUntilEndOfTurn { families } = effect {
                 if families.is_empty()
                     || families
@@ -13381,6 +13519,11 @@ impl Game {
                 ));
             }
             let amount = match effect {
+                Effect::ChooseOneOf(_) => {
+                    return Err(RulesError::IllegalAction(
+                        "a modal effect must be materialized during spell casting",
+                    ));
+                }
                 Effect::DealDamage { amount, .. }
                 | Effect::LoseLifeTarget { amount }
                 | Effect::LoseLifeController { amount }
@@ -13428,6 +13571,7 @@ impl Game {
                 | Effect::ReturnLinkedHandExileToControllerHand
                 | Effect::DrawControllerForEachControlledBasicLandType { .. }
                 | Effect::DrawTargetPlayer
+                | Effect::DrawTargetPlayerCards { .. }
                 | Effect::DrawTargetPlayerThenConditionalPrivateDiscard
                 | Effect::PreventLibrarySearchUntilEndOfTurn
                 | Effect::SearchControllerLibrary { .. }
@@ -15876,6 +16020,7 @@ impl Game {
             effects,
             chosen_x: None,
             chosen_color: None,
+            chosen_modal_mode: None,
             mana_spent: None,
             convoke_symbols: 0,
             generic_cost_reduction: 0,
@@ -18029,6 +18174,11 @@ impl Game {
         target: Option<Target>,
     ) -> Result<(), RulesError> {
         match effect {
+            Effect::ChooseOneOf(_) => {
+                return Err(RulesError::IllegalAction(
+                    "an unmaterialized modal effect reached stack resolution",
+                ));
+            }
             Effect::ChangeTargetOfTargetActivatedAbility => {
                 // A different legal target would have opened the typed
                 // no-priority continuation before this generic dispatcher.
@@ -18679,6 +18829,22 @@ impl Game {
                     other => return Err(RulesError::IllegalTarget(other)),
                 };
                 self.draw_card_from_spell_effect(player)?;
+            }
+            Effect::DrawTargetPlayerCards { count } => {
+                if *count == 0 {
+                    return Err(RulesError::IllegalAction(
+                        "target-player draw count must be positive",
+                    ));
+                }
+                let player = match target.ok_or(RulesError::IllegalAction(
+                    "missing target-player draw target",
+                ))? {
+                    Target::Player(player) if !self.players[player.0].lost => player,
+                    other => return Err(RulesError::IllegalTarget(other)),
+                };
+                for _ in 0..*count {
+                    self.draw_card_from_spell_effect(player)?;
+                }
             }
             Effect::DrawTargetPlayerThenConditionalPrivateDiscard => {
                 return Err(RulesError::IllegalAction(
