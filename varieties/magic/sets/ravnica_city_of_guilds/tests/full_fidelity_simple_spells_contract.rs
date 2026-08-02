@@ -19,6 +19,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-LIGHTNING-HELIX",
             "RAV-SEARING-MEDITATION",
             "RAV-BLOCKBUSTER",
+            "RAV-PEREGRINE-MASK",
             "RAV-PUTREFY",
             "RAV-GLIMPSE-THE-UNTHINKABLE",
             "RAV-GAZE-OF-THE-GORGON",
