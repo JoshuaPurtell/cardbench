@@ -80,7 +80,9 @@ same reusable source-incarnation hand-exile group: an opponent's upkeep moves
 the controller's current hand to exile, and the controller's upkeep returns
 only those exact exile incarnations before the following draw instruction. A
 source departure with no pending return ability records group expiry while the
-cards correctly remain in exile; a later re-entry cannot reclaim them.
+cards correctly remain in exile; a later re-entry cannot reclaim them. The
+link is source-incarnation rather than controller scoped, so a control change
+preserves former cards' owner-hand return while the new controller draws.
 
 Flame Fusillade is a positive-manifest entry. Its resolving spell snapshots
 only the caster's current creatures and gives each a typed layer-six tap
