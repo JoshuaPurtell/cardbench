@@ -11881,3 +11881,105 @@ mana = ["0:green:1"]
 mana_receipts = ["0:green:1"]
 event_markers = ["LandEntryLifePaid", "BoundManaAbilityActivated", "ManaAdded"]
 digest = "fnv1a64:b033add656c6d7d3"
+
+[[scenario]]
+id = "rav_sacred_foundry_paid_entry"
+seed = 0
+description = "Submit Sacred Foundry's optional two-life replacement, enter untapped, then produce selected White mana without using the stack."
+triggers = true
+
+[[scenario.card]]
+label = "foundry"
+owner = 0
+definition = "RAV-SACRED-FOUNDRY"
+zone = "hand"
+
+[[scenario.action]]
+kind = "play_land_with_entry_life_payment"
+player = 0
+card = "foundry"
+pay = true
+
+[[scenario.action]]
+kind = "activate_bound_mana_ability"
+player = 0
+card = "foundry"
+ability = "produce-white-or-red"
+color = "white"
+
+[scenario.expected]
+life = [18, 20]
+zones = ["foundry:battlefield"]
+tapped = ["foundry:true"]
+mana = ["0:white:1"]
+mana_receipts = ["0:white:1"]
+event_markers = ["LandEntryLifePaid", "BoundManaAbilityActivated", "ManaAdded"]
+digest = "fnv1a64:a16d6b52b048a999"
+
+[[scenario]]
+id = "rav_temple_garden_paid_entry"
+seed = 0
+description = "Submit Temple Garden's optional two-life replacement, enter untapped, then produce selected Green mana without using the stack."
+triggers = true
+
+[[scenario.card]]
+label = "garden"
+owner = 0
+definition = "RAV-TEMPLE-GARDEN"
+zone = "hand"
+
+[[scenario.action]]
+kind = "play_land_with_entry_life_payment"
+player = 0
+card = "garden"
+pay = true
+
+[[scenario.action]]
+kind = "activate_bound_mana_ability"
+player = 0
+card = "garden"
+ability = "produce-green-or-white"
+color = "green"
+
+[scenario.expected]
+life = [18, 20]
+zones = ["garden:battlefield"]
+tapped = ["garden:true"]
+mana = ["0:green:1"]
+mana_receipts = ["0:green:1"]
+event_markers = ["LandEntryLifePaid", "BoundManaAbilityActivated", "ManaAdded"]
+digest = "fnv1a64:b87010dd0da48cc9"
+
+[[scenario]]
+id = "rav_watery_grave_paid_entry"
+seed = 0
+description = "Submit Watery Grave's optional two-life replacement, enter untapped, then produce selected Blue mana without using the stack."
+triggers = true
+
+[[scenario.card]]
+label = "grave"
+owner = 0
+definition = "RAV-WATERY-GRAVE"
+zone = "hand"
+
+[[scenario.action]]
+kind = "play_land_with_entry_life_payment"
+player = 0
+card = "grave"
+pay = true
+
+[[scenario.action]]
+kind = "activate_bound_mana_ability"
+player = 0
+card = "grave"
+ability = "produce-blue-or-black"
+color = "blue"
+
+[scenario.expected]
+life = [18, 20]
+zones = ["grave:battlefield"]
+tapped = ["grave:true"]
+mana = ["0:blue:1"]
+mana_receipts = ["0:blue:1"]
+event_markers = ["LandEntryLifePaid", "BoundManaAbilityActivated", "ManaAdded"]
+digest = "fnv1a64:70baadd7a87d78d6"
