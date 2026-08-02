@@ -91,8 +91,8 @@ fn noncreature_cast_without_a_creature_is_countered_by_its_own_trigger() {
         .add_card(PlayerId(0), "RAV-BLOOD-FUNNEL", Zone::Battlefield)
         .expect("Blood Funnel setup");
     let spell = game
-        .add_card(PlayerId(0), "RAV-DRYADS-CARESS", Zone::Hand)
-        .expect("noncreature spell setup");
+        .add_card(PlayerId(0), "RAV-SCATTER-THE-SEEDS", Zone::Hand)
+        .expect("target-free noncreature spell setup");
     game.grant_mana(PlayerId(0), Color::Green, 3)
         .expect("reduced spell mana");
     game.cast_spell(
