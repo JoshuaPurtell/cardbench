@@ -14,6 +14,8 @@ fn add_payment(game: &mut Game) {
         .expect("blue mana");
     game.grant_mana(PlayerId(0), Color::Black, 1)
         .expect("black mana");
+    game.grant_mana(PlayerId(0), Color::Green, 1)
+        .expect("generic mana");
 }
 
 #[test]

@@ -7228,6 +7228,12 @@ definition = "RAV-ISLAND"
 zone = "battlefield"
 
 [[scenario.card]]
+label = "island2"
+owner = 0
+definition = "RAV-ISLAND"
+zone = "battlefield"
+
+[[scenario.card]]
 label = "swamp1"
 owner = 0
 definition = "RAV-SWAMP"
@@ -7281,6 +7287,12 @@ player = 1
 kind = "activate_mana_ability"
 player = 0
 card = "island"
+color = "blue"
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "island2"
 color = "blue"
 
 [[scenario.action]]
@@ -7357,7 +7369,7 @@ kind = "pass"
 player = 1
 
 [scenario.expected]
-zones = ["drover:battlefield", "exiter:hand", "clutch:graveyard", "island:battlefield", "swamp1:battlefield", "swamp2:battlefield", "plains1:battlefield", "plains2:battlefield", "plains3:battlefield"]
+zones = ["drover:battlefield", "exiter:hand", "clutch:graveyard", "island:battlefield", "island2:battlefield", "swamp1:battlefield", "swamp2:battlefield", "plains1:battlefield", "plains2:battlefield", "plains3:battlefield"]
 powers = ["drover:2"]
 toughnesses = ["drover:2"]
 token_count = 1
@@ -7365,7 +7377,7 @@ stack_size = 0
 priority = 0
 mana = ["0:blue:0", "0:black:0", "0:white:0"]
 event_markers = ["CardMoved", "TriggeredAbilityStacked", "CounterPlaced", "TokenCreated", "AbilityResolved"]
-digest = "fnv1a64:f8f38467f5ac2e2d"
+digest = "fnv1a64:e4348d63ac48e351"
 
 [[scenario]]
 id = "rav_keening_banshee_etb_modifier"
@@ -11763,6 +11775,11 @@ player = 0
 color = "black"
 amount = 1
 
+[[scenario.mana]]
+player = 0
+color = "green"
+amount = 1
+
 [[scenario.action]]
 kind = "cast"
 player = 0
@@ -11782,7 +11799,7 @@ life = [20, 17]
 zones = ["clutch:graveyard", "signet:hand"]
 stack_size = 0
 priority = 0
-mana = ["0:blue:0", "0:black:0"]
+mana = ["0:blue:0", "0:black:0", "0:green:0"]
 event_markers = ["SpellCast", "CardMoved", "LifeLost", "SpellResolved"]
 digest = "fnv1a64:23e0df735a7c82e3"
 

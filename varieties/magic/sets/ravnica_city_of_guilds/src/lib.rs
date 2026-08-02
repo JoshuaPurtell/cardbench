@@ -43,7 +43,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 239] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 240] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
@@ -99,6 +99,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 239] = [
     "RAV-NECROPLASM",
     "RAV-DIZZY-SPELL",
     "RAV-BRAINSPOIL",
+    "RAV-CLUTCH-OF-THE-UNDERCITY",
     "RAV-DISEMBOWEL",
     "RAV-NIGHTMARE-VOID",
     "RAV-MOONLIGHT-BARGAIN",
@@ -1736,23 +1737,24 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 Effect::DrawController,
             ],
         },
-        // The targeted bounce face is executable.  Transmute remains an
-        // explicit immediate hand-zone compatibility action, so this card is
-        // intentionally bounded rather than promoted to the positive manifest.
+        // Full fidelity: the targeted bounce front face snapshots the last
+        // battlefield controller for the life loss, and the generic Transmute
+        // activation resolves through its private, stack-backed search flow.
         CardDefinition {
             id: "RAV-CLUTCH-OF-THE-UNDERCITY",
             name: "Clutch of the Undercity",
             set_code: SET_CODE,
-            mana_cost: ManaCost::with_colors(1, [Color::Blue, Color::Black]),
+            mana_cost: ManaCost::with_colors(1, [Color::Blue, Color::Blue, Color::Black]),
             colors: colors([Color::Blue, Color::Black]),
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Instant]),
             is_basic_land: false,
             supported_rules: &[
+                "full-rules-fidelity",
                 "colored-cost-casting",
                 "targeted-permanent-bounce",
                 "controller-life-loss",
-                "immediate-hand-zone-transmute-compatibility",
+                "stack-backed-private-transmute",
             ],
             power: None,
             toughness: None,

@@ -48,13 +48,27 @@ fn audited_simple_spells_keep_their_precise_compatibility_boundaries() {
                 "stack-backed-private-transmute",
             ] as &[_],
         ),
+        (
+            "RAV-CLUTCH-OF-THE-UNDERCITY",
+            &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "targeted-permanent-bounce",
+                "controller-life-loss",
+                "stack-backed-private-transmute",
+            ] as &[_],
+        ),
     ];
     for (id, supported_rules) in expected {
         let spell = definition(id);
         assert_eq!(spell.supported_rules, supported_rules, "{id}");
         if !matches!(
             id,
-            "RAV-BRAINSPOIL" | "RAV-DIZZY-SPELL" | "RAV-MUDDLE-THE-MIXTURE" | "RAV-DRYADS-CARESS"
+            "RAV-BRAINSPOIL"
+                | "RAV-CLUTCH-OF-THE-UNDERCITY"
+                | "RAV-DIZZY-SPELL"
+                | "RAV-MUDDLE-THE-MIXTURE"
+                | "RAV-DRYADS-CARESS"
         ) {
             assert!(
                 !RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&id),
@@ -80,6 +94,10 @@ fn audited_simple_spells_keep_their_precise_compatibility_boundaries() {
     assert_eq!(
         definition("RAV-BRAINSPOIL").effects,
         vec![Effect::DestroyTargetNonblackCreature]
+    );
+    assert_eq!(
+        definition("RAV-CLUTCH-OF-THE-UNDERCITY").effects,
+        vec![Effect::ReturnTargetPermanentToHandAndLoseControllerLife { amount: 3 }]
     );
     assert_eq!(
         definition("RAV-MUDDLE-THE-MIXTURE").effects,

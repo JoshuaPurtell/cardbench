@@ -74,6 +74,9 @@ fn twilight_drover_triggers_when_another_creature_bounces_and_creates_spirit() {
     let blue = game
         .add_card(PlayerId(0), "RAV-ISLAND", Zone::Battlefield)
         .expect("blue source setup");
+    let blue_two = game
+        .add_card(PlayerId(0), "RAV-ISLAND", Zone::Battlefield)
+        .expect("second blue source setup");
     let black_one = game
         .add_card(PlayerId(0), "RAV-SWAMP", Zone::Battlefield)
         .expect("black source setup");
@@ -83,6 +86,7 @@ fn twilight_drover_triggers_when_another_creature_bounces_and_creates_spirit() {
     game.begin_game().expect("game begins");
     for (land, color) in [
         (blue, Color::Blue),
+        (blue_two, Color::Blue),
         (black_one, Color::Black),
         (black_two, Color::Black),
         (white, Color::White),

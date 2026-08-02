@@ -68,6 +68,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-NECROPLASM",
             "RAV-DIZZY-SPELL",
             "RAV-BRAINSPOIL",
+            "RAV-CLUTCH-OF-THE-UNDERCITY",
             "RAV-DISEMBOWEL",
             "RAV-NIGHTMARE-VOID",
             "RAV-MOONLIGHT-BARGAIN",
