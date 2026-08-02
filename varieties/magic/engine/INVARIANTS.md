@@ -294,9 +294,15 @@ Oracle Magic rules coverage.
   at most once, recomputes the live candidates after every choice, and keeps
   the rest of combat-damage assignment unchanged until the packet reaches
   zero or has no candidate. Only then can the queued packet suffix, state
-  actions, and triggers continue. Combat-specific prevention effects are not
-  yet represented in this ordering continuation, so the invariant does not
-  claim a complete replacement-event algebra.
+  actions, and triggers continue. Target-specific and target-free global
+  all-combat-damage prevention records participate with their exact record
+  ids and historical sources; a selected prevention record produces
+  `DamageReplacementApplied → CombatDamagePrevented`, zeroes only that
+  prospective packet, and is marked used without consuming its turn-bound
+  record. `DamageCannotBePrevented` excludes those prevention candidates but
+  not non-prevention amount replacements. Other replacement-effect classes
+  remain outside this bounded continuation, so the invariant does not claim a
+  complete replacement-event algebra.
 - `Keyword::DamageCannotBePrevented` excludes prevention only. It bypasses
   target shields, permanent shields, protection, and color-based prevention,
   but does not bypass a non-prevention damage redirection. A redirected event
