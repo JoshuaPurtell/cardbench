@@ -239,7 +239,14 @@ fn empty_library_recipient_loss_does_not_rollback_the_resolving_spell() {
     game.pass_priority(recipient)
         .expect("an empty-library loss completes, rather than rolls back, spell resolution");
 
-    assert!(game.players[recipient.0].lost, "recipient lost drawing from empty library");
+    println!(
+        "compulsive_research_empty_library_event_log={:#?}",
+        game.canonical_event_log()
+    );
+    assert!(
+        game.players[recipient.0].lost,
+        "recipient lost drawing from empty library"
+    );
     assert!(game.event_log.iter().any(|event| matches!(
         event,
         GameEvent::PlayerLost { player, reason: "attempted to draw from an empty library" }
@@ -249,6 +256,17 @@ fn empty_library_recipient_loss_does_not_rollback_the_resolving_spell() {
         event,
         GameEvent::SpellResolved { card } if *card == research
     )));
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::GameEnded { winner: Some(player) } if *player == caster
+    )));
+    assert!(game.stack.is_empty(), "terminal loss leaves no stack item");
+    assert!(
+        game.view_for_player(caster)
+            .expect("surviving player view")
+            .pending_decision
+            .is_none()
+    );
     game.validate_invariants()
         .expect("terminal loss branch preserves engine invariants");
 }

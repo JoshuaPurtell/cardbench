@@ -12272,9 +12272,40 @@ impl Game {
             self.draw_card_from_spell_effect(recipient)?;
         }
         if self.players[recipient.0].lost {
-            return Err(RulesError::IllegalAction(
-                "conditional private discard recipient left the game while drawing",
-            ));
+            // A draw from an empty library can eliminate the targeted
+            // recipient in the middle of this one instruction. The player
+            // cannot receive a private choice after leaving the game, but the
+            // already-resolving spell must still complete its terminal stack
+            // lifecycle rather than rolling the whole priority transaction
+            // back. If the departing player owned the spell, CR 800 cleanup
+            // may already have removed that stack object; its ObjectLeftGame
+            // receipt is then its terminal lifecycle.
+            if self
+                .stack
+                .last()
+                .is_some_and(|current| current.card == source)
+            {
+                self.stack.pop().ok_or(RulesError::IllegalAction(
+                    "conditional private discard stack spell disappeared during recipient loss",
+                ))?;
+                if self.objects.contains_key(&source) {
+                    self.record_event(GameEvent::SpellResolved { card: source });
+                    self.move_to_spell_terminal_zone(source)?;
+                }
+            } else if self.objects.contains_key(&source) {
+                return Err(RulesError::IllegalAction(
+                    "recipient loss removed an unrelated conditional discard stack item",
+                ));
+            }
+            self.check_state_based_actions()?;
+            self.flush_pending_dies_triggers();
+            self.flush_pending_land_entry_triggers()?;
+            self.flush_pending_damage_triggers();
+            self.flush_pending_life_gain_triggers();
+            self.flush_pending_dies_triggers();
+            self.restore_priority_after_stack_resolution();
+            self.record_game_end_if_needed();
+            return Ok(true);
         }
         let options = self.players[recipient.0]
             .hand
