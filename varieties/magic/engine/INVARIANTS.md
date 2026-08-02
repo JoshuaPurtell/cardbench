@@ -595,7 +595,10 @@ Oracle Magic rules coverage.
   `ObjectLeftGame` terminal provenance.
 - Every represented trigger condition captures one source/controller/payload
   event and reaches a common active-player-first placement pipeline after its
-  enclosing action. A target-bearing event stays outside the stack in its
+  enclosing action. The captured controller is the source's live
+  `controller_of` value at the trigger event, never its owner-bound base
+  controller, so a layer-two stolen source's generic leave or dies trigger
+  belongs to the player who controls it at that moment. A target-bearing event stays outside the stack in its
   generic target decision until its controller chooses every legal target;
   later events cannot overtake that pending placement. Dynamic damage-trigger
   instructions use the captured positive amount, not a later damage

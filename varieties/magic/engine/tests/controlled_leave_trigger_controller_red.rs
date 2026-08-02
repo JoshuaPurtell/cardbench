@@ -5,8 +5,7 @@ use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
     CardDefinition, CardType, CastRequest, ContinuousChange, Duration, Effect, Game, GameEvent,
-    ManaCost, PlayerId, Target, TriggerCondition, TriggeredAbility, TriggeredAbilityBinding,
-    Zone,
+    ManaCost, PlayerId, Target, TriggerCondition, TriggeredAbility, TriggeredAbilityBinding, Zone,
 };
 
 const OBSERVER: &str = "TST-CONTROLLED-LEAVE-OBSERVER";

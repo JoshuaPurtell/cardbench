@@ -19185,7 +19185,7 @@ impl Game {
             })
             .collect::<Vec<_>>();
         for (source, definition) in observers {
-            let controller = self.object(source)?.controller;
+            let controller = self.controller_of(source)?;
             self.enqueue_triggers_for_source(
                 source,
                 definition,
@@ -19285,7 +19285,7 @@ impl Game {
                 Some((
                     source,
                     definition.id,
-                    object.controller,
+                    self.controller_of(source).ok()?,
                     object.incarnation,
                     source_colors,
                 ))
