@@ -448,6 +448,14 @@ Oracle Magic rules coverage.
   cannot make the complete resolution fail. Each skipped instruction emits its own
   `TargetInstructionSkipped { effect_index, target }` diagnostic receipt. A
   resolving counter effect emits the distinct `SpellCountered` receipt.
+- `PutTargetCreatureOnOwnersLibraryTop` accepts only a live creature target
+  whose exact incarnation still matches the occurrence captured when its spell
+  or triggered ability entered the stack. Its zone transition uses the ordinary
+  owner-indexed `Library` move, so the card becomes the final library element
+  (the draw top) and receives normal zone-departure cleanup and an incarnation
+  receipt. If a response removes or re-enters the target, the original
+  occurrence is illegal; a sole-target trigger receives
+  `AbilityCounteredByRules` and must neither move nor affect the later object.
 - Every stack object also captures its source incarnation. Spell objects must
   name the source's current incarnation while they remain on the stack;
   activated and triggered abilities may intentionally retain a historical
