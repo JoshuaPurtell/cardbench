@@ -36,6 +36,21 @@ use crate::{
 type SourceCounterMaterialization = (CounterKind, i16);
 type MaterializedActivatedEffects = (Vec<Effect>, Vec<SourceCounterMaterialization>);
 
+/// The complete immutable context for resolving one generic single-card
+/// controller-library search. Keeping the search instruction together makes
+/// its resolution boundary explicit and prevents later effect fields from
+/// becoming positional resolver arguments.
+#[derive(Clone, Copy, Debug)]
+struct ControllerLibrarySearchResolution<'a> {
+    source: ObjectId,
+    player: PlayerId,
+    requirement: &'a LibrarySearchRequirement,
+    destination: LibrarySearchDestination,
+    selection: LibrarySearchSelection,
+    reveal_selected: bool,
+    chosen_x: Option<u8>,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum RulesError {
     UnknownPlayer(PlayerId),
@@ -10327,14 +10342,17 @@ impl Game {
     /// current-turn prevention effect has made that search fail automatically.
     fn resolve_controller_library_search(
         &mut self,
-        source: ObjectId,
-        player: PlayerId,
-        requirement: &LibrarySearchRequirement,
-        destination: LibrarySearchDestination,
-        selection: LibrarySearchSelection,
-        reveal_selected: bool,
-        chosen_x: Option<u8>,
+        resolution: ControllerLibrarySearchResolution<'_>,
     ) -> Result<(), RulesError> {
+        let ControllerLibrarySearchResolution {
+            source,
+            player,
+            requirement,
+            destination,
+            selection,
+            reveal_selected,
+            chosen_x,
+        } = resolution;
         let prevented = self.library_search_prevented_until == Some(self.turn);
         let candidates = (!prevented)
             .then(|| self.library_search_candidates(player, requirement, chosen_x))
@@ -19313,15 +19331,15 @@ impl Game {
                 selection,
                 reveal_selected,
             } => {
-                self.resolve_controller_library_search(
+                self.resolve_controller_library_search(ControllerLibrarySearchResolution {
                     source,
-                    controller,
                     requirement,
-                    *destination,
-                    *selection,
-                    *reveal_selected,
+                    player: controller,
+                    destination: *destination,
+                    selection: *selection,
+                    reveal_selected: *reveal_selected,
                     chosen_x,
-                )?;
+                })?;
             }
             Effect::SearchControllerLibraryAndCastInstantWithoutPayingManaCost {
                 selection,
