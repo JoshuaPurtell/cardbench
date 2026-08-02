@@ -340,6 +340,10 @@ fn a_card_can_copy_a_token_without_becoming_a_token() {
     assert_eq!((copied.power, copied.toughness), (Some(1), Some(1)));
     assert_eq!(copied.keywords, vec![Keyword::Flying]);
     assert!(game.object(target).expect("target exists").token.is_none());
+    assert!(
+        game.card_definition(target).is_err(),
+        "a card copying token values must not retain its physical card's definition-bound abilities"
+    );
     game.validate_invariants()
         .expect("token-copy state remains valid");
 }

@@ -8,13 +8,13 @@ use crate::{
     ActivatedAbilityKind, ActivatedManaAbility, AdditionalSpellCost, AdditionalSpellCostBinding,
     BasicLandType, BasicLandTypeBinding, CardDefinition, CardObject, CardType,
     CastPaymentManaAbility, Characteristics, Color, CombatBlock, ContinuousChange,
-    ContinuousEffect, CostReductionBinding, CounterKind, CreatureSubtype, DamageReplacementChoice,
-    DeckList, DelayedAction, DelayedActionId, DelayedActionKind, DelayedActionTiming, Duration,
-    Effect, GameEvent, Keyword, LandEntryBinding, LibrarySearchDestination,
-    LibrarySearchRequirement, LibrarySearchSelection, LinkedExileGroup, LinkedExileGroupId,
-    LinkedExileMember, LinkedExileMemberRole, ManaAbilityActivation, ManaAbilityBinding,
-    ManaAbilityOutput, ManaCost, ManaPaymentSelection, ObjectId, PlayerId, PlayerState,
-    PolicyMoveKind, ReplacementEffect, ReplacementEffectBinding, ReplacementEventKind,
+    ContinuousEffect, CopiableValues, CopiedPermanent, CostReductionBinding, CounterKind,
+    CreatureSubtype, DamageReplacementChoice, DeckList, DelayedAction, DelayedActionId,
+    DelayedActionKind, DelayedActionTiming, Duration, Effect, GameEvent, Keyword, LandEntryBinding,
+    LibrarySearchDestination, LibrarySearchRequirement, LibrarySearchSelection, LinkedExileGroup,
+    LinkedExileGroupId, LinkedExileMember, LinkedExileMemberRole, ManaAbilityActivation,
+    ManaAbilityBinding, ManaAbilityOutput, ManaCost, ManaPaymentSelection, ObjectId, PlayerId,
+    PlayerState, PolicyMoveKind, ReplacementEffect, ReplacementEffectBinding, ReplacementEventKind,
     StackEffectResolution, StackObject, StackResolutionPlan, StaticAttackRestriction,
     StaticAttackRestrictionBinding, StaticContinuousEffectBinding, Step, Target, TargetRequirement,
     TokenSpec, TriggerCondition, TriggeredAbilityBinding, Zone,
@@ -1369,13 +1369,87 @@ impl Game {
     }
 
     pub fn card_definition(&self, card: ObjectId) -> Result<&CardDefinition, RulesError> {
-        let object = self.object(card)?;
-        let definition = object
-            .definition
+        let definition = self
+            .effective_definition_id(card)?
             .ok_or(RulesError::IllegalAction("token has no card definition"))?;
         self.catalog
             .get(definition)
             .ok_or(RulesError::UnknownDefinition(definition))
+    }
+
+    /// Returns the definition currently used by definition-bound rules for an
+    /// object.  A layer-one card copy deliberately changes this identity for
+    /// characteristics, activated abilities, static bindings, and triggers;
+    /// `CardObject::definition` remains the physical card's printed identity
+    /// for ownership and zone bookkeeping.
+    fn effective_definition_id(&self, card: ObjectId) -> Result<Option<&'static str>, RulesError> {
+        Ok(self.object(card)?.effective_definition())
+    }
+
+    /// Returns the layer-one characteristics another permanent would copy
+    /// from this object.  It never evaluates counters, marked damage,
+    /// attachments, or later-layer continuous effects.
+    pub fn copiable_values(&self, card: ObjectId) -> Result<CopiableValues, RulesError> {
+        let object = self.object(card)?;
+        if let Some(copy) = &object.copied_permanent {
+            return Ok(copy.values.clone());
+        }
+        if let Some(token) = &object.token {
+            return Ok(CopiableValues::Token(token.clone()));
+        }
+        object
+            .definition
+            .map(CopiableValues::CardDefinition)
+            .ok_or(RulesError::IllegalAction(
+                "a copy source must have copiable card or token values",
+            ))
+    }
+
+    /// Applies a persistent layer-one copy snapshot from `source` to
+    /// `target`.  The source and target must be distinct live permanents. The
+    /// snapshot survives source departure but expires when the target changes
+    /// zones, at which point its next incarnation resumes its printed values.
+    pub fn copy_permanent(&mut self, target: ObjectId, source: ObjectId) -> Result<(), RulesError> {
+        self.atomic_transition(|game| {
+            game.require_game_in_progress()?;
+            if target == source {
+                return Err(RulesError::IllegalAction(
+                    "a copy effect requires distinct source and target permanents",
+                ));
+            }
+            game.require_zone(source, Zone::Battlefield)?;
+            game.require_zone(target, Zone::Battlefield)?;
+            let values = game.copiable_values(source)?;
+            let source_incarnation = game.object(source)?.incarnation;
+            let target_incarnation = game.object(target)?.incarnation;
+            let timestamp = game.next_timestamp;
+            game.next_timestamp =
+                game.next_timestamp
+                    .checked_add(1)
+                    .ok_or(RulesError::IllegalAction(
+                        "copy-effect timestamp counter overflowed",
+                    ))?;
+            game.objects
+                .get_mut(&target)
+                .ok_or(RulesError::UnknownCard(target))?
+                .copied_permanent = Some(CopiedPermanent {
+                values,
+                source,
+                source_incarnation,
+                timestamp,
+            });
+            game.record_event(GameEvent::PermanentCopied {
+                source,
+                source_incarnation,
+                target,
+                target_incarnation,
+                timestamp,
+            });
+            // A copy can make a creature noncreature or reduce its toughness;
+            // reach the ordinary SBA fixed point before exposing the result.
+            game.check_state_based_actions()?;
+            Ok(())
+        })
     }
 
     pub fn add_card(
@@ -1411,6 +1485,7 @@ impl Game {
                 attached_to_incarnation: None,
                 entered_turn: self.turn,
                 token: None,
+                copied_permanent: None,
             },
         );
         self.place_in_zone(owner, id, zone)?;
@@ -1778,9 +1853,11 @@ impl Game {
                 "this permanent's nonmana activated abilities are suppressed",
             ));
         }
-        let definition_id = source.definition.ok_or(RulesError::IllegalAction(
-            "a token has no definition-bound activated ability",
-        ))?;
+        let definition_id =
+            self.effective_definition_id(activation.source)?
+                .ok_or(RulesError::IllegalAction(
+                    "a token has no definition-bound activated ability",
+                ))?;
         let ability = self
             .activated_abilities
             .get(definition_id)
@@ -2031,6 +2108,7 @@ impl Game {
             player,
             source: activation.source,
             source_incarnation: source.incarnation,
+            definition: definition_id,
             ability: ability.id,
         });
         self.consecutive_passes = 0;
@@ -2056,9 +2134,11 @@ impl Game {
                 "mana ability source must be controlled by its activator",
             ));
         }
-        let definition = source.definition.ok_or(RulesError::IllegalAction(
-            "a token has no definition-bound mana ability",
-        ))?;
+        let definition =
+            self.effective_definition_id(activation.source)?
+                .ok_or(RulesError::IllegalAction(
+                    "a token has no definition-bound mana ability",
+                ))?;
         let ability = self
             .mana_abilities
             .get(definition)
@@ -2294,9 +2374,9 @@ impl Game {
 
     /// Returns the registered typed basic-land type line for a card object.
     pub fn basic_land_type(&self, card: ObjectId) -> Result<Option<BasicLandType>, RulesError> {
-        let object = self.object(card)?;
-        Ok(object
-            .definition
+        self.object(card)?;
+        Ok(self
+            .effective_definition_id(card)?
             .and_then(|definition| self.basic_land_types.get(definition).copied()))
     }
 
@@ -2742,26 +2822,34 @@ impl Game {
         self.validate_invariants()
     }
 
+    #[allow(clippy::too_many_lines)] // One pure layer derivation is easier to audit in order.
     pub fn characteristics(&self, card: ObjectId) -> Result<Characteristics, RulesError> {
         let object = self.object(card)?;
-        let mut characteristics = if let Some(token) = &object.token {
-            Characteristics {
-                colors: token.colors.clone(),
-                card_types: token.card_types.clone(),
-                creature_subtypes: token.creature_subtypes.clone(),
+        // Begin with layer-one copiable values.  This deliberately precedes
+        // all static and timestamped continuous effects, then counters at
+        // layer seven; no derived runtime state of the copy source is read.
+        let mut characteristics = match self.copiable_values(card)? {
+            CopiableValues::Token(token) => Characteristics {
+                colors: token.colors,
+                card_types: token.card_types,
+                creature_subtypes: token.creature_subtypes,
                 power: Some(i32::from(token.power)),
                 toughness: Some(i32::from(token.toughness)),
-                keywords: token.keywords.clone(),
-            }
-        } else {
-            let definition = self.card_definition(card)?;
-            Characteristics {
-                colors: definition.colors.clone(),
-                card_types: definition.card_types.clone(),
-                creature_subtypes: BTreeSet::new(),
-                power: definition.power.map(i32::from),
-                toughness: definition.toughness.map(i32::from),
-                keywords: definition.keywords.clone(),
+                keywords: token.keywords,
+            },
+            CopiableValues::CardDefinition(definition_id) => {
+                let definition = self
+                    .catalog
+                    .get(definition_id)
+                    .ok_or(RulesError::UnknownDefinition(definition_id))?;
+                Characteristics {
+                    colors: definition.colors.clone(),
+                    card_types: definition.card_types.clone(),
+                    creature_subtypes: BTreeSet::new(),
+                    power: definition.power.map(i32::from),
+                    toughness: definition.toughness.map(i32::from),
+                    keywords: definition.keywords.clone(),
+                }
             }
         };
         if self.zone_of(card) == Some(Zone::Battlefield) {
@@ -2770,7 +2858,7 @@ impl Game {
             // rather than only the queried card so controller-scoped anthems
             // do not disappear from their intended recipients.
             for source in self.all_battlefield_cards() {
-                let Some(definition) = self.object(source)?.definition else {
+                let Some(definition) = self.effective_definition_id(source)? else {
                     continue;
                 };
                 let Some(changes) = self.static_continuous_effects.get(definition) else {
@@ -2954,8 +3042,9 @@ impl Game {
                     self.objects.get(card).is_some_and(|object| {
                         object.token.as_ref().map_or_else(
                             || {
-                                object
-                                    .definition
+                                self.effective_definition_id(**card)
+                                    .ok()
+                                    .flatten()
                                     .and_then(|definition| self.catalog.get(definition))
                                     .is_some_and(CardDefinition::is_creature)
                             },
@@ -3097,7 +3186,10 @@ impl Game {
         if self.object(card)?.token.is_some() {
             return Ok(false);
         }
-        Ok(self.card_definition(card)?.effects.iter().any(|effect| {
+        let Some(definition) = self.effective_definition_id(card)? else {
+            return Ok(false);
+        };
+        Ok(self.catalog[definition].effects.iter().any(|effect| {
             matches!(
                 effect,
                 Effect::AttachSourceAndModifyTargetPt { .. } | Effect::AttachSourceToTarget { .. }
@@ -3112,8 +3204,10 @@ impl Game {
         if self.object(card)?.token.is_some() {
             return Ok(None);
         }
-        Ok(self
-            .card_definition(card)?
+        let Some(definition) = self.effective_definition_id(card)? else {
+            return Ok(None);
+        };
+        Ok(self.catalog[definition]
             .effects
             .iter()
             .find_map(|effect| match effect {
@@ -3425,7 +3519,7 @@ impl Game {
             if object.controller != defending_player {
                 continue;
             }
-            let Some(definition_id) = object.definition else {
+            let Some(definition_id) = self.effective_definition_id(source)? else {
                 continue;
             };
             if self
@@ -4601,9 +4695,11 @@ impl Game {
                             .tapped = true;
                     }
                     let object = self.object(card)?;
-                    let definition = object.definition.ok_or(RulesError::IllegalAction(
-                        "a token cannot be selected from a library",
-                    ))?;
+                    let definition =
+                        self.effective_definition_id(card)?
+                            .ok_or(RulesError::IllegalAction(
+                                "a token cannot be selected from a library",
+                            ))?;
                     entered_permanent = Some((card, definition, object.controller));
                 }
                 LibrarySearchDestination::Hand => self.move_to_zone(card, Zone::Hand)?,
@@ -5032,6 +5128,7 @@ impl Game {
         }
         Self::validate_mana_ability_event_order(&self.event_log)?;
         Self::validate_object_incarnation_event_order(&self.event_log)?;
+        Self::validate_permanent_copy_event_order(&self.event_log)?;
         Self::validate_library_search_event_order(&self.event_log)?;
         Self::validate_aura_attachment_event_order(&self.event_log)?;
         Self::validate_delayed_action_event_order(&self.event_log)?;
@@ -5638,6 +5735,27 @@ impl Game {
                             "object has impossible turn metadata, damage/shield, or counters",
                         ));
                     }
+                    if let Some(copy) = &object.copied_permanent {
+                        if zone != Zone::Battlefield
+                            || copy.source == *card
+                            || copy.source_incarnation == 0
+                            || copy.timestamp == 0
+                        {
+                            return Err(RulesError::IllegalAction(
+                                "permanent copy state has an invalid endpoint or provenance",
+                            ));
+                        }
+                        match &copy.values {
+                            CopiableValues::CardDefinition(definition) => {
+                                if !self.catalog.contains_key(definition) {
+                                    return Err(RulesError::UnknownDefinition(definition));
+                                }
+                            }
+                            CopiableValues::Token(token) => {
+                                Self::validate_token_spec(token)?;
+                            }
+                        }
+                    }
                     match (object.definition, object.token.as_ref()) {
                         (Some(definition), None) => {
                             let definition = self
@@ -5744,8 +5862,8 @@ impl Game {
                     "a battlefield ability source must remain controlled by its activator",
                 ));
             }
-            let definition = object
-                .definition
+            let definition = self
+                .effective_definition_id(stack_object.card)?
                 .and_then(|definition| self.catalog.get(definition))
                 .ok_or(RulesError::IllegalAction(
                     "a stack object must be a non-token card with a catalog definition",
@@ -5997,7 +6115,7 @@ impl Game {
                     let target_definition = self
                         .object(*card)
                         .ok()
-                        .and_then(|object| object.definition)
+                        .and_then(CardObject::effective_definition)
                         .or_else(|| self.departed_card_definitions.get(card).copied())
                         .and_then(|definition| self.catalog.get(definition));
                     if !target_definition.is_some_and(|definition| {
@@ -6137,6 +6255,16 @@ impl Game {
             }
         }
         let mut effect_timestamps = BTreeSet::new();
+        for card in self.all_battlefield_cards() {
+            if let Some(copy) = &self.object(card)?.copied_permanent
+                && (copy.timestamp >= self.next_timestamp
+                    || !effect_timestamps.insert(copy.timestamp))
+            {
+                return Err(RulesError::IllegalAction(
+                    "permanent-copy timestamps are not unique and monotonic",
+                ));
+            }
+        }
         for effect in &self.continuous_effects {
             if effect.source_incarnation == 0
                 || effect.target_incarnation == 0
@@ -6202,8 +6330,18 @@ impl Game {
                 }
                 continue;
             }
+            let Some(definition) = self.effective_definition_id(aura)? else {
+                if object.attached_to.is_some() || object.attached_to_incarnation.is_some() {
+                    return Err(RulesError::IllegalAction(
+                        "a token-value copied permanent retains an attachment target",
+                    ));
+                }
+                continue;
+            };
             let attachment_specs = self
-                .card_definition(aura)?
+                .catalog
+                .get(definition)
+                .ok_or(RulesError::UnknownDefinition(definition))?
                 .effects
                 .iter()
                 .filter_map(|effect| match effect {
@@ -6583,7 +6721,7 @@ impl Game {
                     .objects
                     .get(&source)
                     .filter(|object| object.controller == affected_player)
-                    .and_then(|object| object.definition)
+                    .and_then(CardObject::effective_definition)
                 else {
                     return Vec::new();
                 };
@@ -6622,7 +6760,8 @@ impl Game {
                 if object.controller != player {
                     return None;
                 }
-                let binding = self.cost_reductions.get(object.definition?)?;
+                let source_definition = self.effective_definition_id(source).ok()??;
+                let binding = self.cost_reductions.get(source_definition)?;
                 if binding.noncreature_only && definition.card_types.contains(&CardType::Creature) {
                     return None;
                 }
@@ -6656,7 +6795,7 @@ impl Game {
         let mut reductions = Vec::new();
         for modifier_source in self.all_battlefield_cards() {
             let object = self.object(modifier_source)?;
-            let Some(definition) = object.definition else {
+            let Some(definition) = self.effective_definition_id(modifier_source)? else {
                 continue;
             };
             let Some(modifiers) = self.activated_ability_cost_modifiers.get(definition) else {
@@ -7805,7 +7944,7 @@ impl Game {
         spell: ObjectId,
     ) -> Result<(), RulesError> {
         for source in self.players[controller.0].battlefield.clone() {
-            let Some(definition) = self.object(source)?.definition else {
+            let Some(definition) = self.effective_definition_id(source)? else {
                 continue;
             };
             let source_colors = self.characteristics(source)?.colors;
@@ -7851,7 +7990,7 @@ impl Game {
         for source in sources {
             let (definition, controller) = {
                 let object = self.object(source)?;
-                (object.definition, object.controller)
+                (self.effective_definition_id(source)?, object.controller)
             };
             let Some(definition) = definition else {
                 continue;
@@ -11655,6 +11794,7 @@ impl Game {
                 attached_to_incarnation: None,
                 entered_turn: self.turn,
                 token: Some(token),
+                copied_permanent: None,
             },
         );
         self.place_in_zone(controller, id, Zone::Battlefield)?;
@@ -11664,6 +11804,8 @@ impl Game {
     fn move_to_graveyard_or_remove_token(&mut self, card: ObjectId) -> Result<(), RulesError> {
         if self.object(card)?.token.is_some() {
             let was_battlefield = self.zone_of(card) == Some(Zone::Battlefield);
+            let expired_copy = self.object(card)?.copied_permanent.clone();
+            let token_incarnation = self.object(card)?.incarnation;
             if was_battlefield {
                 self.enqueue_another_creature_dies_triggers(card)?;
             }
@@ -11671,6 +11813,13 @@ impl Game {
             self.objects.remove(&card);
             self.regeneration_shields.remove(&card);
             self.record_event(GameEvent::TokenCeasedToExist { token: card });
+            if let Some(copy) = expired_copy {
+                self.record_event(GameEvent::PermanentCopyExpired {
+                    target: card,
+                    target_incarnation: token_incarnation,
+                    timestamp: copy.timestamp,
+                });
+            }
             self.expire_continuous_effects_involving(card);
             return Ok(());
         }
@@ -11748,6 +11897,15 @@ impl Game {
         let left_battlefield =
             previous_zone == Some(Zone::Battlefield) && zone != Zone::Battlefield;
         self.remove_from_all_zones(card);
+        let expired_copy = if left_battlefield {
+            self.objects
+                .get_mut(&card)
+                .ok_or(RulesError::UnknownCard(card))?
+                .copied_permanent
+                .take()
+        } else {
+            None
+        };
         if left_battlefield {
             self.regeneration_shields.remove(&card);
             self.objects
@@ -11787,6 +11945,13 @@ impl Game {
             self.record_event(GameEvent::ObjectIncarnationAdvanced {
                 object: card,
                 incarnation: self.object(card)?.incarnation,
+            });
+        }
+        if let Some(copy) = expired_copy {
+            self.record_event(GameEvent::PermanentCopyExpired {
+                target: card,
+                target_incarnation: object.incarnation,
+                timestamp: copy.timestamp,
             });
         }
         if left_battlefield {
@@ -12518,6 +12683,54 @@ impl Game {
                 ));
             }
             last.insert(*object, *incarnation);
+        }
+        Ok(())
+    }
+
+    /// Copy receipts contain all source/target incarnation provenance needed
+    /// to replay the layer-one lifecycle without consulting mutable derived
+    /// characteristics.  The live-object audit separately proves that an
+    /// active snapshot has not crossed a zone boundary.
+    fn validate_permanent_copy_event_order(events: &[GameEvent]) -> Result<(), RulesError> {
+        let mut created = BTreeSet::new();
+        let mut expired = BTreeSet::new();
+        for event in events {
+            match event {
+                GameEvent::PermanentCopied {
+                    source,
+                    source_incarnation,
+                    target,
+                    target_incarnation,
+                    timestamp,
+                } => {
+                    if source.0 == 0
+                        || target.0 == 0
+                        || source == target
+                        || *source_incarnation == 0
+                        || *target_incarnation == 0
+                        || *timestamp == 0
+                        || !created.insert(*timestamp)
+                    {
+                        return Err(RulesError::IllegalAction(
+                            "permanent-copy receipt has invalid or duplicate provenance",
+                        ));
+                    }
+                }
+                GameEvent::PermanentCopyExpired {
+                    target,
+                    target_incarnation,
+                    timestamp,
+                } if target.0 == 0
+                    || *target_incarnation == 0
+                    || *timestamp == 0
+                    || !expired.insert(*timestamp) =>
+                {
+                    return Err(RulesError::IllegalAction(
+                        "permanent-copy expiry receipt has invalid provenance",
+                    ));
+                }
+                _ => {}
+            }
         }
         Ok(())
     }
@@ -13439,7 +13652,7 @@ impl Game {
             let definition = self
                 .objects
                 .get(source)
-                .and_then(|object| object.definition)
+                .and_then(CardObject::effective_definition)
                 .or_else(|| self.departed_card_definitions.get(source).copied())
                 .ok_or(RulesError::IllegalAction(
                     "replacement receipt source has no catalog definition",
@@ -13521,18 +13734,13 @@ impl Game {
             let GameEvent::AbilityActivated {
                 player,
                 source,
+                definition: source_definition,
                 ability,
                 ..
             } = event
             else {
                 continue;
             };
-            let source_definition =
-                self.object(*source)?
-                    .definition
-                    .ok_or(RulesError::IllegalAction(
-                        "sacrifice-cost receipt names a token source",
-                    ))?;
             let binding = self
                 .activated_abilities
                 .get(source_definition)
@@ -13699,22 +13907,17 @@ impl Game {
                     "discard-cost receipt names a card not owned by its payer",
                 ));
             }
-            let source_definition =
-                self.object(*source)?
-                    .definition
-                    .ok_or(RulesError::IllegalAction(
-                        "discard-cost receipt names a token source",
-                    ))?;
-            let ability_id = self
+            let (source_definition, ability_id) = self
                 .event_log
                 .iter()
                 .skip(index + 1)
                 .find_map(|event| match event {
                     GameEvent::AbilityActivated {
                         source: activated_source,
+                        definition,
                         ability,
                         ..
-                    } if activated_source == source => Some(*ability),
+                    } if activated_source == source => Some((*definition, *ability)),
                     _ => None,
                 })
                 .ok_or(RulesError::IllegalAction(
@@ -13745,6 +13948,7 @@ impl Game {
             let GameEvent::AbilityActivated {
                 player,
                 source,
+                definition: source_definition,
                 ability,
                 ..
             } = event
@@ -13768,12 +13972,6 @@ impl Game {
                 consumed.insert(index);
                 selected.push(*permanent);
             }
-            let source_definition =
-                self.object(*source)?
-                    .definition
-                    .ok_or(RulesError::IllegalAction(
-                        "additional tap-cost receipt names a token source",
-                    ))?;
             let bound = self
                 .activated_abilities
                 .get(source_definition)
@@ -14174,12 +14372,11 @@ impl Game {
     fn card_view(&self, card: ObjectId) -> Result<CardView, RulesError> {
         let object = self.object(card)?;
         let characteristics = self.characteristics(card)?;
-        let mana_colors = object
-            .definition
+        let effective_definition = self.effective_definition_id(card)?;
+        let mana_colors = effective_definition
             .and_then(|definition| self.catalog.get(definition))
             .map_or_else(BTreeSet::new, |definition| definition.mana_colors.clone());
-        let basic_land_type = object
-            .definition
+        let basic_land_type = effective_definition
             .and_then(|definition| self.basic_land_types.get(definition).copied());
         let can_attack = object.controller == self.active_player
             && self.zone_of(card) == Some(Zone::Battlefield)
@@ -14190,7 +14387,7 @@ impl Game {
             && !characteristics.keywords.contains(&Keyword::Defender);
         Ok(CardView {
             id: card,
-            definition: object.definition,
+            definition: effective_definition,
             controller: object.controller,
             tapped: object.tapped,
             colors: characteristics.colors,

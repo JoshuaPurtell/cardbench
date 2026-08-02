@@ -2079,6 +2079,59 @@ pub struct CardObject {
     pub attached_to_incarnation: Option<u64>,
     pub entered_turn: u32,
     pub token: Option<TokenSpec>,
+    /// A layer-one copy snapshot currently applied to this battlefield
+    /// incarnation.  It deliberately contains copiable values only: marked
+    /// damage, counters, attachments, controller, tapped state, and ordinary
+    /// timestamped effects remain runtime state of this object.
+    pub copied_permanent: Option<CopiedPermanent>,
+}
+
+/// The characteristic payload an object contributes when another permanent
+/// becomes a copy of it.  This is intentionally distinct from
+/// [`Characteristics`], which includes later-layer effects and counters.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum CopiableValues {
+    /// A non-token card's printed definition, or the definition that it is
+    /// already copying.  Definition-bound abilities are consequently copied
+    /// without cloning executable closures or borrowing live source state.
+    CardDefinition(&'static str),
+    /// A token's creation specification.  Copying this into a card changes
+    /// its characteristics but does not turn that card into a token.
+    Token(TokenSpec),
+}
+
+/// Persistent layer-one state for a permanent-copy effect.
+///
+/// The source identity is event and audit provenance only.  A copy effect is
+/// a snapshot, so it remains after that source leaves the battlefield; the
+/// target's own zone change clears it and starts a fresh incarnation.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CopiedPermanent {
+    pub values: CopiableValues,
+    pub source: ObjectId,
+    pub source_incarnation: u64,
+    pub timestamp: u64,
+}
+
+impl CardObject {
+    /// Returns the definition currently exposed to definition-bound rules.
+    /// A token-value copy intentionally returns `None` even when the physical
+    /// object is a card: that card has copied a token's characteristics and
+    /// must not retain its own activated/static definition-bound abilities.
+    #[must_use]
+    pub fn effective_definition(&self) -> Option<&'static str> {
+        match &self.copied_permanent {
+            Some(CopiedPermanent {
+                values: CopiableValues::CardDefinition(definition),
+                ..
+            }) => Some(*definition),
+            Some(CopiedPermanent {
+                values: CopiableValues::Token(_),
+                ..
+            }) => None,
+            None => self.definition,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -2099,6 +2152,9 @@ pub struct Characteristics {
 
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub enum Layer {
+    /// Layer one copy effects are represented as an object-local copiable
+    /// snapshot rather than a timestamped layer-4--7 continuous effect.
+    Copy = 1,
     Type = 4,
     Color = 5,
     Ability = 6,
@@ -2783,6 +2839,11 @@ pub enum GameEvent {
         /// The source's incarnation at activation time.  A stable object ID
         /// can leave and return before its ability resolves.
         source_incarnation: u64,
+        /// Effective definition-bound identity at activation time. A copied
+        /// permanent can later change zones and resume its printed definition,
+        /// so replay must not look up this historical ability from mutable
+        /// current characteristics.
+        definition: &'static str,
         ability: &'static str,
     },
     TriggeredAbilityStacked {
@@ -2951,6 +3012,24 @@ pub enum GameEvent {
     },
     TokenCeasedToExist {
         token: ObjectId,
+    },
+    /// A live permanent received a layer-one snapshot of another permanent's
+    /// copiable values.  The source incarnation is provenance only: later
+    /// source zone changes do not revoke the copied values.
+    PermanentCopied {
+        source: ObjectId,
+        source_incarnation: u64,
+        target: ObjectId,
+        target_incarnation: u64,
+        timestamp: u64,
+    },
+    /// A copied permanent left the battlefield, so that incarnation's
+    /// layer-one snapshot ceased.  The ordinary zone and incarnation receipts
+    /// remain the source of truth for the new object.
+    PermanentCopyExpired {
+        target: ObjectId,
+        target_incarnation: u64,
+        timestamp: u64,
     },
     ObjectLeftGame {
         object: ObjectId,
