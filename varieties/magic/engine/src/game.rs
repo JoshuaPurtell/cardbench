@@ -1528,6 +1528,7 @@ impl Game {
                         | TriggerCondition::Dies
                         | TriggerCondition::AnotherCreatureLeavesBattlefield
                         | TriggerCondition::AnotherCreatureDies
+                        | TriggerCondition::ControlledNontokenCreatureDies
                         | TriggerCondition::OpponentCardPutIntoGraveyard
                         | TriggerCondition::Attacks
                         | TriggerCondition::Blocks
@@ -9915,6 +9916,7 @@ impl Game {
                             | TriggerCondition::Dies
                             | TriggerCondition::AnotherCreatureLeavesBattlefield
                             | TriggerCondition::AnotherCreatureDies
+                            | TriggerCondition::ControlledNontokenCreatureDies
                             | TriggerCondition::OpponentCardPutIntoGraveyard
                             | TriggerCondition::Attacks
                             | TriggerCondition::Blocks
@@ -15316,6 +15318,54 @@ impl Game {
         Ok(())
     }
 
+    /// Captures live permanent sources that observe one nontoken creature
+    /// dying under their controller's control.  Unlike
+    /// `AnotherCreatureDies`, this condition is controller-scoped and does
+    /// not exclude the source: an enchantment creature with this text can
+    /// observe its own death using last-known battlefield information.
+    fn enqueue_controlled_nontoken_creature_dies_triggers(
+        &mut self,
+        dying_creature: ObjectId,
+    ) -> Result<(), RulesError> {
+        if self.object(dying_creature)?.token.is_some()
+            || !self
+                .characteristics(dying_creature)?
+                .card_types
+                .contains(&CardType::Creature)
+        {
+            return Ok(());
+        }
+        let dying_controller = self.controller_of(dying_creature)?;
+        let observers = self
+            .all_battlefield_cards()
+            .into_iter()
+            .filter_map(|source| {
+                let object = self.object(source).ok()?;
+                if object.token.is_some() || self.controller_of(source).ok()? != dying_controller {
+                    return None;
+                }
+                let definition = self.card_definition(source).ok()?;
+                self.triggered_abilities
+                    .get(definition.id)
+                    .into_iter()
+                    .flat_map(|abilities| abilities.values())
+                    .any(|ability| {
+                        ability.condition == TriggerCondition::ControlledNontokenCreatureDies
+                    })
+                    .then_some((source, definition.id, dying_controller))
+            })
+            .collect::<Vec<_>>();
+        for (source, definition, controller) in observers {
+            self.enqueue_triggers_for_source(
+                source,
+                definition,
+                controller,
+                TriggerCondition::ControlledNontokenCreatureDies,
+            );
+        }
+        Ok(())
+    }
+
     /// Captures every battlefield permanent with an "another creature leaves
     /// the battlefield" trigger before the departing object changes zones.
     /// The source incarnation and colors are sampled while the source still
@@ -19322,6 +19372,7 @@ impl Game {
             if was_battlefield {
                 self.enqueue_another_creature_leaves_battlefield_triggers(card)?;
                 self.enqueue_another_creature_dies_triggers(card)?;
+                self.enqueue_controlled_nontoken_creature_dies_triggers(card)?;
             }
             self.remove_from_all_zones(card);
             self.objects.remove(&card);
@@ -19351,6 +19402,7 @@ impl Game {
         let definition = self.card_definition(card)?.id;
         if was_battlefield {
             self.enqueue_another_creature_dies_triggers(card)?;
+            self.enqueue_controlled_nontoken_creature_dies_triggers(card)?;
         }
         self.move_to_zone(card, Zone::Graveyard)?;
         if was_battlefield {

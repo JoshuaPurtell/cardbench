@@ -378,6 +378,11 @@ pub enum TriggerCondition {
     /// either object, so simultaneous deaths retain their normal historical
     /// trigger provenance.
     AnotherCreatureDies,
+    /// A nontoken creature controlled by this trigger source's controller
+    /// was put into a graveyard from the battlefield.  The source is sampled
+    /// before the departure, so a control-changing effect on either permanent
+    /// uses the live controller at the moment of death.
+    ControlledNontokenCreatureDies,
     /// A card entered a graveyard owned by a player other than this source's
     /// current controller. The prior zone is intentionally unconstrained:
     /// discards, mills, destroyed permanents, countered spells, and costs all

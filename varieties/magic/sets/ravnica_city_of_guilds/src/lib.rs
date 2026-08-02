@@ -43,7 +43,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 193] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 194] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
@@ -59,6 +59,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 193] = [
     "RAV-DROOLING-GROODION",
     "RAV-DARK-HEART-OF-THE-WOOD",
     "RAV-GOLGARI-ROTWURM",
+    "RAV-GOLGARI-GERMINATION",
     "RAV-SCATTER-THE-SEEDS",
     "RAV-DOUBLING-SEASON",
     "RAV-GLARE-OF-SUBDUAL",
@@ -4957,6 +4958,28 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             1,
             1,
         ),
+        // Full fidelity: a nontoken creature controlled by the live
+        // enchantment controller dying creates exactly one typed Saproling
+        // through the ordinary trigger stack.  Tokens and creatures under an
+        // opponent's control do not satisfy the typed trigger condition.
+        CardDefinition {
+            id: "RAV-GOLGARI-GERMINATION",
+            name: "Golgari Germination",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(1, [Color::Black, Color::Green]),
+            colors: colors([Color::Black, Color::Green]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Enchantment]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "controlled-nontoken-creature-dies-create-saproling",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![],
+        },
         // Full fidelity: the selected controlled-creature sacrifice is paid
         // atomically before a target creature receives its layer-seven
         // reduction through the ordinary stack resolution path.
@@ -7794,6 +7817,20 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                 optional: false,
                 targets: vec![],
                 effects: vec![Effect::DiscardOneCardEachPlayer],
+            },
+        },
+        TriggeredAbilityBinding {
+            card_definition: "RAV-GOLGARI-GERMINATION",
+            ability: TriggeredAbility {
+                id: "controlled-nontoken-creature-dies-create-saproling",
+                condition: TriggerCondition::ControlledNontokenCreatureDies,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![Effect::CreateToken {
+                    token: TokenSpec::saproling(),
+                    count: 1,
+                }],
             },
         },
         TriggeredAbilityBinding {
