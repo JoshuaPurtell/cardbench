@@ -82,6 +82,7 @@ fn advance_to_next_upkeep(game: &mut Game, player: PlayerId) {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // Regression covers the full stale prompt lifecycle atomically.
 fn stale_public_sacrifice_submission_cannot_be_distinguished_from_a_new_prompt() {
     let binding = TriggeredAbilityBinding {
         card_definition: SOURCE,

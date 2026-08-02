@@ -177,6 +177,7 @@ fn pass_pair(game: &mut Game) {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // Source-relative incarnation regression asserts the full response stack.
 fn source_relative_effect_cannot_modify_a_returned_source_incarnation() {
     let caster = PlayerId(0);
     let responder = PlayerId(1);

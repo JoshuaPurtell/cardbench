@@ -188,6 +188,7 @@ fn resolve_combat_damage(game: &mut Game) {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // Complete multi-block ordering trace is intentionally end-to-end.
 fn every_multi_block_group_is_ordered_before_the_priority_window_opens() {
     let mut game = Game::new(definitions(), 2).expect("game initializes");
     add_library(&mut game, PlayerId(0));

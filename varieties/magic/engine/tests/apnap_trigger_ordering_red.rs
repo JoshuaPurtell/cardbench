@@ -49,6 +49,7 @@ fn land() -> CardDefinition {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // Complete APNAP trace and stale-choice assertions stay together.
 fn simultaneous_trigger_groups_use_controller_order_then_apnap_stack_order() {
     let definitions = vec![
         source("TST-FIRST"),

@@ -71,6 +71,7 @@ fn pass_pair(game: &mut Game) {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // Full policy payment regression keeps rollback assertions together.
 fn a_policy_submits_chosen_x_and_explicit_generic_mana_for_one_spell_cast() {
     let caster = PlayerId(0);
     let opponent = PlayerId(1);

@@ -21,6 +21,7 @@ const CREATURE_B: &str = "TST-SEARCH-CREATURE-B";
 const CREATURE_C: &str = "TST-SEARCH-CREATURE-C";
 const NONCREATURE: &str = "TST-SEARCH-NONCREATURE";
 
+#[allow(clippy::needless_pass_by_value)] // Synthetic catalog helper keeps fixture call sites readable.
 fn definition(id: &'static str, types: BTreeSet<CardType>, effects: Vec<Effect>) -> CardDefinition {
     CardDefinition {
         id,

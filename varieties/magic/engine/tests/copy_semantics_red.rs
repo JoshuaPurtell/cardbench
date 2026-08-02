@@ -167,6 +167,7 @@ fn give_priority_to(game: &mut Game, player: PlayerId) {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // The regression asserts one complete copy/lifecycle receipt trace.
 fn copied_card_uses_source_copiable_values_not_runtime_state_or_old_incarnations() {
     let mut game = game();
     let source = game

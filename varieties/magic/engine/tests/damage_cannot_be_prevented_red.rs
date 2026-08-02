@@ -75,6 +75,7 @@ fn pass_pair(game: &mut Game) {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // Redirection regression includes setup, response, and receipt evidence.
 fn damage_cannot_be_prevented_retains_damage_redirection() {
     let caster = PlayerId(0);
     let opponent = PlayerId(1);

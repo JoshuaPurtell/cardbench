@@ -15,7 +15,7 @@ const TOKEN_SPELL: &str = "TST-CHAIN-TOKEN";
 const COUNTER_SPELL: &str = "TST-CHAIN-COUNTER";
 const TARGET: &str = "TST-CHAIN-TARGET";
 
-fn definition(id: &'static str, card_type: CardType, effects: Vec<Effect>) -> CardDefinition {
+fn definition(id: &'static str, card_type: &CardType, effects: Vec<Effect>) -> CardDefinition {
     CardDefinition {
         id,
         name: id,
@@ -26,8 +26,8 @@ fn definition(id: &'static str, card_type: CardType, effects: Vec<Effect>) -> Ca
         card_types: BTreeSet::from([card_type.clone()]),
         is_basic_land: false,
         supported_rules: &["replacement-chain-red"],
-        power: (card_type == CardType::Creature).then_some(2),
-        toughness: (card_type == CardType::Creature).then_some(2),
+        power: (*card_type == CardType::Creature).then_some(2),
+        toughness: (*card_type == CardType::Creature).then_some(2),
         keywords: vec![],
         effects,
     }
@@ -37,12 +37,12 @@ fn fixture() -> (Game, PlayerId, cardbench_magic_engine::ObjectId) {
     let player = PlayerId(0);
     let mut game = Game::new(
         [
-            definition(DOUBLER, CardType::Enchantment, vec![]),
-            definition(TRIPLER, CardType::Enchantment, vec![]),
-            definition(QUADRUPLER, CardType::Enchantment, vec![]),
+            definition(DOUBLER, &CardType::Enchantment, vec![]),
+            definition(TRIPLER, &CardType::Enchantment, vec![]),
+            definition(QUADRUPLER, &CardType::Enchantment, vec![]),
             definition(
                 TOKEN_SPELL,
-                CardType::Instant,
+                &CardType::Instant,
                 vec![Effect::CreateToken {
                     token: TokenSpec::saproling(),
                     count: 1,
@@ -50,13 +50,13 @@ fn fixture() -> (Game, PlayerId, cardbench_magic_engine::ObjectId) {
             ),
             definition(
                 COUNTER_SPELL,
-                CardType::Instant,
+                &CardType::Instant,
                 vec![Effect::AddCountersToTarget {
                     counter: CounterKind::Charge,
                     amount: 1,
                 }],
             ),
-            definition(TARGET, CardType::Creature, vec![]),
+            definition(TARGET, &CardType::Creature, vec![]),
         ],
         2,
     )

@@ -132,6 +132,7 @@ fn game() -> Game {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // The regression spans source departure, protection, and terminal receipts.
 fn departed_colored_source_cannot_target_later_matching_protection() {
     let controller = PlayerId(0);
     let opponent = PlayerId(1);
