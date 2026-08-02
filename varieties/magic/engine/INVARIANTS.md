@@ -376,6 +376,18 @@ Oracle Magic rules coverage.
   emits no payment receipt and counters only the captured lower spell. Neither
   path permits an automatic payment, an automatic decline, a self-target, an
   ability-stack target, or a target at or above the counterspell.
+- `DecisionKind::TargetPlayerManaColor` retains exactly one live stack item
+  with one `Player` target and one
+  `AddOneManaOfTargetPlayersChosenColor` instruction. The decision belongs to
+  that captured recipient rather than the resolving controller, is public,
+  requires exactly one answer, and offers precisely the represented five card
+  colors that can still fit in the recipient's bounded mana pool; it never
+  offers `Colorless`. The source, source incarnation, controller, target, and
+  current option set are revalidated before completion, so a foreign, stale,
+  malformed, noncolored, or capacity-overflow answer is atomic. The chosen
+  output is materialized only while the ordinary resolver resumes, emits one
+  `ManaAdded` receipt for the target player after `DecisionCompleted`, and
+  cannot appear in a catalog definition or permanent ability binding.
 - This first unified-decision migration covers policy-submitted one-card
   library searches, trigger target selection and triggered discard/sacrifice
   object choices, multi-block combat order, spell-copy targets, concurrent
