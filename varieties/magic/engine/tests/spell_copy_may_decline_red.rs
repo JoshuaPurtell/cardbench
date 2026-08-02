@@ -94,12 +94,8 @@ fn spell_copy_may_decline_retargting_and_retains_original_targets() {
     assert_eq!(decision.kind, DecisionKind::SpellCopyTargets);
     assert_eq!(decision.min_selections, 0, "retargeting is optional");
     assert_eq!(decision.max_selections, 1);
-    game.submit_decision(
-        PlayerId(0),
-        decision.id,
-        DecisionSelection::Targets(vec![]),
-    )
-    .expect("controller may decline to retarget the copied spell");
+    game.submit_decision(PlayerId(0), decision.id, DecisionSelection::Targets(vec![]))
+        .expect("controller may decline to retarget the copied spell");
 
     assert_eq!(game.zone_of(copy), Some(Zone::Graveyard));
     assert!(game.event_log.iter().any(|event| matches!(
@@ -112,7 +108,10 @@ fn spell_copy_may_decline_retargting_and_retains_original_targets() {
     )));
     resolve_top(&mut game);
     resolve_top(&mut game);
-    assert_eq!(game.players[1].life, 16, "copy retained the original target");
+    assert_eq!(
+        game.players[1].life, 16,
+        "copy retained the original target"
+    );
     game.validate_invariants()
         .expect("declined retarget remains auditable");
 }

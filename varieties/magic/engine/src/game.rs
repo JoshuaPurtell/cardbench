@@ -7130,13 +7130,21 @@ impl Game {
                 "spell-copy target decision no longer matches its stack provenance",
             ));
         }
-        self.validate_spell_copy_targets(controller, &original_stack, targets, source)?;
+        let (copy_targets, retargeted) = if targets.is_empty() {
+            // “May choose new targets” permits the controller to decline.
+            // Preserve the original target incarnations in that branch so a
+            // card that left and returned is not silently targeted anew.
+            (&original_stack.targets[..], false)
+        } else {
+            self.validate_spell_copy_targets(controller, &original_stack, targets, source)?;
+            (targets, true)
+        };
 
         self.stack.pop().ok_or(RulesError::IllegalAction(
             "copying spell disappeared before target decision completion",
         ))?;
         self.complete_pending_decision(decision)?;
-        self.push_virtual_spell_copy(&original_stack, controller, targets, true)?;
+        self.push_virtual_spell_copy(&original_stack, controller, copy_targets, retargeted)?;
         self.record_event(GameEvent::SpellResolved { card: source });
         self.move_to_spell_terminal_zone(source)?;
         self.check_state_based_actions()?;
@@ -7294,7 +7302,11 @@ impl Game {
             controller,
             ability_id: None,
             targets: targets.to_vec(),
-            target_incarnations: self.target_incarnations(targets),
+            target_incarnations: if retargeted {
+                self.target_incarnations(targets)
+            } else {
+                original.target_incarnations.clone()
+            },
             effects: original.effects.clone(),
             chosen_x: original.chosen_x,
             chosen_color: original.chosen_color,
@@ -12333,7 +12345,7 @@ impl Game {
             controller,
             DecisionVisibility::Public,
             DecisionKind::SpellCopyTargets,
-            target_count,
+            0,
             target_count,
             options,
             DecisionContinuation::SpellCopyTargets {
@@ -22328,7 +22340,11 @@ impl Game {
                     || original_stack.source_incarnation != *original_source_incarnation
                     || original_stack.target_count() == 0
                     || decision.options != expected_options
-                    || decision.min_selections != target_count
+                    // A "may choose new targets" decision accepts the empty
+                    // selection as its explicit retain-the-original-targets
+                    // branch; a nonempty submission must still replace every
+                    // target occurrence.
+                    || decision.min_selections != 0
                     || decision.max_selections != target_count
                     || !self.stack_target_incarnation_matches(top, 0, Target::Spell(*original))
                     || !self.target_matches_for_colors(
