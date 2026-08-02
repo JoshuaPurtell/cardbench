@@ -10841,12 +10841,69 @@ impl Game {
         true
     }
 
+    /// Applies CR 704.5q to one live permanent. The pair is one indivisible
+    /// state-based action: no source is involved, neither counter-removal
+    /// replacement nor source-bound counter-cost provenance applies, and both
+    /// counter kinds must be updated before another SBA can inspect the card.
+    fn cancel_opposing_pt_counter_pairs(&mut self, card: ObjectId) -> Result<bool, RulesError> {
+        self.require_zone(card, Zone::Battlefield)?;
+        let (plus, minus) = {
+            let object = self.object(card)?;
+            (
+                object
+                    .counters
+                    .get(&CounterKind::PlusOnePlusOne)
+                    .copied()
+                    .unwrap_or_default(),
+                object
+                    .counters
+                    .get(&CounterKind::MinusOneMinusOne)
+                    .copied()
+                    .unwrap_or_default(),
+            )
+        };
+        let amount = plus.min(minus);
+        if amount <= 0 {
+            return Ok(false);
+        }
+
+        let counters = &mut self
+            .objects
+            .get_mut(&card)
+            .ok_or(RulesError::UnknownCard(card))?
+            .counters;
+        for (counter, current) in [
+            (CounterKind::PlusOnePlusOne, plus),
+            (CounterKind::MinusOneMinusOne, minus),
+        ] {
+            let remaining = current
+                .checked_sub(amount)
+                .ok_or(RulesError::IllegalAction(
+                    "state-based counter-pair removal underflowed",
+                ))?;
+            if remaining == 0 {
+                counters.remove(&counter);
+            } else {
+                counters.insert(counter, remaining);
+            }
+        }
+        self.record_event(GameEvent::CounterPairsRemovedByStateBasedAction { card, amount });
+        Ok(true)
+    }
+
     /// Applies state-based actions until the game reaches a fixed point.
     pub fn check_state_based_actions(&mut self) -> Result<(), RulesError> {
         loop {
             let mut changed = false;
             for player in 0..self.players.len() {
                 changed |= self.apply_player_loss_state_based_action(PlayerId(player));
+            }
+            // CR 704.5q must run before the later creature toughness/lethal
+            // checks. Derived P/T can otherwise look correct while both
+            // persistent counter maps survive and later counter-dependent
+            // effects observe an illegal state.
+            for card in self.all_battlefield_cards() {
+                changed |= self.cancel_opposing_pt_counter_pairs(card)?;
             }
             for attachment in self.all_battlefield_cards() {
                 let Some(binding) = self.attachment_binding_for(attachment)? else {
@@ -11075,6 +11132,7 @@ impl Game {
         Self::validate_effect_sacrifice_event_order(&self.event_log)?;
         self.validate_ability_additional_tap_cost_event_order()?;
         Self::validate_counter_lifecycle_events(&self.event_log)?;
+        Self::validate_counter_pair_sba_events(&self.event_log)?;
         self.validate_counter_removal_receipt_accounting()?;
         self.validate_source_counter_sweep_materialization_event_order()?;
         Self::validate_source_counter_life_loss_event_order(&self.event_log)?;
@@ -11543,6 +11601,20 @@ impl Game {
                     {
                         return Err(RulesError::IllegalAction(
                             "object has impossible turn metadata, damage/shield, or counters",
+                        ));
+                    }
+                    if zone == Zone::Battlefield
+                        && object
+                            .counters
+                            .get(&CounterKind::PlusOnePlusOne)
+                            .is_some_and(|amount| *amount > 0)
+                        && object
+                            .counters
+                            .get(&CounterKind::MinusOneMinusOne)
+                            .is_some_and(|amount| *amount > 0)
+                    {
+                        return Err(RulesError::IllegalAction(
+                            "opposing +1/+1 and -1/-1 counters escaped state-based actions",
                         ));
                     }
                     if let Some(copy) = &object.copied_permanent {
@@ -27316,6 +27388,23 @@ impl Game {
         Ok(())
     }
 
+    /// A CR 704.5q receipt has no source and must remove a positive number of
+    /// complete opposing P/T-counter pairs. Live state independently proves
+    /// that no pair remains after the enclosing SBA fixed point.
+    fn validate_counter_pair_sba_events(events: &[GameEvent]) -> Result<(), RulesError> {
+        for event in events {
+            let GameEvent::CounterPairsRemovedByStateBasedAction { amount, .. } = event else {
+                continue;
+            };
+            if *amount <= 0 {
+                return Err(RulesError::IllegalAction(
+                    "state-based counter-pair receipt has a nonpositive amount",
+                ));
+            }
+        }
+        Ok(())
+    }
+
     /// A counter removal must have enough previously recorded placement for
     /// the same live object in the current measured event epoch. This is a
     /// provenance check in addition to the live state invariant: it catches a
@@ -27358,6 +27447,26 @@ impl Game {
                             return Err(RulesError::IllegalAction(
                                 "counter removal receipt exceeds visible placements",
                             ));
+                        }
+                    }
+                }
+                GameEvent::CounterPairsRemovedByStateBasedAction { card, amount } => {
+                    for counter in [CounterKind::PlusOnePlusOne, CounterKind::MinusOneMinusOne] {
+                        let entry = known.entry((*card, counter)).or_default();
+                        // A cleared or deliberately truncated event log can
+                        // begin after the matching placement. As with an
+                        // ordinary removal, only visible positive balances
+                        // can be checked from this measured epoch.
+                        if *entry > 0 {
+                            *entry =
+                                entry.checked_sub(*amount).ok_or(RulesError::IllegalAction(
+                                    "state-based counter-pair receipt lacks matching placement",
+                                ))?;
+                            if *entry < 0 {
+                                return Err(RulesError::IllegalAction(
+                                    "state-based counter-pair receipt exceeds visible placements",
+                                ));
+                            }
                         }
                     }
                 }

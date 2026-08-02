@@ -4495,6 +4495,13 @@ pub enum GameEvent {
         counter: CounterKind,
         amount: i16,
     },
+    /// CR 704.5q removed this many opposing +1/+1 and -1/-1 counter pairs
+    /// from one live battlefield permanent. This is intentionally source-free:
+    /// it is a state-based action, not a spell, ability, cost, or replacement.
+    CounterPairsRemovedByStateBasedAction {
+        card: ObjectId,
+        amount: i16,
+    },
     /// One live permanent replaced an event quantity before the corresponding
     /// token-creation or counter-placement receipts were emitted. `source` is
     /// the replacement source, not the source that caused the original event.

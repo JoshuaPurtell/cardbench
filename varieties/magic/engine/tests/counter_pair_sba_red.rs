@@ -116,6 +116,15 @@ fn state_based_actions_cancel_plus_and_minus_counter_pairs() {
         !counters.contains_key(&CounterKind::MinusOneMinusOne),
         "the -1/-1 counter must be removed as the same state-based action",
     );
+    let expected_card = format!("card: {creature:?}");
+    assert!(
+        game.canonical_event_log().iter().any(|event| {
+            event.contains("CounterPairsRemovedByStateBasedAction")
+                && event.contains(&expected_card)
+                && event.contains("amount: 1")
+        }),
+        "the source-free SBA cancellation must have an auditable receipt",
+    );
     game.validate_invariants()
         .expect("counter-pair SBA state is auditable");
 }
