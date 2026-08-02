@@ -14,13 +14,18 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
         RAV_FULL_FIDELITY_DEFINITION_IDS,
         [
             "RAV-CHAR",
+            "RAV-GALVANIC-ARC",
+            "RAV-FLAME-FUSILLADE",
             "RAV-LIGHTNING-HELIX",
             "RAV-SEARING-MEDITATION",
             "RAV-PUTREFY",
+            "RAV-GLIMPSE-THE-UNTHINKABLE",
+            "RAV-GAZE-OF-THE-GORGON",
             "RAV-DROOLING-GROODION",
             "RAV-GOLGARI-ROTWURM",
             "RAV-SCATTER-THE-SEEDS",
             "RAV-DOUBLING-SEASON",
+            "RAV-GLARE-OF-SUBDUAL",
             "RAV-CHORD-OF-CALLING",
             "RAV-SCION-OF-THE-WILD",
             "RAV-GUARDIAN-OF-VITU-GHAZI",
@@ -171,6 +176,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-BATHE-IN-LIGHT",
             "RAV-LIGHT-OF-SANCTION",
             "RAV-FAITHS-FETTERS",
+            "RAV-CONCERTED-EFFORT",
             "RAV-CHANT-OF-VITU-GHAZI",
             "RAV-CENTAUR-SAFEGUARD",
             "RAV-CYCLOPEAN-SNARE",
@@ -182,6 +188,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-THREE-DREAMS",
             "RAV-CONCLAVES-BLESSING",
             "RAV-ZEPHYR-SPIRIT",
+            "RAV-WIZENED-SNITCHES",
         ]
     );
     let definitions = card_definitions();
