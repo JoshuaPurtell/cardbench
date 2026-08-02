@@ -45,6 +45,9 @@ fn bloodletter_quill_declares_both_counter_abilities_at_full_fidelity() {
         .iter()
         .find(|ability| ability.id == "blue-black-remove-blood")
         .expect("blue-black blood removal ability exists");
-    assert_eq!(remove.mana_cost, ManaCost::with_colors(0, [Color::Blue, Color::Black]));
+    assert_eq!(
+        remove.mana_cost,
+        ManaCost::with_colors(0, [Color::Blue, Color::Black])
+    );
     assert!(!remove.tap_cost);
 }
