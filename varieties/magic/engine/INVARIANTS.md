@@ -722,6 +722,19 @@ Oracle Magic rules coverage.
   no candidates). Resolution atomically moves only that selected card to exile
   before `AbilityResolved`; the unchosen cards preserve their original library
   order.
+- A target-player library-top may-choice is a one-effect, targeted activated
+  ability suspension. Its controller alone sees precisely the current top
+  object of the one live target player's library through `GameView`; neither
+  the public decision receipts nor the target player's view disclose that
+  identity. The continuation captures the source, source incarnation,
+  controller, ability, target, and exact top object; all must still agree with
+  the live stack and library when the controller submits either no object or
+  that one exact object. The selected object moves to its owner's graveyard
+  only after `DecisionCompleted`, while the declined object remains the target
+  library top. `PrivateTargetPlayerLibraryTopChoiceOpened` immediately follows
+  its matching private `DecisionOpened`, appears once per decision, and is
+  closed by the same controller's matching `DecisionCompleted` before the
+  ability's terminal receipt.
 - Its receipt-order audit applies only to the activated-ability identities it
   has observed. A triggered ability's ordinary `AbilityResolved` receipt is
   not evidence of a private-choice lifecycle and remains valid without an
