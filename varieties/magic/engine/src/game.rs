@@ -31485,8 +31485,13 @@ impl Game {
                 // CR 800.4a removes owned objects directly instead of giving
                 // them an ordinary destination zone.  They still leave any
                 // live combat membership before their object record becomes
-                // unavailable; exact block history remains available only as
-                // historical provenance for delayed effects.
+                // unavailable.  A direct leave-game transition is not a
+                // death, but surviving permanents still observe this
+                // battlefield departure through ordinary leaves-the-
+                // battlefield triggers; exact block history remains available
+                // only as historical provenance for delayed effects.
+                self.enqueue_another_creature_leaves_battlefield_triggers(object)
+                    .expect("owner departure must capture surviving battlefield-leave observers");
                 self.remove_from_combat(object);
                 let source_incarnation = self.objects[&object].incarnation;
                 let source_controller = self

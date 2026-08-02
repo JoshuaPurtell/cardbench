@@ -44,6 +44,10 @@ Oracle Magic rules coverage.
   object-keyed graveyard or effect-created cast permission is revoked with its
   ordinary matching expiry receipt; a stack-only timing exception or
   exile-on-resolution marker for that object is cleared at the same boundary.
+  A battlefield creature removed with its owner is not a death or an ordinary
+  zone move, but surviving `AnotherCreatureLeavesBattlefield` observers are
+  captured at its last-known battlefield state and stack normally after the
+  player-loss SBA fixed point.
 - Every object exists in exactly one player zone or exactly once as the card of
   a stack object. An object cannot be in two zones, or on both the stack and in
   a zone.

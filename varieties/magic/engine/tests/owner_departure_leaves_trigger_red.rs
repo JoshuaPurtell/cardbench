@@ -75,6 +75,18 @@ fn surviving_observer_triggers_when_another_creatures_owner_leaves_the_game() {
         "the surviving observer must see the owner-departure battlefield event; events: {:?}",
         game.canonical_event_log()
     );
+    game.pass_priority(observer_controller)
+        .expect("surviving active player passes the leave trigger");
+    game.pass_priority(PlayerId(2))
+        .expect("the other survivor resolves the leave trigger");
+    assert_eq!(
+        game.object(observer)
+            .expect("observer remains on the battlefield")
+            .counters
+            .get(&cardbench_magic_engine::CounterKind::PlusOnePlusOne),
+        Some(&1),
+        "the captured trigger resolves exactly once after the SBA batch"
+    );
     game.validate_invariants()
         .expect("owner departure and its queued trigger remain valid");
 }
