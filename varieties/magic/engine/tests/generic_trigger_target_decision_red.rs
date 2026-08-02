@@ -40,7 +40,8 @@ fn advance_to_declare_attackers(game: &mut Game) {
         PlayerId(0),
         PlayerId(1),
     ] {
-        game.pass_priority(player).expect("advance to declare attackers");
+        game.pass_priority(player)
+            .expect("advance to declare attackers");
     }
 }
 
@@ -59,17 +60,23 @@ fn trigger_target_choice_has_a_typed_decision_id_and_stale_response_guard() {
             mana_cost: ManaCost::new(0),
             optional: false,
             targets: vec![TargetRequirement::Creature],
-            effects: vec![cardbench_magic_engine::Effect::ModifyTargetPtUntilEndOfTurn {
-                power: 0,
-                toughness: 0,
-            }],
+            effects: vec![
+                cardbench_magic_engine::Effect::ModifyTargetPtUntilEndOfTurn {
+                    power: 0,
+                    toughness: 0,
+                },
+            ],
         },
     };
     let mut game =
         Game::new_with_all_bindings_and_triggers(definitions, 2, [], [], [], [], [binding])
             .expect("synthetic target-trigger game builds");
     let source = game
-        .add_card(PlayerId(0), "TST-TARGETED-ATTACK-TRIGGER", Zone::Battlefield)
+        .add_card(
+            PlayerId(0),
+            "TST-TARGETED-ATTACK-TRIGGER",
+            Zone::Battlefield,
+        )
         .expect("source begins on battlefield");
     let first = game
         .add_card(PlayerId(1), "TST-FIRST-TARGET", Zone::Battlefield)

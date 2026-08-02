@@ -2678,6 +2678,11 @@ pub enum DecisionKind {
     /// targets before the new virtual stack object exists. This is a
     /// no-priority rules decision, never a free targeting action.
     SpellCopyTargets,
+    /// The controller of a target-bearing triggered ability selects every
+    /// required target before that ability enters the stack. This preserves
+    /// the no-priority trigger-placement boundary while giving the choice a
+    /// monotonic identity and ordinary stale-response protection.
+    TriggeredAbilityTargets,
     /// One APNAP controller orders the simultaneous triggered abilities they
     /// control before any member of that controller group enters the stack.
     TriggeredAbilityOrder,
@@ -2802,6 +2807,19 @@ pub enum DecisionContinuation {
         controller: PlayerId,
         original: ObjectId,
         original_source_incarnation: u64,
+    },
+    /// A target-bearing triggered ability remains outside the stack while its
+    /// controller supplies one target for each declared target occurrence.
+    /// Source identity and colors are captured at trigger time: the source
+    /// may leave the battlefield before selection without changing the
+    /// already-triggered ability's origin or targeting color provenance.
+    TriggeredAbilityTargets {
+        source: ObjectId,
+        source_incarnation: u64,
+        source_colors: BTreeSet<Color>,
+        controller: PlayerId,
+        ability: TriggeredAbility,
+        effects: Vec<Effect>,
     },
     /// Resumes one controller's group from CR 603.3b. The scheduler retains
     /// the full event payload; this continuation exposes only public ordering

@@ -549,16 +549,6 @@ struct PendingPrivateOpponentLibraryExileChoice {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-struct PendingTriggeredAbilityTargetChoice {
-    source: ObjectId,
-    source_incarnation: u64,
-    source_colors: BTreeSet<Color>,
-    controller: PlayerId,
-    ability: crate::TriggeredAbility,
-    effects: Vec<Effect>,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
 struct PendingOptionalTriggeredAbilityChoice {
     source: ObjectId,
     source_incarnation: u64,
@@ -742,7 +732,6 @@ pub struct Game {
     /// It is kept outside the public decision projection so only public source
     /// identities, not materialized effects, cross the policy boundary.
     pending_trigger_order_group: Option<Vec<PendingTriggeredAbilityEvent>>,
-    pending_trigger_target_choices: Vec<PendingTriggeredAbilityTargetChoice>,
     pending_optional_trigger_choice: Option<PendingOptionalTriggeredAbilityChoice>,
     /// A resolving rule may prevent every represented library search until the
     /// current turn ends. It is deliberately a turn number, rather than a
@@ -978,7 +967,6 @@ impl Game {
             pending_private_opponent_library_exile_choice: None,
             pending_decision: None,
             pending_trigger_order_group: None,
-            pending_trigger_target_choices: Vec::new(),
             pending_optional_trigger_choice: None,
             library_search_prevented_until: None,
             pending_trigger_events: Vec::new(),
@@ -3036,6 +3024,7 @@ impl Game {
                 | DecisionContinuation::TriggeredEffectObject { .. }
                 | DecisionContinuation::CombatDamageOrder { .. }
                 | DecisionContinuation::SpellCopyTargets { .. }
+                | DecisionContinuation::TriggeredAbilityTargets { .. }
                 | DecisionContinuation::TriggeredAbilityOrder { .. }
                 | DecisionContinuation::QuantityReplacement { .. }
                 | DecisionContinuation::DamageReplacement { .. } => None,
@@ -3054,25 +3043,45 @@ impl Game {
                 })
             })
             .transpose()?;
+        // Compatibility projection for policies that still use the older
+        // `ChooseTriggeredAbilityTargets` action. The authoritative state is
+        // the id-bearing generic decision above, so this view cannot create a
+        // parallel anonymous target-selection boundary.
         let triggered_ability_target_choice = self
-            .pending_trigger_target_choices
-            .first()
-            .filter(|choice| choice.controller == player)
-            .map(|choice| TriggeredAbilityTargetChoiceView {
-                source: choice.source,
-                ability: choice.ability.id,
-                target_options: choice
-                    .ability
-                    .targets
-                    .iter()
-                    .map(|requirement| {
-                        self.legal_trigger_targets_for_colors(
-                            choice.controller,
-                            &choice.source_colors,
-                            *requirement,
-                        )
-                    })
-                    .collect(),
+            .pending_decision
+            .as_ref()
+            .filter(|decision| decision.player == player)
+            .and_then(|decision| match &decision.continuation {
+                DecisionContinuation::TriggeredAbilityTargets {
+                    source,
+                    controller,
+                    source_colors,
+                    ability,
+                    ..
+                } => Some(TriggeredAbilityTargetChoiceView {
+                    source: *source,
+                    ability: ability.id,
+                    target_options: ability
+                        .targets
+                        .iter()
+                        .map(|requirement| {
+                            self.legal_trigger_targets_for_colors(
+                                *controller,
+                                source_colors,
+                                *requirement,
+                            )
+                        })
+                        .collect(),
+                }),
+                DecisionContinuation::LibrarySearch { .. }
+                | DecisionContinuation::LibrarySearchMany { .. }
+                | DecisionContinuation::LibraryReorder { .. }
+                | DecisionContinuation::TriggeredEffectObject { .. }
+                | DecisionContinuation::CombatDamageOrder { .. }
+                | DecisionContinuation::SpellCopyTargets { .. }
+                | DecisionContinuation::TriggeredAbilityOrder { .. }
+                | DecisionContinuation::QuantityReplacement { .. }
+                | DecisionContinuation::DamageReplacement { .. } => None,
             });
         let optional_triggered_ability_choice = self
             .pending_optional_trigger_choice
@@ -3111,6 +3120,7 @@ impl Game {
                 | DecisionContinuation::LibraryReorder { .. }
                 | DecisionContinuation::CombatDamageOrder { .. }
                 | DecisionContinuation::SpellCopyTargets { .. }
+                | DecisionContinuation::TriggeredAbilityTargets { .. }
                 | DecisionContinuation::TriggeredAbilityOrder { .. }
                 | DecisionContinuation::QuantityReplacement { .. }
                 | DecisionContinuation::DamageReplacement { .. } => None,
@@ -3163,6 +3173,7 @@ impl Game {
                 | DecisionContinuation::TriggeredEffectObject { .. }
                 | DecisionContinuation::CombatDamageOrder { .. }
                 | DecisionContinuation::SpellCopyTargets { .. }
+                | DecisionContinuation::TriggeredAbilityTargets { .. }
                 | DecisionContinuation::TriggeredAbilityOrder { .. }
                 | DecisionContinuation::QuantityReplacement { .. } => None,
             });
@@ -5000,11 +5011,6 @@ impl Game {
                 "the pending decision must resolve before priority can pass",
             ));
         }
-        if !self.pending_trigger_target_choices.is_empty() {
-            return Err(RulesError::IllegalAction(
-                "trigger targets must be chosen before priority can pass",
-            ));
-        }
         if self.pending_optional_trigger_choice.is_some() {
             return Err(RulesError::IllegalAction(
                 "optional trigger payment must resolve before priority can pass",
@@ -5521,6 +5527,26 @@ impl Game {
                     original,
                     original_source_incarnation,
                     &selected,
+                )
+            }
+            DecisionContinuation::TriggeredAbilityTargets {
+                source,
+                source_incarnation,
+                source_colors,
+                controller,
+                ability,
+                effects,
+            } => {
+                let selected = Self::validate_target_decision_selection(&decision, selection)?;
+                self.resolve_triggered_ability_target_decision(
+                    &decision,
+                    source,
+                    source_incarnation,
+                    source_colors,
+                    controller,
+                    ability,
+                    effects,
+                    selected,
                 )
             }
             DecisionContinuation::TriggeredAbilityOrder { controller } => {
@@ -6150,6 +6176,70 @@ impl Game {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)] // The captured trigger identity is one stale-safe continuation.
+    fn resolve_triggered_ability_target_decision(
+        &mut self,
+        decision: &PendingDecision,
+        source: ObjectId,
+        source_incarnation: u64,
+        source_colors: BTreeSet<Color>,
+        controller: PlayerId,
+        ability: crate::TriggeredAbility,
+        effects: Vec<Effect>,
+        targets: Vec<Target>,
+    ) -> Result<(), RulesError> {
+        let registered = self
+            .card_definition(source)
+            .ok()
+            .and_then(|definition| self.triggered_abilities.get(definition.id))
+            .and_then(|abilities| abilities.get(ability.id));
+        let mut distinct_targets = HashSet::new();
+        if decision.player != controller
+            || source_incarnation == 0
+            || ability.targets.is_empty()
+            || source_colors.contains(&Color::Colorless)
+            || registered != Some(&ability)
+            || self.players.get(controller.0).is_none()
+            || self.players[controller.0].lost
+            || targets.len() != ability.targets.len()
+            || targets
+                .iter()
+                .zip(&ability.targets)
+                .any(|(target, requirement)| {
+                    !self.target_matches_for_colors(
+                        controller,
+                        *target,
+                        *requirement,
+                        &source_colors,
+                    )
+                })
+            || targets
+                .iter()
+                .zip(&ability.targets)
+                .any(|(target, requirement)| {
+                    *requirement == TargetRequirement::DistinctCreature
+                        && !distinct_targets.insert(*target)
+                })
+        {
+            return Err(RulesError::IllegalAction(
+                "trigger-target decision no longer matches its captured trigger provenance",
+            ));
+        }
+
+        let event = PendingTriggeredAbilityEvent {
+            source,
+            source_incarnation,
+            source_colors,
+            controller,
+            ability,
+            payload: TriggerEventPayload::None,
+        };
+        self.complete_pending_decision(decision)?;
+        self.stack_triggered_event(&event, targets, effects);
+        self.advance_pending_trigger_placements()?;
+        Ok(())
+    }
+
     /// Places a stack-only virtual spell copy above the current stack. A copy
     /// receives an allocated identity solely for event/replay/audit purposes;
     /// it has no `CardObject`, no owner-zone membership, and no cast receipt.
@@ -6707,7 +6797,12 @@ impl Game {
                 "a second typed decision attempted to open before the first completed",
             ));
         }
-        if min_selections > max_selections || usize::from(max_selections) > options.len() {
+        let target_slots_may_repeat = options
+            .iter()
+            .all(|option| matches!(option, DecisionOption::Target(_)));
+        if min_selections > max_selections
+            || (!target_slots_may_repeat && usize::from(max_selections) > options.len())
+        {
             return Err(RulesError::IllegalAction(
                 "pending decision has invalid selection cardinality",
             ));
@@ -7316,12 +7411,14 @@ impl Game {
             ));
         }
         if !self.pending_trigger_placements.is_empty()
-            && self.pending_trigger_target_choices.is_empty()
             && !matches!(
                 self.pending_decision
                     .as_ref()
                     .map(|decision| &decision.continuation),
-                Some(DecisionContinuation::TriggeredAbilityOrder { .. })
+                Some(
+                    DecisionContinuation::TriggeredAbilityOrder { .. }
+                        | DecisionContinuation::TriggeredAbilityTargets { .. }
+                )
             )
         {
             return Err(RulesError::IllegalAction(
@@ -7509,37 +7606,6 @@ impl Game {
             ));
         }
         self.validate_pending_decision()?;
-        for (index, choice) in self.pending_trigger_target_choices.iter().enumerate() {
-            let registered = self
-                .card_definition(choice.source)
-                .ok()
-                .and_then(|definition| self.triggered_abilities.get(definition.id))
-                .and_then(|abilities| abilities.get(choice.ability.id));
-            if choice.ability.targets.is_empty()
-                || choice.source_colors.contains(&Color::Colorless)
-                || registered != Some(&choice.ability)
-                || self.players.get(choice.controller.0).is_none()
-                || self.players[choice.controller.0].lost
-                || choice.ability.targets.iter().any(|requirement| {
-                    self.legal_trigger_targets_for_colors(
-                        choice.controller,
-                        &choice.source_colors,
-                        *requirement,
-                    )
-                    .is_empty()
-                })
-                || (index == 0 && self.consecutive_passes != 0)
-                || self.pending_draw_replacement.is_some()
-                || self.pending_private_library_choice.is_some()
-                || self.pending_private_opponent_library_exile_choice.is_some()
-                || self.pending_decision.is_some()
-                || self.pending_optional_trigger_choice.is_some()
-            {
-                return Err(RulesError::IllegalAction(
-                    "trigger-target choice escaped its no-priority decision boundary",
-                ));
-            }
-        }
         if let Some(choice) = &self.pending_optional_trigger_choice {
             let top = self.stack.last().ok_or(RulesError::IllegalAction(
                 "optional trigger decision escaped its stack object",
@@ -7562,7 +7628,6 @@ impl Game {
                 || self.pending_private_library_choice.is_some()
                 || self.pending_private_opponent_library_exile_choice.is_some()
                 || self.pending_decision.is_some()
-                || !self.pending_trigger_target_choices.is_empty()
             {
                 return Err(RulesError::IllegalAction(
                     "optional trigger choice escaped its no-priority resolution boundary",
@@ -11199,11 +11264,16 @@ impl Game {
     }
 
     /// Continues a deterministic trigger-placement batch until a controller
-    /// must choose targets.  It is also called immediately after that choice,
-    /// so a later targetless trigger cannot jump ahead of an earlier
+    /// must choose targets. It is also called immediately after that generic
+    /// decision, so a later targetless trigger cannot jump ahead of an earlier
     /// target-bearing one while priority remains blocked.
     fn advance_pending_trigger_placements(&mut self) -> Result<(), RulesError> {
-        if !self.pending_trigger_target_choices.is_empty() {
+        if matches!(
+            self.pending_decision
+                .as_ref()
+                .map(|decision| &decision.continuation),
+            Some(DecisionContinuation::TriggeredAbilityTargets { .. })
+        ) {
             return Ok(());
         }
         while !self.pending_trigger_placements.is_empty() {
@@ -11259,15 +11329,30 @@ impl Game {
                     )
                     .is_empty()
             }) {
-                self.pending_trigger_target_choices
-                    .push(PendingTriggeredAbilityTargetChoice {
+                let options = self.trigger_target_options(
+                    event.controller,
+                    &event.source_colors,
+                    &event.ability.targets,
+                );
+                let target_count = u8::try_from(event.ability.targets.len()).map_err(|_| {
+                    RulesError::IllegalAction("trigger target count exceeds decision range")
+                })?;
+                self.open_pending_decision(
+                    event.controller,
+                    DecisionVisibility::Public,
+                    DecisionKind::TriggeredAbilityTargets,
+                    target_count,
+                    target_count,
+                    options,
+                    DecisionContinuation::TriggeredAbilityTargets {
                         source: event.source,
                         source_incarnation: event.source_incarnation,
                         source_colors: event.source_colors,
                         controller: event.controller,
                         ability: event.ability,
                         effects,
-                    });
+                    },
+                )?;
                 break;
             }
             // The represented trigger has no legal target at its trigger
@@ -11514,6 +11599,30 @@ impl Game {
             .collect()
     }
 
+    /// Builds the public union projected through a generic target decision.
+    /// The continuation still retains ordered per-occurrence requirements and
+    /// rechecks each submitted slot, because two target words may have
+    /// different legal domains even when their public option union overlaps.
+    fn trigger_target_options(
+        &self,
+        controller: PlayerId,
+        source_colors: &BTreeSet<Color>,
+        requirements: &[TargetRequirement],
+    ) -> Vec<DecisionOption> {
+        let mut options = Vec::new();
+        for requirement in requirements {
+            for target in
+                self.legal_trigger_targets_for_colors(controller, source_colors, *requirement)
+            {
+                let option = DecisionOption::Target(target);
+                if !options.contains(&option) {
+                    options.push(option);
+                }
+            }
+        }
+        options
+    }
+
     fn choose_triggered_ability_targets(
         &mut self,
         player: PlayerId,
@@ -11521,63 +11630,27 @@ impl Game {
         ability_id: &'static str,
         targets: Vec<Target>,
     ) -> Result<(), RulesError> {
-        self.atomic_transition(|game| {
-            let choice = game.pending_trigger_target_choices.first().cloned().ok_or(
-                RulesError::IllegalAction("no triggered ability is awaiting targets"),
-            )?;
-            if player != choice.controller {
-                return Err(RulesError::IllegalAction(
-                    "only the trigger controller may choose its targets",
-                ));
-            }
-            if source != choice.source || ability_id != choice.ability.id {
-                return Err(RulesError::IllegalAction(
-                    "submitted trigger identity does not match the pending choice",
-                ));
-            }
-            if targets.len() != choice.ability.targets.len()
-                || targets
-                    .iter()
-                    .zip(&choice.ability.targets)
-                    .any(|(target, requirement)| {
-                        !game.target_matches_for_colors(
-                            choice.controller,
-                            *target,
-                            *requirement,
-                            &choice.source_colors,
-                        )
-                    })
-            {
-                return Err(RulesError::IllegalAction(
-                    "submitted trigger targets are not legal for every target slot",
-                ));
-            }
-            game.pending_trigger_target_choices.remove(0);
-            let target_incarnations = game.target_incarnations(&targets);
-            game.stack.push(StackObject {
-                card: choice.source,
-                source_incarnation: choice.source_incarnation,
-                source_colors: choice.source_colors,
-                controller: choice.controller,
-                ability_id: Some(choice.ability.id),
-                targets,
-                target_incarnations,
-                effects: choice.effects,
-                chosen_x: None,
-                mana_spent: None,
-                convoke_symbols: 0,
-                generic_cost_reduction: 0,
-            });
-            game.record_event(GameEvent::TriggeredAbilityStacked {
-                controller: choice.controller,
-                source: choice.source,
-                source_incarnation: choice.source_incarnation,
-                ability: choice.ability.id,
-            });
-            game.consecutive_passes = 0;
-            game.advance_pending_trigger_placements()?;
-            Ok(())
-        })
+        let (decision, controller, pending_source, pending_ability) = self
+            .pending_decision
+            .as_ref()
+            .map(|decision| match &decision.continuation {
+                DecisionContinuation::TriggeredAbilityTargets {
+                    source, ability, ..
+                } => Ok((decision.id, decision.player, *source, ability.id)),
+                _ => Err(RulesError::IllegalAction(
+                    "trigger-target compatibility action does not match the pending decision",
+                )),
+            })
+            .transpose()?
+            .ok_or(RulesError::IllegalAction(
+                "no triggered ability is awaiting targets",
+            ))?;
+        if controller != player || source != pending_source || ability_id != pending_ability {
+            return Err(RulesError::IllegalAction(
+                "submitted trigger identity does not match the pending choice",
+            ));
+        }
+        self.submit_decision(player, decision, DecisionSelection::Targets(targets))
     }
 
     fn optional_trigger_target_requirement(
@@ -18372,11 +18445,6 @@ impl Game {
                 "the pending decision must resolve before priority actions",
             ));
         }
-        if !self.pending_trigger_target_choices.is_empty() {
-            return Err(RulesError::IllegalAction(
-                "trigger targets must be chosen before priority actions",
-            ));
-        }
         if self.pending_optional_trigger_choice.is_some() {
             return Err(RulesError::IllegalAction(
                 "optional trigger payment must resolve before priority actions",
@@ -18490,9 +18558,6 @@ impl Game {
         }
         if let Some(decision) = &self.pending_decision {
             return decision.player;
-        }
-        if let Some(choice) = self.pending_trigger_target_choices.first() {
-            return choice.controller;
         }
         if let Some(choice) = &self.pending_optional_trigger_choice {
             return choice.controller;
@@ -18628,7 +18693,11 @@ impl Game {
         if decision.id.0 == 0
             || decision.id.0 >= self.next_decision_id
             || decision.min_selections > decision.max_selections
-            || usize::from(decision.max_selections) > decision.options.len()
+            || (!decision
+                .options
+                .iter()
+                .all(|option| matches!(option, DecisionOption::Target(_)))
+                && usize::from(decision.max_selections) > decision.options.len())
             || self.players.get(decision.player.0).is_none()
             || self.players[decision.player.0].lost
             || self.priority != decision.player
@@ -18636,7 +18705,6 @@ impl Game {
             || self.pending_draw_replacement.is_some()
             || self.pending_private_library_choice.is_some()
             || self.pending_private_opponent_library_exile_choice.is_some()
-            || !self.pending_trigger_target_choices.is_empty()
             || self.pending_optional_trigger_choice.is_some()
             || decision
                 .options
@@ -18971,6 +19039,50 @@ impl Game {
                 {
                     return Err(RulesError::IllegalAction(
                         "spell-copy decision violates stack or target provenance",
+                    ));
+                }
+            }
+            DecisionContinuation::TriggeredAbilityTargets {
+                source,
+                source_incarnation,
+                source_colors,
+                controller,
+                ability,
+                effects: _,
+            } => {
+                let registered = self
+                    .card_definition(*source)
+                    .ok()
+                    .and_then(|definition| self.triggered_abilities.get(definition.id))
+                    .and_then(|abilities| abilities.get(ability.id));
+                let expected_options =
+                    self.trigger_target_options(*controller, source_colors, &ability.targets);
+                let target_count = u8::try_from(ability.targets.len()).map_err(|_| {
+                    RulesError::IllegalAction("trigger target count exceeds decision range")
+                })?;
+                if decision.kind != DecisionKind::TriggeredAbilityTargets
+                    || decision.visibility != DecisionVisibility::Public
+                    || decision.player != *controller
+                    || *source_incarnation == 0
+                    || ability.targets.is_empty()
+                    || source_colors.contains(&Color::Colorless)
+                    || registered != Some(ability)
+                    || self.players.get(controller.0).is_none()
+                    || self.players[controller.0].lost
+                    || ability.targets.iter().any(|requirement| {
+                        self.legal_trigger_targets_for_colors(
+                            *controller,
+                            source_colors,
+                            *requirement,
+                        )
+                        .is_empty()
+                    })
+                    || decision.options != expected_options
+                    || decision.min_selections != target_count
+                    || decision.max_selections != target_count
+                {
+                    return Err(RulesError::IllegalAction(
+                        "trigger-target decision violates its captured target and source provenance",
                     ));
                 }
             }

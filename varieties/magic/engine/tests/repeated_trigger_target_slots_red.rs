@@ -37,7 +37,8 @@ fn advance_to_declare_attackers(game: &mut Game) {
         PlayerId(0),
         PlayerId(1),
     ] {
-        game.pass_priority(player).expect("advance to declare attackers");
+        game.pass_priority(player)
+            .expect("advance to declare attackers");
     }
 }
 
@@ -74,7 +75,11 @@ fn repeated_non_distinct_trigger_target_slots_accept_the_same_target_twice() {
     )
     .expect("synthetic game builds");
     let source = game
-        .add_card(PlayerId(0), "TST-REPEATED-TARGET-TRIGGER", Zone::Battlefield)
+        .add_card(
+            PlayerId(0),
+            "TST-REPEATED-TARGET-TRIGGER",
+            Zone::Battlefield,
+        )
         .expect("source enters");
     let target = game
         .add_card(PlayerId(1), "TST-ONLY-OPPONENT-CREATURE", Zone::Battlefield)
