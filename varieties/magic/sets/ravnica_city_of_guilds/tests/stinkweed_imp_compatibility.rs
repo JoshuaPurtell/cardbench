@@ -1,8 +1,8 @@
-//! Bounded public contract for Stinkweed Imp's shared Flying and Dredge rules.
+//! Static-keyword regression contract for ability-complete Stinkweed Imp.
 //!
-//! The printed damage-triggered destruction behavior remains intentionally
-//! outside this slice; these tests prove only the executable static keyword,
-//! ordinary creature chassis, and the shared Dredge replacement boundary.
+//! Its separate full-fidelity contract covers the source-bound combat-damage
+//! trigger. These tests retain direct coverage for the static Flying and Dredge
+//! characteristics that share the same card definition.
 
 use std::collections::BTreeSet;
 
@@ -12,7 +12,7 @@ use cardbench_magic_engine::{
 use cardbench_magic_rav::{RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, run_all_scenarios};
 
 #[test]
-fn stinkweed_imp_definition_is_explicit_about_the_omitted_damage_trigger() {
+fn stinkweed_imp_definition_retains_its_static_characteristics() {
     let imp = card_definitions()
         .into_iter()
         .find(|definition| definition.id == "RAV-STINKWEED-IMP")
@@ -27,11 +27,17 @@ fn stinkweed_imp_definition_is_explicit_about_the_omitted_damage_trigger() {
     assert!(imp.effects.is_empty());
     assert_eq!(
         imp.supported_rules,
-        ["dredge", "base-characteristics", "flying"]
+        [
+            "full-rules-fidelity",
+            "dredge",
+            "base-characteristics",
+            "flying",
+            "combat-damage-destroy-recipient",
+        ]
     );
     assert!(
-        !RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&imp.id),
-        "the omitted damage-triggered destruction keeps this definition bounded"
+        RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&imp.id),
+        "the explicit combat-damage trigger makes this definition ability-complete"
     );
 }
 

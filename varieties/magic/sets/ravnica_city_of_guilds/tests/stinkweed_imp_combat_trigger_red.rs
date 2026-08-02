@@ -9,8 +9,8 @@ use cardbench_magic_engine::{
 };
 use cardbench_magic_rav::{
     RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, rav_activated_ability_bindings,
-    rav_additional_spell_cost_bindings, rav_basic_land_type_bindings,
-    rav_mana_ability_bindings, rav_triggered_ability_bindings,
+    rav_additional_spell_cost_bindings, rav_basic_land_type_bindings, rav_mana_ability_bindings,
+    rav_triggered_ability_bindings,
 };
 
 fn advance_to_declare_attackers(game: &mut Game) {
@@ -49,11 +49,17 @@ fn stinkweed_imp_combat_damage_trigger_is_ability_complete() {
         .into_iter()
         .find(|binding| binding.card_definition == definition.id)
         .expect("Stinkweed Imp combat trigger binding exists");
-    assert_eq!(binding.ability.condition, TriggerCondition::DealsCombatDamageToCreature);
+    assert_eq!(
+        binding.ability.condition,
+        TriggerCondition::DealsCombatDamageToCreature
+    );
     assert_eq!(binding.ability.mana_cost, ManaCost::new(0));
     assert!(!binding.ability.optional);
     assert!(binding.ability.targets.is_empty());
-    assert_eq!(binding.ability.effects, [Effect::DestroyCombatDamagedCreature]);
+    assert_eq!(
+        binding.ability.effects,
+        [Effect::DestroyCombatDamagedCreature]
+    );
 
     let mut game = Game::new_with_all_bindings_and_triggers(
         card_definitions(),
@@ -69,8 +75,8 @@ fn stinkweed_imp_combat_damage_trigger_is_ability_complete() {
         .add_card(PlayerId(0), "RAV-STINKWEED-IMP", Zone::Battlefield)
         .expect("Imp begins on battlefield");
     let recipient = game
-        .add_card(PlayerId(1), "RAV-WATCHWOLF", Zone::Battlefield)
-        .expect("recipient begins on battlefield");
+        .add_card(PlayerId(1), "RAV-COURIER-HAWK", Zone::Battlefield)
+        .expect("Flying recipient begins on battlefield");
     let unrelated = game
         .add_card(PlayerId(1), "RAV-WATCHWOLF", Zone::Battlefield)
         .expect("unrelated creature begins on battlefield");
@@ -104,7 +110,10 @@ fn stinkweed_imp_combat_damage_trigger_is_ability_complete() {
     )));
     game.pass_priority(PlayerId(0)).expect("pass trigger");
     game.pass_priority(PlayerId(1)).expect("resolve trigger");
-    println!("Stinkweed Imp full-fidelity trace: {:?}", game.canonical_event_log());
+    println!(
+        "Stinkweed Imp full-fidelity trace: {:?}",
+        game.canonical_event_log()
+    );
     assert_eq!(game.zone_of(recipient), Some(Zone::Graveyard));
     assert_eq!(game.zone_of(unrelated), Some(Zone::Battlefield));
     assert!(game.event_log.iter().any(|event| matches!(

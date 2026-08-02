@@ -43,7 +43,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 203] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 204] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
@@ -99,6 +99,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 203] = [
     "RAV-SHADOW-OF-DOUBT",
     "RAV-HELLDOZER",
     "RAV-GREATER-MOSSDOG",
+    "RAV-STINKWEED-IMP",
     "RAV-BOROS-SIGNET",
     "RAV-DIMIR-SIGNET",
     "RAV-GOLGARI-SIGNET",
@@ -1070,9 +1071,10 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Dredge(4)],
             effects: vec![],
         },
-        // Compatibility scope: normal creature casting, base characteristics,
-        // Dredge, and static Flying. Its damage-triggered destruction behavior
-        // is deliberately unsupported.
+        // Full fidelity: the shared Dredge replacement and static Flying are
+        // accompanied by a source-bound combat-damage trigger.  The trigger's
+        // recipient is captured as exact-incarnation provenance rather than
+        // selected as a later target.
         CardDefinition {
             id: "RAV-STINKWEED-IMP",
             name: "Stinkweed Imp",
@@ -1082,7 +1084,13 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Creature]),
             is_basic_land: false,
-            supported_rules: &["dredge", "base-characteristics", "flying"],
+            supported_rules: &[
+                "full-rules-fidelity",
+                "dredge",
+                "base-characteristics",
+                "flying",
+                "combat-damage-destroy-recipient",
+            ],
             power: Some(1),
             toughness: Some(2),
             keywords: vec![Keyword::Flying, Keyword::Dredge(5)],
@@ -7638,6 +7646,17 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                 optional: false,
                 targets: vec![],
                 effects: vec![Effect::ExileControllerHandLinkedToSource],
+            },
+        },
+        TriggeredAbilityBinding {
+            card_definition: "RAV-STINKWEED-IMP",
+            ability: TriggeredAbility {
+                id: "destroy-combat-damaged-creature",
+                condition: TriggerCondition::DealsCombatDamageToCreature,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![Effect::DestroyCombatDamagedCreature],
             },
         },
         TriggeredAbilityBinding {
