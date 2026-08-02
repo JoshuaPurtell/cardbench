@@ -58,6 +58,7 @@ fn invariant_rejects_a_chosen_x_receipt_that_cannot_pay_printed_cost_plus_x() {
         target_incarnations: vec![],
         effects: vec![Effect::DestroyTargetCreatureWithManaValueAtMostChosenX],
         chosen_x: Some(2),
+        chosen_color: None,
         mana_spent: Some(vec![Color::Black]),
         convoke_symbols: 0,
         generic_cost_reduction: 0,

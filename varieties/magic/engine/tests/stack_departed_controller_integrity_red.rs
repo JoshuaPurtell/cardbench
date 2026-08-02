@@ -48,6 +48,7 @@ fn invariant_audit_rejects_a_lost_players_spell_left_on_the_stack() {
         target_incarnations: vec![],
         effects: vec![Effect::DealDamageController { amount: 1 }],
         chosen_x: None,
+        chosen_color: None,
         mana_spent: None,
         convoke_symbols: 0,
         generic_cost_reduction: 0,

@@ -82,6 +82,7 @@ fn pass_pair(game: &mut Game) {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // The public trace covers selection, protection, and target legality.
 fn policy_submitted_spell_color_choice_is_retained_and_grants_matching_protection() {
     let mut game = Game::new(definitions(), 2).expect("fixture builds once color choice exists");
     let ally = game
@@ -110,6 +111,23 @@ fn policy_submitted_spell_color_choice_is_retained_and_grants_matching_protectio
         missing_choice.is_err(),
         "a choosing spell cannot default a color"
     );
+    assert_eq!(game.zone_of(protection), Some(Zone::Hand));
+    assert!(game.stack.is_empty());
+
+    game.submit_policy_move(
+        PlayerId(0),
+        "test-choice-policy",
+        PolicyAction::CastWithColorChoice {
+            request: CastRequest {
+                card: protection,
+                targets: vec![],
+                convoke: vec![],
+                payment_mana_abilities: vec![],
+            },
+            color: Color::Colorless,
+        },
+    )
+    .expect_err("colorless is a mana kind, not a selectable card color");
     assert_eq!(game.zone_of(protection), Some(Zone::Hand));
     assert!(game.stack.is_empty());
 

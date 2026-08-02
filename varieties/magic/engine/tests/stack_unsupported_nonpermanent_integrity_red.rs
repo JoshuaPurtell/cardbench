@@ -48,6 +48,7 @@ fn invariant_audit_rejects_an_unsupported_instant_fabricated_onto_the_stack() {
         target_incarnations: vec![],
         effects: vec![],
         chosen_x: None,
+        chosen_color: None,
         mana_spent: None,
         convoke_symbols: 0,
         generic_cost_reduction: 0,

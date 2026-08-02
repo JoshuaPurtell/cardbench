@@ -406,6 +406,16 @@ Oracle Magic rules coverage.
   `SpellManaPaid` receipt must name the same controller, card, and ordered
   colors. Floating mana added or spent after casting cannot alter this
   resolution-time provenance.
+- A spell instruction that requires one chosen card color rejects an omitted
+  choice and rejects `Colorless` before any payment, zone move, stack entry,
+  or accepted policy receipt. `PolicyAction::CastWithColorChoice` retains the
+  exact five-color value on the spell stack object and records one matching
+  `SpellColorChosen` receipt before `SpellCast`. The choice is neither inferred
+  from mana spent nor silently defaulted. An activated or triggered ability
+  cannot fabricate this spell-only provenance; a virtual copy instead keeps
+  the original spell's retained color. Resolution uses only the retained value
+  to install controller-team temporary protection, so later policy state or
+  mana-pool changes cannot alter it.
 - A spent-mana global modifier uses that same stack-owned receipt. When its
   named color is present, it snapshots every current battlefield creature only
   after preceding instructions in that spell have resolved, installs one

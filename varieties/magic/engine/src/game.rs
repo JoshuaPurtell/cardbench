@@ -147,6 +147,12 @@ pub enum PolicyAction {
         chosen_x: Option<u8>,
         mana_selection: ManaPaymentSelection,
     },
+    /// Casts a spell that requires one policy-submitted actual card color.
+    /// The color is captured on the stack and is never inferred from payment.
+    CastWithColorChoice {
+        request: CastRequest,
+        color: Color,
+    },
     /// Chooses the normal draw or one legal dredge replacement at a draw-step
     /// replacement-decision boundary. This is not priority.
     Draw {
@@ -252,7 +258,9 @@ impl PolicyAction {
     #[must_use]
     pub const fn kind(&self) -> PolicyMoveKind {
         match self {
-            Self::Cast(_) | Self::CastWithPayment { .. } => PolicyMoveKind::Cast,
+            Self::Cast(_) | Self::CastWithPayment { .. } | Self::CastWithColorChoice { .. } => {
+                PolicyMoveKind::Cast
+            }
             Self::Draw { .. } => PolicyMoveKind::Draw,
             Self::ChoosePrivateLibraryCards { .. } => PolicyMoveKind::ChoosePrivateLibraryCards,
             Self::ChoosePrivateOpponentLibraryCardToExile { .. } => {
@@ -2630,6 +2638,7 @@ impl Game {
             target_incarnations,
             effects: ability.effects,
             chosen_x: generalized_cost_payment.chosen_x,
+            chosen_color: None,
             mana_spent,
             convoke_symbols: 0,
             generic_cost_reduction: 0,
@@ -3411,6 +3420,9 @@ impl Game {
                 } else {
                     self.cast_spell_with_mana_spend(player, request, mana_selection)?;
                 }
+            }
+            PolicyAction::CastWithColorChoice { request, color } => {
+                self.cast_spell_with_color_choice(player, request, color)?;
             }
             PolicyAction::Draw { dredge } => self.resolve_pending_draw(player, dredge)?,
             PolicyAction::ChoosePrivateLibraryCards { spell, selected } => {
@@ -4934,7 +4946,7 @@ impl Game {
 
     #[allow(clippy::needless_pass_by_value)] // Public cast requests remain owned transactional inputs.
     pub fn cast_spell(&mut self, player: PlayerId, request: CastRequest) -> Result<(), RulesError> {
-        self.atomic_transition(|game| game.cast_spell_impl(player, &request, None, None))
+        self.atomic_transition(|game| game.cast_spell_impl(player, &request, None, None, None))
     }
 
     /// Casts a spell with explicit player-selected colors for all generic and
@@ -4948,7 +4960,7 @@ impl Game {
         selection: ManaPaymentSelection,
     ) -> Result<(), RulesError> {
         self.atomic_transition(|game| {
-            game.cast_spell_impl(player, &request, Some(&selection), None)
+            game.cast_spell_impl(player, &request, Some(&selection), None, None)
         })
     }
 
@@ -4964,7 +4976,22 @@ impl Game {
         selection: ManaPaymentSelection,
     ) -> Result<(), RulesError> {
         self.atomic_transition(|game| {
-            game.cast_spell_impl(player, &request, Some(&selection), Some(x_value))
+            game.cast_spell_impl(player, &request, Some(&selection), Some(x_value), None)
+        })
+    }
+
+    /// Casts a spell while explicitly supplying the one actual card color its
+    /// represented effect requires. The selected color is stack provenance,
+    /// not a deterministic policy default or a mana-payment inference.
+    #[allow(clippy::needless_pass_by_value)] // Owned request crosses the atomic cast boundary.
+    pub fn cast_spell_with_color_choice(
+        &mut self,
+        player: PlayerId,
+        request: CastRequest,
+        color: Color,
+    ) -> Result<(), RulesError> {
+        self.atomic_transition(|game| {
+            game.cast_spell_impl(player, &request, None, None, Some(color))
         })
     }
 
@@ -4978,6 +5005,7 @@ impl Game {
         request: &CastRequest,
         mana_payment_selection: Option<&ManaPaymentSelection>,
         chosen_x: Option<u8>,
+        chosen_color: Option<Color>,
     ) -> Result<(), RulesError> {
         self.require_priority(player)?;
         let from_graveyard = self
@@ -5023,6 +5051,19 @@ impl Game {
             } else {
                 "chosen X is not legal for this spell"
             }));
+        }
+        let requires_chosen_color = definition.effects.iter().any(Effect::requires_chosen_color);
+        if requires_chosen_color != chosen_color.is_some() {
+            return Err(RulesError::IllegalAction(if requires_chosen_color {
+                "this spell requires an explicit chosen color"
+            } else {
+                "chosen color is not legal for this spell"
+            }));
+        }
+        if chosen_color.is_some_and(|color| !color.is_colored()) {
+            return Err(RulesError::IllegalAction(
+                "a chosen spell color must be one of the five card colors",
+            ));
         }
         if definition
             .effects
@@ -5151,10 +5192,18 @@ impl Game {
             target_incarnations,
             effects: definition.effects,
             chosen_x,
+            chosen_color,
             mana_spent: mana_spent.clone(),
             convoke_symbols: request.convoke.len(),
             generic_cost_reduction: applied_generic_cost_reduction,
         });
+        if let Some(color) = chosen_color {
+            self.record_event(GameEvent::SpellColorChosen {
+                player,
+                card: request.card,
+                color,
+            });
+        }
         if let Some(colors) = mana_spent {
             self.record_event(GameEvent::SpellManaPaid {
                 player,
@@ -6737,6 +6786,7 @@ impl Game {
             target_incarnations: self.target_incarnations(targets),
             effects: original.effects.clone(),
             chosen_x: original.chosen_x,
+            chosen_color: original.chosen_color,
             mana_spent: original.mana_spent.clone(),
             convoke_symbols: original.convoke_symbols,
             generic_cost_reduction: original.generic_cost_reduction,
@@ -7557,6 +7607,7 @@ impl Game {
                 },
             }],
             chosen_x: None,
+            chosen_color: None,
             mana_spent: None,
             convoke_symbols: 0,
             generic_cost_reduction: 0,
@@ -8788,6 +8839,11 @@ impl Game {
                         "stack ability lacks or fabricates its selected X value",
                     ));
                 }
+                if stack_object.chosen_color.is_some() {
+                    return Err(RulesError::IllegalAction(
+                        "stack ability fabricates a spell-only chosen color",
+                    ));
+                }
                 if self
                     .activated_abilities
                     .get(definition.id)
@@ -8826,6 +8882,50 @@ impl Game {
             if requires_chosen_x && stack_object.mana_spent.is_none() {
                 return Err(RulesError::IllegalAction(
                     "a chosen-X stack spell lacks an explicit payment receipt",
+                ));
+            }
+            let requires_chosen_color =
+                definition.effects.iter().any(Effect::requires_chosen_color);
+            if !is_ability && requires_chosen_color != stack_object.chosen_color.is_some() {
+                return Err(RulesError::IllegalAction(
+                    "stack spell lacks or fabricates its selected color",
+                ));
+            }
+            if stack_object
+                .chosen_color
+                .is_some_and(|color| !color.is_colored())
+            {
+                return Err(RulesError::IllegalAction(
+                    "stack spell retains a non-card chosen color",
+                ));
+            }
+            if !is_ability
+                && !is_virtual_copy
+                && let Some(color) = stack_object.chosen_color
+                && let Some(cast_index) = self.event_log.iter().rposition(|event| {
+                    matches!(event, GameEvent::SpellCast { card, .. } if *card == stack_object.card)
+                })
+                && !self.event_log[..cast_index]
+                    .iter()
+                    .rev()
+                    .take_while(|event| {
+                        !matches!(event, GameEvent::SpellCast { .. } | GameEvent::PriorityPassed { .. })
+                    })
+                    .any(|event| {
+                        matches!(
+                            event,
+                            GameEvent::SpellColorChosen {
+                                player,
+                                card,
+                                color: receipt_color,
+                            } if *player == stack_object.controller
+                                && *card == stack_object.card
+                                && *receipt_color == color
+                        )
+                    })
+            {
+                return Err(RulesError::IllegalAction(
+                    "stack chosen color disagrees with its cast receipt",
                 ));
             }
             if !is_ability
@@ -10580,6 +10680,7 @@ impl Game {
                 | Effect::RegenerateTargetCreature
                 | Effect::RegenerateSource
                 | Effect::AddKeywordToControllerCreaturesUntilEndOfTurn { .. }
+                | Effect::AddChosenColorProtectionToControllerCreaturesUntilEndOfTurn
                 | Effect::DestroyTargetLand
                 | Effect::DestroyTargetLandAndUntapSourceIfNonbasic
                 | Effect::DestroyTargetArtifact
@@ -10874,6 +10975,7 @@ impl Game {
                         &stack_object.source_colors,
                         stack_object.controller,
                         stack_object.chosen_x,
+                        stack_object.chosen_color,
                         stack_object.mana_spent.as_deref(),
                         effect,
                         None,
@@ -10943,6 +11045,7 @@ impl Game {
                                 &stack_object.source_colors,
                                 stack_object.controller,
                                 stack_object.chosen_x,
+                                stack_object.chosen_color,
                                 stack_object.mana_spent.as_deref(),
                                 effect,
                                 Some(target),
@@ -12346,6 +12449,7 @@ impl Game {
             target_incarnations,
             effects,
             chosen_x: None,
+            chosen_color: None,
             mana_spent: None,
             convoke_symbols: 0,
             generic_cost_reduction: 0,
@@ -13967,6 +14071,7 @@ impl Game {
         source_colors: &BTreeSet<Color>,
         controller: PlayerId,
         chosen_x: Option<u8>,
+        chosen_color: Option<Color>,
         mana_spent: Option<&[Color]>,
         effect: &Effect,
         target: Option<Target>,
@@ -15028,6 +15133,39 @@ impl Game {
                         source,
                         creature,
                         ContinuousChange::AddKeyword(keyword.clone()),
+                        Duration::EndOfTurn(self.turn),
+                    )?;
+                }
+            }
+            Effect::AddChosenColorProtectionToControllerCreaturesUntilEndOfTurn => {
+                let color = chosen_color.ok_or(RulesError::IllegalAction(
+                    "chosen-color protection resolved without a chosen color",
+                ))?;
+                if !color.is_colored() {
+                    return Err(RulesError::IllegalAction(
+                        "chosen-color protection retained a non-card color",
+                    ));
+                }
+                let creatures = self
+                    .all_battlefield_cards()
+                    .into_iter()
+                    .filter(|candidate| {
+                        self.controller_of(*candidate)
+                            .is_ok_and(|candidate_controller| {
+                                candidate_controller == controller
+                                    && self.characteristics(*candidate).is_ok_and(
+                                        |characteristics| {
+                                            characteristics.card_types.contains(&CardType::Creature)
+                                        },
+                                    )
+                            })
+                    })
+                    .collect::<Vec<_>>();
+                for creature in creatures {
+                    self.install_continuous_effect(
+                        source,
+                        creature,
+                        ContinuousChange::AddKeyword(Keyword::Protection(color)),
                         Duration::EndOfTurn(self.turn),
                     )?;
                 }
@@ -17194,6 +17332,11 @@ impl Game {
             if effect.requires_chosen_x() {
                 return Err(RulesError::IllegalAction(
                     "chosen-X effects are valid only on spells",
+                ));
+            }
+            if effect.requires_chosen_color() {
+                return Err(RulesError::IllegalAction(
+                    "chosen-color effects are valid only on spells",
                 ));
             }
             if matches!(

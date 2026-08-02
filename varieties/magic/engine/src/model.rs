@@ -1901,6 +1901,11 @@ pub enum Effect {
     AddKeywordToControllerCreaturesUntilEndOfTurn {
         keyword: Keyword,
     },
+    /// Grant temporary protection from the explicit card color selected while
+    /// this spell was cast to every creature its controller controls when it
+    /// resolves. The choice is retained on the stack rather than inferred
+    /// from mana spent or a deterministic policy fallback.
+    AddChosenColorProtectionToControllerCreaturesUntilEndOfTurn,
     RadianceUntapAndModifyUntilEndOfTurn {
         power: i16,
         toughness: i16,
@@ -2101,6 +2106,17 @@ impl Effect {
         )
     }
 
+    /// Whether this instruction requires a five-color choice submitted as
+    /// part of the spell's cast action and retained on the stack through
+    /// resolution. A chosen card color is never inferred from mana payment.
+    #[must_use]
+    pub const fn requires_chosen_color(&self) -> bool {
+        matches!(
+            self,
+            Self::AddChosenColorProtectionToControllerCreaturesUntilEndOfTurn
+        )
+    }
+
     #[must_use]
     #[allow(clippy::too_many_lines)] // One exhaustive semantic-to-target map keeps stack planning reviewable.
     pub const fn target_requirement(&self) -> Option<TargetRequirement> {
@@ -2237,6 +2253,7 @@ impl Effect {
             | Self::UntapSource
             | Self::ModifyControllerCreaturesPtUntilEndOfTurn { .. }
             | Self::AddKeywordToControllerCreaturesUntilEndOfTurn { .. }
+            | Self::AddChosenColorProtectionToControllerCreaturesUntilEndOfTurn
             | Self::DestroyAllNonTokenCreatures
             | Self::DestroyCombatDamagedCreature
             | Self::DestroyCapturedCreature { .. }
@@ -3255,6 +3272,9 @@ pub struct StackObject {
     /// without an X instruction retain `None`; the value is authoritative at
     /// resolution and is never reconstructed from payment colors.
     pub chosen_x: Option<u8>,
+    /// The card color explicitly chosen while this spell was cast. Abilities
+    /// do not use this field. Virtual spell copies preserve this provenance.
+    pub chosen_color: Option<Color>,
     /// Full color receipt for an explicitly selected spell or activated-ability
     /// payment. `None` denotes the legacy deterministic payment path, which
     /// is deliberately unavailable to effects that inspect colors spent.
@@ -3689,6 +3709,13 @@ pub enum GameEvent {
         player: PlayerId,
         card: ObjectId,
         colors: Vec<Color>,
+    },
+    /// One of Magic's five card colors was explicitly selected while casting
+    /// a spell. It is retained by the associated stack object for resolution.
+    SpellColorChosen {
+        player: PlayerId,
+        card: ObjectId,
+        color: Color,
     },
     SpellCast {
         player: PlayerId,

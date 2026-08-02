@@ -68,6 +68,7 @@ fn assert_rejected(game: &Game, label: &str) {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // One corruption matrix keeps every public-state boundary visible.
 fn mutation_audit_rejects_zone_and_stack_corruption() {
     let first = PlayerId(0);
     let second = PlayerId(1);
@@ -121,6 +122,7 @@ fn mutation_audit_rejects_zone_and_stack_corruption() {
             target: TargetRequirement::Player,
         }],
         chosen_x: None,
+        chosen_color: None,
         mana_spent: None,
         convoke_symbols: 0,
         generic_cost_reduction: 0,
@@ -145,6 +147,7 @@ fn mutation_audit_rejects_zone_and_stack_corruption() {
             target: TargetRequirement::Player,
         }],
         chosen_x: None,
+        chosen_color: None,
         mana_spent: None,
         convoke_symbols: 0,
         generic_cost_reduction: 0,
@@ -165,6 +168,7 @@ fn mutation_audit_rejects_zone_and_stack_corruption() {
         target_incarnations: vec![],
         effects: vec![],
         chosen_x: None,
+        chosen_color: None,
         mana_spent: None,
         convoke_symbols: 0,
         generic_cost_reduction: 0,
