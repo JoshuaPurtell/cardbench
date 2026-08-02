@@ -13,11 +13,12 @@ use crate::{
     CastTiming, Characteristics, Color, CombatBlock, ContinuousChange, ContinuousEffect,
     CopiableValues, CopiedPermanent, CostReductionBinding, CounterKind, CreatureSubtype,
     DELAYED_COMBAT_HISTORY_DESTRUCTION_ABILITY_ID, DamageReplacementChoice,
-    DamageReplacementEffect, DamageReplacementEffectBinding, DecisionContinuation, DecisionId,
-    DecisionKind, DecisionOption, DecisionSelection, DecisionVisibility, DeckList, DelayedAction,
-    DelayedActionId, DelayedActionKind, DelayedActionTiming, Duration, Effect, GameEvent,
-    GeneralizedAbilityActivation, GeneralizedActivatedAbilityCost, HandCardSnapshot, Keyword,
-    LandEntryBinding, LibrarySearchCardinality, LibrarySearchDestination, LibrarySearchRequirement,
+    DamageReplacementEffect, DamageReplacementEffectBinding, DamageReplacementPacket,
+    DecisionContinuation, DecisionId, DecisionKind, DecisionOption, DecisionSelection,
+    DecisionVisibility, DeckList, DelayedAction, DelayedActionId, DelayedActionKind,
+    DelayedActionTiming, Duration, Effect, GameEvent, GeneralizedAbilityActivation,
+    GeneralizedActivatedAbilityCost, HandCardSnapshot, Keyword, LandEntryBinding,
+    LibrarySearchCardinality, LibrarySearchDestination, LibrarySearchRequirement,
     LibrarySearchSelection, LinkedExileGroup, LinkedExileGroupId, LinkedExileMember,
     LinkedExileMemberRole, ManaAbilityActivation, ManaAbilityBinding,
     ManaAbilityBundleChoiceActivation, ManaAbilityCostBinding, ManaAbilityOutput, ManaBundle,
@@ -815,6 +816,7 @@ struct PendingDamageReplacementChoice {
     target_incarnation: Option<u64>,
     amount: i32,
     used: Vec<DamageReplacementChoice>,
+    deferred_packets: Vec<DamageReplacementPacket>,
 }
 
 /// A deterministic, two-or-more-player Magic game state.
@@ -7517,6 +7519,7 @@ impl Game {
                 target_incarnation,
                 amount,
                 used,
+                deferred_packets,
             } => {
                 let selected = Self::validate_replacement_decision_selection(&decision, selection)?;
                 self.resolve_damage_replacement_decision(
@@ -7529,6 +7532,7 @@ impl Game {
                     target_incarnation,
                     amount,
                     used,
+                    deferred_packets,
                     selected,
                 )
             }
@@ -14819,6 +14823,7 @@ impl Game {
             target_incarnation: self.damage_target_incarnation(target)?,
             amount,
             used: Vec::new(),
+            deferred_packets: Vec::new(),
         })?;
         Ok(true)
     }
@@ -14857,6 +14862,7 @@ impl Game {
                 target_incarnation: pending.target_incarnation,
                 amount: pending.amount,
                 used: pending.used,
+                deferred_packets: pending.deferred_packets,
             },
         )?;
         Ok(())
@@ -16640,6 +16646,7 @@ impl Game {
         target_incarnation: Option<u64>,
         amount: i32,
         used: Vec<DamageReplacementChoice>,
+        deferred_packets: Vec<DamageReplacementPacket>,
         selected: ReplacementChoice,
     ) -> Result<(), RulesError> {
         let ReplacementChoice::Damage(replacement) = selected else {
@@ -16674,6 +16681,7 @@ impl Game {
             target_incarnation,
             amount,
             used,
+            deferred_packets,
         };
         self.apply_damage_replacement(&mut pending, replacement)?;
         if let Some(next) = self.advance_damage_replacement_pipeline(pending)? {
@@ -17622,9 +17630,11 @@ impl Game {
         match target {
             Target::Permanent(permanent) => {
                 candidates.extend(self.attached_damage_redirection_candidates(permanent, used)?);
-                // A bounded redirected event must be wholly redirected. The
-                // legacy direct path retains support for partial redirects;
-                // that broader continuation is an explicit future extension.
+                // The generic continuation can split this prospective event
+                // when a bounded redirect has less remaining capacity than
+                // the current packet. The redirected packet is then
+                // reconsidered at its new recipient before the original
+                // remainder resumes.
                 for redirect in &self.damage_redirections {
                     let candidate = DamageReplacementChoice::Redirect {
                         id: redirect.id,
@@ -17633,7 +17643,7 @@ impl Game {
                         destination: redirect.destination,
                     };
                     if redirect.protected == permanent
-                        && redirect.remaining >= amount
+                        && redirect.remaining > 0
                         && redirect.destination != target
                         && self.target_matches(
                             redirect.destination,
@@ -17841,7 +17851,7 @@ impl Game {
                 protected,
                 destination,
             } => {
-                let exhausted = {
+                let (redirected, exhausted) = {
                     let redirect = self
                         .damage_redirections
                         .iter_mut()
@@ -17850,27 +17860,50 @@ impl Game {
                                 && redirect.source == redirect_source
                                 && redirect.protected == protected
                                 && redirect.destination == destination
-                                && redirect.remaining >= pending.amount
+                                && redirect.remaining > 0
                         })
                         .ok_or(RulesError::IllegalAction(
                             "damage redirection disappeared before selection",
                         ))?;
-                    redirect.remaining -= pending.amount;
-                    redirect.remaining == 0
+                    let redirected = pending.amount.min(redirect.remaining);
+                    redirect.remaining -= redirected;
+                    (redirected, redirect.remaining == 0)
                 };
                 self.record_event(GameEvent::DamageRedirected {
                     source: pending.source,
                     from: protected,
                     to: destination,
-                    amount: pending.amount,
+                    amount: redirected,
                 });
                 if exhausted {
                     self.damage_redirections
                         .retain(|candidate| candidate.id != id);
                 }
+                let remainder = pending.amount - redirected;
+                if remainder > 0 {
+                    // Resolve the newly redirected packet first, matching
+                    // the existing direct-damage path. The protected
+                    // remainder stays inside this same suspended spell and
+                    // is re-evaluated only after the new recipient packet
+                    // has committed or been prevented.
+                    pending.deferred_packets.insert(
+                        0,
+                        DamageReplacementPacket {
+                            target: pending.target,
+                            target_incarnation: pending.target_incarnation,
+                            amount: remainder,
+                            used: Vec::new(),
+                        },
+                    );
+                }
                 pending.target = destination;
                 pending.target_incarnation = self.damage_target_incarnation(destination)?;
                 pending.affected_player = self.affected_player_for_damage_target(destination)?;
+                pending.amount = redirected;
+                // A redirected packet is re-evaluated at its new recipient.
+                // It must not inherit a replacement identity selected for
+                // the protected packet.
+                pending.used.clear();
             }
             DamageReplacementChoice::AttachedRedirect {
                 protected,
@@ -17955,7 +17988,12 @@ impl Game {
                 });
             }
         }
-        pending.used.push(replacement);
+        // A partial redirection starts a new recipient packet above. Its
+        // replacement history is deliberately fresh; all other paths retain
+        // the selected identity to prevent recursive self-application.
+        if !matches!(replacement, DamageReplacementChoice::Redirect { .. }) {
+            pending.used.push(replacement);
+        }
         Ok(())
     }
 
@@ -17969,7 +18007,10 @@ impl Game {
     ) -> Result<Option<PendingDamageReplacementChoice>, RulesError> {
         loop {
             if pending.amount == 0 {
-                return Ok(None);
+                if !self.advance_to_deferred_damage_packet(&mut pending)? {
+                    return Ok(None);
+                }
+                continue;
             }
             let candidates = self.damage_replacement_candidates(
                 pending.source,
@@ -17980,12 +18021,34 @@ impl Game {
             match candidates.as_slice() {
                 [] => {
                     self.commit_damage_event(pending.source, pending.target, pending.amount)?;
-                    return Ok(None);
+                    if !self.advance_to_deferred_damage_packet(&mut pending)? {
+                        return Ok(None);
+                    }
                 }
                 [replacement] => self.apply_damage_replacement(&mut pending, *replacement)?,
                 _ => return Ok(Some(pending)),
             }
         }
+    }
+
+    /// Selects the next packet emitted by a partial damage redirection. The
+    /// target incarnation is carried through the continuation and the
+    /// affected player is recomputed from the new packet, rather than being
+    /// inherited from the packet which just finished.
+    fn advance_to_deferred_damage_packet(
+        &self,
+        pending: &mut PendingDamageReplacementChoice,
+    ) -> Result<bool, RulesError> {
+        let Some(next) = pending.deferred_packets.first().cloned() else {
+            return Ok(false);
+        };
+        pending.deferred_packets.remove(0);
+        pending.target = next.target;
+        pending.target_incarnation = next.target_incarnation;
+        pending.amount = next.amount;
+        pending.used = next.used;
+        pending.affected_player = self.affected_player_for_damage_target(pending.target)?;
+        Ok(true)
     }
 
     fn commit_damage_event(
@@ -18194,6 +18257,7 @@ impl Game {
             target_incarnation: self.damage_target_incarnation(target)?,
             amount,
             used,
+            deferred_packets: Vec::new(),
         };
         self.apply_damage_replacement(&mut pending, first_replacement)?;
         while pending.amount > 0 {
@@ -27519,6 +27583,7 @@ impl Game {
                 target_incarnation,
                 amount,
                 used,
+                deferred_packets,
             } => {
                 let top = self.stack.last().ok_or(RulesError::IllegalAction(
                     "damage replacement decision escaped its stack spell",
@@ -27534,6 +27599,20 @@ impl Game {
                     .iter()
                     .enumerate()
                     .any(|(index, choice)| used[index + 1..].contains(choice));
+                let deferred_packets_are_valid = deferred_packets.iter().all(|packet| {
+                    packet.amount > 0
+                        && self
+                            .damage_target_incarnation(packet.target)
+                            .is_ok_and(|incarnation| incarnation == packet.target_incarnation)
+                        && self
+                            .affected_player_for_damage_target(packet.target)
+                            .is_ok()
+                        && !packet
+                            .used
+                            .iter()
+                            .enumerate()
+                            .any(|(index, choice)| packet.used[index + 1..].contains(choice))
+                });
                 let stack_shape_matches = matches!(
                     top.effects.as_slice(),
                     [Effect::DealDamage { amount: stack_amount, .. }] if *stack_amount > 0
@@ -27551,6 +27630,7 @@ impl Game {
                     || *target_incarnation != self.damage_target_incarnation(*target)?
                     || self.affected_player_for_damage_target(*target)? != decision.player
                     || !used_are_unique
+                    || !deferred_packets_are_valid
                     || choices.len() < 2
                     || decision.options != expected_options
                     || decision.min_selections != 1

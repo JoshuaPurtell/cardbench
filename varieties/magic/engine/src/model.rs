@@ -845,6 +845,18 @@ pub enum DamageReplacementChoice {
     SourceColorPrevention { permanent: ObjectId },
 }
 
+/// One not-yet-committed packet emitted when a bounded replacement splits a
+/// prospective damage event. The packet carries its own target-incarnation
+/// and used replacement identities because a redirected packet is evaluated
+/// at its new recipient before the suspended spell can finish resolving.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DamageReplacementPacket {
+    pub target: Target,
+    pub target_incarnation: Option<u64>,
+    pub amount: i32,
+    pub used: Vec<DamageReplacementChoice>,
+}
+
 /// One currently applicable replacement in the shared prospective-event
 /// chain.  Quantity replacements retain both the live source incarnation and
 /// immutable bound effect; a physical card that leaves and returns is a new
@@ -3763,6 +3775,10 @@ pub enum DecisionContinuation {
         target_incarnation: Option<u64>,
         amount: i32,
         used: Vec<DamageReplacementChoice>,
+        /// Packets emitted by a partial redirection, in deterministic
+        /// resolution order after the currently selected packet. They remain
+        /// within the same no-priority spell-resolution boundary.
+        deferred_packets: Vec<DamageReplacementPacket>,
     },
     /// A counterspell remains on top of the stack while the lower target
     /// spell's controller chooses whether to pay.  Both stack identities are
