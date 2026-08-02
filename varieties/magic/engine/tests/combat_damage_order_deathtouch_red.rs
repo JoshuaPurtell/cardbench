@@ -188,6 +188,114 @@ fn resolve_combat_damage(game: &mut Game) {
 }
 
 #[test]
+fn every_multi_block_group_is_ordered_before_the_priority_window_opens() {
+    let mut game = Game::new(definitions(), 2).expect("game initializes");
+    add_library(&mut game, PlayerId(0));
+    add_library(&mut game, PlayerId(1));
+    let first_attacker = game
+        .put_on_battlefield(PlayerId(0), TRAMPLER)
+        .expect("first trampler enters");
+    let second_attacker = game
+        .put_on_battlefield(PlayerId(0), TRAMPLER)
+        .expect("second trampler enters");
+    let first_small = game
+        .put_on_battlefield(PlayerId(1), SMALL_BLOCKER)
+        .expect("first small blocker enters");
+    let first_large = game
+        .put_on_battlefield(PlayerId(1), LARGE_BLOCKER)
+        .expect("first large blocker enters");
+    let second_small = game
+        .put_on_battlefield(PlayerId(1), SMALL_BLOCKER)
+        .expect("second small blocker enters");
+    let second_large = game
+        .put_on_battlefield(PlayerId(1), LARGE_BLOCKER)
+        .expect("second large blocker enters");
+
+    game.begin_game().expect("game begins");
+    advance_to_declare_attackers(&mut game);
+    game.declare_attackers(PlayerId(0), &[first_attacker, second_attacker])
+        .expect("both attackers attack");
+    for _ in 0..2 {
+        let player = game.priority;
+        game.pass_priority(player).expect("advance to blockers");
+    }
+    game.declare_blockers(
+        PlayerId(1),
+        &[
+            CombatBlock {
+                attacker: first_attacker,
+                blocker: first_small,
+            },
+            CombatBlock {
+                attacker: first_attacker,
+                blocker: first_large,
+            },
+            CombatBlock {
+                attacker: second_attacker,
+                blocker: second_small,
+            },
+            CombatBlock {
+                attacker: second_attacker,
+                blocker: second_large,
+            },
+        ],
+    )
+    .expect("both multi-block groups are legal");
+
+    let first = game
+        .view_for_player(PlayerId(0))
+        .expect("attacker view")
+        .pending_decision
+        .expect("first group must be ordered");
+    assert_eq!(first.id.0, 1);
+    game.submit_decision(
+        PlayerId(0),
+        first.id,
+        DecisionSelection::Objects(vec![first_large, first_small]),
+    )
+    .expect("first group order submits");
+    let second = game
+        .view_for_player(PlayerId(0))
+        .expect("attacker view")
+        .pending_decision
+        .expect("second group must be ordered before priority");
+    assert_eq!(second.id.0, 2);
+    game.submit_decision(
+        PlayerId(0),
+        second.id,
+        DecisionSelection::Objects(vec![second_large, second_small]),
+    )
+    .expect("second group order submits");
+
+    assert_eq!(game.priority, PlayerId(0));
+    let orders = game
+        .event_log
+        .iter()
+        .filter_map(|event| match event {
+            GameEvent::CombatDamageOrderChosen {
+                player,
+                attacker,
+                blockers,
+            } => Some((*player, *attacker, blockers.clone())),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        orders,
+        vec![
+            (PlayerId(0), first_attacker, vec![first_large, first_small]),
+            (
+                PlayerId(0),
+                second_attacker,
+                vec![second_large, second_small],
+            ),
+        ]
+    );
+    game.validate_invariants()
+        .expect("every multi-block group has complete order provenance");
+}
+
+#[test]
 fn attacking_player_orders_multi_block_damage_before_priority() {
     let mut game = Game::new(definitions(), 2).expect("game initializes");
     add_library(&mut game, PlayerId(0));
