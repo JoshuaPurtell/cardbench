@@ -249,7 +249,7 @@
 241	Woodwraith Strangler
 242	Boros Guildmage	executable:RAV-BOROS-GUILDMAGE
 243	Boros Recruit	executable:RAV-BOROS-RECRUIT
-244	Centaur Safeguard
+244	Centaur Safeguard	executable:RAV-CENTAUR-SAFEGUARD
 245	Dimir Guildmage	executable:RAV-DIMIR-GUILDMAGE
 246	Gaze of the Gorgon	catalog-only:regeneration-and-end-of-combat-block-history-destruction-not-implemented
 247	Gleancrawler
@@ -264,11 +264,11 @@
 256	Bottled Cloister
 257	Cloudstone Curio
 258	Crown of Convergence
-259	Cyclopean Snare
+259	Cyclopean Snare	executable:RAV-CYCLOPEAN-SNARE
 260	Dimir Signet	executable:RAV-DIMIR-SIGNET
 261	Glass Golem	executable:RAV-GLASS-GOLEM
 262	Golgari Signet	executable:RAV-GOLGARI-SIGNET
-263	Grifter's Blade
+263	Grifter's Blade	executable:RAV-GRIFTERS-BLADE
 264	Junktroller
 265	Leashling
 266	Nullstone Gargoyle

@@ -23,14 +23,15 @@ use std::path::{Path, PathBuf};
 
 use cardbench_magic_engine::{
     ActivatedAbility, ActivatedAbilityBinding, ActivatedManaAbility, AdditionalSpellCost,
-    AdditionalSpellCostBinding, BasicLandType, BasicLandTypeBinding, CardDefinition, CardType,
-    CastRequest, Color, ContinuousChange, ConvokeContribution, ConvokePayment,
-    CostReductionBinding, DeckEntry, DeckList, DeckRules, Effect, Game, HybridManaSymbol, Keyword,
-    LandEntryBinding, LibrarySearchDestination, LibrarySearchRequirement, LibrarySearchSelection,
-    ManaAbilityBinding, ManaAbilityOutput, ManaBundle, ManaCost, PlayerId, ReplacementEffect,
-    ReplacementEffectBinding, RulesError, StaticAttackRestriction, StaticAttackRestrictionBinding,
-    StaticContinuousEffectBinding, Target, TargetRequirement, TokenSpec, TriggerCondition,
-    TriggeredAbility, TriggeredAbilityBinding, Zone,
+    AdditionalSpellCostBinding, AttachmentBinding, AttachmentKind, BasicLandType,
+    BasicLandTypeBinding, CardDefinition, CardType, CastRequest, Color, ContinuousChange,
+    ConvokeContribution, ConvokePayment, CostReductionBinding, DeckEntry, DeckList, DeckRules,
+    Effect, Game, HybridManaSymbol, Keyword, LandEntryBinding, LibrarySearchDestination,
+    LibrarySearchRequirement, LibrarySearchSelection, ManaAbilityBinding, ManaAbilityOutput,
+    ManaBundle, ManaCost, PlayerId, ReplacementEffect, ReplacementEffectBinding, RulesError,
+    StaticAttackRestriction, StaticAttackRestrictionBinding, StaticContinuousEffectBinding, Target,
+    TargetRequirement, TokenSpec, TriggerCondition, TriggeredAbility, TriggeredAbilityBinding,
+    Zone,
 };
 
 pub const SET_CODE: &str = "RAV";
@@ -38,7 +39,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 130] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 133] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -169,6 +170,9 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 130] = [
     "RAV-CAREGIVER",
     "RAV-FAITHS-FETTERS",
     "RAV-CHANT-OF-VITU-GHAZI",
+    "RAV-CENTAUR-SAFEGUARD",
+    "RAV-CYCLOPEAN-SNARE",
+    "RAV-GRIFTERS-BLADE",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -2577,6 +2581,29 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Defender],
             effects: vec![],
         },
+        // Full fidelity: the source's optional dies trigger remains stack
+        // backed after its graveyard move and asks its controller whether to
+        // gain the fixed three life.
+        CardDefinition {
+            id: "RAV-CENTAUR-SAFEGUARD",
+            name: "Centaur Safeguard",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(2, [Color::Green, Color::White]),
+            colors: colors([Color::Green, Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "optional-dies-gain-three-life",
+            ],
+            power: Some(3),
+            toughness: Some(1),
+            keywords: vec![],
+            effects: vec![],
+        },
         // Public RAV #261 verification establishes that this is a vanilla
         // artifact creature: its published rules field is empty, so this
         // definition does not omit a printed ability.
@@ -2596,6 +2623,51 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             ],
             power: Some(6),
             toughness: Some(2),
+            keywords: vec![],
+            effects: vec![],
+        },
+        // Full fidelity: this colorless artifact carries one ordinary
+        // stack-backed `{1}, {T}` activation whose sole typed target is a
+        // creature permanent.
+        CardDefinition {
+            id: "RAV-CYCLOPEAN-SNARE",
+            name: "Cyclopean Snare",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::new(3),
+            colors: BTreeSet::new(),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Artifact]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colorless-cost-casting",
+                "generic-one-tap-target-creature",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![],
+        },
+        // Full fidelity: this Equipment's permanent +1/+1 attachment is
+        // distinct from a temporary modifier and its equip activation is
+        // constrained to sorcery speed by the shared attachment lifecycle.
+        CardDefinition {
+            id: "RAV-GRIFTERS-BLADE",
+            name: "Grifter's Blade",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::new(1),
+            colors: BTreeSet::new(),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Artifact]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colorless-cost-casting",
+                "equipment-plus-one-plus-one",
+                "sorcery-speed-equip-one",
+            ],
+            power: None,
+            toughness: None,
             keywords: vec![],
             effects: vec![],
         },
@@ -4636,6 +4708,41 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
             },
         },
         ActivatedAbilityBinding {
+            card_definition: "RAV-CYCLOPEAN-SNARE",
+            ability: ActivatedAbility {
+                id: "tap-target-creature",
+                mana_cost: ManaCost::new(1),
+                tap_cost: true,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![TargetRequirement::Creature],
+                effects: vec![Effect::TapTargetCreature],
+            },
+        },
+        ActivatedAbilityBinding {
+            card_definition: "RAV-GRIFTERS-BLADE",
+            ability: ActivatedAbility {
+                id: "equip-plus-one-plus-one",
+                mana_cost: ManaCost::new(1),
+                tap_cost: false,
+                sorcery_speed: true,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![TargetRequirement::Creature],
+                effects: vec![Effect::AttachSourceToTarget {
+                    target: TargetRequirement::Creature,
+                    changes: grifters_blade_attachment_changes(),
+                }],
+            },
+        },
+        ActivatedAbilityBinding {
             card_definition: "RAV-NULLMAGE-SHEPHERD",
             ability: ActivatedAbility {
                 id: "destroy-artifact-or-enchantment",
@@ -5144,6 +5251,28 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
     ]
 }
 
+fn grifters_blade_attachment_changes() -> Vec<ContinuousChange> {
+    vec![ContinuousChange::ModifyPowerToughness {
+        power: 1,
+        toughness: 1,
+    }]
+}
+
+/// Explicit persistent-attachment metadata for the RAV Equipment slice.
+///
+/// The activated ability above owns target ordering and stack resolution;
+/// this registry makes the ongoing attachment and its layer-seven modifier
+/// auditable by the expansion-neutral Equipment lifecycle.
+#[must_use]
+pub fn rav_attachment_bindings() -> Vec<AttachmentBinding> {
+    vec![AttachmentBinding {
+        card_definition: "RAV-GRIFTERS-BLADE",
+        kind: AttachmentKind::Equipment,
+        target: TargetRequirement::Creature,
+        changes: grifters_blade_attachment_changes(),
+    }]
+}
+
 /// Battlefield-only static characteristic bindings supplied by the RAV set.
 /// These do not create events or stack objects; the engine evaluates them
 /// whenever a caller reads a permanent's characteristics.
@@ -5515,6 +5644,17 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                 optional: false,
                 targets: vec![],
                 effects: vec![Effect::GainLifeController { amount: 1 }],
+            },
+        },
+        TriggeredAbilityBinding {
+            card_definition: "RAV-CENTAUR-SAFEGUARD",
+            ability: TriggeredAbility {
+                id: "dies-may-gain-three-life",
+                condition: TriggerCondition::Dies,
+                mana_cost: ManaCost::new(0),
+                optional: true,
+                targets: vec![],
+                effects: vec![Effect::GainLifeController { amount: 3 }],
             },
         },
         TriggeredAbilityBinding {
