@@ -69,6 +69,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 183] = [
     "RAV-NIGHTGUARD-PATROL",
     "RAV-WATCHWOLF",
     "RAV-GLASS-GOLEM",
+    "RAV-JUNKTROLLER",
     "RAV-CLEANSING-BEAM",
     "RAV-RALLY-THE-RIGHTEOUS",
     "RAV-WOJEK-SIREN",
@@ -3281,6 +3282,31 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
+        // Full fidelity: the colorless Defender retains one ordinary
+        // target-bearing tap ability. The shared graveyard-card target
+        // requirement captures any public graveyard card, and resolution
+        // moves it to that card owner's library bottom.
+        CardDefinition {
+            id: "RAV-JUNKTROLLER",
+            name: "Junktroller",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::new(4),
+            colors: BTreeSet::new(),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Artifact, CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colorless-artifact-creature-casting",
+                "base-characteristics",
+                "defender",
+                "tap-target-graveyard-card-to-owners-library-bottom",
+            ],
+            power: Some(0),
+            toughness: Some(6),
+            keywords: vec![Keyword::Defender],
+            effects: vec![],
+        },
         // Full fidelity: this colorless artifact costs `{2}` and carries one
         // ordinary stack-backed `{3}, {T}` activation. At resolution it taps
         // one creature, then returns this exact permanent incarnation to its
@@ -6022,6 +6048,22 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 discard_cards: 0,
                 targets: vec![TargetRequirement::Creature],
                 effects: vec![Effect::TapTargetCreature, Effect::ReturnSourceToOwnersHand],
+            },
+        },
+        ActivatedAbilityBinding {
+            card_definition: "RAV-JUNKTROLLER",
+            ability: ActivatedAbility {
+                id: "tap-target-graveyard-card-to-owners-library-bottom",
+                mana_cost: ManaCost::new(0),
+                tap_cost: true,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![TargetRequirement::GraveyardCard],
+                effects: vec![Effect::PutTargetGraveyardCardOnOwnersLibraryBottom],
             },
         },
         ActivatedAbilityBinding {

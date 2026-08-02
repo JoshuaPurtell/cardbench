@@ -39,6 +39,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-NIGHTGUARD-PATROL",
             "RAV-WATCHWOLF",
             "RAV-GLASS-GOLEM",
+            "RAV-JUNKTROLLER",
             "RAV-CLEANSING-BEAM",
             "RAV-RALLY-THE-RIGHTEOUS",
             "RAV-WOJEK-SIREN",

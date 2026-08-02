@@ -107,3 +107,11 @@ fn disembowel_resolves_to_its_bounded_chosen_x_definition() {
         Ok("RAV-DISEMBOWEL")
     );
 }
+
+#[test]
+fn junktroller_resolves_to_its_full_graveyard_target_definition() {
+    assert_eq!(
+        executable_definition_id_for_collector(264),
+        Ok("RAV-JUNKTROLLER")
+    );
+}
