@@ -10,8 +10,8 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardDefinition, CardType, CastRequest, DecisionKind, Effect, Game, ManaCost, PlayerId,
-    Zone,
+    CardDefinition, CardType, CastRequest, DecisionKind, DecisionSelection, Effect, Game,
+    GameEvent, ManaCost, PlayerId, Zone,
 };
 
 const REORDER: &str = "EVENT-LOG-RESET-PENDING-DECISION-REORDER";
@@ -71,16 +71,29 @@ fn event_log_reset_preserves_a_live_reorder_decision_boundary() {
         .expect("caster passes to the opponent");
     game.pass_priority(second)
         .expect("opponent pass opens the reorder decision");
-    assert_eq!(
-        game.view_for_player(first)
-            .expect("controller view exists")
-            .pending_decision
-            .expect("reorder decision is visible")
-            .kind,
-        DecisionKind::LibraryReorder
-    );
+    let decision = game
+        .view_for_player(first)
+        .expect("controller view exists")
+        .pending_decision
+        .expect("reorder decision is visible");
+    assert_eq!(decision.kind, DecisionKind::LibraryReorder);
+    let selected = decision
+        .candidates
+        .first()
+        .expect("top library card is visible")
+        .id;
 
     game.clear_event_log();
+    assert!(
+        game.event_log.iter().any(|event| matches!(
+            event,
+            GameEvent::DecisionOpened {
+                kind: DecisionKind::LibraryReorder,
+                ..
+            }
+        )),
+        "reset must defer rather than erase the opening receipt of a live decision"
+    );
     let audit = game.validate_invariants();
     eprintln!(
         "event-log reset while reorder decision pending: audit={audit:?}; events={:?}",
@@ -90,4 +103,12 @@ fn event_log_reset_preserves_a_live_reorder_decision_boundary() {
         audit.is_ok(),
         "a public event-log reset must not strand a live decision continuation"
     );
+    game.submit_decision(
+        first,
+        decision.id,
+        DecisionSelection::Objects(vec![selected]),
+    )
+    .expect("the preserved decision receipt permits its legal completion");
+    game.validate_invariants()
+        .expect("completed decision remains state-machine valid");
 }

@@ -2833,11 +2833,42 @@ impl Game {
             || self.permanent_has_protection_from_colors(attacker, &blocker_characteristics.colors)
     }
 
-    /// Drops setup or prior-run events. This is useful at the start of a scenario's
-    /// measured action sequence and never alters game state.
+    /// Drops setup or prior-run events at a receipt-quiescent scenario boundary.
+    ///
+    /// Some live state deliberately depends on a receipt that happened before
+    /// the next public action: for example, a typed decision retains its
+    /// `DecisionOpened` lifecycle, and an activated ability retains its
+    /// `AbilityActivated` lifecycle until it leaves the stack.  Erasing that
+    /// provenance would strand an otherwise legal continuation.  This
+    /// compatibility helper therefore leaves the log intact while such state
+    /// is live.  Scenario runners must reset before opening the measured
+    /// continuation, never in its middle.
     pub fn clear_event_log(&mut self) {
+        if self.event_log_reset_would_erase_live_provenance() {
+            return;
+        }
         self.event_log.clear();
         self.event_log_integrity.clear();
+    }
+
+    /// Returns whether truncating the public receipt history would make a
+    /// still-live state-machine continuation unverifiable.  The public log is
+    /// intentionally resettable for measured scenario suffixes, but these
+    /// structures require a matching historical opening/creation receipt when
+    /// they later resolve, detach, return, or terminate.
+    fn event_log_reset_would_erase_live_provenance(&self) -> bool {
+        self.terminal_event_emitted
+            || self.pending_decision.is_some()
+            || self.stack.iter().any(|item| item.ability_id.is_some())
+            || !self.spell_timing_exceptions.is_empty()
+            || !self.delayed_actions.is_empty()
+            || self.objects.values().any(|object| {
+                object.attached_to.is_some()
+                    && object
+                        .effective_definition()
+                        .and_then(|definition| self.attachment_bindings.get(definition))
+                        .is_some_and(|binding| binding.kind == AttachmentKind::Equipment)
+            })
     }
 
     /// Appends a canonical event and seals it for the invariant audit. All
