@@ -3920,6 +3920,16 @@ pub enum DecisionContinuation {
         /// resolution order after the currently selected packet. They remain
         /// within the same no-priority spell-resolution boundary.
         deferred_packets: Vec<DamageReplacementPacket>,
+        /// Whether this packet is one recipient in an untargeted
+        /// multi-recipient damage instruction. A global instruction snapshots
+        /// every recipient before any packet commits; this stores its later
+        /// packets so their affected players still receive individual
+        /// replacement choices without re-resolving the instruction.
+        global_effect: bool,
+        /// The remaining original packets from the same multi-recipient
+        /// instruction. These are separate from `deferred_packets`, which
+        /// arise only after a partial redirection of the current packet.
+        remaining_global_packets: Vec<DamageReplacementPacket>,
     },
     /// Resumes one combat player-damage packet after the affected player
     /// selects an applicable replacement. The remaining already-assigned

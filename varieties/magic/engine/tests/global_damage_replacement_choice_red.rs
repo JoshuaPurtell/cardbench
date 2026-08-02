@@ -5,8 +5,8 @@ use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
     AbilityActivation, ActivatedAbility, ActivatedAbilityBinding, CardDefinition, CardType,
-    CastRequest, Color, DecisionKind, Effect, Game, GameEvent, ManaCost, PlayerId, Target,
-    TargetRequirement, Zone,
+    CastRequest, Color, DamageReplacementChoice, DecisionKind, DecisionSelection, Effect, Game,
+    GameEvent, ManaCost, PlayerId, ReplacementChoice, Target, TargetRequirement, Zone,
 };
 
 const REDIRECTOR: &str = "TST-GLOBAL-DAMAGE-REDIRECTOR";
@@ -44,6 +44,7 @@ fn pass_pair(game: &mut Game) {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // The complete cross-packet choice trace is the regression contract.
 fn every_global_damage_recipient_preserves_replacement_choice() {
     let caster = PlayerId(0);
     let opponent = PlayerId(1);
@@ -166,4 +167,57 @@ fn every_global_damage_recipient_preserves_replacement_choice() {
     );
     game.validate_invariants()
         .expect("paused global replacement boundary is state-machine valid");
+
+    let shield_choice = decision
+        .replacement_candidates
+        .iter()
+        .copied()
+        .find(|choice| {
+            matches!(
+                choice,
+                ReplacementChoice::Damage(DamageReplacementChoice::TargetedShield { .. })
+            )
+        })
+        .expect("the prevention shield is one public replacement choice");
+    let ReplacementChoice::Damage(shield_replacement) = shield_choice else {
+        panic!("the shield has the wrong replacement family");
+    };
+    game.submit_decision(
+        caster,
+        decision.id,
+        DecisionSelection::Replacements(vec![ReplacementChoice::Damage(shield_replacement)]),
+    )
+    .expect("the affected player chooses prevention for the target packet");
+
+    eprintln!(
+        "global damage replacement green trace: {:?}",
+        game.canonical_event_log()
+    );
+    assert_eq!(
+        game.stack.len(),
+        0,
+        "the global spell resolves exactly once"
+    );
+    assert_eq!(game.object(target).expect("target remains").damage, 0);
+    assert_eq!(
+        game.object(redirector).expect("redirector remains").damage,
+        2
+    );
+    assert_eq!(game.player(caster).expect("caster remains").life, 18);
+    assert_eq!(game.player(opponent).expect("opponent remains").life, 18);
+    assert!(game.event_log.windows(5).any(|events| matches!(
+        events,
+        [
+            GameEvent::DamageReplacementApplied { replacement, .. },
+            GameEvent::DamagePrevented { target: Target::Permanent(permanent), amount: 2, .. },
+            GameEvent::DecisionCompleted { decision: completed, kind: DecisionKind::Replacement, .. },
+            GameEvent::DamageDealtToPlayer { player: first_player, amount: 2, .. },
+            GameEvent::DamageDealtToPlayer { player: second_player, amount: 2, .. },
+        ] if *replacement == shield_replacement
+            && *permanent == target
+            && *completed == decision.id
+            && [*first_player, *second_player] == [caster, opponent]
+    )));
+    game.validate_invariants()
+        .expect("resumed global replacement batch is state-machine valid");
 }
