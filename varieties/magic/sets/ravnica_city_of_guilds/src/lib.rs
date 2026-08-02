@@ -2244,6 +2244,31 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 ],
             }],
         },
+        // Compatibility scope: this creature uses the expansion-neutral Aura
+        // attachment lifecycle, but its hidden-zone search is deliberately
+        // deterministic. It always takes the first legal Aura in library
+        // order; player selection and declining an otherwise legal search
+        // remain outside this slice.
+        CardDefinition {
+            id: "RAV-AURATOUCHED-MAGE",
+            name: "Auratouched Mage",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(5, [Color::White]),
+            colors: colors([Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "colored-cost-casting",
+                "base-characteristics",
+                "etb-aura-search-and-attach",
+                "deterministic-first-compatible-aura-selection",
+            ],
+            power: Some(3),
+            toughness: Some(3),
+            keywords: vec![],
+            effects: vec![],
+        },
         // Full fidelity: Convoke reduces the printed cost and the resolving
         // instruction counts every current battlefield creature, including
         // opposing creatures and tokens, before gaining that much life.
@@ -6163,6 +6188,19 @@ pub fn rav_static_entry_restriction_bindings() -> Vec<StaticEntryRestrictionBind
 #[allow(clippy::too_many_lines)] // Keep the declarative trigger registry centralized for audit review.
 pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
     vec![
+        TriggeredAbilityBinding {
+            card_definition: "RAV-AURATOUCHED-MAGE",
+            ability: TriggeredAbility {
+                id: "etb-search-and-attach-aura",
+                condition: TriggerCondition::EntersBattlefield,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![
+                    Effect::SearchControllerLibraryForFirstCompatibleAuraAttachedToSource,
+                ],
+            },
+        },
         TriggeredAbilityBinding {
             card_definition: "RAV-FISTS-OF-IRONWOOD",
             ability: TriggeredAbility {

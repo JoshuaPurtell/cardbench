@@ -1724,6 +1724,12 @@ pub enum Effect {
         destination: LibrarySearchDestination,
         selection: LibrarySearchSelection,
     },
+    /// Search the resolving controller's library for the first Aura that can
+    /// legally attach to this effect's exact live source incarnation, put it
+    /// onto the battlefield attached to that source, then shuffle. This is a
+    /// deterministic compatibility operation: a policy-selected or declined
+    /// search remains a separate decision substrate.
+    SearchControllerLibraryForFirstCompatibleAuraAttachedToSource,
     /// Search the resolving controller's library for a policy-selected batch
     /// of cards matching one typed requirement.  The decision's cardinality,
     /// privacy, reveal state, destination, and following shuffle are owned by
@@ -2289,6 +2295,7 @@ impl Effect {
             | Self::DrawControllerForEachControlledBasicLandType { .. }
             | Self::PreventLibrarySearchUntilEndOfTurn
             | Self::SearchControllerLibrary { .. }
+            | Self::SearchControllerLibraryForFirstCompatibleAuraAttachedToSource
             | Self::SearchControllerLibraryMany { .. }
             | Self::RevealTopLibraryCardsAndReorder { .. }
             | Self::LookAtTopCardsPutOneInHandOneOnTopRestOnBottom { .. }

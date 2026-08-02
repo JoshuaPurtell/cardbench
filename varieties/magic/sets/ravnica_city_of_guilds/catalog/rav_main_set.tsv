@@ -6,7 +6,7 @@
 # license=CardBench-authored manifest structure is MIT; card names and set identifiers are nominative interoperability facts; no card text, art, or source JSON is distributed.
 # default_semantic_status=catalog-only:card-specific-rules-not-implemented
 # columns=collector_number<TAB>name<TAB>semantic_status_override(optional)
-1	Auratouched Mage
+1	Auratouched Mage	executable:RAV-AURATOUCHED-MAGE
 2	Bathe in Light	executable:RAV-BATHE-IN-LIGHT
 3	Benevolent Ancestor	executable:RAV-BENEVOLENT-ANCESTOR
 4	Blazing Archon	executable:RAV-BLAZING-ARCHON

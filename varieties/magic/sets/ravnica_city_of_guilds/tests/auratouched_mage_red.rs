@@ -53,6 +53,20 @@ fn cast_and_resolve_mage(game: &mut Game, mage: cardbench_magic_engine::ObjectId
         .expect("Mage trigger resolves");
 }
 
+fn add_and_activate_mage_mana(game: &mut Game) {
+    let plains = (0..6)
+        .map(|_| {
+            game.put_on_battlefield(PlayerId(0), "RAV-PLAINS")
+                .expect("Plains enters before game start")
+        })
+        .collect::<Vec<_>>();
+    advance_to_precombat_main(game);
+    for plains in plains {
+        game.activate_mana_ability(PlayerId(0), plains, Color::White)
+            .expect("Plains produces White mana");
+    }
+}
+
 #[test]
 fn auratouched_mage_has_a_bounded_deterministic_aura_search_trigger() {
     let mage = card_definitions()
@@ -90,9 +104,7 @@ fn mage_fetches_the_first_compatible_aura_attaches_it_and_replays_its_etb() {
     let mage = game
         .add_card(PlayerId(0), "RAV-AURATOUCHED-MAGE", Zone::Hand)
         .expect("Mage enters hand");
-    game.grant_mana(PlayerId(0), Color::White, 6)
-        .expect("Mage cost is available before game start");
-    advance_to_precombat_main(&mut game);
+    add_and_activate_mage_mana(&mut game);
 
     cast_and_resolve_mage(&mut game, mage);
 
@@ -145,9 +157,7 @@ fn mage_shuffles_and_records_a_failed_search_when_no_compatible_aura_exists() {
     let mage = game
         .add_card(PlayerId(0), "RAV-AURATOUCHED-MAGE", Zone::Hand)
         .expect("Mage enters hand");
-    game.grant_mana(PlayerId(0), Color::White, 6)
-        .expect("Mage cost is available before game start");
-    advance_to_precombat_main(&mut game);
+    add_and_activate_mage_mana(&mut game);
 
     cast_and_resolve_mage(&mut game, mage);
 

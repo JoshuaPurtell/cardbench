@@ -7817,6 +7817,71 @@ impl Game {
         Ok(())
     }
 
+    /// Resolves the deterministic source-bound Aura search used by effects
+    /// that put one Aura directly onto the battlefield. The target is not a
+    /// policy choice: it is the resolving source's captured live incarnation,
+    /// while the searched Aura must independently satisfy its typed attachment
+    /// binding. A failed or prevented search still records its ordinary
+    /// search-and-shuffle receipt pair.
+    fn resolve_controller_library_aura_attachment_search(
+        &mut self,
+        source: ObjectId,
+        source_incarnation: u64,
+        controller: PlayerId,
+    ) -> Result<(), RulesError> {
+        let source_is_live = self.zone_of(source) == Some(Zone::Battlefield)
+            && self.object_has_incarnation(source, source_incarnation);
+        let prevented = self.library_search_prevented_until == Some(self.turn);
+        let found = if source_is_live && !prevented {
+            self.library_search_aura_attachment_candidates(controller, source)?
+                .first()
+                .copied()
+        } else {
+            None
+        };
+
+        if let Some(aura) = found {
+            let definition = self.card_definition(aura)?.id;
+            let aura_controller = self.controller_of(aura)?;
+            let binding = self
+                .attachment_binding_for(aura)?
+                .ok_or(RulesError::IllegalAction(
+                    "Aura search candidate lacks a typed attachment binding",
+                ))?;
+            if binding.kind != AttachmentKind::Aura {
+                return Err(RulesError::IllegalAction(
+                    "Aura search candidate is not an Aura attachment",
+                ));
+            }
+            self.move_to_zone(aura, Zone::Battlefield)?;
+            self.attach_with_binding(aura, source, &binding)?;
+            // The enclosing stack object remains in the middle of resolving,
+            // so queue the fetched Aura's ETB trigger now and let the normal
+            // post-resolution flush place it only after this ability's own
+            // terminal receipt.
+            self.enqueue_triggers_for_source(
+                aura,
+                definition,
+                aura_controller,
+                TriggerCondition::EntersBattlefield,
+            );
+        }
+
+        self.record_event(GameEvent::LibrarySearchResolved {
+            player: controller,
+            source,
+            found,
+            destination: LibrarySearchDestination::Battlefield,
+        });
+        self.shuffle_library(controller);
+        let cards = u16::try_from(self.players[controller.0].library.len()).unwrap_or(u16::MAX);
+        self.record_event(GameEvent::LibraryShuffled {
+            player: controller,
+            cards,
+        });
+        Ok(())
+    }
+
     #[allow(clippy::too_many_arguments)] // Direct prevented/deterministic branch mirrors the decision-owned transition.
     fn resolve_controller_library_search_many(
         &mut self,
@@ -7902,6 +7967,34 @@ impl Game {
                 && self.library_search_matches(*card, requirement, chosen_x)?
             {
                 candidates.push(*card);
+            }
+        }
+        Ok(candidates)
+    }
+
+    /// Returns only library Auras that can attach to one supplied live
+    /// permanent source under the same typed target legality used by ordinary
+    /// Aura resolution. The source is already known to be the current
+    /// incarnation of the resolving effect's source.
+    fn library_search_aura_attachment_candidates(
+        &self,
+        player: PlayerId,
+        source: ObjectId,
+    ) -> Result<Vec<ObjectId>, RulesError> {
+        let mut candidates = Vec::new();
+        for aura in self.library_search_candidates(player, &LibrarySearchRequirement::Aura, None)? {
+            let Some(binding) = self.attachment_binding_for(aura)? else {
+                continue;
+            };
+            if binding.kind == AttachmentKind::Aura
+                && self.target_matches_for_source(
+                    player,
+                    aura,
+                    Target::Permanent(source),
+                    binding.target,
+                )
+            {
+                candidates.push(aura);
             }
         }
         Ok(candidates)
@@ -10735,6 +10828,7 @@ impl Game {
                 | Effect::DrawTargetPlayer
                 | Effect::PreventLibrarySearchUntilEndOfTurn
                 | Effect::SearchControllerLibrary { .. }
+                | Effect::SearchControllerLibraryForFirstCompatibleAuraAttachedToSource
                 | Effect::SearchControllerLibraryMany { .. }
                 | Effect::RevealTopLibraryCardsAndReorder { .. }
                 | Effect::LookAtTopCardsPutOneInHandOneOnTopRestOnBottom { .. }
@@ -14904,6 +14998,13 @@ impl Game {
                     chosen_x,
                 )?;
             }
+            Effect::SearchControllerLibraryForFirstCompatibleAuraAttachedToSource => {
+                self.resolve_controller_library_aura_attachment_search(
+                    source,
+                    source_incarnation,
+                    controller,
+                )?;
+            }
             Effect::SearchControllerLibraryMany {
                 requirement,
                 destination,
@@ -17923,9 +18024,44 @@ impl Game {
                     | LibrarySearchDestination::BattlefieldTapped => Zone::Battlefield,
                     LibrarySearchDestination::Hand => Zone::Hand,
                 };
-                let preceding_index = index.checked_sub(1).ok_or(RulesError::IllegalAction(
+                let mut preceding_index = index.checked_sub(1).ok_or(RulesError::IllegalAction(
                     "library-search receipt lacks selected-card movement",
                 ))?;
+                // A source-bound Aura search puts its selection directly onto
+                // the battlefield and establishes the ordinary typed
+                // attachment before recording the search result. Permit only
+                // that attachment's receipts between the move/incarnation
+                // pair and the search receipt; an unrelated zone or gameplay
+                // event remains unable to impersonate the hidden-zone move.
+                let mut saw_selected_attachment = false;
+                loop {
+                    let is_attachment_receipt = match events.get(preceding_index) {
+                        Some(GameEvent::AuraAttached { aura, .. }) => *aura == *card,
+                        Some(GameEvent::AttachmentEstablishedWithoutContinuousEffect {
+                            attachment,
+                            ..
+                        }) => *attachment == *card,
+                        _ => false,
+                    };
+                    if is_attachment_receipt {
+                        saw_selected_attachment = true;
+                    }
+                    let is_linked_attachment_receipt = saw_selected_attachment
+                        && match events.get(preceding_index) {
+                            Some(GameEvent::ContinuousEffectCreated { source, .. })
+                            | Some(GameEvent::ControllerChanged { source, .. }) => *source == *card,
+                            _ => false,
+                        };
+                    if !is_attachment_receipt && !is_linked_attachment_receipt {
+                        break;
+                    }
+                    preceding_index =
+                        preceding_index
+                            .checked_sub(1)
+                            .ok_or(RulesError::IllegalAction(
+                                "library-search attachment receipt lacks selected-card movement",
+                            ))?;
+                }
                 let move_index = match events.get(preceding_index) {
                     Some(GameEvent::ObjectIncarnationAdvanced { object, .. }) if object == card => {
                         preceding_index
