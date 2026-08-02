@@ -29081,6 +29081,14 @@ impl Game {
             if let Some(definition) = definition {
                 self.departed_card_definitions.insert(object, definition);
             }
+            if self.zone_of(object) == Some(Zone::Battlefield) {
+                // CR 800.4a removes owned objects directly instead of giving
+                // them an ordinary destination zone.  They still leave any
+                // live combat membership before their object record becomes
+                // unavailable; exact block history remains available only as
+                // historical provenance for delayed effects.
+                self.remove_from_combat(object);
+            }
             self.remove_from_all_zones(object);
             self.stack
                 .retain(|stack_object| stack_object.card != object);
