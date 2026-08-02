@@ -2347,6 +2347,32 @@ pub struct ContinuousEffect {
     pub timestamp: u64,
 }
 
+/// The two attachment families represented by the initial general attachment
+/// substrate.  An Aura must remain attached to a legal permanent; Equipment
+/// may remain on the battlefield unattached and can move between legal
+/// permanents through its activated ability.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum AttachmentKind {
+    Aura,
+    Equipment,
+}
+
+/// Immutable expansion data describing how one permanent attaches to another.
+///
+/// A binding deliberately owns the typed restriction and the linked
+/// continuous changes rather than inferring them from a card name.  An Aura
+/// spell and an Equipment activated ability both still carry an ordinary
+/// `AttachSourceToTarget` effect so the stack retains target occurrence and
+/// resolution-time legality; this binding gives that effect its attachment
+/// lifecycle semantics.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AttachmentBinding {
+    pub card_definition: &'static str,
+    pub kind: AttachmentKind,
+    pub target: TargetRequirement,
+    pub changes: Vec<ContinuousChange>,
+}
+
 /// Immutable expansion data for a static continuous effect. The effect is
 /// active only while a permanent with the bound definition is on the
 /// battlefield; it creates neither a stack object nor an event-log receipt.
@@ -3004,6 +3030,23 @@ pub enum GameEvent {
     AuraAttached {
         aura: ObjectId,
         target: ObjectId,
+    },
+    /// A typed Equipment attached to a legal permanent through a resolving
+    /// activated ability. `previous` preserves reattachment provenance
+    /// without turning an old attachment into a live endpoint.
+    EquipmentAttached {
+        equipment: ObjectId,
+        target: ObjectId,
+        previous: Option<ObjectId>,
+    },
+    /// A non-Aura attachment stopped modifying its former target. Equipment
+    /// stays on the battlefield unattached; Auras instead use their ordinary
+    /// state-based graveyard transition.
+    AttachmentDetached {
+        attachment: ObjectId,
+        target: ObjectId,
+        kind: AttachmentKind,
+        reason: &'static str,
     },
     /// A resolver created one exact-incarnation exile group and scheduled its
     /// typed return continuation. Ordinary `CardMoved` receipts remain the

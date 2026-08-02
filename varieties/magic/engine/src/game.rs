@@ -6,9 +6,9 @@ use crate::{
     AbilityActivation, AbilityCostPayment, ActivatedAbility, ActivatedAbilityBinding,
     ActivatedAbilityCostAdjustment, ActivatedAbilityCostBinding, ActivatedAbilityCostContext,
     ActivatedAbilityCostModifier, ActivatedAbilityCostModifierBinding, ActivatedAbilityKind,
-    ActivatedCounterCostTarget, ActivatedManaAbility, AdditionalSpellCost,
-    AdditionalSpellCostBinding, BasicLandType, BasicLandTypeBinding, CardDefinition, CardObject,
-    CardType, CastPaymentManaAbility, Characteristics, Color, CombatBlock, ContinuousChange,
+    ActivatedCounterCostTarget, ActivatedManaAbility, AdditionalSpellCost, AdditionalSpellCostBinding,
+    AttachmentBinding, AttachmentKind, BasicLandType, BasicLandTypeBinding, CardDefinition,
+    CardObject, CardType, CastPaymentManaAbility, Characteristics, Color, CombatBlock, ContinuousChange,
     ContinuousEffect, CopiableValues, CopiedPermanent, CostReductionBinding, CounterKind,
     CreatureSubtype, DamageReplacementChoice, DecisionContinuation, DecisionId, DecisionKind,
     DecisionOption, DecisionSelection, DecisionVisibility, DeckList, DelayedAction,
@@ -595,6 +595,7 @@ pub struct Game {
     catalog: BTreeMap<&'static str, CardDefinition>,
     mana_abilities: BTreeMap<&'static str, BTreeMap<&'static str, ActivatedManaAbility>>,
     activated_abilities: BTreeMap<&'static str, BTreeMap<&'static str, ActivatedAbility>>,
+    attachment_bindings: BTreeMap<&'static str, AttachmentBinding>,
     triggered_abilities: BTreeMap<&'static str, BTreeMap<&'static str, crate::TriggeredAbility>>,
     static_attack_restrictions: BTreeMap<&'static str, Vec<StaticAttackRestriction>>,
     static_continuous_effects: BTreeMap<&'static str, Vec<ContinuousChange>>,
@@ -847,6 +848,7 @@ impl Game {
             catalog,
             mana_abilities,
             activated_abilities: BTreeMap::new(),
+            attachment_bindings: BTreeMap::new(),
             triggered_abilities: BTreeMap::new(),
             static_attack_restrictions: BTreeMap::new(),
             static_continuous_effects: BTreeMap::new(),
@@ -949,6 +951,90 @@ impl Game {
         }
         game.validate_invariants()?;
         Ok(game)
+    }
+
+    /// Registers immutable typed attachment data before the game begins.
+    ///
+    /// The binding is intentionally separate from `CardDefinition`, like the
+    /// other expansion-owned ability bindings: an Aura's spell effect or an
+    /// Equipment's activated effect still owns stack target ordering, while
+    /// this data owns the persistent attachment lifecycle.  This prevents an
+    /// activated ability from silently becoming an Aura merely because it has
+    /// a target and a continuous effect.
+    pub fn register_attachment_bindings(
+        &mut self,
+        bindings: impl IntoIterator<Item = AttachmentBinding>,
+    ) -> Result<(), RulesError> {
+        if self.started {
+            return Err(RulesError::IllegalAction(
+                "attachment bindings cannot be changed after the game starts",
+            ));
+        }
+        let previous_bindings = self.attachment_bindings.clone();
+        let mut next_bindings = previous_bindings.clone();
+        for binding in bindings {
+            let definition = self
+                .catalog
+                .get(binding.card_definition)
+                .ok_or(RulesError::UnknownDefinition(binding.card_definition))?;
+            let valid_source = match binding.kind {
+                AttachmentKind::Aura => definition.card_types.contains(&CardType::Enchantment),
+                AttachmentKind::Equipment => definition.card_types.contains(&CardType::Artifact),
+            };
+            if !valid_source
+                || binding.changes.is_empty()
+                || !Self::attachment_target_requirement_is_permanent(binding.target)
+                || binding
+                    .changes
+                    .iter()
+                    .enumerate()
+                    .any(|(index, change)| binding.changes[..index].contains(change))
+            {
+                return Err(RulesError::IllegalAction(
+                    "attachment binding requires a typed permanent source, target, and change",
+                ));
+            }
+            let has_matching_effect = match binding.kind {
+                AttachmentKind::Aura => definition.effects.iter().any(|effect| {
+                    Self::attachment_effect_spec(effect).is_some_and(|(target, changes)| {
+                        target == binding.target && changes == binding.changes
+                    })
+                }),
+                AttachmentKind::Equipment => self
+                    .activated_abilities
+                    .get(binding.card_definition)
+                    .is_some_and(|abilities| {
+                        abilities.values().any(|ability| {
+                            ability.effects.iter().any(|effect| {
+                                Self::attachment_effect_spec(effect).is_some_and(
+                                    |(target, changes)| {
+                                        target == binding.target && changes == binding.changes
+                                    },
+                                )
+                            })
+                        })
+                    }),
+            };
+            if !has_matching_effect {
+                return Err(RulesError::IllegalAction(
+                    "attachment binding lacks a matching stack effect",
+                ));
+            }
+            if next_bindings
+                .insert(binding.card_definition, binding)
+                .is_some()
+            {
+                return Err(RulesError::IllegalAction(
+                    "duplicate attachment binding for card definition",
+                ));
+            }
+        }
+        self.attachment_bindings = next_bindings;
+        if let Err(error) = self.validate_invariants() {
+            self.attachment_bindings = previous_bindings;
+            return Err(error);
+        }
+        Ok(())
     }
 
     /// Registers source-bound generic-cost reductions before the game begins.
@@ -1582,6 +1668,52 @@ impl Game {
             .ok_or(RulesError::UnknownCard(card))?
             .controller = controller;
         Ok(card)
+    }
+
+    /// Applies the zone-and-attachment portion of an effect that puts an Aura
+    /// onto the battlefield without casting it.  This is a rules primitive
+    /// for future resolving effects, not a policy action: callers supply both
+    /// the exact Aura object and its intended endpoint, and the same typed
+    /// restriction/protection/incarnation checks used by ordinary Aura
+    /// resolution run before anything mutates.
+    ///
+    /// Equipment uses its own attach activation and is deliberately rejected
+    /// here.  Broader zone-search and effect-created-entry instructions remain
+    /// separate from this attachment lifecycle primitive.
+    pub fn enter_attachment_without_cast(
+        &mut self,
+        attachment: ObjectId,
+        target: ObjectId,
+    ) -> Result<(), RulesError> {
+        self.atomic_transition(|game| {
+            if game.zone_of(attachment) == Some(Zone::Battlefield) {
+                return Err(RulesError::IllegalAction(
+                    "an entering attachment is already on the battlefield",
+                ));
+            }
+            let binding =
+                game.attachment_binding_for(attachment)?
+                    .ok_or(RulesError::IllegalAction(
+                        "entering attachment lacks a typed attachment binding",
+                    ))?;
+            if binding.kind != AttachmentKind::Aura {
+                return Err(RulesError::IllegalAction(
+                    "only an Aura may enter attached without being cast",
+                ));
+            }
+            if !game.target_matches_for_source(
+                game.controller_of(attachment)?,
+                attachment,
+                Target::Permanent(target),
+                binding.target,
+            ) {
+                return Err(RulesError::IllegalTarget(Target::Permanent(target)));
+            }
+            game.move_to_zone(attachment, Zone::Battlefield)?;
+            game.attach_with_binding(attachment, target, &binding)?;
+            game.check_state_based_actions()?;
+            Ok(())
+        })
     }
 
     pub fn grant_mana(
@@ -3406,99 +3538,257 @@ impl Game {
         Ok(())
     }
 
-    /// Completes an Aura-like permanent spell's successful resolution. This
-    /// runs only after the source has entered the battlefield, so the
-    /// permanent continuous-effect invariants apply from its first public
-    /// attachment receipt onward.
-    fn attach_aura_with_changes(
+    /// Completes a typed attachment after its source has entered the
+    /// battlefield (Aura) or after its attach ability resolves (Equipment).
+    /// The stack still owns target ordering and resolution-time legality; this
+    /// helper owns the durable endpoint, linked effects, and replay receipt.
+    fn attach_with_binding(
         &mut self,
-        aura: ObjectId,
+        attachment: ObjectId,
         target: ObjectId,
-        requirement: TargetRequirement,
-        changes: Vec<ContinuousChange>,
+        binding: &AttachmentBinding,
     ) -> Result<(), RulesError> {
-        self.require_zone(aura, Zone::Battlefield)?;
-        if !self.is_aura_like(aura)? || !self.target_matches(Target::Permanent(target), requirement)
-        {
+        self.require_zone(attachment, Zone::Battlefield)?;
+        if !self.target_matches_for_source(
+            self.controller_of(attachment)?,
+            attachment,
+            Target::Permanent(target),
+            binding.target,
+        ) {
             return Err(RulesError::IllegalTarget(Target::Permanent(target)));
         }
         let target_incarnation = self.object(target)?.incarnation;
+        let attachment_incarnation = self.object(attachment)?.incarnation;
+        let previous = self.object(attachment)?.attached_to;
+        let previous_incarnation = self.object(attachment)?.attached_to_incarnation;
+        match (binding.kind, previous, previous_incarnation) {
+            (AttachmentKind::Aura, Some(_), _) => {
+                return Err(RulesError::IllegalAction(
+                    "an Aura cannot be attached while already attached",
+                ));
+            }
+            (AttachmentKind::Equipment, Some(previous), Some(previous_incarnation)) => {
+                self.remove_attachment_continuous_effects(
+                    attachment,
+                    attachment_incarnation,
+                    previous,
+                    previous_incarnation,
+                    &binding.changes,
+                )?;
+            }
+            (AttachmentKind::Equipment, Some(_), None) => {
+                return Err(RulesError::IllegalAction(
+                    "an attachment lacks target-incarnation provenance",
+                ));
+            }
+            (_, None, Some(_)) => {
+                return Err(RulesError::IllegalAction(
+                    "an unattached permanent retains target-incarnation provenance",
+                ));
+            }
+            _ => {}
+        }
         let object = self
             .objects
-            .get_mut(&aura)
-            .ok_or(RulesError::UnknownCard(aura))?;
-        if object.attached_to.replace(target).is_some() {
-            return Err(RulesError::IllegalAction(
-                "an aura-like permanent was already attached",
-            ));
-        }
+            .get_mut(&attachment)
+            .ok_or(RulesError::UnknownCard(attachment))?;
+        object.attached_to = Some(target);
         object.attached_to_incarnation = Some(target_incarnation);
-        for change in changes {
-            self.install_continuous_effect(aura, target, change, Duration::Permanent)?;
+        for change in &binding.changes {
+            self.install_continuous_effect(
+                attachment,
+                target,
+                change.clone(),
+                Duration::Permanent,
+            )?;
         }
-        self.record_event(GameEvent::AuraAttached { aura, target });
+        match binding.kind {
+            AttachmentKind::Aura => self.record_event(GameEvent::AuraAttached {
+                aura: attachment,
+                target,
+            }),
+            AttachmentKind::Equipment => self.record_event(GameEvent::EquipmentAttached {
+                equipment: attachment,
+                target,
+                previous,
+            }),
+        }
         Ok(())
     }
 
+    /// Removes exactly the permanent effects created by one old attachment
+    /// endpoint.  Reattachment is not source departure: unrelated effects
+    /// sourced by the same permanent must remain intact.
+    fn remove_attachment_continuous_effects(
+        &mut self,
+        attachment: ObjectId,
+        attachment_incarnation: u64,
+        target: ObjectId,
+        target_incarnation: u64,
+        changes: &[ContinuousChange],
+    ) -> Result<(), RulesError> {
+        let expired = self
+            .continuous_effects
+            .iter()
+            .filter(|effect| {
+                effect.source == attachment
+                    && effect.source_incarnation == attachment_incarnation
+                    && effect.target == target
+                    && effect.target_incarnation == target_incarnation
+                    && effect.duration == Duration::Permanent
+                    && changes.contains(&effect.change)
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+        if expired.len() != changes.len() {
+            return Err(RulesError::IllegalAction(
+                "attachment reattachment lacks its linked continuous effects",
+            ));
+        }
+        let control_before = self.control_targets_before_expiration(&expired)?;
+        self.continuous_effects.retain(|effect| {
+            !expired
+                .iter()
+                .any(|candidate| candidate.timestamp == effect.timestamp)
+        });
+        for effect in expired {
+            self.remove_damage_shield_for_effect(&effect);
+            self.record_event(GameEvent::ContinuousEffectExpired {
+                source: effect.source,
+                target: effect.target,
+                layer: effect.change.layer(),
+            });
+        }
+        self.record_control_reversions(&control_before)?;
+        Ok(())
+    }
+
+    /// State-based cleanup for an Equipment whose stored endpoint ceased to
+    /// be legal.  Unlike an Aura, Equipment remains a live permanent after
+    /// its linked effect is removed.
+    fn detach_equipment(
+        &mut self,
+        equipment: ObjectId,
+        binding: &AttachmentBinding,
+        reason: &'static str,
+    ) -> Result<(), RulesError> {
+        let object = self.object(equipment)?.clone();
+        let target = object.attached_to.ok_or(RulesError::IllegalAction(
+            "an Equipment detach lacks its attached permanent",
+        ))?;
+        let target_incarnation =
+            object
+                .attached_to_incarnation
+                .ok_or(RulesError::IllegalAction(
+                    "an Equipment detach lacks target-incarnation provenance",
+                ))?;
+        if self.zone_of(target) == Some(Zone::Battlefield)
+            && self.object_has_incarnation(target, target_incarnation)
+        {
+            self.remove_attachment_continuous_effects(
+                equipment,
+                object.incarnation,
+                target,
+                target_incarnation,
+                &binding.changes,
+            )?;
+        }
+        let equipment_object = self
+            .objects
+            .get_mut(&equipment)
+            .ok_or(RulesError::UnknownCard(equipment))?;
+        equipment_object.attached_to = None;
+        equipment_object.attached_to_incarnation = None;
+        self.record_event(GameEvent::AttachmentDetached {
+            attachment: equipment,
+            target,
+            kind: AttachmentKind::Equipment,
+            reason,
+        });
+        Ok(())
+    }
+
+    fn attachment_effect_spec(
+        effect: &Effect,
+    ) -> Option<(TargetRequirement, Vec<ContinuousChange>)> {
+        match effect {
+            Effect::AttachSourceAndModifyTargetPt { power, toughness } => Some((
+                TargetRequirement::Creature,
+                vec![ContinuousChange::ModifyPowerToughness {
+                    power: *power,
+                    toughness: *toughness,
+                }],
+            )),
+            Effect::AttachSourceToTarget { target, changes } => Some((*target, changes.clone())),
+            _ => None,
+        }
+    }
+
+    fn attachment_target_requirement_is_permanent(requirement: TargetRequirement) -> bool {
+        matches!(
+            requirement,
+            TargetRequirement::Permanent
+                | TargetRequirement::Creature
+                | TargetRequirement::NonblackCreature
+                | TargetRequirement::FlyingCreature
+                | TargetRequirement::DistinctCreature
+                | TargetRequirement::BlockingCreature
+                | TargetRequirement::AttackingOrBlockingCreature
+                | TargetRequirement::Land
+                | TargetRequirement::ControlledLand
+                | TargetRequirement::Artifact
+                | TargetRequirement::Enchantment
+                | TargetRequirement::ArtifactOrCreature
+                | TargetRequirement::ArtifactOrEnchantment
+                | TargetRequirement::ControlledCreature
+                | TargetRequirement::OpponentCreature
+        )
+    }
+
+    /// Resolves the attachment identity for the current effective definition.
+    /// Historical Aura spell definitions remain valid during the migration;
+    /// new definitions use an explicit binding so Equipment cannot be inferred
+    /// from an arbitrary activated ability carrying a modifier.
+    fn attachment_binding_for(
+        &self,
+        card: ObjectId,
+    ) -> Result<Option<AttachmentBinding>, RulesError> {
+        if self.object(card)?.token.is_some() {
+            return Ok(None);
+        }
+        let Some(definition) = self.effective_definition_id(card)? else {
+            return Ok(None);
+        };
+        if let Some(binding) = self.attachment_bindings.get(definition) {
+            return Ok(Some(binding.clone()));
+        }
+        let effects = &self
+            .catalog
+            .get(definition)
+            .ok_or(RulesError::UnknownDefinition(definition))?
+            .effects;
+        let specs = effects
+            .iter()
+            .filter_map(Self::attachment_effect_spec)
+            .collect::<Vec<_>>();
+        match specs.as_slice() {
+            [] => Ok(None),
+            [(target, changes)] => Ok(Some(AttachmentBinding {
+                card_definition: definition,
+                kind: AttachmentKind::Aura,
+                target: *target,
+                changes: changes.clone(),
+            })),
+            _ => Err(RulesError::IllegalAction(
+                "an attachment definition has multiple attachment effects",
+            )),
+        }
+    }
+
     fn is_aura_like(&self, card: ObjectId) -> Result<bool, RulesError> {
-        if self.object(card)?.token.is_some() {
-            return Ok(false);
-        }
-        let Some(definition) = self.effective_definition_id(card)? else {
-            return Ok(false);
-        };
-        Ok(self.catalog[definition].effects.iter().any(|effect| {
-            matches!(
-                effect,
-                Effect::AttachSourceAndModifyTargetPt { .. } | Effect::AttachSourceToTarget { .. }
-            )
-        }))
-    }
-
-    fn aura_attachment_requirement(
-        &self,
-        card: ObjectId,
-    ) -> Result<Option<TargetRequirement>, RulesError> {
-        if self.object(card)?.token.is_some() {
-            return Ok(None);
-        }
-        let Some(definition) = self.effective_definition_id(card)? else {
-            return Ok(None);
-        };
-        Ok(self.catalog[definition]
-            .effects
-            .iter()
-            .find_map(|effect| match effect {
-                Effect::AttachSourceAndModifyTargetPt { .. } => Some(TargetRequirement::Creature),
-                Effect::AttachSourceToTarget { target, .. } => Some(*target),
-                _ => None,
-            }))
-    }
-
-    fn aura_attachment_spec(
-        &self,
-        card: ObjectId,
-    ) -> Result<Option<(TargetRequirement, Vec<ContinuousChange>)>, RulesError> {
-        if self.object(card)?.token.is_some() {
-            return Ok(None);
-        }
         Ok(self
-            .card_definition(card)?
-            .effects
-            .iter()
-            .find_map(|effect| match effect {
-                Effect::AttachSourceAndModifyTargetPt { power, toughness } => Some((
-                    TargetRequirement::Creature,
-                    vec![ContinuousChange::ModifyPowerToughness {
-                        power: *power,
-                        toughness: *toughness,
-                    }],
-                )),
-                Effect::AttachSourceToTarget { target, changes } => {
-                    Some((*target, changes.clone()))
-                }
-                _ => None,
-            }))
+            .attachment_binding_for(card)?
+            .is_some_and(|binding| binding.kind == AttachmentKind::Aura))
     }
 
     /// Captures an Aura-relative linked-exile group. The source-relative
@@ -3667,15 +3957,18 @@ impl Game {
             self.move_to_zone(aura.object, Zone::Battlefield)?;
             returned.push(aura.object);
             if let Some(primary) = returned_primary {
-                if let Some((requirement, changes)) = self.aura_attachment_spec(aura.object)? {
+                if let Some(binding) = self
+                    .attachment_binding_for(aura.object)?
+                    .filter(|binding| binding.kind == AttachmentKind::Aura)
+                {
                     let controller = self.controller_of(aura.object)?;
                     if self.target_matches_for_source(
                         controller,
                         aura.object,
                         Target::Permanent(primary),
-                        requirement,
+                        binding.target,
                     ) {
-                        self.attach_aura_with_changes(aura.object, primary, requirement, changes)?;
+                        self.attach_with_binding(aura.object, primary, &binding)?;
                     }
                 }
             }
@@ -5495,42 +5788,50 @@ impl Game {
                     changed = true;
                 }
             }
-            for aura in self.all_battlefield_cards() {
-                if !self.is_aura_like(aura)? {
+            for attachment in self.all_battlefield_cards() {
+                let Some(binding) = self.attachment_binding_for(attachment)? else {
                     continue;
-                }
-                let object = self.object(aura)?;
+                };
+                let object = self.object(attachment)?;
                 let attached_to = object.attached_to;
                 let attached_to_incarnation = object.attached_to_incarnation;
-                let requirement =
-                    self.aura_attachment_requirement(aura)?
-                        .ok_or(RulesError::IllegalAction(
-                            "aura-like permanent lacks an enchant restriction",
-                        ))?;
                 let attached_to_live_permanent = attached_to.is_some_and(|target| {
                     self.zone_of(target) == Some(Zone::Battlefield)
                         && attached_to_incarnation.is_some_and(|incarnation| {
                             self.object_has_incarnation(target, incarnation)
                         })
                         && self.target_matches_for_source(
-                            self.controller_of(aura)
-                                .unwrap_or(self.objects[&aura].controller),
-                            aura,
+                            self.controller_of(attachment)
+                                .unwrap_or(self.objects[&attachment].controller),
+                            attachment,
                             Target::Permanent(target),
-                            requirement,
+                            binding.target,
                         )
                 });
-                if !attached_to_live_permanent {
-                    self.record_event(GameEvent::StateBasedAction {
-                        card: aura,
-                        reason: if requirement == TargetRequirement::Creature {
-                            "Aura is not attached to a battlefield creature"
-                        } else {
-                            "Aura is not attached to a legal battlefield permanent"
-                        },
-                    });
-                    self.move_to_graveyard_or_remove_token(aura)?;
-                    changed = true;
+                match binding.kind {
+                    AttachmentKind::Aura if !attached_to_live_permanent => {
+                        self.record_event(GameEvent::StateBasedAction {
+                            card: attachment,
+                            reason: if binding.target == TargetRequirement::Creature {
+                                "Aura is not attached to a battlefield creature"
+                            } else {
+                                "Aura is not attached to a legal battlefield permanent"
+                            },
+                        });
+                        self.move_to_graveyard_or_remove_token(attachment)?;
+                        changed = true;
+                    }
+                    AttachmentKind::Equipment
+                        if attached_to.is_some() && !attached_to_live_permanent =>
+                    {
+                        self.detach_equipment(
+                            attachment,
+                            &binding,
+                            "attached permanent became illegal",
+                        )?;
+                        changed = true;
+                    }
+                    _ => {}
                 }
             }
             for card in self.all_battlefield_cards() {
@@ -5652,7 +5953,8 @@ impl Game {
         Self::validate_object_incarnation_event_order(&self.event_log)?;
         Self::validate_permanent_copy_event_order(&self.event_log)?;
         Self::validate_library_search_event_order(&self.event_log)?;
-        Self::validate_aura_attachment_event_order(&self.event_log)?;
+        Self::validate_attachment_event_order(&self.event_log)?;
+        Self::validate_attachment_detach_event_order(&self.event_log)?;
         Self::validate_delayed_action_event_order(&self.event_log)?;
         self.validate_linked_exile_state()?;
         Self::validate_spell_mana_payment_event_order(&self.event_log)?;
@@ -6633,6 +6935,52 @@ impl Game {
                 ));
             }
         }
+        for (definition_id, binding) in &self.attachment_bindings {
+            let definition = self
+                .catalog
+                .get(definition_id)
+                .ok_or(RulesError::UnknownDefinition(definition_id))?;
+            let source_type_is_valid = match binding.kind {
+                AttachmentKind::Aura => definition.card_types.contains(&CardType::Enchantment),
+                AttachmentKind::Equipment => definition.card_types.contains(&CardType::Artifact),
+            };
+            let has_matching_effect = match binding.kind {
+                AttachmentKind::Aura => definition.effects.iter().any(|effect| {
+                    Self::attachment_effect_spec(effect).is_some_and(|(target, changes)| {
+                        target == binding.target && changes == binding.changes
+                    })
+                }),
+                AttachmentKind::Equipment => self
+                    .activated_abilities
+                    .get(definition_id)
+                    .is_some_and(|abilities| {
+                        abilities.values().any(|ability| {
+                            ability.effects.iter().any(|effect| {
+                                Self::attachment_effect_spec(effect).is_some_and(
+                                    |(target, changes)| {
+                                        target == binding.target && changes == binding.changes
+                                    },
+                                )
+                            })
+                        })
+                    }),
+            };
+            if binding.card_definition != *definition_id
+                || !source_type_is_valid
+                || binding.changes.is_empty()
+                || !Self::attachment_target_requirement_is_permanent(binding.target)
+                || binding
+                    .changes
+                    .iter()
+                    .enumerate()
+                    .any(|(index, change)| binding.changes[..index].contains(change))
+                || !has_matching_effect
+            {
+                return Err(RulesError::IllegalAction(
+                    "attachment binding has invalid source, effect, target, or duplicate change",
+                ));
+            }
+        }
         for (definition_id, binding) in &self.cost_reductions {
             let definition = self
                 .catalog
@@ -6764,8 +7112,8 @@ impl Game {
                 Duration::Permanent => {}
             }
         }
-        for aura in self.all_battlefield_cards() {
-            let object = self.object(aura)?;
+        for attachment in self.all_battlefield_cards() {
+            let object = self.object(attachment)?;
             if object.token.is_some() {
                 if object.attached_to.is_some() || object.attached_to_incarnation.is_some() {
                     return Err(RulesError::IllegalAction(
@@ -6774,7 +7122,7 @@ impl Game {
                 }
                 continue;
             }
-            let Some(definition) = self.effective_definition_id(aura)? else {
+            let Some(_) = self.effective_definition_id(attachment)? else {
                 if object.attached_to.is_some() || object.attached_to_incarnation.is_some() {
                     return Err(RulesError::IllegalAction(
                         "a token-value copied permanent retains an attachment target",
@@ -6782,68 +7130,48 @@ impl Game {
                 }
                 continue;
             };
-            let attachment_specs = self
-                .catalog
-                .get(definition)
-                .ok_or(RulesError::UnknownDefinition(definition))?
-                .effects
-                .iter()
-                .filter_map(|effect| match effect {
-                    Effect::AttachSourceAndModifyTargetPt { power, toughness } => Some((
-                        TargetRequirement::Creature,
-                        vec![ContinuousChange::ModifyPowerToughness {
-                            power: *power,
-                            toughness: *toughness,
-                        }],
-                    )),
-                    Effect::AttachSourceToTarget { target, changes } => {
-                        Some((*target, changes.clone()))
-                    }
-                    _ => None,
-                })
-                .collect::<Vec<_>>();
-            if attachment_specs.is_empty() {
+            let Some(binding) = self.attachment_binding_for(attachment)? else {
                 if object.attached_to.is_some() || object.attached_to_incarnation.is_some() {
                     return Err(RulesError::IllegalAction(
-                        "a non-aura permanent retains an attachment target",
+                        "a non-attachment permanent retains an attachment target",
                     ));
                 }
                 continue;
-            }
-            if attachment_specs.len() != 1 {
-                return Err(RulesError::IllegalAction(
-                    "an aura-like definition has multiple attachment modifiers",
-                ));
+            };
+            if binding.kind == AttachmentKind::Equipment
+                && object.attached_to.is_none()
+                && object.attached_to_incarnation.is_none()
+            {
+                continue;
             }
             let target = object.attached_to.ok_or(RulesError::IllegalAction(
-                "a battlefield aura-like permanent has no attachment target",
+                "a battlefield attachment has no target",
             ))?;
             let target_incarnation =
                 object
                     .attached_to_incarnation
                     .ok_or(RulesError::IllegalAction(
-                        "a battlefield aura-like permanent lacks target incarnation provenance",
+                        "a battlefield attachment lacks target-incarnation provenance",
                     ))?;
-            let (requirement, changes) = &attachment_specs[0];
             if self.zone_of(target) != Some(Zone::Battlefield)
                 || !self.object_has_incarnation(target, target_incarnation)
                 || !self.target_matches_for_source(
-                    self.controller_of(aura)?,
-                    aura,
+                    self.controller_of(attachment)?,
+                    attachment,
                     Target::Permanent(target),
-                    *requirement,
+                    binding.target,
                 )
             {
                 return Err(RulesError::IllegalAction(
-                    "a battlefield aura-like permanent has an illegal attachment target",
+                    "a battlefield attachment has an illegal target",
                 ));
             }
-            for change in changes {
+            for change in &binding.changes {
                 let matching_effects = self
                     .continuous_effects
                     .iter()
                     .filter(|effect| {
-                        effect.source == aura
+                        effect.source == attachment
                             && effect.target == target
                             && effect.source_incarnation == object.incarnation
                             && effect.target_incarnation == target_incarnation
@@ -6853,7 +7181,7 @@ impl Game {
                     .count();
                 if matching_effects != 1 {
                     return Err(RulesError::IllegalAction(
-                        "aura attachment lacks exactly one matching continuous effect",
+                        "attachment lacks exactly one matching continuous effect",
                     ));
                 }
             }
@@ -8022,11 +8350,8 @@ impl Game {
                 });
             }
         }
-        let mut pending_aura_attachment: Option<(
-            ObjectId,
-            TargetRequirement,
-            Vec<ContinuousChange>,
-        )> = None;
+        let mut pending_attachment: Option<(ObjectId, TargetRequirement, Vec<ContinuousChange>)> =
+            None;
         let mut target_index = 0;
         for (effect_index, (effect, target_resolution)) in stack_object
             .effects
@@ -8101,37 +8426,17 @@ impl Game {
                             &stack_object.source_colors,
                         )
                     {
-                        if let Effect::AttachSourceAndModifyTargetPt { power, toughness } = effect {
-                            if pending_aura_attachment
+                        if let Some((requirement, changes)) = Self::attachment_effect_spec(effect) {
+                            if pending_attachment
                                 .replace((
                                     Self::target_permanent(Some(target))?,
-                                    TargetRequirement::Creature,
-                                    vec![ContinuousChange::ModifyPowerToughness {
-                                        power: *power,
-                                        toughness: *toughness,
-                                    }],
+                                    requirement,
+                                    changes,
                                 ))
                                 .is_some()
                             {
                                 return Err(RulesError::IllegalAction(
-                                    "a permanent spell has multiple attachment effects",
-                                ));
-                            }
-                        } else if let Effect::AttachSourceToTarget {
-                            target: requirement,
-                            changes,
-                        } = effect
-                        {
-                            if pending_aura_attachment
-                                .replace((
-                                    Self::target_permanent(Some(target))?,
-                                    *requirement,
-                                    changes.clone(),
-                                ))
-                                .is_some()
-                            {
-                                return Err(RulesError::IllegalAction(
-                                    "a permanent spell has multiple attachment effects",
+                                    "a stack item has multiple attachment effects",
                                 ));
                             }
                         } else {
@@ -8174,10 +8479,29 @@ impl Game {
         // leave a half-built replacement effect behind for a later action.
         self.pending_damage_redirection = None;
         if let Some(ability) = stack_object.ability_id {
-            if pending_aura_attachment.is_some() {
-                return Err(RulesError::IllegalAction(
-                    "an activated ability cannot establish an aura attachment",
-                ));
+            if let Some((target, requirement, changes)) = pending_attachment {
+                let binding = self.attachment_binding_for(stack_object.card)?.ok_or(
+                    RulesError::IllegalAction(
+                        "attachment effect source lacks a typed attachment binding",
+                    ),
+                )?;
+                if binding.kind != AttachmentKind::Equipment
+                    || binding.target != requirement
+                    || binding.changes != changes
+                {
+                    return Err(RulesError::IllegalAction(
+                        "activated attachment effect does not match its Equipment binding",
+                    ));
+                }
+                // An activated ability can resolve after its source leaves,
+                // but cannot attach a later incarnation or create a durable
+                // effect from a departed Equipment source.
+                if self.zone_of(stack_object.card) == Some(Zone::Battlefield)
+                    && self
+                        .object_has_incarnation(stack_object.card, stack_object.source_incarnation)
+                {
+                    self.attach_with_binding(stack_object.card, target, &binding)?;
+                }
             }
             self.record_event(GameEvent::AbilityResolved {
                 source: stack_object.card,
@@ -8211,10 +8535,23 @@ impl Game {
         let entering_controller = self.object(stack_object.card)?.controller;
         if permanent_resolution {
             self.move_to_zone(stack_object.card, Zone::Battlefield)?;
-            if let Some((target, requirement, changes)) = pending_aura_attachment {
-                self.attach_aura_with_changes(stack_object.card, target, requirement, changes)?;
+            if let Some((target, requirement, changes)) = pending_attachment {
+                let binding = self.attachment_binding_for(stack_object.card)?.ok_or(
+                    RulesError::IllegalAction(
+                        "attachment effect source lacks a typed attachment binding",
+                    ),
+                )?;
+                if binding.kind != AttachmentKind::Aura
+                    || binding.target != requirement
+                    || binding.changes != changes
+                {
+                    return Err(RulesError::IllegalAction(
+                        "permanent attachment effect does not match its Aura binding",
+                    ));
+                }
+                self.attach_with_binding(stack_object.card, target, &binding)?;
             }
-        } else if pending_aura_attachment.is_some() {
+        } else if pending_attachment.is_some() {
             return Err(RulesError::IllegalAction(
                 "an aura attachment effect requires a permanent spell",
             ));
@@ -12878,14 +13215,6 @@ impl Game {
             }
             if matches!(
                 effect,
-                Effect::AttachSourceAndModifyTargetPt { .. } | Effect::AttachSourceToTarget { .. }
-            ) {
-                return Err(RulesError::IllegalAction(
-                    "aura attachment effects are valid only on permanent spells",
-                ));
-            }
-            if matches!(
-                effect,
                 Effect::LookAtTopCardsOfTargetOpponentExileOne { count: 0 }
             ) {
                 return Err(RulesError::IllegalAction(
@@ -13107,28 +13436,58 @@ impl Game {
         Ok(())
     }
 
-    /// An Aura attachment receipt is the public boundary between establishing
-    /// its attachment-linked continuous effects and exposing that attachment
-    /// to later state-based actions. It immediately follows the final matching
-    /// effect receipt so replay cannot describe a modifier without attachment.
-    fn validate_aura_attachment_event_order(events: &[GameEvent]) -> Result<(), RulesError> {
+    /// An attachment receipt is the public boundary between establishing its
+    /// linked continuous effects and exposing the attached endpoint to later
+    /// state-based actions. It immediately follows the final matching effect
+    /// receipt so replay cannot describe a modifier without an attachment.
+    fn validate_attachment_event_order(events: &[GameEvent]) -> Result<(), RulesError> {
         for (index, event) in events.iter().enumerate() {
-            let GameEvent::AuraAttached { aura, target } = event else {
-                continue;
+            let (attachment, target) = match event {
+                GameEvent::AuraAttached { aura, target } => (*aura, *target),
+                GameEvent::EquipmentAttached {
+                    equipment, target, ..
+                } => (*equipment, *target),
+                _ => continue,
             };
             if !matches!(
                 events.get(index.checked_sub(1).ok_or(RulesError::IllegalAction(
-                    "aura attachment receipt lacks its continuous-effect receipt",
+                    "attachment receipt lacks its continuous-effect receipt",
                 ))?),
                 Some(GameEvent::ContinuousEffectCreated {
                     source,
                     target: effect_target,
                     ..
-                }) if source == aura && effect_target == target
+                }) if source == &attachment && effect_target == &target
             ) {
                 return Err(RulesError::IllegalAction(
-                    "aura attachment receipt is not paired with its final continuous effect",
+                    "attachment receipt is not paired with its final continuous effect",
                 ));
+            }
+        }
+        Ok(())
+    }
+
+    /// `AttachmentDetached` is a cleanup receipt only. It must refer to an
+    /// Equipment (Auras have their own ordinary state-based zone transition),
+    /// and a reattachment must name a previously constructed endpoint.
+    fn validate_attachment_detach_event_order(events: &[GameEvent]) -> Result<(), RulesError> {
+        let mut attached = BTreeSet::new();
+        for event in events {
+            match event {
+                GameEvent::EquipmentAttached { equipment, .. } => {
+                    attached.insert(*equipment);
+                }
+                GameEvent::AttachmentDetached {
+                    attachment,
+                    kind: AttachmentKind::Equipment,
+                    ..
+                } if attached.remove(attachment) => {}
+                GameEvent::AttachmentDetached { .. } => {
+                    return Err(RulesError::IllegalAction(
+                        "attachment-detached receipt lacks a prior Equipment attachment",
+                    ));
+                }
+                _ => {}
             }
         }
         Ok(())
