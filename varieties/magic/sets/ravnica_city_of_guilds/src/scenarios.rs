@@ -140,15 +140,29 @@ enum Section {
 }
 
 pub(crate) fn run_public_scenarios() -> Result<Vec<ScenarioResult>, String> {
-    let path = set_root().join("scenarios/public/train_scenarios.toml");
-    let contents =
-        fs::read_to_string(&path).map_err(|error| format!("{}: {error}", path.display()))?;
-    let specifications =
-        parse_scenarios(&contents).map_err(|error| format!("{}: {error}", path.display()))?;
-    specifications
+    public_scenario_specifications()?
         .iter()
         .map(execute_scenario)
         .collect::<Result<Vec<_>, _>>()
+}
+
+/// Executes one named public scenario without first replaying the whole
+/// corpus. This keeps card-lane red/green verification proportional to the
+/// changed fixture while the parity binary remains the full-corpus authority.
+pub(crate) fn run_public_scenario(id: &str) -> Result<ScenarioResult, String> {
+    let specifications = public_scenario_specifications()?;
+    let specification = specifications
+        .iter()
+        .find(|specification| specification.id == id)
+        .ok_or_else(|| format!("public RAV scenario `{id}` does not exist"))?;
+    execute_scenario(specification)
+}
+
+fn public_scenario_specifications() -> Result<Vec<ScenarioSpec>, String> {
+    let path = set_root().join("scenarios/public/train_scenarios.toml");
+    let contents =
+        fs::read_to_string(&path).map_err(|error| format!("{}: {error}", path.display()))?;
+    parse_scenarios(&contents).map_err(|error| format!("{}: {error}", path.display()))
 }
 
 fn parse_scenarios(contents: &str) -> Result<Vec<ScenarioSpec>, String> {
@@ -860,11 +874,24 @@ fn execute_action(
                 .map_err(rules_error)?
                 .pending_decision
                 .ok_or_else(|| "no private library-search decision is pending".to_owned())?;
-            let selected = (!action.found.is_empty())
-                .then(|| lookup(labels, &action.found))
-                .transpose()?
-                .into_iter()
-                .collect();
+            if !action.found.is_empty() && !action.targets.is_empty() {
+                return Err(
+                    "library-search action may specify `found` or `targets`, not both".to_owned(),
+                );
+            }
+            let selected = if action.targets.is_empty() {
+                (!action.found.is_empty())
+                    .then(|| lookup(labels, &action.found))
+                    .transpose()?
+                    .into_iter()
+                    .collect()
+            } else {
+                action
+                    .targets
+                    .iter()
+                    .map(|label| lookup(labels, label))
+                    .collect::<Result<Vec<_>, _>>()?
+            };
             game.submit_policy_move(
                 player,
                 "rav-scenario.choose-library-search.v1",

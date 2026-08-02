@@ -30,12 +30,13 @@ use cardbench_magic_engine::{
     ConvokeContribution, ConvokePayment, CostReductionBinding, CounterKind,
     DamageReplacementEffect, DamageReplacementEffectBinding, DeckEntry, DeckList, DeckRules,
     Effect, Game, GeneralizedActivatedAbilityCost, HybridManaSymbol, Keyword, LandEntryBinding,
-    LibrarySearchDestination, LibrarySearchRequirement, LibrarySearchSelection, ManaAbilityBinding,
-    ManaAbilityCostBinding, ManaAbilityOutput, ManaBundle, ManaCost, PlayerId, ReplacementEffect,
-    ReplacementEffectBinding, RulesError, SharedKeywordFamily, StaticAttackRestriction,
-    StaticAttackRestrictionBinding, StaticContinuousEffectBinding, StaticEntryRestriction,
-    StaticEntryRestrictionBinding, StaticLibraryTopRevealBinding, Target, TargetRequirement,
-    TokenSpec, TriggerCondition, TriggeredAbility, TriggeredAbilityBinding, Zone,
+    LibrarySearchCardinality, LibrarySearchDestination, LibrarySearchRequirement,
+    LibrarySearchSelection, ManaAbilityBinding, ManaAbilityCostBinding, ManaAbilityOutput,
+    ManaBundle, ManaCost, PlayerId, ReplacementEffect, ReplacementEffectBinding, RulesError,
+    SharedKeywordFamily, StaticAttackRestriction, StaticAttackRestrictionBinding,
+    StaticContinuousEffectBinding, StaticEntryRestriction, StaticEntryRestrictionBinding,
+    StaticLibraryTopRevealBinding, Target, TargetRequirement, TokenSpec, TriggerCondition,
+    TriggeredAbility, TriggeredAbilityBinding, Zone,
 };
 
 pub const SET_CODE: &str = "RAV";
@@ -43,7 +44,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 246] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 247] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
@@ -69,6 +70,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 246] = [
     "RAV-GLARE-OF-SUBDUAL",
     "RAV-DRYADS-CARESS",
     "RAV-CHORD-OF-CALLING",
+    "RAV-CONGREGATION-AT-DAWN",
     "RAV-FARSEEK",
     "RAV-MUDDLE-THE-MIXTURE",
     "RAV-SCION-OF-THE-WILD",
@@ -1277,6 +1279,38 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                     may_fail_to_find: true,
                 },
                 reveal_selected: false,
+            }],
+        },
+        // Full fidelity: this is a controller-private selected creature
+        // batch. The exact selected order is retained through shuffling the
+        // remaining library, then becomes the new revealed top-to-bottom
+        // order without fabricating zone moves for library cards.
+        CardDefinition {
+            id: "RAV-CONGREGATION-AT-DAWN",
+            name: "Congregation at Dawn",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(0, [Color::Green, Color::Green, Color::White]),
+            colors: colors([Color::Green, Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Instant]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "private-up-to-three-creature-search-reveal-shuffle-ordered-library-top",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![Effect::SearchControllerLibraryMany {
+                requirement: LibrarySearchRequirement::CardTypes(BTreeSet::from([
+                    CardType::Creature,
+                ])),
+                destination: LibrarySearchDestination::LibraryTop,
+                cardinality: LibrarySearchCardinality::ZeroOrMore { maximum: 3 },
+                selection: LibrarySearchSelection::PolicySubmitted {
+                    may_fail_to_find: false,
+                },
+                reveal_selected: true,
             }],
         },
         // Full fidelity: exact casting cost and controller-private selection
@@ -9378,6 +9412,13 @@ pub fn run_all_scenarios() -> Result<Vec<ScenarioResult>, String> {
     scenarios::run_public_scenarios()
 }
 
+/// Executes one named versioned public train scenario. This is a focused
+/// development/debugging surface; reference verification still runs every
+/// public scenario through [`run_all_scenarios`].
+pub fn run_public_scenario(id: &str) -> Result<ScenarioResult, String> {
+    scenarios::run_public_scenario(id)
+}
+
 /// Legacy in-code RAV examples retained only while downstream consumers migrate to
 /// fixture-driven scenarios. They are not part of the reference verifier.
 #[doc(hidden)]
@@ -9816,7 +9857,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 187);
+        assert_eq!(first.len(), 188);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

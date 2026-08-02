@@ -13113,3 +13113,74 @@ toughnesses = ["szadek:10"]
 event_markers = ["CombatDamageReplacedWithMillAndCounters", "CounterPlaced"]
 event_absent = ["DamageDealtToPlayer"]
 digest = "fnv1a64:54380ee83ff17cf9"
+
+[[scenario]]
+id = "rav_congregation_at_dawn_ordered_creature_search"
+seed = 189
+description = "Resolve Congregation at Dawn's private ordered creature search, public reveal, remaining-library shuffle, and exact top placement."
+
+[[scenario.card]]
+label = "congregation"
+owner = 0
+definition = "RAV-CONGREGATION-AT-DAWN"
+zone = "hand"
+
+[[scenario.card]]
+label = "watchwolf"
+owner = 0
+definition = "RAV-WATCHWOLF"
+zone = "library"
+
+[[scenario.card]]
+label = "grave_troll"
+owner = 0
+definition = "RAV-GOLGARI-GRAVE-TROLL"
+zone = "library"
+
+[[scenario.card]]
+label = "stone_seeder"
+owner = 0
+definition = "RAV-STONE-SEEDER-HIEROPHANT"
+zone = "library"
+
+[[scenario.card]]
+label = "char"
+owner = 0
+definition = "RAV-CHAR"
+zone = "library"
+
+[[scenario.mana]]
+player = 0
+color = "green"
+amount = 2
+
+[[scenario.mana]]
+player = 0
+color = "white"
+amount = 1
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "congregation"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "choose_library_search"
+player = 0
+targets = ["grave_troll", "watchwolf", "stone_seeder"]
+
+[scenario.expected]
+zones = ["congregation:graveyard", "watchwolf:library", "grave_troll:library", "stone_seeder:library", "char:library"]
+stack_size = 0
+priority = 0
+mana = ["0:green:0", "0:white:0"]
+event_markers = ["DecisionOpened", "DecisionCompleted", "CardRevealed", "LibrarySearchBatchResolved", "LibraryShuffled", "LibrarySearchTopCardsPlaced", "SpellResolved"]
+digest = "fnv1a64:8a3242c240d5971e"

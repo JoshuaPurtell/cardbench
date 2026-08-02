@@ -4,7 +4,7 @@ use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
     CardType, CastRequest, Color, DecisionKind, DecisionSelection, Game, GameEvent,
-    ManaCost, PlayerId, Zone,
+    LibrarySearchDestination, ManaCost, PlayerId, Zone,
 };
 use cardbench_magic_rav::{RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions};
 
@@ -36,9 +36,11 @@ fn congregation_at_dawn_privately_selects_reveals_shuffles_then_orders_up_to_thr
     assert_eq!(definition.card_types, BTreeSet::from([CardType::Instant]));
     assert_eq!((definition.power, definition.toughness), (None, None));
     assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&definition.id));
-    assert!(definition
-        .supported_rules
-        .contains(&"private-up-to-three-creature-search-reveal-shuffle-ordered-library-top"));
+    assert!(
+        definition
+            .supported_rules
+            .contains(&"private-up-to-three-creature-search-reveal-shuffle-ordered-library-top")
+    );
 
     let mut game = Game::new(card_definitions(), 2).expect("RAV fixture builds");
     let spell = game
@@ -77,6 +79,14 @@ fn congregation_at_dawn_privately_selects_reveals_shuffles_then_orders_up_to_thr
     assert_eq!(decision.min_selections, 0);
     assert_eq!(decision.max_selections, 3);
     assert_eq!(decision.candidates.len(), 3);
+    assert_eq!(
+        game.view_for_player(PlayerId(0))
+            .expect("controller view")
+            .library_search_choice
+            .expect("compatibility search view exists")
+            .destination,
+        LibrarySearchDestination::LibraryTop,
+    );
     assert!(
         game.view_for_player(PlayerId(1))
             .expect("opponent view")
@@ -85,7 +95,10 @@ fn congregation_at_dawn_privately_selects_reveals_shuffles_then_orders_up_to_thr
         "the opponent must not receive hidden library candidates"
     );
     assert!(
-        !decision.candidates.iter().any(|card| card.id == noncreature),
+        !decision
+            .candidates
+            .iter()
+            .any(|card| card.id == noncreature),
         "only creature cards are legal candidates"
     );
 
@@ -145,4 +158,19 @@ fn congregation_at_dawn_privately_selects_reveals_shuffles_then_orders_up_to_thr
     );
     game.validate_invariants()
         .expect("ordered search preserves stack and library provenance invariants");
+
+    let mut forged_placement = game.clone();
+    let placement = forged_placement
+        .event_log
+        .iter_mut()
+        .find_map(|event| match event {
+            GameEvent::LibrarySearchTopCardsPlaced { top_to_bottom, .. } => Some(top_to_bottom),
+            _ => None,
+        })
+        .expect("green trace records ordered placement provenance");
+    placement.swap(0, 1);
+    assert!(
+        forged_placement.validate_invariants().is_err(),
+        "an event-log placement order must agree with its selected search order"
+    );
 }

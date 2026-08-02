@@ -142,6 +142,12 @@ pub enum LibrarySearchDestination {
     Battlefield,
     BattlefieldTapped,
     Hand,
+    /// Keep each selected card in its owner's library. The engine first
+    /// removes the exact selection from the shuffle, then restores it in the
+    /// policy-submitted top-to-bottom order. This destination is valid only
+    /// for a revealed multi-card search, so the ordering receipt never leaks
+    /// a hidden selection.
+    LibraryTop,
     /// Cast the selected instant immediately during the resolving effect,
     /// without paying its mana cost. The selected card moves directly from
     /// the private library to the stack; its targets are supplied through
@@ -4720,6 +4726,15 @@ pub enum GameEvent {
         source: ObjectId,
         found: Vec<ObjectId>,
         destination: LibrarySearchDestination,
+    },
+    /// A revealed multi-card search has finished shuffling the unselected
+    /// library and restored its exact selected cards in top-to-bottom order.
+    /// Unlike a zone move, the cards never left their owner's library; this
+    /// receipt is the ordering provenance for replay and invariant audit.
+    LibrarySearchTopCardsPlaced {
+        player: PlayerId,
+        source: ObjectId,
+        top_to_bottom: Vec<ObjectId>,
     },
     /// A public top-library decision established the exact new top-to-bottom
     /// order of the revealed cards.  The cards themselves were already made

@@ -3837,6 +3837,12 @@ impl Game {
                     destination,
                     may_fail_to_find,
                     ..
+                }
+                | DecisionContinuation::LibrarySearchMany {
+                    source,
+                    destination,
+                    may_fail_to_find,
+                    ..
                 } => Some((*source, *destination, *may_fail_to_find)),
                 DecisionContinuation::LibrarySearchAndCast {
                     source,
@@ -3856,8 +3862,7 @@ impl Game {
                     LibrarySearchDestination::Battlefield,
                     *may_fail_to_find,
                 )),
-                DecisionContinuation::LibrarySearchMany { .. }
-                | DecisionContinuation::LibraryReorder { .. }
+                DecisionContinuation::LibraryReorder { .. }
                 | DecisionContinuation::LibraryTopPartition { .. }
                 | DecisionContinuation::TriggeredEffectObject { .. }
                 | DecisionContinuation::CombatDamageOrder { .. }
@@ -7557,7 +7562,7 @@ impl Game {
                     cardinality,
                     may_fail_to_find,
                     reveal_selected,
-                    selected,
+                    &selected,
                 )
             }
             DecisionContinuation::LibraryReorder { source, cards } => {
@@ -9840,6 +9845,11 @@ impl Game {
                     entered_permanent = Some((card, definition, object.controller));
                 }
                 LibrarySearchDestination::Hand => self.move_to_zone(card, Zone::Hand)?,
+                LibrarySearchDestination::LibraryTop => {
+                    return Err(RulesError::IllegalAction(
+                        "single-card library search cannot use the ordered library-top destination",
+                    ));
+                }
                 LibrarySearchDestination::CastWithoutPayingManaCost => {
                     return Err(RulesError::IllegalAction(
                         "ordinary library search cannot use the immediate-cast destination",
@@ -10203,7 +10213,7 @@ impl Game {
         cardinality: LibrarySearchCardinality,
         may_fail_to_find: bool,
         reveal_selected: bool,
-        selected: Vec<ObjectId>,
+        selected: &[ObjectId],
     ) -> Result<(), RulesError> {
         let player = decision.player;
         let (ability, chosen_x, source_incarnation) = {
@@ -10250,10 +10260,11 @@ impl Game {
             || decision.min_selections != expected_min
             || decision.max_selections != expected_max
             || selected.iter().any(|card| !candidates.contains(card))
-            || !self.selected_library_search_names_are_distinct(&selected, cardinality)?
+            || !self.selected_library_search_names_are_distinct(selected, cardinality)?
+            || (destination == LibrarySearchDestination::LibraryTop && !reveal_selected)
         {
             return Err(RulesError::IllegalAction(
-                "multi-card library search candidates changed before selection",
+                "multi-card library search violates its revealed selection boundary",
             ));
         }
 
@@ -10263,7 +10274,7 @@ impl Game {
         self.complete_pending_decision(decision)?;
 
         let mut entered_permanents = Vec::new();
-        for card in &selected {
+        for card in selected {
             if reveal_selected {
                 self.record_event(GameEvent::CardRevealed {
                     player,
@@ -10290,6 +10301,7 @@ impl Game {
                     entered_permanents.push((*card, definition, object.controller));
                 }
                 LibrarySearchDestination::Hand => self.move_to_zone(*card, Zone::Hand)?,
+                LibrarySearchDestination::LibraryTop => {}
                 LibrarySearchDestination::CastWithoutPayingManaCost => {
                     return Err(RulesError::IllegalAction(
                         "multi-card library search cannot use the immediate-cast destination",
@@ -10297,15 +10309,7 @@ impl Game {
                 }
             }
         }
-        self.record_event(GameEvent::LibrarySearchBatchResolved {
-            player,
-            source,
-            found: selected,
-            destination,
-        });
-        self.shuffle_library(player);
-        let cards = u16::try_from(self.players[player.0].library.len()).unwrap_or(u16::MAX);
-        self.record_event(GameEvent::LibraryShuffled { player, cards });
+        self.complete_multi_library_search(player, source, selected, destination, reveal_selected)?;
 
         if let Some(ability) = ability {
             self.record_event(GameEvent::AbilityResolved {
@@ -10332,6 +10336,73 @@ impl Game {
         self.flush_pending_life_gain_triggers();
         self.flush_pending_dies_triggers();
         self.priority = self.priority_after_resolution();
+        Ok(())
+    }
+
+    /// Records and completes one resolved multi-card library search. A
+    /// library-top result is intentionally not modelled as a zone change:
+    /// selected cards remain library cards while the unselected remainder is
+    /// shuffled, then the submitted order is restored to the top.
+    fn complete_multi_library_search(
+        &mut self,
+        player: PlayerId,
+        source: ObjectId,
+        selected: &[ObjectId],
+        destination: LibrarySearchDestination,
+        reveal_selected: bool,
+    ) -> Result<(), RulesError> {
+        if destination == LibrarySearchDestination::LibraryTop {
+            if !reveal_selected {
+                return Err(RulesError::IllegalAction(
+                    "library-top search must reveal every selected card before ordering it publicly",
+                ));
+            }
+            if selected
+                .iter()
+                .enumerate()
+                .any(|(index, card)| selected[index + 1..].contains(card))
+                || selected.iter().any(|card| {
+                    self.zone_of(*card) != Some(Zone::Library)
+                        || self
+                            .object(*card)
+                            .map_or(true, |object| object.owner != player)
+                })
+            {
+                return Err(RulesError::IllegalAction(
+                    "library-top search lost its exact selected library cards",
+                ));
+            }
+            let selected_cards = selected.iter().copied().collect::<BTreeSet<_>>();
+            let library = &mut self.players[player.0].library;
+            let before = library.len();
+            library.retain(|card| !selected_cards.contains(card));
+            if before.saturating_sub(library.len()) != selected.len() {
+                return Err(RulesError::IllegalAction(
+                    "library-top search could not remove each selected card before shuffling",
+                ));
+            }
+        }
+
+        self.record_event(GameEvent::LibrarySearchBatchResolved {
+            player,
+            source,
+            found: selected.to_vec(),
+            destination,
+        });
+        self.shuffle_library(player);
+        let cards = u16::try_from(self.players[player.0].library.len()).unwrap_or(u16::MAX);
+        self.record_event(GameEvent::LibraryShuffled { player, cards });
+
+        if destination == LibrarySearchDestination::LibraryTop && !selected.is_empty() {
+            for card in selected.iter().rev() {
+                self.players[player.0].library.push(*card);
+            }
+            self.record_event(GameEvent::LibrarySearchTopCardsPlaced {
+                player,
+                source,
+                top_to_bottom: selected.to_vec(),
+            });
+        }
         Ok(())
     }
 
@@ -11082,6 +11153,11 @@ impl Game {
                     }
                 }
                 LibrarySearchDestination::Hand => self.move_to_zone(card, Zone::Hand)?,
+                LibrarySearchDestination::LibraryTop => {
+                    return Err(RulesError::IllegalAction(
+                        "ordinary library search cannot use the ordered library-top destination",
+                    ));
+                }
                 LibrarySearchDestination::CastWithoutPayingManaCost => {
                     return Err(RulesError::IllegalAction(
                         "ordinary library search cannot use the immediate-cast destination",
@@ -11237,6 +11313,11 @@ impl Game {
                 ));
             }
         };
+        if destination == LibrarySearchDestination::LibraryTop && !reveal_selected {
+            return Err(RulesError::IllegalAction(
+                "library-top search must reveal every selected card before ordering it publicly",
+            ));
+        }
         for card in &selected {
             if reveal_selected {
                 self.record_event(GameEvent::CardRevealed {
@@ -11257,6 +11338,7 @@ impl Game {
                     }
                 }
                 LibrarySearchDestination::Hand => self.move_to_zone(*card, Zone::Hand)?,
+                LibrarySearchDestination::LibraryTop => {}
                 LibrarySearchDestination::CastWithoutPayingManaCost => {
                     return Err(RulesError::IllegalAction(
                         "multi-card library search cannot use the immediate-cast destination",
@@ -11264,16 +11346,7 @@ impl Game {
                 }
             }
         }
-        self.record_event(GameEvent::LibrarySearchBatchResolved {
-            player,
-            source,
-            found: selected,
-            destination,
-        });
-        self.shuffle_library(player);
-        let cards = u16::try_from(self.players[player.0].library.len()).unwrap_or(u16::MAX);
-        self.record_event(GameEvent::LibraryShuffled { player, cards });
-        Ok(())
+        self.complete_multi_library_search(player, source, &selected, destination, reveal_selected)
     }
 
     fn library_search_candidates(
@@ -14852,6 +14925,24 @@ impl Game {
                 "a policy-submitted library search spell must contain exactly one effect",
             ));
         }
+        let policy_submitted_multi_library_searches = definition
+            .effects
+            .iter()
+            .filter(|effect| {
+                matches!(
+                    effect,
+                    Effect::SearchControllerLibraryMany {
+                        selection: LibrarySearchSelection::PolicySubmitted { .. },
+                        ..
+                    }
+                )
+            })
+            .count();
+        if policy_submitted_multi_library_searches > 0 && definition.effects.len() != 1 {
+            return Err(RulesError::IllegalAction(
+                "a policy-submitted multi-card library search spell must contain exactly one effect",
+            ));
+        }
         let spell_copy_effects = definition
             .effects
             .iter()
@@ -14863,6 +14954,24 @@ impl Game {
             ));
         }
         for effect in &definition.effects {
+            if matches!(
+                effect,
+                Effect::SearchControllerLibrary {
+                    destination: LibrarySearchDestination::LibraryTop,
+                    ..
+                }
+            ) || matches!(
+                effect,
+                Effect::SearchControllerLibraryMany {
+                    destination: LibrarySearchDestination::LibraryTop,
+                    reveal_selected: false,
+                    ..
+                }
+            ) {
+                return Err(RulesError::IllegalAction(
+                    "library-top search requires a revealed multi-card search instruction",
+                ));
+            }
             if matches!(
                 effect,
                 Effect::LookAtTargetPlayerTopLibraryMayPutIntoGraveyard
@@ -25555,6 +25664,23 @@ impl Game {
 
     #[allow(clippy::too_many_lines)] // Closed-world effect validation keeps binding invariants auditable.
     fn validate_cast_effects_for_ability(effects: &[Effect]) -> Result<(), RulesError> {
+        let policy_submitted_multi_library_searches = effects
+            .iter()
+            .filter(|effect| {
+                matches!(
+                    effect,
+                    Effect::SearchControllerLibraryMany {
+                        selection: LibrarySearchSelection::PolicySubmitted { .. },
+                        ..
+                    }
+                )
+            })
+            .count();
+        if policy_submitted_multi_library_searches > 0 && effects.len() != 1 {
+            return Err(RulesError::IllegalAction(
+                "a policy-submitted multi-card library search ability must contain exactly one effect",
+            ));
+        }
         let private_opponent_library_choice_effects = effects
             .iter()
             .filter(|effect| {
@@ -25581,6 +25707,24 @@ impl Game {
             ));
         }
         for effect in effects {
+            if matches!(
+                effect,
+                Effect::SearchControllerLibrary {
+                    destination: LibrarySearchDestination::LibraryTop,
+                    ..
+                }
+            ) || matches!(
+                effect,
+                Effect::SearchControllerLibraryMany {
+                    destination: LibrarySearchDestination::LibraryTop,
+                    reveal_selected: false,
+                    ..
+                }
+            ) {
+                return Err(RulesError::IllegalAction(
+                    "library-top search requires a revealed multi-card search instruction",
+                ));
+            }
             if matches!(effect, Effect::AddManaToTargetPlayer { .. }) {
                 return Err(RulesError::IllegalAction(
                     "materialized target-player mana effect escaped onto an ability binding",
@@ -25903,6 +26047,11 @@ impl Game {
                     LibrarySearchDestination::Battlefield
                     | LibrarySearchDestination::BattlefieldTapped => Zone::Battlefield,
                     LibrarySearchDestination::Hand => Zone::Hand,
+                    LibrarySearchDestination::LibraryTop => {
+                        return Err(RulesError::IllegalAction(
+                            "single-card library search cannot record an ordered library-top result",
+                        ));
+                    }
                     LibrarySearchDestination::CastWithoutPayingManaCost => unreachable!(
                         "immediate library casts are handled before ordinary search movement"
                     ),
@@ -25978,9 +26127,9 @@ impl Game {
         for (index, event) in events.iter().enumerate() {
             let GameEvent::LibrarySearchBatchResolved {
                 player,
+                source,
                 found,
                 destination,
-                ..
             } = event
             else {
                 continue;
@@ -25994,10 +26143,45 @@ impl Game {
                     "multi-card library-search receipt contains a duplicate selection",
                 ));
             }
+            if *destination == LibrarySearchDestination::LibraryTop {
+                let reveals_match_selection = index >= found.len()
+                    && found.iter().enumerate().all(|(position, card)| {
+                        matches!(
+                            events.get(index - found.len() + position),
+                            Some(GameEvent::CardRevealed {
+                                player: revealed,
+                                card: revealed_card,
+                                ..
+                            }) if revealed == player && revealed_card == card
+                        )
+                    });
+                let shuffle_follows = matches!(
+                    events.get(index + 1),
+                    Some(GameEvent::LibraryShuffled { player: shuffled, .. }) if shuffled == player
+                );
+                let placement_follows = found.is_empty()
+                    || matches!(
+                        events.get(index + 2),
+                        Some(GameEvent::LibrarySearchTopCardsPlaced {
+                            player: placed_player,
+                            source: placed_source,
+                            top_to_bottom,
+                        }) if placed_player == player && placed_source == source && top_to_bottom == found
+                    );
+                if !reveals_match_selection || !shuffle_follows || !placement_follows {
+                    return Err(RulesError::IllegalAction(
+                        "library-top search receipt violates reveal, shuffle, or ordered-placement provenance",
+                    ));
+                }
+                continue;
+            }
             let expected_zone = match destination {
                 LibrarySearchDestination::Battlefield
                 | LibrarySearchDestination::BattlefieldTapped => Zone::Battlefield,
                 LibrarySearchDestination::Hand => Zone::Hand,
+                LibrarySearchDestination::LibraryTop => unreachable!(
+                    "ordered library-top searches are handled before ordinary batch movement"
+                ),
                 LibrarySearchDestination::CastWithoutPayingManaCost => {
                     return Err(RulesError::IllegalAction(
                         "multi-card library search cannot use the immediate-cast destination",
@@ -26055,6 +26239,39 @@ impl Game {
             ) {
                 return Err(RulesError::IllegalAction(
                     "multi-card library-search receipt lacks its immediate controller shuffle",
+                ));
+            }
+        }
+        for (index, event) in events.iter().enumerate() {
+            let GameEvent::LibrarySearchTopCardsPlaced {
+                player,
+                source,
+                top_to_bottom,
+            } = event
+            else {
+                continue;
+            };
+            if top_to_bottom.is_empty()
+                || top_to_bottom
+                    .iter()
+                    .enumerate()
+                    .any(|(position, card)| top_to_bottom[position + 1..].contains(card))
+                || !matches!(
+                    index.checked_sub(2).and_then(|prior| events.get(prior)),
+                    Some(GameEvent::LibrarySearchBatchResolved {
+                        player: search_player,
+                        source: search_source,
+                        found,
+                        destination: LibrarySearchDestination::LibraryTop,
+                    }) if search_player == player && search_source == source && found == top_to_bottom
+                )
+                || !matches!(
+                    index.checked_sub(1).and_then(|prior| events.get(prior)),
+                    Some(GameEvent::LibraryShuffled { player: shuffled, .. }) if shuffled == player
+                )
+            {
+                return Err(RulesError::IllegalAction(
+                    "library-top placement receipt escaped its selected search and shuffle boundary",
                 ));
             }
         }
@@ -30408,6 +30625,7 @@ impl Game {
                     || decision.options != expected_options
                     || decision.min_selections != expected_min
                     || decision.max_selections != expected_max
+                    || (*destination == LibrarySearchDestination::LibraryTop && !*reveal_selected)
                 {
                     return Err(RulesError::IllegalAction(
                         "multi-card library-search decision escaped its typed continuation boundary",
