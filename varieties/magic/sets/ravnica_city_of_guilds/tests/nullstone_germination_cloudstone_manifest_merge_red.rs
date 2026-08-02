@@ -8,6 +8,9 @@ fn nullstone_germination_cloudstone_manifest_has_all_promotions() {
         "RAV-GOLGARI-GERMINATION",
         "RAV-CLOUDSTONE-CURIO",
     ] {
-        assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&id), "missing {id}");
+        assert!(
+            RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&id),
+            "missing {id}"
+        );
     }
 }
