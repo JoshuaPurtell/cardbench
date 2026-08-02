@@ -47,7 +47,10 @@ fn tidewater_minion_requires_target_permanent_untap_and_self_defender_removal() 
         .find(|binding| binding.ability.id == "blue-lose-defender")
         .expect("self defender-removal binding exists");
     assert!(!lose_defender.ability.tap_cost);
-    assert_eq!(lose_defender.ability.mana_cost, ManaCost::with_colors(0, [Color::Blue]));
+    assert_eq!(
+        lose_defender.ability.mana_cost,
+        ManaCost::with_colors(0, [Color::Blue])
+    );
     assert_eq!(lose_defender.ability.targets, []);
     assert_eq!(
         lose_defender.ability.effects,

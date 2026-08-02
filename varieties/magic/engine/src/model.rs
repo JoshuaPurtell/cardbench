@@ -1805,6 +1805,12 @@ pub enum Effect {
     /// Untap one targeted land as the instruction resolves. A legal untapped
     /// land remains unchanged and writes no duplicate receipt.
     UntapTargetLand,
+    /// Untap one targeted permanent as the instruction resolves. A legal
+    /// untapped permanent remains unchanged and writes no duplicate receipt.
+    /// This is intentionally broader than `UntapTargetLand`: card bindings
+    /// use the typed target requirement to state whether any permanent or
+    /// only a land is legal.
+    UntapTargetPermanent,
     /// Apply one temporary layer-7 power/toughness modifier to every creature
     /// the resolving spell's controller currently controls. The recipient set
     /// is snapshotted while the spell resolves before any state-based action
@@ -2030,6 +2036,7 @@ impl Effect {
                 Some(TargetRequirement::Land)
             }
             Self::UntapTargetLand => Some(TargetRequirement::Land),
+            Self::UntapTargetPermanent => Some(TargetRequirement::Permanent),
             Self::DestroyTargetArtifact => Some(TargetRequirement::Artifact),
             Self::RadianceDestroyEnchantments => Some(TargetRequirement::Enchantment),
             Self::DestroyTargetFlyingCreature => Some(TargetRequirement::FlyingCreature),

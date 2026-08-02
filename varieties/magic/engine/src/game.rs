@@ -9884,6 +9884,7 @@ impl Game {
                 | Effect::TapTargetCreature
                 | Effect::UntapSource
                 | Effect::UntapTargetLand
+                | Effect::UntapTargetPermanent
                 | Effect::DestroyTargetArtifactOrEnchantment
                 | Effect::ReturnTargetCardToHand
                 | Effect::ReturnTargetEnchantmentCardToHand
@@ -13938,6 +13939,23 @@ impl Game {
             Effect::UntapTargetLand => {
                 let target = Self::target_permanent(target)?;
                 if !self.target_matches(Target::Permanent(target), TargetRequirement::Land) {
+                    return Err(RulesError::IllegalTarget(Target::Permanent(target)));
+                }
+                let object = self
+                    .objects
+                    .get_mut(&target)
+                    .ok_or(RulesError::UnknownCard(target))?;
+                if object.tapped {
+                    object.tapped = false;
+                    self.record_event(GameEvent::PermanentUntapped {
+                        source,
+                        card: target,
+                    });
+                }
+            }
+            Effect::UntapTargetPermanent => {
+                let target = Self::target_permanent(target)?;
+                if !self.target_matches(Target::Permanent(target), TargetRequirement::Permanent) {
                     return Err(RulesError::IllegalTarget(Target::Permanent(target)));
                 }
                 let object = self

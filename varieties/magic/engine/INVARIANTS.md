@@ -634,11 +634,12 @@ Oracle Magic rules coverage.
   transition emits exactly one `PermanentTapped` receipt before the stack item
   receives its terminal resolution receipt; ability-cost taps never use that
   effect receipt.
-- Source- and land-untap effects are stack instructions, not hidden step
-  transitions. The source variant is a no-op unless its original source is
-  still a tapped battlefield permanent; the land variant rechecks that its
-  selected target remains a battlefield land. Either variant records exactly
-  one `PermanentUntapped` receipt only for an actual tapped-to-untapped change;
+- Source-, land-, and permanent-untap effects are stack instructions, not
+  hidden step transitions. The source variant is a no-op unless its original
+  source is still a tapped battlefield permanent; target variants recheck that
+  their selected target remains a battlefield land or, for the broader typed
+  form, any battlefield permanent. Each records exactly one
+  `PermanentUntapped` receipt only for an actual tapped-to-untapped change;
   automatic Untap steps continue to use only their grouped turn receipt.
 - Trigger bindings declare their condition, optional mana cost, target
   requirements, and effects as one checked shape. Every attack trigger stacks

@@ -39,7 +39,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 135] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 136] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -148,6 +148,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 135] = [
     "RAV-BELLTOWER-SPHINX",
     "RAV-FLIGHT-OF-FANCY",
     "RAV-VEDALKEN-ENTRANCER",
+    "RAV-TIDEWATER-MINION",
     "RAV-SUNHOME-FORTRESS",
     "RAV-VITU-GHAZI",
     "RAV-NULLMAGE-SHEPHERD",
@@ -3046,6 +3047,30 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Defender],
             effects: vec![],
         },
+        // Full fidelity: the two independent stack abilities use the typed
+        // arbitrary-permanent untap effect and source-relative temporary
+        // Defender removal respectively.
+        CardDefinition {
+            id: "RAV-TIDEWATER-MINION",
+            name: "Tidewater Minion",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(3, [Color::Blue]),
+            colors: colors([Color::Blue]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "defender",
+                "tap-untap-target-permanent-and-blue-lose-defender",
+            ],
+            power: Some(4),
+            toughness: Some(4),
+            keywords: vec![Keyword::Defender],
+            effects: vec![],
+        },
         // Full fidelity: either color pays each hybrid cast symbol; the two
         // stack-backed activations create a green 3/3 Centaur or temporarily
         // modify every creature the controller owns.
@@ -4484,6 +4509,56 @@ pub fn rav_land_entry_bindings() -> Vec<LandEntryBinding> {
 #[allow(clippy::too_many_lines)]
 pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
     vec![
+        ActivatedAbilityBinding {
+            card_definition: "RAV-TIDEWATER-MINION",
+            ability: ActivatedAbility {
+                id: "tap-untap-target-permanent",
+                mana_cost: ManaCost::new(0),
+                tap_cost: true,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![TargetRequirement::Permanent],
+                effects: vec![Effect::UntapTargetPermanent],
+            },
+        },
+        ActivatedAbilityBinding {
+            card_definition: "RAV-TIDEWATER-MINION",
+            ability: ActivatedAbility {
+                id: "blue-lose-defender",
+                mana_cost: ManaCost::with_colors(0, [Color::Blue]),
+                tap_cost: false,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![],
+                effects: vec![Effect::RemoveSourceKeywordUntilEndOfTurn {
+                    keyword: Keyword::Defender,
+                }],
+            },
+        },
+        ActivatedAbilityBinding {
+            card_definition: "RAV-VEDALKEN-ENTRANCER",
+            ability: ActivatedAbility {
+                id: "tap-blue-mill-two",
+                mana_cost: ManaCost::with_colors(0, [Color::Blue]),
+                tap_cost: true,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![TargetRequirement::Player],
+                effects: vec![Effect::MillTargetPlayer { count: 2 }],
+            },
+        },
         ActivatedAbilityBinding {
             card_definition: "RAV-IVY-DANCER",
             ability: ActivatedAbility {
