@@ -1,5 +1,7 @@
 # Magic engine bug ledger
 
+| `rav-scenario-count-stale-after-hunted-phantasm` | RAV integration contract drift — Hunted Phantasm adds a public policy-target scenario while the deterministic library assertion still expected 161 scenarios | Open; red discovery | Exact command: `cargo test -p cardbench-magic-rav --lib representative_rav_scenarios_are_deterministic --quiet`; failure was `assertion left == right` with `left: 162`, `right: 161` at `sets/ravnica_city_of_guilds/src/lib.rs:7407`. |
+
 | `rav-scenario-count-stale-after-twilight` | RAV integration contract drift — the public Twilight Drover scenario was added, but the deterministic library assertion still expected the previous 160-scenario corpus | Fixed; red `d71370f2` | Exact failure was `assertion left == right` with `left: 161`, `right: 160`. The deterministic library contract now expects 161, matching the public scenario parity corpus and Twilight digest `fnv1a64:f8f38467f5ac2e2d`. |
 
 | `rav-full-fidelity-manifest-count-stale-after-twilight` | RAV merge-integration defect — Twilight Drover adds a full-fidelity definition while the fixed-size positive manifest and coverage oracle still declare the previous count | Fixed; red `a613c779` | Exact failure: `RAV_FULL_FIDELITY_DEFINITION_IDS` declared ` [&str; 159]` while its initializer contained 160 IDs, so the RAV crate failed to compile. The correction sets the manifest and scenario-count assertions to 160, updates the coverage contract to 160 full / 58 partial unique names and 175 / 58 printings, and preserves the 73 catalog-only boundary. |
