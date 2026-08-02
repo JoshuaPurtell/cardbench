@@ -1289,6 +1289,11 @@ Oracle Magic rules coverage.
   `SacrificedByEffect` receipt is immediately followed by either that card's
   graveyard move or a token's `TokenCeasedToExist` receipt; no legal absence of
   a creature may roll back an otherwise valid trigger resolution.
+- A prospective counter-placement event belongs to the target permanent's
+  live `controller_of` player. Both the direct single-replacement path and
+  the multi-replacement decision path therefore discover the same currently
+  controlled replacement sources; an owner-bound base controller cannot skip
+  or select a multiplier for a stolen permanent.
 - Every public, intrinsic, or definition-bound mana producer preflights this
   bounded pool before it changes a source, pass state, pool, or event log. A
   capacity rejection is atomic and cannot emit a `ManaAdded` receipt for mana

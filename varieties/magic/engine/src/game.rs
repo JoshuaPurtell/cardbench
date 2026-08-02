@@ -24622,7 +24622,7 @@ impl Game {
         self.object(source)?;
         self.require_zone(card, Zone::Battlefield)?;
         let amount = self.replace_event_quantity(
-            self.object(card)?.controller,
+            self.controller_of(card)?,
             ReplacementEventKind::CounterPlacement { counter },
             amount,
         )?;

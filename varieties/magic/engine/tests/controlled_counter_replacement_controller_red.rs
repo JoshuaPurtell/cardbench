@@ -6,8 +6,7 @@ use std::collections::BTreeSet;
 use cardbench_magic_engine::{
     AbilityActivation, ActivatedAbility, ActivatedAbilityBinding, CardDefinition, CardType,
     ContinuousChange, CounterKind, Duration, Effect, Game, GameEvent, ManaCost, PlayerId,
-    ReplacementEffect, ReplacementEffectBinding, ReplacementEventKind, Target,
-    TargetRequirement,
+    ReplacementEffect, ReplacementEffectBinding, ReplacementEventKind, Target, TargetRequirement,
 };
 
 const PLACER: &str = "TST-CONTROLLED-COUNTER-PLACER";
