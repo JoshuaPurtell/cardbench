@@ -365,6 +365,10 @@ fn execute_scenario(specification: &ScenarioSpec) -> Result<ScenarioResult, Stri
         .map_err(rules_error)?;
     game.register_cost_reduction_bindings(rav_cost_reduction_bindings())
         .map_err(rules_error)?;
+    game.register_activated_ability_cost_modifier_bindings(
+        crate::rav_activated_ability_cost_modifier_bindings(),
+    )
+    .map_err(rules_error)?;
     game.register_replacement_effect_bindings(rav_replacement_effect_bindings())
         .map_err(rules_error)?;
     game.set_shuffle_seed(specification.seed);

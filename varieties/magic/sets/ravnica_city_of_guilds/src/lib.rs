@@ -22,7 +22,8 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use cardbench_magic_engine::{
-    ActivatedAbility, ActivatedAbilityBinding, ActivatedManaAbility, AdditionalSpellCost,
+    ActivatedAbility, ActivatedAbilityBinding, ActivatedAbilityCostModifier,
+    ActivatedAbilityCostModifierBinding, ActivatedManaAbility, AdditionalSpellCost,
     AdditionalSpellCostBinding, AttachmentBinding, AttachmentKind, BasicLandType,
     BasicLandTypeBinding, CardDefinition, CardType, CastRequest, Color, ContinuousChange,
     ConvokeContribution, ConvokePayment, CostReductionBinding, DeckEntry, DeckList, DeckRules,
@@ -176,6 +177,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 136] = [
     "RAV-CENTAUR-SAFEGUARD",
     "RAV-CYCLOPEAN-SNARE",
     "RAV-GRIFTERS-BLADE",
+    "RAV-SUPPRESSION-FIELD",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -2090,6 +2092,28 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             toughness: None,
             keywords: vec![Keyword::Convoke],
             effects: vec![Effect::GainLifeForEachCreature],
+        },
+        // Full fidelity: this immutable battlefield binding raises every
+        // nonmana activated ability's generic cost while leaving mana
+        // abilities outside the modifier's scope.
+        CardDefinition {
+            id: "RAV-SUPPRESSION-FIELD",
+            name: "Suppression Field",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(1, [Color::White]),
+            colors: colors([Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Enchantment]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "static-nonmana-activated-ability-tax",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![],
         },
         // Full fidelity: this target is controller-scoped at both cast and
         // resolution, then moves through the normal hand-zone lifecycle.
@@ -5926,6 +5950,20 @@ pub fn rav_cost_reduction_bindings() -> Vec<CostReductionBinding> {
     }]
 }
 
+/// Battlefield-scoped activation taxes supplied by RAV permanents. Each live
+/// source is discovered during cost calculation, so ordinary source departure
+/// revokes its contribution without a card-specific cleanup path.
+#[must_use]
+pub fn rav_activated_ability_cost_modifier_bindings() -> Vec<ActivatedAbilityCostModifierBinding> {
+    vec![ActivatedAbilityCostModifierBinding {
+        source_definition: "RAV-SUPPRESSION-FIELD",
+        modifier: ActivatedAbilityCostModifier::IncreaseGeneric {
+            amount: 2,
+            nonmana_only: true,
+        },
+    }]
+}
+
 /// Source-bound quantity replacements supplied by RAV permanents. The engine
 /// checks source control and battlefield membership for each event, so this
 /// registry contains only immutable definition facts.
@@ -6558,6 +6596,9 @@ fn fresh_game() -> Result<Game, RulesError> {
     )?;
     game.register_static_attack_restrictions(rav_static_attack_restriction_bindings())?;
     game.register_cost_reduction_bindings(rav_cost_reduction_bindings())?;
+    game.register_activated_ability_cost_modifier_bindings(
+        rav_activated_ability_cost_modifier_bindings(),
+    )?;
     Ok(game)
 }
 

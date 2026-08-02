@@ -7,8 +7,8 @@ use cardbench_magic_engine::{
     PlayerId, Target, Zone,
 };
 use cardbench_magic_rav::{
-    RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, rav_activated_ability_cost_modifier_bindings,
-    rav_activated_ability_bindings, rav_additional_spell_cost_bindings,
+    RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, rav_activated_ability_bindings,
+    rav_activated_ability_cost_modifier_bindings, rav_additional_spell_cost_bindings,
     rav_basic_land_type_bindings, rav_mana_ability_bindings,
 };
 
@@ -50,12 +50,17 @@ fn suppression_field_requires_a_live_nonmana_activation_tax() {
         ManaCost::with_colors(1, [Color::White])
     );
     assert_eq!(definition.colors, BTreeSet::from([Color::White]));
-    assert_eq!(definition.card_types, BTreeSet::from([CardType::Enchantment]));
+    assert_eq!(
+        definition.card_types,
+        BTreeSet::from([CardType::Enchantment])
+    );
     assert_eq!((definition.power, definition.toughness), (None, None));
     assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&definition.id));
-    assert!(definition
-        .supported_rules
-        .contains(&"static-nonmana-activated-ability-tax"));
+    assert!(
+        definition
+            .supported_rules
+            .contains(&"static-nonmana-activated-ability-tax")
+    );
 
     let bindings = rav_activated_ability_cost_modifier_bindings();
     assert!(bindings.iter().any(|binding| {
@@ -78,17 +83,30 @@ fn suppression_field_charges_each_live_nonmana_ability_and_leaves_mana_abilities
     let guildmage = game
         .put_on_battlefield(controller, "RAV-DIMIR-GUILDMAGE")
         .expect("Dimir Guildmage enters");
-    let island = game
+    let payment_island = game
         .put_on_battlefield(controller, "RAV-ISLAND")
         .expect("Island enters");
+    let free_island = game
+        .put_on_battlefield(controller, "RAV-ISLAND")
+        .expect("second Island enters");
+    let mountains = (0..5)
+        .map(|_| {
+            game.put_on_battlefield(controller, "RAV-MOUNTAIN")
+                .expect("Mountain enters")
+        })
+        .collect::<Vec<_>>();
+    game.add_card(PlayerId(1), "RAV-PLAINS", Zone::Library)
+        .expect("draw target has a library card");
     game.set_entered_turn_for_setup(guildmage, 0)
         .expect("Guildmage is old enough to activate");
-    game.grant_mana(controller, Color::Blue, 1)
-        .expect("blue payment setup");
-    game.grant_mana(controller, Color::Colorless, 5)
-        .expect("generic payment setup");
     game.begin_game().expect("game starts");
     pass_to_main_phase(&mut game);
+    game.activate_mana_ability(controller, payment_island, Color::Blue)
+        .expect("Island makes blue");
+    for mountain in mountains {
+        game.activate_mana_ability(controller, mountain, Color::Red)
+            .expect("Mountain makes generic payment mana");
+    }
     game.clear_event_log();
 
     game.activate_ability(
@@ -99,7 +117,7 @@ fn suppression_field_charges_each_live_nonmana_ability_and_leaves_mana_abilities
             sacrifice_sources: vec![],
             additional_tap_creatures: vec![],
             discard_cards: vec![],
-            targets: vec![Target::Player(PlayerId(0))],
+            targets: vec![Target::Player(PlayerId(1))],
         },
     )
     .expect("the taxed nonmana activation is payable");
@@ -114,11 +132,12 @@ fn suppression_field_charges_each_live_nonmana_ability_and_leaves_mana_abilities
                 && context.effective_mana_cost == ManaCost::with_colors(5, [Color::Blue])
     )));
     game.pass_priority(controller).expect("controller passes");
-    game.pass_priority(PlayerId(1)).expect("opponent resolves ability");
+    game.pass_priority(PlayerId(1))
+        .expect("opponent resolves ability");
 
-    game.activate_mana_ability(controller, island, Color::Blue)
+    game.activate_mana_ability(controller, free_island, Color::Blue)
         .expect("Suppression Field does not tax mana abilities");
+    eprintln!("Suppression Field trace={:?}", game.canonical_event_log());
     game.validate_invariants()
         .expect("Suppression Field trace preserves invariants");
 }
-
