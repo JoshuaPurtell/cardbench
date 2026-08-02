@@ -49,9 +49,19 @@ a zone move. The fetched Aura's ordinary ETB trigger is queued only after the
 Mage trigger's terminal receipt. The opponent sees neither unselected Aura
 identities nor a private decision projection.
 
-The current catalog partition is 243 full / 15 partial / 33 catalog-only unique
-names (258 / 15 / 33 printings). The independently checked coverage-report
+The current catalog partition is 244 full / 14 partial / 33 catalog-only unique
+names (259 / 14 / 33 printings). The independently checked coverage-report
 binary emits the same partition.
+
+Grozoth is a positive-manifest entry. Its target-free optional entry trigger
+first exposes the controller's explicit accept/decline decision after the
+ordinary response window. Acceptance opens only that controller's private,
+policy-submitted zero-or-more search over current mana-value-nine candidates;
+the selected cards are publicly revealed, moved to hand, and the library is
+shuffled before the terminal ability receipt. Decline opens no library choice.
+Its maintained stack-backed Transmute contract uses the same private search
+boundary. One public immediate-helper trace remains solely as a frozen parity
+fixture and is not a substitute for the direct policy and event-log contracts.
 
 Empty the Catacombs is a positive-manifest entry. After both players pass on
 its target-free spell, each living player with a creature card in their own
