@@ -162,6 +162,11 @@ pub enum LibrarySearchSelection {
 pub struct LandEntryBinding {
     pub card_definition: &'static str,
     pub enters_tapped: bool,
+    /// An optional life payment chosen as the land is played. When the
+    /// controller declines, the land enters tapped; when they pay, it enters
+    /// untapped. This is a replacement-style choice, not a stack object or
+    /// triggered ability.
+    pub optional_life_payment: Option<u8>,
 }
 
 /// A deterministic, fixed bundle of mana produced by one mana ability.
@@ -3855,6 +3860,14 @@ pub enum GameEvent {
         controller: PlayerId,
         source: ObjectId,
         source_incarnation: u64,
+    },
+    /// A player elected to pay life as a land entered. The following ordinary
+    /// battlefield transition is retained as a separate receipt so replay can
+    /// prove the replacement did not create a stack or priority boundary.
+    LandEntryLifePaid {
+        player: PlayerId,
+        card: ObjectId,
+        amount: u8,
     },
     /// The named controller inspected these currently top library cards while
     /// a resolving instruction was suspended for a private choice. The cards'

@@ -69,6 +69,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 185] = [
     "RAV-NIGHTGUARD-PATROL",
     "RAV-WATCHWOLF",
     "RAV-GLASS-GOLEM",
+    "RAV-OVERGROWN-TOMB",
     "RAV-JUNKTROLLER",
     "RAV-CLEANSING-BEAM",
     "RAV-RALLY-THE-RIGHTEOUS",
@@ -5430,6 +5431,30 @@ pub fn card_definitions() -> Vec<CardDefinition> {
         guild_bounce_land("RAV-DIMIR-AQUEDUCT", "Dimir Aqueduct"),
         guild_bounce_land("RAV-GOLGARI-ROT-FARM", "Golgari Rot Farm"),
         guild_bounce_land("RAV-SELESNYA-SANCTUARY", "Selesnya Sanctuary"),
+        // Full fidelity: the controller makes the required explicit
+        // replacement-style choice while playing this typed Black/Green land;
+        // paying two life permits an untapped entry, otherwise it enters
+        // tapped. Its normal mana activation then chooses one registered
+        // color without using the stack.
+        CardDefinition {
+            id: "RAV-OVERGROWN-TOMB",
+            name: "Overgrown Tomb",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::new(0),
+            colors: BTreeSet::new(),
+            mana_colors: BTreeSet::from([Color::Black, Color::Green]),
+            card_types: types([CardType::Land]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "optional-two-life-untapped-entry",
+                "black-or-green-mana-ability",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![],
+        },
         // Full fidelity: the land has its colorless mana ability and its
         // stack-backed, targeted Double Strike grant. Both use the shared
         // mana and continuous-effect substrates.
@@ -5568,6 +5593,17 @@ pub fn rav_mana_ability_bindings() -> Vec<ManaAbilityBinding> {
                 controller_damage: None,
             },
         },
+        ManaAbilityBinding {
+            card_definition: "RAV-OVERGROWN-TOMB",
+            ability: ActivatedManaAbility {
+                id: "produce-black-or-green",
+                tap_cost: true,
+                output: ManaAbilityOutput::Choice(colors([Color::Black, Color::Green])),
+                amount: 1,
+                life_payment: None,
+                controller_damage: None,
+            },
+        },
         signet_binding(
             "RAV-BOROS-SIGNET",
             "boros-signet-wr",
@@ -5637,7 +5673,13 @@ pub fn rav_land_entry_bindings() -> Vec<LandEntryBinding> {
     .map(|card_definition| LandEntryBinding {
         card_definition,
         enters_tapped: true,
+        optional_life_payment: None,
     })
+    .chain(std::iter::once(LandEntryBinding {
+        card_definition: "RAV-OVERGROWN-TOMB",
+        enters_tapped: false,
+        optional_life_payment: Some(2),
+    }))
     .collect()
 }
 

@@ -11847,3 +11847,37 @@ stack_size = 0
 priority = 0
 event_markers = ["SpellCast", "SpellResolved", "CardMoved"]
 digest = "fnv1a64:f8f065ddc2b243ec"
+
+[[scenario]]
+id = "rav_overgrown_tomb_paid_entry"
+seed = 0
+description = "Submit Overgrown Tomb's optional two-life replacement with the land play, enter untapped, then produce selected Green mana without using the stack."
+triggers = true
+
+[[scenario.card]]
+label = "tomb"
+owner = 0
+definition = "RAV-OVERGROWN-TOMB"
+zone = "hand"
+
+[[scenario.action]]
+kind = "play_land_with_entry_life_payment"
+player = 0
+card = "tomb"
+pay = true
+
+[[scenario.action]]
+kind = "activate_bound_mana_ability"
+player = 0
+card = "tomb"
+ability = "produce-black-or-green"
+color = "green"
+
+[scenario.expected]
+life = [18, 20]
+zones = ["tomb:battlefield"]
+tapped = ["tomb:true"]
+mana = ["0:green:1"]
+mana_receipts = ["0:green:1"]
+event_markers = ["LandEntryLifePaid", "BoundManaAbilityActivated", "ManaAdded"]
+digest = "fnv1a64:b033add656c6d7d3"

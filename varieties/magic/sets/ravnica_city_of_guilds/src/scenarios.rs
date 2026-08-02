@@ -553,6 +553,9 @@ fn execute_action(
         "play_land" => game
             .play_land(player, lookup(labels, &action.card)?)
             .map_err(rules_error),
+        "play_land_with_entry_life_payment" => game
+            .play_land_with_entry_life_payment(player, lookup(labels, &action.card)?, action.pay)
+            .map_err(rules_error),
         "activate_mana_ability" => game
             .activate_mana_ability(
                 player,

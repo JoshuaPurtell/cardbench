@@ -232,6 +232,14 @@ pub enum PolicyAction {
     PlayLand {
         card: ObjectId,
     },
+    /// Plays a land whose registered entry replacement asks its controller to
+    /// pay life or have it enter tapped. The choice is submitted with the
+    /// land play because it occurs before the land enters and never uses the
+    /// stack.
+    PlayLandWithEntryLifePayment {
+        card: ObjectId,
+        pay_life: bool,
+    },
     ActivateManaAbility {
         land: ObjectId,
         color: Color,
@@ -291,7 +299,9 @@ impl PolicyAction {
             Self::SubmitDecision { .. } => PolicyMoveKind::SubmitDecision,
             Self::Transmute { .. } => PolicyMoveKind::Transmute,
             Self::PassPriority => PolicyMoveKind::PassPriority,
-            Self::PlayLand { .. } => PolicyMoveKind::PlayLand,
+            Self::PlayLand { .. } | Self::PlayLandWithEntryLifePayment { .. } => {
+                PolicyMoveKind::PlayLand
+            }
             Self::ActivateManaAbility { .. } => PolicyMoveKind::ActivateManaAbility,
             Self::ActivateBoundManaAbility { .. }
             | Self::ActivateBoundManaAbilityWithBundleChoice { .. } => {
@@ -1626,9 +1636,12 @@ impl Game {
                 .catalog
                 .get(binding.card_definition)
                 .ok_or(RulesError::UnknownDefinition(binding.card_definition))?;
-            if !definition.is_land() || !binding.enters_tapped {
+            if !definition.is_land()
+                || (!binding.enters_tapped && binding.optional_life_payment.is_none())
+                || binding.optional_life_payment == Some(0)
+            {
                 return Err(RulesError::IllegalAction(
-                    "land-entry binding requires a land that enters tapped",
+                    "land-entry binding requires a tapped-entry or positive optional-life land behavior",
                 ));
             }
             if self
@@ -3938,6 +3951,9 @@ impl Game {
             PolicyAction::Transmute { card } => self.activate_transmute(player, card)?,
             PolicyAction::PassPriority => self.pass_priority(player)?,
             PolicyAction::PlayLand { card } => self.play_land(player, card)?,
+            PolicyAction::PlayLandWithEntryLifePayment { card, pay_life } => {
+                self.play_land_with_entry_life_payment(player, card, pay_life)?;
+            }
             PolicyAction::ActivateManaAbility { land, color } => {
                 self.activate_mana_ability(player, land, color)?;
             }
@@ -5326,10 +5342,28 @@ impl Game {
     }
 
     pub fn play_land(&mut self, player: PlayerId, card: ObjectId) -> Result<(), RulesError> {
-        self.atomic_transition(|game| game.play_land_impl(player, card))
+        self.atomic_transition(|game| game.play_land_impl(player, card, None))
     }
 
-    fn play_land_impl(&mut self, player: PlayerId, card: ObjectId) -> Result<(), RulesError> {
+    /// Plays a land while explicitly choosing whether to pay the registered
+    /// optional entry-life payment. The choice is valid only for a land with
+    /// that exact immutable entry binding; ordinary lands keep using
+    /// [`Self::play_land`].
+    pub fn play_land_with_entry_life_payment(
+        &mut self,
+        player: PlayerId,
+        card: ObjectId,
+        pay_life: bool,
+    ) -> Result<(), RulesError> {
+        self.atomic_transition(|game| game.play_land_impl(player, card, Some(pay_life)))
+    }
+
+    fn play_land_impl(
+        &mut self,
+        player: PlayerId,
+        card: ObjectId,
+        entry_life_payment: Option<bool>,
+    ) -> Result<(), RulesError> {
         self.require_priority(player)?;
         if player != self.active_player || !self.step.is_main() || !self.stack.is_empty() {
             return Err(RulesError::IllegalAction(
@@ -5352,13 +5386,53 @@ impl Game {
             ));
         }
         let definition_id = definition.id;
+        let entry_behavior = self.land_entry_behaviors.get(definition_id).copied();
+        let paid_life = match (entry_behavior, entry_life_payment) {
+            (Some(behavior), Some(pay_life)) if behavior.optional_life_payment.is_some() => {
+                let amount = behavior.optional_life_payment.expect("guarded above");
+                if pay_life {
+                    if self.players[player.0].life < i64::from(amount) {
+                        return Err(RulesError::IllegalAction(
+                            "cannot pay more life than the controller has",
+                        ));
+                    }
+                    Some(amount)
+                } else {
+                    None
+                }
+            }
+            (Some(behavior), None) if behavior.optional_life_payment.is_some() => {
+                return Err(RulesError::IllegalAction(
+                    "land entry-life choice must be explicitly supplied",
+                ));
+            }
+            (Some(behavior), Some(_)) if behavior.optional_life_payment.is_none() => {
+                return Err(RulesError::IllegalAction(
+                    "this land has no optional entry-life payment",
+                ));
+            }
+            (None, Some(_)) => {
+                return Err(RulesError::IllegalAction(
+                    "this land has no registered entry behavior",
+                ));
+            }
+            _ => None,
+        };
+        let enters_tapped = entry_behavior.is_some_and(|behavior| {
+            behavior.enters_tapped
+                || (behavior.optional_life_payment.is_some() && paid_life.is_none())
+        });
         self.players[player.0].lands_played += 1;
+        if let Some(amount) = paid_life {
+            self.players[player.0].life -= i64::from(amount);
+            self.record_event(GameEvent::LandEntryLifePaid {
+                player,
+                card,
+                amount,
+            });
+        }
         self.move_to_zone(card, Zone::Battlefield)?;
-        if self
-            .land_entry_behaviors
-            .get(definition_id)
-            .is_some_and(|behavior| behavior.enters_tapped)
-        {
+        if enters_tapped {
             self.objects
                 .get_mut(&card)
                 .ok_or(RulesError::UnknownCard(card))?
@@ -9421,6 +9495,7 @@ impl Game {
         self.validate_mana_ability_sacrifice_cost_event_order()?;
         Self::validate_object_incarnation_event_order(&self.event_log)?;
         self.validate_static_entry_restriction_event_order()?;
+        self.validate_land_entry_life_payment_event_order()?;
         Self::validate_permanent_copy_event_order(&self.event_log)?;
         Self::validate_library_search_event_order(&self.event_log)?;
         self.validate_library_top_move_event_order()?;
@@ -9711,7 +9786,8 @@ impl Game {
                 .ok_or(RulesError::UnknownDefinition(definition_id))?;
             if behavior.card_definition != *definition_id
                 || !definition.is_land()
-                || !behavior.enters_tapped
+                || (!behavior.enters_tapped && behavior.optional_life_payment.is_none())
+                || behavior.optional_life_payment == Some(0)
             {
                 return Err(RulesError::IllegalAction(
                     "land-entry binding has invalid definition or behavior",
@@ -20904,6 +20980,55 @@ impl Game {
             }) {
                 return Err(RulesError::IllegalAction(
                     "tapped-entry receipt source lacks the declared restriction",
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// Entry-life payments are replacement choices, so each receipt must be
+    /// immediately followed by that exact card's ordinary battlefield entry.
+    /// The binding is immutable and source-free: this prevents an unrelated
+    /// spell or ability from fabricating a life payment that appears to buy an
+    /// untapped land entry.
+    fn validate_land_entry_life_payment_event_order(&self) -> Result<(), RulesError> {
+        for (index, event) in self.event_log.iter().enumerate() {
+            let GameEvent::LandEntryLifePaid {
+                player,
+                card,
+                amount,
+            } = event
+            else {
+                continue;
+            };
+            if *amount == 0 || self.players.get(player.0).is_none() {
+                return Err(RulesError::IllegalAction(
+                    "land-entry life-payment receipt has invalid player or amount",
+                ));
+            }
+            let definition = self
+                .object(*card)
+                .ok()
+                .and_then(|object| object.definition)
+                .or_else(|| self.departed_card_definitions.get(card).copied())
+                .ok_or(RulesError::IllegalAction(
+                    "land-entry life-payment receipt names no known card definition",
+                ))?;
+            if self
+                .land_entry_behaviors
+                .get(definition)
+                .is_none_or(|behavior| behavior.optional_life_payment != Some(*amount))
+            {
+                return Err(RulesError::IllegalAction(
+                    "land-entry life-payment receipt lacks matching optional-life behavior",
+                ));
+            }
+            if !matches!(
+                self.event_log.get(index + 1),
+                Some(GameEvent::CardMoved { card: moved, to: Zone::Battlefield }) if moved == card
+            ) {
+                return Err(RulesError::IllegalAction(
+                    "land-entry life payment is not adjacent to its battlefield entry",
                 ));
             }
         }
