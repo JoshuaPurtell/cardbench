@@ -138,6 +138,15 @@ Oracle Magic rules coverage.
   that amount before the spell's ordinary terminal zone move. X equal to zero
   is legal, draws or resolves the spell's other instructions normally, and
   creates no zero-valued shield or synthetic prevention receipt.
+- A source-side combat-damage prevention record has a unique positive id, a
+  current-turn expiry, a retained creating-source identity, and one exact live
+  battlefield creature incarnation. It is created only while its target still
+  satisfies the typed attacking-or-blocking target requirement, emits
+  `CombatDamagePreventionCreated`, prevents every positive combat packet from
+  that exact creature through `CombatDamagePrevented`, and cannot follow a
+  leave-and-return incarnation. Cleanup or target departure removes it with
+  `CombatDamagePreventionExpired`. `DamageCannotBePrevented` bypasses this
+  prevention replacement but not unrelated redirection.
 - `Keyword::Protection(color)` is source-aware permanent protection: a source
   with that color cannot target the protected permanent at cast, activation,
   trigger-selection, or resolution-time revalidation. A creature with

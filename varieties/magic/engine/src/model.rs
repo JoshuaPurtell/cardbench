@@ -1790,6 +1790,15 @@ pub enum Effect {
     AddTargetDamageShieldUntilEndOfTurn {
         amount: i16,
     },
+    /// Prevent all combat damage that the one targeted attacking or blocking
+    /// creature would deal through the current turn. When the optional color
+    /// occurs in this spell's explicit mana-payment receipt, deal that
+    /// creature's current positive power to its controller as this instruction
+    /// resolves. Both consequences share one target word and therefore one
+    /// target occurrence on the stack.
+    PreventTargetCreatureCombatDamageUntilEndOfTurn {
+        damage_target_controller_equal_to_power_if_mana_color_spent: Option<Color>,
+    },
     /// Put one regeneration replacement shield on a targeted creature. The
     /// shield is consumed only by the next destruction event; it does not
     /// prevent damage, sacrifice, or a zero-toughness state-based action.
@@ -2029,6 +2038,9 @@ impl Effect {
             Self::DrawControllerIfManaColorSpent { .. }
                 | Self::ModifyAllCreaturesPtUntilEndOfTurnIfManaColorSpent { .. }
                 | Self::ReturnTargetCreatureCardToBattlefieldWithCounterIfManaColorSpent { .. }
+                | Self::PreventTargetCreatureCombatDamageUntilEndOfTurn {
+                    damage_target_controller_equal_to_power_if_mana_color_spent: Some(_),
+                }
         )
     }
 
@@ -2073,6 +2085,9 @@ impl Effect {
             | Self::TapTargetCreature
             | Self::RegenerateTargetCreature
             | Self::AddPlusOneCounterToTarget => Some(TargetRequirement::Creature),
+            Self::PreventTargetCreatureCombatDamageUntilEndOfTurn { .. } => {
+                Some(TargetRequirement::AttackingOrBlockingCreature)
+            }
             Self::AddTargetDamageShieldUntilEndOfTurn { .. } => {
                 Some(TargetRequirement::PlayerOrCreature)
             }
@@ -3860,6 +3875,28 @@ pub enum GameEvent {
     DamageShieldExpired {
         source: ObjectId,
         target: Target,
+    },
+    /// A resolving effect installed an independent, source-side prevention
+    /// record for all combat damage dealt by one exact creature incarnation.
+    CombatDamagePreventionCreated {
+        source: ObjectId,
+        creature: ObjectId,
+        expires_turn: u32,
+    },
+    /// A recorded all-combat-damage prevention replacement applied to one
+    /// prospective combat-damage packet. This is distinct from targeted
+    /// numeric shields because it is source-side and has no consumed amount.
+    CombatDamagePrevented {
+        source: ObjectId,
+        prevented_by: ObjectId,
+        target: Target,
+        amount: i32,
+    },
+    /// An all-combat-damage prevention record ended at cleanup or when its
+    /// exact creature incarnation left the battlefield.
+    CombatDamagePreventionExpired {
+        source: ObjectId,
+        creature: ObjectId,
     },
     LifeGained {
         player: PlayerId,

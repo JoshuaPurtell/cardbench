@@ -8,6 +8,7 @@ use cardbench_magic_engine::{
 };
 
 const LAND: &str = "TST-COMBAT-PREVENTION-LAND";
+const RED_LAND: &str = "TST-COMBAT-PREVENTION-RED-LAND";
 const ATTACKER: &str = "TST-COMBAT-PREVENTION-ATTACKER";
 const SHIELD: &str = "TST-COMBAT-PREVENTION-SHIELD";
 
@@ -40,6 +41,21 @@ fn definitions() -> Vec<CardDefinition> {
             supported_rules: &["combat-fixture"],
             power: Some(3),
             toughness: Some(3),
+            keywords: vec![],
+            effects: vec![],
+        },
+        CardDefinition {
+            id: RED_LAND,
+            name: RED_LAND,
+            set_code: "TST",
+            mana_cost: ManaCost::new(0),
+            colors: BTreeSet::new(),
+            mana_colors: BTreeSet::from([Color::Red]),
+            card_types: BTreeSet::from([CardType::Land]),
+            is_basic_land: true,
+            supported_rules: &["mana-fixture"],
+            power: None,
+            toughness: None,
             keywords: vec![],
             effects: vec![],
         },
@@ -131,10 +147,15 @@ fn conditional_target_combat_prevention_uses_the_explicit_mana_receipt() {
     let shield = game
         .add_card(caster, SHIELD, Zone::Hand)
         .expect("shield setup");
-    game.grant_mana(caster, Color::White, 1)
-        .expect("white mana setup");
-    game.grant_mana(caster, Color::Red, 2)
-        .expect("red generic mana setup");
+    let white_land = game
+        .put_on_battlefield(caster, LAND)
+        .expect("white mana source setup");
+    let first_red_land = game
+        .put_on_battlefield(caster, RED_LAND)
+        .expect("first red mana source setup");
+    let second_red_land = game
+        .put_on_battlefield(caster, RED_LAND)
+        .expect("second red mana source setup");
     game.begin_game().expect("fixture begins");
     advance_to_opponent_declare_attackers(&mut game);
 
@@ -142,6 +163,14 @@ fn conditional_target_combat_prevention_uses_the_explicit_mana_receipt() {
         .expect("attacker declares");
     game.pass_priority(attacker_controller)
         .expect("attacker controller passes to responder");
+    for (land, color) in [
+        (white_land, Color::White),
+        (first_red_land, Color::Red),
+        (second_red_land, Color::Red),
+    ] {
+        game.activate_mana_ability(caster, land, color)
+            .expect("mana source produces the selected spell payment");
+    }
     game.cast_spell_with_mana_spend(
         caster,
         CastRequest {
@@ -194,6 +223,10 @@ fn conditional_target_combat_prevention_uses_the_explicit_mana_receipt() {
             amount: 3,
         } if *source == attacker && *prevented_by == shield && *player == caster
     )));
+    eprintln!(
+        "conditional combat-prevention trace={:?}",
+        game.canonical_event_log()
+    );
     game.validate_invariants()
         .expect("conditional combat prevention preserves invariant state");
 }

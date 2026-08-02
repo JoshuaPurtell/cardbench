@@ -639,6 +639,19 @@ struct DamagePreventionShield {
     expires_turn: u32,
 }
 
+/// A source-side prevention effect whose object identity is the creature that
+/// would deal combat damage, not the recipient of that damage. It remains
+/// independent after the creating spell leaves the stack, but never follows a
+/// later incarnation of the protected creature.
+#[derive(Clone, Debug)]
+struct CombatDamagePrevention {
+    id: u64,
+    source: ObjectId,
+    creature: ObjectId,
+    creature_incarnation: u64,
+    expires_turn: u32,
+}
+
 /// A deliberately narrow resumable damage-resolution continuation.  It is
 /// opened only for a single targeted `DealDamage` instant/sorcery with two or
 /// more live applicable replacements. The top stack item remains in place;
@@ -761,6 +774,7 @@ pub struct Game {
     pending_damage_redirection: Option<PendingDamageRedirection>,
     damage_redirections: Vec<DamageRedirection>,
     damage_prevention_shields: Vec<DamagePreventionShield>,
+    combat_damage_preventions: Vec<CombatDamagePrevention>,
 }
 
 impl Game {
@@ -985,6 +999,7 @@ impl Game {
             pending_damage_redirection: None,
             damage_redirections: Vec::new(),
             damage_prevention_shields: Vec::new(),
+            combat_damage_preventions: Vec::new(),
         };
         // Construction is the first observable state-machine boundary. Do not
         // hand a caller a game whose immutable catalog or initial seats already
@@ -9261,6 +9276,32 @@ impl Game {
                 "damage prevention shield identifiers are not unique",
             ));
         }
+        let mut combat_prevention_ids = BTreeSet::new();
+        for prevention in &self.combat_damage_preventions {
+            self.object(prevention.source)?;
+            if prevention.id == 0
+                || prevention.id >= self.next_timestamp
+                || prevention.expires_turn < self.turn
+                || prevention.creature_incarnation == 0
+                || self.zone_of(prevention.creature) != Some(Zone::Battlefield)
+                || !self
+                    .object_has_incarnation(prevention.creature, prevention.creature_incarnation)
+                || !self
+                    .characteristics(prevention.creature)
+                    .is_ok_and(|characteristics| {
+                        characteristics.card_types.contains(&CardType::Creature)
+                    })
+            {
+                return Err(RulesError::IllegalAction(
+                    "combat damage prevention has invalid identity, target, or lifetime",
+                ));
+            }
+            if !combat_prevention_ids.insert(prevention.id) {
+                return Err(RulesError::IllegalAction(
+                    "combat damage prevention identifiers are not unique",
+                ));
+            }
+        }
         if let Some(combat) = &self.combat {
             if !matches!(
                 self.step,
@@ -10298,6 +10339,7 @@ impl Game {
                 | Effect::AddSourceDamageShieldUntilEndOfTurn { .. }
                 | Effect::AddControllerDamageShieldEqualToChosenXUntilEndOfTurn
                 | Effect::AddTargetDamageShieldUntilEndOfTurn { .. }
+                | Effect::PreventTargetCreatureCombatDamageUntilEndOfTurn { .. }
                 | Effect::RegenerateTargetCreature
                 | Effect::RegenerateSource
                 | Effect::AddKeywordToControllerCreaturesUntilEndOfTurn { .. }
@@ -13333,6 +13375,51 @@ impl Game {
         prevented
     }
 
+    fn install_combat_damage_prevention(
+        &mut self,
+        source: ObjectId,
+        creature: ObjectId,
+    ) -> Result<(), RulesError> {
+        self.object(source)?;
+        if self.zone_of(creature) != Some(Zone::Battlefield)
+            || !self.characteristics(creature).is_ok_and(|characteristics| {
+                characteristics.card_types.contains(&CardType::Creature)
+            })
+        {
+            return Err(RulesError::IllegalTarget(Target::Permanent(creature)));
+        }
+        let creature_incarnation = self.object(creature)?.incarnation;
+        self.combat_damage_preventions.push(CombatDamagePrevention {
+            id: self.next_timestamp,
+            source,
+            creature,
+            creature_incarnation,
+            expires_turn: self.turn,
+        });
+        self.next_timestamp += 1;
+        self.record_event(GameEvent::CombatDamagePreventionCreated {
+            source,
+            creature,
+            expires_turn: self.turn,
+        });
+        Ok(())
+    }
+
+    fn combat_damage_prevented_by(&self, source: ObjectId) -> Option<ObjectId> {
+        if self.damage_cannot_be_prevented(source) {
+            return None;
+        }
+        self.combat_damage_preventions
+            .iter()
+            .find(|prevention| {
+                prevention.creature == source
+                    && prevention.expires_turn >= self.turn
+                    && self.zone_of(source) == Some(Zone::Battlefield)
+                    && self.object_has_incarnation(source, prevention.creature_incarnation)
+            })
+            .map(|prevention| prevention.source)
+    }
+
     fn deal_damage_to_permanent(
         &mut self,
         source: ObjectId,
@@ -13354,6 +13441,15 @@ impl Game {
         permanent: ObjectId,
         amount: i32,
     ) -> Result<(), RulesError> {
+        if let Some(prevented_by) = self.combat_damage_prevented_by(source) {
+            self.record_event(GameEvent::CombatDamagePrevented {
+                source,
+                prevented_by,
+                target: Target::Permanent(permanent),
+                amount,
+            });
+            return Ok(());
+        }
         let event_start = self.event_log.len();
         self.deal_damage_to_permanent(source, permanent, amount)?;
         let dealt = self.event_log[event_start..].iter().any(|event| {
@@ -13370,6 +13466,24 @@ impl Game {
             self.enqueue_combat_damage_to_creature_triggers(source, permanent)?;
         }
         Ok(())
+    }
+
+    fn deal_combat_damage_to_player(
+        &mut self,
+        source: ObjectId,
+        player: PlayerId,
+        amount: i32,
+    ) -> Result<(), RulesError> {
+        if let Some(prevented_by) = self.combat_damage_prevented_by(source) {
+            self.record_event(GameEvent::CombatDamagePrevented {
+                source,
+                prevented_by,
+                target: Target::Player(player),
+                amount,
+            });
+            return Ok(());
+        }
+        self.deal_damage_to_player(source, player, amount)
     }
 
     fn deal_damage_to_permanent_from_colors(
@@ -14287,6 +14401,26 @@ impl Game {
                 let target =
                     target.ok_or(RulesError::IllegalAction("missing damage-shield target"))?;
                 self.install_damage_prevention_shield(source, target, *amount)?;
+            }
+            Effect::PreventTargetCreatureCombatDamageUntilEndOfTurn {
+                damage_target_controller_equal_to_power_if_mana_color_spent,
+            } => {
+                let creature = Self::target_permanent(target)?;
+                self.install_combat_damage_prevention(source, creature)?;
+                if let Some(color) = damage_target_controller_equal_to_power_if_mana_color_spent
+                    && mana_spent.is_some_and(|spent| spent.contains(color))
+                {
+                    let power =
+                        self.characteristics(creature)?
+                            .power
+                            .ok_or(RulesError::IllegalAction(
+                                "combat-prevention target lacks power",
+                            ))?;
+                    if power > 0 {
+                        let creature_controller = self.controller_of(creature)?;
+                        self.deal_damage_to_player(source, creature_controller, power)?;
+                    }
+                }
             }
             Effect::RegenerateTargetCreature => {
                 let target = Self::target_permanent(target)?;
@@ -15555,6 +15689,14 @@ impl Game {
                     .retain(|effect| effect.duration != Duration::EndOfTurn(self.turn));
                 self.damage_redirections
                     .retain(|redirect| redirect.expires_turn != self.turn);
+                let expired_combat_preventions = self
+                    .combat_damage_preventions
+                    .iter()
+                    .filter(|prevention| prevention.expires_turn == self.turn)
+                    .cloned()
+                    .collect::<Vec<_>>();
+                self.combat_damage_preventions
+                    .retain(|prevention| prevention.expires_turn != self.turn);
                 let expired_shields = self
                     .damage_prevention_shields
                     .iter()
@@ -15572,6 +15714,12 @@ impl Game {
                     });
                 }
                 self.record_control_reversions(&control_before)?;
+                for prevention in expired_combat_preventions {
+                    self.record_event(GameEvent::CombatDamagePreventionExpired {
+                        source: prevention.source,
+                        creature: prevention.creature,
+                    });
+                }
                 for shield in expired_shields {
                     self.record_event(GameEvent::DamageShieldExpired {
                         source: shield.source,
@@ -15781,7 +15929,7 @@ impl Game {
             self.deal_combat_damage_to_permanent(source, permanent, amount)?;
         }
         for (source, player, amount) in player_damage {
-            self.deal_damage_to_player(source, player, amount)?;
+            self.deal_combat_damage_to_player(source, player, amount)?;
         }
         self.check_state_based_actions()?;
         self.flush_pending_damage_triggers();
@@ -16308,6 +16456,20 @@ impl Game {
     ) {
         self.damage_redirections
             .retain(|redirect| redirect.protected != card);
+        let expired_combat_preventions = self
+            .combat_damage_preventions
+            .iter()
+            .filter(|prevention| prevention.creature == card)
+            .cloned()
+            .collect::<Vec<_>>();
+        self.combat_damage_preventions
+            .retain(|prevention| prevention.creature != card);
+        for prevention in expired_combat_preventions {
+            self.record_event(GameEvent::CombatDamagePreventionExpired {
+                source: prevention.source,
+                creature: prevention.creature,
+            });
+        }
         let expired_shields = self
             .damage_prevention_shields
             .iter()
