@@ -197,6 +197,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-CENTAUR-SAFEGUARD",
             "RAV-BLOODLETTER-QUILL",
             "RAV-CYCLOPEAN-SNARE",
+            "RAV-CLOUDSTONE-CURIO",
             "RAV-TERRARION",
             "RAV-GRIFTERS-BLADE",
             "RAV-FESTIVAL-OF-THE-GUILDPACT",
