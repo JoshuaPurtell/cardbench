@@ -1747,6 +1747,10 @@ pub enum Effect {
     AddSourceDamageShieldUntilEndOfTurn {
         amount: i16,
     },
+    /// Create an independent prevention shield for the resolving spell's
+    /// controller whose amount is the chosen `{X}` retained on that spell's
+    /// stack object. A zero X value is legal and simply creates no shield.
+    AddControllerDamageShieldEqualToChosenXUntilEndOfTurn,
     /// Prevent the next amount of damage dealt to one target player or
     /// creature this turn. This shield is an independent replacement effect,
     /// so it remains valid even when the ability source has left the zone.
@@ -1987,6 +1991,7 @@ impl Effect {
         matches!(
             self,
             Self::DestroyTargetCreatureWithManaValueAtMostChosenX
+                | Self::AddControllerDamageShieldEqualToChosenXUntilEndOfTurn
                 | Self::SearchControllerLibrary {
                     requirement: LibrarySearchRequirement::CreatureWithManaValueAtMostChosenX,
                     ..
@@ -2116,6 +2121,7 @@ impl Effect {
             | Self::ModifySourcePtUntilEndOfTurn { .. }
             | Self::RemoveSourceKeywordUntilEndOfTurn { .. }
             | Self::AddSourceDamageShieldUntilEndOfTurn { .. }
+            | Self::AddControllerDamageShieldEqualToChosenXUntilEndOfTurn
             | Self::RegenerateSource
             | Self::UntapSource
             | Self::ModifyControllerCreaturesPtUntilEndOfTurn { .. }

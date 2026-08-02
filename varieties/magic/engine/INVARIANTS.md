@@ -127,6 +127,12 @@ Oracle Magic rules coverage.
   trigger is queued for the prevented portion. A target departure or cleanup
   transition removes the shield and emits `DamageShieldExpired`, and an
   exhausted shield cannot remain in game state.
+- A spell effect may instead create that same shield for its controller from
+  its retained chosen-X value. The cast boundary requires explicit X and pays
+  it as generic mana; a positive X emits `DamageShieldCreated` with exactly
+  that amount before the spell's ordinary terminal zone move. X equal to zero
+  is legal, draws or resolves the spell's other instructions normally, and
+  creates no zero-valued shield or synthetic prevention receipt.
 - `Keyword::Protection(color)` is source-aware permanent protection: a source
   with that color cannot target the protected permanent at cast, activation,
   trigger-selection, or resolution-time revalidation. A creature with

@@ -125,3 +125,57 @@ fn chosen_x_controller_shield_survives_spell_resolution_and_caps_later_damage() 
     game.validate_invariants()
         .expect("chosen-X controller shield is replay-valid");
 }
+
+#[test]
+fn zero_chosen_x_draws_without_creating_an_invalid_zero_shield() {
+    let mut game = Game::new(
+        vec![
+            definition(
+                FESTIVAL,
+                CardType::Instant,
+                ManaCost::with_colors(0, [Color::White]),
+                vec![
+                    Effect::AddControllerDamageShieldEqualToChosenXUntilEndOfTurn,
+                    Effect::DrawController,
+                ],
+            ),
+            definition(DRAW_CARD, CardType::Creature, ManaCost::new(0), vec![]),
+        ],
+        2,
+    )
+    .expect("synthetic fixture builds");
+    let festival = game
+        .add_card(PlayerId(0), FESTIVAL, Zone::Hand)
+        .expect("shield spell setup");
+    let drawn = game
+        .add_card(PlayerId(0), DRAW_CARD, Zone::Library)
+        .expect("draw-card setup");
+    game.grant_mana(PlayerId(0), Color::White, 1)
+        .expect("white payment exists");
+    game.cast_spell_with_x(
+        PlayerId(0),
+        CastRequest {
+            card: festival,
+            targets: vec![],
+            convoke: vec![],
+            payment_mana_abilities: vec![],
+        },
+        0,
+        ManaPaymentSelection {
+            generic: vec![],
+            hybrid: vec![],
+        },
+    )
+    .expect("zero chosen X remains a legal spell cast");
+    game.pass_priority(PlayerId(0))
+        .expect("controller passes shield spell");
+    game.pass_priority(PlayerId(1))
+        .expect("zero-X shield spell resolves");
+    assert_eq!(game.zone_of(drawn), Some(Zone::Hand));
+    assert!(!game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::DamageShieldCreated { source, .. } if *source == festival
+    )));
+    game.validate_invariants()
+        .expect("zero chosen X leaves no invalid shield state");
+}

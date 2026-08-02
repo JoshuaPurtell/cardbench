@@ -10017,6 +10017,7 @@ impl Game {
                 | Effect::ModifySourcePtUntilEndOfTurn { .. }
                 | Effect::RemoveSourceKeywordUntilEndOfTurn { .. }
                 | Effect::AddSourceDamageShieldUntilEndOfTurn { .. }
+                | Effect::AddControllerDamageShieldEqualToChosenXUntilEndOfTurn
                 | Effect::AddTargetDamageShieldUntilEndOfTurn { .. }
                 | Effect::RegenerateTargetCreature
                 | Effect::RegenerateSource
@@ -13897,6 +13898,18 @@ impl Game {
                     ContinuousChange::AddDamageShield(*amount),
                     Duration::EndOfTurn(self.turn),
                 )?;
+            }
+            Effect::AddControllerDamageShieldEqualToChosenXUntilEndOfTurn => {
+                let chosen_x = chosen_x.ok_or(RulesError::IllegalAction(
+                    "chosen-X controller shield resolved without a chosen X value",
+                ))?;
+                if chosen_x > 0 {
+                    self.install_damage_prevention_shield(
+                        source,
+                        Target::Player(controller),
+                        i16::from(chosen_x),
+                    )?;
+                }
             }
             Effect::AddTargetDamageShieldUntilEndOfTurn { amount } => {
                 let target =
