@@ -96,10 +96,13 @@ Oracle Magic rules coverage.
   its display name. A token with any such subtype must be a creature; the
   public `Characteristics` view preserves that type-line information and the
   token's static keywords through stack resolution and zone placement.
-- A target-opponent token ETB trigger records one synthetic stack object and
-  selects exactly one legal player target before its priority window. On
-  resolution, every `TokenCreated` recipient and typed token specification
-  must match that object; it cannot fan out to every opponent or substitute a
+- A `CreateTokenForTargetOpponent` ETB trigger records one synthetic stack
+  object and requires its controller to choose exactly one living opponent
+  before any priority window. Its public generic decision records the
+  decision-maker but only that controller receives the actionable target-choice
+  view; a foreign submission is atomic. On resolution, every `TokenCreated`
+  recipient and typed token specification must match the selected target; it
+  cannot target its controller, fan out to every opponent, or substitute a
   source-controller token after the original target remains legal.
 - Tokens may attack and deal combat or effect damage without a catalog
   definition. Definition-bound attack and damage triggers therefore dispatch
@@ -790,9 +793,9 @@ Oracle Magic rules coverage.
   paid at trigger resolution, not while the trigger is stacked; an unpaid
   optional cost resolves with no damage, while a paid trigger selects a legal
   creature-or-player target at resolution and deals its fixed amount.
-  ETB triggers with targets retain one deterministic legal target per declared
-  occurrence; a targeted opponent trigger cannot silently fan out to every
-  opponent. A two-target redirection activation must resolve both target
+  ETB triggers with targets require a controller-submitted legal target for
+  each declared occurrence; a targeted opponent trigger cannot select its
+  controller or silently fan out to every opponent. A two-target redirection activation must resolve both target
   instructions before installing its replacement shield, and an incomplete
   or countered activation cannot leak a pending half-effect. If the protected
   target becomes illegal before resolution, the paired destination instruction
