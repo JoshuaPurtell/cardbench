@@ -79,6 +79,11 @@ struct ActionSpec {
     /// Explicit colors chosen for the remaining generic or hybrid symbols in
     /// one cast. Entries use `generic:color` or `hybrid:color`.
     mana_spend: Vec<String>,
+    /// One explicit nonnegative X value submitted with a `cast` policy
+    /// action. This is intentionally separate from mana-spend entries: the
+    /// engine validates the amount, applies it to the spell's generic cost,
+    /// and retains it on the stack for resolution-time target legality.
+    chosen_x: Option<u8>,
     attackers: Vec<String>,
     ability: String,
     color: String,
@@ -301,6 +306,7 @@ fn set_action_field(
         "convoke" => action.convoke = parse_string_array(value, line_number)?,
         "payment_mana" => action.payment_mana = parse_string_array(value, line_number)?,
         "mana_spend" => action.mana_spend = parse_string_array(value, line_number)?,
+        "chosen_x" => action.chosen_x = Some(parse_number(value, line_number)?),
         "attackers" => action.attackers = parse_string_array(value, line_number)?,
         "ability" => action.ability = parse_string(value, line_number)?,
         "color" => action.color = parse_string(value, line_number)?,
@@ -485,7 +491,18 @@ fn execute_action(
                 payment_mana_abilities,
             };
             if action.color.is_empty() {
-                if action.mana_spend.is_empty() {
+                if let Some(chosen_x) = action.chosen_x {
+                    game.submit_policy_move(
+                        player,
+                        "rav-scenario.cast-with-payment.v1",
+                        PolicyAction::CastWithPayment {
+                            request,
+                            chosen_x: Some(chosen_x),
+                            mana_selection: parse_mana_payment_selection(&action.mana_spend)?,
+                        },
+                    )
+                    .map_err(rules_error)
+                } else if action.mana_spend.is_empty() {
                     game.cast_spell(player, request).map_err(rules_error)
                 } else {
                     game.cast_spell_with_mana_spend(
@@ -496,6 +513,12 @@ fn execute_action(
                     .map_err(rules_error)
                 }
             } else {
+                if action.chosen_x.is_some() {
+                    return Err(
+                        "chosen-X scenario casts do not yet combine with a chosen color"
+                            .to_owned(),
+                    );
+                }
                 if !action.mana_spend.is_empty() {
                     return Err(
                         "chosen-color scenario casts do not yet combine with an explicit mana-spend selection"

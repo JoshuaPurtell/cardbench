@@ -43,7 +43,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 210] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 211] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
@@ -94,6 +94,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 210] = [
     "RAV-SEEDS-OF-STRENGTH",
     "RAV-DARKBLAST",
     "RAV-DIZZY-SPELL",
+    "RAV-DISEMBOWEL",
     "RAV-NIGHTMARE-VOID",
     "RAV-MOONLIGHT-BARGAIN",
     "RAV-ROLLING-SPOIL",
@@ -1807,11 +1808,10 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 toughness: -1,
             }],
         },
-        // Compatibility scope: the selected X is paid atomically, retained
-        // on the spell stack object, and bounds the target's mana value at
-        // both cast and resolution. Public policy/scenario syntax has not yet
-        // exposed a player-authored chosen-X move, so this direct engine slice
-        // remains outside the positive full-fidelity manifest.
+        // Full fidelity: a policy submits one explicit X and its ordered
+        // generic-color spend through the normal cast action. The engine
+        // retains that X on the stack and validates the target's mana value at
+        // both cast and resolution before ordinary destruction.
         CardDefinition {
             id: "RAV-DISEMBOWEL",
             name: "Disembowel",
@@ -1822,8 +1822,9 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             card_types: types([CardType::Instant]),
             is_basic_land: false,
             supported_rules: &[
+                "full-rules-fidelity",
                 "chosen-x-targeted-creature-destruction",
-                "policy-chosen-x-move-not-yet-exposed",
+                "policy-submitted-chosen-x-mana-spend",
             ],
             power: None,
             toughness: None,

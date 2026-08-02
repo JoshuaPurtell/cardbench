@@ -11284,6 +11284,52 @@ event_markers = ["SpellCast", "CardMoved", "LifeLost", "SpellResolved"]
 digest = "fnv1a64:23e0df735a7c82e3"
 
 [[scenario]]
+id = "rav_disembowel_policy_chosen_x"
+seed = 176
+description = "Submit Disembowel's positive X and ordered generic-color payment through a shown policy cast action, then resolve its mana-value-bounded destruction."
+
+[[scenario.card]]
+label = "disembowel"
+owner = 0
+definition = "RAV-DISEMBOWEL"
+zone = "hand"
+
+[[scenario.card]]
+label = "target"
+owner = 1
+definition = "RAV-WATCHWOLF"
+zone = "battlefield"
+
+[[scenario.mana]]
+player = 0
+color = "black"
+amount = 3
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "disembowel"
+target = "permanent:target"
+chosen_x = 2
+mana_spend = ["generic:black", "generic:black"]
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["disembowel:graveyard", "target:graveyard"]
+mana = ["0:black:0"]
+stack_size = 0
+priority = 0
+event_markers = ["PolicyMoveSubmitted", "SpellManaPaid", "SpellCast", "CardDestroyed", "SpellResolved"]
+digest = "fnv1a64:8fc482bac4ac136e"
+
+[[scenario]]
 id = "rav_blood_funnel_cast_trigger"
 seed = 157
 description = "Blood Funnel reduces a noncreature spell's generic cost, then its stacked trigger sacrifices a controlled creature before that spell resolves. The deterministic fixture selection is documented as a policy boundary."
