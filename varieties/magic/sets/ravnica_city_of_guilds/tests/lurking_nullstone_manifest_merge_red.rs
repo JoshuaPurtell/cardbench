@@ -9,6 +9,9 @@ fn lurking_nullstone_manifest_has_all_positive_promotions() {
         "RAV-GOLGARI-GERMINATION",
         "RAV-CLOUDSTONE-CURIO",
     ] {
-        assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&id), "missing {id}");
+        assert!(
+            RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&id),
+            "missing {id}"
+        );
     }
 }
