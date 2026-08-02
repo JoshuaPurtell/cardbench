@@ -43,7 +43,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 241] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 242] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
@@ -107,6 +107,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 241] = [
     "RAV-NETHERBORN-PHALANX",
     "RAV-HEX",
     "RAV-DARK-CONFIDANT",
+    "RAV-EMPTY-THE-CATACOMBS",
     "RAV-SHADOW-OF-DOUBT",
     "RAV-HELLDOZER",
     "RAV-GREATER-MOSSDOG",
@@ -2069,10 +2070,10 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
-        // Bounded compatibility scope: this target-free sorcery snapshots one
-        // public creature card from each player's graveyard before returning
-        // those cards to hand. The printed per-player selection remains
-        // deterministic until policies can submit public-zone choices.
+        // Full fidelity: this target-free sorcery retains its normal stack
+        // object while every affected player submits one public creature-card
+        // choice from their own graveyard. All selected identities are
+        // revalidated before their owner-hand moves commit together.
         CardDefinition {
             id: "RAV-EMPTY-THE-CATACOMBS",
             name: "Empty the Catacombs",
@@ -2083,9 +2084,10 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             card_types: types([CardType::Sorcery]),
             is_basic_land: false,
             supported_rules: &[
+                "full-rules-fidelity",
                 "colored-cost-casting",
                 "each-player-returns-creature-card-from-graveyard-to-hand",
-                "deterministic-public-graveyard-selection",
+                "policy-submitted-public-graveyard-creature-choices",
             ],
             power: None,
             toughness: None,

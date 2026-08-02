@@ -11044,13 +11044,23 @@ player = 0
 kind = "pass"
 player = 1
 
+[[scenario.action]]
+kind = "choose_public_graveyard_creature"
+player = 0
+found = "first"
+
+[[scenario.action]]
+kind = "choose_public_graveyard_creature"
+player = 1
+found = "second"
+
 [scenario.expected]
 zones = ["catacombs:graveyard", "first:hand", "second:hand"]
 stack_size = 0
 priority = 0
 mana = ["0:black:0"]
 event_markers = ["SpellCast", "CardMoved", "SpellResolved"]
-digest = "fnv1a64:cc7ad8c384894e57"
+digest = "fnv1a64:a654869b340a87e2"
 
 [[scenario]]
 id = "rav_nullmage_shepherd_four_creature_removal"

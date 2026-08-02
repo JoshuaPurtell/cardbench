@@ -3655,6 +3655,11 @@ pub enum DecisionKind {
     /// inspects the exact current top of the target player's library and may
     /// select it for an ordinary graveyard zone change.
     TargetPlayerLibraryTopMayGraveyard,
+    /// Each affected player selects one of their own creature cards from a
+    /// public graveyard while one target-free spell remains suspended on the
+    /// stack. The selection is public, but it is still a no-priority rules
+    /// decision rather than an engine-owned insertion-order fallback.
+    PublicGraveyardCreatureReturn,
     /// The controller of a resolving effect selects one different legal
     /// replacement target for an exact single-target activated stack item.
     RetargetActivatedAbility,
@@ -3976,6 +3981,18 @@ pub enum DecisionContinuation {
         target: PlayerId,
         top_card: ObjectId,
     },
+    /// A target-free spell waits for every affected living player to select
+    /// one of their own public graveyard creature cards. Selected identities
+    /// retain their exact incarnations, so a stale answer cannot move a later
+    /// graveyard incarnation with the same stable object id.
+    ReturnOneCreatureCardFromEachGraveyardToHand {
+        source_stack_item: StackObjectId,
+        source: ObjectId,
+        source_incarnation: u64,
+        controller: PlayerId,
+        remaining_players: Vec<PlayerId>,
+        selected: Vec<GraveyardCreatureCardSnapshot>,
+    },
     /// Resumes a resolving spell after its controller chooses a different
     /// legal target for one lower single-target activated ability. The source
     /// stack identity is retained separately from the physical card so a
@@ -3996,6 +4013,16 @@ pub enum DecisionContinuation {
 /// applying to a later hand incarnation after a zone round trip.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct HandCardSnapshot {
+    pub card: ObjectId,
+    pub incarnation: u64,
+}
+
+/// One creature-card selection from its owner's public graveyard. This is
+/// retained only while a suspended resolution collects every affected
+/// player's choice, then revalidated immediately before the hand move.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct GraveyardCreatureCardSnapshot {
+    pub player: PlayerId,
     pub card: ObjectId,
     pub incarnation: u64,
 }

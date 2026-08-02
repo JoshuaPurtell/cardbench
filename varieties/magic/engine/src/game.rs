@@ -17,10 +17,10 @@ use crate::{
     DecisionContinuation, DecisionId, DecisionKind, DecisionOption, DecisionSelection,
     DecisionVisibility, DeckList, DelayedAction, DelayedActionId, DelayedActionKind,
     DelayedActionTiming, Duration, Effect, GameEvent, GeneralizedAbilityActivation,
-    GeneralizedActivatedAbilityCost, HandCardSnapshot, Keyword, LandEntryBinding, Layer,
-    LibrarySearchCardinality, LibrarySearchDestination, LibrarySearchRequirement,
-    LibrarySearchSelection, LinkedExileGroup, LinkedExileGroupId, LinkedExileMember,
-    LinkedExileMemberRole, ManaAbilityActivation, ManaAbilityBinding,
+    GeneralizedActivatedAbilityCost, GraveyardCreatureCardSnapshot, HandCardSnapshot, Keyword,
+    LandEntryBinding, Layer, LibrarySearchCardinality, LibrarySearchDestination,
+    LibrarySearchRequirement, LibrarySearchSelection, LinkedExileGroup, LinkedExileGroupId,
+    LinkedExileMember, LinkedExileMemberRole, ManaAbilityActivation, ManaAbilityBinding,
     ManaAbilityBundleChoiceActivation, ManaAbilityCostBinding, ManaAbilityOutput, ManaBundle,
     ManaCost, ManaPaymentSelection, ObjectId, PendingDecision, PlayerId, PlayerState,
     PolicyMoveKind, QuantityReplacementResolution, ReplacementChoice, ReplacementEffect,
@@ -3860,6 +3860,7 @@ impl Game {
                 | DecisionContinuation::TargetPlayerPrivateDiscard { .. }
                 | DecisionContinuation::TargetPlayerManaColor { .. }
                 | DecisionContinuation::TargetPlayerLibraryTopMayGraveyard { .. }
+                | DecisionContinuation::ReturnOneCreatureCardFromEachGraveyardToHand { .. }
                 | DecisionContinuation::RetargetActivatedAbility { .. } => None,
             })
             .map(|(source, destination, may_fail_to_find)| {
@@ -3924,6 +3925,7 @@ impl Game {
                 | DecisionContinuation::TargetPlayerPrivateDiscard { .. }
                 | DecisionContinuation::TargetPlayerManaColor { .. }
                 | DecisionContinuation::TargetPlayerLibraryTopMayGraveyard { .. }
+                | DecisionContinuation::ReturnOneCreatureCardFromEachGraveyardToHand { .. }
                 | DecisionContinuation::RetargetActivatedAbility { .. } => None,
             });
         let optional_triggered_ability_choice = self
@@ -3976,6 +3978,7 @@ impl Game {
                 | DecisionContinuation::TargetPlayerPrivateDiscard { .. }
                 | DecisionContinuation::TargetPlayerManaColor { .. }
                 | DecisionContinuation::TargetPlayerLibraryTopMayGraveyard { .. }
+                | DecisionContinuation::ReturnOneCreatureCardFromEachGraveyardToHand { .. }
                 | DecisionContinuation::RetargetActivatedAbility { .. } => None,
             })
             .map(|(source, ability)| {
@@ -4057,6 +4060,7 @@ impl Game {
                 | DecisionContinuation::TargetPlayerPrivateDiscard { .. }
                 | DecisionContinuation::TargetPlayerManaColor { .. }
                 | DecisionContinuation::TargetPlayerLibraryTopMayGraveyard { .. }
+                | DecisionContinuation::ReturnOneCreatureCardFromEachGraveyardToHand { .. }
                 | DecisionContinuation::RetargetActivatedAbility { .. } => None,
             });
         let mut opponent_life = Vec::new();
@@ -7759,6 +7763,26 @@ impl Game {
                     selected.into_iter().next(),
                 )
             }
+            DecisionContinuation::ReturnOneCreatureCardFromEachGraveyardToHand {
+                source_stack_item,
+                source,
+                source_incarnation,
+                controller,
+                remaining_players,
+                selected,
+            } => {
+                let selected_now = Self::validate_object_decision_selection(&decision, selection)?;
+                self.resolve_public_graveyard_creature_return_decision(
+                    &decision,
+                    source_stack_item,
+                    source,
+                    source_incarnation,
+                    controller,
+                    remaining_players,
+                    selected,
+                    selected_now.into_iter().next(),
+                )
+            }
             DecisionContinuation::RetargetActivatedAbility {
                 source_stack_item,
                 controller,
@@ -7846,6 +7870,208 @@ impl Game {
             ability,
         });
         self.check_state_based_actions()?;
+        self.flush_pending_land_entry_triggers()?;
+        self.flush_pending_damage_triggers();
+        self.flush_pending_life_gain_triggers();
+        self.flush_pending_dies_triggers();
+        self.priority = self.priority_after_resolution();
+        Ok(())
+    }
+
+    #[allow(clippy::too_many_arguments)] // The continuation retains all public selections and exact stack provenance.
+    fn resolve_public_graveyard_creature_return_decision(
+        &mut self,
+        decision: &PendingDecision,
+        source_stack_item: StackObjectId,
+        source: ObjectId,
+        source_incarnation: u64,
+        controller: PlayerId,
+        mut remaining_players: Vec<PlayerId>,
+        mut selected: Vec<GraveyardCreatureCardSnapshot>,
+        selected_now: Option<ObjectId>,
+    ) -> Result<(), RulesError> {
+        let player = decision.player;
+        if remaining_players.first() != Some(&player) {
+            return Err(RulesError::IllegalAction(
+                "public graveyard choice player is not next in the resolving spell",
+            ));
+        }
+        let candidates = self.graveyard_creature_card_candidates(player)?;
+        let expected_options = candidates
+            .iter()
+            .copied()
+            .map(DecisionOption::Object)
+            .collect::<Vec<_>>();
+        let selected_card = selected_now.ok_or(RulesError::IllegalAction(
+            "public graveyard choice requires one creature card when candidates exist",
+        ))?;
+        if decision.kind != DecisionKind::PublicGraveyardCreatureReturn
+            || decision.visibility != DecisionVisibility::Public
+            || decision.options != expected_options
+            || decision.min_selections != 1
+            || decision.max_selections != 1
+            || !candidates.contains(&selected_card)
+            || selected.iter().any(|snapshot| snapshot.player == player)
+        {
+            return Err(RulesError::IllegalAction(
+                "public graveyard choice no longer matches its current player or candidates",
+            ));
+        }
+        selected.push(GraveyardCreatureCardSnapshot {
+            player,
+            card: selected_card,
+            incarnation: self.object(selected_card)?.incarnation,
+        });
+        remaining_players.remove(0);
+        self.complete_pending_decision(decision)?;
+        if self.open_next_public_graveyard_creature_return_decision(
+            source_stack_item,
+            source,
+            source_incarnation,
+            controller,
+            remaining_players,
+            selected.clone(),
+        )? {
+            return Ok(());
+        }
+        self.finish_public_graveyard_creature_return_spell(
+            source_stack_item,
+            source,
+            source_incarnation,
+            controller,
+            selected,
+        )
+    }
+
+    /// Lists the public creature-card candidates that one player may return
+    /// from their own graveyard. The owner and current incarnation are
+    /// checked again when a submitted choice finally resolves.
+    fn graveyard_creature_card_candidates(
+        &self,
+        player: PlayerId,
+    ) -> Result<Vec<ObjectId>, RulesError> {
+        let state = self.player(player)?;
+        if state.lost {
+            return Ok(Vec::new());
+        }
+        let cards = state
+            .graveyard
+            .iter()
+            .copied()
+            .filter(|card| {
+                self.zone_of(*card) == Some(Zone::Graveyard)
+                    && self
+                        .object(*card)
+                        .is_ok_and(|object| object.owner == player)
+                    && self
+                        .card_definition(*card)
+                        .is_ok_and(|definition| definition.card_types.contains(&CardType::Creature))
+            })
+            .collect();
+        Ok(cards)
+    }
+
+    /// Advances the one-player-at-a-time public choice sequence. Players
+    /// with no creature card in their own graveyard have no rules choice and
+    /// are skipped without opening an empty policy prompt.
+    #[allow(clippy::too_many_arguments)] // Each captured field participates in the continuation invariant.
+    fn open_next_public_graveyard_creature_return_decision(
+        &mut self,
+        source_stack_item: StackObjectId,
+        source: ObjectId,
+        source_incarnation: u64,
+        controller: PlayerId,
+        mut remaining_players: Vec<PlayerId>,
+        selected: Vec<GraveyardCreatureCardSnapshot>,
+    ) -> Result<bool, RulesError> {
+        while let Some(player) = remaining_players.first().copied() {
+            let candidates = self.graveyard_creature_card_candidates(player)?;
+            if candidates.is_empty() {
+                remaining_players.remove(0);
+                continue;
+            }
+            self.open_pending_decision(
+                player,
+                DecisionVisibility::Public,
+                DecisionKind::PublicGraveyardCreatureReturn,
+                1,
+                1,
+                candidates.into_iter().map(DecisionOption::Object).collect(),
+                DecisionContinuation::ReturnOneCreatureCardFromEachGraveyardToHand {
+                    source_stack_item,
+                    source,
+                    source_incarnation,
+                    controller,
+                    remaining_players,
+                    selected,
+                },
+            )?;
+            return Ok(true);
+        }
+        Ok(false)
+    }
+
+    /// Commits the exact card identities selected while the one-effect spell
+    /// was suspended, then runs the ordinary spell terminal lifecycle. No
+    /// player gets priority between selections or before these zone moves.
+    fn finish_public_graveyard_creature_return_spell(
+        &mut self,
+        source_stack_item: StackObjectId,
+        source: ObjectId,
+        source_incarnation: u64,
+        controller: PlayerId,
+        selected: Vec<GraveyardCreatureCardSnapshot>,
+    ) -> Result<(), RulesError> {
+        let top = self.stack.last().ok_or(RulesError::IllegalAction(
+            "public graveyard choice escaped its stack spell",
+        ))?;
+        if top.id != source_stack_item
+            || top.card != source
+            || top.source_incarnation != source_incarnation
+            || top.controller != controller
+            || top.ability_id.is_some()
+            || !top.targets.is_empty()
+            || top.effects.as_slice() != [Effect::ReturnOneCreatureCardFromEachGraveyardToHand]
+            || selected.iter().enumerate().any(|(index, snapshot)| {
+                snapshot.incarnation == 0
+                    || self
+                        .players
+                        .get(snapshot.player.0)
+                        .is_none_or(|state| state.lost)
+                    || selected[index + 1..]
+                        .iter()
+                        .any(|other| other.player == snapshot.player || other.card == snapshot.card)
+                    || self.zone_of(snapshot.card) != Some(Zone::Graveyard)
+                    || self.object(snapshot.card).map_or(true, |object| {
+                        object.owner != snapshot.player
+                            || object.incarnation != snapshot.incarnation
+                    })
+                    || self
+                        .card_definition(snapshot.card)
+                        .map_or(true, |definition| {
+                            !definition.card_types.contains(&CardType::Creature)
+                        })
+            })
+        {
+            return Err(RulesError::IllegalAction(
+                "public graveyard choices no longer match the suspended stack spell",
+            ));
+        }
+        let stack_object = self.stack.pop().ok_or(RulesError::IllegalAction(
+            "public graveyard choice stack spell disappeared before resolution",
+        ))?;
+        if stack_object.id != source_stack_item {
+            return Err(RulesError::IllegalAction(
+                "public graveyard choice changed stack identity before resolution",
+            ));
+        }
+        for snapshot in selected {
+            self.move_to_zone(snapshot.card, Zone::Hand)?;
+        }
+        self.record_event(GameEvent::SpellResolved { card: source });
+        self.move_to_spell_terminal_zone(source)?;
+        self.check_state_based_actions()?;
+        self.flush_pending_dies_triggers();
         self.flush_pending_land_entry_triggers()?;
         self.flush_pending_damage_triggers();
         self.flush_pending_life_gain_triggers();
@@ -14726,6 +14952,9 @@ impl Game {
         if self.suspend_top_stack_item_for_library_search_choice()? {
             return Ok(());
         }
+        if self.suspend_top_stack_item_for_public_graveyard_creature_return_choice()? {
+            return Ok(());
+        }
         if self.suspend_top_spell_for_private_library_choice()? {
             return Ok(());
         }
@@ -15956,6 +16185,45 @@ impl Game {
             },
         )?;
         Ok(true)
+    }
+
+    /// Suspends this target-free public-zone spell until every affected player
+    /// has made their own required creature-card selection. This is a shared
+    /// resolution primitive, not an Empty the Catacombs-specific callback.
+    fn suspend_top_stack_item_for_public_graveyard_creature_return_choice(
+        &mut self,
+    ) -> Result<bool, RulesError> {
+        if self.pending_decision.is_some()
+            || self.pending_private_library_choice.is_some()
+            || self.pending_private_opponent_library_exile_choice.is_some()
+        {
+            return Err(RulesError::IllegalAction(
+                "a public graveyard choice attempted to overlap another decision",
+            ));
+        }
+        let Some(top) = self.stack.last() else {
+            return Ok(false);
+        };
+        if top.ability_id.is_some()
+            || !top.targets.is_empty()
+            || top.effects.as_slice() != [Effect::ReturnOneCreatureCardFromEachGraveyardToHand]
+        {
+            return Ok(false);
+        }
+        let remaining_players = self
+            .players
+            .iter()
+            .filter(|player| !player.lost)
+            .map(|player| player.id)
+            .collect::<Vec<_>>();
+        self.open_next_public_graveyard_creature_return_decision(
+            top.id,
+            top.card,
+            top.source_incarnation,
+            top.controller,
+            remaining_players,
+            Vec::new(),
+        )
     }
 
     /// Opens a private no-priority choice for the controller to select or
@@ -30116,6 +30384,69 @@ impl Game {
                 {
                     return Err(RulesError::IllegalAction(
                         "target-player library-top decision violates its private stack snapshot",
+                    ));
+                }
+            }
+            DecisionContinuation::ReturnOneCreatureCardFromEachGraveyardToHand {
+                source_stack_item,
+                source,
+                source_incarnation,
+                controller,
+                remaining_players,
+                selected,
+            } => {
+                let top = self.stack.last().ok_or(RulesError::IllegalAction(
+                    "public graveyard choice escaped its stack spell",
+                ))?;
+                let expected_options = self
+                    .graveyard_creature_card_candidates(decision.player)?
+                    .into_iter()
+                    .map(DecisionOption::Object)
+                    .collect::<Vec<_>>();
+                let remaining_are_ordered_living =
+                    remaining_players.iter().enumerate().all(|(index, player)| {
+                        self.players.get(player.0).is_some_and(|state| !state.lost)
+                            && remaining_players[index + 1..]
+                                .iter()
+                                .all(|other| other.0 > player.0)
+                    });
+                let selected_are_valid = selected.iter().enumerate().all(|(index, snapshot)| {
+                    snapshot.incarnation > 0
+                        && self
+                            .players
+                            .get(snapshot.player.0)
+                            .is_some_and(|state| !state.lost)
+                        && selected[index + 1..].iter().all(|other| {
+                            other.player != snapshot.player && other.card != snapshot.card
+                        })
+                        && self.zone_of(snapshot.card) == Some(Zone::Graveyard)
+                        && self.object(snapshot.card).is_ok_and(|object| {
+                            object.owner == snapshot.player
+                                && object.incarnation == snapshot.incarnation
+                        })
+                        && self.card_definition(snapshot.card).is_ok_and(|definition| {
+                            definition.card_types.contains(&CardType::Creature)
+                        })
+                });
+                if decision.kind != DecisionKind::PublicGraveyardCreatureReturn
+                    || decision.visibility != DecisionVisibility::Public
+                    || remaining_players.first() != Some(&decision.player)
+                    || !remaining_are_ordered_living
+                    || !selected_are_valid
+                    || top.id != *source_stack_item
+                    || top.card != *source
+                    || top.source_incarnation != *source_incarnation
+                    || top.controller != *controller
+                    || top.ability_id.is_some()
+                    || !top.targets.is_empty()
+                    || top.effects.as_slice()
+                        != [Effect::ReturnOneCreatureCardFromEachGraveyardToHand]
+                    || decision.options != expected_options
+                    || decision.min_selections != 1
+                    || decision.max_selections != 1
+                {
+                    return Err(RulesError::IllegalAction(
+                        "public graveyard decision violates its stack and selection provenance",
                     ));
                 }
             }
