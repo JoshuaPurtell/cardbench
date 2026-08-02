@@ -9,7 +9,7 @@ use std::fs;
 
 use cardbench_magic_engine::{
     AbilityActivation, BasicLandManaAbilityActivation, CastPaymentManaAbility, CastRequest, Color,
-    CombatBlock, ConvokeContribution, ConvokePayment, Game, ManaAbilityActivation,
+    CombatBlock, ConvokeContribution, ConvokePayment, Effect, Game, ManaAbilityActivation,
     ManaPaymentSelection, ObjectId, PlayerId, PolicyAction, RulesError, Target, Zone,
 };
 
@@ -601,6 +601,17 @@ fn execute_action(
                         .flat_map(|binding| binding.granted_activated_abilities)
                         .find(|ability| ability.id == action.ability)
                         .map(|ability| ability.id)
+                })
+                .or_else(|| {
+                    card_definitions()
+                        .into_iter()
+                        .flat_map(|definition| definition.effects)
+                        .find_map(|effect| match effect {
+                            Effect::GrantActivatedAbilityToControllerCreaturesUntilEndOfTurn {
+                                ability,
+                            } if ability.id == action.ability => Some(ability.id),
+                            _ => None,
+                        })
                 })
                 .ok_or_else(|| {
                     format!(
