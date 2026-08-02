@@ -587,6 +587,25 @@ Oracle Magic rules coverage.
   value. Both cast-time and resolution-time checks read this same value, so a
   fabricated or undersized receipt fails the invariant audit before it is
   treated as a legal state transition.
+- A registered activated-cost modifier has a catalogued permanent source, a
+  positive generic amount, one unique declarative modifier per source
+  definition, and is fixed before the game starts. The initial RAV-sufficient
+  boundary admits only modifiers scoped to nonmana activated abilities; a mana
+  ability is never taxed. Every live source applies once to any player's
+  eligible activation, so multiple sources stack in stable object-id order and
+  ordinary source departure immediately removes its contribution. The typed
+  cost context retains acting player, activating source/incarnation, ability,
+  base mana cost, increases, reductions, all represented nonmana costs,
+  optional selected mana allocation, and final effective cost. Increases apply
+  before reductions; only generic symbols change, and colored/hybrid symbols
+  remain identical. A modified activation emits
+  `ActivatedAbilityCostCalculated` immediately before a matching
+  `AbilityManaPaid` for its effective cost. The full cost is preflighted before
+  any tap, sacrifice, discard, stack, priority, zone, or receipt mutation; an
+  insufficient or malformed payment is therefore an atomic no-op. The replay
+  audit rejects a fabricated source/incarnation, unsupported scope, duplicate
+  binding, invalid adjustment, changed colored requirement, incorrect effective
+  total, missing effective-payment receipt, or malformed explicit selection.
 - An expansion may bind an explicit additional spell cost to a nonland
   definition. Its `CastRequest` selection follows ordinary effect targets but
   never enters the resulting stack object's target slots. A bound controlled-
