@@ -189,6 +189,10 @@ Dizzy Spell is also positive-manifest: its target-creature layer-seven
 modifier and hand-zone Transmute search are both represented by typed effects,
 public scenarios, and invariant-checked event traces.
 
+Muddle the Mixture is positive-manifest as well: its typed instant/sorcery
+counterspell and hand-zone Transmute paths each have deterministic public
+scenario coverage and stack/zone receipts.
+
 The generic-keyword coverage batch for Conclave Phalanx, Golgari Grave-Troll,
 Necroplasm, Grave-Shell Scarab, Shambling Shell, and Autochthon Wurm follows
 the same fail-closed boundary. Each
