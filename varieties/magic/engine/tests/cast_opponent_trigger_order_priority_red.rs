@@ -5,8 +5,9 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardDefinition, CardType, CastRequest, Color, DecisionKind, Effect, Game, GameEvent, ManaCost,
-    PlayerId, TargetRequirement, TriggerCondition, TriggeredAbility, TriggeredAbilityBinding, Zone,
+    CardDefinition, CardType, CastRequest, Color, DecisionKind, DecisionSelection, Effect, Game,
+    GameEvent, ManaCost, PlayerId, TargetRequirement, TriggerCondition, TriggeredAbility,
+    TriggeredAbilityBinding, Zone,
 };
 
 const SPELL: &str = "TST-CAST-OPPONENT-TRIGGER-ORDER-SPELL";
@@ -42,6 +43,7 @@ fn advance_to_main_phase(game: &mut Game) {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // One cast-to-APNAP transcript verifies the no-priority handoff atomically.
 fn casting_into_an_opponents_simultaneous_triggers_preserves_their_order_decision() {
     let opponent = PlayerId(1);
     let bindings = [
@@ -128,6 +130,24 @@ fn casting_into_an_opponents_simultaneous_triggers_preserves_their_order_decisio
         GameEvent::DecisionOpened { player, kind: DecisionKind::TriggeredAbilityOrder, .. }
             if *player == opponent
     )));
+    game.submit_decision(
+        opponent,
+        decision.id,
+        DecisionSelection::TriggerOrder(decision.trigger_candidates.clone()),
+    )
+    .expect("the opponent may order its observed simultaneous triggers");
+    assert!(
+        game.view_for_player(opponent)
+            .expect("opponent view remains available")
+            .pending_decision
+            .is_none(),
+        "the no-priority decision closes before trigger objects are stacked"
+    );
+    assert_eq!(
+        game.stack.len(),
+        3,
+        "the cast spell remains below both ordered opponent trigger objects"
+    );
     game.validate_invariants()
         .expect("the no-priority trigger-order boundary is invariant-valid");
 }

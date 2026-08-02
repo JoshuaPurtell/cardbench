@@ -6876,10 +6876,16 @@ impl Game {
             )?;
         }
         self.consecutive_passes = 0;
-        // CR 601.2i / 117.3c: after completing a cast, the acting player
-        // receives priority again. Opponents get their response window only
-        // after that player passes.
-        self.priority = player;
+        // CR 601.2i / 117.3c normally returns priority to the player who
+        // completed the cast.  Trigger placement happens before that window,
+        // however: an APNAP group may require another controller to submit a
+        // no-priority order or target decision.  `open_pending_decision`
+        // already installed that controller as the required decision player,
+        // and overwriting it here would make the enclosing atomic cast roll
+        // back under the pending-decision invariant.
+        if self.pending_decision.is_none() {
+            self.priority = player;
+        }
         self.check_state_based_actions()?;
         self.flush_pending_dies_triggers();
         Ok(())
