@@ -20,11 +20,11 @@ use crate::{
     LinkedExileMemberRole, ManaAbilityActivation, ManaAbilityBinding, ManaAbilityOutput, ManaCost,
     ManaPaymentSelection, ObjectId, PendingDecision, PlayerId, PlayerState, PolicyMoveKind,
     QuantityReplacementResolution, ReplacementChoice, ReplacementEffect, ReplacementEffectBinding,
-    ReplacementEventKind, StackEffectResolution, StackObject, StackResolutionPlan,
-    StaticAttackRestriction, StaticAttackRestrictionBinding, StaticContinuousEffectBinding,
-    StaticEntryRestriction, StaticEntryRestrictionBinding, Step, TRANSMUTE_ABILITY_ID, Target,
-    TargetRequirement, TokenSpec, TriggerCondition, TriggerOrderEntry, TriggeredAbilityBinding,
-    TriggeredEffectObjectDecisionKind, Zone,
+    ReplacementEventKind, ResolutionPaymentManaAbility, StackEffectResolution, StackObject,
+    StackResolutionPlan, StaticAttackRestriction, StaticAttackRestrictionBinding,
+    StaticContinuousEffectBinding, StaticEntryRestriction, StaticEntryRestrictionBinding, Step,
+    TRANSMUTE_ABILITY_ID, Target, TargetRequirement, TokenSpec, TriggerCondition,
+    TriggerOrderEntry, TriggeredAbilityBinding, TriggeredEffectObjectDecisionKind, Zone,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -3133,7 +3133,8 @@ impl Game {
                 | DecisionContinuation::TriggeredAbilityTargets { .. }
                 | DecisionContinuation::TriggeredAbilityOrder { .. }
                 | DecisionContinuation::QuantityReplacement { .. }
-                | DecisionContinuation::DamageReplacement { .. } => None,
+                | DecisionContinuation::DamageReplacement { .. }
+                | DecisionContinuation::CounterUnlessPaysMana { .. } => None,
             })
             .map(|(source, destination, may_fail_to_find)| {
                 self.decision_candidate_cards(
@@ -3187,7 +3188,8 @@ impl Game {
                 | DecisionContinuation::SpellCopyTargets { .. }
                 | DecisionContinuation::TriggeredAbilityOrder { .. }
                 | DecisionContinuation::QuantityReplacement { .. }
-                | DecisionContinuation::DamageReplacement { .. } => None,
+                | DecisionContinuation::DamageReplacement { .. }
+                | DecisionContinuation::CounterUnlessPaysMana { .. } => None,
             });
         let optional_triggered_ability_choice = self
             .pending_optional_trigger_choice
@@ -3229,7 +3231,8 @@ impl Game {
                 | DecisionContinuation::TriggeredAbilityTargets { .. }
                 | DecisionContinuation::TriggeredAbilityOrder { .. }
                 | DecisionContinuation::QuantityReplacement { .. }
-                | DecisionContinuation::DamageReplacement { .. } => None,
+                | DecisionContinuation::DamageReplacement { .. }
+                | DecisionContinuation::CounterUnlessPaysMana { .. } => None,
             })
             .map(|(source, ability)| {
                 self.decision_candidate_cards(
@@ -3281,7 +3284,8 @@ impl Game {
                 | DecisionContinuation::SpellCopyTargets { .. }
                 | DecisionContinuation::TriggeredAbilityTargets { .. }
                 | DecisionContinuation::TriggeredAbilityOrder { .. }
-                | DecisionContinuation::QuantityReplacement { .. } => None,
+                | DecisionContinuation::QuantityReplacement { .. }
+                | DecisionContinuation::CounterUnlessPaysMana { .. } => None,
             });
         let mut opponent_life = Vec::new();
         let mut opponent_battlefield = Vec::new();
@@ -5802,7 +5806,126 @@ impl Game {
                     selected,
                 )
             }
+            DecisionContinuation::CounterUnlessPaysMana {
+                source,
+                source_incarnation,
+                source_controller,
+                target_spell,
+                target_incarnation,
+                mana_cost,
+            } => self.resolve_counter_unless_pays_mana_decision(
+                &decision,
+                player,
+                source,
+                source_incarnation,
+                source_controller,
+                target_spell,
+                target_incarnation,
+                &mana_cost,
+                selection,
+            ),
         }
+    }
+
+    #[allow(clippy::too_many_arguments)] // Captured stack and payment provenance are intentionally explicit.
+    fn resolve_counter_unless_pays_mana_decision(
+        &mut self,
+        decision: &PendingDecision,
+        player: PlayerId,
+        source: ObjectId,
+        source_incarnation: u64,
+        source_controller: PlayerId,
+        target_spell: ObjectId,
+        target_incarnation: u64,
+        mana_cost: &ManaCost,
+        selection: DecisionSelection,
+    ) -> Result<(), RulesError> {
+        let DecisionSelection::CounterUnlessPaysMana {
+            pay,
+            mana_abilities,
+            mana_selection,
+        } = selection
+        else {
+            return Err(RulesError::IllegalAction(
+                "counter-unless decision requires an explicit mana payment or decline",
+            ));
+        };
+        let top = self.stack.last().ok_or(RulesError::IllegalAction(
+            "counter-unless payment decision escaped its stack item",
+        ))?;
+        let target = self
+            .stack
+            .iter()
+            .find(|stack_object| stack_object.card == target_spell)
+            .ok_or(RulesError::IllegalAction(
+                "counter-unless payment target escaped the stack",
+            ))?;
+        if decision.kind != DecisionKind::CounterUnlessPaysMana
+            || decision.visibility != DecisionVisibility::Public
+            || decision.min_selections != 0
+            || decision.max_selections != 0
+            || !decision.options.is_empty()
+            || decision.player != player
+            || top.card != source
+            || top.source_incarnation != source_incarnation
+            || top.controller != source_controller
+            || top.effects.as_slice()
+                != [Effect::CounterTargetSpellUnlessControllerPays {
+                    mana_cost: mana_cost.clone(),
+                }]
+            || top.targets.as_slice() != [Target::Spell(target_spell)]
+            || target.controller != player
+            || self.object(target_spell)?.incarnation != target_incarnation
+            || self
+                .stack
+                .iter()
+                .position(|stack_object| stack_object.card == target_spell)
+                >= self
+                    .stack
+                    .iter()
+                    .position(|stack_object| stack_object.card == source)
+        {
+            return Err(RulesError::IllegalAction(
+                "counter-unless payment decision no longer matches its stack objects",
+            ));
+        }
+        if !pay && (!mana_abilities.is_empty() || mana_selection != ManaPaymentSelection::default())
+        {
+            return Err(RulesError::IllegalAction(
+                "declining a counter-unless payment cannot name mana sources or mana",
+            ));
+        }
+        if pay {
+            for activation in mana_abilities {
+                match activation {
+                    ResolutionPaymentManaAbility::Bound(activation) => {
+                        self.activate_bound_mana_ability_impl(player, activation, None)?;
+                    }
+                    ResolutionPaymentManaAbility::IntrinsicLand(activation) => {
+                        self.activate_intrinsic_mana_ability_impl(
+                            player,
+                            activation.land,
+                            activation.color,
+                            None,
+                        )?;
+                    }
+                }
+            }
+            let mut pool = self.players[player.0].mana_pool.clone();
+            let mana_spent = pool
+                .pay_selected(mana_cost, &mana_selection)
+                .map_err(RulesError::Mana)?;
+            self.players[player.0].mana_pool = pool;
+            self.record_event(GameEvent::CounterUnlessPaysManaPaid {
+                player,
+                source,
+                target_spell,
+                mana_cost: mana_cost.clone(),
+                mana_spent: mana_spent.clone(),
+            });
+        }
+        self.complete_pending_decision(decision)?;
+        self.resolve_top_of_stack_with_optional_decision(None, Some(pay))
     }
 
     fn validate_object_decision_selection(
@@ -7697,6 +7820,7 @@ impl Game {
         Self::validate_trigger_order_event_order(&self.event_log)?;
         self.validate_linked_exile_state()?;
         Self::validate_spell_mana_payment_event_order(&self.event_log)?;
+        Self::validate_counter_unless_pays_payment_event_order(&self.event_log)?;
         self.validate_additional_spell_cost_event_order()?;
         self.validate_stack_terminal_event_order()?;
         self.validate_ability_event_order()?;
@@ -10217,6 +10341,7 @@ impl Game {
                 | Effect::DestroyAllNonTokenCreatures
                 | Effect::CounterTargetInstantOrSorcerySpell
                 | Effect::CounterTargetSpell
+                | Effect::CounterTargetSpellUnlessControllerPays { .. }
                 | Effect::CopyTargetInstantOrSorcerySpell { .. }
                 | Effect::SacrificeCreatureOrCounterTargetSpell
                 | Effect::GrantGraveyardCastPermissionUntilEndOfTurn
@@ -10266,13 +10391,14 @@ impl Game {
 
     #[allow(clippy::too_many_lines)] // Spell and activated-ability resolution share one audited path.
     fn resolve_top_of_stack(&mut self) -> Result<(), RulesError> {
-        self.resolve_top_of_stack_with_optional_decision(None)
+        self.resolve_top_of_stack_with_optional_decision(None, None)
     }
 
     #[allow(clippy::too_many_lines)] // Spell and activated-ability resolution share one audited path.
     fn resolve_top_of_stack_with_optional_decision(
         &mut self,
         optional_decision: Option<(bool, Option<Target>)>,
+        counter_unless_payment: Option<bool>,
     ) -> Result<(), RulesError> {
         if optional_decision.is_none()
             && let Some(top) = self.stack.last()
@@ -10319,6 +10445,11 @@ impl Game {
             return Ok(());
         }
         if self.suspend_top_stack_item_for_damage_replacement_choice()? {
+            return Ok(());
+        }
+        if counter_unless_payment.is_none()
+            && self.suspend_top_stack_item_for_counter_unless_pays_mana_choice()?
+        {
             return Ok(());
         }
         let stack_object = self.stack.pop().ok_or(RulesError::IllegalAction(
@@ -10499,6 +10630,30 @@ impl Game {
                                 ));
                             }
                         } else {
+                            if matches!(
+                                effect,
+                                Effect::CounterTargetSpellUnlessControllerPays { .. }
+                            ) {
+                                let paid =
+                                    counter_unless_payment.ok_or(RulesError::IllegalAction(
+                                        "counter-unless payment resolved without a policy decision",
+                                    ))?;
+                                if !paid {
+                                    let target = Self::target_spell(Some(target))?;
+                                    let position = self
+                                        .stack
+                                        .iter()
+                                        .position(|candidate| candidate.card == target)
+                                        .ok_or(RulesError::IllegalTarget(Target::Spell(target)))?;
+                                    self.stack.remove(position);
+                                    self.record_event(GameEvent::SpellCountered {
+                                        card: target,
+                                        source: stack_object.card,
+                                    });
+                                    self.move_to_spell_terminal_zone(target)?;
+                                }
+                                continue;
+                            }
                             self.resolve_effect(
                                 stack_object.card,
                                 stack_object.source_incarnation,
@@ -10820,6 +10975,60 @@ impl Game {
     /// id-bearing replacement decision state. This first slice intentionally
     /// supports only one targeted direct-damage spell; complex multi-
     /// instruction and partial-redirection continuations remain explicit.
+    fn suspend_top_stack_item_for_counter_unless_pays_mana_choice(
+        &mut self,
+    ) -> Result<bool, RulesError> {
+        let Some(top) = self.stack.last().cloned() else {
+            return Ok(false);
+        };
+        let [Effect::CounterTargetSpellUnlessControllerPays { mana_cost }] = top.effects.as_slice()
+        else {
+            return Ok(false);
+        };
+        let [Target::Spell(target_spell)] = top.targets.as_slice() else {
+            return Err(RulesError::IllegalAction(
+                "counter-unless spell has an invalid target shape",
+            ));
+        };
+        if mana_cost.mana_value() == 0 {
+            return Err(RulesError::IllegalAction(
+                "counter-unless payment cost must be positive",
+            ));
+        }
+        let target_position = self
+            .stack
+            .iter()
+            .position(|candidate| candidate.card == *target_spell)
+            .ok_or(RulesError::IllegalTarget(Target::Spell(*target_spell)))?;
+        if target_position + 1 >= self.stack.len() {
+            return Err(RulesError::IllegalAction(
+                "counter-unless spell must target a lower stack spell",
+            ));
+        }
+        let target = &self.stack[target_position];
+        if target.ability_id.is_some() {
+            return Err(RulesError::IllegalTarget(Target::Spell(*target_spell)));
+        }
+        let target_incarnation = self.object(*target_spell)?.incarnation;
+        self.open_pending_decision(
+            target.controller,
+            DecisionVisibility::Public,
+            DecisionKind::CounterUnlessPaysMana,
+            0,
+            0,
+            vec![],
+            DecisionContinuation::CounterUnlessPaysMana {
+                source: top.card,
+                source_incarnation: top.source_incarnation,
+                source_controller: top.controller,
+                target_spell: *target_spell,
+                target_incarnation,
+                mana_cost: mana_cost.clone(),
+            },
+        )?;
+        Ok(true)
+    }
+
     fn suspend_top_stack_item_for_damage_replacement_choice(&mut self) -> Result<bool, RulesError> {
         if self.pending_decision.is_some() {
             return Err(RulesError::IllegalAction(
@@ -12044,7 +12253,7 @@ impl Game {
                     .map_err(RulesError::Mana)?;
             }
             game.pending_optional_trigger_choice = None;
-            game.resolve_top_of_stack_with_optional_decision(Some((pay, target)))
+            game.resolve_top_of_stack_with_optional_decision(Some((pay, target)), None)
         })
     }
 
@@ -14474,6 +14683,11 @@ impl Game {
                 });
                 self.move_to_spell_terminal_zone(target)?;
             }
+            Effect::CounterTargetSpellUnlessControllerPays { .. } => {
+                return Err(RulesError::IllegalAction(
+                    "counter-unless effect must resolve through its payment decision",
+                ));
+            }
             Effect::CopyTargetInstantOrSorcerySpell {
                 may_choose_new_targets: _,
             } => {
@@ -15002,6 +15216,10 @@ impl Game {
                         !definition.card_types.contains(&CardType::Creature)
                     })
             }
+            (Target::Spell(card), TargetRequirement::Spell) => self
+                .stack
+                .iter()
+                .any(|stack_object| stack_object.card == card && stack_object.ability_id.is_none()),
             _ => false,
         }
     }
@@ -17643,6 +17861,48 @@ impl Game {
         Ok(())
     }
 
+    /// A resolution-time "unless pays" receipt has no ordinary priority
+    /// window around it.  It must therefore be immediately followed by the
+    /// matching generic decision completion, after which the retained top
+    /// counterspell may resume resolution.  The selected colors account for
+    /// every printed mana symbol and never name a non-mana card color.
+    fn validate_counter_unless_pays_payment_event_order(
+        events: &[GameEvent],
+    ) -> Result<(), RulesError> {
+        for (index, event) in events.iter().enumerate() {
+            let GameEvent::CounterUnlessPaysManaPaid {
+                player,
+                source,
+                target_spell,
+                mana_cost,
+                mana_spent,
+            } = event
+            else {
+                continue;
+            };
+            if source == target_spell
+                || mana_cost.mana_value() == 0
+                || mana_spent.len() != usize::from(mana_cost.mana_value())
+                || mana_spent
+                    .iter()
+                    .any(|color| !Color::MANA_ALL.contains(color))
+                || !matches!(
+                    events.get(index + 1),
+                    Some(GameEvent::DecisionCompleted {
+                        player: completed_player,
+                        kind: DecisionKind::CounterUnlessPaysMana,
+                        ..
+                    }) if completed_player == player
+                )
+            {
+                return Err(RulesError::IllegalAction(
+                    "counter-unless payment receipt lacks matching selected spend or decision completion",
+                ));
+            }
+        }
+        Ok(())
+    }
+
     fn cast_payment_context(event: Option<&GameEvent>) -> Option<(PlayerId, ObjectId)> {
         match event {
             Some(
@@ -19931,6 +20191,56 @@ impl Game {
                 {
                     return Err(RulesError::IllegalAction(
                         "damage replacement decision violates its prospective-event boundary",
+                    ));
+                }
+            }
+            DecisionContinuation::CounterUnlessPaysMana {
+                source,
+                source_incarnation,
+                source_controller,
+                target_spell,
+                target_incarnation,
+                mana_cost,
+            } => {
+                let top = self.stack.last().ok_or(RulesError::IllegalAction(
+                    "counter-unless payment decision escaped its stack spell",
+                ))?;
+                let target_position = self
+                    .stack
+                    .iter()
+                    .position(|candidate| candidate.card == *target_spell);
+                let source_position = self
+                    .stack
+                    .iter()
+                    .position(|candidate| candidate.card == *source);
+                let target = target_position.and_then(|position| self.stack.get(position));
+                if decision.kind != DecisionKind::CounterUnlessPaysMana
+                    || decision.visibility != DecisionVisibility::Public
+                    || decision.player >= PlayerId(self.players.len())
+                    || !decision.options.is_empty()
+                    || decision.min_selections != 0
+                    || decision.max_selections != 0
+                    || top.card != *source
+                    || top.source_incarnation != *source_incarnation
+                    || top.controller != *source_controller
+                    || top.ability_id.is_some()
+                    || top.targets.as_slice() != [Target::Spell(*target_spell)]
+                    || top.effects.as_slice()
+                        != [Effect::CounterTargetSpellUnlessControllerPays {
+                            mana_cost: mana_cost.clone(),
+                        }]
+                    || mana_cost.mana_value() == 0
+                    || target.is_none_or(|candidate| {
+                        candidate.controller != decision.player
+                            || candidate.ability_id.is_some()
+                            || self
+                                .object(*target_spell)
+                                .map_or(true, |object| object.incarnation != *target_incarnation)
+                    })
+                    || target_position >= source_position
+                {
+                    return Err(RulesError::IllegalAction(
+                        "counter-unless payment decision violates stack or payment provenance",
                     ));
                 }
             }

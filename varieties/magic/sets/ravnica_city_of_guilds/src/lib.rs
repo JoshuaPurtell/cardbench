@@ -30,10 +30,9 @@ use cardbench_magic_engine::{
     Effect, Game, HybridManaSymbol, Keyword, LandEntryBinding, LibrarySearchDestination,
     LibrarySearchRequirement, LibrarySearchSelection, ManaAbilityBinding, ManaAbilityOutput,
     ManaBundle, ManaCost, PlayerId, ReplacementEffect, ReplacementEffectBinding, RulesError,
-    StaticAttackRestriction, StaticAttackRestrictionBinding, StaticContinuousEffectBinding, Target,
-    StaticEntryRestriction, StaticEntryRestrictionBinding,
-    TargetRequirement, TokenSpec, TriggerCondition, TriggeredAbility, TriggeredAbilityBinding,
-    Zone,
+    StaticAttackRestriction, StaticAttackRestrictionBinding, StaticContinuousEffectBinding,
+    StaticEntryRestriction, StaticEntryRestrictionBinding, Target, TargetRequirement, TokenSpec,
+    TriggerCondition, TriggeredAbility, TriggeredAbilityBinding, Zone,
 };
 
 pub const SET_CODE: &str = "RAV";
@@ -41,7 +40,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 147] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 148] = [
     "RAV-CHAR",
     "RAV-LIGHTNING-HELIX",
     "RAV-SEARING-MEDITATION",
@@ -166,6 +165,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 147] = [
     "RAV-URSAPINE",
     "RAV-TRANSLUMINANT",
     "RAV-ELVISH-SKYSWEEPER",
+    "RAV-CONVOLUTE",
     "RAV-SHAMBLING-SHELL",
     "RAV-DOWSING-SHAMAN",
     "RAV-IVY-DANCER",
@@ -1125,6 +1125,31 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 [Color::Blue, Color::Blue],
             ))],
             effects: vec![Effect::CounterTargetInstantOrSorcerySpell],
+        },
+        // Full fidelity: the target spell's controller receives an explicit,
+        // stale-safe no-priority payment/decline decision while Convolute
+        // remains on top of the stack.  The decision accepts only a complete
+        // selected `{4}` spend, with explicitly listed mana abilities.
+        CardDefinition {
+            id: "RAV-CONVOLUTE",
+            name: "Convolute",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(2, [Color::Blue]),
+            colors: colors([Color::Blue]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Instant]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "counter-target-spell-unless-controller-pays-4",
+                "policy-submitted-resolution-payment",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![Effect::CounterTargetSpellUnlessControllerPays {
+                mana_cost: ManaCost::new(4),
+            }],
         },
         // Full fidelity: each owner's graveyard moves into that owner's
         // library, and each library is shuffled at resolution.

@@ -137,6 +137,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-URSAPINE",
             "RAV-TRANSLUMINANT",
             "RAV-ELVISH-SKYSWEEPER",
+            "RAV-CONVOLUTE",
             "RAV-SHAMBLING-SHELL",
             "RAV-DOWSING-SHAMAN",
             "RAV-IVY-DANCER",

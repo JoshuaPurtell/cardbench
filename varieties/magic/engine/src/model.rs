@@ -784,6 +784,17 @@ pub enum CastPaymentManaAbility {
     BasicLand(BasicLandManaAbilityActivation),
 }
 
+/// One mana ability a player explicitly activates while paying a mana cost
+/// imposed during the resolution of another spell or ability.  This is a
+/// no-priority payment window, so the submitted list is executed atomically
+/// with the eventual selected mana spend rather than becoming ordinary policy
+/// actions between stack instructions.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ResolutionPaymentManaAbility {
+    Bound(ManaAbilityActivation),
+    IntrinsicLand(BasicLandManaAbilityActivation),
+}
+
 impl Color {
     /// Magic's five actual card colors. This intentionally excludes the
     /// colorless mana kind, so effects such as "choose a color" and Birds of
@@ -1259,6 +1270,9 @@ pub enum TargetRequirement {
     /// A player or battlefield creature, matching the executable pre-
     /// planeswalker direct-damage card slice.
     PlayerOrCreature,
+    /// Any spell card currently on the stack.  This intentionally excludes
+    /// activated and triggered abilities, whose stack objects are not spells.
+    Spell,
     /// A nonpermanent spell card currently on the stack. This deliberately
     /// names the narrow RAV counterspell slice instead of claiming support for
     /// arbitrary abilities or every kind of spell target.
@@ -1889,6 +1903,12 @@ pub enum Effect {
     /// This remains distinct from the narrower instant/sorcery counter effect
     /// used by cards whose printed target restriction is narrower.
     CounterTargetSpell,
+    /// Counter one target spell unless that spell's current controller pays
+    /// the exact declared mana cost at the resolution-time decision boundary.
+    /// The engine never makes this payment decision automatically.
+    CounterTargetSpellUnlessControllerPays {
+        mana_cost: ManaCost,
+    },
     /// Create one virtual copy of a targeted instant or sorcery stack object.
     /// A copy retains its source's cast-time values, but its controller may
     /// choose new legal targets through the typed decision boundary when the
@@ -2111,6 +2131,7 @@ impl Effect {
                 Some(TargetRequirement::InstantOrSorcerySpell)
             }
             Self::CounterTargetSpell => Some(TargetRequirement::Spell),
+            Self::CounterTargetSpellUnlessControllerPays { .. } => Some(TargetRequirement::Spell),
             Self::SacrificeCreatureOrCounterTargetSpell => {
                 Some(TargetRequirement::NoncreatureSpell)
             }
@@ -2800,6 +2821,9 @@ pub enum DecisionKind {
     TriggeredAbilityOrder,
     /// The affected player orders applicable quantity replacements.
     Replacement,
+    /// The controller of a targeted spell must explicitly pay or decline an
+    /// "unless that spell's controller pays" resolution-time mana cost.
+    CounterUnlessPaysMana,
 }
 
 /// One public member of an APNAP simultaneous-trigger ordering group.
@@ -2841,6 +2865,13 @@ pub enum DecisionSelection {
     Targets(Vec<Target>),
     TriggerOrder(Vec<TriggerOrderEntry>),
     Replacements(Vec<ReplacementChoice>),
+    /// A resolution-time mana payment is either an explicit decline or a
+    /// complete selected spend, optionally preceded by listed mana abilities.
+    CounterUnlessPaysMana {
+        pay: bool,
+        mana_abilities: Vec<ResolutionPaymentManaAbility>,
+        mana_selection: ManaPaymentSelection,
+    },
 }
 
 /// Stateful continuation details for the migrated trigger-effect object
@@ -2966,6 +2997,17 @@ pub enum DecisionContinuation {
         target_incarnation: Option<u64>,
         amount: i32,
         used: Vec<DamageReplacementChoice>,
+    },
+    /// A counterspell remains on top of the stack while the lower target
+    /// spell's controller chooses whether to pay.  Both stack identities are
+    /// captured so a stale decision cannot affect a different response.
+    CounterUnlessPaysMana {
+        source: ObjectId,
+        source_incarnation: u64,
+        source_controller: PlayerId,
+        target_spell: ObjectId,
+        target_incarnation: u64,
+        mana_cost: ManaCost,
     },
 }
 
@@ -3252,6 +3294,16 @@ pub enum GameEvent {
         decision: DecisionId,
         player: PlayerId,
         kind: DecisionKind,
+    },
+    /// The target spell's controller explicitly paid the declared
+    /// resolution-time counterspell cost. `mana_spent` is ordered by the
+    /// submitted generic/hybrid selection so replay can distinguish colors.
+    CounterUnlessPaysManaPaid {
+        player: PlayerId,
+        source: ObjectId,
+        target_spell: ObjectId,
+        mana_cost: ManaCost,
+        mana_spent: Vec<Color>,
     },
     /// One controller's complete CR 603.3b ordering for an APNAP
     /// simultaneous-trigger group. This follows the corresponding generic

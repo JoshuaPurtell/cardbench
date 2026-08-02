@@ -10,11 +10,16 @@ fn convolute_has_an_exact_nonautomatic_counter_unless_payment_definition() {
         .find(|definition| definition.id == "RAV-CONVOLUTE")
         .expect("Convolute definition exists");
 
-    assert_eq!(definition.mana_cost, ManaCost::with_colors(2, [Color::Blue]));
+    assert_eq!(
+        definition.mana_cost,
+        ManaCost::with_colors(2, [Color::Blue])
+    );
     assert!(definition.card_types.contains(&CardType::Instant));
-    assert!(definition
-        .supported_rules
-        .contains(&"counter-target-spell-unless-controller-pays-4"));
+    assert!(
+        definition
+            .supported_rules
+            .contains(&"counter-target-spell-unless-controller-pays-4")
+    );
     assert!(definition.effects.iter().any(|effect| {
         format!("{effect:?}").contains("CounterTargetSpellUnlessControllerPays")
     }));
