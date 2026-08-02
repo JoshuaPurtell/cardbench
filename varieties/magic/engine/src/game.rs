@@ -3763,6 +3763,15 @@ impl Game {
                     LibrarySearchDestination::CastWithoutPayingManaCost,
                     *may_fail_to_find,
                 )),
+                DecisionContinuation::LibrarySearchAuraAttachedToSource {
+                    source,
+                    may_fail_to_find,
+                    ..
+                } => Some((
+                    *source,
+                    LibrarySearchDestination::Battlefield,
+                    *may_fail_to_find,
+                )),
                 DecisionContinuation::LibrarySearchMany { .. }
                 | DecisionContinuation::LibraryReorder { .. }
                 | DecisionContinuation::LibraryTopPartition { .. }
@@ -3825,6 +3834,7 @@ impl Game {
                 }),
                 DecisionContinuation::LibrarySearch { .. }
                 | DecisionContinuation::LibrarySearchAndCast { .. }
+                | DecisionContinuation::LibrarySearchAuraAttachedToSource { .. }
                 | DecisionContinuation::LibrarySearchMany { .. }
                 | DecisionContinuation::LibraryReorder { .. }
                 | DecisionContinuation::LibraryTopPartition { .. }
@@ -3874,6 +3884,7 @@ impl Game {
                 } => Some((*source, *ability)),
                 DecisionContinuation::LibrarySearch { .. }
                 | DecisionContinuation::LibrarySearchAndCast { .. }
+                | DecisionContinuation::LibrarySearchAuraAttachedToSource { .. }
                 | DecisionContinuation::LibrarySearchMany { .. }
                 | DecisionContinuation::LibraryReorder { .. }
                 | DecisionContinuation::LibraryTopPartition { .. }
@@ -3933,6 +3944,7 @@ impl Game {
                 }),
                 DecisionContinuation::LibrarySearch { .. }
                 | DecisionContinuation::LibrarySearchAndCast { .. }
+                | DecisionContinuation::LibrarySearchAuraAttachedToSource { .. }
                 | DecisionContinuation::LibrarySearchMany { .. }
                 | DecisionContinuation::LibraryReorder { .. }
                 | DecisionContinuation::LibraryTopPartition { .. }
@@ -7066,6 +7078,10 @@ impl Game {
             if !matches!(
                 decision.continuation,
                 DecisionContinuation::LibrarySearch { source: pending_source, .. }
+                    | DecisionContinuation::LibrarySearchAuraAttachedToSource {
+                        source: pending_source,
+                        ..
+                    }
                     if pending_source == source
             ) {
                 return Err(RulesError::IllegalAction(
@@ -7144,6 +7160,20 @@ impl Game {
                 may_fail_to_find,
                 selection,
             ),
+            DecisionContinuation::LibrarySearchAuraAttachedToSource {
+                source,
+                source_incarnation,
+                may_fail_to_find,
+            } => {
+                let selected = Self::validate_object_decision_selection(&decision, selection)?;
+                self.resolve_library_search_aura_attachment_decision(
+                    &decision,
+                    source,
+                    source_incarnation,
+                    may_fail_to_find,
+                    selected.into_iter().next(),
+                )
+            }
             DecisionContinuation::LibrarySearchMany {
                 source,
                 requirement,
@@ -8723,6 +8753,105 @@ impl Game {
         Ok(())
     }
 
+    /// Commits the private optional choice for a source-bound Aura search.
+    /// The source's exact live incarnation is retained across the suspended
+    /// resolution so a stale response cannot attach a selected Aura to a
+    /// later object with the same public identity.
+    fn resolve_library_search_aura_attachment_decision(
+        &mut self,
+        decision: &PendingDecision,
+        source: ObjectId,
+        source_incarnation: u64,
+        may_fail_to_find: bool,
+        selected: Option<ObjectId>,
+    ) -> Result<(), RulesError> {
+        let player = decision.player;
+        let ability = {
+            let top = self.stack.last().ok_or(RulesError::IllegalAction(
+                "Aura attachment search choice has no live stack item",
+            ))?;
+            let matches_pending_search = matches!(
+                top.effects.as_slice(),
+                [Effect::SearchControllerLibraryForCompatibleAuraAttachedToSource {
+                    selection: LibrarySearchSelection::PolicySubmitted {
+                        may_fail_to_find: stack_may_fail,
+                    },
+                }] if *stack_may_fail == may_fail_to_find
+            );
+            if top.card != source
+                || top.source_incarnation != source_incarnation
+                || top.controller != player
+                || !matches_pending_search
+            {
+                return Err(RulesError::IllegalAction(
+                    "Aura attachment search choice no longer matches the live stack item",
+                ));
+            }
+            top.ability_id
+        };
+        let source_is_live = self.zone_of(source) == Some(Zone::Battlefield)
+            && self.object_has_incarnation(source, source_incarnation);
+        let expected_cards = if source_is_live {
+            self.library_search_aura_attachment_candidates(player, source)?
+        } else {
+            Vec::new()
+        };
+        if decision.options
+            != expected_cards
+                .iter()
+                .copied()
+                .map(DecisionOption::Object)
+                .collect::<Vec<_>>()
+        {
+            return Err(RulesError::IllegalAction(
+                "Aura attachment search candidates changed before selection",
+            ));
+        }
+        match selected {
+            Some(card) if expected_cards.contains(&card) => {}
+            Some(_) => {
+                return Err(RulesError::IllegalAction(
+                    "Aura attachment search selected a card outside its legal candidates",
+                ));
+            }
+            None if may_fail_to_find || expected_cards.is_empty() => {}
+            None => {
+                return Err(RulesError::IllegalAction(
+                    "this Aura attachment search must select a compatible Aura when one exists",
+                ));
+            }
+        }
+
+        self.stack.pop().ok_or(RulesError::IllegalAction(
+            "Aura attachment search stack item disappeared before resolution",
+        ))?;
+        self.complete_pending_decision(decision)?;
+        self.complete_controller_library_aura_attachment_search(
+            source,
+            source_incarnation,
+            player,
+            selected,
+        )?;
+        if let Some(ability) = ability {
+            self.record_event(GameEvent::AbilityResolved {
+                source,
+                source_incarnation,
+                ability,
+            });
+        } else {
+            self.record_event(GameEvent::SpellResolved { card: source });
+            self.move_to_spell_terminal_zone(source)?;
+        }
+        self.check_state_based_actions()?;
+        self.flush_pending_dies_triggers();
+        self.flush_pending_land_entry_triggers()?;
+        self.flush_pending_damage_triggers();
+        self.flush_pending_life_gain_triggers();
+        self.flush_pending_dies_triggers();
+        self.priority = self.priority_after_resolution();
+        Ok(())
+    }
+
     /// Commits the private search selection for an effect that casts the
     /// chosen instant inside the same resolving ability. The source ability is
     /// removed before the spell is cast, so the selected spell becomes the
@@ -9724,28 +9853,61 @@ impl Game {
         Ok(())
     }
 
-    /// Resolves the deterministic source-bound Aura search used by effects
-    /// that put one Aura directly onto the battlefield. The target is not a
-    /// policy choice: it is the resolving source's captured live incarnation,
-    /// while the searched Aura must independently satisfy its typed attachment
-    /// binding. A failed or prevented search still records its ordinary
-    /// search-and-shuffle receipt pair.
+    /// Resolves one source-bound Aura search. The searched Aura must satisfy
+    /// its typed attachment binding against the resolving source's exact live
+    /// incarnation. A failed or prevented search still records the ordinary
+    /// private-search result and shuffle receipts.
     fn resolve_controller_library_aura_attachment_search(
         &mut self,
         source: ObjectId,
         source_incarnation: u64,
         controller: PlayerId,
+        selection: LibrarySearchSelection,
     ) -> Result<(), RulesError> {
         let source_is_live = self.zone_of(source) == Some(Zone::Battlefield)
             && self.object_has_incarnation(source, source_incarnation);
         let prevented = self.library_search_prevented_until == Some(self.turn);
-        let found = if source_is_live && !prevented {
+        let candidates = if source_is_live && !prevented {
             self.library_search_aura_attachment_candidates(controller, source)?
-                .first()
-                .copied()
         } else {
-            None
+            Vec::new()
         };
+        let found = match selection {
+            LibrarySearchSelection::DeterministicFirstMatch => candidates.first().copied(),
+            LibrarySearchSelection::PolicySubmitted { .. } if prevented => None,
+            LibrarySearchSelection::PolicySubmitted { .. } => {
+                return Err(RulesError::IllegalAction(
+                    "policy-selected Aura search reached resolution without a selection",
+                ));
+            }
+        };
+
+        self.complete_controller_library_aura_attachment_search(
+            source,
+            source_incarnation,
+            controller,
+            found,
+        )
+    }
+
+    /// Commits an already-selected Aura attachment search.  The selected card
+    /// remains private until its ordinary zone transition; the public receipt
+    /// names only the result that has become public on the battlefield.
+    fn complete_controller_library_aura_attachment_search(
+        &mut self,
+        source: ObjectId,
+        source_incarnation: u64,
+        controller: PlayerId,
+        found: Option<ObjectId>,
+    ) -> Result<(), RulesError> {
+        if found.is_some()
+            && !(self.zone_of(source) == Some(Zone::Battlefield)
+                && self.object_has_incarnation(source, source_incarnation))
+        {
+            return Err(RulesError::IllegalAction(
+                "Aura search attempted to attach to a departed source",
+            ));
+        }
 
         if let Some(aura) = found {
             let definition = self.card_definition(aura)?.id;
@@ -13130,7 +13292,7 @@ impl Game {
                 | Effect::PreventLibrarySearchUntilEndOfTurn
                 | Effect::SearchControllerLibrary { .. }
                 | Effect::SearchControllerLibraryAndCastInstantWithoutPayingManaCost { .. }
-                | Effect::SearchControllerLibraryForFirstCompatibleAuraAttachedToSource
+                | Effect::SearchControllerLibraryForCompatibleAuraAttachedToSource { .. }
                 | Effect::SearchControllerLibraryMany { .. }
                 | Effect::RevealTopLibraryCardsAndReorder { .. }
                 | Effect::LookAtTopCardsPutOneInHandOneOnTopRestOnBottom { .. }
@@ -13330,6 +13492,9 @@ impl Game {
             return Ok(());
         }
         if self.suspend_top_stack_item_for_library_search_and_cast_choice()? {
+            return Ok(());
+        }
+        if self.suspend_top_stack_item_for_aura_attachment_search_choice()? {
             return Ok(());
         }
         if self.suspend_top_stack_item_for_library_search_choice()? {
@@ -14345,6 +14510,75 @@ impl Game {
                 source,
                 requirement,
                 destination,
+                may_fail_to_find,
+            },
+        )?;
+        Ok(true)
+    }
+
+    /// Opens a private no-priority choice for the controller to select or
+    /// decline one Aura that can legally attach to the resolving source. The
+    /// source's current incarnation is retained by the continuation so the
+    /// ordinary attachment step cannot follow a later return to battlefield.
+    fn suspend_top_stack_item_for_aura_attachment_search_choice(
+        &mut self,
+    ) -> Result<bool, RulesError> {
+        if self.pending_decision.is_some()
+            || self.pending_private_library_choice.is_some()
+            || self.pending_private_opponent_library_exile_choice.is_some()
+        {
+            return Err(RulesError::IllegalAction(
+                "a second hidden-library choice attempted to open during resolution",
+            ));
+        }
+        if self.library_search_prevented_until == Some(self.turn) {
+            return Ok(false);
+        }
+        let Some(top) = self.stack.last() else {
+            return Ok(false);
+        };
+        let (source, source_incarnation, controller, may_fail_to_find) =
+            match top.effects.as_slice() {
+                [
+                    Effect::SearchControllerLibraryForCompatibleAuraAttachedToSource {
+                        selection: LibrarySearchSelection::PolicySubmitted { may_fail_to_find },
+                    },
+                ] => (
+                    top.card,
+                    top.source_incarnation,
+                    top.controller,
+                    *may_fail_to_find,
+                ),
+                _ => return Ok(false),
+            };
+        let source_is_live = self.zone_of(source) == Some(Zone::Battlefield)
+            && self.object_has_incarnation(source, source_incarnation);
+        let cards = if source_is_live {
+            self.library_search_aura_attachment_candidates(controller, source)?
+        } else {
+            Vec::new()
+        };
+        let options = cards
+            .into_iter()
+            .map(DecisionOption::Object)
+            .collect::<Vec<_>>();
+        let (min_selections, max_selections) = if options.is_empty() {
+            (0, 0)
+        } else if may_fail_to_find {
+            (0, 1)
+        } else {
+            (1, 1)
+        };
+        self.open_pending_decision(
+            controller,
+            DecisionVisibility::Private,
+            DecisionKind::LibrarySearch,
+            min_selections,
+            max_selections,
+            options,
+            DecisionContinuation::LibrarySearchAuraAttachedToSource {
+                source,
+                source_incarnation,
                 may_fail_to_find,
             },
         )?;
@@ -18251,11 +18485,12 @@ impl Game {
                     cards,
                 });
             }
-            Effect::SearchControllerLibraryForFirstCompatibleAuraAttachedToSource => {
+            Effect::SearchControllerLibraryForCompatibleAuraAttachedToSource { selection } => {
                 self.resolve_controller_library_aura_attachment_search(
                     source,
                     source_incarnation,
                     controller,
+                    *selection,
                 )?;
             }
             Effect::SearchControllerLibraryMany {
@@ -25662,6 +25897,54 @@ impl Game {
                 {
                     return Err(RulesError::IllegalAction(
                         "library-search decision escaped its typed continuation boundary",
+                    ));
+                }
+            }
+            DecisionContinuation::LibrarySearchAuraAttachedToSource {
+                source,
+                source_incarnation,
+                may_fail_to_find,
+            } => {
+                let top = self.stack.last().ok_or(RulesError::IllegalAction(
+                    "Aura attachment search decision escaped its stack item",
+                ))?;
+                let matches_stack = matches!(
+                    top.effects.as_slice(),
+                    [Effect::SearchControllerLibraryForCompatibleAuraAttachedToSource {
+                        selection: LibrarySearchSelection::PolicySubmitted {
+                            may_fail_to_find: stack_may_fail,
+                        },
+                    }] if *stack_may_fail == *may_fail_to_find
+                );
+                let source_is_live = self.zone_of(*source) == Some(Zone::Battlefield)
+                    && self.object_has_incarnation(*source, *source_incarnation);
+                let expected_options = if source_is_live {
+                    self.library_search_aura_attachment_candidates(decision.player, *source)?
+                } else {
+                    Vec::new()
+                }
+                .into_iter()
+                .map(DecisionOption::Object)
+                .collect::<Vec<_>>();
+                let (expected_min, expected_max) = if expected_options.is_empty() {
+                    (0, 0)
+                } else if *may_fail_to_find {
+                    (0, 1)
+                } else {
+                    (1, 1)
+                };
+                if decision.kind != DecisionKind::LibrarySearch
+                    || decision.visibility != DecisionVisibility::Private
+                    || top.card != *source
+                    || top.source_incarnation != *source_incarnation
+                    || top.controller != decision.player
+                    || !matches_stack
+                    || decision.options != expected_options
+                    || decision.min_selections != expected_min
+                    || decision.max_selections != expected_max
+                {
+                    return Err(RulesError::IllegalAction(
+                        "Aura attachment search decision escaped its typed continuation boundary",
                     ));
                 }
             }

@@ -242,6 +242,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 202] = [
     "RAV-FLICKERFORM",
     "RAV-SUPPRESSION-FIELD",
     "RAV-LOXODON-GATEKEEPER",
+    "RAV-AURATOUCHED-MAGE",
     "RAV-THREE-DREAMS",
     "RAV-CONCLAVES-BLESSING",
     "RAV-ZEPHYR-SPIRIT",
@@ -2620,11 +2621,9 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 changes: stasis_cell_attachment_changes(),
             }],
         },
-        // Compatibility scope: this creature uses the expansion-neutral Aura
-        // attachment lifecycle, but its hidden-zone search is deliberately
-        // deterministic. It always takes the first legal Aura in library
-        // order; player selection and declining an otherwise legal search
-        // remain outside this slice.
+        // Full fidelity: the source-bound Aura search opens a private
+        // controller choice over every currently compatible Aura and permits
+        // the optional failure to find before the selected Aura attaches.
         CardDefinition {
             id: "RAV-AURATOUCHED-MAGE",
             name: "Auratouched Mage",
@@ -2635,10 +2634,12 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             card_types: types([CardType::Creature]),
             is_basic_land: false,
             supported_rules: &[
+                "full-rules-fidelity",
                 "colored-cost-casting",
                 "base-characteristics",
                 "etb-aura-search-and-attach",
-                "deterministic-first-compatible-aura-selection",
+                "policy-selected-compatible-aura-selection",
+                "optional-compatible-aura-search",
             ],
             power: Some(3),
             toughness: Some(3),
@@ -7698,7 +7699,11 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                 optional: false,
                 targets: vec![],
                 effects: vec![
-                    Effect::SearchControllerLibraryForFirstCompatibleAuraAttachedToSource,
+                    Effect::SearchControllerLibraryForCompatibleAuraAttachedToSource {
+                        selection: LibrarySearchSelection::PolicySubmitted {
+                            may_fail_to_find: true,
+                        },
+                    },
                 ],
             },
         },

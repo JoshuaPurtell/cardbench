@@ -1939,12 +1939,14 @@ pub enum Effect {
         requirement: LibrarySearchRequirement,
         selection: LibrarySearchSelection,
     },
-    /// Search the resolving controller's library for the first Aura that can
+    /// Search the resolving controller's library for one Aura that can
     /// legally attach to this effect's exact live source incarnation, put it
-    /// onto the battlefield attached to that source, then shuffle. This is a
-    /// deterministic compatibility operation: a policy-selected or declined
-    /// search remains a separate decision substrate.
-    SearchControllerLibraryForFirstCompatibleAuraAttachedToSource,
+    /// onto the battlefield attached to that source, then shuffle. The
+    /// controller's hidden-zone selection (including an allowed failure to
+    /// find) is owned by the ordinary private decision boundary.
+    SearchControllerLibraryForCompatibleAuraAttachedToSource {
+        selection: LibrarySearchSelection,
+    },
     /// Search the resolving controller's library for a policy-selected batch
     /// of cards matching one typed requirement.  The decision's cardinality,
     /// privacy, reveal state, destination, and following shuffle are owned by
@@ -2647,7 +2649,7 @@ impl Effect {
             | Self::PreventLibrarySearchUntilEndOfTurn
             | Self::SearchControllerLibrary { .. }
             | Self::SearchControllerLibraryAndCastInstantWithoutPayingManaCost { .. }
-            | Self::SearchControllerLibraryForFirstCompatibleAuraAttachedToSource
+            | Self::SearchControllerLibraryForCompatibleAuraAttachedToSource { .. }
             | Self::SearchControllerLibraryMany { .. }
             | Self::RevealTopLibraryCardsAndReorder { .. }
             | Self::LookAtTopCardsPutOneInHandOneOnTopRestOnBottom { .. }
@@ -3585,6 +3587,16 @@ pub enum DecisionContinuation {
         source: ObjectId,
         source_incarnation: u64,
         requirement: LibrarySearchRequirement,
+        may_fail_to_find: bool,
+    },
+    /// Retains the exact live Aura target while the controller privately
+    /// selects one eligible Aura from their library.  It is intentionally
+    /// separate from an ordinary battlefield search because the selected
+    /// card must establish a typed Aura attachment before the parent trigger
+    /// can finish resolving.
+    LibrarySearchAuraAttachedToSource {
+        source: ObjectId,
+        source_incarnation: u64,
         may_fail_to_find: bool,
     },
     LibrarySearchMany {
