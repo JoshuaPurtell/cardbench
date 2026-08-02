@@ -19,7 +19,10 @@ fn nullstone_gargoyle_requires_first_noncreature_spell_each_turn_counter_trigger
     assert_eq!(gargoyle.name, "Nullstone Gargoyle");
     assert_eq!(gargoyle.mana_cost, ManaCost::new(5));
     assert!(gargoyle.colors.is_empty());
-    assert_eq!(gargoyle.card_types, BTreeSet::from([CardType::Artifact, CardType::Creature]));
+    assert_eq!(
+        gargoyle.card_types,
+        BTreeSet::from([CardType::Artifact, CardType::Creature])
+    );
     assert_eq!(gargoyle.power, Some(4));
     assert_eq!(gargoyle.toughness, Some(5));
     assert_eq!(gargoyle.keywords, [Keyword::Flying]);
@@ -38,6 +41,9 @@ fn nullstone_gargoyle_requires_first_noncreature_spell_each_turn_counter_trigger
         trigger.ability.condition,
         TriggerCondition::FirstNoncreatureSpellCastEachTurn
     );
-    assert_eq!(trigger.ability.targets, [TargetRequirement::NoncreatureSpell]);
+    assert_eq!(
+        trigger.ability.targets,
+        [TargetRequirement::NoncreatureSpell]
+    );
     assert_eq!(trigger.ability.effects, [Effect::CounterTargetSpell]);
 }
