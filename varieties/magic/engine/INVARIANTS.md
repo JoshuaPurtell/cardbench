@@ -1115,6 +1115,35 @@ Oracle Magic rules coverage.
   accepted only as the replacement selected by `draw_card` or a submitted
   `PolicyAction::Draw` for a pending draw.
 
+## Virtual spell copies and effect-created casting permissions
+
+- A represented spell copy is a virtual, stack-only object with a fresh,
+  monotonic `ObjectId`. It has no zone entry or physical `CardObject`, exactly
+  one live stack object, and references one lower physical original spell.
+  Its copied definition, effects, target-incarnation provenance, mana-spend
+  snapshot, and source provenance must agree with that original. It leaves no
+  card in a terminal zone: resolution records `SpellCopyResolved` and a
+  rules-counter records `SpellCopyCounteredByRules`.
+- A copy whose target set may be changed suspends through the same monotonic
+  `DecisionId` state machine as other public choices. Its options are public
+  legal target values, its cardinality equals the original spell's target-slot
+  count, and its continuation can complete only while the copying spell is
+  still on top of the stack with the same original-source provenance. A stale
+  decision, an altered source, or an illegal target rejects atomically.
+- Effect-created cast permissions are exact-card, exact-incarnation grants.
+  They record player, source provenance, source zone, payment mode, timing
+  exception, and current-turn expiry. A permission is removed when used, at
+  cleanup, or on any zone transition, and a cast using one records
+  `SpellCastFromPermission`. A noninstant may bypass ordinary sorcery timing
+  only while its live spell stack object carries that permission's explicit
+  timing exception.
+- This substrate is deliberately bounded: virtual copies can resolve and
+  retain or retarget the original represented targets, but copies of virtual
+  copies and general copy-modification/replacement choices are not yet
+  represented. New permission effects currently grant a card from exile;
+  graveyard and other alternate-casting sources require their own typed
+  effects rather than an implicit zone mutation.
+
 ## Deck construction
 
 - Nonbasic copy limits aggregate mainboard and sideboard entries, including
