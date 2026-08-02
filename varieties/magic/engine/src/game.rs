@@ -21,8 +21,8 @@ use crate::{
     PlayerState, PolicyMoveKind, ReplacementEffect, ReplacementEffectBinding, ReplacementEventKind,
     StackEffectResolution, StackObject, StackResolutionPlan, StaticAttackRestriction,
     StaticAttackRestrictionBinding, StaticContinuousEffectBinding, Step, TRANSMUTE_ABILITY_ID,
-    Target, TargetRequirement,
-    TokenSpec, TriggerCondition, TriggeredAbilityBinding, TriggeredEffectObjectDecisionKind, Zone,
+    Target, TargetRequirement, TokenSpec, TriggerCondition, TriggeredAbilityBinding,
+    TriggeredEffectObjectDecisionKind, Zone,
 };
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -6816,11 +6816,15 @@ impl Game {
                         "stack ability does not match its bound definition",
                     ));
                 }
-                let has_x_cost = activated.is_some_and(|ability| {
-                    self.generalized_activated_ability_costs
-                        .get(&(definition.id, ability.id))
-                        .is_some_and(|cost| cost.has_x_cost)
-                });
+                let has_x_cost = self
+                    .activated_abilities
+                    .get(definition.id)
+                    .and_then(|abilities| abilities.get(ability_id))
+                    .is_some_and(|ability| {
+                        self.generalized_activated_ability_costs
+                            .get(&(definition.id, ability.id))
+                            .is_some_and(|cost| cost.has_x_cost)
+                    });
                 if has_x_cost != stack_object.chosen_x.is_some() {
                     return Err(RulesError::IllegalAction(
                         "stack ability lacks or fabricates its selected X value",
