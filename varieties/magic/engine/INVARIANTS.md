@@ -1495,17 +1495,20 @@ Oracle Magic rules coverage.
   Its copied definition, effects, target-incarnation provenance, mana-spend
   snapshot, and source provenance must agree with that original. It leaves no
   card in a terminal zone: resolution records `SpellCopyResolved` and a
-  rules-counter records `SpellCopyCounteredByRules`. If its controller leaves
-  a continuing multiplayer game, it is removed before that player's physical
-  objects and records `SpellCopyLeftGame`; this is its third and final valid
-  terminal lifecycle outcome.
+  rules-counter records `SpellCopyCounteredByRules`. A resolving spell or
+  ability that counters it instead records `SpellCopyCountered` with the
+  physical or virtual counter source, again without a zone move. If its
+  controller leaves a continuing multiplayer game, it is removed before that
+  player's physical objects and records `SpellCopyLeftGame`; these are the
+  only valid terminal lifecycle outcomes.
 - A copy receipt has one unique nonzero identity and one immutable original /
   controller pair. Its receipt history must therefore show exactly one of a
   live virtual stack object, `SpellCopyResolved`, `SpellCopyCounteredByRules`,
-  or `SpellCopyLeftGame`; no copy may be live after any terminal receipt or
-  have two terminal receipts. A scenario event-log reset is rejected while a
-  virtual copy is live, preserving the opening `SpellCopied` provenance that
-  the lifecycle audit requires.
+  `SpellCopyCountered`, or `SpellCopyLeftGame`; no copy may be live after any
+  terminal receipt or have two terminal receipts. A counter receipt cannot
+  name the copy itself as its countering source. A scenario event-log reset is
+  rejected while a virtual copy is live, preserving the opening `SpellCopied`
+  provenance that the lifecycle audit requires.
 - A copy whose target set may be changed suspends through the same monotonic
   `DecisionId` state machine as other public choices. Its options are public
   legal target values, and its cardinality is zero through the original
