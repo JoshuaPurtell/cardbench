@@ -238,16 +238,21 @@ Oracle Magic rules coverage.
   selected card follows the ordinary graveyard-to-hand transition. Until a
   policy supplies the public-zone choice, the stable zone order is the
   explicitly bounded deterministic selection rule rather than full fidelity.
-- A persistent `+1/+1` counter belongs only to a live battlefield creature,
-  has a positive amount, and contributes once to both derived power and
-  toughness after the supported timestamped layer-seven effects. Every
-  `CounterPlaced` receipt names that supported counter and a positive amount;
-  normal departure from the battlefield clears the counter map, so a later
-  re-entry cannot retain a modifier from the previous object instance. A
-  targeted-counter instruction validates its creature target before any
-  activated-ability cost is paid and rechecks that target at resolution; its
-  source identity remains receipt provenance even when that source was
-  sacrificed into its graveyard as the activation cost.
+- A persistent typed `CounterKind` belongs only to a live battlefield
+  permanent, has a valid nonalias name and a strictly positive quantity, and
+  clears on every departure from the battlefield, so a later incarnation can
+  never retain counter state. `+1/+1` and `-1/-1` counters each contribute
+  once to derived creature power and toughness after supported timestamped
+  layer-seven effects; every other named kind is real permanent state with no
+  implied characteristic rule. Every `CounterPlaced` and `CounterRemoved`
+  receipt names a valid kind and a positive quantity. Placement applies the
+  prospective quantity-replacement pipeline before mutation; removal never
+  does. Removal preflights the live counter balance and, if insufficient,
+  atomically restores the resolving stack object, event log, and counter map.
+  Generic target-counter instructions require a live permanent at casting and
+  resolution. This bounded substrate does not yet represent counters on
+  players or nonbattlefield objects, nor a counter-removal *activation cost*;
+  it represents typed add/remove resolving effects.
 - A registered quantity replacement has a catalogued permanent source, a
   multiplier of at least two, and is fixed before the game begins. When tokens
   are created or a represented counter is placed, only live battlefield
