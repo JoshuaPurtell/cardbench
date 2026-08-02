@@ -11781,6 +11781,26 @@ impl Game {
                                     _ => bound == actual,
                                 },
                             )
+                    } else if effects.iter().any(|effect| {
+                        matches!(
+                            effect,
+                            Effect::DestroyAllCreaturesWithManaValueEqualToSourceCounters { .. }
+                        )
+                    }) {
+                        effects.len() == stack_object.effects.len()
+                            && effects.iter().zip(&stack_object.effects).all(
+                                |(bound, actual)| match (bound, actual) {
+                                    (
+                                        Effect::DestroyAllCreaturesWithManaValueEqualToSourceCounters {
+                                            counter,
+                                        },
+                                        Effect::DestroyAllCreaturesWithManaValue {
+                                            mana_value,
+                                        },
+                                    ) => counter.is_valid() && *mana_value >= 0,
+                                    _ => bound == actual,
+                                },
+                            )
                     } else {
                         *effects == stack_object.effects
                     };
@@ -13757,6 +13777,7 @@ impl Game {
             if matches!(
                 effect,
                 Effect::DestroyAllNonlandPermanentsWithManaValue { .. }
+                    | Effect::DestroyAllCreaturesWithManaValue { .. }
             ) {
                 return Err(RulesError::IllegalAction(
                     "materialized source-counter sweep escaped into a card definition",
@@ -14011,6 +14032,7 @@ impl Game {
                 }
                 | Effect::DestroyAllNonlandPermanentsWithManaValue { .. }
                 | Effect::DestroyAllCreaturesWithManaValueEqualToSourceCounters { .. }
+                | Effect::DestroyAllCreaturesWithManaValue { .. }
                 | Effect::CounterTargetInstantOrSorcerySpell
                 | Effect::CounterTargetSpell
                 | Effect::CounterTargetNoncreatureSpell
@@ -20338,6 +20360,32 @@ impl Game {
                     self.destroy_permanent(source, creature)?;
                 }
             }
+            Effect::DestroyAllCreaturesWithManaValue { mana_value } => {
+                if *mana_value < 0 {
+                    return Err(RulesError::IllegalAction(
+                        "materialized creature sweep has a negative mana value",
+                    ));
+                }
+                // Snapshot the complete recipient set before moving any
+                // creature. A first destruction cannot change a later
+                // candidate's zone, type, or mana value for this sweep.
+                let creatures = self
+                    .all_battlefield_cards()
+                    .into_iter()
+                    .filter(|candidate| {
+                        self.characteristics(*candidate)
+                            .is_ok_and(|characteristics| {
+                                characteristics.card_types.contains(&CardType::Creature)
+                            })
+                            && self
+                                .permanent_mana_value(*candidate)
+                                .is_ok_and(|candidate_value| candidate_value == *mana_value)
+                    })
+                    .collect::<Vec<_>>();
+                for creature in creatures {
+                    self.destroy_permanent(source, creature)?;
+                }
+            }
             Effect::CounterTargetInstantOrSorcerySpell
             | Effect::CounterTargetSpell
             | Effect::CounterTargetNoncreatureSpell => {
@@ -22003,6 +22051,65 @@ impl Game {
         Ok(())
     }
 
+    /// Freezes every pending source-counter creature sweep at the exact
+    /// battlefield-departure boundary.  Unlike a source-sacrifice activation,
+    /// an upkeep trigger has to observe counter changes made by earlier
+    /// simultaneous triggers, so it stays dynamic while its source remains
+    /// live and materializes only when that precise incarnation leaves.
+    fn materialize_departing_source_counter_creature_sweeps(
+        &mut self,
+        source: ObjectId,
+        source_incarnation: u64,
+        counters: &BTreeMap<CounterKind, i16>,
+    ) -> Result<(), RulesError> {
+        if source_incarnation == 0 {
+            return Err(RulesError::IllegalAction(
+                "departing source-counter sweep has an invalid source incarnation",
+            ));
+        }
+        let mut materialized = Vec::new();
+        for stack_object in &mut self.stack {
+            if stack_object.card != source || stack_object.source_incarnation != source_incarnation
+            {
+                continue;
+            }
+            let ability = stack_object.ability_id.ok_or(RulesError::IllegalAction(
+                "source-counter creature sweep escaped onto a non-ability stack object",
+            ))?;
+            for effect in &mut stack_object.effects {
+                let Effect::DestroyAllCreaturesWithManaValueEqualToSourceCounters { counter } =
+                    effect
+                else {
+                    continue;
+                };
+                if !counter.is_valid() {
+                    return Err(RulesError::IllegalAction(
+                        "departing source-counter creature sweep has an invalid counter kind",
+                    ));
+                }
+                let amount = counters.get(counter).copied().unwrap_or_default();
+                if amount < 0 {
+                    return Err(RulesError::IllegalAction(
+                        "departing source-counter creature sweep observed a negative counter quantity",
+                    ));
+                }
+                let counter = *counter;
+                *effect = Effect::DestroyAllCreaturesWithManaValue { mana_value: amount };
+                materialized.push((ability, counter, amount));
+            }
+        }
+        for (ability, counter, amount) in materialized {
+            self.record_event(GameEvent::SourceCounterValueMaterialized {
+                source,
+                source_incarnation,
+                ability,
+                counter,
+                amount,
+            });
+        }
+        Ok(())
+    }
+
     #[allow(clippy::too_many_lines)] // Zone moves centralize the replay-visible lifecycle.
     fn move_to_zone(&mut self, card: ObjectId, zone: Zone) -> Result<(), RulesError> {
         let object = self.object(card)?.clone();
@@ -22036,6 +22143,11 @@ impl Game {
             // incarnation so a mutual-lethal SBA batch cannot leave a stale
             // assignment that rolls back the enclosing state-machine pass.
             self.remove_from_combat(card);
+            self.materialize_departing_source_counter_creature_sweeps(
+                card,
+                object.incarnation,
+                &object.counters,
+            )?;
         }
         // Layer-two state has to be sampled before this object advances its
         // incarnation. Once the source has left, `effect_is_active` correctly
@@ -22834,6 +22946,7 @@ impl Game {
             if matches!(
                 effect,
                 Effect::DestroyAllNonlandPermanentsWithManaValue { .. }
+                    | Effect::DestroyAllCreaturesWithManaValue { .. }
             ) {
                 return Err(RulesError::IllegalAction(
                     "materialized source-counter sweep escaped onto an ability binding",
@@ -26042,6 +26155,150 @@ impl Game {
             {
                 return Err(RulesError::IllegalAction(
                     "live source-counter sweep stack value lacks matching pre-cost provenance",
+                ));
+            }
+        }
+        // A beginning-of-upkeep creature sweep remains dynamic while its
+        // source is live so simultaneously ordered counter triggers can
+        // affect it.  If the exact source incarnation leaves before the
+        // sweep resolves, move_to_zone materializes the stack instruction
+        // immediately before that departure's ordinary zone receipts.
+        for (stacked_index, event) in self.event_log.iter().enumerate() {
+            let GameEvent::TriggeredAbilityStacked {
+                source,
+                source_incarnation,
+                ability,
+                ..
+            } = event
+            else {
+                continue;
+            };
+            let Some(definition) = self.object(*source)?.definition else {
+                continue;
+            };
+            let binding = self
+                .triggered_abilities
+                .get(definition)
+                .and_then(|abilities| abilities.get(ability))
+                .ok_or(RulesError::IllegalAction(
+                    "source-counter sweep trigger receipt names an unbound ability",
+                ))?;
+            let expected_counters = binding
+                .effects
+                .iter()
+                .filter_map(|effect| match effect {
+                    Effect::DestroyAllCreaturesWithManaValueEqualToSourceCounters { counter } => {
+                        Some(*counter)
+                    }
+                    _ => None,
+                })
+                .collect::<Vec<_>>();
+            if expected_counters.is_empty() {
+                continue;
+            }
+            let terminal_index = self.event_log[stacked_index + 1..]
+                .iter()
+                .position(|candidate| {
+                    matches!(
+                        candidate,
+                        GameEvent::AbilityResolved {
+                            source: terminal_source,
+                            source_incarnation: terminal_incarnation,
+                            ability: terminal_ability,
+                        }
+                            | GameEvent::AbilityCounteredByRules {
+                                source: terminal_source,
+                                source_incarnation: terminal_incarnation,
+                                ability: terminal_ability,
+                            }
+                            if terminal_source == source
+                                && terminal_incarnation == source_incarnation
+                                && terminal_ability == ability
+                    )
+                })
+                .map_or(self.event_log.len(), |offset| stacked_index + 1 + offset);
+            let receipts = self.event_log[stacked_index + 1..terminal_index]
+                .iter()
+                .enumerate()
+                .filter_map(|(offset, candidate)| match candidate {
+                    GameEvent::SourceCounterValueMaterialized {
+                        source: receipt_source,
+                        source_incarnation: receipt_incarnation,
+                        ability: receipt_ability,
+                        counter,
+                        amount,
+                    } if receipt_source == source
+                        && receipt_incarnation == source_incarnation
+                        && receipt_ability == ability =>
+                    {
+                        Some((stacked_index + 1 + offset, *counter, *amount))
+                    }
+                    _ => None,
+                })
+                .collect::<Vec<_>>();
+            // No receipt is correct while this exact source stayed on the
+            // battlefield through resolution. A departure requires exactly
+            // one receipt per template instruction and a contiguous ordinary
+            // zone transition for the same stable card.
+            if receipts.is_empty() {
+                continue;
+            }
+            if receipts.len() != expected_counters.len()
+                || receipts.iter().zip(&expected_counters).any(
+                    |((receipt_index, counter, amount), expected_counter)| {
+                        counter != expected_counter
+                            || !counter.is_valid()
+                            || *amount < 0
+                            || !matches!(
+                                self.event_log.get(*receipt_index + 1),
+                                Some(GameEvent::CardMoved { card, to: Zone::Graveyard | Zone::Hand | Zone::Library | Zone::Exile })
+                                    if card == source
+                            )
+                            || !matches!(
+                                self.event_log.get(*receipt_index + 2),
+                                Some(GameEvent::ObjectIncarnationAdvanced { object, incarnation })
+                                    if object == source
+                                        && *incarnation
+                                            == source_incarnation.saturating_add(1)
+                            )
+                    },
+                )
+            {
+                return Err(RulesError::IllegalAction(
+                    "departing source-counter creature sweep lacks exact stack provenance",
+                ));
+            }
+            consumed.extend(receipts.iter().map(|(index, _, _)| *index));
+            let live = self
+                .stack
+                .iter()
+                .filter(|item| {
+                    item.card == *source
+                        && item.source_incarnation == *source_incarnation
+                        && item.ability_id == Some(*ability)
+                })
+                .collect::<Vec<_>>();
+            if live.len() > 1
+                || live.first().is_some_and(|item| {
+                    let materialized = item
+                        .effects
+                        .iter()
+                        .filter_map(|effect| match effect {
+                            Effect::DestroyAllCreaturesWithManaValue { mana_value } => {
+                                Some(*mana_value)
+                            }
+                            _ => None,
+                        })
+                        .collect::<Vec<_>>();
+                    materialized.len() != receipts.len()
+                        || materialized
+                            .iter()
+                            .zip(&receipts)
+                            .any(|(mana_value, (_, _, amount))| mana_value != amount)
+                })
+            {
+                return Err(RulesError::IllegalAction(
+                    "live departed-source creature sweep lacks matching counter provenance",
                 ));
             }
         }

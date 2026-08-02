@@ -43,7 +43,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 224] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 225] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
@@ -96,6 +96,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 224] = [
     "RAV-GATHER-COURAGE",
     "RAV-SEEDS-OF-STRENGTH",
     "RAV-DARKBLAST",
+    "RAV-NECROPLASM",
     "RAV-DIZZY-SPELL",
     "RAV-DISEMBOWEL",
     "RAV-NIGHTMARE-VOID",
@@ -1405,12 +1406,10 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 toughness: 0,
             }],
         },
-        // Compatibility scope: normal creature casting, base characteristics,
-        // the shared Dredge replacement, and both beginning-of-upkeep
-        // triggers. The source-present counter sweep is typed and preserves
-        // the controller's simultaneous-trigger ordering choice; the
-        // source-departure last-known-information edge remains explicitly
-        // outside this initial compatibility slice.
+        // Full fidelity: the shared Dredge replacement and both
+        // beginning-of-upkeep triggers preserve controller-selected ordering.
+        // A pending counter sweep remains dynamic while this exact source is
+        // live, then materializes its last-known counter total on departure.
         CardDefinition {
             id: "RAV-NECROPLASM",
             name: "Necroplasm",
@@ -1421,11 +1420,12 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             card_types: types([CardType::Creature]),
             is_basic_land: false,
             supported_rules: &[
+                "full-rules-fidelity",
                 "dredge",
                 "base-characteristics",
                 "upkeep-add-plus-one-counter",
                 "upkeep-destroy-creatures-by-plus-one-counter-mana-value",
-                "source-departure-last-known-counter-value-not-implemented",
+                "source-departure-last-known-counter-value",
             ],
             power: Some(1),
             toughness: Some(1),

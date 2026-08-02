@@ -10,8 +10,9 @@ use cardbench_magic_engine::{
     ManaCost, PlayerId, Target, Zone,
 };
 use cardbench_magic_rav::{
-    card_definitions, rav_activated_ability_bindings, rav_additional_spell_cost_bindings,
-    rav_basic_land_type_bindings, rav_mana_ability_bindings, rav_triggered_ability_bindings,
+    RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, rav_activated_ability_bindings,
+    rav_additional_spell_cost_bindings, rav_basic_land_type_bindings, rav_mana_ability_bindings,
+    rav_triggered_ability_bindings,
 };
 
 fn game() -> Game {
@@ -42,6 +43,15 @@ fn necroplasm_requires_both_upkeep_bindings_and_counter_sweep_contract() {
                 cardbench_magic_engine::Color::Black
             ]
         )
+    );
+    assert!(
+        RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&definition.id),
+        "Necroplasm is full only once its departed-source counter value is preserved"
+    );
+    assert!(
+        definition
+            .supported_rules
+            .contains(&"source-departure-last-known-counter-value"),
     );
     assert!(
         definition

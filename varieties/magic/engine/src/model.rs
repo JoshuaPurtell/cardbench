@@ -2337,10 +2337,19 @@ pub enum Effect {
     /// battlefield source and destroy every creature with that mana value.
     /// This deliberately differs from the source-sacrifice nonland sweep:
     /// simultaneous upkeep triggers can change the source's counter total
-    /// before this instruction resolves, so it must not be precomputed at
-    /// trigger placement.
+    /// before this instruction resolves. If that source leaves while this
+    /// instruction is pending, the departure boundary materializes the
+    /// matching stack instruction below from its last-known counter total.
     DestroyAllCreaturesWithManaValueEqualToSourceCounters {
         counter: CounterKind,
+    },
+    /// Internal stack-only form produced when the source of a pending
+    /// [`Self::DestroyAllCreaturesWithManaValueEqualToSourceCounters`]
+    /// trigger leaves the battlefield. It retains the departed source's last
+    /// known counter value while never asking a later incarnation to resolve
+    /// the instruction.
+    DestroyAllCreaturesWithManaValue {
+        mana_value: i16,
     },
     /// Counter one targeted instant or sorcery spell. This is intentionally a
     /// semantic effect rather than a copied card-text string.
@@ -2780,6 +2789,7 @@ impl Effect {
             | Self::DestroyAllNonlandPermanentsWithManaValueEqualToSourceCounters { .. }
             | Self::DestroyAllNonlandPermanentsWithManaValue { .. }
             | Self::DestroyAllCreaturesWithManaValueEqualToSourceCounters { .. }
+            | Self::DestroyAllCreaturesWithManaValue { .. }
             | Self::DestroyCombatDamagedCreature
             | Self::DestroyCapturedCreature { .. }
             | Self::DestroyCapturedCombatParticipants { .. }
@@ -4302,10 +4312,11 @@ pub enum GameEvent {
         source: ObjectId,
         card: ObjectId,
     },
-    /// An activated ability sampled one nonnegative counter total from its
-    /// exact live source incarnation before costs. This is public stack
-    /// provenance for source-sacrifice effects whose resolved instruction
-    /// must not inspect a departed or re-entered source.
+    /// A stack ability materialized one nonnegative counter total from its
+    /// exact live source incarnation. This is public stack provenance for
+    /// source-sacrifice costs and for a source departure while a dynamic
+    /// trigger remains pending; its resolved instruction must not inspect a
+    /// departed or re-entered source.
     SourceCounterValueMaterialized {
         source: ObjectId,
         source_incarnation: u64,
