@@ -1797,10 +1797,15 @@ Oracle Magic rules coverage.
 - When an attacking or blocking creature has first strike at the damage-step
   boundary, a dedicated `FirstStrikeCombatDamage` step precedes normal combat
   damage. Its recorded source set is a subset of the declared combatants and
-  those sources cannot assign again in normal combat damage. State-based
-  actions run after the first-strike batch, so a lethal blocker does not remain
-  to assign later normal damage. If no participant has first strike, the extra
-  step is absent rather than an empty priority window.
+  those sources cannot assign again in normal combat damage. A separate
+  resolved marker proves that the first-strike batch reached its shared
+  SBA/trigger boundary; removing an attacker from combat also removes its
+  first-strike source record without making a completed step appear
+  unprocessed. An already-removed blocker can retain its ordinary
+  declared-pair history but never assigns later damage. State-based actions run
+  after the first-strike batch, so a lethal blocker does not remain to assign
+  later normal damage. If no participant has first strike, the extra step is
+  absent rather than an empty priority window.
 - A declared participant may leave the battlefield after damage. Historical
   combat bookkeeping may therefore retain a nontoken object in another zone or
   a token identifier that no longer names an object until combat ends; neither

@@ -635,6 +635,11 @@ struct CombatState {
     /// Sources that assigned damage in the first-strike damage step. They
     /// cannot assign again in this combat's later normal damage step.
     first_strike_damage_sources: BTreeSet<ObjectId>,
+    /// The first-strike batch completed its shared SBA/trigger boundary. This
+    /// remains true even when every recorded source later leaves combat, so
+    /// the audit does not mistake historical source cleanup for an
+    /// unprocessed first-strike step.
+    first_strike_damage_resolved: bool,
 }
 
 /// Exact-incarnation combat provenance for one declared block. This is kept
@@ -14001,6 +14006,7 @@ impl Game {
                 ));
             }
             if self.step == Step::FirstStrikeCombatDamage
+                && !combat.first_strike_damage_resolved
                 && combat.first_strike_damage_sources.is_empty()
             {
                 return Err(RulesError::IllegalAction(
@@ -24381,6 +24387,14 @@ impl Game {
         self.flush_pending_damage_triggers();
         self.flush_pending_life_gain_triggers();
         self.flush_pending_dies_triggers();
+        if self.step == Step::FirstStrikeCombatDamage {
+            self.combat
+                .as_mut()
+                .ok_or(RulesError::IllegalAction(
+                    "combat damage without combat state",
+                ))?
+                .first_strike_damage_resolved = true;
+        }
         Ok(())
     }
 
@@ -24419,6 +24433,11 @@ impl Game {
                 }
             }
             combat.damage_ordered_attackers.remove(&card);
+            // This source is no longer a live combat participant, so its
+            // first-strike assignment history cannot participate in the
+            // later normal-damage eligibility calculation or survive the
+            // combat provenance invariant.
+            combat.first_strike_damage_sources.remove(&card);
         }
         if combat
             .blockers
