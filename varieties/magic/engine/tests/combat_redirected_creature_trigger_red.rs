@@ -54,6 +54,7 @@ fn advance_to_declare_attackers(game: &mut Game) {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // The full redirect-to-final-recipient event trace is one causal contract.
 fn redirected_combat_damage_to_another_creature_stacks_the_source_trigger() {
     let attacker_controller = PlayerId(0);
     let defender = PlayerId(1);
