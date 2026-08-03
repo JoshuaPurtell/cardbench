@@ -94,7 +94,13 @@ fn easy_creature_wave_one_is_exactly_bounded_to_public_base_facts() {
     assert_eq!((sphinx.power, sphinx.toughness), (Some(2), Some(5)));
     assert_eq!(
         sphinx.supported_rules,
-        ["colored-cost-casting", "base-characteristics", "flying"]
+        [
+            "full-rules-fidelity",
+            "colored-cost-casting",
+            "base-characteristics",
+            "flying",
+            "damage-received-source-controller-mill-that-many",
+        ]
     );
 
     let ancestor = definitions
