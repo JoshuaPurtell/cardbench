@@ -17112,10 +17112,7 @@ impl Game {
             return Ok(false);
         };
         let effect_index = self.stack_effect_cursor(&top)?;
-        if matches!(
-            top.effects.get(effect_index),
-            Some(Effect::DealDamageToEachCreatureAndPlayer { amount }) if *amount > 0
-        ) {
+        if Self::global_damage_replacement_amount(top.effects.get(effect_index)).is_some() {
             return self.suspend_global_damage_replacement_choice(&top, effect_index);
         }
         let target_offset = Self::effect_target_offset(&top.effects, effect_index);
@@ -17169,42 +17166,38 @@ impl Game {
         Ok(true)
     }
 
-    /// Snapshots and resolves an untargeted all-creature-and-player damage
-    /// instruction through the same prospective-packet pipeline as ordinary
-    /// targeted damage.  Each current recipient has its own affected player
-    /// and replacement chain, so an earlier singleton packet must not cause a
-    /// later competing packet to be resolved in implementation order.
+    /// Returns the damage amount for an untargeted global-damage instruction
+    /// whose independent recipient packets use the replacement pipeline.
+    /// Keeping this shape predicate shared across suspension, continuation,
+    /// and invariant replay prevents an effect from entering a decision state
+    /// it cannot later resume.
+    fn global_damage_replacement_amount(effect: Option<&Effect>) -> Option<i32> {
+        let amount = match effect {
+            Some(
+                Effect::DealDamageToEachCreatureAndPlayer { amount }
+                | Effect::DealDamageToEachPlayer { amount }
+                | Effect::DealDamageToEachNonFlyingCreature { amount },
+            ) => *amount,
+            _ => return None,
+        };
+        (amount > 0).then_some(i32::from(amount))
+    }
+
+    /// Snapshots and resolves one untargeted global damage instruction through
+    /// the same prospective-packet pipeline as ordinary targeted damage. Each
+    /// current recipient has its own affected player and replacement chain, so
+    /// an earlier singleton packet must not cause a later competing packet to
+    /// resolve in implementation order.
     fn suspend_global_damage_replacement_choice(
         &mut self,
         top: &StackObject,
         effect_index: usize,
     ) -> Result<bool, RulesError> {
-        let Some(Effect::DealDamageToEachCreatureAndPlayer { amount }) =
-            top.effects.get(effect_index)
+        let Some(amount) = Self::global_damage_replacement_amount(top.effects.get(effect_index))
         else {
             return Ok(false);
         };
-        let amount = i32::from(*amount);
-        let mut packets = self
-            .all_battlefield_cards()
-            .into_iter()
-            .filter(|candidate| {
-                self.characteristics(*candidate)
-                    .is_ok_and(|characteristics| {
-                        characteristics.card_types.contains(&CardType::Creature)
-                    })
-            })
-            .map(|target| {
-                Ok(DamageReplacementPacket {
-                    target: Target::Permanent(target),
-                    target_incarnation: self
-                        .damage_target_incarnation(Target::Permanent(target))?,
-                    amount,
-                    used: Vec::new(),
-                })
-            })
-            .collect::<Result<Vec<_>, RulesError>>()?;
-        packets.extend(
+        let player_packets = || {
             self.players
                 .iter()
                 .enumerate()
@@ -17214,8 +17207,41 @@ impl Game {
                     target_incarnation: None,
                     amount,
                     used: Vec::new(),
-                }),
-        );
+                })
+                .collect::<Vec<_>>()
+        };
+        let creature_packets = |requires_nonflying: bool| {
+            self.all_battlefield_cards()
+                .into_iter()
+                .filter(|candidate| {
+                    self.characteristics(*candidate)
+                        .is_ok_and(|characteristics| {
+                            characteristics.card_types.contains(&CardType::Creature)
+                                && (!requires_nonflying
+                                    || !characteristics.keywords.contains(&Keyword::Flying))
+                        })
+                })
+                .map(|target| {
+                    Ok(DamageReplacementPacket {
+                        target: Target::Permanent(target),
+                        target_incarnation: self
+                            .damage_target_incarnation(Target::Permanent(target))?,
+                        amount,
+                        used: Vec::new(),
+                    })
+                })
+                .collect::<Result<Vec<_>, RulesError>>()
+        };
+        let packets = match top.effects.get(effect_index) {
+            Some(Effect::DealDamageToEachCreatureAndPlayer { .. }) => {
+                let mut packets = creature_packets(false)?;
+                packets.extend(player_packets());
+                packets
+            }
+            Some(Effect::DealDamageToEachPlayer { .. }) => player_packets(),
+            Some(Effect::DealDamageToEachNonFlyingCreature { .. }) => creature_packets(true)?,
+            _ => return Ok(false),
+        };
         let has_concurrent_choice = packets.iter().any(|packet| {
             self.damage_replacement_candidates(top.card, packet.target, packet.amount, &[])
                 .is_ok_and(|choices| choices.len() >= 2)
@@ -19509,11 +19535,8 @@ impl Game {
         ))?;
         let target_offset = Self::effect_target_offset(&top.effects, effect_index);
         let stack_shape_matches = if global_effect {
-            matches!(
-                top.effects.get(effect_index),
-                Some(Effect::DealDamageToEachCreatureAndPlayer { amount: stack_amount })
-                    if *stack_amount > 0
-            ) && self.global_damage_packet_target_is_live(original_target, target_incarnation)
+            Self::global_damage_replacement_amount(top.effects.get(effect_index)).is_some()
+                && self.global_damage_packet_target_is_live(original_target, target_incarnation)
         } else {
             matches!(
                 top.effects.get(effect_index),
@@ -19734,10 +19757,8 @@ impl Game {
         ))?;
         let target_offset = Self::effect_target_offset(&stack_object.effects, effect_index);
         let stack_shape_matches = if global_effect {
-            matches!(
-                stack_object.effects.get(effect_index),
-                Some(Effect::DealDamageToEachCreatureAndPlayer { amount }) if *amount > 0
-            ) && original_target.is_none()
+            Self::global_damage_replacement_amount(stack_object.effects.get(effect_index)).is_some()
+                && original_target.is_none()
         } else {
             let Some(original_target) = original_target else {
                 return Err(RulesError::IllegalAction(
@@ -32570,12 +32591,11 @@ impl Game {
                                 .any(|other| other.target == packet.target)
                     });
                 let stack_shape_matches = if *global_effect {
-                    matches!(
-                        top.effects.get(*effect_index),
-                        Some(Effect::DealDamageToEachCreatureAndPlayer { amount: stack_amount })
-                            if *stack_amount > 0
-                    ) && self
-                        .global_damage_packet_target_is_live(*original_target, *target_incarnation)
+                    Self::global_damage_replacement_amount(top.effects.get(*effect_index)).is_some()
+                        && self.global_damage_packet_target_is_live(
+                            *original_target,
+                            *target_incarnation,
+                        )
                 } else {
                     matches!(
                         top.effects.get(*effect_index),

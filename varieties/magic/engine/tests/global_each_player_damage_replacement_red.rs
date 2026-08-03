@@ -4,8 +4,9 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardDefinition, CardType, CastRequest, DamageReplacementEffect, DamageReplacementEffectBinding,
-    DecisionKind, Effect, Game, ManaCost, PlayerId, Target, Zone,
+    CardDefinition, CardType, CastRequest, DamageReplacementChoice, DamageReplacementEffect,
+    DamageReplacementEffectBinding, DecisionKind, DecisionSelection, Effect, Game, GameEvent,
+    ManaCost, PlayerId, ReplacementChoice, Target, Zone,
 };
 
 const WAVE: &str = "TST-GLOBAL-EACH-PLAYER-WAVE";
@@ -116,4 +117,53 @@ fn each_player_damage_pauses_for_the_shielded_players_replacement_order() {
     assert_eq!(game.player(affected).expect("affected exists").life, 20);
     game.validate_invariants()
         .expect("suspended each-player damage packet remains valid");
+
+    let shield_replacement = decision
+        .replacement_candidates
+        .iter()
+        .copied()
+        .find_map(|choice| match choice {
+            ReplacementChoice::Damage(
+                replacement @ DamageReplacementChoice::TargetedShield { .. },
+            ) => Some(replacement),
+            ReplacementChoice::Damage(_) | ReplacementChoice::Quantity { .. } => None,
+        })
+        .expect("the public options include the targeted shield");
+    game.submit_decision(
+        affected,
+        decision.id,
+        DecisionSelection::Replacements(vec![ReplacementChoice::Damage(shield_replacement)]),
+    )
+    .expect("affected player chooses prevention");
+
+    eprintln!(
+        "global each-player replacement green trace: {:?}",
+        game.canonical_event_log()
+    );
+    assert!(game.stack.is_empty(), "the global spell resolves once");
+    assert_eq!(game.player(caster).expect("caster exists").life, 19);
+    assert_eq!(game.player(affected).expect("affected exists").life, 20);
+    assert_eq!(game.zone_of(wave), Some(Zone::Graveyard));
+    assert!(game.event_log.windows(3).any(|events| matches!(
+        events,
+        [
+            GameEvent::DamageReplacementApplied {
+                affected_player: PlayerId(1),
+                target: Target::Player(PlayerId(1)),
+                replacement: DamageReplacementChoice::TargetedShield { .. },
+            },
+            GameEvent::DamagePrevented {
+                target: Target::Player(PlayerId(1)),
+                amount: 2,
+                ..
+            },
+            GameEvent::DecisionCompleted {
+                decision: completed,
+                kind: DecisionKind::Replacement,
+                ..
+            },
+        ] if *completed == decision.id
+    )));
+    game.validate_invariants()
+        .expect("resumed each-player damage packet remains valid");
 }
