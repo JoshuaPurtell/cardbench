@@ -258,14 +258,13 @@ fn chord_may_legally_fail_to_find_after_seeing_matching_private_candidates() {
     .expect("Chord X=1 convoke payment succeeds");
     game.pass_priority(PlayerId(0)).expect("first pass");
     game.pass_priority(PlayerId(1)).expect("second pass");
+    let choice = game
+        .view_for_player(PlayerId(0))
+        .expect("controller view")
+        .library_search_choice
+        .expect("private choice");
     assert!(
-        game.view_for_player(PlayerId(0))
-            .expect("controller view")
-            .library_search_choice
-            .expect("private choice")
-            .cards
-            .iter()
-            .any(|card| card.id == candidate),
+        choice.cards.iter().any(|card| card.id == candidate),
         "the controller may decline even a matching hidden-zone candidate"
     );
 
@@ -273,6 +272,7 @@ fn chord_may_legally_fail_to_find_after_seeing_matching_private_candidates() {
         PlayerId(0),
         "test.chord.v1",
         PolicyAction::ChooseLibrarySearchCard {
+            decision: choice.decision,
             source: chord,
             selected: None,
         },
@@ -349,10 +349,16 @@ fn chord_battlefield_entry_queues_the_selected_creatures_etb_after_its_terminal_
     .expect("Chord X=3 convoke payment succeeds");
     game.pass_priority(PlayerId(0)).expect("first pass");
     game.pass_priority(PlayerId(1)).expect("second pass");
+    let choice = game
+        .view_for_player(PlayerId(0))
+        .expect("controller view")
+        .library_search_choice
+        .expect("private choice");
     game.submit_policy_move(
         PlayerId(0),
         "test.chord.v1",
         PolicyAction::ChooseLibrarySearchCard {
+            decision: choice.decision,
             source: chord,
             selected: Some(caryatid),
         },

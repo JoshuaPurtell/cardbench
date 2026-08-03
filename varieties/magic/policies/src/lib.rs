@@ -100,6 +100,7 @@ pub trait CodePolicy {
             .as_ref()
             .expect("library-search choice proposal requires a visible choice");
         PolicyAction::ChooseLibrarySearchCard {
+            decision: choice.decision,
             source: choice.source,
             selected: choice.cards.first().map(|card| card.id),
         }

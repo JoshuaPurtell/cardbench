@@ -236,8 +236,10 @@ pub enum PolicyAction {
     },
     /// Selects one currently matching controller-owned library card, or
     /// deliberately fails to find when that suspended search permits it.
-    /// This is a resolution decision, never a priority action.
+    /// `decision` must echo the live generic decision projected alongside this
+    /// compatibility view. This is a resolution decision, never priority.
     ChooseLibrarySearchCard {
+        decision: DecisionId,
         source: ObjectId,
         selected: Option<ObjectId>,
     },
@@ -465,6 +467,8 @@ pub struct PrivateOpponentLibraryChoiceView {
 /// event log before the selected card changes zones.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct LibrarySearchChoiceView {
+    /// The current generic decision identity; compatibility actions must echo it.
+    pub decision: DecisionId,
     pub source: ObjectId,
     pub cards: Vec<CardView>,
     pub destination: LibrarySearchDestination,
@@ -4035,12 +4039,13 @@ impl Game {
                     destination,
                     may_fail_to_find,
                     ..
-                } => Some((*source, *destination, *may_fail_to_find)),
+                } => Some((decision.id, *source, *destination, *may_fail_to_find)),
                 DecisionContinuation::LibrarySearchAndCast {
                     source,
                     may_fail_to_find,
                     ..
                 } => Some((
+                    decision.id,
                     *source,
                     LibrarySearchDestination::CastWithoutPayingManaCost,
                     *may_fail_to_find,
@@ -4050,6 +4055,7 @@ impl Game {
                     may_fail_to_find,
                     ..
                 } => Some((
+                    decision.id,
                     *source,
                     LibrarySearchDestination::Battlefield,
                     *may_fail_to_find,
@@ -4080,13 +4086,14 @@ impl Game {
                 | DecisionContinuation::PermanentEntryCopySource { .. }
                 | DecisionContinuation::PermanentEntryCopyAuraAttachment { .. } => None,
             })
-            .map(|(source, destination, may_fail_to_find)| {
+            .map(|(decision, source, destination, may_fail_to_find)| {
                 self.decision_candidate_cards(
                     self.pending_decision
                         .as_ref()
                         .expect("decision continuation came from pending state"),
                 )
                 .map(|cards| LibrarySearchChoiceView {
+                    decision,
                     source,
                     cards,
                     destination,
@@ -4448,8 +4455,12 @@ impl Game {
                     player, decision, source, ability, selected,
                 )?;
             }
-            PolicyAction::ChooseLibrarySearchCard { source, selected } => {
-                self.choose_library_search_card(player, source, selected)?;
+            PolicyAction::ChooseLibrarySearchCard {
+                decision,
+                source,
+                selected,
+            } => {
+                self.choose_library_search_card(player, decision, source, selected)?;
             }
             PolicyAction::ChooseTriggeredAbilityTargets {
                 source,
@@ -7944,6 +7955,7 @@ impl Game {
     pub fn choose_library_search_card(
         &mut self,
         player: PlayerId,
+        decision_id: DecisionId,
         source: ObjectId,
         selected: Option<ObjectId>,
     ) -> Result<(), RulesError> {
@@ -7954,7 +7966,8 @@ impl Game {
                 .ok_or(RulesError::IllegalAction(
                     "there is no pending policy-submitted library search",
                 ))?;
-            if !matches!(
+            if decision.id != decision_id
+                || !matches!(
                 decision.continuation,
                 DecisionContinuation::LibrarySearch { source: pending_source, .. }
                     | DecisionContinuation::LibrarySearchAuraAttachedToSource {
@@ -7964,7 +7977,7 @@ impl Game {
                     if pending_source == source
             ) {
                 return Err(RulesError::IllegalAction(
-                    "library search compatibility action does not match the pending decision",
+                    "library search compatibility action does not match the pending decision id or source",
                 ));
             }
             game.resolve_pending_decision(

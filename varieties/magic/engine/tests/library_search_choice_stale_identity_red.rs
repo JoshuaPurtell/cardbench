@@ -109,6 +109,7 @@ fn stale_library_search_compatibility_action_cannot_resolve_a_returned_and_recas
         controller,
         "library-search-choice-stale.first-decline.v1",
         PolicyAction::ChooseLibrarySearchCard {
+            decision: first_choice.decision,
             source: search,
             selected: None,
         },
@@ -136,6 +137,10 @@ fn stale_library_search_compatibility_action_cannot_resolve_a_returned_and_recas
         .expect("second private library-search choice opens");
     assert_eq!(second_choice.source, search);
     assert_eq!(second_choice.cards.len(), 1);
+    assert_ne!(
+        first_choice.decision, second_choice.decision,
+        "a recast search receives a fresh generic decision identity"
+    );
     let second_incarnation = game
         .object(search)
         .expect("search remains stacked")
@@ -145,6 +150,7 @@ fn stale_library_search_compatibility_action_cannot_resolve_a_returned_and_recas
         controller,
         "library-search-choice-stale.replay.v1",
         PolicyAction::ChooseLibrarySearchCard {
+            decision: first_choice.decision,
             source: search,
             selected: None,
         },
@@ -159,4 +165,16 @@ fn stale_library_search_compatibility_action_cannot_resolve_a_returned_and_recas
         stale_result.is_err(),
         "a first search compatibility action must not answer the returned spell's later search"
     );
+    game.submit_policy_move(
+        controller,
+        "library-search-choice-stale.second-decline.v1",
+        PolicyAction::ChooseLibrarySearchCard {
+            decision: second_choice.decision,
+            source: search,
+            selected: None,
+        },
+    )
+    .expect("the current search resolves with its own decision identity");
+    game.validate_invariants()
+        .expect("current library-search choice preserves engine invariants");
 }
