@@ -2191,9 +2191,18 @@ impl Game {
         if let Some(copy) = self.virtual_spell_copies.get(&card) {
             return self.card_definition(copy.original);
         }
-        let definition = self
-            .effective_definition_id(card)?
-            .ok_or(RulesError::IllegalAction("token has no card definition"))?;
+        let definition = match self.effective_definition_id(card) {
+            Ok(Some(definition)) => definition,
+            Ok(None) => {
+                return Err(RulesError::IllegalAction("token has no card definition"));
+            }
+            Err(RulesError::UnknownCard(_)) => self
+                .departed_card_definitions
+                .get(&card)
+                .copied()
+                .ok_or(RulesError::UnknownCard(card))?,
+            Err(error) => return Err(error),
+        };
         self.catalog
             .get(definition)
             .ok_or(RulesError::UnknownDefinition(definition))
@@ -12161,6 +12170,7 @@ impl Game {
             }
             changed |= self.apply_creature_death_state_based_actions()?;
             if !changed {
+                self.prune_unreferenced_departed_source_provenance();
                 // A terminal SBA boundary ends the game before any newly
                 // observed triggers are put onto the stack.  Existing stack
                 // provenance remains frozen for event-log auditing, but a
@@ -12259,10 +12269,15 @@ impl Game {
             .any(|((card, incarnation), characteristics)| {
                 *incarnation == 0
                     || characteristics.colors.contains(&Color::Colorless)
-                    || self
-                        .objects
-                        .get(card)
-                        .is_none_or(|object| *incarnation >= object.incarnation)
+                    || match self.objects.get(card) {
+                        Some(object) => *incarnation >= object.incarnation,
+                        None => !self.stack.iter().any(|stack_object| {
+                            stack_object.card == *card
+                                && stack_object.source_incarnation == *incarnation
+                                && stack_object.ability_id.is_some()
+                                && !self.players[stack_object.controller.0].lost
+                        }),
+                    }
             })
         {
             return Err(RulesError::IllegalAction(
@@ -12280,10 +12295,15 @@ impl Game {
                 .any(|((card, incarnation), controller)| {
                     *incarnation == 0
                         || self.players.get(controller.0).is_none()
-                        || self
-                            .objects
-                            .get(card)
-                            .is_none_or(|object| *incarnation >= object.incarnation)
+                        || match self.objects.get(card) {
+                            Some(object) => *incarnation >= object.incarnation,
+                            None => !self.stack.iter().any(|stack_object| {
+                                stack_object.card == *card
+                                    && stack_object.source_incarnation == *incarnation
+                                    && stack_object.ability_id.is_some()
+                                    && !self.players[stack_object.controller.0].lost
+                            }),
+                        }
                 })
         {
             return Err(RulesError::IllegalAction(
@@ -13058,9 +13078,18 @@ impl Game {
                     "a virtual spell copy cannot become an activated ability source",
                 ));
             }
-            let object = (!is_virtual_copy)
-                .then(|| self.object(stack_object.card))
-                .transpose()?;
+            // An ability controlled by a surviving player is independent of
+            // its physical source. CR 800.4a can remove that source with its
+            // owner, leaving no live card object, while the ability remains
+            // a valid stack item. Spells still require their physical card;
+            // virtual copies retain their separate metadata path.
+            let object = if is_virtual_copy {
+                None
+            } else if is_ability {
+                self.objects.get(&stack_object.card)
+            } else {
+                Some(self.object(stack_object.card)?)
+            };
             self.player(stack_object.controller)?;
             if stack_object.source_incarnation == 0 {
                 return Err(RulesError::IllegalAction(
@@ -13086,6 +13115,22 @@ impl Game {
                     "a departed player controls a stack object",
                 ));
             }
+            if is_ability
+                && object.is_none()
+                && (!self
+                    .departed_card_definitions
+                    .contains_key(&stack_object.card)
+                    || !self
+                        .last_known_characteristics
+                        .contains_key(&(stack_object.card, stack_object.source_incarnation))
+                    || !self
+                        .last_known_controllers
+                        .contains_key(&(stack_object.card, stack_object.source_incarnation)))
+            {
+                return Err(RulesError::IllegalAction(
+                    "departed ability source lacks exact historical provenance",
+                ));
+            }
             if !is_ability
                 && !is_virtual_copy
                 && object.is_some_and(|object| object.controller != stack_object.controller)
@@ -13102,7 +13147,7 @@ impl Game {
             // fixed only while the same card incarnation remains on the
             // stack.  An ability source may also leave the battlefield after
             // activation, so there is no live-controller equality to audit.
-            let definition = if is_virtual_copy {
+            let definition = if is_ability || is_virtual_copy {
                 self.card_definition(stack_object.card)?
             } else {
                 self.effective_definition_id(stack_object.card)?
@@ -26877,6 +26922,28 @@ impl Game {
         Ok(())
     }
 
+    /// Retires the exceptional provenance retained solely for an ability
+    /// controlled by a survivor after its source left the game. It runs at
+    /// every SBA fixed point, immediately after normal ability terminal paths
+    /// have popped their stack item. Ordinary live objects keep all historical
+    /// records, and a still-live exact ability keeps only the source facts it
+    /// needs to finish resolving.
+    fn prune_unreferenced_departed_source_provenance(&mut self) {
+        let retained = self
+            .stack
+            .iter()
+            .filter_map(|stack_object| {
+                (stack_object.ability_id.is_some()
+                    && !self.objects.contains_key(&stack_object.card))
+                .then_some((stack_object.card, stack_object.source_incarnation))
+            })
+            .collect::<BTreeSet<_>>();
+        self.last_known_characteristics
+            .retain(|key, _| self.objects.contains_key(&key.0) || retained.contains(key));
+        self.last_known_controllers
+            .retain(|key, _| self.objects.contains_key(&key.0) || retained.contains(key));
+    }
+
     /// Freezes every pending source-counter creature sweep at the exact
     /// battlefield-departure boundary.  Unlike a source-sacrifice activation,
     /// an upkeep trigger has to observe counter changes made by earlier
@@ -34605,6 +34672,7 @@ impl Game {
     /// non-owned object under that player's control is exiled to its owner's
     /// zone. This must occur inside the loss transition, not as a later policy
     /// action, so no stale object can receive priority or participate in SBA.
+    #[allow(clippy::too_many_lines)] // One CR 800.4a transaction keeps ownership, control, stack, and LKI cleanup atomic.
     fn remove_departing_players_objects(&mut self, player: PlayerId) {
         // CR 800.4a applies to every object a departing player controls,
         // including stack-only copies that have no owner-zone membership and
@@ -34661,21 +34729,42 @@ impl Game {
                     .expect("departing battlefield source must have a controller");
                 self.expire_linked_hand_exile_group(object, source_incarnation, source_controller);
             }
+            // Direct leave-game removal does not perform an ordinary zone
+            // transition, so freeze the final source incarnation while its
+            // live controller is still derivable from the battlefield.
+            self.capture_last_known_characteristics(object)
+                .expect("owner departure must capture departing source provenance");
             self.remove_from_all_zones(object);
-            self.stack
-                .retain(|stack_object| stack_object.card != object);
+            // A physical spell owned by the departing player leaves with its
+            // card, as does every ability they control. An ability controlled
+            // by a surviving player is independent of this physical source
+            // and must remain on the stack (CR 113.7a / 800.4a).
+            self.stack.retain(|stack_object| {
+                stack_object.card != object
+                    || (stack_object.ability_id.is_some() && stack_object.controller != player)
+            });
+            let retained_ability_incarnations = self
+                .stack
+                .iter()
+                .filter_map(|stack_object| {
+                    (stack_object.card == object && stack_object.ability_id.is_some())
+                        .then_some(stack_object.source_incarnation)
+                })
+                .collect::<BTreeSet<_>>();
             self.objects.remove(&object);
             // CR 800.4a removes this object from the game rather than moving
-            // it to a zone with a fresh incarnation. Its former
-            // characteristics can no longer be read by any live game object,
-            // so retire every private LKI record keyed to this deleted id.
-            // Do this only for actual leave-game deletion: a non-owned object
-            // controlled by the departed player is exiled below and keeps its
-            // ordinary historical provenance.
+            // it to a zone with a fresh incarnation. Retire its private LKI
+            // except the exact historical source facts still needed by a
+            // survivor-controlled stack ability. A non-owned object exiled
+            // below remains a normal object and keeps its full provenance.
             self.last_known_characteristics
-                .retain(|(card, _), _| *card != object);
+                .retain(|(card, incarnation), _| {
+                    *card != object || retained_ability_incarnations.contains(incarnation)
+                });
             self.last_known_controllers
-                .retain(|(card, _), _| *card != object);
+                .retain(|(card, incarnation), _| {
+                    *card != object || retained_ability_incarnations.contains(incarnation)
+                });
             self.regeneration_shields.remove(&object);
             self.record_event(GameEvent::ObjectLeftGame {
                 object,
@@ -34695,8 +34784,10 @@ impl Game {
             })
             .collect::<Vec<_>>();
         for object in controlled_but_not_owned {
-            self.stack
-                .retain(|stack_object| stack_object.card != object);
+            self.stack.retain(|stack_object| {
+                stack_object.card != object
+                    || (stack_object.ability_id.is_some() && stack_object.controller != player)
+            });
             if self
                 .object(object)
                 .expect("controlled permanent must still have an object record")
