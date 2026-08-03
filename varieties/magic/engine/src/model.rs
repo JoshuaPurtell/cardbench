@@ -467,6 +467,10 @@ pub enum TriggerCondition {
     /// condition has no implicit spell target; any printed targets are
     /// supplied by the ordinary triggered-ability choice boundary.
     CastsCreatureSpell,
+    /// Any spell was cast by this permanent's controller. This is distinct
+    /// from the creature/noncreature capture conditions because the trigger
+    /// itself need not retain the cast spell as a target.
+    CastsSpell,
     /// A creature spell was cast by any player. The trigger payload retains
     /// the public cast-card identity so a later effect can match card names
     /// without consulting a later incarnation of that spell object.
@@ -2254,6 +2258,12 @@ pub enum Effect {
     RevealTopLibraryCardsAndReorder {
         count: u8,
     },
+    /// Snapshot the resolving controller's entire current hand, suspend for
+    /// that controller's private bottom-to-top ordering, then move that
+    /// exact group to the bottom of its owner's library and draw the same
+    /// number of cards. The hand snapshot is state-machine provenance; a
+    /// card gained or lost while the stack item is suspended cannot join it.
+    PutControllerHandOnLibraryBottomThenDrawSameCount,
     /// Privately inspect the current top `count` cards of the targeted
     /// player's library. The resolving controller submits an exhaustive
     /// split: cards retained on top in top-to-bottom order and cards put on
@@ -3112,6 +3122,7 @@ impl Effect {
             | Self::SearchControllerLibraryForCompatibleAuraAttachedToSource { .. }
             | Self::SearchControllerLibraryMany { .. }
             | Self::RevealTopLibraryCardsAndReorder { .. }
+            | Self::PutControllerHandOnLibraryBottomThenDrawSameCount
             | Self::LookAtTopCardsPutOneInHandOneOnTopRestOnBottom { .. }
             | Self::RevealTopCardPutIntoHandLoseLifeEqualToManaValue
             | Self::DealDamageToEachPlayerFromReceivedDamage
@@ -4056,6 +4067,9 @@ pub enum DecisionKind {
     /// A public top-library slice was revealed and must be placed back in one
     /// exact top-to-bottom order before the suspended stack item continues.
     LibraryReorder,
+    /// A resolving ability privately orders its controller's exact hand
+    /// snapshot bottom-to-top before the same count of ordinary draws.
+    HandToLibraryBottomDraw,
     /// A private top-library snapshot must be partitioned into the one hand
     /// card, optional top card, and ordered bottom remainder. This is not a
     /// public reveal or a priority action.
@@ -4357,6 +4371,15 @@ pub enum DecisionContinuation {
         /// Captured current top cards in public top-to-bottom order. Exact
         /// candidates prevent a library mutation or a stale decision from
         /// rearranging a later library state.
+        cards: Vec<ObjectId>,
+    },
+    /// Retains the exact hand snapshot for a controller-private ordered move
+    /// to library bottom followed by the same number of draws. The source
+    /// incarnation pins the suspended triggered ability even if its source
+    /// later leaves the battlefield.
+    HandToLibraryBottomDraw {
+        source: ObjectId,
+        source_incarnation: u64,
         cards: Vec<ObjectId>,
     },
     /// Resumes a private top-library partition. `cards` is the exact
@@ -5485,6 +5508,17 @@ pub enum GameEvent {
     LibraryReordered {
         player: PlayerId,
         top_to_bottom: Vec<ObjectId>,
+    },
+    /// A source ability committed one private hand snapshot to the bottom of
+    /// its controller's library in policy-selected bottom-to-top order, then
+    /// began exactly that many ordinary draws. Card identities remain out of
+    /// the receipt; the private decision and normal zone transitions carry
+    /// the auditable state-machine provenance.
+    HandPutOnLibraryBottomThenDrawn {
+        player: PlayerId,
+        source: ObjectId,
+        source_incarnation: u64,
+        cards: u8,
     },
     /// A resolving effect moved the named current library top below every
     /// other card in the same owner-indexed library. No zone or incarnation

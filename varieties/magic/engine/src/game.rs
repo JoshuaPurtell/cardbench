@@ -2033,6 +2033,7 @@ impl Game {
                         | TriggerCondition::Blocks
                         | TriggerCondition::CastsNoncreatureSpell
                         | TriggerCondition::CastsCreatureSpell
+                        | TriggerCondition::CastsSpell
                         | TriggerCondition::AnyPlayerCastsCreatureSpell
                         | TriggerCondition::AnyPlayerCastsInstantOrSorcerySpell
                         | TriggerCondition::FirstNoncreatureSpellCastEachTurn
@@ -4620,6 +4621,7 @@ impl Game {
                     *may_fail_to_find,
                 )),
                 DecisionContinuation::LibraryReorder { .. }
+                | DecisionContinuation::HandToLibraryBottomDraw { .. }
                 | DecisionContinuation::LibraryTopPartition { .. }
                 | DecisionContinuation::TargetPlayerLibraryTopReorder { .. }
                 | DecisionContinuation::TriggeredEffectObject { .. }
@@ -4699,6 +4701,7 @@ impl Game {
                 | DecisionContinuation::LibrarySearchAuraAttachedToSource { .. }
                 | DecisionContinuation::LibrarySearchMany { .. }
                 | DecisionContinuation::LibraryReorder { .. }
+                | DecisionContinuation::HandToLibraryBottomDraw { .. }
                 | DecisionContinuation::LibraryTopPartition { .. }
                 | DecisionContinuation::TargetPlayerLibraryTopReorder { .. }
                 | DecisionContinuation::TriggeredEffectObject { .. }
@@ -4764,6 +4767,7 @@ impl Game {
                 | DecisionContinuation::LibrarySearchAuraAttachedToSource { .. }
                 | DecisionContinuation::LibrarySearchMany { .. }
                 | DecisionContinuation::LibraryReorder { .. }
+                | DecisionContinuation::HandToLibraryBottomDraw { .. }
                 | DecisionContinuation::LibraryTopPartition { .. }
                 | DecisionContinuation::TargetPlayerLibraryTopReorder { .. }
                 | DecisionContinuation::CombatDamageOrder { .. }
@@ -4862,6 +4866,7 @@ impl Game {
                 | DecisionContinuation::LibrarySearchAuraAttachedToSource { .. }
                 | DecisionContinuation::LibrarySearchMany { .. }
                 | DecisionContinuation::LibraryReorder { .. }
+                | DecisionContinuation::HandToLibraryBottomDraw { .. }
                 | DecisionContinuation::LibraryTopPartition { .. }
                 | DecisionContinuation::TargetPlayerLibraryTopReorder { .. }
                 | DecisionContinuation::TriggeredEffectObject { .. }
@@ -8971,6 +8976,20 @@ impl Game {
                 let selected = Self::validate_object_decision_selection(&decision, selection)?;
                 self.resolve_library_reorder_decision(&decision, source, &cards, selected)
             }
+            DecisionContinuation::HandToLibraryBottomDraw {
+                source,
+                source_incarnation,
+                cards,
+            } => {
+                let selected = Self::validate_object_decision_selection(&decision, selection)?;
+                self.resolve_hand_to_library_bottom_draw_decision(
+                    &decision,
+                    source,
+                    source_incarnation,
+                    &cards,
+                    &selected,
+                )
+            }
             DecisionContinuation::LibraryTopPartition { source, cards } => {
                 let (hand, top, bottom) =
                     Self::validate_library_top_partition_selection(&decision, selection)?;
@@ -12813,6 +12832,96 @@ impl Game {
         Ok(())
     }
 
+    /// Commits a controller-private exact-hand permutation. `selected` is
+    /// bottom-to-top, so moving cards in reverse preserves that declared
+    /// order at the bottom of a library whose vector tail is its top.
+    fn resolve_hand_to_library_bottom_draw_decision(
+        &mut self,
+        decision: &PendingDecision,
+        source: ObjectId,
+        source_incarnation: u64,
+        cards: &[ObjectId],
+        selected: &[ObjectId],
+    ) -> Result<(), RulesError> {
+        let player = decision.player;
+        let top = self.stack.last().ok_or(RulesError::IllegalAction(
+            "hand-recycle choice has no live stack item",
+        ))?;
+        let count = u8::try_from(cards.len()).map_err(|_| {
+            RulesError::IllegalAction("hand-recycle candidates exceed decision range")
+        })?;
+        let expected_options = cards
+            .iter()
+            .copied()
+            .map(DecisionOption::Object)
+            .collect::<Vec<_>>();
+        if cards.is_empty()
+            || decision.kind != DecisionKind::HandToLibraryBottomDraw
+            || decision.visibility != DecisionVisibility::Private
+            || top.card != source
+            || top.source_incarnation != source_incarnation
+            || top.controller != player
+            || top.ability_id.is_none()
+            || top.effects.as_slice() != [Effect::PutControllerHandOnLibraryBottomThenDrawSameCount]
+            || self.players[player.0].hand != cards
+            || cards.iter().enumerate().any(|(index, card)| {
+                cards[index + 1..].contains(card)
+                    || self.zone_of(*card) != Some(Zone::Hand)
+                    || self
+                        .object(*card)
+                        .map_or(true, |object| object.owner != player)
+            })
+            || decision.options != expected_options
+            || decision.min_selections != count
+            || decision.max_selections != count
+            || selected.len() != cards.len()
+        {
+            return Err(RulesError::IllegalAction(
+                "hand-recycle decision violates its private hand snapshot or stack provenance",
+            ));
+        }
+        let resolved = self.stack.pop().ok_or(RulesError::IllegalAction(
+            "hand-recycle stack ability disappeared before resolution",
+        ))?;
+        self.complete_pending_decision(decision)?;
+        self.record_event(GameEvent::HandPutOnLibraryBottomThenDrawn {
+            player,
+            source,
+            source_incarnation,
+            cards: count,
+        });
+        for card in selected.iter().rev() {
+            self.move_to_zone(*card, Zone::Library)?;
+            let moved = self.players[player.0].library.pop();
+            if moved != Some(*card) {
+                return Err(RulesError::IllegalAction(
+                    "hand-recycle library move lost its exact card",
+                ));
+            }
+            self.players[player.0].library.insert(0, *card);
+        }
+        for _ in 0..count {
+            self.draw_card_from_spell_effect(player)?;
+        }
+        let ability = resolved.ability_id.ok_or(RulesError::IllegalAction(
+            "hand-recycle stack item escaped its triggered-ability identity",
+        ))?;
+        self.record_event(GameEvent::AbilityResolved {
+            source,
+            source_incarnation,
+            ability,
+        });
+        self.check_state_based_actions()?;
+        self.flush_pending_dies_triggers();
+        self.flush_pending_land_entry_triggers()?;
+        self.flush_pending_damage_triggers();
+        self.flush_pending_life_gain_triggers();
+        self.flush_pending_dies_triggers();
+        self.restore_priority_after_stack_resolution();
+        self.record_game_end_if_needed();
+        Ok(())
+    }
+
     /// Commits the one-hand/one-top/rest-bottom result of a controller-private
     /// top-library decision. The partition is exhaustive and its snapshot is
     /// rechecked before any zone movement, so a stale answer cannot reorder a
@@ -14488,6 +14597,7 @@ impl Game {
         Self::validate_permanent_copy_event_order(&self.event_log)?;
         Self::validate_library_search_event_order(&self.event_log)?;
         self.validate_library_top_move_event_order()?;
+        self.validate_hand_recycle_event_order()?;
         self.validate_attachment_event_order(&self.event_log)?;
         Self::validate_attachment_detach_event_order(&self.event_log)?;
         Self::validate_delayed_action_event_order(&self.event_log)?;
@@ -14976,6 +15086,7 @@ impl Game {
                             | TriggerCondition::Blocks
                             | TriggerCondition::CastsNoncreatureSpell
                             | TriggerCondition::CastsCreatureSpell
+                            | TriggerCondition::CastsSpell
                             | TriggerCondition::AnyPlayerCastsCreatureSpell
                             | TriggerCondition::AnyPlayerCastsInstantOrSorcerySpell
                             | TriggerCondition::FirstNoncreatureSpellCastEachTurn
@@ -18434,6 +18545,7 @@ impl Game {
                 | Effect::SearchControllerLibraryForCompatibleAuraAttachedToSource { .. }
                 | Effect::SearchControllerLibraryMany { .. }
                 | Effect::RevealTopLibraryCardsAndReorder { .. }
+                | Effect::PutControllerHandOnLibraryBottomThenDrawSameCount
                 | Effect::LookAtTopCardsOfTargetPlayerAndReorder { .. }
                 | Effect::LookAtTopCardsPutOneInHandOneOnTopRestOnBottom { .. }
                 | Effect::AttachSourceAndModifyTargetPt { .. }
@@ -19144,6 +19256,9 @@ impl Game {
             return Ok(());
         }
         if self.suspend_top_stack_item_for_library_reorder_choice()? {
+            return Ok(());
+        }
+        if self.suspend_top_stack_item_for_hand_to_library_bottom_draw_choice()? {
             return Ok(());
         }
         if self.suspend_top_stack_item_for_library_top_partition_choice()? {
@@ -21550,6 +21665,56 @@ impl Game {
         Ok(true)
     }
 
+    /// Opens the controller-private ordering boundary for an ability that
+    /// recycles its exact current hand to library bottom and then draws the
+    /// same count. An empty hand needs no policy input and resolves as the
+    /// ordinary zero-card no-op.
+    fn suspend_top_stack_item_for_hand_to_library_bottom_draw_choice(
+        &mut self,
+    ) -> Result<bool, RulesError> {
+        if self.pending_decision.is_some()
+            || self.pending_private_library_choice.is_some()
+            || self.pending_private_opponent_library_exile_choice.is_some()
+        {
+            return Err(RulesError::IllegalAction(
+                "a second private hand-recycle choice attempted to open during resolution",
+            ));
+        }
+        let Some(top) = self.stack.last() else {
+            return Ok(false);
+        };
+        if top.effects.as_slice() != [Effect::PutControllerHandOnLibraryBottomThenDrawSameCount] {
+            return Ok(false);
+        }
+        let Some(ability) = top.ability_id else {
+            return Err(RulesError::IllegalAction(
+                "hand-recycle effect is valid only on a triggered ability",
+            ));
+        };
+        let cards = self.players[top.controller.0].hand.clone();
+        if cards.is_empty() {
+            return Ok(false);
+        }
+        let count = u8::try_from(cards.len()).map_err(|_| {
+            RulesError::IllegalAction("hand-recycle candidates exceed decision range")
+        })?;
+        self.open_pending_decision(
+            top.controller,
+            DecisionVisibility::Private,
+            DecisionKind::HandToLibraryBottomDraw,
+            count,
+            count,
+            cards.iter().copied().map(DecisionOption::Object).collect(),
+            DecisionContinuation::HandToLibraryBottomDraw {
+                source: top.card,
+                source_incarnation: top.source_incarnation,
+                cards,
+            },
+        )?;
+        debug_assert!(!ability.is_empty());
+        Ok(true)
+    }
+
     /// Opens a generic private top-library partition decision for a resolving
     /// spell. It deliberately uses the shared id-bearing decision state, not
     /// an effect-specific pending marker, and writes only safe metadata to the
@@ -22243,8 +22408,10 @@ impl Game {
                 .into_iter()
                 .flat_map(|abilities| abilities.values())
                 .filter(|ability| {
-                    (ability.condition == TriggerCondition::CastsNoncreatureSpell
-                        && source_controller == caster)
+                    (matches!(
+                        ability.condition,
+                        TriggerCondition::CastsNoncreatureSpell | TriggerCondition::CastsSpell
+                    ) && source_controller == caster)
                         || (ability.condition
                             == TriggerCondition::FirstNoncreatureSpellCastEachTurn
                             && is_first_noncreature_spell_this_turn)
@@ -22252,11 +22419,21 @@ impl Game {
                 .cloned()
                 .collect::<Vec<_>>();
             for ability in triggers {
-                if ability.targets != [TargetRequirement::NoncreatureSpell] {
-                    return Err(RulesError::IllegalAction(
-                        "a noncreature-spell cast trigger must retain one spell target",
-                    ));
-                }
+                let payload = if ability.condition == TriggerCondition::CastsSpell {
+                    if !ability.targets.is_empty() {
+                        return Err(RulesError::IllegalAction(
+                            "controller-casts-spell trigger must be target-free",
+                        ));
+                    }
+                    TriggerEventPayload::None
+                } else {
+                    if ability.targets != [TargetRequirement::NoncreatureSpell] {
+                        return Err(RulesError::IllegalAction(
+                            "a noncreature-spell cast trigger must retain one spell target",
+                        ));
+                    }
+                    TriggerEventPayload::ExactTargets(vec![Target::Spell(spell)])
+                };
                 if ability.condition == TriggerCondition::FirstNoncreatureSpellCastEachTurn
                     && !first_turn_provenance_recorded
                 {
@@ -22274,7 +22451,7 @@ impl Game {
                         source_colors: source_colors.clone(),
                         controller: source_controller,
                         ability,
-                        payload: TriggerEventPayload::ExactTargets(vec![Target::Spell(spell)]),
+                        payload,
                     });
             }
         }
@@ -22306,7 +22483,12 @@ impl Game {
                     .get(definition)
                     .into_iter()
                     .flat_map(|abilities| abilities.values())
-                    .filter(|ability| ability.condition == TriggerCondition::CastsCreatureSpell)
+                    .filter(|ability| {
+                        matches!(
+                            ability.condition,
+                            TriggerCondition::CastsCreatureSpell | TriggerCondition::CastsSpell
+                        )
+                    })
                     .cloned()
                     .collect::<Vec<_>>();
                 for ability in triggers {
@@ -27548,6 +27730,14 @@ impl Game {
                     "library reorder effect bypassed its public decision boundary",
                 ));
             }
+            Effect::PutControllerHandOnLibraryBottomThenDrawSameCount => {
+                if !self.players[controller.0].hand.is_empty() {
+                    return Err(RulesError::IllegalAction(
+                        "hand-recycle effect bypassed its private decision boundary",
+                    ));
+                }
+                // An empty snapshot is a legal same-count no-op.
+            }
             Effect::AttachSourceAndModifyTargetPt { .. } | Effect::AttachSourceToTarget { .. } => {
                 return Err(RulesError::IllegalAction(
                     "aura attachment bypassed permanent-spell resolution",
@@ -31964,6 +32154,19 @@ impl Game {
                 "materialized creature-cast return effect escaped onto a triggered binding",
             ));
         }
+        if ability
+            .effects
+            .contains(&Effect::PutControllerHandOnLibraryBottomThenDrawSameCount)
+            && (ability.condition != TriggerCondition::CastsSpell
+                || ability.optional
+                || !ability.targets.is_empty()
+                || ability.effects.as_slice()
+                    != [Effect::PutControllerHandOnLibraryBottomThenDrawSameCount])
+        {
+            return Err(RulesError::IllegalAction(
+                "hand-recycle effect requires one mandatory target-free controller-casts-spell trigger",
+            ));
+        }
         let has_exiled_spell_copy_marker = ability
             .effects
             .contains(&Effect::ExileCastInstantOrSorceryThenCopyExiledCards);
@@ -32959,6 +33162,99 @@ impl Game {
             if !closes_before_boundary {
                 return Err(RulesError::IllegalAction(
                     "library top-to-bottom receipt lacks a stack resolution before priority advances",
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// Audits the exact private hand-snapshot recycle sequence. The hand
+    /// order itself remains private, but one public commit receipt must be
+    /// immediately preceded by the matching private decision completion and
+    /// followed by exactly one ordinary library move per captured card before
+    /// any resulting draws and the source ability's terminal receipt.
+    fn validate_hand_recycle_event_order(&self) -> Result<(), RulesError> {
+        for (index, event) in self.event_log.iter().enumerate() {
+            let GameEvent::HandPutOnLibraryBottomThenDrawn {
+                player,
+                source,
+                source_incarnation,
+                cards,
+            } = event
+            else {
+                continue;
+            };
+            if *cards == 0
+                || source.0 == 0
+                || *source_incarnation == 0
+                || self.players.get(player.0).is_none()
+                || !matches!(
+                    index.checked_sub(1).and_then(|prior| self.event_log.get(prior)),
+                    Some(GameEvent::DecisionCompleted {
+                        player: decision_player,
+                        kind: DecisionKind::HandToLibraryBottomDraw,
+                        ..
+                    }) if decision_player == player
+                )
+            {
+                return Err(RulesError::IllegalAction(
+                    "hand-recycle receipt lacks its private decision completion provenance",
+                ));
+            }
+            let mut cursor = index + 1;
+            let mut moved = BTreeSet::new();
+            for _ in 0..*cards {
+                let Some(GameEvent::CardMoved {
+                    card,
+                    to: Zone::Library,
+                }) = self.event_log.get(cursor)
+                else {
+                    return Err(RulesError::IllegalAction(
+                        "hand-recycle receipt lacks an ordered hand-to-library movement",
+                    ));
+                };
+                if !moved.insert(*card)
+                    || !matches!(
+                        self.event_log.get(cursor + 1),
+                        Some(GameEvent::ObjectIncarnationAdvanced { object, .. }) if object == card
+                    )
+                {
+                    return Err(RulesError::IllegalAction(
+                        "hand-recycle library movement lacks unique incarnation provenance",
+                    ));
+                }
+                cursor += 2;
+            }
+            let mut draws = 0_u8;
+            while draws < *cards {
+                let Some(GameEvent::CardMoved {
+                    card,
+                    to: Zone::Hand,
+                }) = self.event_log.get(cursor)
+                else {
+                    break;
+                };
+                if !matches!(
+                    self.event_log.get(cursor + 1),
+                    Some(GameEvent::ObjectIncarnationAdvanced { object, .. }) if object == card
+                ) {
+                    return Err(RulesError::IllegalAction(
+                        "hand-recycle draw movement lacks incarnation provenance",
+                    ));
+                }
+                draws += 1;
+                cursor += 2;
+            }
+            if !matches!(
+                self.event_log.get(cursor),
+                Some(GameEvent::AbilityResolved {
+                    source: resolved_source,
+                    source_incarnation: resolved_incarnation,
+                    ..
+                }) if resolved_source == source && resolved_incarnation == source_incarnation
+            ) {
+                return Err(RulesError::IllegalAction(
+                    "hand-recycle receipt lacks its source ability terminal event",
                 ));
             }
         }
@@ -38284,6 +38580,48 @@ impl Game {
                 {
                     return Err(RulesError::IllegalAction(
                         "library reorder decision escaped its revealed-card boundary",
+                    ));
+                }
+            }
+            DecisionContinuation::HandToLibraryBottomDraw {
+                source,
+                source_incarnation,
+                cards,
+            } => {
+                let top = self.stack.last().ok_or(RulesError::IllegalAction(
+                    "hand-recycle decision escaped its stack ability",
+                ))?;
+                let expected_count = u8::try_from(cards.len()).map_err(|_| {
+                    RulesError::IllegalAction("hand-recycle candidates exceed decision range")
+                })?;
+                if cards.is_empty()
+                    || decision.kind != DecisionKind::HandToLibraryBottomDraw
+                    || decision.visibility != DecisionVisibility::Private
+                    || top.card != *source
+                    || top.source_incarnation != *source_incarnation
+                    || top.controller != decision.player
+                    || top.ability_id.is_none()
+                    || top.effects.as_slice()
+                        != [Effect::PutControllerHandOnLibraryBottomThenDrawSameCount]
+                    || self.players[decision.player.0].hand != *cards
+                    || cards.iter().enumerate().any(|(index, card)| {
+                        cards[index + 1..].contains(card)
+                            || self.zone_of(*card) != Some(Zone::Hand)
+                            || self
+                                .object(*card)
+                                .map_or(true, |object| object.owner != decision.player)
+                    })
+                    || decision.options
+                        != cards
+                            .iter()
+                            .copied()
+                            .map(DecisionOption::Object)
+                            .collect::<Vec<_>>()
+                    || decision.min_selections != expected_count
+                    || decision.max_selections != expected_count
+                {
+                    return Err(RulesError::IllegalAction(
+                        "hand-recycle decision escaped its private hand snapshot boundary",
                     ));
                 }
             }

@@ -46,7 +46,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 275] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 276] = [
     "RAV-CHAR",
     "RAV-AGRUS-KOS-WOJEK-VETERAN",
     "RAV-INSTILL-FUROR",
@@ -199,6 +199,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 275] = [
     "RAV-ORDRUUN-COMMANDO",
     "RAV-INDENTURED-OAF",
     "RAV-MOLTEN-SENTRY",
+    "RAV-MINDMOIL",
     "RAV-EXCRUCIATOR",
     "RAV-LOXODON-HIERARCH",
     "RAV-PHYTOHYDRA",
@@ -5286,6 +5287,29 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
+        // Full fidelity: every controller-cast spell queues one mandatory
+        // source trigger. Resolution snapshots the controller's whole hand,
+        // accepts only a private exhaustive bottom-to-top order, moves that
+        // exact group to library bottom, then draws the same count.
+        CardDefinition {
+            id: "RAV-MINDMOIL",
+            name: "Mindmoil",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(3, [Color::Red, Color::Red]),
+            colors: colors([Color::Red]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Enchantment]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "controller-casts-spell-private-hand-bottom-draw-same-count",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![],
+        },
         // Full-fidelity scope: colored-cost creature casting, base
         // characteristics, Defender, and the three-land activation.
         CardDefinition {
@@ -8899,6 +8923,17 @@ pub fn rav_static_entry_restriction_bindings() -> Vec<StaticEntryRestrictionBind
 #[allow(clippy::too_many_lines)] // Keep the declarative trigger registry centralized for audit review.
 pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
     vec![
+        TriggeredAbilityBinding {
+            card_definition: "RAV-MINDMOIL",
+            ability: TriggeredAbility {
+                id: "controller-casts-spell-hand-bottom-draw-same-count",
+                condition: TriggerCondition::CastsSpell,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![Effect::PutControllerHandOnLibraryBottomThenDrawSameCount],
+            },
+        },
         TriggeredAbilityBinding {
             card_definition: "RAV-EYE-OF-THE-STORM",
             ability: TriggeredAbility {
