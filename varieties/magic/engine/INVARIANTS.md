@@ -2735,7 +2735,10 @@ Oracle Magic rules coverage.
   rather than being recreated from the new graveyard object. The deterministic
   library-search compatibility path shares that exact capture pipeline for
   `Battlefield` and `BattlefieldTapped` results; it may not silently skip a
-  selected permanent's self or controller-scoped entry observation. For creature deaths selected
+  selected permanent's self or controller-scoped entry observation. The
+  deterministic multi-card search branch shares the same pipeline for every
+  selected battlefield result, before batch-result, shuffle, terminal, and
+  post-resolution SBA receipts. For creature deaths selected
   in one pass, regeneration shields are consumed first, then the remaining
   death set receives one shared last-known-information observer snapshot
   before its members take their individual graveyard/token-departure
