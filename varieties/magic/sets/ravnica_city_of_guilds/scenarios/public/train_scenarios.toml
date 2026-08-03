@@ -11879,7 +11879,7 @@ digest = "fnv1a64:8fc482bac4ac136e"
 [[scenario]]
 id = "rav_blood_funnel_cast_trigger"
 seed = 157
-description = "Blood Funnel reduces a noncreature spell's generic cost, then its stacked trigger sacrifices a controlled creature before that spell resolves. The deterministic fixture selection is documented as a policy boundary."
+description = "Blood Funnel reduces a noncreature spell's generic cost, then its stacked trigger requires its controller to submit the controlled creature sacrificed before that spell resolves."
 triggers = true
 
 [[scenario.card]]
@@ -11926,6 +11926,13 @@ kind = "pass"
 player = 1
 
 [[scenario.action]]
+kind = "choose_trigger_effect_object"
+player = 0
+card = "funnel"
+ability = "cast-sacrifice-or-counter"
+found = "fodder"
+
+[[scenario.action]]
 kind = "pass"
 player = 0
 
@@ -11947,8 +11954,8 @@ stack_size = 0
 priority = 0
 mana = ["0:green:0"]
 token_count = 2
-event_markers = ["SpellCast", "TriggeredAbilityStacked", "SacrificedByEffect", "ContinuousEffectCreated", "AuraAttached", "AbilityResolved", "TokenCreated", "SpellResolved"]
-digest = "fnv1a64:db8b56a6f958d5ac"
+event_markers = ["PolicyMoveSubmitted", "SpellCast", "TriggeredAbilityStacked", "DecisionOpened", "DecisionCompleted", "SacrificedByEffect", "ContinuousEffectCreated", "AuraAttached", "AbilityResolved", "TokenCreated", "SpellResolved"]
+digest = "fnv1a64:dd3e099704f4ad88"
 
 [[scenario]]
 id = "rav_clinging_darkness_persistent_attachment"
