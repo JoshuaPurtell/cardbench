@@ -49,7 +49,7 @@ a zone move. The fetched Aura's ordinary ETB trigger is queued only after the
 Mage trigger's terminal receipt. The opponent sees neither unselected Aura
 identities nor a private decision projection.
 
-The current catalog partition is 263 full / 6 partial / 22 catalog-only unique
+The current catalog partition is 264 full / 6 partial / 21 catalog-only unique
 names (278 / 6 / 22 printings). The independently checked coverage-report
 binary emits the same partition.
 
