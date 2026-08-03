@@ -2119,6 +2119,11 @@ Oracle Magic rules coverage.
   Each applied replacement is recorded in order, and the stack-only source
   emits only `SpellCopyResolved` after the complete prospective event is
   committed; no virtual identity may enter a physical terminal zone.
+- A virtual copied damage spell suspended for an affected player's
+  replacement order retains its stack provenance through the selected shield
+  and any forced follow-up replacements. After authoritative prevention and
+  damage receipts commit, the source emits exactly one `SpellCopyResolved`;
+  it cannot emit `SpellResolved` or move the virtual source to a physical zone.
 - A virtual copy of an activated ability applies its submitted retarget to
   the captured lower ability before committing that ability's effect. The
   target-change receipt and all resulting zone/other effects precede exactly
