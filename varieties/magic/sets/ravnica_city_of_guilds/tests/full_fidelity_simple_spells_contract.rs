@@ -119,6 +119,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-SELESNYA-GUILDMAGE",
             "RAV-GOLGARI-GUILDMAGE",
             "RAV-DIMIR-GUILDMAGE",
+            "RAV-DIMIR-CUTPURSE",
             "RAV-DIMIR-HOUSE-GUARD",
             "RAV-DIMIR-MACHINATIONS",
             "RAV-PERPLEX",

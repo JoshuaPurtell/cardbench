@@ -73,14 +73,14 @@ fn executable_slice_size_is_explicit_and_does_not_masquerade_as_set_coverage() {
         .collect::<std::collections::BTreeSet<_>>();
 
     // Twenty executable basic-land printings collapse to five names. The
-    // two hundred and sixty-three executable nonbasic names include the positive
+    // two hundred and sixty-four executable nonbasic names include the positive
     // full-fidelity manifest entries; all others remain deliberately bounded
     // compatibility slices. The full-fidelity Clinging Darkness and
     // Moldervine Cloak entries use the bounded static-modifier Aura substrate;
     // regeneration remains independently capability-gated.
-    assert_eq!(executable_printings, 284);
-    assert_eq!(executable_names.len(), 269);
-    assert_eq!(catalog_only_names.len(), 22);
+    assert_eq!(executable_printings, 285);
+    assert_eq!(executable_names.len(), 270);
+    assert_eq!(catalog_only_names.len(), 21);
     assert!(executable_names.is_disjoint(&catalog_only_names));
 }
 
@@ -145,5 +145,13 @@ fn bloodletter_quill_resolves_to_its_full_counter_definition() {
     assert_eq!(
         executable_definition_id_for_collector(254),
         Ok("RAV-BLOODLETTER-QUILL")
+    );
+}
+
+#[test]
+fn dimir_cutpurse_resolves_to_its_full_combat_player_trigger_definition() {
+    assert_eq!(
+        executable_definition_id_for_collector(201),
+        Ok("RAV-DIMIR-CUTPURSE")
     );
 }

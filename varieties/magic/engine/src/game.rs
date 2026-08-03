@@ -759,6 +759,10 @@ enum TriggerEventPayload {
         permanent: ObjectId,
         incarnation: u64,
     },
+    /// The exact player who actually received the combat-damage packet. This
+    /// is not a target and remains meaningful even if the source changes
+    /// zones before its triggered ability resolves.
+    CombatDamagePlayer(PlayerId),
     /// A nonartifact permanent entered under the observing source's
     /// controller. The snapshot keeps this event distinct from a later
     /// incarnation of the same stable object id and never asks a departed
@@ -1774,6 +1778,7 @@ impl Game {
                         | TriggerCondition::LifeGained
                         | TriggerCondition::DealsDamage
                         | TriggerCondition::DealsCombatDamageToCreature
+                        | TriggerCondition::DealsCombatDamageToPlayer
                         | TriggerCondition::ReceivesDamage
                         | TriggerCondition::Dies
                         | TriggerCondition::AnotherCreatureLeavesBattlefield
@@ -8272,6 +8277,7 @@ impl Game {
                 controller,
                 ability,
                 recipient,
+                targeted,
                 count,
                 hand_snapshot,
             } => {
@@ -8285,6 +8291,7 @@ impl Game {
                     controller,
                     ability,
                     recipient,
+                    targeted,
                     count,
                     &hand_snapshot,
                     selected,
@@ -9484,10 +9491,10 @@ impl Game {
         self.finish_resolved_decision_stack_item(&top)
     }
 
-    /// Suspends one exact targeted-discard stack item so its target, never
-    /// the resolving controller, privately chooses the cards to discard.
-    /// This is shared by spells and activated abilities with a typed
-    /// `DiscardTargetPlayer` instruction at their current resolution cursor.
+    /// Suspends one exact recipient-bound discard stack item so its recipient,
+    /// never the resolving controller, privately chooses the cards to discard.
+    /// This serves ordinary targeted discard and event-captured combat-damage
+    /// player discard without treating the latter as a target.
     fn suspend_top_stack_item_for_target_player_private_discard_choice(
         &mut self,
     ) -> Result<bool, RulesError> {
@@ -9504,31 +9511,44 @@ impl Game {
         };
         let effect_index = self.stack_effect_cursor(&top)?;
         let target_offset = Self::effect_target_offset(&top.effects, effect_index);
-        let (Some(Effect::DiscardTargetPlayer { count }), Some(Target::Player(recipient))) = (
-            top.effects.get(effect_index),
-            top.targets.get(target_offset).copied(),
-        ) else {
-            return Ok(false);
+        let (recipient, count, targeted) = match top.effects.get(effect_index) {
+            Some(Effect::DiscardTargetPlayer { count }) => {
+                let Some(Target::Player(recipient)) = top.targets.get(target_offset).copied()
+                else {
+                    return Ok(false);
+                };
+                // Let the ordinary all-targets-illegal resolution path counter
+                // an illegal target; a hidden hand decision must never open
+                // for it.
+                if !self.stack_target_incarnation_matches(
+                    &top,
+                    target_offset,
+                    Target::Player(recipient),
+                ) || !self.target_matches_for_colors(
+                    top.controller,
+                    Target::Player(recipient),
+                    TargetRequirement::Player,
+                    &top.source_colors,
+                ) {
+                    return Ok(false);
+                }
+                (recipient, *count, true)
+            }
+            Some(Effect::DiscardCapturedPlayer { player, count }) => {
+                if self.player(*player)?.lost {
+                    return Ok(false);
+                }
+                (*player, *count, false)
+            }
+            _ => return Ok(false),
         };
-        if *count == 0 {
+        if count == 0 {
             return Err(RulesError::IllegalAction(
-                "targeted private discard must request at least one card",
+                "recipient-private discard must request at least one card",
             ));
         }
-        // Let the ordinary all-targets-illegal resolution path counter an
-        // illegal target; a hidden hand decision must never open for it.
-        if !self.stack_target_incarnation_matches(&top, target_offset, Target::Player(recipient))
-            || !self.target_matches_for_colors(
-                top.controller,
-                Target::Player(recipient),
-                TargetRequirement::Player,
-                &top.source_colors,
-            )
-        {
-            return Ok(false);
-        }
         let hand_snapshot = self.recipient_hand_snapshot(recipient)?;
-        let required = usize::from(*count).min(hand_snapshot.len());
+        let required = usize::from(count).min(hand_snapshot.len());
         if required == 0 {
             // No legal object choice exists. The ordinary resolver records
             // the same no-discard terminal transition without manufacturing
@@ -9556,7 +9576,8 @@ impl Game {
                 controller: top.controller,
                 ability: top.ability_id,
                 recipient,
-                count: *count,
+                targeted,
+                count,
                 hand_snapshot,
             },
         )?;
@@ -9577,6 +9598,7 @@ impl Game {
         controller: PlayerId,
         ability: Option<&'static str>,
         recipient: PlayerId,
+        targeted: bool,
         count: u8,
         hand_snapshot: &[HandCardSnapshot],
         selected: Vec<ObjectId>,
@@ -9613,19 +9635,31 @@ impl Game {
             || top.controller != controller
             || top.ability_id != ability
             || self.stack_effect_cursor(&top)? != effect_index
-            || top.effects.get(effect_index) != Some(&Effect::DiscardTargetPlayer { count })
-            || top.targets.get(target_offset) != Some(&Target::Player(recipient))
-            || !self.stack_target_incarnation_matches(
-                &top,
-                target_offset,
-                Target::Player(recipient),
-            )
-            || !self.target_matches_for_colors(
-                controller,
-                Target::Player(recipient),
-                TargetRequirement::Player,
-                &top.source_colors,
-            )
+            || !match (targeted, top.effects.get(effect_index)) {
+                (true, Some(Effect::DiscardTargetPlayer { count: actual })) => {
+                    *actual == count
+                        && top.targets.get(target_offset) == Some(&Target::Player(recipient))
+                        && self.stack_target_incarnation_matches(
+                            &top,
+                            target_offset,
+                            Target::Player(recipient),
+                        )
+                        && self.target_matches_for_colors(
+                            controller,
+                            Target::Player(recipient),
+                            TargetRequirement::Player,
+                            &top.source_colors,
+                        )
+                }
+                (
+                    false,
+                    Some(Effect::DiscardCapturedPlayer {
+                        player,
+                        count: actual,
+                    }),
+                ) => *player == recipient && *actual == count && !self.player(recipient)?.lost,
+                _ => false,
+            }
             || current_snapshot != hand_snapshot
             || selected.len() != required
             || selected
@@ -13485,6 +13519,7 @@ impl Game {
                             | TriggerCondition::LifeGained
                             | TriggerCondition::DealsDamage
                             | TriggerCondition::DealsCombatDamageToCreature
+                            | TriggerCondition::DealsCombatDamageToPlayer
                             | TriggerCondition::ReceivesDamage
                             | TriggerCondition::Dies
                             | TriggerCondition::AnotherCreatureLeavesBattlefield
@@ -13977,6 +14012,23 @@ impl Game {
                                 }]
                             ) if creature.0 > 0 && *incarnation > 0
                         )
+                    } else if trigger_condition
+                        == Some(TriggerCondition::DealsCombatDamageToPlayer)
+                    {
+                        effects.len() == stack_object.effects.len()
+                            && effects.iter().zip(&stack_object.effects).all(
+                                |(bound, actual)| {
+                                    matches!(
+                                        (bound, actual),
+                                        (
+                                            Effect::DiscardCombatDamagePlayer { count },
+                                            Effect::DiscardCapturedPlayer { player, count: actual_count }
+                                        ) if *count > 0
+                                            && *actual_count == *count
+                                            && player.0 < self.players.len()
+                                    ) || bound == actual
+                                },
+                            )
                     } else if trigger_condition
                         == Some(TriggerCondition::ControlledNonartifactPermanentEntersBattlefield)
                     {
@@ -16590,6 +16642,14 @@ impl Game {
                     "targeted discard must request at least one card",
                 ));
             }
+            if matches!(
+                effect,
+                Effect::DiscardCombatDamagePlayer { .. } | Effect::DiscardCapturedPlayer { .. }
+            ) {
+                return Err(RulesError::IllegalAction(
+                    "combat-damage player discard effects are valid only on matching triggered abilities",
+                ));
+            }
             if matches!(effect, Effect::DrawTargetPlayerCards { count: 0 }) {
                 return Err(RulesError::IllegalAction(
                     "target-player draw count must be positive",
@@ -16688,6 +16748,8 @@ impl Game {
                 | Effect::LoseLifeEachOpponentEqualToControlledCreatures
                 | Effect::DiscardOneCardEachPlayer
                 | Effect::DiscardTargetPlayer { .. }
+                | Effect::DiscardCombatDamagePlayer { .. }
+                | Effect::DiscardCapturedPlayer { .. }
                 | Effect::TargetPlayerSacrificesCreatureThenControllerDrawsEqualToPower
                 | Effect::SacrificeControllerCreature
                 | Effect::SacrificeUpkeepPlayerCreature
@@ -20438,6 +20500,7 @@ impl Game {
                 | TriggerEventPayload::DamageAmount(_)
                 | TriggerEventPayload::DamageAmountAndSourceController { .. }
                 | TriggerEventPayload::CombatDamageRecipient { .. }
+                | TriggerEventPayload::CombatDamagePlayer(_)
                 | TriggerEventPayload::EnteredPermanent { .. }
                 | TriggerEventPayload::ConvokeContributors(_)
                 | TriggerEventPayload::UpkeepPlayer(_)
@@ -20595,6 +20658,13 @@ impl Game {
                 ) => Effect::DestroyCapturedCreature {
                     creature: *permanent,
                     incarnation: *incarnation,
+                },
+                (
+                    Effect::DiscardCombatDamagePlayer { count },
+                    TriggerEventPayload::CombatDamagePlayer(player),
+                ) => Effect::DiscardCapturedPlayer {
+                    player: *player,
+                    count,
                 },
                 (
                     Effect::ReturnAnotherControlledPermanentSharingEnteredCardTypes,
@@ -21791,6 +21861,47 @@ impl Game {
                         permanent: recipient,
                         incarnation: recipient_incarnation,
                     },
+                });
+        }
+        Ok(())
+    }
+
+    /// Captures triggers whose condition is combat damage actually reaching a
+    /// player. The player is event provenance, not a policy-selected target:
+    /// prevention and replacement must therefore be observed from the final
+    /// damage receipt before this function is called.
+    fn enqueue_combat_damage_to_player_triggers(
+        &mut self,
+        source: ObjectId,
+        recipient: PlayerId,
+    ) -> Result<(), RulesError> {
+        if self.zone_of(source) != Some(Zone::Battlefield)
+            || self.object(source)?.token.is_some()
+            || self.player(recipient)?.lost
+        {
+            return Ok(());
+        }
+        let definition = self.card_definition(source)?.id;
+        let controller = self.controller_of(source)?;
+        let source_incarnation = self.object(source)?.incarnation;
+        let source_colors = self.characteristics(source)?.colors;
+        let triggers = self
+            .triggered_abilities
+            .get(definition)
+            .into_iter()
+            .flat_map(|abilities| abilities.values())
+            .filter(|ability| ability.condition == TriggerCondition::DealsCombatDamageToPlayer)
+            .cloned()
+            .collect::<Vec<_>>();
+        for ability in triggers {
+            self.pending_trigger_events
+                .push(PendingTriggeredAbilityEvent {
+                    source,
+                    source_incarnation,
+                    source_colors: source_colors.clone(),
+                    controller,
+                    ability,
+                    payload: TriggerEventPayload::CombatDamagePlayer(recipient),
                 });
         }
         Ok(())
@@ -23405,7 +23516,23 @@ impl Game {
             });
             return Ok(());
         }
-        self.deal_damage_to_player(source, player, amount)
+        let event_start = self.event_log.len();
+        self.deal_damage_to_player(source, player, amount)?;
+        let recipients = self.event_log[event_start..]
+            .iter()
+            .filter_map(|event| match event {
+                GameEvent::DamageDealtToPlayer {
+                    source: event_source,
+                    player: recipient,
+                    amount: event_amount,
+                } if *event_source == source && *event_amount > 0 => Some(*recipient),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        for recipient in recipients {
+            self.enqueue_combat_damage_to_player_triggers(source, recipient)?;
+        }
+        Ok(())
     }
 
     /// Lists every represented replacement for one prospective combat-damage
@@ -24242,6 +24369,26 @@ impl Game {
                         self.record_event(GameEvent::CardDiscarded { player, card });
                         self.move_to_zone(card, Zone::Graveyard)?;
                     }
+                }
+            }
+            Effect::DiscardCombatDamagePlayer { .. } => {
+                return Err(RulesError::IllegalAction(
+                    "combat-damage player discard marker escaped trigger materialization",
+                ));
+            }
+            Effect::DiscardCapturedPlayer { player, count } => {
+                if self.player(*player)?.lost {
+                    return Ok(());
+                }
+                if !self.players[player.0].hand.is_empty() {
+                    return Err(RulesError::IllegalAction(
+                        "captured private discard bypassed its recipient-owned decision boundary",
+                    ));
+                }
+                if *count == 0 {
+                    return Err(RulesError::IllegalAction(
+                        "captured private discard must request at least one card",
+                    ));
                 }
             }
             Effect::TargetPlayerSacrificesCreatureThenControllerDrawsEqualToPower => {
@@ -28884,6 +29031,31 @@ impl Game {
         {
             return Err(RulesError::IllegalAction(
                 "combat-damage provenance destruction has the wrong trigger condition",
+            ));
+        }
+        let has_combat_player_discard = ability
+            .effects
+            .iter()
+            .any(|effect| matches!(effect, Effect::DiscardCombatDamagePlayer { .. }));
+        if has_combat_player_discard
+            && (ability.condition != TriggerCondition::DealsCombatDamageToPlayer
+                || !ability.targets.is_empty()
+                || ability
+                    .effects
+                    .iter()
+                    .any(|effect| matches!(effect, Effect::DiscardCombatDamagePlayer { count: 0 })))
+        {
+            return Err(RulesError::IllegalAction(
+                "combat-damage player discard requires a positive target-free player-combat trigger",
+            ));
+        }
+        if ability
+            .effects
+            .iter()
+            .any(|effect| matches!(effect, Effect::DiscardCapturedPlayer { .. }))
+        {
+            return Err(RulesError::IllegalAction(
+                "materialized combat-damage player discard escaped onto a triggered binding",
             ));
         }
         let has_attacking_color_modifier = ability.effects.iter().any(|effect| {
@@ -35355,6 +35527,7 @@ impl Game {
                 controller,
                 ability,
                 recipient,
+                targeted,
                 count,
                 hand_snapshot,
             } => {
@@ -35390,20 +35563,36 @@ impl Game {
                     || top.controller != *controller
                     || top.ability_id != *ability
                     || self.stack_effect_cursor(top).ok() != Some(*effect_index)
-                    || top.effects.get(*effect_index)
-                        != Some(&Effect::DiscardTargetPlayer { count: *count })
-                    || top.targets.get(target_offset) != Some(&Target::Player(*recipient))
-                    || !self.stack_target_incarnation_matches(
-                        top,
-                        target_offset,
-                        Target::Player(*recipient),
-                    )
-                    || !self.target_matches_for_colors(
-                        *controller,
-                        Target::Player(*recipient),
-                        TargetRequirement::Player,
-                        &top.source_colors,
-                    )
+                    || !match (*targeted, top.effects.get(*effect_index)) {
+                        (true, Some(Effect::DiscardTargetPlayer { count: actual })) => {
+                            *actual == *count
+                                && top.targets.get(target_offset)
+                                    == Some(&Target::Player(*recipient))
+                                && self.stack_target_incarnation_matches(
+                                    top,
+                                    target_offset,
+                                    Target::Player(*recipient),
+                                )
+                                && self.target_matches_for_colors(
+                                    *controller,
+                                    Target::Player(*recipient),
+                                    TargetRequirement::Player,
+                                    &top.source_colors,
+                                )
+                        }
+                        (
+                            false,
+                            Some(Effect::DiscardCapturedPlayer {
+                                player,
+                                count: actual,
+                            }),
+                        ) => {
+                            *player == *recipient
+                                && *actual == *count
+                                && !self.player(*recipient)?.lost
+                        }
+                        _ => false,
+                    }
                     || current_snapshot != *hand_snapshot
                     || decision.options != expected_options
                     || decision.min_selections != required

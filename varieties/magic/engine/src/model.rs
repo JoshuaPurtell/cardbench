@@ -405,6 +405,10 @@ pub enum TriggerCondition {
     /// recipient is captured with its exact battlefield incarnation, so a
     /// later "that creature" instruction is not a free target choice.
     DealsCombatDamageToCreature,
+    /// The source dealt positive combat damage to a player. The actual player
+    /// recipient is captured with the event rather than selected as a target
+    /// while the triggered ability resolves.
+    DealsCombatDamageToPlayer,
     /// The source received positive damage. The source may leave the
     /// battlefield during state-based actions before this trigger is stacked.
     ReceivesDamage,
@@ -1870,6 +1874,20 @@ pub enum Effect {
     DiscardTargetPlayer {
         count: u8,
     },
+    /// A combat-damage-to-player trigger materializes this into
+    /// [`Self::DiscardCapturedPlayer`]. The affected player is supplied by
+    /// the committed combat-damage receipt, so this instruction has no target
+    /// slot and cannot be retargeted while resolving.
+    DiscardCombatDamagePlayer {
+        count: u8,
+    },
+    /// The materialized recipient-private discard instruction for an exact
+    /// combat-damage-to-player event. This is runtime-only; definition-bound
+    /// triggered abilities retain the event-relative marker above.
+    DiscardCapturedPlayer {
+        player: PlayerId,
+        count: u8,
+    },
     /// The targeted player selects one creature they control to sacrifice as
     /// this spell resolves. The selected object's current positive power is
     /// captured before its zone move, then the resolving spell's controller
@@ -2946,6 +2964,8 @@ impl Effect {
             | Self::LoseLifeControllerForCountersOnSource { .. }
             | Self::LoseLifeEachOpponentEqualToControlledCreatures
             | Self::DiscardOneCardEachPlayer
+            | Self::DiscardCombatDamagePlayer { .. }
+            | Self::DiscardCapturedPlayer { .. }
             | Self::SacrificeControllerCreature
             | Self::SacrificeUpkeepPlayerCreature
             | Self::SacrificeCapturedPlayerCreature { .. }
@@ -4276,8 +4296,10 @@ pub enum DecisionContinuation {
         source: ObjectId,
         recipient: PlayerId,
     },
-    /// Resumes one exact targeted discard instruction after its recipient
-    /// privately selects the required current-hand cards. The snapshot
+    /// Resumes one exact recipient-bound discard instruction after its
+    /// recipient privately selects the required current-hand cards. The
+    /// `targeted` marker distinguishes an ordinary targeted instruction from
+    /// a player captured by a combat-damage trigger. The snapshot
     /// includes object incarnations so a card that left and re-entered hand
     /// cannot satisfy a stale answer merely by retaining its stable id.
     TargetPlayerPrivateDiscard {
@@ -4292,6 +4314,7 @@ pub enum DecisionContinuation {
         controller: PlayerId,
         ability: Option<&'static str>,
         recipient: PlayerId,
+        targeted: bool,
         count: u8,
         hand_snapshot: Vec<HandCardSnapshot>,
     },

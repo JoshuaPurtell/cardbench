@@ -44,7 +44,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 263] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 264] = [
     "RAV-CHAR",
     "RAV-AGRUS-KOS-WOJEK-VETERAN",
     "RAV-GALVANIC-ARC",
@@ -151,6 +151,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 263] = [
     "RAV-SELESNYA-GUILDMAGE",
     "RAV-GOLGARI-GUILDMAGE",
     "RAV-DIMIR-GUILDMAGE",
+    "RAV-DIMIR-CUTPURSE",
     "RAV-DIMIR-HOUSE-GUARD",
     "RAV-DIMIR-MACHINATIONS",
     "RAV-PERPLEX",
@@ -4780,6 +4781,30 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
+        // Full fidelity: a positive combat-damage receipt to a player queues
+        // a source-owned trigger. That event captures its player recipient,
+        // who makes the private discard selection before the controller's
+        // later draw instruction resumes from the same stack object.
+        CardDefinition {
+            id: "RAV-DIMIR-CUTPURSE",
+            name: "Dimir Cutpurse",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(1, [Color::Blue, Color::Black]),
+            colors: colors([Color::Blue, Color::Black]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "combat-player-trigger-private-discard-then-draw",
+            ],
+            power: Some(2),
+            toughness: Some(2),
+            keywords: vec![],
+            effects: vec![],
+        },
         // Full fidelity: a player-targeted stack activation pays generic two
         // and taps this hybrid creature, then suspends for the controller's
         // private, explicit may-choice over the exact current top card of the
@@ -8503,6 +8528,20 @@ pub fn rav_static_entry_restriction_bindings() -> Vec<StaticEntryRestrictionBind
 #[allow(clippy::too_many_lines)] // Keep the declarative trigger registry centralized for audit review.
 pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
     vec![
+        TriggeredAbilityBinding {
+            card_definition: "RAV-DIMIR-CUTPURSE",
+            ability: TriggeredAbility {
+                id: "combat-player-discard-then-controller-draw",
+                condition: TriggerCondition::DealsCombatDamageToPlayer,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![
+                    Effect::DiscardCombatDamagePlayer { count: 1 },
+                    Effect::DrawController,
+                ],
+            },
+        },
         TriggeredAbilityBinding {
             card_definition: "RAV-HALCYON-GLAZE",
             ability: TriggeredAbility {
