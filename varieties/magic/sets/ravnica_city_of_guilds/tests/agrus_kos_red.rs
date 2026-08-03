@@ -18,7 +18,10 @@ fn agrus_kos_requires_its_attack_triggered_color_specific_combat_modifiers() {
         definition.mana_cost,
         ManaCost::with_colors(3, [Color::Red, Color::White])
     );
-    assert_eq!(definition.colors, BTreeSet::from([Color::Red, Color::White]));
+    assert_eq!(
+        definition.colors,
+        BTreeSet::from([Color::Red, Color::White])
+    );
     assert_eq!(definition.card_types, BTreeSet::from([CardType::Creature]));
     assert_eq!((definition.power, definition.toughness), (Some(3), Some(3)));
     assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&definition.id));
@@ -27,5 +30,4 @@ fn agrus_kos_requires_its_attack_triggered_color_specific_combat_modifiers() {
             .supported_rules
             .contains(&"attack-triggered-color-specific-combat-modifiers")
     );
-
 }
