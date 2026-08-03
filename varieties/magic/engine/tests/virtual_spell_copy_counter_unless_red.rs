@@ -46,7 +46,9 @@ fn resolve_top(game: &mut Game) -> Result<(), cardbench_magic_engine::RulesError
     game.pass_priority(second)
 }
 
-fn game_with_counter_unless_at_virtual_copy() -> (Game, ObjectId, ObjectId, PlayerId) {
+fn game_with_counter_unless_at_virtual_copy(
+    counter_effect: Effect,
+) -> (Game, ObjectId, ObjectId, PlayerId) {
     let caster = PlayerId(0);
     let copy_controller = PlayerId(1);
     let mut game = Game::new(
@@ -64,12 +66,7 @@ fn game_with_counter_unless_at_virtual_copy() -> (Game, ObjectId, ObjectId, Play
                     may_choose_new_targets: false,
                 }],
             ),
-            definition(
-                COUNTER,
-                vec![Effect::CounterTargetSpellUnlessControllerPays {
-                    mana_cost: ManaCost::new(1),
-                }],
-            ),
+            definition(COUNTER, vec![counter_effect]),
         ],
         2,
     )
@@ -119,7 +116,9 @@ fn game_with_counter_unless_at_virtual_copy() -> (Game, ObjectId, ObjectId, Play
 #[test]
 fn counter_unless_pays_opens_its_choice_for_a_virtual_copy_controller() {
     let (game, _counter, _virtual_copy, copy_controller) =
-        game_with_counter_unless_at_virtual_copy();
+        game_with_counter_unless_at_virtual_copy(Effect::CounterTargetSpellUnlessControllerPays {
+            mana_cost: ManaCost::new(1),
+        });
     let decision = game
         .view_for_player(copy_controller)
         .expect("virtual copy controller view")
@@ -135,7 +134,9 @@ fn counter_unless_pays_opens_its_choice_for_a_virtual_copy_controller() {
 #[test]
 fn counter_unless_decline_counters_a_virtual_copy_without_zone_move() {
     let (mut game, counter, virtual_copy, copy_controller) =
-        game_with_counter_unless_at_virtual_copy();
+        game_with_counter_unless_at_virtual_copy(Effect::CounterTargetSpellUnlessControllerPays {
+            mana_cost: ManaCost::new(1),
+        });
     let decision = game
         .view_for_player(copy_controller)
         .expect("virtual copy controller view")
@@ -167,4 +168,40 @@ fn counter_unless_decline_counters_a_virtual_copy_without_zone_move() {
     )));
     game.validate_invariants()
         .expect("counter-unless virtual-copy terminal lifecycle remains auditable");
+}
+
+#[test]
+fn counter_unless_discard_decline_counters_a_virtual_copy_without_zone_move() {
+    let (mut game, counter, virtual_copy, copy_controller) =
+        game_with_counter_unless_at_virtual_copy(
+            Effect::CounterTargetSpellUnlessControllerDiscardsHand,
+        );
+    let decision = game
+        .view_for_player(copy_controller)
+        .expect("virtual copy controller view")
+        .pending_decision
+        .expect("virtual copy controller receives discard-hand choice");
+    assert_eq!(decision.kind, DecisionKind::CounterUnlessDiscardsHand);
+    let result = game.submit_decision(
+        copy_controller,
+        decision.id,
+        DecisionSelection::CounterUnlessDiscardsHand { discard: false },
+    );
+    eprintln!(
+        "virtual discard counter-unless trace: result={result:?}; events={:?}",
+        game.canonical_event_log()
+    );
+    assert!(
+        result.is_ok(),
+        "declining discard counters the virtual copy"
+    );
+    assert_eq!(game.zone_of(virtual_copy), None, "copy remains zoneless");
+    assert_eq!(game.zone_of(counter), Some(Zone::Graveyard));
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::SpellCopyCountered { copy, source, .. }
+            if *copy == virtual_copy && *source == counter
+    )));
+    game.validate_invariants()
+        .expect("discard counter-unless virtual-copy lifecycle remains auditable");
 }
