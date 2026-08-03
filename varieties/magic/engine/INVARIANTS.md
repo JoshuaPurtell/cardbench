@@ -27,6 +27,15 @@ Oracle Magic rules coverage.
   boundary for token/counter quantity replacements. A rejected batch cannot
   retain a multiplier that a later valid registration then observes as a
   duplicate.
+- Direct fixture primitives that mutate effects or attachments
+  (`copy_permanent`, `add_continuous_effect`, and
+  `enter_attachment_without_cast`) may construct a pregame fixture, and may
+  remain available while the active player has priority in an existing
+  compatibility fixture. Once a started game has passed priority to another
+  player, each rejects atomically: it creates no layer, zone, attachment, or
+  copy receipt and preserves the exact priority/state snapshot. Rules-owned
+  copies, attachments, and continuous effects use their private resolving
+  paths rather than this external fixture boundary.
 - A cast first places every represented cast trigger using APNAP. If that
   placement opens a mandatory trigger-order or trigger-target decision, the
   decision player remains the priority holder until the no-priority decision
