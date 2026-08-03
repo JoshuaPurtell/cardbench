@@ -1,14 +1,14 @@
 //! Red-to-green contract for Strands of Undeath's entry and granted ability.
 
 use cardbench_magic_engine::{
-    AbilityActivation, CardType, CastRequest, Color, Effect, Game, GameEvent, ManaCost, PlayerId,
-    PolicyAction, Step, Target, TargetRequirement, TriggerCondition, Zone,
+    AbilityActivation, CardType, CastRequest, Color, DecisionSelection, Effect, Game, GameEvent,
+    ManaCost, PlayerId, PolicyAction, Step, Target, TargetRequirement, TriggerCondition, Zone,
 };
 use cardbench_magic_rav::{
-    card_definitions, rav_activated_ability_bindings, rav_additional_spell_cost_bindings,
-    rav_attachment_bindings, rav_attachment_triggered_ability_bindings,
-    rav_basic_land_type_bindings, rav_mana_ability_bindings, rav_triggered_ability_bindings,
-    RAV_FULL_FIDELITY_DEFINITION_IDS,
+    RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, rav_activated_ability_bindings,
+    rav_additional_spell_cost_bindings, rav_attachment_bindings,
+    rav_attachment_triggered_ability_bindings, rav_basic_land_type_bindings,
+    rav_mana_ability_bindings, rav_triggered_ability_bindings,
 };
 
 fn rav_game() -> Game {
@@ -150,6 +150,17 @@ fn strands_of_undeath_discards_on_entry_then_grants_regeneration_to_its_exact_cr
     )
     .expect("controller chooses the opponent");
     pass_pair(&mut game);
+    let discard_choice = game
+        .view_for_player(opponent)
+        .expect("discarding player's private view")
+        .pending_decision
+        .expect("targeted discard exposes the recipient's private card choice");
+    game.submit_decision(
+        opponent,
+        discard_choice.id,
+        DecisionSelection::Objects(vec![discarded]),
+    )
+    .expect("recipient selects the exact hand card to discard");
 
     assert_eq!(game.zone_of(discarded), Some(Zone::Graveyard));
     game.activate_ability(

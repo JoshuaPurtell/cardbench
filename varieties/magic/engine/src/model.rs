@@ -379,6 +379,11 @@ pub enum TriggerCondition {
     /// eligible; the resulting abilities are put on the stack before either
     /// player receives that upkeep's first priority.
     BeginningOfUpkeep,
+    /// The upkeep began for this card's owner while the exact source card is
+    /// in that owner's graveyard. The source retains its graveyard
+    /// incarnation and its owner controls the trigger, so a card returned or
+    /// moved before resolution cannot be mistaken for a later incarnation.
+    BeginningOfOwnersUpkeepWhileInGraveyard,
     /// An upkeep began for a player other than the source's controller. This
     /// remains distinct from [`Self::BeginningOfUpkeep`] because a permanent
     /// controlled by a nonactive player must be able to trigger before that
@@ -2819,6 +2824,11 @@ pub enum Effect {
     /// Return one targeted creature card from the resolving controller's
     /// graveyard to its owner's hand.
     ReturnTargetCreatureCardToHand,
+    /// Return one targeted creature card from any public graveyard to its
+    /// owner's hand. The target requirement deliberately remains
+    /// owner-independent so an attached trigger can select a visible card
+    /// from either player's graveyard.
+    ReturnTargetCreatureCardFromGraveyardToOwnersHand,
     /// Return a targeted enchantment card from the resolving source
     /// controller's graveyard to that player's hand.
     ReturnTargetEnchantmentCardToHand,
@@ -2913,6 +2923,11 @@ pub enum Effect {
     /// placement and resolution without treating the target as a hidden-zone
     /// free choice.
     ReturnTargetCreatureCardToHandIfAnotherInControllerGraveyard,
+    /// Return the exact source card from its owner's graveyard to the
+    /// battlefield. This effect also declares the nonbattlefield activation
+    /// boundary: only an owner may activate a definition-bound ability made
+    /// solely of this effect while its source is in that graveyard.
+    ReturnSourceFromOwnersGraveyardToBattlefield,
     /// Return a targeted creature card from the resolving controller's
     /// graveyard to the battlefield. When the named color appears in the
     /// immutable spell-payment receipt, the returned permanent receives one
@@ -3187,7 +3202,8 @@ impl Effect {
             | Self::PutTargetCreatureCardInControllerGraveyardOnOwnersLibraryTop => {
                 Some(TargetRequirement::CreatureCardInControllerGraveyard)
             }
-            Self::ExileTargetCreatureCardFromGraveyardAndCopySourceRetainingAbility { .. } => {
+            Self::ReturnTargetCreatureCardFromGraveyardToOwnersHand
+            | Self::ExileTargetCreatureCardFromGraveyardAndCopySourceRetainingAbility { .. } => {
                 Some(TargetRequirement::CreatureCardInGraveyard)
             }
             Self::ReturnControlledLandToHand => Some(TargetRequirement::ControlledLand),
@@ -3291,6 +3307,7 @@ impl Effect {
             | Self::ExileUpToTargetGraveyardCards { .. }
             | Self::PutTopCardOfControllerLibraryOnBottom
             | Self::ReturnSourceToOwnersHand
+            | Self::ReturnSourceFromOwnersGraveyardToBattlefield
             | Self::MoveSourceToOwnersLibraryAndShuffle
             | Self::ModifySourcePtUntilEndOfTurn { .. }
             | Self::AnimateSourceIntoCreatureUntilEndOfTurn { .. }

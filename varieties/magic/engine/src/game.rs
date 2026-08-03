@@ -2097,6 +2097,7 @@ impl Game {
                         | TriggerCondition::LandEntersBattlefield
                         | TriggerCondition::ControlledLandEntersBattlefield
                         | TriggerCondition::BeginningOfUpkeep
+                        | TriggerCondition::BeginningOfOwnersUpkeepWhileInGraveyard
                         | TriggerCondition::BeginningOfOpponentsUpkeep
                         | TriggerCondition::BeginningOfAnyUpkeep
                         | TriggerCondition::BeginningOfAttachedCreaturesControllerUpkeep
@@ -3665,18 +3666,10 @@ impl Game {
         mana_payment_selection: Option<&ManaPaymentSelection>,
         generalized_cost_payment: &AbilityCostPayment,
     ) -> Result<(), RulesError> {
-        self.require_zone(activation.source, Zone::Battlefield)?;
+        let source_zone = self
+            .zone_of(activation.source)
+            .ok_or(RulesError::UnknownCard(activation.source))?;
         let source = self.object(activation.source)?.clone();
-        if self.controller_of(activation.source)? != player {
-            return Err(RulesError::IllegalAction(
-                "activated ability source must be controlled by its activator",
-            ));
-        }
-        if self.nonmana_activated_abilities_suppressed(activation.source) {
-            return Err(RulesError::IllegalAction(
-                "this permanent's nonmana activated abilities are suppressed",
-            ));
-        }
         let source_definition_id =
             self.effective_definition_id(activation.source)?
                 .ok_or(RulesError::IllegalAction(
@@ -3685,43 +3678,89 @@ impl Game {
         let direct_ability = self
             .activated_ability_for_definition(source_definition_id, activation.ability_id)
             .map(|ability| (source_definition_id, ability.clone()));
-        let retained_ability = if direct_ability.is_some() {
-            None
-        } else {
-            source
-                .retained_activated_abilities
-                .iter()
-                .find_map(|retained| {
-                    (retained.ability == activation.ability_id)
-                        .then(|| {
-                            self.activated_ability_for_definition(
-                                retained.definition,
-                                activation.ability_id,
-                            )
-                            .map(|ability| (retained.definition, ability.clone()))
+        let (definition_id, ability) = match source_zone {
+            Zone::Battlefield => {
+                if self.controller_of(activation.source)? != player {
+                    return Err(RulesError::IllegalAction(
+                        "activated ability source must be controlled by its activator",
+                    ));
+                }
+                if self.nonmana_activated_abilities_suppressed(activation.source) {
+                    return Err(RulesError::IllegalAction(
+                        "this permanent's nonmana activated abilities are suppressed",
+                    ));
+                }
+                let retained_ability = if direct_ability.is_some() {
+                    None
+                } else {
+                    source
+                        .retained_activated_abilities
+                        .iter()
+                        .find_map(|retained| {
+                            (retained.ability == activation.ability_id)
+                                .then(|| {
+                                    self.activated_ability_for_definition(
+                                        retained.definition,
+                                        activation.ability_id,
+                                    )
+                                    .map(|ability| (retained.definition, ability.clone()))
+                                })
+                                .flatten()
                         })
-                        .flatten()
-                })
+                };
+                let attached_ability = if direct_ability.is_some() || retained_ability.is_some() {
+                    None
+                } else {
+                    self.attached_granted_activated_ability(
+                        activation.source,
+                        activation.ability_id,
+                    )?
+                };
+                let continuous_ability = if direct_ability.is_some()
+                    || retained_ability.is_some()
+                    || attached_ability.is_some()
+                {
+                    None
+                } else {
+                    self.continuous_granted_activated_ability(
+                        activation.source,
+                        activation.ability_id,
+                    )?
+                };
+                direct_ability
+                    .or(retained_ability)
+                    .or(attached_ability)
+                    .or(continuous_ability)
+                    .ok_or(RulesError::IllegalAction(
+                        "source does not have the requested activated ability",
+                    ))?
+            }
+            Zone::Graveyard => {
+                if source.owner != player {
+                    return Err(RulesError::IllegalAction(
+                        "a graveyard activated ability may be activated only by its source owner",
+                    ));
+                }
+                let Some((definition, ability)) = direct_ability else {
+                    return Err(RulesError::IllegalAction(
+                        "source does not have the requested activated ability",
+                    ));
+                };
+                if ability.effects.as_slice()
+                    != [Effect::ReturnSourceFromOwnersGraveyardToBattlefield]
+                {
+                    return Err(RulesError::IllegalAction(
+                        "this activated ability is not available from the graveyard",
+                    ));
+                }
+                (definition, ability)
+            }
+            _ => {
+                return Err(RulesError::IllegalAction(
+                    "activated ability source must be on the battlefield or in its owner's graveyard",
+                ));
+            }
         };
-        let attached_ability = if direct_ability.is_some() || retained_ability.is_some() {
-            None
-        } else {
-            self.attached_granted_activated_ability(activation.source, activation.ability_id)?
-        };
-        let continuous_ability =
-            if direct_ability.is_some() || retained_ability.is_some() || attached_ability.is_some()
-            {
-                None
-            } else {
-                self.continuous_granted_activated_ability(activation.source, activation.ability_id)?
-            };
-        let (definition_id, ability) = direct_ability
-            .or(retained_ability)
-            .or(attached_ability)
-            .or(continuous_ability)
-            .ok_or(RulesError::IllegalAction(
-                "source does not have the requested activated ability",
-            ))?;
         if ability
             .effects
             .iter()
@@ -16179,6 +16218,7 @@ impl Game {
                             | TriggerCondition::LandEntersBattlefield
                             | TriggerCondition::ControlledLandEntersBattlefield
                             | TriggerCondition::BeginningOfUpkeep
+                            | TriggerCondition::BeginningOfOwnersUpkeepWhileInGraveyard
                             | TriggerCondition::BeginningOfOpponentsUpkeep
                             | TriggerCondition::BeginningOfAnyUpkeep
                             | TriggerCondition::BeginningOfAttachedCreaturesControllerUpkeep
@@ -16814,7 +16854,11 @@ impl Game {
                                     creature_incarnation,
                                 }]
                             ) => creature.0 > 0 && *creature_incarnation > 0,
-                            _ => false,
+                            // Most attached combat triggers retain their
+                            // ordinary effect shape. Only the two legacy
+                            // payload-derived instructions above require a
+                            // materialized stack representation.
+                            _ => effects.as_slice() == stack_object.effects.as_slice(),
                         }
                     } else if trigger_condition
                         == Some(TriggerCondition::ControlledNonartifactPermanentEntersBattlefield)
@@ -19946,6 +19990,7 @@ impl Game {
                 | Effect::ReturnTargetEnchantmentToOwnersHand
                 | Effect::ReturnTargetCardToHand
                 | Effect::ReturnTargetCreatureCardToHand
+                | Effect::ReturnTargetCreatureCardFromGraveyardToOwnersHand
                 | Effect::ReturnTargetEnchantmentCardToHand
                 | Effect::ReturnTargetCreatureCardToHandIfAnotherInControllerGraveyard
                 | Effect::ReturnTargetCreatureCardToBattlefieldWithCounterIfManaColorSpent {
@@ -19979,6 +20024,7 @@ impl Game {
                 | Effect::ExileUpToTargetGraveyardCards { .. }
                 | Effect::PutTopCardOfControllerLibraryOnBottom
                 | Effect::ReturnSourceToOwnersHand
+                | Effect::ReturnSourceFromOwnersGraveyardToBattlefield
                 | Effect::MoveSourceToOwnersLibraryAndShuffle
                 | Effect::ModifyControllerCreaturesPtUntilEndOfTurn { .. }
                 | Effect::ModifyAttackingCreaturesOfColorUntilEndOfTurn { .. }
@@ -25042,11 +25088,11 @@ impl Game {
         self.consecutive_passes = 0;
     }
 
-    /// Stacks each battlefield permanent whose registered upkeep condition
-    /// matches the active player. This runs after the public `StepBegan`
-    /// receipt and before either player receives priority, which preserves
-    /// both controller-upkeep and opponent-upkeep trigger windows at the
-    /// state-machine boundary.
+    /// Stacks each battlefield permanent and owner-graveyard card whose
+    /// registered upkeep condition matches the active player. This runs after
+    /// the public `StepBegan` receipt and before either player receives
+    /// priority, which preserves both ordinary controller-upkeep and
+    /// owner-graveyard trigger windows at the state-machine boundary.
     fn enqueue_upkeep_triggers(&mut self) -> Result<(), RulesError> {
         let active_player = self.active_player;
         let sources = self.all_battlefield_cards().into_iter().collect::<Vec<_>>();
@@ -25109,6 +25155,51 @@ impl Game {
                         controller: source_controller,
                         ability,
                         payload,
+                    });
+            }
+        }
+        // Cards in graveyards have no battlefield controller. Their owner is
+        // both the upkeep predicate and the trigger controller, and their
+        // exact graveyard incarnation is captured before target selection or
+        // stack placement can permit an intervening zone change.
+        let graveyard_sources = self
+            .players
+            .iter()
+            .flat_map(|player| player.graveyard.iter().copied())
+            .collect::<Vec<_>>();
+        for source in graveyard_sources {
+            if self.zone_of(source) != Some(Zone::Graveyard) {
+                continue;
+            }
+            let source_object = self.object(source)?;
+            let owner = source_object.owner;
+            if owner != active_player {
+                continue;
+            }
+            let source_incarnation = source_object.incarnation;
+            let source_colors = self.characteristics(source)?.colors;
+            let Some(definition) = self.effective_definition_id(source)? else {
+                continue;
+            };
+            let triggers = self
+                .triggered_abilities
+                .get(definition)
+                .into_iter()
+                .flat_map(|abilities| abilities.values())
+                .filter(|ability| {
+                    ability.condition == TriggerCondition::BeginningOfOwnersUpkeepWhileInGraveyard
+                })
+                .cloned()
+                .collect::<Vec<_>>();
+            for ability in triggers {
+                self.pending_trigger_events
+                    .push(PendingTriggeredAbilityEvent {
+                        source,
+                        source_incarnation,
+                        source_colors: source_colors.clone(),
+                        controller: owner,
+                        ability,
+                        payload: TriggerEventPayload::UpkeepPlayer(active_player),
                     });
             }
         }
@@ -31355,6 +31446,16 @@ impl Game {
                 }
                 self.move_to_zone(target, Zone::Hand)?;
             }
+            Effect::ReturnTargetCreatureCardFromGraveyardToOwnersHand => {
+                let target = Self::target_permanent(target)?;
+                if !self.target_matches(
+                    Target::Permanent(target),
+                    TargetRequirement::CreatureCardInGraveyard,
+                ) {
+                    return Err(RulesError::IllegalTarget(Target::Permanent(target)));
+                }
+                self.move_to_zone(target, Zone::Hand)?;
+            }
             Effect::ReturnTargetEnchantmentCardToHand => {
                 let target = Self::target_permanent(target)?;
                 if !self.target_matches_for_controller(
@@ -31700,6 +31801,17 @@ impl Game {
                     && self.object_has_incarnation(source, source_incarnation)
                 {
                     self.move_to_zone(source, Zone::Hand)?;
+                }
+            }
+            Effect::ReturnSourceFromOwnersGraveyardToBattlefield => {
+                // The activation records the source's exact graveyard
+                // incarnation. A response may move it elsewhere, in which
+                // case this instruction cannot return a later incarnation
+                // that happens to share the same physical object id.
+                if self.zone_of(source) == Some(Zone::Graveyard)
+                    && self.object_has_incarnation(source, source_incarnation)
+                {
+                    self.move_to_zone(source, Zone::Battlefield)?;
                 }
             }
             Effect::MoveSourceToOwnersLibraryAndShuffle => {
@@ -34653,6 +34765,18 @@ impl Game {
         {
             return Err(RulesError::IllegalAction(
                 "combat-damage provenance destruction requires a triggered ability",
+            ));
+        }
+        if ability
+            .effects
+            .contains(&Effect::ReturnSourceFromOwnersGraveyardToBattlefield)
+            && (ability.effects.as_slice()
+                != [Effect::ReturnSourceFromOwnersGraveyardToBattlefield]
+                || ability.tap_cost
+                || ability.sacrifice_source)
+        {
+            return Err(RulesError::IllegalAction(
+                "a graveyard-source return activation must be one untapped, nonsacrificing source-return effect",
             ));
         }
         if ability.effects.iter().any(|effect| {

@@ -5,10 +5,10 @@ use cardbench_magic_engine::{
     TriggerCondition, Zone,
 };
 use cardbench_magic_rav::{
-    card_definitions, rav_activated_ability_bindings, rav_additional_spell_cost_bindings,
-    rav_attachment_bindings, rav_attachment_triggered_ability_bindings,
-    rav_basic_land_type_bindings, rav_mana_ability_bindings, rav_triggered_ability_bindings,
-    RAV_FULL_FIDELITY_DEFINITION_IDS,
+    RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, rav_activated_ability_bindings,
+    rav_additional_spell_cost_bindings, rav_attachment_bindings,
+    rav_attachment_triggered_ability_bindings, rav_basic_land_type_bindings,
+    rav_mana_ability_bindings, rav_triggered_ability_bindings,
 };
 
 fn rav_game() -> Game {
@@ -83,7 +83,7 @@ fn necromantic_thirst_is_manifested_with_its_public_graveyard_combat_trigger() {
         trigger.ability.condition,
         TriggerCondition::AttachedCreatureDealsCombatDamageToPlayer
     );
-    assert!(!trigger.ability.optional);
+    assert!(trigger.ability.optional);
     assert_eq!(
         trigger.ability.targets,
         [TargetRequirement::CreatureCardInGraveyard]
@@ -127,10 +127,12 @@ fn necromantic_thirst_stacks_a_targeted_public_graveyard_return_after_its_creatu
         choice.ability,
         "attached-combat-damage-return-creature-card-to-owner-hand"
     );
-    assert!(choice
-        .target_options
-        .first()
-        .is_some_and(|targets| targets.contains(&Target::Permanent(returned))));
+    assert!(
+        choice
+            .target_options
+            .first()
+            .is_some_and(|targets| targets.contains(&Target::Permanent(returned)))
+    );
     game.submit_policy_move(
         controller,
         "test.necromantic-thirst-public-graveyard-target.v1",
@@ -143,6 +145,23 @@ fn necromantic_thirst_stacks_a_targeted_public_graveyard_return_after_its_creatu
     )
     .expect("controller selects the public creature card");
     pass_pair(&mut game);
+    let optional_choice = game
+        .view_for_player(controller)
+        .expect("controller view")
+        .optional_triggered_ability_choice
+        .expect("selected combat trigger reaches its optional resolution choice");
+    game.submit_policy_move(
+        controller,
+        "test.necromantic-thirst-accept-return.v1",
+        PolicyAction::ResolveOptionalTriggeredAbility {
+            decision: optional_choice.decision,
+            source: thirst,
+            ability: "attached-combat-damage-return-creature-card-to-owner-hand",
+            pay: true,
+            target: None,
+        },
+    )
+    .expect("controller accepts the selected public graveyard return");
 
     assert_eq!(game.zone_of(returned), Some(Zone::Hand));
     assert!(game.event_log.iter().any(|event| matches!(

@@ -46,7 +46,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 288] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 291] = [
     "RAV-CHAR",
     "RAV-AGRUS-KOS-WOJEK-VETERAN",
     "RAV-INSTILL-FUROR",
@@ -271,6 +271,9 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 288] = [
     "RAV-FISTS-OF-IRONWOOD",
     "RAV-CLINGING-DARKNESS",
     "RAV-COPY-ENCHANTMENT",
+    "RAV-NECROMANTIC-THIRST",
+    "RAV-STRANDS-OF-UNDEATH",
+    "RAV-FIREMANE-ANGEL",
     "RAV-URSAPINE",
     "RAV-TRANSLUMINANT",
     "RAV-INFECTIOUS-HOST",
@@ -1582,10 +1585,9 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
-        // Compatibility scope: the exact Aura attachment persists on its
-        // creature target, but its combat-damage graveyard-return trigger is
-        // intentionally omitted until attached-source trigger selection is
-        // represented.
+        // Full fidelity: the Aura keeps its ordinary attachment endpoint,
+        // then uses the shared attached-combat trigger and public graveyard
+        // target choice to return the selected creature card to its owner.
         CardDefinition {
             id: "RAV-NECROMANTIC-THIRST",
             name: "Necromantic Thirst",
@@ -1596,8 +1598,9 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             card_types: types([CardType::Enchantment]),
             is_basic_land: false,
             supported_rules: &[
-                "aura-static-attachment-only",
-                "combat-damage-trigger-not-implemented",
+                "full-rules-fidelity",
+                "aura-attach-and-static-pt",
+                "attached-combat-damage-public-graveyard-creature-return",
             ],
             power: None,
             toughness: None,
@@ -1607,9 +1610,9 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 toughness: 0,
             }],
         },
-        // Compatibility scope: the exact Aura attachment persists on its
-        // creature target. Its ETB targeted discard and enchanted-creature
-        // regeneration activation remain deliberately unsupported.
+        // Full fidelity: entry uses an ordinary target-player trigger, while
+        // the linked Aura binding grants its exact enchanted creature a
+        // stack-backed regeneration activation.
         CardDefinition {
             id: "RAV-STRANDS-OF-UNDEATH",
             name: "Strands of Undeath",
@@ -1620,8 +1623,10 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             card_types: types([CardType::Enchantment]),
             is_basic_land: false,
             supported_rules: &[
-                "aura-static-attachment-only",
-                "etb-discard-and-enchanted-regeneration-not-implemented",
+                "full-rules-fidelity",
+                "aura-attach-and-static-pt",
+                "etb-target-player-discard",
+                "attached-creature-granted-regeneration-activation",
             ],
             power: None,
             toughness: None,
@@ -6636,10 +6641,9 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             ],
             effects: vec![],
         },
-        // Compatibility scope: exact colored casting, base characteristics,
-        // Flying, and First Strike. Firemane Angel's source-zone-aware upkeep
-        // trigger and graveyard return activation remain unrepresented until
-        // the public engine exposes those zone-aware choices.
+        // Full fidelity: both its live-permanent and owner-graveyard upkeep
+        // lifegain triggers share the normal stack lifecycle. The return
+        // activation retains the source's exact graveyard incarnation.
         CardDefinition {
             id: "RAV-FIREMANE-ANGEL",
             name: "Firemane Angel",
@@ -6650,10 +6654,13 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             card_types: types([CardType::Creature]),
             is_basic_land: false,
             supported_rules: &[
+                "full-rules-fidelity",
                 "colored-cost-casting",
                 "base-characteristics",
                 "flying",
                 "first-strike",
+                "battlefield-and-owner-graveyard-upkeep-life-gain",
+                "owner-graveyard-return-activation",
             ],
             power: Some(4),
             toughness: Some(3),
@@ -7328,6 +7335,25 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 discard_cards: 0,
                 targets: vec![],
                 effects: vec![Effect::EachPlayerDrawsThenDiscardsOneCard],
+            },
+        },
+        ActivatedAbilityBinding {
+            card_definition: "RAV-FIREMANE-ANGEL",
+            ability: ActivatedAbility {
+                id: "owner-graveyard-return-to-battlefield",
+                mana_cost: ManaCost::with_colors(
+                    6,
+                    [Color::Red, Color::Red, Color::White, Color::White],
+                ),
+                tap_cost: false,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![],
+                effects: vec![Effect::ReturnSourceFromOwnersGraveyardToBattlefield],
             },
         },
         ActivatedAbilityBinding {
@@ -9070,6 +9096,38 @@ pub fn rav_attachment_bindings() -> Vec<AttachmentBinding> {
             granted_activated_abilities: vec![],
         },
         AttachmentBinding {
+            card_definition: "RAV-NECROMANTIC-THIRST",
+            kind: AttachmentKind::Aura,
+            target: TargetRequirement::Creature,
+            changes: vec![ContinuousChange::ModifyPowerToughness {
+                power: 0,
+                toughness: 0,
+            }],
+            granted_activated_abilities: vec![],
+        },
+        AttachmentBinding {
+            card_definition: "RAV-STRANDS-OF-UNDEATH",
+            kind: AttachmentKind::Aura,
+            target: TargetRequirement::Creature,
+            changes: vec![ContinuousChange::ModifyPowerToughness {
+                power: 0,
+                toughness: 0,
+            }],
+            granted_activated_abilities: vec![ActivatedAbility {
+                id: "attached-creature-regeneration",
+                mana_cost: ManaCost::with_colors(0, [Color::Black]),
+                tap_cost: false,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![],
+                effects: vec![Effect::RegenerateSource],
+            }],
+        },
+        AttachmentBinding {
             card_definition: "RAV-GALVANIC-ARC",
             kind: AttachmentKind::Aura,
             target: TargetRequirement::Creature,
@@ -9305,6 +9363,39 @@ pub fn rav_static_entry_restriction_bindings() -> Vec<StaticEntryRestrictionBind
 #[allow(clippy::too_many_lines)] // Keep the declarative trigger registry centralized for audit review.
 pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
     vec![
+        TriggeredAbilityBinding {
+            card_definition: "RAV-FIREMANE-ANGEL",
+            ability: TriggeredAbility {
+                id: "controller-upkeep-gain-one-life",
+                condition: TriggerCondition::BeginningOfUpkeep,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![Effect::GainLifeController { amount: 1 }],
+            },
+        },
+        TriggeredAbilityBinding {
+            card_definition: "RAV-FIREMANE-ANGEL",
+            ability: TriggeredAbility {
+                id: "owner-graveyard-upkeep-gain-one-life",
+                condition: TriggerCondition::BeginningOfOwnersUpkeepWhileInGraveyard,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![Effect::GainLifeController { amount: 1 }],
+            },
+        },
+        TriggeredAbilityBinding {
+            card_definition: "RAV-STRANDS-OF-UNDEATH",
+            ability: TriggeredAbility {
+                id: "etb-target-player-discard",
+                condition: TriggerCondition::EntersBattlefield,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![TargetRequirement::Player],
+                effects: vec![Effect::DiscardTargetPlayer { count: 1 }],
+            },
+        },
         TriggeredAbilityBinding {
             card_definition: "RAV-SAVRA-QUEEN-OF-THE-GOLGARI",
             ability: TriggeredAbility {
@@ -10337,17 +10428,30 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
 /// explicit for full-fidelity games.
 #[must_use]
 pub fn rav_attachment_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
-    vec![TriggeredAbilityBinding {
-        card_definition: "RAV-INSTILL-FUROR",
-        ability: TriggeredAbility {
-            id: "attached-creature-controller-end-step-sacrifice-unless-attacked",
-            condition: TriggerCondition::BeginningOfAttachedCreaturesControllerEndStep,
-            mana_cost: ManaCost::new(0),
-            optional: false,
-            targets: vec![],
-            effects: vec![Effect::SacrificeAttachedCreatureUnlessItAttackedThisTurn],
+    vec![
+        TriggeredAbilityBinding {
+            card_definition: "RAV-NECROMANTIC-THIRST",
+            ability: TriggeredAbility {
+                id: "attached-combat-damage-return-creature-card-to-owner-hand",
+                condition: TriggerCondition::AttachedCreatureDealsCombatDamageToPlayer,
+                mana_cost: ManaCost::new(0),
+                optional: true,
+                targets: vec![TargetRequirement::CreatureCardInGraveyard],
+                effects: vec![Effect::ReturnTargetCreatureCardFromGraveyardToOwnersHand],
+            },
         },
-    }]
+        TriggeredAbilityBinding {
+            card_definition: "RAV-INSTILL-FUROR",
+            ability: TriggeredAbility {
+                id: "attached-creature-controller-end-step-sacrifice-unless-attacked",
+                condition: TriggerCondition::BeginningOfAttachedCreaturesControllerEndStep,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![Effect::SacrificeAttachedCreatureUnlessItAttackedThisTurn],
+            },
+        },
+    ]
 }
 
 /// Typed basic-land type lines for the five RAV basic-land definitions.
