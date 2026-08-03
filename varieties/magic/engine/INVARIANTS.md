@@ -2513,7 +2513,9 @@ Oracle Magic rules coverage.
   leaves-the-battlefield event for other eligible observers, but it is not a
   death and cannot queue the departing token's own `Dies` binding. The event
   audit rejects any later zone or incarnation receipt for a ceased token id in
-  the same canonical log epoch.
+  the same canonical log epoch. An exile-until-end-step instruction recognizes
+  this terminal token path before it constructs its typed linked-exile member:
+  it schedules no delayed action that could later attempt a fabricated return.
 - Every registered legendary card definition, and every legendary token value,
   participates in CR 704.5j according to its current layer-one name. When a
   controller has two or more matching live permanents, the engine has exactly
