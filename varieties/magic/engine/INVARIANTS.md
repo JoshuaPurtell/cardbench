@@ -1712,7 +1712,12 @@ Oracle Magic rules coverage.
   `begin_game` begins a prepared deck game at turn-one Untap, automatically
   reaches Upkeep, and skips only that player's first Draw. Untap and ordinary
   Cleanup are automatic: they are never stable priority-bearing states and a
-  policy action in either is rejected.
+  policy action in either is rejected. The narrow CR 514.3 exception is
+  explicit and invariant-checked: if Cleanup's automatic expiry/SBA work
+  creates a trigger stack item or trigger-placement decision, only that
+  Cleanup state receives priority. After all resulting stack work ends, the
+  engine clears mana and repeats Cleanup once before advancing to Untap; this
+  repeat marker may not escape the Cleanup step.
 - `StepBegan` is emitted before any automatic work in that step (untapping,
   drawing, combat damage, cleanup, state-based actions, or terminal loss).
   At `Upkeep`, every beginning-of-upkeep trigger controlled by the active
