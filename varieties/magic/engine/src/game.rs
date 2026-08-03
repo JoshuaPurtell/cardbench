@@ -293,6 +293,10 @@ pub enum PolicyAction {
     /// This is a no-priority decision made by the affected player while the
     /// original one-effect damage spell remains on the stack.
     ChooseDamageReplacement {
+        /// The exact live generic decision projected through the compatibility
+        /// view. A matching packet shape alone cannot distinguish consecutive
+        /// identical damage instructions from one resolving spell.
+        decision: DecisionId,
         source: ObjectId,
         source_incarnation: u64,
         target: Target,
@@ -572,6 +576,9 @@ pub struct PendingDecisionView {
 /// these identities are already public battlefield/player information.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DamageReplacementChoiceView {
+    /// The exact generic replacement decision represented by this compatibility
+    /// projection. Policies must echo it when submitting the legacy action.
+    pub decision: DecisionId,
     pub source: ObjectId,
     pub source_incarnation: u64,
     pub target: Target,
@@ -4382,6 +4389,7 @@ impl Game {
                     amount,
                     ..
                 } => Some(DamageReplacementChoiceView {
+                    decision: decision.id,
                     source: *source,
                     source_incarnation: *source_incarnation,
                     target: *target,
@@ -4403,6 +4411,7 @@ impl Game {
                     amount,
                     ..
                 } => Some(DamageReplacementChoiceView {
+                    decision: decision.id,
                     source: *source,
                     source_incarnation: *source_incarnation,
                     target: *target,
@@ -4625,6 +4634,7 @@ impl Game {
                 self.choose_triggered_ability_effect_object(player, source, ability, selected)?;
             }
             PolicyAction::ChooseDamageReplacement {
+                decision,
                 source,
                 source_incarnation,
                 target,
@@ -4632,6 +4642,7 @@ impl Game {
             } => {
                 self.choose_damage_replacement(
                     player,
+                    decision,
                     source,
                     source_incarnation,
                     target,
@@ -21548,6 +21559,7 @@ impl Game {
     fn choose_damage_replacement(
         &mut self,
         player: PlayerId,
+        decision_id: DecisionId,
         source: ObjectId,
         source_incarnation: u64,
         target: Target,
@@ -21566,14 +21578,15 @@ impl Game {
                 source_incarnation: pending_incarnation,
                 target: pending_target,
                 ..
-            } if decision.player == player
+            } if decision.id == decision_id
+                && decision.player == player
                 && pending_source == source
                 && pending_incarnation == source_incarnation
                 && pending_target == target
         );
         if !matches_legacy_identity {
             return Err(RulesError::IllegalAction(
-                "submitted damage replacement identity does not match the pending event",
+                "damage replacement action does not match the pending decision id or event",
             ));
         }
         self.submit_decision(

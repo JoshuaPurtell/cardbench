@@ -4,9 +4,9 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardDefinition, CardType, CastRequest, DamageReplacementChoice,
-    DamageReplacementEffect, DamageReplacementEffectBinding, Effect, Game, ManaCost, PlayerId,
-    PolicyAction, Target, TargetRequirement, Zone,
+    CardDefinition, CardType, CastRequest, DamageReplacementChoice, DamageReplacementEffect,
+    DamageReplacementEffectBinding, Effect, Game, ManaCost, PlayerId, PolicyAction, Target,
+    TargetRequirement, Zone,
 };
 
 const DOUBLE_BOLT: &str = "TST-STALE-DAMAGE-REPLACEMENT-DOUBLE-BOLT";
@@ -107,6 +107,7 @@ fn stale_damage_replacement_action_cannot_answer_the_next_identical_packet() {
         .find(|candidate| matches!(candidate, DamageReplacementChoice::HalveDamage { .. }))
         .expect("halving candidate exists");
     let stale_action = PolicyAction::ChooseDamageReplacement {
+        decision: first.decision,
         source: first.source,
         source_incarnation: first.source_incarnation,
         target: first.target,
@@ -124,6 +125,10 @@ fn stale_damage_replacement_action_cannot_answer_the_next_identical_packet() {
     assert_eq!(first.source_incarnation, second.source_incarnation);
     assert_eq!(first.target, second.target);
     assert_eq!(first.amount, second.amount);
+    assert_ne!(
+        first.decision, second.decision,
+        "identical prospective packets are represented by distinct decisions"
+    );
     assert!(
         game.view_for_player(caster)
             .expect("caster view")
@@ -132,7 +137,8 @@ fn stale_damage_replacement_action_cannot_answer_the_next_identical_packet() {
         "the second prompt remains a live generic decision"
     );
 
-    let stale_result = game.submit_policy_move(caster, "stale-damage-replacement-red", stale_action);
+    let stale_result =
+        game.submit_policy_move(caster, "stale-damage-replacement-red", stale_action);
     eprintln!(
         "stale damage-replacement trace: first={first:?}; second={second:?}; \\
          stale_result={stale_result:?}; events={:?}",
@@ -142,6 +148,26 @@ fn stale_damage_replacement_action_cannot_answer_the_next_identical_packet() {
         stale_result.is_err(),
         "a legacy replacement action from the first packet must not answer the second packet"
     );
+    assert_eq!(
+        game.view_for_player(caster)
+            .expect("caster view")
+            .damage_replacement_choice
+            .expect("stale rejection preserves the later decision")
+            .decision,
+        second.decision
+    );
+    game.submit_policy_move(
+        caster,
+        "stale-damage-replacement-red",
+        PolicyAction::ChooseDamageReplacement {
+            decision: second.decision,
+            source: second.source,
+            source_incarnation: second.source_incarnation,
+            target: second.target,
+            replacement,
+        },
+    )
+    .expect("the current decision identity resolves the second packet");
     game.validate_invariants()
         .expect("rejected stale replacement must preserve a valid state");
 }

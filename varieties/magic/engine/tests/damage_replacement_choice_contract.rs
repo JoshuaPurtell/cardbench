@@ -196,6 +196,7 @@ fn choose(
         player,
         "damage-replacement-contract",
         PolicyAction::ChooseDamageReplacement {
+            decision: choice.decision,
             source: choice.source,
             source_incarnation: choice.source_incarnation,
             target: choice.target,
