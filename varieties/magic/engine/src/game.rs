@@ -13028,6 +13028,7 @@ impl Game {
         Self::validate_source_counter_life_loss_event_order(&self.event_log)?;
         self.validate_replacement_effect_events()?;
         self.validate_damage_amount_replacement_events()?;
+        self.validate_self_damage_prevention_counter_replacement_events()?;
         self.validate_combat_damage_mill_counter_replacement_events()?;
         self.validate_global_combat_damage_prevention_event_order()?;
         let automatic_step_stable =
@@ -22330,9 +22331,10 @@ impl Game {
         if amount <= 0 {
             return Ok(Vec::new());
         }
-        let mut candidates = self.damage_amount_replacement_candidates(target, used)?;
         let prevention_allowed =
             !self.damage_cannot_be_prevented_for_incarnation(source, source_incarnation);
+        let mut candidates =
+            self.damage_amount_replacement_candidates(target, prevention_allowed, used)?;
         match target {
             Target::Permanent(permanent) => {
                 candidates.extend(self.attached_damage_redirection_candidates(permanent, used)?);
@@ -22437,29 +22439,42 @@ impl Game {
     fn damage_amount_replacement_candidates(
         &self,
         target: Target,
+        prevention_allowed: bool,
         used: &[DamageReplacementChoice],
     ) -> Result<Vec<DamageReplacementChoice>, RulesError> {
         if !matches!(target, Target::Player(_) | Target::Permanent(_)) {
             return Err(RulesError::IllegalTarget(target));
         }
-        Ok(self
-            .all_battlefield_cards()
-            .into_iter()
-            .filter_map(|source| {
-                let definition = self.effective_definition_id(source).ok()??;
-                self.damage_replacement_effects
-                    .get(definition)
-                    .is_some_and(|effects| effects.contains(&DamageReplacementEffect::HalveDamage))
-                    .then(|| DamageReplacementChoice::HalveDamage {
+        let mut candidates = Vec::new();
+        for source in self.all_battlefield_cards() {
+            let Some(definition) = self.effective_definition_id(source)? else {
+                continue;
+            };
+            let Some(effects) = self.damage_replacement_effects.get(definition) else {
+                continue;
+            };
+            let source_incarnation = self.object(source)?.incarnation;
+            if effects.contains(&DamageReplacementEffect::HalveDamage) {
+                candidates.push(DamageReplacementChoice::HalveDamage {
+                    source,
+                    source_incarnation,
+                });
+            }
+            if prevention_allowed
+                && target == Target::Permanent(source)
+                && effects
+                    .contains(&DamageReplacementEffect::PreventSelfDamageAndAddPlusOneCounters)
+            {
+                candidates.push(
+                    DamageReplacementChoice::PreventSelfDamageAndAddPlusOneCounters {
                         source,
-                        source_incarnation: self
-                            .object(source)
-                            .expect("battlefield source remains an object")
-                            .incarnation,
-                    })
-            })
-            .filter(|choice| !used.contains(choice))
-            .collect())
+                        source_incarnation,
+                    },
+                );
+            }
+        }
+        candidates.retain(|choice| !used.contains(choice));
+        Ok(candidates)
     }
 
     fn affected_player_for_damage_target(&self, target: Target) -> Result<PlayerId, RulesError> {
@@ -22571,6 +22586,54 @@ impl Game {
                     original_amount,
                     replacement_amount: pending.amount,
                 });
+            }
+            DamageReplacementChoice::PreventSelfDamageAndAddPlusOneCounters {
+                source: replacement_source,
+                source_incarnation,
+            } => {
+                if pending.target != Target::Permanent(replacement_source)
+                    || self.zone_of(replacement_source) != Some(Zone::Battlefield)
+                    || self.object(replacement_source)?.incarnation != source_incarnation
+                    || !self
+                        .effective_definition_id(replacement_source)?
+                        .is_some_and(|definition| {
+                            self.damage_replacement_effects
+                                .get(definition)
+                                .is_some_and(|effects| {
+                                    effects.contains(
+                                        &DamageReplacementEffect::PreventSelfDamageAndAddPlusOneCounters,
+                                    )
+                                })
+                        })
+                {
+                    return Err(RulesError::IllegalAction(
+                        "self-damage prevention replacement source disappeared before selection",
+                    ));
+                }
+                let amount = pending.amount;
+                let counter_amount = i16::try_from(amount).map_err(|_| {
+                    RulesError::IllegalAction(
+                        "self-damage prevention replacement amount exceeds counter capacity",
+                    )
+                })?;
+                self.record_event(GameEvent::DamagePreventedWithPlusOneCounters {
+                    source: pending.source,
+                    permanent: replacement_source,
+                    permanent_incarnation: source_incarnation,
+                    amount,
+                });
+                self.record_event(GameEvent::DamagePrevented {
+                    source: pending.source,
+                    target: pending.target,
+                    amount,
+                });
+                self.place_counter(
+                    replacement_source,
+                    replacement_source,
+                    CounterKind::PlusOnePlusOne,
+                    counter_amount,
+                )?;
+                pending.amount = 0;
             }
             DamageReplacementChoice::CombatDamageMillAndCounters { .. } => {
                 return Err(RulesError::IllegalAction(
@@ -23104,9 +23167,9 @@ impl Game {
 
     /// Applies every live source-bound amount replacement once in stable
     /// battlefield order for a direct or combat packet that does not suspend
-    /// at the targeted-spell replacement-decision boundary. Those effects are
-    /// all the same halving operation in this initial substrate, so their
-    /// stable order cannot change the resulting integer quantity.
+    /// at the targeted-spell replacement-decision boundary. This direct
+    /// helper remains deterministic; stack-resolving packets still expose an
+    /// affected-player choice whenever concurrent replacements apply.
     fn apply_automatic_damage_amount_replacements(
         &mut self,
         source: ObjectId,
@@ -23118,8 +23181,10 @@ impl Game {
             return Ok(amount);
         }
         let used = Vec::new();
+        let prevention_allowed =
+            !self.damage_cannot_be_prevented_for_incarnation(source, source_incarnation);
         let Some(first_replacement) = self
-            .damage_amount_replacement_candidates(target, &used)?
+            .damage_amount_replacement_candidates(target, prevention_allowed, &used)?
             .into_iter()
             .next()
         else {
@@ -23143,7 +23208,11 @@ impl Game {
         self.apply_damage_replacement(&mut pending, first_replacement)?;
         while pending.amount > 0 {
             let Some(replacement) = self
-                .damage_amount_replacement_candidates(pending.target, &pending.used)?
+                .damage_amount_replacement_candidates(
+                    pending.target,
+                    prevention_allowed,
+                    &pending.used,
+                )?
                 .into_iter()
                 .next()
             else {
@@ -33064,6 +33133,139 @@ impl Game {
             {
                 return Err(RulesError::IllegalAction(
                     "damage amount replacement receipt does not match a registered source effect",
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// A self-damage prevention replacement is one atomic prospective-packet
+    /// transition: an exact selected live source prevents the packet, emits
+    /// the ordinary prevention receipt, then places matching +1/+1 counters
+    /// before any other material game event. Quantity-replacement receipts
+    /// may appear between those last two records, but they must remain an
+    /// ordinary counter-placement chain for this same permanent.
+    #[allow(clippy::too_many_lines)] // One contiguous receipt audit preserves replacement causality.
+    fn validate_self_damage_prevention_counter_replacement_events(&self) -> Result<(), RulesError> {
+        for (index, event) in self.event_log.iter().enumerate() {
+            let GameEvent::DamagePreventedWithPlusOneCounters {
+                source,
+                permanent,
+                permanent_incarnation,
+                amount,
+            } = event
+            else {
+                continue;
+            };
+            if *permanent_incarnation == 0
+                || *amount <= 0
+                || !matches!(
+                    self.event_log.get(index.checked_sub(1).ok_or(RulesError::IllegalAction(
+                        "self-damage prevention receipt has no preceding selection",
+                    ))?),
+                    Some(GameEvent::DamageReplacementApplied {
+                        target: Target::Permanent(target),
+                        replacement:
+                            DamageReplacementChoice::PreventSelfDamageAndAddPlusOneCounters {
+                                source: replacement_source,
+                                source_incarnation,
+                            },
+                        ..
+                    }) if target == permanent
+                        && replacement_source == permanent
+                        && source_incarnation == permanent_incarnation
+                )
+                || !matches!(
+                    self.event_log.get(index + 1),
+                    Some(GameEvent::DamagePrevented {
+                        source: prevented_source,
+                        target: Target::Permanent(target),
+                        amount: prevented_amount,
+                    }) if prevented_source == source && target == permanent && prevented_amount == amount
+                )
+            {
+                return Err(RulesError::IllegalAction(
+                    "self-damage prevention receipt lacks matching replacement provenance",
+                ));
+            }
+            let definition = self
+                .objects
+                .get(permanent)
+                .and_then(CardObject::effective_definition)
+                .or_else(|| self.departed_card_definitions.get(permanent).copied())
+                .ok_or(RulesError::IllegalAction(
+                    "self-damage prevention receipt source has no catalog definition",
+                ))?;
+            if !self
+                .damage_replacement_effects
+                .get(definition)
+                .is_some_and(|effects| {
+                    effects
+                        .contains(&DamageReplacementEffect::PreventSelfDamageAndAddPlusOneCounters)
+                })
+            {
+                return Err(RulesError::IllegalAction(
+                    "self-damage prevention receipt does not match a registered source effect",
+                ));
+            }
+
+            let following = self
+                .event_log
+                .get(index + 2..)
+                .ok_or(RulesError::IllegalAction(
+                    "self-damage prevention receipt lacks ordinary prevention result",
+                ))?;
+            let Some(counter_index) = following
+                .iter()
+                .position(|candidate| {
+                    matches!(
+                        candidate,
+                        GameEvent::CounterPlaced {
+                            source: counter_source,
+                            card,
+                            counter: CounterKind::PlusOnePlusOne,
+                            ..
+                        } if counter_source == permanent && card == permanent
+                    )
+                })
+                .map(|offset| index + 2 + offset)
+            else {
+                return Err(RulesError::IllegalAction(
+                    "self-damage prevention receipt lacks matching counter placement",
+                ));
+            };
+            if self.event_log[index + 2..counter_index]
+                .iter()
+                .any(|candidate| {
+                    !matches!(
+                        candidate,
+                        GameEvent::ReplacementEffectApplied {
+                            event: ReplacementEventKind::CounterPlacement {
+                                counter: CounterKind::PlusOnePlusOne,
+                            },
+                            ..
+                        } | GameEvent::DecisionOpened {
+                            kind: DecisionKind::Replacement,
+                            ..
+                        } | GameEvent::DecisionCompleted {
+                            kind: DecisionKind::Replacement,
+                            ..
+                        } | GameEvent::PolicyMoveSubmitted {
+                            kind: PolicyMoveKind::SubmitDecision,
+                            ..
+                        }
+                    )
+                })
+                || !matches!(
+                    self.event_log.get(counter_index),
+                    Some(GameEvent::CounterPlaced {
+                        amount: counter_amount,
+                        ..
+                    }) if *counter_amount >= i16::try_from(*amount).unwrap_or(i16::MAX)
+                )
+            {
+                return Err(RulesError::IllegalAction(
+                    "self-damage prevention counter placement has invalid event ordering",
                 ));
             }
         }

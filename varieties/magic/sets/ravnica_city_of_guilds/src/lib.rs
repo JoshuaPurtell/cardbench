@@ -44,7 +44,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 261] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 262] = [
     "RAV-CHAR",
     "RAV-AGRUS-KOS-WOJEK-VETERAN",
     "RAV-GALVANIC-ARC",
@@ -188,6 +188,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 261] = [
     "RAV-INDENTURED-OAF",
     "RAV-EXCRUCIATOR",
     "RAV-LOXODON-HIERARCH",
+    "RAV-PHYTOHYDRA",
     "RAV-COALHAULER-SWINE",
     "RAV-SELL-SWORD-BRUTE",
     "RAV-FRENZIED-GOBLIN",
@@ -3613,6 +3614,30 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             ],
             power: Some(4),
             toughness: Some(4),
+            keywords: vec![],
+            effects: vec![],
+        },
+        // Full fidelity: the source-bound replacement operates on every
+        // prospective packet aimed at this exact live permanent. It prevents
+        // the packet, records the prevention, then places that many +1/+1
+        // counters before ordinary damage commitment or state-based actions.
+        CardDefinition {
+            id: "RAV-PHYTOHYDRA",
+            name: "Phytohydra",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(2, [Color::Green, Color::White, Color::White]),
+            colors: colors([Color::Green, Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "self-damage-prevention-plus-one-counters",
+            ],
+            power: Some(1),
+            toughness: Some(1),
             keywords: vec![],
             effects: vec![],
         },
@@ -9445,6 +9470,10 @@ pub fn rav_damage_replacement_effect_bindings() -> Vec<DamageReplacementEffectBi
         DamageReplacementEffectBinding {
             source_definition: "RAV-GHOSTS-OF-THE-INNOCENT",
             effect: DamageReplacementEffect::HalveDamage,
+        },
+        DamageReplacementEffectBinding {
+            source_definition: "RAV-PHYTOHYDRA",
+            effect: DamageReplacementEffect::PreventSelfDamageAndAddPlusOneCounters,
         },
         DamageReplacementEffectBinding {
             source_definition: "RAV-SZADEK",

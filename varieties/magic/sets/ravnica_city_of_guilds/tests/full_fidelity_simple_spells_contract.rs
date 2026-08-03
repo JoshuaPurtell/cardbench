@@ -156,6 +156,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-INDENTURED-OAF",
             "RAV-EXCRUCIATOR",
             "RAV-LOXODON-HIERARCH",
+            "RAV-PHYTOHYDRA",
             "RAV-COALHAULER-SWINE",
             "RAV-SELL-SWORD-BRUTE",
             "RAV-FRENZIED-GOBLIN",

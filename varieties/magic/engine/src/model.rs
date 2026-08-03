@@ -817,6 +817,10 @@ pub struct ReplacementEffectBinding {
 pub enum DamageReplacementEffect {
     /// Replace positive damage with its integer half, rounded down.
     HalveDamage,
+    /// Prevent positive damage that would be dealt to this exact live source,
+    /// then place that many +1/+1 counters on it. This is prevention, so a
+    /// source with `DamageCannotBePrevented` bypasses it.
+    PreventSelfDamageAndAddPlusOneCounters,
     /// Replace this source's combat damage to a player with milling that
     /// player and placing that many +1/+1 counters on the source. This is a
     /// source-bound combat replacement, not a delayed damage trigger.
@@ -847,6 +851,14 @@ pub enum DamageReplacementChoice {
     /// source incarnation prevents an old permanent from applying again after
     /// it leaves and re-enters the battlefield.
     HalveDamage {
+        source: ObjectId,
+        source_incarnation: u64,
+    },
+    /// Prevent a prospective packet aimed at this exact live permanent and
+    /// place counters on that same incarnation. The source identity is both
+    /// the replacement provider and the protected permanent, so a departed
+    /// or re-entered object cannot receive counters from an old packet.
+    PreventSelfDamageAndAddPlusOneCounters {
         source: ObjectId,
         source_incarnation: u64,
     },
@@ -5598,6 +5610,16 @@ pub enum GameEvent {
         replacement_source_incarnation: u64,
         original_amount: i32,
         replacement_amount: i32,
+    },
+    /// A source-bound replacement prevented one positive damage packet aimed
+    /// at its own permanent and will place that many +1/+1 counters before
+    /// the packet can reach ordinary damage commitment. The following
+    /// `CounterPlaced` receipt owns any quantity-replacement-adjusted total.
+    DamagePreventedWithPlusOneCounters {
+        source: ObjectId,
+        permanent: ObjectId,
+        permanent_incarnation: u64,
+        amount: i32,
     },
     /// A source-bound combat-damage replacement prevented an otherwise
     /// positive player-damage packet and performed its immediate non-damage
