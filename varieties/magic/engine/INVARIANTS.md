@@ -1124,9 +1124,14 @@ Oracle Magic rules coverage.
   a stale target. Empty, nested, ranged, zone-changing, deferred-decision, or
   multi-target members are rejected identically at spell, activated-binding,
   and triggered-binding definition validation; every accepted member must be
-  compatible with the outer creature/land/permanent target hierarchy. The
-  public event log retains ordinary effect receipts but has no synthetic
-  duplicate target identity.
+  compatible with the outer target requirement. The directional implication
+  matrix admits only sound refinements: creature restrictions entail
+  `Creature`/`PlayerOrCreature`/`Permanent`, land restrictions entail
+  `Land`/`Permanent`, artifact/enchantment unions entail `Permanent`, and
+  player restrictions entail `Player`/`PlayerOrCreature`; it never weakens a
+  member's controller, color, zone, or stack restriction. The public event
+  log retains ordinary effect receipts but has no synthetic duplicate target
+  identity.
 - `PutTargetCreatureOnOwnersLibraryTop` accepts only a live creature target
   whose exact incarnation still matches the occurrence captured when its spell
   or triggered ability entered the stack. Its zone transition uses the ordinary
