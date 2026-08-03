@@ -2228,6 +2228,31 @@ impl Game {
             .ok_or(RulesError::UnknownDefinition(definition))
     }
 
+    /// Verifies the private origin graph for one live virtual spell. A copied
+    /// spell is a valid copy target itself, so a graph may contain a chain of
+    /// live virtual copies. It may not loop, self-reference, or disagree on
+    /// the immutable copied definition. A predecessor that has already
+    /// resolved, been countered, or left with its controller has no remaining
+    /// metadata, but the child retains its own self-contained definition.
+    fn virtual_spell_copy_chain_is_valid(&self, copy: ObjectId) -> bool {
+        let mut seen = BTreeSet::new();
+        let mut current = copy;
+        let mut expected_definition = None;
+        while let Some(provenance) = self.virtual_spell_copies.get(&current) {
+            if provenance.original == current || !seen.insert(current) {
+                return false;
+            }
+            if expected_definition
+                .is_some_and(|definition| definition != provenance.original_definition)
+            {
+                return false;
+            }
+            expected_definition = Some(provenance.original_definition);
+            current = provenance.original;
+        }
+        true
+    }
+
     /// Returns the definition currently used by definition-bound rules for an
     /// object.  A layer-one card copy deliberately changes this identity for
     /// characteristics, activated abilities, static bindings, and triggers;
@@ -9991,7 +10016,6 @@ impl Game {
                 "spell-copy target decision lost its original spell",
             ))?;
         if !source_matches
-            || self.virtual_spell_copies.contains_key(&original)
             || original_stack.ability_id.is_some()
             || original_stack.source_incarnation != original_source_incarnation
             || !self.stack_target_incarnation_matches(&source_stack, 0, Target::Spell(original))
@@ -10150,7 +10174,6 @@ impl Game {
     ) -> Result<ObjectId, RulesError> {
         let original_definition = self.card_definition(original.card)?.id;
         if original.ability_id.is_some()
-            || self.virtual_spell_copies.contains_key(&original.card)
             || !self
                 .catalog
                 .get(original_definition)
@@ -10160,7 +10183,7 @@ impl Game {
                 .any(|kind| matches!(kind, CardType::Instant | CardType::Sorcery))
         {
             return Err(RulesError::IllegalAction(
-                "only a physical instant or sorcery spell can be copied in this slice",
+                "only an instant or sorcery spell can be copied in this slice",
             ));
         }
         let copy = ObjectId(self.next_object_id);
@@ -13251,9 +13274,7 @@ impl Game {
                     RulesError::IllegalAction("virtual stack spell lacks copy provenance"),
                 )?;
                 if copy_provenance.original == stack_object.card
-                    || self
-                        .virtual_spell_copies
-                        .contains_key(&copy_provenance.original)
+                    || !self.virtual_spell_copy_chain_is_valid(stack_object.card)
                     || copy_provenance.original_definition != definition.id
                 {
                     return Err(RulesError::IllegalAction(
@@ -30313,9 +30334,21 @@ impl Game {
                     controller,
                     ..
                 } => {
+                    // A physical root spell may predate a measured event-log
+                    // epoch, but a virtual spell has no such independent
+                    // identity.  If the copied original is itself virtual,
+                    // its opening receipt must already be visible and it
+                    // must not have reached a terminal outcome.  This keeps
+                    // copy-of-copy provenance ordered without rejecting a
+                    // valid measured suffix that starts after the physical
+                    // spell was cast.
+                    let virtual_original_is_live = copies
+                        .get(original)
+                        .is_none_or(|(_, _, terminated)| !*terminated);
                     if copy.0 == 0
                         || copy == original
                         || self.player(*controller).is_err()
+                        || !virtual_original_is_live
                         || copies
                             .insert(*copy, (*original, *controller, false))
                             .is_some()
@@ -33714,7 +33747,6 @@ impl Game {
                             may_choose_new_targets: true,
                         }]
                     )
-                    || self.virtual_spell_copies.contains_key(original)
                     || original_stack.ability_id.is_some()
                     || original_stack.source_incarnation != *original_source_incarnation
                     || original_stack.target_count() == 0
