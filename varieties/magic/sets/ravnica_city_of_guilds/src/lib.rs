@@ -44,7 +44,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 248] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 249] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
@@ -178,6 +178,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 248] = [
     "RAV-ORDRUUN-COMMANDO",
     "RAV-INDENTURED-OAF",
     "RAV-EXCRUCIATOR",
+    "RAV-LOXODON-HIERARCH",
     "RAV-COALHAULER-SWINE",
     "RAV-SELL-SWORD-BRUTE",
     "RAV-FRENZIED-GOBLIN",
@@ -3486,9 +3487,9 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Flying],
             effects: vec![],
         },
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Every printed card-specific behavior is
-        // deliberately omitted from this slice.
+        // Full fidelity: the entry trigger gains four life, and the
+        // source-sacrifice activation creates one regeneration shield for
+        // every creature this controller has as the ability resolves.
         CardDefinition {
             id: "RAV-LOXODON-HIERARCH",
             name: "Loxodon Hierarch",
@@ -3498,7 +3499,13 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Creature]),
             is_basic_land: false,
-            supported_rules: &["colored-cost-casting", "base-characteristics"],
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "etb-gain-four-life",
+                "sacrifice-source-regenerate-controller-creatures",
+            ],
             power: Some(4),
             toughness: Some(4),
             keywords: vec![],
@@ -6777,6 +6784,22 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
             },
         },
         ActivatedAbilityBinding {
+            card_definition: "RAV-LOXODON-HIERARCH",
+            ability: ActivatedAbility {
+                id: "sacrifice-source-regenerate-controller-creatures",
+                mana_cost: ManaCost::new(0),
+                tap_cost: false,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: true,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![],
+                effects: vec![Effect::RegenerateControllerCreatures],
+            },
+        },
+        ActivatedAbilityBinding {
             card_definition: "RAV-SEWERDREG",
             ability: ActivatedAbility {
                 id: "self-regeneration",
@@ -8770,6 +8793,17 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                 optional: false,
                 targets: vec![],
                 effects: vec![Effect::GainLifeController { amount: 1 }],
+            },
+        },
+        TriggeredAbilityBinding {
+            card_definition: "RAV-LOXODON-HIERARCH",
+            ability: TriggeredAbility {
+                id: "etb-gain-four-life",
+                condition: TriggerCondition::EntersBattlefield,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![Effect::GainLifeController { amount: 4 }],
             },
         },
         TriggeredAbilityBinding {

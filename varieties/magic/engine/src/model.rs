@@ -2243,6 +2243,11 @@ pub enum Effect {
     /// creature source. This has no target slot and models self-regeneration
     /// activations such as Sewerdreg's.
     RegenerateSource,
+    /// Put one regeneration shield on every creature controlled by the
+    /// resolving spell or ability controller. The target set is sampled at
+    /// resolution, so this remains source-independent after a self-sacrifice
+    /// activation has paid its cost.
+    RegenerateControllerCreatures,
     /// Destroy the targeted land during resolution, sending it through the
     /// normal zone-change and continuous-effect lifecycle.
     DestroyTargetLand,
@@ -2852,6 +2857,7 @@ impl Effect {
             | Self::AddControllerDamageShieldEqualToChosenXUntilEndOfTurn
             | Self::PreventAllCombatDamageUntilEndOfTurn
             | Self::RegenerateSource
+            | Self::RegenerateControllerCreatures
             | Self::UntapSource
             | Self::ModifyControllerCreaturesPtUntilEndOfTurn { .. }
             | Self::AddKeywordToControllerCreaturesUntilEndOfTurn { .. }

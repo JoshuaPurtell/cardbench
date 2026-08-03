@@ -15229,6 +15229,7 @@ impl Game {
                 | Effect::RegenerateTargetCreature
                 | Effect::RegenerateTargetCreatureAndScheduleCombatHistoryDestruction
                 | Effect::RegenerateSource
+                | Effect::RegenerateControllerCreatures
                 | Effect::AddKeywordToControllerCreaturesUntilEndOfTurn { .. }
                 | Effect::GrantActivatedAbilityToControllerCreaturesUntilEndOfTurn { .. }
                 | Effect::ShareControllerCreatureKeywordsUntilEndOfTurn { .. }
@@ -22456,6 +22457,26 @@ impl Game {
                         source,
                         target: source,
                     });
+                }
+            }
+            Effect::RegenerateControllerCreatures => {
+                let targets = self
+                    .all_battlefield_cards()
+                    .into_iter()
+                    .filter(|card| {
+                        self.controller_of(*card)
+                            .is_ok_and(|target_controller| target_controller == controller)
+                            && self.characteristics(*card).is_ok_and(|characteristics| {
+                                characteristics.card_types.contains(&CardType::Creature)
+                            })
+                    })
+                    .collect::<Vec<_>>();
+                for target in targets {
+                    self.regeneration_shields
+                        .entry(target)
+                        .or_default()
+                        .push(source);
+                    self.record_event(GameEvent::RegenerationShieldCreated { source, target });
                 }
             }
             Effect::DestroyTargetLand => {
