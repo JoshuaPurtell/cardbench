@@ -590,13 +590,23 @@ Oracle Magic rules coverage.
   source leaving the battlefield cannot undo either completed half, while a
   later departure of one exchanged permanent expires only that permanent's
   effect. Ownership-indexed zones never change during the exchange.
-- Every migrated no-priority choice occupies the one typed, clonable
+- Every generic migrated no-priority choice occupies the one typed, clonable
   `PendingDecision` state slot. Its positive `DecisionId` is strictly less
   than the next monotonic id, is never reused after completion, names one
   living deciding player, and has distinct typed options with a valid
   inclusive min/max cardinality. `DecisionOpened` and `DecisionCompleted`
   form one unique, matching public receipt lifecycle per id; neither receipt
   contains hidden candidate or selection identities.
+- The specialized optional-trigger compatibility boundary also consumes that
+  same monotonic `DecisionId` space even though its accept/decline projection
+  is not a cardinality-based `PendingDecision`. Its current positive id must
+  be lower than the next allocation, belongs to the exact top triggered stack
+  object, and is visible only to its controller alongside the legal payment
+  and conditional-target facts. `ResolveOptionalTriggeredAbility` must echo
+  that exact id; source and ability names alone are not sufficient because
+  one permanent can put indistinguishable trigger instances on the stack at
+  different times. A stale, foreign, or malformed response leaves the pending
+  choice, stack, zones, mana, and event log unchanged.
 - `PolicyAction::SubmitDecision` must supply the currently live exact id and a
   selection whose type, cardinality, uniqueness, and options match the typed
   continuation. A stale id, different player, duplicate, out-of-range count,
