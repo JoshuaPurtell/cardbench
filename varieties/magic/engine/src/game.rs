@@ -1681,6 +1681,15 @@ impl Game {
         &mut self,
         bindings: impl IntoIterator<Item = CostReductionBinding>,
     ) -> Result<(), RulesError> {
+        self.atomic_transition(|game| game.register_cost_reduction_bindings_impl(bindings))
+    }
+
+    /// Applies one setup batch inside the public transaction journal so an
+    /// invalid later member cannot retain an earlier binding prefix.
+    fn register_cost_reduction_bindings_impl(
+        &mut self,
+        bindings: impl IntoIterator<Item = CostReductionBinding>,
+    ) -> Result<(), RulesError> {
         if self.started {
             return Err(RulesError::IllegalAction(
                 "cost-reduction bindings cannot be changed after the game starts",
