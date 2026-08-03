@@ -92,4 +92,26 @@ fn narrower_creature_target_can_drive_a_shared_creature_instruction_bundle() {
         result.is_ok(),
         "a nonblack-creature target occurrence entails its creature bundle members"
     );
+    assert_eq!(
+        game.stack.last().map(|item| item.targets.as_slice()),
+        Some(&[Target::Permanent(target)][..]),
+        "the shared bundle retains exactly one outer target occurrence"
+    );
+
+    let first = game.priority;
+    game.pass_priority(first).expect("caster passes");
+    let second = game.priority;
+    game.pass_priority(second)
+        .expect("opponent resolves bundle");
+    let characteristics = game.characteristics(target).expect("target remains live");
+    assert_eq!(
+        (characteristics.power, characteristics.toughness),
+        (Some(2), Some(2))
+    );
+    assert!(
+        characteristics.keywords.contains(&Keyword::Haste),
+        "each ordered creature member receives the one outer target"
+    );
+    game.validate_invariants()
+        .expect("narrow shared-target bundle remains state-machine valid");
 }

@@ -18256,11 +18256,24 @@ impl Game {
                     | TargetRequirement::BlockingCreature
                     | TargetRequirement::AttackingOrBlockingCreature
                     | TargetRequirement::ControlledCreature
-                    | TargetRequirement::OpponentCreature
-                    | TargetRequirement::Land
+                    | TargetRequirement::OpponentCreature,
+                TargetRequirement::Creature
+                    | TargetRequirement::PlayerOrCreature
+                    | TargetRequirement::Permanent
+            ) | (
+                TargetRequirement::Land
                     | TargetRequirement::LandWithBasicLandType(_)
                     | TargetRequirement::ControlledLand,
+                TargetRequirement::Land | TargetRequirement::Permanent
+            ) | (
+                TargetRequirement::Artifact
+                    | TargetRequirement::Enchantment
+                    | TargetRequirement::ArtifactOrCreature
+                    | TargetRequirement::ArtifactOrEnchantment,
                 TargetRequirement::Permanent
+            ) | (
+                TargetRequirement::Player | TargetRequirement::Opponent,
+                TargetRequirement::Player | TargetRequirement::PlayerOrCreature
             )
         )
     }
