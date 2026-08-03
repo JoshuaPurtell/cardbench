@@ -35146,6 +35146,18 @@ impl Game {
             else {
                 continue;
             };
+            let left_game_after_record =
+                self.event_log
+                    .get(index.saturating_add(1)..)
+                    .is_some_and(|later_events| {
+                        later_events.iter().any(|later| {
+                            matches!(
+                                later,
+                                GameEvent::ObjectLeftGame { object, owner }
+                                    if object == card && owner == player
+                            )
+                        })
+                    });
             let is_physical_creature_card = self.objects.get(card).is_some_and(|object| {
                 object.owner == *player
                     && object.token.is_none()
@@ -35155,7 +35167,12 @@ impl Game {
                         .is_some_and(|definition| {
                             definition.card_types.contains(&CardType::Creature)
                         })
-            });
+            }) || (left_game_after_record
+                && self
+                    .departed_card_definitions
+                    .get(card)
+                    .and_then(|definition| self.catalog.get(definition))
+                    .is_some_and(|definition| definition.card_types.contains(&CardType::Creature)));
             if *turn == 0
                 || *turn > self.turn
                 || player.0 >= self.players.len()
@@ -40741,6 +40758,13 @@ impl Game {
         // controlled by this player reverts before the non-owned-object loop
         // decides which permanents must leave the game.
         self.expire_control_effects_for_departing_player(player);
+        // Current-turn graveyard-return eligibility is live-zone state, not
+        // a historical claim about a card that CR 800.4a removes from the
+        // game.  Keep its earlier public transition receipt for replay, but
+        // drop the live candidate before object removal so no later effect
+        // can select a departed card.
+        self.creature_cards_put_into_graveyard_from_battlefield_this_turn
+            .retain(|(owner, _, _)| *owner != player);
         // A player-targeted temporary redirection has no surviving
         // destination once that player leaves the game.  Permanent endpoints
         // are retired by their ordinary battlefield-departure transitions
