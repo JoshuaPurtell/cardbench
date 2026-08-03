@@ -2765,7 +2765,10 @@ Oracle Magic rules coverage.
   that same post-entry order and separately captures one land-entry event for
   each returned creature–land; no represented land observer may be lost
   merely because its entrant was selected by a delayed or creature-return
-  instruction. For creature deaths selected
+  instruction. The common single physical-permanent entry capture likewise
+  includes land-entry observation, so targeted reanimation and one-card
+  library search cannot retain self ETBs while silently omitting a
+  creature–land's land-entry event. For creature deaths selected
   in one pass, regeneration shields are consumed first, then the remaining
   death set receives one shared last-known-information observer snapshot
   before its members take their individual graveyard/token-departure
