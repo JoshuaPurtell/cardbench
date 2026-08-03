@@ -40,6 +40,14 @@ Oracle Magic rules coverage.
   has either stacked every trigger or discarded triggers with no legal target.
   An external state with a trigger-placement decision but no live saved holder,
   or a saved holder outside that exact no-priority boundary, is rejected.
+- Every public APNAP `TriggerOrderEntry` retains one positive source identity,
+  source incarnation, ability id, and a one-based occurrence position scoped
+  to that live controller group. The occurrence distinguishes two legitimate
+  same-source/same-ability triggers from separate simultaneous events; it is
+  meaningful only with the enclosing monotonic `DecisionId`, which continues
+  to reject stale ordering submissions. A submitted order must be an exact
+  duplicate-free permutation of the pending group, and each ordered occurrence
+  creates one independent triggered stack object.
 - A game ends only when zero or one players remain. Its terminal transition
   emits exactly one `GameEnded { winner }` record (where `winner` is `None`
   for a draw). In a continuing multiplayer game, an eliminated player is
