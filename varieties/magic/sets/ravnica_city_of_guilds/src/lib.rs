@@ -46,7 +46,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 271] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 272] = [
     "RAV-CHAR",
     "RAV-AGRUS-KOS-WOJEK-VETERAN",
     "RAV-INSTILL-FUROR",
@@ -115,6 +115,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 271] = [
     "RAV-BRAINSPOIL",
     "RAV-CLUTCH-OF-THE-UNDERCITY",
     "RAV-DISEMBOWEL",
+    "RAV-BRIGHTFLAME",
     "RAV-PSYCHIC-DRAIN",
     "RAV-NIGHTMARE-VOID",
     "RAV-MOONLIGHT-BARGAIN",
@@ -2076,6 +2077,34 @@ pub fn card_definitions() -> Vec<CardDefinition> {
         // lifecycle, then supplies the same ordered mill and life-gain
         // amount. An empty target library mills as far as possible while the
         // life gain remains the declared X value.
+        CardDefinition {
+            id: "RAV-BRIGHTFLAME",
+            name: "Brightflame",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(
+                0,
+                [Color::Red, Color::Red, Color::White, Color::White],
+            ),
+            colors: colors([Color::Red, Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Sorcery]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "policy-submitted-chosen-x-mana-spend",
+                "radiance-chosen-x-damage-total-life-gain",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![
+                Effect::RadianceDealChosenXDamageToCreaturesAndGainLifeEqualToDamageDealt,
+            ],
+        },
+        // Full fidelity: the policy-declared X remains through ordinary
+        // casting and Radiance targeting. The coupled resolver totals only
+        // committed damage receipts after replacement/prevention before it
+        // records the controller's corresponding life gain.
         CardDefinition {
             id: "RAV-PSYCHIC-DRAIN",
             name: "Psychic Drain",

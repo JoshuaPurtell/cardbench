@@ -14501,6 +14501,7 @@ impl Game {
         Self::validate_source_counter_life_loss_event_order(&self.event_log)?;
         self.validate_replacement_effect_events()?;
         self.validate_damage_amount_replacement_events()?;
+        Self::validate_damage_batch_life_gain_event_order(&self.event_log)?;
         self.validate_self_damage_prevention_counter_replacement_events()?;
         self.validate_combat_damage_mill_counter_replacement_events()?;
         self.validate_global_combat_damage_prevention_event_order()?;
@@ -18397,6 +18398,7 @@ impl Game {
                 | Effect::RevealTopCardPutIntoHandLoseLifeEqualToManaValue
                 | Effect::GainLifeControllerFromSourceDamage
                 | Effect::MillTargetPlayerAndGainLifeControllerEqualToChosenX
+                | Effect::RadianceDealChosenXDamageToCreaturesAndGainLifeEqualToDamageDealt
                 | Effect::MillTargetPlayerFromSourceDamage
                 | Effect::MillSourceControllerFromSourceDamage
                 | Effect::GainLifeForEachCreature
@@ -27064,6 +27066,64 @@ impl Game {
                         candidate,
                         i32::from(*amount),
                     )?;
+                }
+            }
+            Effect::RadianceDealChosenXDamageToCreaturesAndGainLifeEqualToDamageDealt => {
+                let target = Self::target_permanent(target)?;
+                let amount = i32::from(chosen_x.ok_or(RulesError::IllegalAction(
+                    "chosen-X Radiance damage-and-life effect resolved without a declared X value",
+                ))?);
+                // Every direct-damage path writes a damage receipt only after
+                // prevention and replacement effects have finished. Capture
+                // this bounded batch so the later life total follows actual
+                // committed damage, never merely X times the recipients.
+                let damage_event_start = self.event_log.len();
+                for candidate in self.radiance_creatures_sharing_color(target)? {
+                    self.deal_damage_to_permanent_from_colors_for_incarnation(
+                        source,
+                        source_incarnation,
+                        source_colors,
+                        candidate,
+                        amount,
+                    )?;
+                }
+                let total_damage = self.event_log[damage_event_start..]
+                    .iter()
+                    .filter_map(|event| match event {
+                        GameEvent::DamageDealtToPermanent {
+                            source: event_source,
+                            amount: dealt,
+                            ..
+                        }
+                        | GameEvent::DamageDealtToPlayer {
+                            source: event_source,
+                            amount: dealt,
+                            ..
+                        } if *event_source == source && *dealt > 0 => Some(*dealt),
+                        _ => None,
+                    })
+                    .try_fold(0_i32, i32::checked_add)
+                    .ok_or(RulesError::IllegalAction(
+                        "Radiance damage batch exceeds aggregate life-gain capacity",
+                    ))?;
+                if total_damage > 0 {
+                    let amount = i16::try_from(total_damage).map_err(|_| {
+                        RulesError::IllegalAction(
+                            "Radiance damage batch exceeds life-gain event capacity",
+                        )
+                    })?;
+                    self.record_event(GameEvent::DamageBatchLifeGained {
+                        source,
+                        source_incarnation,
+                        controller,
+                        amount,
+                    });
+                    self.players[controller.0].life += i64::from(amount);
+                    self.record_event(GameEvent::LifeGained {
+                        player: controller,
+                        amount,
+                    });
+                    self.enqueue_life_gain_triggers(controller);
                 }
             }
             Effect::RadianceAddTargetDamageShieldUntilEndOfTurn { amount } => {
@@ -36361,6 +36421,40 @@ impl Game {
             {
                 return Err(RulesError::IllegalAction(
                     "damage amount replacement receipt does not match a registered source effect",
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// A damage-derived life gain must retain the exact source incarnation
+    /// that produced the bounded batch, name a live player slot, and commit
+    /// its one positive aggregate through the immediately following ordinary
+    /// life-gain receipt. The preceding damage receipts may include
+    /// prevention/replacement provenance, so the batch marker is the stable
+    /// event-machine boundary rather than an inferred count from future log
+    /// entries.
+    fn validate_damage_batch_life_gain_event_order(events: &[GameEvent]) -> Result<(), RulesError> {
+        for (index, event) in events.iter().enumerate() {
+            let GameEvent::DamageBatchLifeGained {
+                source_incarnation,
+                controller,
+                amount,
+                ..
+            } = event
+            else {
+                continue;
+            };
+            if *source_incarnation == 0
+                || *amount <= 0
+                || !matches!(
+                    events.get(index + 1),
+                    Some(GameEvent::LifeGained { player, amount: gained })
+                        if player == controller && gained == amount
+                )
+            {
+                return Err(RulesError::IllegalAction(
+                    "damage-batch life-gain receipt lacks a matching positive life receipt",
                 ));
             }
         }

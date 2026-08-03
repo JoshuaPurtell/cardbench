@@ -81,6 +81,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-BRAINSPOIL",
             "RAV-CLUTCH-OF-THE-UNDERCITY",
             "RAV-DISEMBOWEL",
+            "RAV-BRIGHTFLAME",
             "RAV-PSYCHIC-DRAIN",
             "RAV-NIGHTMARE-VOID",
             "RAV-MOONLIGHT-BARGAIN",
@@ -337,6 +338,10 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
         (
             "RAV-CLEANSING-BEAM",
             vec![Effect::RadianceDealDamageToCreatures { amount: 2 }],
+        ),
+        (
+            "RAV-BRIGHTFLAME",
+            vec![Effect::RadianceDealChosenXDamageToCreaturesAndGainLifeEqualToDamageDealt],
         ),
         (
             "RAV-RALLY-THE-RIGHTEOUS",

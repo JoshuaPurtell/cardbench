@@ -2105,6 +2105,12 @@ pub enum Effect {
     RadianceDealDamageToCreatures {
         amount: i16,
     },
+    /// Deal the policy-declared X amount to the targeted creature and every
+    /// creature sharing one of its colors, then gain life equal to the total
+    /// damage actually committed by that batch. Prevention and replacement
+    /// effects therefore reduce the later life total; the declared X remains
+    /// only the prospective packet amount.
+    RadianceDealChosenXDamageToCreaturesAndGainLifeEqualToDamageDealt,
     /// Install one independent one-shot prevention shield on the targeted
     /// creature and every other current creature sharing one of its colors.
     /// The target remains included even when colorless. The recipient set is
@@ -2882,6 +2888,7 @@ impl Effect {
             Self::DestroyTargetCreatureWithManaValueAtMostChosenX
                 | Self::AddControllerDamageShieldEqualToChosenXUntilEndOfTurn
                 | Self::MillTargetPlayerAndGainLifeControllerEqualToChosenX
+                | Self::RadianceDealChosenXDamageToCreaturesAndGainLifeEqualToDamageDealt
                 | Self::SearchControllerLibrary {
                     requirement: LibrarySearchRequirement::CreatureWithManaValueAtMostChosenX,
                     ..
@@ -2932,6 +2939,7 @@ impl Effect {
             | Self::ModifyTargetKeywordUntilEndOfTurn { .. }
             | Self::AttachSourceAndModifyTargetPt { .. }
             | Self::RadianceDealDamageToCreatures { .. }
+            | Self::RadianceDealChosenXDamageToCreaturesAndGainLifeEqualToDamageDealt
             | Self::RadianceAddTargetDamageShieldUntilEndOfTurn { .. }
             | Self::RadianceUntapAndModifyUntilEndOfTurn { .. }
             | Self::RadianceModifyPtUntilEndOfTurn { .. }
@@ -5896,6 +5904,17 @@ pub enum GameEvent {
         source: ObjectId,
         permanent: ObjectId,
         amount: i32,
+    },
+    /// A coupled damage/life instruction finished a bounded damage batch and
+    /// materialized the positive aggregate that its immediately following
+    /// `LifeGained` receipt commits. This separates actual committed damage
+    /// from prospective packet amounts that prevention or replacement may
+    /// have changed.
+    DamageBatchLifeGained {
+        source: ObjectId,
+        source_incarnation: u64,
+        controller: PlayerId,
+        amount: i16,
     },
     DamageRedirected {
         source: ObjectId,
