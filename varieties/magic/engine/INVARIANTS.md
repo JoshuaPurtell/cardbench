@@ -932,6 +932,23 @@ Oracle Magic rules coverage.
   fabricated zero-option decision. The stack-shape and step-boundary audits
   reject an unmaterialized template, an out-of-range captured seat, or an
   any-end-step receipt without its immediately preceding end-step boundary.
+- A `BeginningOfControllerEndStep` trigger queues only at the End boundary
+  for its source's current controller; the captured stack controller must
+  equal that active player even if the source later changes controller or
+  leaves the battlefield. Its current-turn creature-return effect selects
+  only non-token physical creature cards owned by that controller whose exact
+  current graveyard incarnation was put there from the battlefield this turn.
+  The ordinary `CardMoved(Graveyard)` and
+  `ObjectIncarnationAdvanced` receipts are immediately followed by one
+  `CreatureCardPutIntoGraveyardFromBattlefieldThisTurn` receipt. The live
+  candidate set is keyed by `(owner, card, graveyard incarnation)`, removes a
+  card on any graveyard departure, and clears at the next Untap boundary
+  (including a forced next turn after active-player elimination). Resolution
+  snapshots only still-matching candidates before moving any of them to hand;
+  a final-zone lookalike, a token, an earlier incarnation, or a preexisting
+  graveyard creature cannot be returned. `clear_event_log` is unavailable
+  while this history is live, preserving the receipt provenance that the
+  invariant audit requires.
 - A `BeginningOfAttachedCreaturesControllerEndStep` trigger uses the same
   end-step boundary but queues only while its exact typed Aura attachment is
   live and the attached creature's current controller is active. The source

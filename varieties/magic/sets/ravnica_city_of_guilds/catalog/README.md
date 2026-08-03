@@ -49,8 +49,8 @@ a zone move. The fetched Aura's ordinary ETB trigger is queued only after the
 Mage trigger's terminal receipt. The opponent sees neither unselected Aura
 identities nor a private decision projection.
 
-The current catalog partition is 274 full / 6 partial / 11 catalog-only unique
-names (289 / 6 / 11 printings). The independently checked coverage-report
+The current catalog partition is 275 full / 6 partial / 10 catalog-only unique
+names (290 / 6 / 10 printings). The independently checked coverage-report
 binary emits the same partition.
 
 Molten Sentry is a full-fidelity entry whose setup-only deterministic seed
@@ -79,6 +79,14 @@ six-damage combat trace captures the damaged player before stack resolution,
 opens only that player's private fixed three-card discard decision, and records
 the three chosen discards before the ordinary ability terminal receipt. It
 retains no card prose, art, scan, or source payload.
+
+Gleancrawler is a full-fidelity controller-end-step entry. Its trigger reads
+only the source controller's current-turn non-token creature-card battlefield
+to graveyard incarnations, snapshots each still-matching card, and returns that
+group through ordinary owner-hand moves. The direct trace proves a creature
+that died this turn returns while a preexisting creature card in the same
+graveyard remains there; its ordered public provenance receipt is invariant
+audited. It retains no card prose, art, scan, or source payload.
 
 Eye of the Storm is a source-incarnation-scoped linked-exile entry. An observed
 physical instant-or-sorcery spell first moves to exile through ordinary
