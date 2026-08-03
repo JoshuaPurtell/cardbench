@@ -7149,20 +7149,24 @@ impl Game {
             None
         };
 
-        let mut auras = group
-            .members
-            .iter()
-            .copied()
-            .filter(|member| member.role == LinkedExileMemberRole::AttachedAura)
-            .collect::<Vec<_>>();
-        auras.sort_by_key(|member| member.object);
-        for aura in auras {
-            if !self.member_is_still_in_linked_exile(aura) {
-                continue;
-            }
-            self.move_to_zone(aura.object, Zone::Battlefield)?;
-            returned.push(aura.object);
-            if let Some(primary) = returned_primary {
+        // The linked Aura return is conditional on returning the primary
+        // creature card.  If that exact exile object left independently (for
+        // example because its owner left the game), preserve each Aura in
+        // exile rather than returning it unattached for a later SBA move.
+        if let Some(primary) = returned_primary {
+            let mut auras = group
+                .members
+                .iter()
+                .copied()
+                .filter(|member| member.role == LinkedExileMemberRole::AttachedAura)
+                .collect::<Vec<_>>();
+            auras.sort_by_key(|member| member.object);
+            for aura in auras {
+                if !self.member_is_still_in_linked_exile(aura) {
+                    continue;
+                }
+                self.move_to_zone(aura.object, Zone::Battlefield)?;
+                returned.push(aura.object);
                 if let Some(binding) = self
                     .attachment_binding_for(aura.object)?
                     .filter(|binding| binding.kind == AttachmentKind::Aura)
