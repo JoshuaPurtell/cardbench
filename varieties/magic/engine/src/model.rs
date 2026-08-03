@@ -2885,6 +2885,12 @@ pub enum Effect {
     /// Move every player's graveyard into that player's library, then shuffle
     /// each library. This is an untargeted, owner-preserving zone operation.
     ShuffleGraveyardsIntoLibraries,
+    /// Move every battlefield permanent to its owner's library, shuffle each
+    /// living player's library, reveal the matching number of top cards, and
+    /// return the revealed artifact, creature, and land cards together.
+    /// Remaining revealed cards are placed at the library bottom in their
+    /// already-revealed order.
+    WarpOwnedPermanentsIntoLibrariesThenRevealAndReturnPermanentCards,
     /// Return a target creature controlled by the resolving spell's controller
     /// to its owner's hand.
     ReturnControlledCreatureToHand,
@@ -3207,6 +3213,7 @@ impl Effect {
             Self::ChooseOneOf(_)
             | Self::ExileCastInstantOrSorceryThenCopyExiledCards
             | Self::ExileCapturedInstantOrSorceryThenCopyExiledCards { .. }
+            | Self::WarpOwnedPermanentsIntoLibrariesThenRevealAndReturnPermanentCards
             | Self::DealDamageController { .. }
             | Self::LoseLifeController { .. }
             | Self::LoseLifeControllerForCountersOnSource { .. }

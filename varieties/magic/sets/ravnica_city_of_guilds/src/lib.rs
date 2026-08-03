@@ -46,7 +46,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 283] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 284] = [
     "RAV-CHAR",
     "RAV-AGRUS-KOS-WOJEK-VETERAN",
     "RAV-INSTILL-FUROR",
@@ -189,6 +189,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 283] = [
     "RAV-GREATER-FORGELING",
     "RAV-VIASHINO-SLASHER",
     "RAV-WAR-TORCH-GOBLIN",
+    "RAV-WARP-WORLD",
     "RAV-BARBARIAN-RIFTCUTTER",
     "RAV-TORPID-MOLOCH",
     "RAV-VIASHINO-FANGTAIL",
@@ -1794,6 +1795,32 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             toughness: None,
             keywords: vec![],
             effects: vec![Effect::ShuffleGraveyardsIntoLibraries],
+        },
+        // Full fidelity: owner-relative permanent exchange, per-player
+        // shuffle/reveal, and simultaneous return of revealed permanent cards.
+        CardDefinition {
+            id: "RAV-WARP-WORLD",
+            name: "Warp World",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(5, [Color::Red, Color::Red, Color::Red]),
+            colors: colors([Color::Red]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Sorcery]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "owner-permanents-to-library",
+                "per-player-library-shuffle",
+                "reveal-count-equals-owned-permanents",
+                "return-revealed-artifact-creature-land-cards",
+                "revealed-nonpermanents-library-bottom",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![
+                Effect::WarpOwnedPermanentsIntoLibrariesThenRevealAndReturnPermanentCards,
+            ],
         },
         // Full fidelity: the two target positions remain controller-relative,
         // and both creatures return to their owners' hands on resolution.

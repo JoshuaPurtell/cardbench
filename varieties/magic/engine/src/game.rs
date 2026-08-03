@@ -19769,6 +19769,7 @@ impl Game {
                 | Effect::DrawTargetPlayerCards { .. }
                 | Effect::DrawTargetPlayerThenConditionalPrivateDiscard
                 | Effect::PreventLibrarySearchUntilEndOfTurn
+                | Effect::WarpOwnedPermanentsIntoLibrariesThenRevealAndReturnPermanentCards
                 | Effect::SearchControllerLibrary { .. }
                 | Effect::SearchControllerLibraryAndCastInstantWithoutPayingManaCost { .. }
                 | Effect::SearchControllerLibraryForCompatibleAuraAttachedToSource { .. }
@@ -31426,6 +31427,9 @@ impl Game {
                     self.shuffle_library_and_record(player)?;
                 }
             }
+            Effect::WarpOwnedPermanentsIntoLibrariesThenRevealAndReturnPermanentCards => {
+                self.resolve_warp_world()?;
+            }
             Effect::ReturnControlledCreatureToHand => {
                 let target = Self::target_permanent(target)?;
                 if !self.target_matches_for_controller(
@@ -32670,6 +32674,86 @@ impl Game {
         })?;
         self.shuffle_library(player);
         self.record_event(GameEvent::LibraryShuffled { player, cards });
+        Ok(())
+    }
+
+    /// Resolves the owner-relative permanent/library exchange used by the
+    /// RAV Warp World definition. Revealed nonpermanents retain their public
+    /// top-to-bottom order when they return to the library bottom.
+    fn resolve_warp_world(&mut self) -> Result<(), RulesError> {
+        let living_players = self
+            .players
+            .iter()
+            .filter(|player| !player.lost)
+            .map(|player| player.id)
+            .collect::<Vec<_>>();
+        let mut owned_permanent_counts = vec![0_usize; self.players.len()];
+        for permanent in self.all_battlefield_cards() {
+            let owner = self.object(permanent)?.owner;
+            if !self.players[owner.0].lost {
+                owned_permanent_counts[owner.0] += 1;
+            }
+            if self.object(permanent)?.token.is_some() {
+                // The token has left the battlefield for a non-graveyard
+                // destination and therefore ceases without a dies event.
+                self.remove_token_leaving_game(permanent)?;
+            } else {
+                self.move_to_zone(permanent, Zone::Library)?;
+            }
+        }
+        for player in &living_players {
+            self.shuffle_library_and_record(*player)?;
+        }
+
+        let mut entering = Vec::new();
+        let mut bottom_by_owner = vec![Vec::new(); self.players.len()];
+        for player in &living_players {
+            let revealed = self.players[player.0]
+                .library
+                .iter()
+                .rev()
+                .take(owned_permanent_counts[player.0])
+                .copied()
+                .collect::<Vec<_>>();
+            for card in revealed {
+                let (definition_id, is_permanent) = self
+                    .card_definition(card)
+                    .map(|definition| (definition.id, definition.is_permanent()))?;
+                self.record_event(GameEvent::CardRevealed {
+                    player: *player,
+                    card,
+                    definition: definition_id,
+                });
+                if is_permanent {
+                    entering.push(card);
+                } else {
+                    bottom_by_owner[player.0].push(card);
+                }
+            }
+        }
+
+        let pre_entry_sources = self.all_battlefield_cards();
+        for card in &entering {
+            self.move_to_battlefield_for_simultaneous_entry(*card)?;
+        }
+        for card in &entering {
+            let mut entry_sources = pre_entry_sources.clone();
+            entry_sources.push(*card);
+            self.apply_static_entry_restriction_from_sources(*card, &entry_sources)?;
+        }
+        if !entering.is_empty() {
+            self.capture_simultaneous_entry_triggers_and_land_entries(&entering)?;
+        }
+        for (owner_index, bottom) in bottom_by_owner.into_iter().enumerate() {
+            if bottom.is_empty() {
+                continue;
+            }
+            let library = &mut self.players[owner_index].library;
+            library.retain(|card| !bottom.contains(card));
+            for card in bottom.into_iter().rev() {
+                library.insert(0, card);
+            }
+        }
         Ok(())
     }
 
