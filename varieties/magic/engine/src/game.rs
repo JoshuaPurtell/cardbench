@@ -3885,6 +3885,7 @@ impl Game {
                 | DecisionContinuation::DamageReplacement { .. }
                 | DecisionContinuation::CombatDamageReplacement { .. }
                 | DecisionContinuation::CounterUnlessPaysMana { .. }
+                | DecisionContinuation::CounterUnlessDiscardsHand { .. }
                 | DecisionContinuation::ConditionalPrivateDiscard { .. }
                 | DecisionContinuation::TargetPlayerPrivateDiscard { .. }
                 | DecisionContinuation::TargetPlayerManaColor { .. }
@@ -3954,6 +3955,7 @@ impl Game {
                 | DecisionContinuation::DamageReplacement { .. }
                 | DecisionContinuation::CombatDamageReplacement { .. }
                 | DecisionContinuation::CounterUnlessPaysMana { .. }
+                | DecisionContinuation::CounterUnlessDiscardsHand { .. }
                 | DecisionContinuation::ConditionalPrivateDiscard { .. }
                 | DecisionContinuation::TargetPlayerPrivateDiscard { .. }
                 | DecisionContinuation::TargetPlayerManaColor { .. }
@@ -4011,6 +4013,7 @@ impl Game {
                 | DecisionContinuation::DamageReplacement { .. }
                 | DecisionContinuation::CombatDamageReplacement { .. }
                 | DecisionContinuation::CounterUnlessPaysMana { .. }
+                | DecisionContinuation::CounterUnlessDiscardsHand { .. }
                 | DecisionContinuation::ConditionalPrivateDiscard { .. }
                 | DecisionContinuation::TargetPlayerPrivateDiscard { .. }
                 | DecisionContinuation::TargetPlayerManaColor { .. }
@@ -4098,6 +4101,7 @@ impl Game {
                 | DecisionContinuation::TriggeredAbilityOrder { .. }
                 | DecisionContinuation::QuantityReplacement { .. }
                 | DecisionContinuation::CounterUnlessPaysMana { .. }
+                | DecisionContinuation::CounterUnlessDiscardsHand { .. }
                 | DecisionContinuation::ConditionalPrivateDiscard { .. }
                 | DecisionContinuation::TargetPlayerPrivateDiscard { .. }
                 | DecisionContinuation::TargetPlayerManaColor { .. }
@@ -7832,6 +7836,22 @@ impl Game {
                 &mana_cost,
                 selection,
             ),
+            DecisionContinuation::CounterUnlessDiscardsHand {
+                source,
+                source_incarnation,
+                source_controller,
+                target_spell,
+                target_incarnation,
+            } => self.resolve_counter_unless_discards_hand_decision(
+                &decision,
+                player,
+                source,
+                source_incarnation,
+                source_controller,
+                target_spell,
+                target_incarnation,
+                selection,
+            ),
             DecisionContinuation::ConditionalPrivateDiscard { source, recipient } => {
                 let selected = Self::validate_object_decision_selection(&decision, selection)?;
                 self.resolve_conditional_private_discard_decision(
@@ -8594,7 +8614,82 @@ impl Game {
             });
         }
         self.complete_pending_decision(decision)?;
-        self.resolve_top_of_stack_with_optional_decision(None, Some(pay))
+        self.resolve_top_of_stack_with_optional_decision(None, Some(pay), None)
+    }
+
+    /// Completes one explicit "discard your hand or be countered" decision.
+    /// The target spell remains physically below the resolving counterspell;
+    /// no player receives priority between this choice and its resolution.
+    #[allow(clippy::too_many_arguments, clippy::needless_pass_by_value)] // Stack and incarnation provenance are deliberately explicit.
+    fn resolve_counter_unless_discards_hand_decision(
+        &mut self,
+        decision: &PendingDecision,
+        player: PlayerId,
+        source: ObjectId,
+        source_incarnation: u64,
+        source_controller: PlayerId,
+        target_spell: ObjectId,
+        target_incarnation: u64,
+        selection: DecisionSelection,
+    ) -> Result<(), RulesError> {
+        let DecisionSelection::CounterUnlessDiscardsHand { discard } = selection else {
+            return Err(RulesError::IllegalAction(
+                "counter-unless discard decision requires an explicit discard or decline",
+            ));
+        };
+        let top = self.stack.last().ok_or(RulesError::IllegalAction(
+            "counter-unless discard decision escaped its stack item",
+        ))?;
+        let target = self
+            .stack
+            .iter()
+            .find(|stack_object| stack_object.card == target_spell)
+            .ok_or(RulesError::IllegalAction(
+                "counter-unless discard target escaped the stack",
+            ))?;
+        if decision.kind != DecisionKind::CounterUnlessDiscardsHand
+            || decision.visibility != DecisionVisibility::Public
+            || decision.min_selections != 0
+            || decision.max_selections != 0
+            || !decision.options.is_empty()
+            || decision.player != player
+            || top.card != source
+            || top.source_incarnation != source_incarnation
+            || top.controller != source_controller
+            || top.ability_id.is_some()
+            || top.effects.as_slice() != [Effect::CounterTargetSpellUnlessControllerDiscardsHand]
+            || top.targets.as_slice() != [Target::Spell(target_spell)]
+            || target.controller != player
+            || target.ability_id.is_some()
+            || self.object(target_spell)?.incarnation != target_incarnation
+            || self
+                .stack
+                .iter()
+                .position(|stack_object| stack_object.card == target_spell)
+                >= self
+                    .stack
+                    .iter()
+                    .position(|stack_object| stack_object.card == source)
+        {
+            return Err(RulesError::IllegalAction(
+                "counter-unless discard decision no longer matches its stack objects",
+            ));
+        }
+        let discarded = if discard {
+            u8::try_from(self.recipient_hand_snapshot(player)?.len()).map_err(|_| {
+                RulesError::IllegalAction("discard-hand choice exceeds public event capacity")
+            })?
+        } else {
+            0
+        };
+        self.record_event(GameEvent::CounterUnlessDiscardHandChosen {
+            player,
+            source,
+            target_spell,
+            discarded,
+        });
+        self.complete_pending_decision(decision)?;
+        self.resolve_top_of_stack_with_optional_decision(None, None, Some(discard))
     }
 
     /// Completes a recipient-private conditional discard after a targeted
@@ -12122,6 +12217,7 @@ impl Game {
         Self::validate_spell_mana_payment_event_order(&self.event_log)?;
         self.validate_first_noncreature_spell_cast_event_order()?;
         Self::validate_counter_unless_pays_payment_event_order(&self.event_log)?;
+        Self::validate_counter_unless_discard_hand_event_order(&self.event_log)?;
         self.validate_additional_spell_cost_event_order()?;
         self.validate_stack_terminal_event_order()?;
         self.validate_ability_event_order()?;
@@ -15722,6 +15818,7 @@ impl Game {
                 | Effect::CounterTargetNoncreatureSpell
                 | Effect::CounterTargetPhysicalSpellThenMillItsControllerByManaValueIfManaColorSpent { .. }
                 | Effect::CounterTargetSpellUnlessControllerPays { .. }
+                | Effect::CounterTargetSpellUnlessControllerDiscardsHand
                 | Effect::CopyTargetInstantOrSorcerySpell { .. }
                 | Effect::SacrificeCreatureOrCounterTargetSpell
                 | Effect::GrantGraveyardCastPermissionUntilEndOfTurn
@@ -15772,7 +15869,7 @@ impl Game {
 
     #[allow(clippy::too_many_lines)] // Spell and activated-ability resolution share one audited path.
     fn resolve_top_of_stack(&mut self) -> Result<(), RulesError> {
-        self.resolve_top_of_stack_with_optional_decision(None, None)
+        self.resolve_top_of_stack_with_optional_decision(None, None, None)
     }
 
     #[allow(clippy::too_many_lines)] // Spell and activated-ability resolution share one audited path.
@@ -15780,6 +15877,7 @@ impl Game {
         &mut self,
         optional_decision: Option<(bool, Option<Target>)>,
         counter_unless_payment: Option<bool>,
+        counter_unless_discard_hand: Option<bool>,
     ) -> Result<(), RulesError> {
         if optional_decision.is_none()
             && let Some(top) = self.stack.last()
@@ -15903,6 +16001,11 @@ impl Game {
             return Ok(());
         }
         if self.suspend_top_stack_item_for_target_player_mana_color_choice()? {
+            return Ok(());
+        }
+        if counter_unless_discard_hand.is_none()
+            && self.suspend_top_stack_item_for_counter_unless_discards_hand_choice()?
+        {
             return Ok(());
         }
         if counter_unless_payment.is_none()
@@ -16188,6 +16291,37 @@ impl Game {
                                     ))?;
                                 if !paid {
                                     let target = Self::target_spell(Some(target))?;
+                                    self.counter_target_spell(stack_object.card, target)?;
+                                }
+                                continue;
+                            }
+                            if matches!(
+                                effect,
+                                Effect::CounterTargetSpellUnlessControllerDiscardsHand
+                            ) {
+                                let discard = counter_unless_discard_hand.ok_or(
+                                    RulesError::IllegalAction(
+                                        "counter-unless discard resolved without a policy decision",
+                                    ),
+                                )?;
+                                let target = Self::target_spell(Some(target))?;
+                                if discard {
+                                    let target_controller = self
+                                        .stack
+                                        .iter()
+                                        .find(|candidate| candidate.card == target)
+                                        .ok_or(RulesError::IllegalTarget(Target::Spell(target)))?
+                                        .controller;
+                                    for snapshot in
+                                        self.recipient_hand_snapshot(target_controller)?
+                                    {
+                                        self.record_event(GameEvent::CardDiscarded {
+                                            player: target_controller,
+                                            card: snapshot.card,
+                                        });
+                                        self.move_to_zone(snapshot.card, Zone::Graveyard)?;
+                                    }
+                                } else {
                                     self.counter_target_spell(stack_object.card, target)?;
                                 }
                                 continue;
@@ -16837,6 +16971,63 @@ impl Game {
                 target_spell: *target_spell,
                 target_incarnation,
                 mana_cost: mana_cost.clone(),
+            },
+        )?;
+        Ok(true)
+    }
+
+    /// Suspends one exact counterspell while the targeted physical spell's
+    /// controller explicitly chooses whether to discard their complete hand.
+    /// An empty hand still opens this decision: the printed choice is legal
+    /// and must not be silently turned into an automatic counter.
+    fn suspend_top_stack_item_for_counter_unless_discards_hand_choice(
+        &mut self,
+    ) -> Result<bool, RulesError> {
+        if self.pending_decision.is_some() {
+            return Err(RulesError::IllegalAction(
+                "counter-unless discard choice attempted to overlap a decision",
+            ));
+        }
+        let Some(top) = self.stack.last().cloned() else {
+            return Ok(false);
+        };
+        let [Effect::CounterTargetSpellUnlessControllerDiscardsHand] = top.effects.as_slice()
+        else {
+            return Ok(false);
+        };
+        let [Target::Spell(target_spell)] = top.targets.as_slice() else {
+            return Err(RulesError::IllegalAction(
+                "counter-unless discard spell has an invalid target shape",
+            ));
+        };
+        let target_position = self
+            .stack
+            .iter()
+            .position(|candidate| candidate.card == *target_spell)
+            .ok_or(RulesError::IllegalTarget(Target::Spell(*target_spell)))?;
+        if target_position + 1 >= self.stack.len() {
+            return Err(RulesError::IllegalAction(
+                "counter-unless discard spell must target a lower stack spell",
+            ));
+        }
+        let target = &self.stack[target_position];
+        if target.ability_id.is_some() {
+            return Err(RulesError::IllegalTarget(Target::Spell(*target_spell)));
+        }
+        let target_incarnation = self.object(*target_spell)?.incarnation;
+        self.open_pending_decision(
+            target.controller,
+            DecisionVisibility::Public,
+            DecisionKind::CounterUnlessDiscardsHand,
+            0,
+            0,
+            vec![],
+            DecisionContinuation::CounterUnlessDiscardsHand {
+                source: top.card,
+                source_incarnation: top.source_incarnation,
+                source_controller: top.controller,
+                target_spell: *target_spell,
+                target_incarnation,
             },
         )?;
         Ok(true)
@@ -19237,7 +19428,7 @@ impl Game {
                     .map_err(RulesError::Mana)?;
             }
             game.pending_optional_trigger_choice = None;
-            game.resolve_top_of_stack_with_optional_decision(Some((pay, target)), None)
+            game.resolve_top_of_stack_with_optional_decision(Some((pay, target)), None, None)
         })
     }
 
@@ -23764,9 +23955,10 @@ impl Game {
                     }
                 }
             }
-            Effect::CounterTargetSpellUnlessControllerPays { .. } => {
+            Effect::CounterTargetSpellUnlessControllerPays { .. }
+            | Effect::CounterTargetSpellUnlessControllerDiscardsHand => {
                 return Err(RulesError::IllegalAction(
-                    "counter-unless effect must resolve through its payment decision",
+                    "counter-unless effect must resolve through its typed policy decision",
                 ));
             }
             Effect::CopyTargetInstantOrSorcerySpell {
@@ -28665,6 +28857,42 @@ impl Game {
         Ok(())
     }
 
+    /// A discard-hand counter choice is a no-priority resolution boundary.
+    /// Its public receipt must be followed immediately by the matching generic
+    /// completion. The branch count is bounded by the public event format;
+    /// individual discard and zone-move receipts are audited by the existing
+    /// effect-discard state machine.
+    fn validate_counter_unless_discard_hand_event_order(
+        events: &[GameEvent],
+    ) -> Result<(), RulesError> {
+        for (index, event) in events.iter().enumerate() {
+            let GameEvent::CounterUnlessDiscardHandChosen {
+                player,
+                source,
+                target_spell,
+                discarded: _,
+            } = event
+            else {
+                continue;
+            };
+            if source == target_spell
+                || !matches!(
+                    events.get(index + 1),
+                    Some(GameEvent::DecisionCompleted {
+                        player: completed_player,
+                        kind: DecisionKind::CounterUnlessDiscardsHand,
+                        ..
+                    }) if completed_player == player
+                )
+            {
+                return Err(RulesError::IllegalAction(
+                    "counter-unless discard receipt lacks matching decision completion",
+                ));
+            }
+        }
+        Ok(())
+    }
+
     fn cast_payment_context(event: Option<&GameEvent>) -> Option<(PlayerId, ObjectId)> {
         match event {
             Some(
@@ -32883,6 +33111,52 @@ impl Game {
                 {
                     return Err(RulesError::IllegalAction(
                         "counter-unless payment decision violates stack or payment provenance",
+                    ));
+                }
+            }
+            DecisionContinuation::CounterUnlessDiscardsHand {
+                source,
+                source_incarnation,
+                source_controller,
+                target_spell,
+                target_incarnation,
+            } => {
+                let top = self.stack.last().ok_or(RulesError::IllegalAction(
+                    "counter-unless discard decision escaped its stack spell",
+                ))?;
+                let target_position = self
+                    .stack
+                    .iter()
+                    .position(|candidate| candidate.card == *target_spell);
+                let source_position = self
+                    .stack
+                    .iter()
+                    .position(|candidate| candidate.card == *source);
+                let target = target_position.and_then(|position| self.stack.get(position));
+                if decision.kind != DecisionKind::CounterUnlessDiscardsHand
+                    || decision.visibility != DecisionVisibility::Public
+                    || decision.player >= PlayerId(self.players.len())
+                    || !decision.options.is_empty()
+                    || decision.min_selections != 0
+                    || decision.max_selections != 0
+                    || top.card != *source
+                    || top.source_incarnation != *source_incarnation
+                    || top.controller != *source_controller
+                    || top.ability_id.is_some()
+                    || top.targets.as_slice() != [Target::Spell(*target_spell)]
+                    || top.effects.as_slice()
+                        != [Effect::CounterTargetSpellUnlessControllerDiscardsHand]
+                    || target.is_none_or(|candidate| {
+                        candidate.controller != decision.player
+                            || candidate.ability_id.is_some()
+                            || self
+                                .object(*target_spell)
+                                .map_or(true, |object| object.incarnation != *target_incarnation)
+                    })
+                    || target_position >= source_position
+                {
+                    return Err(RulesError::IllegalAction(
+                        "counter-unless discard decision violates stack or hand provenance",
                     ));
                 }
             }

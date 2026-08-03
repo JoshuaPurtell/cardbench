@@ -2453,6 +2453,11 @@ pub enum Effect {
     CounterTargetSpellUnlessControllerPays {
         mana_cost: ManaCost,
     },
+    /// Counter one target spell unless that spell's controller explicitly
+    /// chooses to discard their entire current hand at the resolution-time
+    /// decision boundary.  Choosing this branch with an empty hand is legal:
+    /// it is still an explicit choice, not an implicit no-op.
+    CounterTargetSpellUnlessControllerDiscardsHand,
     /// Create one virtual copy of a targeted instant or sorcery stack object.
     /// A copy retains its source's cast-time values, but its controller may
     /// choose new legal targets through the typed decision boundary when the
@@ -2791,7 +2796,9 @@ impl Effect {
             | Self::CopyTargetInstantOrSorcerySpell { .. } => {
                 Some(TargetRequirement::InstantOrSorcerySpell)
             }
-            Self::CounterTargetSpell | Self::CounterTargetSpellUnlessControllerPays { .. } => {
+            Self::CounterTargetSpell
+            | Self::CounterTargetSpellUnlessControllerPays { .. }
+            | Self::CounterTargetSpellUnlessControllerDiscardsHand => {
                 Some(TargetRequirement::Spell)
             }
             Self::CounterTargetNoncreatureSpell => Some(TargetRequirement::NoncreatureSpell),
@@ -3684,6 +3691,11 @@ pub enum DecisionKind {
     /// The controller of a targeted spell must explicitly pay or decline an
     /// "unless that spell's controller pays" resolution-time mana cost.
     CounterUnlessPaysMana,
+    /// The controller of a targeted spell must explicitly discard their
+    /// entire current hand or decline, letting the resolving counterspell
+    /// counter that target.  This is a public no-priority decision because
+    /// every selected discard becomes public immediately afterward.
+    CounterUnlessDiscardsHand,
     /// A targeted player privately selects cards from their hand while a
     /// resolving stack object is suspended. The continuation specifies
     /// whether this is a fixed count or the conditional one-land/two-card
@@ -3788,6 +3800,12 @@ pub enum DecisionSelection {
         pay: bool,
         mana_abilities: Vec<ResolutionPaymentManaAbility>,
         mana_selection: ManaPaymentSelection,
+    },
+    /// A resolution-time counterspell decision. `discard` is explicit even
+    /// for an empty hand so a policy cannot mistake a legal empty-hand choice
+    /// for an automatic counter.
+    CounterUnlessDiscardsHand {
+        discard: bool,
     },
 }
 
@@ -4028,6 +4046,17 @@ pub enum DecisionContinuation {
         target_spell: ObjectId,
         target_incarnation: u64,
         mana_cost: ManaCost,
+    },
+    /// A counterspell remains on top of the stack while the lower target
+    /// spell's controller decides whether to discard their entire hand. Both
+    /// physical stack-object incarnations are retained to reject stale or
+    /// cross-response answers.
+    CounterUnlessDiscardsHand {
+        source: ObjectId,
+        source_incarnation: u64,
+        source_controller: PlayerId,
+        target_spell: ObjectId,
+        target_incarnation: u64,
     },
     /// Resumes a targeted spell after its recipient privately selects the
     /// printed conditional discard. `recipient` is captured from the stack
@@ -4545,6 +4574,15 @@ pub enum GameEvent {
         target_spell: ObjectId,
         mana_cost: ManaCost,
         mana_spent: Vec<Color>,
+    },
+    /// The target spell's controller explicitly chose the discard-hand
+    /// branch. The following public discard/move receipts make the complete
+    /// branch observable without exposing a private choice payload.
+    CounterUnlessDiscardHandChosen {
+        player: PlayerId,
+        source: ObjectId,
+        target_spell: ObjectId,
+        discarded: u8,
     },
     /// One controller's complete CR 603.3b ordering for an APNAP
     /// simultaneous-trigger group. This follows the corresponding generic

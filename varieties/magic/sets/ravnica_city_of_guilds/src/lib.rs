@@ -44,7 +44,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 251] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 252] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
@@ -150,6 +150,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 251] = [
     "RAV-DIMIR-GUILDMAGE",
     "RAV-DIMIR-HOUSE-GUARD",
     "RAV-DIMIR-MACHINATIONS",
+    "RAV-PERPLEX",
     "RAV-DIMIR-INFILTRATOR",
     "RAV-LURKING-INFORMANT",
     "RAV-SANDSOWER",
@@ -1823,8 +1824,11 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             ))],
             effects: vec![Effect::ReturnTargetPermanentToHandAndLoseControllerLife { amount: 3 }],
         },
-        // Only the hand-zone transmute activation is executable. Its printed
-        // spell effect is deliberately non-covered.
+        // The counter-or-discard decision stays stack-bound: the target spell
+        // controller explicitly accepts the complete current-hand discard
+        // (including an empty hand) or lets Perplex counter that physical
+        // lower stack object. Its generic Transmute activation remains
+        // independently available from hand.
         CardDefinition {
             id: "RAV-PERPLEX",
             name: "Perplex",
@@ -1834,14 +1838,19 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Instant]),
             is_basic_land: false,
-            supported_rules: &["transmute"],
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "counter-target-spell-unless-controller-discards-hand",
+                "stack-backed-private-transmute-library-search",
+            ],
             power: None,
             toughness: None,
             keywords: vec![Keyword::Transmute(ManaCost::with_colors(
                 1,
                 [Color::Blue, Color::Black],
             ))],
-            effects: vec![],
+            effects: vec![Effect::CounterTargetSpellUnlessControllerDiscardsHand],
         },
         // This compatibility definition is deliberately limited to the target
         // creature's temporary layer-7 modifier and transmute; it does not
