@@ -810,6 +810,17 @@ Oracle Magic rules coverage.
   empty selection from one multi-player discard trigger cannot complete the
   same source's later empty-hand choice or advance its next chooser. A stale
   action preserves the later choice, continuation, and event sequence.
+- The shared `TriggeredEffectObject` continuation may retain one exact
+  definition-bound activated ability as well as a triggered ability. For the
+  represented each-player draw-then-discard effect, that live stack ability
+  first records one ordinary draw transition for every living player. It then
+  opens only the current chooser's private one-card hand decision, retains
+  every earlier selected card's owner and current hand provenance, and records
+  no `CardDiscarded` or discard-zone transition until every living player has
+  submitted. Completion revalidates the complete batch and commits its ordered
+  discards before the ability terminal receipt. A foreign, stale, duplicate,
+  or out-of-hand selection rejects atomically without advancing the next
+  chooser or changing the stack/event state.
 - `DecisionKind::PublicGraveyardCreatureReturn` retains one exact target-free
   spell stack object while its affected living players choose serially from
   their own public graveyards. Only a player with one or more current creature

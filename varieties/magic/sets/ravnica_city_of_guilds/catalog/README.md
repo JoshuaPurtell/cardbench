@@ -49,8 +49,8 @@ a zone move. The fetched Aura's ordinary ETB trigger is queued only after the
 Mage trigger's terminal receipt. The opponent sees neither unselected Aura
 identities nor a private decision projection.
 
-The current catalog partition is 287 full / 4 partial / 0 catalog-only unique
-names (302 / 4 / 0 printings). The independently checked coverage-report
+The current catalog partition is 288 full / 3 partial / 0 catalog-only unique
+names (303 / 3 / 0 printings). The independently checked coverage-report
 binary emits the same partition.
 
 Tunnel Vision is a full-fidelity named-card target-library traversal. Its
@@ -546,7 +546,7 @@ the typed target restriction, source tap, damage receipt, and final invariant
 state.
 
 The second creature-chassis batch adds Elvish Skysweeper, Frenzied Goblin,
-Greater Forgeling, Lore Broker, and Selesnya Evangel. These definitions likewise
+Greater Forgeling, and Selesnya Evangel. These definitions likewise
 record only public identity, mana cost, color, creature type, and base
 power/toughness. Their card-specific activated, triggered, evasion, token, and
 combat behavior is intentionally unsupported. Four public cast-and-resolve
@@ -555,6 +555,14 @@ resolution, graveyard movement, and retained base P/T; they do not assert any
 omitted abilities. Goblin Fire Fiend is a later static-keyword exception: its
 Haste and same-turn attack are covered, while its must-block restriction and
 activated power boost remain bounded.
+
+Lore Broker has since graduated to a full-fidelity stack activation. After its
+controller taps the source and both players pass, every living player draws one
+card before any private discard answer is collected. The shared decision
+continuation then collects one private hand-card choice per player without
+recording a discard or zone transition until all choices exist; the resulting
+discards are committed as one ordered batch before the terminal `AbilityResolved`
+receipt.
 
 Grayscaled Gharial is now a full-fidelity static-keyword entry. Its typed
 Islandwalk is captured when it is declared as an attacker; a defender that
