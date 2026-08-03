@@ -69,6 +69,16 @@ block. Ordinary tapping, haste, evasion, restriction, and must-block checks
 remain in force; cleanup records authority expiry. Multiplayer attack
 assignment remains bounded by the engine's single-defender combat model.
 
+The 2026-08-03 Warp World completeness audit consulted the public RAV printing
+record and Comprehensive Rules index; it retained no upstream card prose,
+scans, art, or JSON. The CardBench-authored semantics move each battlefield
+permanent through its owner's library path, emit one deterministic shuffle per
+living player, reveal the exact owner-relative permanent count, return revealed
+artifact/creature/land cards as one entry batch, and put revealed nonpermanents
+on the library bottom in public reveal order. Its direct Rust trace records nine
+library moves, `LibraryShuffled(player 0, cards 18)`, nine reveals, nine
+battlefield returns, the spell terminal move, and invariant validation.
+
 Molten Sentry is a full-fidelity entry whose setup-only deterministic seed
 selects one entry-time layer-one power/toughness and keyword shape before ETB
 observation. Copies retain that already selected shape rather than consuming a
