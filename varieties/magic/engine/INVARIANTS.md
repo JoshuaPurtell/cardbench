@@ -2083,6 +2083,10 @@ Oracle Magic rules coverage.
   hidden selected identities remain absent from public receipts except for
   ordinary revealed zone transitions; the terminal source is always
   `SpellCopyResolved`, never `SpellResolved` or a physical card-zone move.
+- A virtual copy of a may-retarget copying spell may open its own public target
+  decision, create a child virtual copy with the selected target provenance,
+  then emit its own `SpellCopyResolved`; parent and child each have one
+  independent terminal lifecycle and neither may move a physical spell zone.
 - A virtual copy's public `PublicGraveyardLandReturn` completion commits only
   the selected live physical land cards in their captured incarnations before
   emitting `SpellCopyResolved`; the stack-only source never emits
