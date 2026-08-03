@@ -2491,6 +2491,12 @@ Oracle Magic rules coverage.
   token-cessation pair as one cost transition rather than mistaking the copy
   expiration record for an unrelated event. If the same departure also queues
   a `Dies` trigger, both stack objects share one exact source snapshot.
+- Token departure provenance is trigger-class independent. Before a copied
+  token ceases, the engine retains its effective definition and exact LKI if
+  that incarnation already names a pending trigger or a live ability, even if
+  it has no `Dies` binding. Consequently a damage trigger observed before a
+  lethal SBA pass is placed and resolved from historical source facts after
+  `TokenCeasedToExist`, never reconstructed from a fabricated zone object.
 - Every registered legendary card definition, and every legendary token value,
   participates in CR 704.5j according to its current layer-one name. When a
   controller has two or more matching live permanents, the engine has exactly
