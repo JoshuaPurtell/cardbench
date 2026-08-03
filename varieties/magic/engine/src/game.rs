@@ -11554,6 +11554,59 @@ impl Game {
         Ok(true)
     }
 
+    /// Applies the represented creature death SBAs as one simultaneous event.
+    /// Regeneration replacements are consumed before the death set is frozen;
+    /// every remaining creature is then observed at shared last-known
+    /// battlefield state before its ordinary individual zone transition.
+    fn apply_creature_death_state_based_actions(&mut self) -> Result<bool, RulesError> {
+        let mut changed = false;
+        let mut dying_creatures = Vec::new();
+        for card in self.all_battlefield_cards() {
+            let characteristics = self.characteristics(card)?;
+            if !characteristics.card_types.contains(&CardType::Creature) {
+                continue;
+            }
+            let toughness = characteristics.toughness.unwrap_or(0);
+            let object = self.object(card)?;
+            let damage = object.damage;
+            let deathtouch_damage = object.deathtouch_damage;
+            let reason = if toughness <= 0 {
+                Some("creature has toughness zero or less")
+            } else if damage > 0 && (damage >= toughness || deathtouch_damage) {
+                if self.use_regeneration_shield(card)? {
+                    changed = true;
+                    continue;
+                }
+                Some(if deathtouch_damage {
+                    "creature was dealt damage by a source with deathtouch"
+                } else {
+                    "creature has lethal damage"
+                })
+            } else {
+                None
+            };
+            if let Some(reason) = reason {
+                dying_creatures.push((card, reason));
+            }
+        }
+        if dying_creatures.is_empty() {
+            return Ok(changed);
+        }
+        // State-based actions place every creature that meets a death
+        // condition into the same event. Each observer must therefore be
+        // sampled while every member is still a live battlefield permanent;
+        // doing this one zone move at a time loses the first dying source
+        // before it can observe the later simultaneous departure through LKI.
+        self.enqueue_sba_creature_death_observer_triggers(
+            dying_creatures.iter().map(|(card, _)| *card),
+        )?;
+        for (card, reason) in dying_creatures {
+            self.record_event(GameEvent::StateBasedAction { card, reason });
+            self.move_to_graveyard_or_remove_token_after_sba_trigger_capture(card)?;
+        }
+        Ok(true)
+    }
+
     /// Applies state-based actions until the game reaches a fixed point.
     pub fn check_state_based_actions(&mut self) -> Result<(), RulesError> {
         loop {
@@ -11614,36 +11667,7 @@ impl Game {
                     _ => {}
                 }
             }
-            for card in self.all_battlefield_cards() {
-                let characteristics = self.characteristics(card)?;
-                if !characteristics.card_types.contains(&CardType::Creature) {
-                    continue;
-                }
-                let toughness = characteristics.toughness.unwrap_or(0);
-                let object = self.object(card)?;
-                let damage = object.damage;
-                let deathtouch_damage = object.deathtouch_damage;
-                let reason = if toughness <= 0 {
-                    Some("creature has toughness zero or less")
-                } else if damage > 0 && (damage >= toughness || deathtouch_damage) {
-                    if self.use_regeneration_shield(card)? {
-                        changed = true;
-                        continue;
-                    }
-                    Some(if deathtouch_damage {
-                        "creature was dealt damage by a source with deathtouch"
-                    } else {
-                        "creature has lethal damage"
-                    })
-                } else {
-                    None
-                };
-                if let Some(reason) = reason {
-                    self.record_event(GameEvent::StateBasedAction { card, reason });
-                    self.move_to_graveyard_or_remove_token(card)?;
-                    changed = true;
-                }
-            }
+            changed |= self.apply_creature_death_state_based_actions()?;
             if !changed {
                 // A terminal SBA boundary ends the game before any newly
                 // observed triggers are put onto the stack.  Existing stack
@@ -19623,6 +19647,24 @@ impl Game {
         Ok(())
     }
 
+    /// Captures the represented creature-departure observers for one complete
+    /// state-based-action death event.  All cards in this iterator are still
+    /// on the battlefield when this runs, so every source can contribute
+    /// last-known information for every simultaneous death.  The ensuing
+    /// individual zone moves deliberately suppress their ordinary observer
+    /// capture to avoid duplicating this one shared event.
+    fn enqueue_sba_creature_death_observer_triggers(
+        &mut self,
+        dying_creatures: impl IntoIterator<Item = ObjectId>,
+    ) -> Result<(), RulesError> {
+        for dying_creature in dying_creatures {
+            self.enqueue_another_creature_leaves_battlefield_triggers(dying_creature)?;
+            self.enqueue_another_creature_dies_triggers(dying_creature)?;
+            self.enqueue_controlled_nontoken_creature_dies_triggers(dying_creature)?;
+        }
+        Ok(())
+    }
+
     /// Captures every battlefield permanent with an "another creature leaves
     /// the battlefield" trigger before the departing object changes zones.
     /// The source incarnation and colors are sampled while the source still
@@ -24632,14 +24674,36 @@ impl Game {
     }
 
     fn move_to_graveyard_or_remove_token(&mut self, card: ObjectId) -> Result<(), RulesError> {
+        self.move_to_graveyard_or_remove_token_with_departure_observers(card, true)
+    }
+
+    /// Performs an ordinary individual graveyard transition after an SBA
+    /// batch has already sampled every creature-departure observer.  The
+    /// exact zone, object-incarnation, dies-source, and graveyard-entry
+    /// lifecycles remain ordinary; only duplicate generic observer capture is
+    /// suppressed.
+    fn move_to_graveyard_or_remove_token_after_sba_trigger_capture(
+        &mut self,
+        card: ObjectId,
+    ) -> Result<(), RulesError> {
+        self.move_to_graveyard_or_remove_token_with_departure_observers(card, false)
+    }
+
+    fn move_to_graveyard_or_remove_token_with_departure_observers(
+        &mut self,
+        card: ObjectId,
+        capture_departure_observers: bool,
+    ) -> Result<(), RulesError> {
         if self.object(card)?.token.is_some() {
             let was_battlefield = self.zone_of(card) == Some(Zone::Battlefield);
             let expired_copy = self.object(card)?.copied_permanent.clone();
             let token_incarnation = self.object(card)?.incarnation;
             if was_battlefield {
-                self.enqueue_another_creature_leaves_battlefield_triggers(card)?;
-                self.enqueue_another_creature_dies_triggers(card)?;
-                self.enqueue_controlled_nontoken_creature_dies_triggers(card)?;
+                if capture_departure_observers {
+                    self.enqueue_another_creature_leaves_battlefield_triggers(card)?;
+                    self.enqueue_another_creature_dies_triggers(card)?;
+                    self.enqueue_controlled_nontoken_creature_dies_triggers(card)?;
+                }
                 // Tokens cease to exist instead of taking an ordinary zone
                 // move, but their live combat membership still ends at the
                 // same battlefield-departure boundary.  Preserve immutable
@@ -24673,11 +24737,15 @@ impl Game {
             })
             .transpose()?;
         let definition = self.card_definition(card)?.id;
-        if was_battlefield {
+        if was_battlefield && capture_departure_observers {
             self.enqueue_another_creature_dies_triggers(card)?;
             self.enqueue_controlled_nontoken_creature_dies_triggers(card)?;
         }
-        self.move_to_zone(card, Zone::Graveyard)?;
+        self.move_to_zone_with_departure_observers(
+            card,
+            Zone::Graveyard,
+            capture_departure_observers,
+        )?;
         if was_battlefield {
             let battlefield_colors = battlefield_colors.ok_or(RulesError::IllegalAction(
                 "battlefield departure lacks source-color provenance",
@@ -24865,6 +24933,19 @@ impl Game {
 
     #[allow(clippy::too_many_lines)] // Zone moves centralize the replay-visible lifecycle.
     fn move_to_zone(&mut self, card: ObjectId, zone: Zone) -> Result<(), RulesError> {
+        self.move_to_zone_with_departure_observers(card, zone, true)
+    }
+
+    /// Internal zone-move form used after a complete SBA death event has
+    /// captured its observers.  Every caller outside that exact batch retains
+    /// ordinary leaves-the-battlefield observation.
+    #[allow(clippy::too_many_lines)] // Zone moves centralize the replay-visible lifecycle.
+    fn move_to_zone_with_departure_observers(
+        &mut self,
+        card: ObjectId,
+        zone: Zone,
+        capture_departure_observers: bool,
+    ) -> Result<(), RulesError> {
         let object = self.object(card)?.clone();
         let previous_zone = self.zone_of(card);
         let graveyard_to_hand = previous_zone == Some(Zone::Graveyard) && zone == Zone::Hand;
@@ -24888,8 +24969,10 @@ impl Game {
         if previous_zone == Some(Zone::Exile) && zone != Zone::Exile {
             self.unlink_hand_exile_member_before_zone_departure(card, object.incarnation);
         }
-        if left_battlefield {
+        if left_battlefield && capture_departure_observers {
             self.enqueue_another_creature_leaves_battlefield_triggers(card)?;
+        }
+        if left_battlefield {
             // Live combat membership is zone-relative. Preserve the immutable
             // exact-incarnation block history for delayed effects, but remove
             // an ordinary battlefield departure before it gains a new zone

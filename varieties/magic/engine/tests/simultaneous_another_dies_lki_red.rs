@@ -97,12 +97,16 @@ fn simultaneous_deaths_stack_another_dies_triggers_from_both_lki_sources() {
         .event_log
         .iter()
         .filter_map(|event| match event {
-            GameEvent::TriggeredAbilityStacked { source, ability, .. }
-                if *ability == "another-creature-died" => Some(*source),
+            GameEvent::TriggeredAbilityStacked {
+                source, ability, ..
+            } if *ability == "another-creature-died" => Some(*source),
             _ => None,
         })
         .collect::<BTreeSet<_>>();
-    println!("simultaneous-another-dies red trace: {:?}", game.canonical_event_log());
+    println!(
+        "simultaneous-another-dies red trace: {:?}",
+        game.canonical_event_log()
+    );
     assert_eq!(
         trigger_sources,
         BTreeSet::from([first, second]),
