@@ -142,12 +142,14 @@ current corpus contains 187 scenarios and covers:
   stack object and response window;
 - radiance color matching and layer-7 modifiers (`Rally the Righteous`); and
 - zero-toughness state-based action after a continuous effect (`Last Gasp`);
-- targeted temporary modifiers plus transmute (`Dizzy Spell`), transmute-only
-  compatibility (`Brainspoil`), and a targeted temporary modifier plus dredge
-  (`Darkblast`); and
+- targeted temporary modifiers plus transmute (`Dizzy Spell`), nonblack
+  creature destruction plus stack-backed Transmute (`Brainspoil`), and a
+  targeted temporary modifier plus dredge (`Darkblast`); and
 - a full-fidelity target-free global creature-and-player damage batch (`Rain of
-  Embers`) plus additional explicitly transmute-only compatibility slices (`Dimir
-  Machinations`, `Clutch of the Undercity`, and `Perplex`); and
+  Embers`) plus Perplex's explicitly transmute-only compatibility slice; and
+- a full-fidelity private top-three target-library reorder plus stack-backed
+  Transmute (`Dimir Machinations`), with policy-submitted exhaustive
+  top/bottom ordering and identity-free decision receipts; and
 - a full-fidelity ranged public-graveyard target group (`Shred Memory`), with
   zero-to-four distinct same-graveyard targets, partial resolution, normal
   target-incarnation provenance, exile receipts, and Transmute; and

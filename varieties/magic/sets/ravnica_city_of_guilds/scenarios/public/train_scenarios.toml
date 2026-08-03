@@ -3362,7 +3362,7 @@ digest = "fnv1a64:d8c8a2a2df958ce8"
 [[scenario]]
 id = "rav_dimir_machinations_transmute"
 seed = 41
-description = "Use Dimir Machinations' scoped transmute activation; its printed spell effect is non-covered."
+description = "Retain Dimir Machinations' historical immediate Transmute fixture for deterministic public parity; the direct Rust full-fidelity contract separately exercises its private target-library reorder face."
 
 [[scenario.card]]
 label = "machinations"
@@ -3400,7 +3400,7 @@ digest = "fnv1a64:6f1b4dd34a241a80"
 [[scenario]]
 id = "rav_shred_memory_transmute"
 seed = 41
-description = "Use Shred Memory's scoped transmute activation; its printed spell effect is non-covered."
+description = "Retain Shred Memory's historical immediate Transmute fixture for deterministic public parity; the direct Rust full-fidelity contract separately exercises its ranged graveyard-target face."
 
 [[scenario.card]]
 label = "shred"

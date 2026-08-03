@@ -589,8 +589,9 @@ Oracle Magic rules coverage.
   library searches, trigger target selection and triggered discard/sacrifice
   object choices, multi-block combat order, spell-copy targets, concurrent
   token/counter quantity replacement ordering, and bounded direct-damage
-  prevention/redirection, plus private top-library hand/top/bottom
-  partitions. Library search, discard, and top-library partition options are
+  prevention/redirection, plus private top-library hand/top/bottom and
+  target-player top/bottom partitions. Library search, discard, and
+  top-library partition options are
   private: only the deciding player's `GameView` contains their candidate
   identities, while a public sacrifice option is projected safely to its
   deciding controller. `DecisionContinuation` holds only typed cloned data,
@@ -1627,6 +1628,23 @@ Oracle Magic rules coverage.
   metadata; no look, reveal, candidate, selected-top, or selected-bottom
   identity appears in the public receipt stream. The normal public hand move
   and terminal spell lifecycle follow only after the private decision closes.
+- `LookAtTopCardsOfTargetPlayerAndReorder` is a one-effect, spell-only
+  private decision boundary with one live `Player` target. On resolution its
+  controller, rather than the target player, alone receives the exact current
+  top-first snapshot of up to its positive requested count. A nonempty
+  snapshot opens `TargetPlayerLibraryTopReorder`; an empty target library
+  resolves normally without inventing a choice. Its submitted `top`
+  (top-to-bottom) and `bottom` (bottom-to-top) vectors must together be an
+  exhaustive duplicate-free partition of that exact snapshot. The live stack
+  spell, source incarnation, controller, target, target legality, snapshot,
+  and private option set are revalidated before either library order changes;
+  foreign, stale, malformed, duplicate, or omitted-card answers are atomic.
+  `PrivateTargetPlayerLibraryReorderOpened { decision, count }` immediately
+  follows its matching private `DecisionOpened`, and matching
+  `DecisionCompleted` must precede one identity-free
+  `PrivateTargetPlayerLibraryReordered { inspected }` receipt and the normal
+  terminal spell lifecycle. Candidate identities and submitted order never
+  enter the target player's view or the public event log.
 - A `Permanent` target is a current battlefield object, never a player or a
   card in another zone. A permanent-bounce instruction snapshots the target's
   controller before its owner-hand zone move; its `CardMoved { to: Hand }`
