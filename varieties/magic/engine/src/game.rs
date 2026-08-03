@@ -8293,6 +8293,13 @@ impl Game {
                 false,
             )?;
         }
+        // CR 603.3/704.3: a cast is complete before its resulting triggers
+        // are placed, but the mandatory SBA fixed point is still reached
+        // first.  A sacrifice cost can remove a static effect and create a
+        // second death there; both observations must enter one APNAP batch.
+        // This also prevents an eliminated caster's cost trigger from being
+        // briefly stacked and immediately removed.
+        self.check_state_based_actions_impl()?;
         self.flush_pending_trigger_events()?;
         self.consecutive_passes = 0;
         // CR 601.2i / 117.3c normally returns priority to the player who
@@ -8305,7 +8312,6 @@ impl Game {
         if self.pending_decision.is_none() {
             self.priority = player;
         }
-        self.check_state_based_actions_impl()?;
         self.flush_pending_dies_triggers()?;
         Ok(())
     }
