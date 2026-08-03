@@ -2068,8 +2068,13 @@ Oracle Magic rules coverage.
   larger `OpeningHandDrawn` event. Deck loading is likewise pregame-only and
   transactional: it preflights the exact `u16` receipt cardinality before
   creating any object, so `DeckLoaded` and `LibraryShuffled` never saturate or
-  claim fewer cards than the library contains. Setup events and hidden cards
-  cannot be injected into a live turn.
+  claim fewer cards than the library contains. Direct pregame `add_card` and
+  every later owner-library zone move share that same capacity boundary;
+  attempting to create a 65,536th library card rejects before it changes an
+  object, zone, seed, or canonical event. The invariant rejects any fabricated
+  oversized library, and every rules shuffle takes its receipt through the one
+  checked exact-count helper. Setup events and hidden cards cannot be injected
+  into a live turn.
 - Once the game has begun, the public direct-draw primitive is legal only for
   the active player's pending Draw-step decision. It resolves that marker
   atomically; an arbitrary Upkeep, main-phase, combat, or opponent draw is
