@@ -862,7 +862,6 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 target: cardbench_magic_engine::TargetRequirement::Creature,
             }],
         },
-        // Compatibility scope: normal colored-cost casting, base
         // Full fidelity: colored casting, Trample, and the targeted-opponent
         // ETB token creation (including protection-bearing Centaurs) are typed
         // through the expansion-neutral trigger and token substrates.
@@ -3986,9 +3985,8 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::DoubleStrike],
             effects: vec![],
         },
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Every printed card-specific behavior is
-        // deliberately omitted from this slice.
+        // Full fidelity: its Defender body and enter-the-battlefield draw
+        // trigger use the shared state-machine and target-free trigger path.
         CardDefinition {
             id: "RAV-CARVEN-CARYATID",
             name: "Carven Caryatid",
@@ -5993,10 +5991,8 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::DamageCannotBePrevented],
             effects: vec![],
         },
-        // Compatibility scope: normal colored-cost creature casting, base
-        // characteristics, and Haste. Its must-block restriction and activated
-        // power boost remain deliberately unsupported, so this is not a
-        // full-fidelity card.
+        // Full fidelity: Haste, must-block legality, and the activated power
+        // boost all use the shared combat, stack, and layer-7 substrates.
         CardDefinition {
             id: "RAV-GOBLIN-FIRE-FIEND",
             name: "Goblin Fire Fiend",

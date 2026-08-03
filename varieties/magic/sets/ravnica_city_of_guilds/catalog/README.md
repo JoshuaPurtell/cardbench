@@ -52,6 +52,9 @@ identities nor a private decision projection.
 The current catalog partition is 291 full / 0 partial / 0 catalog-only unique
 names (306 / 0 / 0 printings). The independently checked coverage-report
 binary emits the same partition.
+The promotion notes below are historical audit notes; when an older paragraph
+still calls a card “bounded,” the current positive manifest, binding registry,
+and focused regression tests are authoritative.
 
 Tunnel Vision is a full-fidelity named-card target-library traversal. Its
 controller submits one represented catalog name through a public, id-bearing
@@ -274,7 +277,7 @@ completed exchange writes two durable layer-two effects before either control
 receipt; a response that makes either target illegal leaves neither permanent
 partially exchanged.
 
-`RAV_FULL_FIDELITY_DEFINITION_IDS` is a deliberately small positive manifest,
+`RAV_FULL_FIDELITY_DEFINITION_IDS` is the authoritative positive manifest,
 not an inference from executable status. Char, Lightning Helix, Scatter the
 Seeds, Guardian of Vitu-Ghazi, Last Gasp, Elves of Deep Shadow, Boros Recruit,
 Nightguard Patrol, Watchwolf, Glass Golem, Junktroller,
@@ -293,8 +296,8 @@ graveyard-return receipt. The radiance entries were
 checked against their public set identity and the official Comprehensive Rules'
 target, resolution, damage, continuous-effect, and state-based-action rules;
 this repository retains only CardBench-authored semantic operations, never card
-rules text. Every other executable definition remains a bounded compatibility
-slice unless it is explicitly added to that manifest after the same audit.
+rules text. Every current executable definition is in that manifest; future
+bounded slices must remain outside it until the same audit is complete.
 
 Bottled Cloister is a positive-manifest entry. Its two upkeep triggers use the
 same reusable source-incarnation hand-exile group: an opponent's upkeep moves
