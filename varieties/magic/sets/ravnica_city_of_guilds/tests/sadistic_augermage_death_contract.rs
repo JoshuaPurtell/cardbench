@@ -1,8 +1,6 @@
 //! Stack and event-log contract for Sadistic Augermage's death trigger.
 
-use cardbench_magic_engine::{
-    Game, GameEvent, PlayerId, PolicyAction, PolicyMoveKind, Step, Zone,
-};
+use cardbench_magic_engine::{Game, GameEvent, PlayerId, PolicyAction, PolicyMoveKind, Step, Zone};
 use cardbench_magic_rav::{
     card_definitions, rav_activated_ability_bindings, rav_additional_spell_cost_bindings,
     rav_basic_land_type_bindings, rav_mana_ability_bindings, rav_triggered_ability_bindings,
@@ -22,6 +20,7 @@ fn game_with_rav_bindings() -> Game {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // One trace proves may acceptance and both private discard choices.
 fn another_creature_dying_stacks_then_resolves_all_player_discards() {
     let mut game = game_with_rav_bindings();
     let augermage = game
@@ -55,7 +54,10 @@ fn another_creature_dying_stacks_then_resolves_all_player_discards() {
         .optional_triggered_ability_choice
         .expect("controller may accept or decline the trigger");
     assert_eq!(may_choice.source, augermage);
-    assert_eq!(may_choice.ability, "another-creature-dies-each-player-discards");
+    assert_eq!(
+        may_choice.ability,
+        "another-creature-dies-each-player-discards"
+    );
     assert!(may_choice.can_pay);
     assert!(
         game.view_for_player(PlayerId(1))

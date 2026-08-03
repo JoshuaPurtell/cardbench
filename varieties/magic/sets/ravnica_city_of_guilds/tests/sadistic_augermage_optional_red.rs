@@ -1,14 +1,13 @@
 //! Red discovery contract for Sadistic Augermage's optional dies trigger.
 
-use cardbench_magic_engine::{
-    Game, GameEvent, PlayerId, PolicyAction, PolicyMoveKind, Zone,
-};
+use cardbench_magic_engine::{Game, GameEvent, PlayerId, PolicyAction, PolicyMoveKind, Zone};
 use cardbench_magic_rav::{
     card_definitions, rav_activated_ability_bindings, rav_additional_spell_cost_bindings,
     rav_basic_land_type_bindings, rav_mana_ability_bindings, rav_triggered_ability_bindings,
 };
 
 #[test]
+#[allow(clippy::too_many_lines)] // The complete decline boundary is one event-log regression.
 fn sadistic_augermage_controller_can_decline_the_dies_trigger() {
     let mut game = Game::new_with_all_bindings_and_triggers(
         card_definitions(),
@@ -73,7 +72,10 @@ fn sadistic_augermage_controller_can_decline_the_dies_trigger() {
             target: None,
         },
     );
-    assert!(wrong_player.is_err(), "only the trigger controller may decline");
+    assert!(
+        wrong_player.is_err(),
+        "only the trigger controller may decline"
+    );
     assert_eq!(game.event_log.len(), events_before_wrong_player);
     assert!(
         game.view_for_player(PlayerId(0))

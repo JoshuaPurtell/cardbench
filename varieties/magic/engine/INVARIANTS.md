@@ -687,7 +687,10 @@ Oracle Magic rules coverage.
   later events cannot overtake that pending placement. Dynamic damage-trigger
   instructions use the captured positive amount, not a later damage
   accumulator. A targetless optional trigger opens the same accept/decline
-  boundary even with a zero mana cost. A target-bearing optional trigger first
+  boundary even with a zero mana cost. The choice is controller-only: a
+  rejected noncontroller submission is atomic and writes no policy or effect
+  receipt, while a decline writes the ordinary terminal `AbilityResolved`
+  receipt but never opens an effect-specific continuation. A target-bearing optional trigger first
   completes its public target-selection boundary before it is stacked, then
   opens the same controller-only accept/decline boundary after ordinary
   priority passes; declining preserves the already selected target without
