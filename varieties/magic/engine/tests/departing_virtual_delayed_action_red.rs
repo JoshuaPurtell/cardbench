@@ -283,3 +283,125 @@ fn departing_controller_retires_linked_exile_schedule_without_moving_exiled_card
     game.validate_invariants()
         .expect("linked delayed state has no departed-controller survivor");
 }
+
+#[test]
+#[allow(clippy::too_many_lines)] // The delayed ability must be live before the lethal response creates the player-loss boundary.
+#[allow(clippy::similar_names)] // Fixture terms deliberately match the rules concepts under test.
+fn departing_controller_removes_stacked_virtual_delayed_ability_with_terminal_receipt() {
+    let caster = PlayerId(0);
+    let departing_copy_controller = PlayerId(1);
+    let killer_controller = PlayerId(2);
+    let mut game = Game::new(
+        [
+            definition(CREATURE, CardType::Creature, vec![]),
+            definition(
+                GAZE,
+                CardType::Instant,
+                vec![Effect::RegenerateTargetCreatureAndScheduleCombatHistoryDestruction],
+            ),
+            definition(
+                COPY,
+                CardType::Instant,
+                vec![Effect::CopyTargetInstantOrSorcerySpell {
+                    may_choose_new_targets: false,
+                }],
+            ),
+            definition(COUNTER, CardType::Instant, vec![Effect::CounterTargetSpell]),
+            definition(
+                KILLER,
+                CardType::Instant,
+                vec![Effect::DealDamage {
+                    amount: 20,
+                    target: TargetRequirement::Player,
+                }],
+            ),
+        ],
+        3,
+    )
+    .expect("fixture initializes");
+    let creature = game
+        .put_on_battlefield(caster, CREATURE)
+        .expect("regeneration target begins on battlefield");
+    for _ in 0..8 {
+        game.add_card(caster, CREATURE, Zone::Library)
+            .expect("active player has an ordinary opening/draw-step card");
+    }
+    let gaze = game
+        .add_card(caster, GAZE, Zone::Hand)
+        .expect("gaze enters hand");
+    let copy = game
+        .add_card(departing_copy_controller, COPY, Zone::Hand)
+        .expect("copy enters hand");
+    let counter = game
+        .add_card(caster, COUNTER, Zone::Hand)
+        .expect("counter enters hand");
+    let killer = game
+        .add_card(killer_controller, KILLER, Zone::Hand)
+        .expect("third player has lethal response");
+    game.begin_game().expect("game begins");
+
+    game.cast_spell(caster, request(gaze, vec![Target::Permanent(creature)]))
+        .expect("gaze casts");
+    game.pass_priority(caster)
+        .expect("caster passes to copy controller");
+    game.cast_spell(
+        departing_copy_controller,
+        request(copy, vec![Target::Spell(gaze)]),
+    )
+    .expect("copy casts");
+    resolve_top(&mut game).expect("copy instruction creates virtual gaze");
+    resolve_top(&mut game).expect("virtual gaze schedules delayed action");
+    let virtual_copy = game
+        .event_log
+        .iter()
+        .find_map(|event| match event {
+            GameEvent::SpellCopied { copy, original, .. } if *original == gaze => Some(*copy),
+            _ => None,
+        })
+        .expect("copy receipt identifies virtual gaze");
+    game.cast_spell(caster, request(counter, vec![Target::Spell(gaze)]))
+        .expect("counter removes physical original");
+    resolve_top(&mut game).expect("physical original is countered");
+
+    advance_empty_stack(&mut game).expect("upkeep advances to draw");
+    game.resolve_pending_draw(caster, None)
+        .expect("multiplayer draw step takes the ordinary draw");
+    advance_empty_stack(&mut game).expect("draw advances to precombat main");
+    advance_empty_stack(&mut game).expect("precombat main advances to beginning of combat");
+    advance_empty_stack(&mut game).expect("beginning of combat advances to declare attackers");
+    game.declare_attackers(caster, &[])
+        .expect("active player declares no attackers");
+    advance_empty_stack(&mut game).expect("end of combat stacks delayed virtual ability");
+    assert!(game.stack.iter().any(|stack_object| {
+        stack_object.card == virtual_copy
+            && stack_object.ability_id == Some("delayed-combat-history-destruction")
+            && stack_object.controller == departing_copy_controller
+    }));
+
+    game.pass_priority(caster)
+        .expect("active player passes while delayed ability waits");
+    game.pass_priority(departing_copy_controller)
+        .expect("delayed ability controller passes to lethal responder");
+    game.cast_spell(
+        killer_controller,
+        request(killer, vec![Target::Player(departing_copy_controller)]),
+    )
+    .expect("third player responds with lethal damage");
+    let result = resolve_top(&mut game);
+    eprintln!(
+        "departing stacked virtual delayed-ability red trace: result={result:?}; stack={:?}; events={:?}",
+        game.stack,
+        game.canonical_event_log()
+    );
+    assert!(
+        result.is_ok(),
+        "departed delayed ability must receive a terminal lifecycle receipt rather than poison the enclosing resolution"
+    );
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::AbilityCounteredByRules { source, ability, .. }
+            if *source == virtual_copy && *ability == "delayed-combat-history-destruction"
+    )));
+    game.validate_invariants()
+        .expect("no ability receipt remains open after player-loss cleanup");
+}
