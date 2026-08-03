@@ -8,8 +8,8 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardDefinition, CardType, CastRequest, Color, Effect, Game, ManaCost, PlayerId, Target,
-    Zone,
+    CardDefinition, CardType, CastRequest, Color, Effect, Game, GameEvent, ManaCost, PlayerId,
+    PolicyAction, PolicyMoveKind, Target, Zone,
 };
 
 const CREATURE: &str = "TST-MODAL-COLOR-CREATURE";
@@ -40,6 +40,7 @@ fn definition(
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // The public trace covers both decision receipts and resolution.
 fn selected_modal_branch_can_submit_its_required_color_in_the_same_cast() {
     let mut game = Game::new(
         [
@@ -66,11 +67,8 @@ fn selected_modal_branch_can_submit_its_required_color_in_the_same_cast() {
         .expect("spell setup");
     game.begin_game().expect("game begins");
 
-    // Before the green repair this is the closest public action, but it has
-    // no way to provide the required color.  It rejects with the color-boundary
-    // error and leaves the spell in hand, proving the policy surface cannot
-    // represent this one legal cast action.
-    let cast = game.cast_spell_with_mode(
+    // A modal action on its own still must not invent a color choice.
+    let missing_color = game.cast_spell_with_mode(
         PlayerId(0),
         CastRequest {
             card: spell,
@@ -80,14 +78,74 @@ fn selected_modal_branch_can_submit_its_required_color_in_the_same_cast() {
         },
         0,
     );
+    assert!(
+        missing_color.is_err(),
+        "modal casts cannot default a card color"
+    );
+    assert_eq!(game.zone_of(spell), Some(Zone::Hand));
+    assert!(game.stack.is_empty());
+
+    game.submit_policy_move(
+        PlayerId(0),
+        "modal-color-choice-policy",
+        PolicyAction::CastWithModeAndColorChoice {
+            request: CastRequest {
+                card: spell,
+                targets: vec![Target::Permanent(creature)],
+                convoke: vec![],
+                payment_mana_abilities: vec![],
+            },
+            mode: 0,
+            color: Color::Red,
+        },
+    )
+    .expect("policy submits both choices in one legal cast");
     eprintln!(
-        "modal color choice cast={cast:?}; zone={:?}; stack={:?}; events={:?}",
+        "modal color choice zone={:?}; stack={:?}; events={:?}",
         game.zone_of(spell),
         game.stack,
         game.canonical_event_log()
     );
     assert!(
-        cast.is_ok(),
-        "one cast action must accept both its selected mode and required color"
+        matches!(
+            game.stack.as_slice(),
+            [stack]
+                if stack.chosen_modal_mode == Some(0)
+                    && stack.chosen_color == Some(Color::Red)
+        ),
+        "the one stack item retains both cast decisions"
     );
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::PolicyMoveSubmitted {
+            kind: PolicyMoveKind::CastWithMode,
+            ..
+        }
+    )));
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::SpellModeChosen { player, card, mode }
+            if *player == PlayerId(0) && *card == spell && *mode == 0
+    )));
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::SpellColorChosen { player, card, color }
+            if *player == PlayerId(0) && *card == spell && *color == Color::Red
+    )));
+    game.validate_invariants()
+        .expect("the live modal stack item audits its materialized color requirement");
+
+    let first = game.priority;
+    game.pass_priority(first).expect("first resolution pass");
+    let second = game.priority;
+    game.pass_priority(second).expect("second resolution pass");
+    assert_eq!(
+        game.characteristics(creature)
+            .expect("creature remains")
+            .colors,
+        BTreeSet::from([Color::Red]),
+        "the selected branch resolves with the selected color"
+    );
+    game.validate_invariants()
+        .expect("combined cast choices retain auditable provenance");
 }

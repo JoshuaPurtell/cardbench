@@ -211,6 +211,15 @@ pub enum PolicyAction {
         request: CastRequest,
         mode: u8,
     },
+    /// Casts a modal spell whose selected branch also requires one explicit
+    /// card-color choice. Both decisions are submitted inside the same cast
+    /// transaction; neither can be deferred until after the card has left the
+    /// hand.
+    CastWithModeAndColorChoice {
+        request: CastRequest,
+        mode: u8,
+        color: Color,
+    },
     /// Casts a spell while supplying the player's complete explicit mana
     /// allocation and, when the represented spell requires it, one chosen
     /// nonnegative `{X}` value.  This is the policy-facing counterpart to
@@ -391,7 +400,9 @@ impl PolicyAction {
             | Self::CastWithPayment { .. }
             | Self::CastWithCreatureSpellAdditionalMana { .. }
             | Self::CastWithColorChoice { .. } => PolicyMoveKind::Cast,
-            Self::CastWithMode { .. } => PolicyMoveKind::CastWithMode,
+            Self::CastWithMode { .. } | Self::CastWithModeAndColorChoice { .. } => {
+                PolicyMoveKind::CastWithMode
+            }
             Self::Draw { .. } => PolicyMoveKind::Draw,
             Self::ChoosePrivateLibraryCards { .. } => PolicyMoveKind::ChoosePrivateLibraryCards,
             Self::ChoosePrivateOpponentLibraryCardToExile { .. } => {
@@ -5016,6 +5027,13 @@ impl Game {
             PolicyAction::CastWithMode { request, mode } => {
                 self.cast_spell_with_mode(player, request, mode)?;
             }
+            PolicyAction::CastWithModeAndColorChoice {
+                request,
+                mode,
+                color,
+            } => {
+                self.cast_spell_with_mode_and_color_choice(player, request, mode, color)?;
+            }
             PolicyAction::CastWithPayment {
                 request,
                 chosen_x,
@@ -7816,6 +7834,23 @@ impl Game {
     ) -> Result<(), RulesError> {
         self.atomic_transition(|game| {
             game.cast_spell_impl(player, &request, None, None, None, Some(mode), None)
+        })
+    }
+
+    /// Casts one modal spell while atomically supplying its selected branch
+    /// and the actual card color required by that branch. The engine validates
+    /// both choices against the materialized branch before the card moves from
+    /// hand, then retains and receipts each value on the resulting stack item.
+    #[allow(clippy::needless_pass_by_value)] // Owned request crosses the atomic cast boundary.
+    pub fn cast_spell_with_mode_and_color_choice(
+        &mut self,
+        player: PlayerId,
+        request: CastRequest,
+        mode: u8,
+        color: Color,
+    ) -> Result<(), RulesError> {
+        self.atomic_transition(|game| {
+            game.cast_spell_impl(player, &request, None, None, Some(color), Some(mode), None)
         })
     }
 
@@ -15982,8 +16017,7 @@ impl Game {
                     "a chosen-X stack spell lacks an explicit payment receipt",
                 ));
             }
-            let requires_chosen_color =
-                definition.effects.iter().any(Effect::requires_chosen_color);
+            let requires_chosen_color = stack_effects.iter().any(Effect::requires_chosen_color);
             if !is_ability && requires_chosen_color != stack_object.chosen_color.is_some() {
                 return Err(RulesError::IllegalAction(
                     "stack spell lacks or fabricates its selected color",
