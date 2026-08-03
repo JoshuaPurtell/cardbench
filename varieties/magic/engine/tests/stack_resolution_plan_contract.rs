@@ -15,6 +15,7 @@ fn three_target_object(targets: Vec<Target>) -> StackObject {
         source_colors: BTreeSet::new(),
         controller: PlayerId(0),
         ability_id: None,
+        ability_definition: None,
         targets,
         target_incarnations: vec![],
         effects: vec![
