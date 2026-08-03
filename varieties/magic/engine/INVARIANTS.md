@@ -1944,6 +1944,14 @@ Oracle Magic rules coverage.
   until expiry; any later layer-five change still applies in timestamp order.
   The effect is target-incarnation-bound and therefore cannot affect a new
   creature object after the original target changes zones.
+- A typed `LandWithBasicLandType` target is legal only for a live battlefield
+  land whose currently derived basic-land type matches exactly; activation and
+  resolution both recheck that live characteristic. `AnimateTargetLand` admits
+  a nonempty, noncolorless replacement color set, one or more creature
+  subtypes, and nonnegative base power/toughness. It creates its creature and
+  subtype changes in layer four, complete color-set replacement in layer five,
+  and base power/toughness in layer-seven 7b. Later layer-seven modifiers and
+  counters apply after that base setting.
 - Every continuous effect names extant source and target objects, has a unique
   positive monotonic timestamp, captures both endpoint incarnations, and has a
   valid duration. A permanent-duration effect cannot outlive either matching
@@ -1955,6 +1963,11 @@ Oracle Magic rules coverage.
   turn's cleanup; target departure still expires it immediately. In contrast,
   a permanent-duration effect remains source-dependent and expires when either
   matching battlefield endpoint leaves.
+- `UntilTargetLeavesBattlefield` is an independent target-lifetime duration:
+  it retains the exact target incarnation, survives source departure without
+  a synthetic expiration receipt, and expires immediately if that target
+  leaves. It can never attach its stored change to a new incarnation of the
+  same physical card.
 - A public continuous-effect installation is one atomic engine transition. A
   rejected request restores the target's runtime state, live-effect list, and
   canonical receipt log exactly. In particular, `AddDamageShield` requires a

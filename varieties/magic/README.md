@@ -149,6 +149,11 @@ current corpus contains 187 scenarios and covers:
   Embers`) plus a policy-owned counter-or-discard-complete-hand stack decision
   (`Perplex`), including legal empty-hand acceptance and auditable public
   discard receipts; and
+- a full-fidelity stack-paid persistent Forest animation (`Woodwraith
+  Corrupter`), including typed live-land targeting, layer-four creature and
+  subtype changes, layer-five complete color replacement, layer-seven base
+  power/toughness before modifiers/counters, and target-lifetime persistence
+  after the activating creature leaves; and
 - a full-fidelity private top-three target-library reorder plus stack-backed
   Transmute (`Dimir Machinations`), with policy-submitted exhaustive
   top/bottom ordering and identity-free decision receipts; and
