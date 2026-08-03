@@ -21102,34 +21102,33 @@ impl Game {
 
         let key = (top.card, top.source_incarnation);
         if *spell_is_virtual {
-            let position = self
-                .stack
-                .iter()
-                .position(|candidate| {
-                    candidate.card == *spell
-                        && candidate.source_incarnation == *spell_incarnation
-                        && candidate.ability_id.is_none()
-                })
-                .ok_or(RulesError::IllegalAction(
-                    "exiled-spell trigger lost its observed virtual spell copy",
-                ))?;
-            if position >= self.stack.len() - 1 {
+            if let Some(position) = self.stack.iter().position(|candidate| {
+                candidate.card == *spell
+                    && candidate.source_incarnation == *spell_incarnation
+                    && candidate.ability_id.is_none()
+            }) {
+                if position >= self.stack.len() - 1 {
+                    return Err(RulesError::IllegalAction(
+                        "exiled-spell trigger cannot observe itself as a spell copy",
+                    ));
+                }
+                self.stack.remove(position);
+                let copy =
+                    self.virtual_spell_copies
+                        .remove(spell)
+                        .ok_or(RulesError::IllegalAction(
+                            "exiled-spell trigger observed a virtual spell without copy provenance",
+                        ))?;
+                self.record_event(GameEvent::SpellCopyExiledByTrigger {
+                    copy: *spell,
+                    original: copy.original,
+                    source: top.card,
+                });
+            } else if self.virtual_spell_copies.contains_key(spell) {
                 return Err(RulesError::IllegalAction(
-                    "exiled-spell trigger cannot observe itself as a spell copy",
+                    "exiled-spell trigger observed a virtual copy without stack provenance",
                 ));
             }
-            self.stack.remove(position);
-            let copy = self
-                .virtual_spell_copies
-                .remove(spell)
-                .ok_or(RulesError::IllegalAction(
-                    "exiled-spell trigger observed a virtual spell without copy provenance",
-                ))?;
-            self.record_event(GameEvent::SpellCopyExiledByTrigger {
-                copy: *spell,
-                original: copy.original,
-                source: top.card,
-            });
         } else if let Some(position) = self.stack.iter().position(|candidate| {
             candidate.card == *spell
                 && candidate.source_incarnation == *spell_incarnation
@@ -21171,9 +21170,9 @@ impl Game {
                 exile_incarnation,
             });
         }
-        // If an intervening effect already removed a physical observed spell,
-        // its "exile it" instruction simply does nothing; the following
-        // copy instruction still sees retained templates as normal.
+        // If an intervening effect already removed either observed spell
+        // identity, its "exile it" instruction simply does nothing; the
+        // following copy instruction still sees retained templates as normal.
         self.open_exiled_spell_copy_cast_decision(
             top.id,
             top.card,
