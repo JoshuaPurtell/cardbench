@@ -2109,8 +2109,15 @@ Oracle Magic rules coverage.
   controller-creature binding instead requires at least one live Aura-like
   permanent whose attachment points at its source; it includes that source and
   its other controlled creatures, never an opponent's creatures. Normal Aura
-  departure immediately revokes that derived contribution. A static change
-  cannot be inserted into the timestamped continuous-effect list.
+  departure immediately revokes that derived contribution. A source-excluding
+  `other permanent` keyword binding applies to every other controlled
+  battlefield permanent regardless of card type. Its derived `Shroud` is a
+  target-legality rule, not a damage or prevention effect: targeted spells and
+  abilities reject that permanent before costs or receipts and treat it as
+  illegal on resolution recheck, while the excluded source remains targetable.
+  No static characteristic evaluation creates a continuous-effect receipt. A
+  static change cannot be inserted into the timestamped continuous-effect
+  list.
 - Static attack-restriction bindings are likewise immutable expansion data and
   can be registered only before game start. Each names a permanent definition,
   remains active only while a matching source is on the battlefield under the
