@@ -1949,6 +1949,12 @@ Oracle Magic rules coverage.
   transition are rejected atomically, without changing state or emitting
   accepted-action events. Setup hooks remain deliberately separate from
   gameplay methods.
+- The complete `begin_game` transition is atomic even when deferred
+  cross-binding validation rejects setup. In particular, a missing typed Aura
+  attachment binding for an attachment-relative trigger leaves `started`,
+  turn/step/priority state, and the event log exactly pregame, so expansion
+  setup may register the missing binding and retry the start without a hidden
+  partially-started state.
 - Setup-only provenance helpers, including battlefield-entry and tapped-state
   shaping, reject a live game. They cannot erase a paid tap cost or otherwise
   rewrite gameplay state without an engine action and its canonical receipt.
