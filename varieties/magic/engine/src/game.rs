@@ -23787,8 +23787,7 @@ impl Game {
             .copied()
             .filter_map(|source| {
                 let object = self.object(source).ok()?;
-                if object.token.is_some() || self.controller_of(source).ok()? != entering_controller
-                {
+                if self.controller_of(source).ok()? != entering_controller {
                     return None;
                 }
                 let definition = self.card_definition(source).ok()?.id;
@@ -26236,10 +26235,6 @@ impl Game {
             .into_iter()
             .filter(|source| *source != dying_creature)
             .filter_map(|source| {
-                let object = self.object(source).ok()?;
-                if object.token.is_some() {
-                    return None;
-                }
                 self.card_definition(source)
                     .ok()
                     .map(|definition| (source, definition.id))
@@ -26286,8 +26281,7 @@ impl Game {
             .all_battlefield_cards()
             .into_iter()
             .filter_map(|source| {
-                let object = self.object(source).ok()?;
-                if object.token.is_some() || self.controller_of(source).ok()? != dying_controller {
+                if self.controller_of(source).ok()? != dying_controller {
                     return None;
                 }
                 let definition = self.card_definition(source).ok()?;
@@ -26339,7 +26333,7 @@ impl Game {
             .into_iter()
             .filter_map(|source| {
                 let object = self.object(source).ok()?;
-                if object.token.is_some() || self.controller_of(source).ok()? != player {
+                if self.controller_of(source).ok()? != player {
                     return None;
                 }
                 let definition = self.effective_definition_id(source).ok()??;
@@ -26428,9 +26422,6 @@ impl Game {
             .filter(|source| *source != leaving_creature)
             .filter_map(|source| {
                 let object = self.object(source).ok()?;
-                if object.token.is_some() {
-                    return None;
-                }
                 let definition = self.card_definition(source).ok()?;
                 let observes = self
                     .triggered_abilities
@@ -26503,9 +26494,6 @@ impl Game {
             .copied()
             .filter_map(|source| {
                 let object = self.object(source).ok()?;
-                if object.token.is_some() {
-                    return None;
-                }
                 let controller = self.controller_of(source).ok()?;
                 (controller != graveyard_owner).then(|| {
                     Some((
