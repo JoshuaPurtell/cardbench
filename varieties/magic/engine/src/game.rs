@@ -239,8 +239,10 @@ pub enum PolicyAction {
         color: Color,
     },
     /// Chooses the normal draw or one legal dredge replacement at a draw-step
-    /// replacement-decision boundary. This is not priority.
+    /// replacement-decision boundary. `decision` must echo the fresh identity
+    /// projected to the active player. This is not priority.
     Draw {
+        decision: DecisionId,
         dredge: Option<ObjectId>,
     },
     /// Resolves one controller-private library choice that was opened while a
@@ -600,6 +602,9 @@ pub struct GameView {
     pub revealed_library_tops: Vec<RevealedLibraryTopView>,
     /// True only for the active player while a draw must be taken or replaced.
     pub draw_replacement_pending: bool,
+    /// Fresh identity for the active player's pending draw replacement. It is
+    /// absent from every other player's view.
+    pub draw_replacement_decision: Option<DecisionId>,
     /// Controller-visible, currently legal dredge choices for that pending draw.
     pub dredge_candidates: Vec<CardView>,
     /// Controller-only private cards currently awaiting a choice within a
@@ -1098,6 +1103,10 @@ pub struct Game {
     /// dredge from becoming a free graveyard action and makes that compulsory
     /// decision visible to submitted policies.
     pending_draw_replacement: Option<PlayerId>,
+    /// The never-reused identity paired with `pending_draw_replacement`.
+    /// Keeping it separate retains the compact player marker for turn-machine
+    /// checks while making policy submissions replay-safe.
+    pending_draw_replacement_decision: Option<DecisionId>,
     /// A draw instruction found an empty library while a stack object was
     /// resolving.  CR 704 checks that loss condition only after the complete
     /// spell or ability finishes, so this private marker preserves the exact
@@ -1367,6 +1376,7 @@ impl Game {
             cleanup_repeat_required: false,
             combat: None,
             pending_draw_replacement: None,
+            pending_draw_replacement_decision: None,
             pending_empty_library_draw_losses: BTreeSet::new(),
             pending_private_library_choice: None,
             pending_private_opponent_library_exile_choice: None,
@@ -4068,6 +4078,9 @@ impl Game {
             .map(|card| self.card_view(card))
             .collect::<Result<Vec<_>, _>>()?;
         let draw_replacement_pending = self.pending_draw_replacement == Some(player);
+        let draw_replacement_decision = draw_replacement_pending
+            .then_some(self.pending_draw_replacement_decision)
+            .flatten();
         let dredge_candidates = if draw_replacement_pending {
             state
                 .graveyard
@@ -4505,6 +4518,7 @@ impl Game {
             hand,
             revealed_library_tops,
             draw_replacement_pending,
+            draw_replacement_decision,
             dredge_candidates,
             private_library_choice,
             private_opponent_library_choice,
@@ -4569,7 +4583,9 @@ impl Game {
             PolicyAction::CastWithColorChoice { request, color } => {
                 self.cast_spell_with_color_choice(player, request, color)?;
             }
-            PolicyAction::Draw { dredge } => self.resolve_pending_draw(player, dredge)?,
+            PolicyAction::Draw { decision, dredge } => {
+                self.resolve_pending_draw_for_policy(player, decision, dredge)?;
+            }
             PolicyAction::ChoosePrivateLibraryCards {
                 decision,
                 spell,
@@ -7843,10 +7859,10 @@ impl Game {
             // above, must already have created this marker at the real Draw
             // step and may not synthesize one arbitrarily.
             if !self.started {
-                self.pending_draw_replacement = Some(player);
+                self.open_pending_draw_replacement(player)?;
             }
             let result = self.dredge(player, card);
-            self.pending_draw_replacement = None;
+            self.clear_pending_draw_replacement();
             return result;
         }
         let Some(card) = self.players[player.0].library.last().copied() else {
@@ -7854,13 +7870,13 @@ impl Game {
             self.normalize_priority_after_elimination()?;
             self.record_game_end_if_needed();
             if resolves_pending_draw {
-                self.pending_draw_replacement = None;
+                self.clear_pending_draw_replacement();
             }
             return Ok(());
         };
         self.move_to_zone(card, Zone::Hand)?;
         if resolves_pending_draw {
-            self.pending_draw_replacement = None;
+            self.clear_pending_draw_replacement();
         }
         Ok(())
     }
@@ -7881,6 +7897,22 @@ impl Game {
 
     /// Resolves the draw replacement decision exposed during a normal draw step.
     /// `None` takes the ordinary draw; a card selects that card's dredge ability.
+    fn resolve_pending_draw_for_policy(
+        &mut self,
+        player: PlayerId,
+        decision: DecisionId,
+        dredge: Option<ObjectId>,
+    ) -> Result<(), RulesError> {
+        if self.pending_draw_replacement != Some(player)
+            || self.pending_draw_replacement_decision != Some(decision)
+        {
+            return Err(RulesError::IllegalAction(
+                "draw replacement action does not match the pending decision id or player",
+            ));
+        }
+        self.resolve_pending_draw(player, dredge)
+    }
+
     pub fn resolve_pending_draw(
         &mut self,
         player: PlayerId,
@@ -7897,7 +7929,7 @@ impl Game {
         }
         if let Some(card) = dredge {
             self.dredge(player, card)?;
-            self.pending_draw_replacement = None;
+            self.clear_pending_draw_replacement();
         } else {
             self.draw_card(player, None)?;
         }
@@ -12261,6 +12293,28 @@ impl Game {
         Ok(id)
     }
 
+    /// Opens the one no-priority draw replacement boundary for `player`.
+    /// Unlike an ordinary draw marker, the policy-facing action must echo this
+    /// allocated id so a turn-two response cannot answer a later draw step.
+    fn open_pending_draw_replacement(&mut self, player: PlayerId) -> Result<(), RulesError> {
+        if self.pending_draw_replacement.is_some()
+            || self.pending_draw_replacement_decision.is_some()
+        {
+            return Err(RulesError::IllegalAction(
+                "a draw replacement decision is already pending",
+            ));
+        }
+        let decision = self.allocate_decision_id()?;
+        self.pending_draw_replacement = Some(player);
+        self.pending_draw_replacement_decision = Some(decision);
+        Ok(())
+    }
+
+    fn clear_pending_draw_replacement(&mut self) {
+        self.pending_draw_replacement = None;
+        self.pending_draw_replacement_decision = None;
+    }
+
     /// Completes APNAP trigger placement without turning a controller's
     /// mandatory order/target choice into a priority action. The saved holder
     /// is restored only after the last placement has either stacked or been
@@ -13437,16 +13491,29 @@ impl Game {
                 "pass sequence was not reset after every surviving player passed",
             ));
         }
-        if let Some(player) = self.pending_draw_replacement
-            && (self.step != Step::Draw
-                || player != self.active_player
-                || player != self.priority
-                || self.consecutive_passes != 0
-                || self.players[player.0].lost)
-        {
-            return Err(RulesError::IllegalAction(
-                "draw-replacement marker escaped its draw-step decision boundary",
-            ));
+        match (
+            self.pending_draw_replacement,
+            self.pending_draw_replacement_decision,
+        ) {
+            (Some(player), Some(decision))
+                if self.step != Step::Draw
+                    || player != self.active_player
+                    || player != self.priority
+                    || self.consecutive_passes != 0
+                    || self.players[player.0].lost
+                    || decision.0 == 0
+                    || decision.0 >= self.next_decision_id =>
+            {
+                return Err(RulesError::IllegalAction(
+                    "draw-replacement marker escaped its draw-step decision boundary",
+                ));
+            }
+            (Some(_), Some(_)) | (None, None) => {}
+            _ => {
+                return Err(RulesError::IllegalAction(
+                    "draw-replacement marker and decision identity disagree",
+                ));
+            }
         }
         if let Some(choice) = &self.pending_private_library_choice {
             let top = self.stack.last().ok_or(RulesError::IllegalAction(
@@ -27756,7 +27823,7 @@ impl Game {
                 // CR 103.8a/103.8c: only a two-player game's starting player
                 // skips its first draw. Multiplayer games do not skip it.
                 if self.players.len() != 2 || self.turn != 1 || self.active_player != PlayerId(0) {
-                    self.pending_draw_replacement = Some(self.active_player);
+                    self.open_pending_draw_replacement(self.active_player)?;
                 }
             }
             Step::DeclareAttackers => {

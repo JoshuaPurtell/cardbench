@@ -119,7 +119,12 @@ impl CodePolicy for GolgariDredgeGrindPolicy {
                     .map(|card| card.id)
             })
             .flatten();
-        PolicyAction::Draw { dredge }
+        PolicyAction::Draw {
+            decision: view
+                .draw_replacement_decision
+                .expect("draw replacement proposal requires its decision identity"),
+            dredge,
+        }
     }
 }
 
@@ -406,6 +411,9 @@ mod tests {
         assert_eq!(
             action,
             PolicyAction::Draw {
+                decision: view
+                    .draw_replacement_decision
+                    .expect("pending draw has a decision identity"),
                 dredge: Some(brownscale)
             }
         );

@@ -53,8 +53,13 @@ pub trait CodePolicy {
     /// Chooses a draw replacement when the engine exposes that mandatory
     /// decision. Policies that do not use replacement effects take the normal
     /// draw by default.
-    fn propose_draw_replacement(&mut self, _view: &GameView) -> PolicyAction {
-        PolicyAction::Draw { dredge: None }
+    fn propose_draw_replacement(&mut self, view: &GameView) -> PolicyAction {
+        PolicyAction::Draw {
+            decision: view
+                .draw_replacement_decision
+                .expect("draw replacement proposal requires its decision identity"),
+            dredge: None,
+        }
     }
 
     /// Completes a mandatory, controller-private library choice that was

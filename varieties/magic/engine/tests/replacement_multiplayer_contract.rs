@@ -140,16 +140,20 @@ fn advance_to(game: &mut Game, turn: u32, step: Step) {
             return;
         }
         submit_empty_declaration_if_needed(game);
-        if game
+        let view = game
             .view_for_player(game.next_policy_player())
-            .expect("draw view")
-            .draw_replacement_pending
-        {
+            .expect("draw view");
+        if view.draw_replacement_pending {
             let player = game.next_policy_player();
             game.submit_policy_move(
                 player,
                 "test.replacement-multiplayer.v1",
-                PolicyAction::Draw { dredge: None },
+                PolicyAction::Draw {
+                    decision: view
+                        .draw_replacement_decision
+                        .expect("pending draw has a decision identity"),
+                    dredge: None,
+                },
             )
             .expect("ordinary draw advances the fixture");
             assert_invariants(game);
@@ -234,6 +238,9 @@ fn policy_draw_replacement_rejects_interleaved_priority_and_invalid_choices_atom
         .expect("opponent has a visibility-limited view");
     assert!(!opponent_view.draw_replacement_pending);
     assert!(opponent_view.dredge_candidates.is_empty());
+    let draw_decision = deciding_view
+        .draw_replacement_decision
+        .expect("pending draw has a decision identity");
 
     game.clear_event_log();
     let before_players = game.players.clone();
@@ -273,6 +280,7 @@ fn policy_draw_replacement_rejects_interleaved_priority_and_invalid_choices_atom
             deciding_player,
             "test.replacement-multiplayer.v1",
             PolicyAction::Draw {
+                decision: draw_decision,
                 dredge: Some(dredge_three),
             },
         ),
@@ -295,6 +303,7 @@ fn policy_draw_replacement_rejects_interleaved_priority_and_invalid_choices_atom
         deciding_player,
         "test.replacement-multiplayer.v1",
         PolicyAction::Draw {
+            decision: draw_decision,
             dredge: Some(dredge_two),
         },
     )
@@ -357,9 +366,9 @@ fn policy_may_take_the_normal_draw_even_when_dredge_is_available() {
 
     game.begin_game().expect("game starts");
     advance_to(&mut game, 2, Step::Draw);
+    let draw_view = game.view_for_player(deciding_player).expect("draw view");
     assert!(
-        game.view_for_player(deciding_player)
-            .expect("draw view")
+        draw_view
             .dredge_candidates
             .iter()
             .any(|card| card.id == dredger)
@@ -369,7 +378,12 @@ fn policy_may_take_the_normal_draw_even_when_dredge_is_available() {
     game.submit_policy_move(
         deciding_player,
         "test.replacement-multiplayer.v1",
-        PolicyAction::Draw { dredge: None },
+        PolicyAction::Draw {
+            decision: draw_view
+                .draw_replacement_decision
+                .expect("pending draw has a decision identity"),
+            dredge: None,
+        },
     )
     .expect("a policy can decline its available dredge replacement");
     assert_eq!(game.zone_of(normal_draw), Some(Zone::Hand));
@@ -486,17 +500,19 @@ fn active_player_lost_while_taking_a_pending_draw_starts_the_next_survivors_turn
 
     game.begin_game().expect("multiplayer game starts");
     advance_to(&mut game, 1, Step::Draw);
-    assert!(
-        game.view_for_player(eliminated)
-            .expect("active draw view")
-            .draw_replacement_pending
-    );
+    let draw_view = game.view_for_player(eliminated).expect("active draw view");
+    assert!(draw_view.draw_replacement_pending);
     game.clear_event_log();
 
     game.submit_policy_move(
         eliminated,
         "test.replacement-multiplayer.v1",
-        PolicyAction::Draw { dredge: None },
+        PolicyAction::Draw {
+            decision: draw_view
+                .draw_replacement_decision
+                .expect("pending draw has a decision identity"),
+            dredge: None,
+        },
     )
     .expect("empty-library draw accepts the decision before applying the loss rule");
     assert!(game.player(eliminated).expect("seat is retained").lost);

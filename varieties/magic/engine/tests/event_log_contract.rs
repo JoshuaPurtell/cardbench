@@ -330,8 +330,20 @@ fn policy_receipt_precedes_a_terminal_event_caused_by_its_submitted_draw() {
         .expect("upkeep holder may pass");
     game.submit_policy_move(first, "test.pass.v1", PolicyAction::PassPriority)
         .expect("second pass starts the draw replacement decision");
-    game.submit_policy_move(second, "test.draw.v1", PolicyAction::Draw { dredge: None })
-        .expect("the ordinary empty-library draw ends the game");
+    let draw_decision = game
+        .view_for_player(second)
+        .expect("draw decision view")
+        .draw_replacement_decision
+        .expect("pending draw has a decision identity");
+    game.submit_policy_move(
+        second,
+        "test.draw.v1",
+        PolicyAction::Draw {
+            decision: draw_decision,
+            dredge: None,
+        },
+    )
+    .expect("the ordinary empty-library draw ends the game");
 
     assert_eq!(
         game.event_log.last(),

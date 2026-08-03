@@ -91,15 +91,18 @@ fn stale_draw_replacement_action_cannot_consume_a_later_draw_step() {
 
     advance_to(&mut game, 2, Step::Draw);
     assert_eq!(game.active_player, second);
-    assert!(
-        game.view_for_player(second)
-            .expect("first draw view")
-            .draw_replacement_pending
-    );
+    let first_view = game.view_for_player(second).expect("first draw view");
+    assert!(first_view.draw_replacement_pending);
+    let first_decision = first_view
+        .draw_replacement_decision
+        .expect("first draw has a decision identity");
     game.submit_policy_move(
         second,
         "draw-replacement-stale.first-normal-draw.v1",
-        PolicyAction::Draw { dredge: None },
+        PolicyAction::Draw {
+            decision: first_decision,
+            dredge: None,
+        },
     )
     .expect("first normal draw resolves");
     let first_hand_size = game
@@ -111,15 +114,22 @@ fn stale_draw_replacement_action_cannot_consume_a_later_draw_step() {
 
     advance_to(&mut game, 4, Step::Draw);
     assert_eq!(game.active_player, second);
-    assert!(
-        game.view_for_player(second)
-            .expect("second draw view")
-            .draw_replacement_pending
+    let second_view = game.view_for_player(second).expect("second draw view");
+    assert!(second_view.draw_replacement_pending);
+    let second_decision = second_view
+        .draw_replacement_decision
+        .expect("second draw has a decision identity");
+    assert_ne!(
+        first_decision, second_decision,
+        "each draw step allocates a fresh replay-safe identity"
     );
     let stale_result = game.submit_policy_move(
         second,
         "draw-replacement-stale.replay.v1",
-        PolicyAction::Draw { dredge: None },
+        PolicyAction::Draw {
+            decision: first_decision,
+            dredge: None,
+        },
     );
 
     eprintln!(
@@ -133,4 +143,15 @@ fn stale_draw_replacement_action_cannot_consume_a_later_draw_step() {
         stale_result.is_err(),
         "a normal-draw action from turn two must not consume the turn-four draw boundary"
     );
+    game.submit_policy_move(
+        second,
+        "draw-replacement-stale.second-normal-draw.v1",
+        PolicyAction::Draw {
+            decision: second_decision,
+            dredge: None,
+        },
+    )
+    .expect("the current draw boundary resolves with its own identity");
+    game.validate_invariants()
+        .expect("current draw boundary preserves engine invariants");
 }

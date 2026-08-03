@@ -556,7 +556,12 @@ fn selected_action(game: &Game, player: PlayerId, rng: &mut TraceRng) -> PolicyA
         .view_for_player(player)
         .expect("validated state always produces a policy view");
     if view.draw_replacement_pending {
-        return PolicyAction::Draw { dredge: None };
+        return PolicyAction::Draw {
+            decision: view
+                .draw_replacement_decision
+                .expect("pending draw has a decision identity"),
+            dredge: None,
+        };
     }
     if let Some(decision) = view.pending_decision {
         return PolicyAction::SubmitDecision {

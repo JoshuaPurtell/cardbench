@@ -79,7 +79,12 @@ fn advance_to(game: &mut Game, turn: u32, step: Step) {
             .view_for_player(player)
             .expect("current policy view is available");
         let action = if view.draw_replacement_pending {
-            PolicyAction::Draw { dredge: None }
+            PolicyAction::Draw {
+                decision: view
+                    .draw_replacement_decision
+                    .expect("pending draw has a decision identity"),
+                dredge: None,
+            }
         } else if game.step == Step::DeclareAttackers && !view.attackers_declared {
             PolicyAction::DeclareAttackers { attackers: vec![] }
         } else if game.step == Step::DeclareBlockers && !view.blockers_declared {

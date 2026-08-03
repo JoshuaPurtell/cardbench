@@ -86,7 +86,12 @@ fn advance_to(game: &mut Game, turn: u32, step: Step) {
             game.submit_policy_move(
                 player,
                 "test.defender-departure.v1",
-                PolicyAction::Draw { dredge: None },
+                PolicyAction::Draw {
+                    decision: view
+                        .draw_replacement_decision
+                        .expect("pending draw has a decision identity"),
+                    dredge: None,
+                },
             )
             .expect("fixture has a card for each ordinary draw");
             continue;
