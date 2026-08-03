@@ -5,7 +5,7 @@ use cardbench_magic_rav::{
 };
 
 #[test]
-fn post_promotion_partition_matches_the_catalog() {
+fn current_partition_matches_the_catalog() {
     let full_ids = RAV_FULL_FIDELITY_DEFINITION_IDS
         .into_iter()
         .collect::<BTreeSet<_>>();
@@ -20,5 +20,5 @@ fn post_promotion_partition_matches_the_catalog() {
             _ => None,
         })
         .collect::<BTreeSet<_>>();
-    assert_eq!(partial_names.len(), 45);
+    assert_eq!(partial_names.len(), 0);
 }
