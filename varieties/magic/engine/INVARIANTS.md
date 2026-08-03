@@ -2701,7 +2701,12 @@ Oracle Magic rules coverage.
   still exist, then reaches that same post-entry SBA boundary. If an entry
   life payment ends the game, that boundary discards the captured events; it
   must record the legal land-entry and player-departure lifecycle without
-  dereferencing a departed source or rolling the land play back. For creature deaths selected
+  dereferencing a departed source or rolling the land play back. A resolving
+  library search likewise captures each permanent entry (including land entry)
+  while it is live but must not place the event until the original spell's
+  terminal lifecycle and post-resolution SBA checkpoint. Thus an ETB cannot
+  preempt the resolving search on the stack, and a short-lived entrant retains
+  its historical battlefield source through the resulting SBA death. For creature deaths selected
   in one pass, regeneration shields are consumed first, then the remaining
   death set receives one shared last-known-information observer snapshot
   before its members take their individual graveyard/token-departure
