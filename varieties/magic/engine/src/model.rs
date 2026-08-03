@@ -444,6 +444,11 @@ pub enum TriggerCondition {
     /// before the departure, so a control-changing effect on either permanent
     /// uses the live controller at the moment of death.
     ControlledNontokenCreatureDies,
+    /// The source controller sacrificed a creature with the represented
+    /// current color. A multicolored sacrifice independently observes each
+    /// matching color, and the source is captured before any sacrificed
+    /// permanent leaves the battlefield.
+    ControllerSacrificesCreatureOfColor(Color),
     /// A card entered a graveyard owned by a player other than this source's
     /// current controller. The prior zone is intentionally unconstrained:
     /// discards, mills, destroyed permanents, countered spells, and costs all
@@ -2001,6 +2006,13 @@ pub enum Effect {
     /// The controller selects the permanent at the trigger-resolution
     /// decision boundary.
     SacrificeControllerCreature,
+    /// Every living opponent of the resolving controller chooses one
+    /// controlled creature to sacrifice. This instruction is valid only on a
+    /// triggered ability with an optional positive life-payment boundary;
+    /// the payment is made before the serial public choices begin.
+    EachOpponentSacrificesCreatureAfterOptionalLifePayment {
+        life_payment: u8,
+    },
     /// An any-upkeep trigger materializes this into
     /// [`Self::SacrificeCapturedPlayerCreature`] while the active upkeep
     /// player is known. It deliberately has no target: that player chooses a
@@ -3159,6 +3171,7 @@ impl Effect {
             | Self::DiscardCombatDamagePlayer { .. }
             | Self::DiscardCapturedPlayer { .. }
             | Self::SacrificeControllerCreature
+            | Self::EachOpponentSacrificesCreatureAfterOptionalLifePayment { .. }
             | Self::SacrificeUpkeepPlayerCreature
             | Self::SacrificeCapturedPlayerCreature { .. }
             | Self::SacrificeEndStepPlayerUntappedLand
@@ -4383,6 +4396,13 @@ pub enum TriggeredEffectObjectDecisionKind {
         selected: Vec<(PlayerId, ObjectId)>,
     },
     SacrificeControllerCreature,
+    /// Every remaining opponent chooses one controlled creature. Exact
+    /// selections remain public and serial while the triggering ability stays
+    /// on the stack; no priority window exists between responses.
+    SacrificeEachOpponentCreature {
+        remaining_players: Vec<PlayerId>,
+        selected: Vec<(PlayerId, ObjectId)>,
+    },
     /// The controller of a resolving trigger chooses one controlled creature
     /// to sacrifice; if none existed at the opening boundary, the retained
     /// spell object is countered by the direct effect resolver instead.

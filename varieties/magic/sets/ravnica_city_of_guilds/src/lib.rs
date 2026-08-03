@@ -46,7 +46,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 279] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 280] = [
     "RAV-CHAR",
     "RAV-AGRUS-KOS-WOJEK-VETERAN",
     "RAV-INSTILL-FUROR",
@@ -70,6 +70,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 279] = [
     "RAV-DROOLING-GROODION",
     "RAV-DARK-HEART-OF-THE-WOOD",
     "RAV-GOLGARI-ROTWURM",
+    "RAV-SAVRA-QUEEN-OF-THE-GOLGARI",
     "RAV-GOLGARI-GERMINATION",
     "RAV-NULLSTONE-GARGOYLE",
     "RAV-SCATTER-THE-SEEDS",
@@ -6111,6 +6112,32 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
+        // Full fidelity: each creature sacrifice observes every one of its
+        // colors before zone movement. The black observation is optional and
+        // has an explicit life-payment policy decision; the green observation
+        // gains life for this card's controller.
+        CardDefinition {
+            id: "RAV-SAVRA-QUEEN-OF-THE-GOLGARI",
+            name: "Savra, Queen of the Golgari",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(2, [Color::Black, Color::Green]),
+            colors: colors([Color::Black, Color::Green]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "controller-sacrifices-black-creature-optional-life-each-opponent-sacrifices",
+                "controller-sacrifices-green-creature-may-gain-two-life",
+                "multicolored-sacrifice-observes-each-matching-color",
+            ],
+            power: Some(2),
+            toughness: Some(2),
+            keywords: vec![],
+            effects: vec![],
+        },
         // Full fidelity: combat and noncombat damage from this permanent
         // creates a source-specific stack trigger whose life gain is
         // materialized from the positive damage event amount.
@@ -9022,6 +9049,32 @@ pub fn rav_static_entry_restriction_bindings() -> Vec<StaticEntryRestrictionBind
 #[allow(clippy::too_many_lines)] // Keep the declarative trigger registry centralized for audit review.
 pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
     vec![
+        TriggeredAbilityBinding {
+            card_definition: "RAV-SAVRA-QUEEN-OF-THE-GOLGARI",
+            ability: TriggeredAbility {
+                id: "controller-sacrifices-black-creature-pay-two-life-each-opponent-sacrifices",
+                condition: TriggerCondition::ControllerSacrificesCreatureOfColor(Color::Black),
+                mana_cost: ManaCost::new(0),
+                optional: true,
+                targets: vec![],
+                effects: vec![
+                    Effect::EachOpponentSacrificesCreatureAfterOptionalLifePayment {
+                        life_payment: 2,
+                    },
+                ],
+            },
+        },
+        TriggeredAbilityBinding {
+            card_definition: "RAV-SAVRA-QUEEN-OF-THE-GOLGARI",
+            ability: TriggeredAbility {
+                id: "controller-sacrifices-green-creature-may-gain-two-life",
+                condition: TriggerCondition::ControllerSacrificesCreatureOfColor(Color::Green),
+                mana_cost: ManaCost::new(0),
+                optional: true,
+                targets: vec![],
+                effects: vec![Effect::GainLifeController { amount: 2 }],
+            },
+        },
         TriggeredAbilityBinding {
             card_definition: "RAV-CIRCU-DIMIR-LOBOTOMIST",
             ability: TriggeredAbility {

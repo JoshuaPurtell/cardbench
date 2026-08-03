@@ -2062,6 +2062,7 @@ impl Game {
                         | TriggerCondition::AnotherCreatureLeavesBattlefield
                         | TriggerCondition::AnotherCreatureDies
                         | TriggerCondition::ControlledNontokenCreatureDies
+                        | TriggerCondition::ControllerSacrificesCreatureOfColor(_)
                         | TriggerCondition::OpponentCardPutIntoGraveyard
                         | TriggerCondition::GraveyardToHand
                         | TriggerCondition::Attacks
@@ -3958,6 +3959,9 @@ impl Game {
             self.enqueue_simultaneous_graveyard_entry_and_creature_departure_triggers(
                 activation.sacrifice_sources.iter().copied(),
             )?;
+            for permanent in &activation.sacrifice_sources {
+                self.enqueue_controller_sacrifice_color_triggers(*permanent, player)?;
+            }
         }
         for permanent in &activation.sacrifice_sources {
             self.record_event(GameEvent::SacrificedAsAbilityCost {
@@ -13366,6 +13370,90 @@ impl Game {
                     Ok(())
                 })?;
             }
+            TriggeredEffectObjectDecisionKind::SacrificeEachOpponentCreature {
+                remaining_players,
+                selected: selections,
+            } => {
+                if remaining_players.first() != Some(&player) {
+                    return Err(RulesError::IllegalAction(
+                        "opponent sacrifice choice player is not next in the resolving trigger",
+                    ));
+                }
+                if let Some(permanent) = selected {
+                    selections.push((player, permanent));
+                }
+                remaining_players.remove(0);
+                self.complete_pending_decision(decision)?;
+                if let Some(next_player) = remaining_players.first().copied() {
+                    let options = self
+                        .all_battlefield_cards()
+                        .into_iter()
+                        .filter(|card| {
+                            self.controller_of(*card)
+                                .is_ok_and(|controller| controller == next_player)
+                                && self.characteristics(*card).is_ok_and(|characteristics| {
+                                    characteristics.card_types.contains(&CardType::Creature)
+                                })
+                        })
+                        .map(DecisionOption::Object)
+                        .collect::<Vec<_>>();
+                    let (min_selections, max_selections) =
+                        if options.is_empty() { (0, 0) } else { (1, 1) };
+                    self.open_pending_decision(
+                        next_player,
+                        DecisionVisibility::Public,
+                        DecisionKind::TriggeredEffectObject,
+                        min_selections,
+                        max_selections,
+                        options,
+                        DecisionContinuation::TriggeredEffectObject {
+                            source,
+                            controller,
+                            ability,
+                            kind,
+                        },
+                    )?;
+                    return Ok(());
+                }
+                let selections = selections.clone();
+                self.finish_trigger_effect_object_choice(source, ability, |game| {
+                    let permanents = selections
+                        .iter()
+                        .map(|(_, permanent)| *permanent)
+                        .collect::<Vec<_>>();
+                    if permanents.len() > 1 {
+                        game.enqueue_simultaneous_graveyard_entry_and_creature_departure_triggers(
+                            permanents.iter().copied(),
+                        )?;
+                    }
+                    for (opponent, permanent) in selections {
+                        if game.zone_of(permanent) != Some(Zone::Battlefield)
+                            || game.controller_of(permanent)? != opponent
+                            || !game
+                                .characteristics(permanent)?
+                                .card_types
+                                .contains(&CardType::Creature)
+                        {
+                            return Err(RulesError::IllegalAction(
+                                "opponent sacrifice choice no longer names a controlled creature",
+                            ));
+                        }
+                        game.record_event(GameEvent::SacrificedByEffect {
+                            source,
+                            player: opponent,
+                            permanent,
+                        });
+                        if permanents.len() > 1 {
+                            game.move_to_graveyard_or_remove_token_after_simultaneous_graveyard_trigger_capture(
+                                permanent,
+                            )?;
+                        } else {
+                            game.move_to_graveyard_or_remove_token(permanent)?;
+                        }
+                    }
+                    Ok(())
+                })?;
+            }
             TriggeredEffectObjectDecisionKind::SacrificeControllerCreature => {
                 self.complete_pending_decision(decision)?;
                 self.finish_trigger_effect_object_choice(source, ability, |game| {
@@ -15365,6 +15453,7 @@ impl Game {
                             | TriggerCondition::AnotherCreatureLeavesBattlefield
                             | TriggerCondition::AnotherCreatureDies
                             | TriggerCondition::ControlledNontokenCreatureDies
+                            | TriggerCondition::ControllerSacrificesCreatureOfColor(_)
                             | TriggerCondition::OpponentCardPutIntoGraveyard
                             | TriggerCondition::GraveyardToHand
                             | TriggerCondition::Attacks
@@ -18885,6 +18974,14 @@ impl Game {
                     "typed library search or reorder must request a positive card count",
                 ));
             }
+            if matches!(
+                effect,
+                Effect::EachOpponentSacrificesCreatureAfterOptionalLifePayment { life_payment: 0 }
+            ) {
+                return Err(RulesError::IllegalAction(
+                    "optional-life opponent sacrifice requires a positive life payment",
+                ));
+            }
             let amount = match effect {
                 Effect::ChooseOneOf(_) => {
                     return Err(RulesError::IllegalAction(
@@ -18947,6 +19044,7 @@ impl Game {
                 | Effect::DiscardCapturedPlayer { .. }
                 | Effect::TargetPlayerSacrificesCreatureThenControllerDrawsEqualToPower
                 | Effect::SacrificeControllerCreature
+                | Effect::EachOpponentSacrificesCreatureAfterOptionalLifePayment { .. }
                 | Effect::SacrificeUpkeepPlayerCreature
                 | Effect::SacrificeCapturedPlayerCreature { .. }
                 | Effect::SacrificeEndStepPlayerUntappedLand
@@ -24170,6 +24268,15 @@ impl Game {
         })
     }
 
+    fn optional_trigger_life_payment(ability: &crate::TriggeredAbility) -> Option<u8> {
+        ability.effects.iter().find_map(|effect| match effect {
+            Effect::EachOpponentSacrificesCreatureAfterOptionalLifePayment { life_payment } => {
+                Some(*life_payment)
+            }
+            _ => None,
+        })
+    }
+
     fn resolve_optional_triggered_ability(
         &mut self,
         player: PlayerId,
@@ -24212,6 +24319,21 @@ impl Game {
                 }
             }
             if pay {
+                if let Some(life_payment) = Self::optional_trigger_life_payment(&choice.ability)
+                {
+                    if life_payment == 0 || game.players[player.0].life < i64::from(life_payment)
+                    {
+                        return Err(RulesError::IllegalAction(
+                            "optional triggered life payment is not payable",
+                        ));
+                    }
+                    game.players[player.0].life -= i64::from(life_payment);
+                    game.record_event(GameEvent::LifePaid {
+                        source: choice.source,
+                        player,
+                        amount: i16::from(life_payment),
+                    });
+                }
                 let mut pool = game.players[player.0].mana_pool.clone();
                 pool.pay(&choice.ability.mana_cost)
                     .map_err(RulesError::Mana)?;
@@ -24660,10 +24782,7 @@ impl Game {
         let top = self.stack.last().ok_or(RulesError::IllegalAction(
             "trigger effect-object choice has no live stack ability",
         ))?;
-        if top.card != source
-            || top.controller != self.controller_of(source)?
-            || top.ability_id != Some(ability)
-        {
+        if top.card != source || top.ability_id != Some(ability) {
             return Err(RulesError::IllegalAction(
                 "trigger effect-object choice no longer matches its stack ability",
             ));
@@ -24713,6 +24832,26 @@ impl Game {
             [Effect::SacrificeControllerCreature] => {
                 TriggeredEffectObjectDecisionKind::SacrificeControllerCreature
             }
+            [Effect::EachOpponentSacrificesCreatureAfterOptionalLifePayment { .. }] => {
+                if !top.targets.is_empty() {
+                    return Err(RulesError::IllegalAction(
+                        "each-opponent sacrifice trigger must be target-free",
+                    ));
+                }
+                let remaining_players = self
+                    .players
+                    .iter()
+                    .filter(|player| !player.lost && player.id != top.controller)
+                    .map(|player| player.id)
+                    .collect::<Vec<_>>();
+                if remaining_players.is_empty() {
+                    return Ok(false);
+                }
+                TriggeredEffectObjectDecisionKind::SacrificeEachOpponentCreature {
+                    remaining_players,
+                    selected: Vec::new(),
+                }
+            }
             [Effect::SacrificeCreatureOrCounterTargetSpell] => {
                 let [Target::Spell(target_spell)] = top.targets.as_slice() else {
                     return Err(RulesError::IllegalAction(
@@ -24761,6 +24900,12 @@ impl Game {
             | TriggeredEffectObjectDecisionKind::SacrificeCreatureOrCounterTargetSpell { .. }
             | TriggeredEffectObjectDecisionKind::ReattachAuraAfterSacrificingCapturedCombatCreature { .. }
             | TriggeredEffectObjectDecisionKind::ReturnAnotherControlledPermanentSharingEnteredCardTypes { .. } => top.controller,
+            TriggeredEffectObjectDecisionKind::SacrificeEachOpponentCreature {
+                remaining_players,
+                ..
+            } => *remaining_players.first().ok_or(RulesError::IllegalAction(
+                "each-opponent sacrifice choice lacks a living opponent",
+            ))?,
             TriggeredEffectObjectDecisionKind::SacrificeCapturedPlayerCreature { player } => *player,
             TriggeredEffectObjectDecisionKind::SacrificeCapturedPlayerUntappedLand { player } => {
                 *player
@@ -24772,6 +24917,7 @@ impl Game {
             }
             TriggeredEffectObjectDecisionKind::SacrificeControllerCreature
             | TriggeredEffectObjectDecisionKind::SacrificeCreatureOrCounterTargetSpell { .. }
+            | TriggeredEffectObjectDecisionKind::SacrificeEachOpponentCreature { .. }
             | TriggeredEffectObjectDecisionKind::SacrificeCapturedPlayerCreature { .. } => self
                 .all_battlefield_cards()
                 .into_iter()
@@ -24834,6 +24980,7 @@ impl Game {
                 kind,
                 TriggeredEffectObjectDecisionKind::SacrificeControllerCreature
                     | TriggeredEffectObjectDecisionKind::SacrificeCreatureOrCounterTargetSpell { .. }
+                    | TriggeredEffectObjectDecisionKind::SacrificeEachOpponentCreature { .. }
                     | TriggeredEffectObjectDecisionKind::SacrificeCapturedPlayerCreature { .. }
                     | TriggeredEffectObjectDecisionKind::SacrificeCapturedPlayerUntappedLand { .. }
                     | TriggeredEffectObjectDecisionKind::ReattachAuraAfterSacrificingCapturedCombatCreature { .. }
@@ -24860,6 +25007,7 @@ impl Game {
                 }
                 TriggeredEffectObjectDecisionKind::SacrificeControllerCreature
                 | TriggeredEffectObjectDecisionKind::SacrificeCreatureOrCounterTargetSpell { .. }
+                | TriggeredEffectObjectDecisionKind::SacrificeEachOpponentCreature { .. }
                 | TriggeredEffectObjectDecisionKind::SacrificeCapturedPlayerCreature { .. }
                 | TriggeredEffectObjectDecisionKind::SacrificeCapturedPlayerUntappedLand { .. }
                 | TriggeredEffectObjectDecisionKind::ReattachAuraAfterSacrificingCapturedCombatCreature { .. }
@@ -25405,6 +25553,71 @@ impl Game {
                 controller,
                 TriggerCondition::ControlledNontokenCreatureDies,
             );
+        }
+        Ok(())
+    }
+
+    /// Captures controller-scoped sacrifice triggers before the sacrificed
+    /// creature changes zones. Sacrifice is distinct from dying: destruction
+    /// must not satisfy this condition, while a black-and-green creature
+    /// independently satisfies both matching color conditions.
+    fn enqueue_controller_sacrifice_color_triggers(
+        &mut self,
+        sacrificed: ObjectId,
+        player: PlayerId,
+    ) -> Result<(), RulesError> {
+        if self.zone_of(sacrificed) != Some(Zone::Battlefield)
+            || self.controller_of(sacrificed)? != player
+        {
+            return Ok(());
+        }
+        let sacrificed_characteristics = self.characteristics(sacrificed)?;
+        if !sacrificed_characteristics
+            .card_types
+            .contains(&CardType::Creature)
+        {
+            return Ok(());
+        }
+        let sacrificed_colors = sacrificed_characteristics.colors;
+        let observers = self
+            .all_battlefield_cards()
+            .into_iter()
+            .filter_map(|source| {
+                let object = self.object(source).ok()?;
+                if object.token.is_some() || self.controller_of(source).ok()? != player {
+                    return None;
+                }
+                let definition = self.effective_definition_id(source).ok()??;
+                let source_colors = self.characteristics(source).ok()?.colors;
+                Some((source, object.incarnation, definition, source_colors))
+            })
+            .collect::<Vec<_>>();
+        for (source, source_incarnation, definition, source_colors) in observers {
+            let triggers = self
+                .triggered_abilities
+                .get(definition)
+                .into_iter()
+                .flat_map(|abilities| abilities.values())
+                .filter(|ability| {
+                    matches!(
+                        ability.condition,
+                        TriggerCondition::ControllerSacrificesCreatureOfColor(color)
+                            if sacrificed_colors.contains(&color)
+                    )
+                })
+                .cloned()
+                .collect::<Vec<_>>();
+            for ability in triggers {
+                self.pending_trigger_events
+                    .push(PendingTriggeredAbilityEvent {
+                        source,
+                        source_incarnation,
+                        source_colors: source_colors.clone(),
+                        controller: player,
+                        ability,
+                        payload: TriggerEventPayload::None,
+                    });
+            }
         }
         Ok(())
     }
@@ -27875,6 +28088,11 @@ impl Game {
                     });
                     self.move_to_graveyard_or_remove_token(permanent)?;
                 }
+            }
+            Effect::EachOpponentSacrificesCreatureAfterOptionalLifePayment { .. } => {
+                return Err(RulesError::IllegalAction(
+                    "each-opponent sacrifice effect bypassed its trigger decision boundary",
+                ));
             }
             Effect::SacrificeUpkeepPlayerCreature => {
                 return Err(RulesError::IllegalAction(
@@ -31771,6 +31989,24 @@ impl Game {
         card: ObjectId,
         capture_zone_transition_observers: bool,
     ) -> Result<(), RulesError> {
+        let sacrifice_player = self.event_log.last().and_then(|event| match event {
+            GameEvent::SacrificedAsAbilityCost {
+                player, permanent, ..
+            }
+            | GameEvent::SacrificedAsAdditionalSpellCost {
+                player, permanent, ..
+            }
+            | GameEvent::SacrificedByEffect {
+                player, permanent, ..
+            } if *permanent == card => Some(*player),
+            GameEvent::SacrificedAsManaAbilityCost { player, source, .. } if *source == card => {
+                Some(*player)
+            }
+            _ => None,
+        });
+        if capture_zone_transition_observers && let Some(player) = sacrifice_player {
+            self.enqueue_controller_sacrifice_color_triggers(card, player)?;
+        }
         if self.object(card)?.token.is_some() {
             let was_battlefield = self.zone_of(card) == Some(Zone::Battlefield);
             let expired_copy = self.object(card)?.copied_permanent.clone();
@@ -32987,6 +33223,43 @@ impl Game {
         if effect_targets != ability.targets {
             return Err(RulesError::IllegalAction(
                 "triggered ability targets do not match effect order",
+            ));
+        }
+        if matches!(
+            ability.condition,
+            TriggerCondition::ControllerSacrificesCreatureOfColor(_)
+        ) {
+            let valid_colored_sacrifice_binding = ability.mana_cost == ManaCost::new(0)
+                && ability.targets.is_empty()
+                && ability.optional
+                && (matches!(
+                    ability.effects.as_slice(),
+                    [
+                        Effect::EachOpponentSacrificesCreatureAfterOptionalLifePayment {
+                            life_payment: 1..
+                        }
+                    ]
+                ) || matches!(
+                    ability.effects.as_slice(),
+                    [Effect::GainLifeController { amount: 1.. }]
+                ));
+            if !valid_colored_sacrifice_binding {
+                return Err(RulesError::IllegalAction(
+                    "colored creature-sacrifice trigger requires one optional target-free life or opponent-sacrifice effect",
+                ));
+            }
+        }
+        if !matches!(
+            ability.condition,
+            TriggerCondition::ControllerSacrificesCreatureOfColor(_)
+        ) && ability.effects.iter().any(|effect| {
+            matches!(
+                effect,
+                Effect::EachOpponentSacrificesCreatureAfterOptionalLifePayment { .. }
+            )
+        }) {
+            return Err(RulesError::IllegalAction(
+                "each-opponent sacrifice effect requires a colored creature-sacrifice trigger",
             ));
         }
         if ability.condition == TriggerCondition::DealsCombatDamageToCreature
@@ -39825,6 +40098,50 @@ impl Game {
                             [Effect::SacrificeControllerCreature]
                         ),
                     ),
+                    TriggeredEffectObjectDecisionKind::SacrificeEachOpponentCreature {
+                        remaining_players,
+                        selected,
+                    } => {
+                        if remaining_players.first() != Some(&decision.player)
+                            || remaining_players.iter().any(|player| {
+                                *player == *controller || self.players[player.0].lost
+                            })
+                            || selected.iter().any(|(player, permanent)| {
+                                *player == *controller
+                                    || self.zone_of(*permanent) != Some(Zone::Battlefield)
+                                    || self.controller_of(*permanent) != Ok(*player)
+                                    || !self.characteristics(*permanent).is_ok_and(
+                                        |characteristics| {
+                                            characteristics.card_types.contains(&CardType::Creature)
+                                        },
+                                    )
+                            })
+                        {
+                            return Err(RulesError::IllegalAction(
+                                "each-opponent sacrifice decision has stale player or creature provenance",
+                            ));
+                        }
+                        (
+                            self.all_battlefield_cards()
+                                .into_iter()
+                                .filter(|card| {
+                                    self.controller_of(*card).is_ok_and(|card_controller| {
+                                        card_controller == decision.player
+                                    }) && self.characteristics(*card).is_ok_and(|characteristics| {
+                                        characteristics.card_types.contains(&CardType::Creature)
+                                    })
+                                })
+                                .map(DecisionOption::Object)
+                                .collect::<Vec<_>>(),
+                            DecisionVisibility::Public,
+                            matches!(
+                                top.effects.as_slice(),
+                                [Effect::EachOpponentSacrificesCreatureAfterOptionalLifePayment {
+                                    life_payment: 1..,
+                                }]
+                            ),
+                        )
+                    }
                     TriggeredEffectObjectDecisionKind::SacrificeCreatureOrCounterTargetSpell {
                         target_spell,
                     } => (
