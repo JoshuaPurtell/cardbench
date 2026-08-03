@@ -21632,6 +21632,39 @@ impl Game {
         for _ in 0..3 {
             self.draw_card_from_spell_effect(recipient)?;
         }
+        // Drawing from an empty library is a terminal state-based action at
+        // the next rules checkpoint.  Do not expose the follow-up discard
+        // choice to a player who has already incurred that loss: the spell's
+        // resolution must close its own stack lifecycle first, then the SBA
+        // removes the recipient and records the terminal game event.  This is
+        // the same source-before-loss ordering used by ordinary draw effects.
+        if self
+            .pending_empty_library_draw_losses
+            .contains(&recipient)
+        {
+            let resolved = self.stack.pop().ok_or(RulesError::IllegalAction(
+                "conditional discard spell disappeared before terminal draw-loss resolution",
+            ))?;
+            self.stack_effect_cursors.remove(&resolved.id);
+            if let Some(copy) = self.virtual_spell_copies.remove(&source) {
+                self.record_event(GameEvent::SpellCopyResolved {
+                    copy: source,
+                    original: copy.original,
+                });
+            } else {
+                self.record_event(GameEvent::SpellResolved { card: source });
+                self.move_to_spell_terminal_zone(source)?;
+            }
+            self.check_state_based_actions()?;
+            self.flush_pending_dies_triggers();
+            self.flush_pending_land_entry_triggers()?;
+            self.flush_pending_damage_triggers();
+            self.flush_pending_life_gain_triggers();
+            self.flush_pending_dies_triggers();
+            self.restore_priority_after_stack_resolution();
+            self.record_game_end_if_needed();
+            return Ok(true);
+        }
         let options = self.players[recipient.0]
             .hand
             .iter()
