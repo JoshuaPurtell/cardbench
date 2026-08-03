@@ -2039,6 +2039,13 @@ Oracle Magic rules coverage.
   activated-ability grant, because those effects need a live source. Cleanup
   expires the remaining source-independent effect normally and records its
   ordinary lifecycle receipt.
+- A target-side damage-prevention shield uses the same explicit virtual-source
+  boundary when an instant or sorcery copy creates it. It retains a nonzero
+  unique shield identity, legal live player-or-creature target, positive
+  remaining amount, and current-turn expiry, but neither a fabricated
+  physical source nor a lingering virtual-copy map entry. Its source is
+  informational receipt provenance only; consuming or expiring the shield
+  never requires the former spell object to exist.
 - An end-of-turn effect created by a resolved instruction is independent of a
   former battlefield source. Source departure preserves it through that
   turn's cleanup; target departure still expires it immediately. In contrast,
