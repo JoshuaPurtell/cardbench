@@ -10,7 +10,9 @@ use cardbench_magic_engine::{
     CastRequest, Color, CombatBlock, DeckEntry, DeckList, DeckRules, Game, GameEvent, PlayerId,
     PolicyAction, Step, Target, Zone,
 };
-use cardbench_magic_policies::{EngineTournamentFailure, run_rav_reference_deck_matrix};
+use cardbench_magic_policies::{
+    EngineTournamentFailure, run_rav_reference_deck_matrix, run_rav_trigger_probe,
+};
 use cardbench_magic_rav::{card_definitions, load_reference_decks};
 
 #[derive(Debug)]
@@ -59,6 +61,35 @@ fn main() -> ExitCode {
     println!("policy_matrix_deck_count={}", policy_matrix.deck_count);
     println!("policy_matrix_seed_count={policy_matrix_seed_count}");
     println!("policy_matrix_match_count={}", policy_matrix.match_count);
+    let trigger_probe = run_rav_trigger_probe();
+    match trigger_probe {
+        Ok(result) if result.passed() => {
+            println!(
+                "trigger_probe_id={} triggered_ability_count={} event_digest={} passed=true",
+                result.id, result.triggered_ability_count, result.digest
+            );
+        }
+        Ok(result) => {
+            println!(
+                "trigger_probe_id={} triggered_ability_count={} event_digest={} passed=false",
+                result.id, result.triggered_ability_count, result.digest
+            );
+            findings.push(Finding {
+                code: "trigger-probe-failed",
+                detail: format!(
+                    "{} produced {} triggered abilities",
+                    result.id, result.triggered_ability_count
+                ),
+            });
+        }
+        Err(error) => {
+            println!("trigger_probe=failed detail={error}");
+            findings.push(Finding {
+                code: "trigger-probe-setup-failed",
+                detail: error,
+            });
+        }
+    }
     println!("finding_count={}", findings.len());
     for finding in &findings {
         println!("finding=code:{} detail:{}", finding.code, finding.detail);
