@@ -992,6 +992,14 @@ Oracle Magic rules coverage.
   incarnation or arbitrary same-named card cannot supply provenance. Binding
   and live-stack audits reject targets, an unmaterialized marker, a
   materialized binding effect, or zero/empty captured provenance.
+- A `CreatureBecomesTarget` trigger samples every creature-target occurrence
+  when a spell or ability chooses targets, including targets selected for a
+  triggered ability. Graveyard sources retain their exact source incarnation
+  and owner as the trigger controller; one target occurrence creates one
+  pending trigger. Resolution moves that exact source from graveyard to hand
+  only if it has not departed or re-entered, otherwise the effect is a
+  no-op. The optional zero-mana choice remains policy-controlled and cannot
+  be inferred from priority passing.
 - A simultaneous matching creature-card return snapshots every living
   owner-indexed graveyard before any return moves, moves the complete matching
   set to the battlefield, then applies each entrant's entry replacements from
@@ -3096,10 +3104,10 @@ a successful simulation of that interaction.
 
 The invariant audit validates every public engine transition and each state
 that the public runners produce. Several `Game` fields remain public to permit
-compact, authored fixture construction in this initial substrate. A caller can
-therefore deliberately mutate those fields outside a transition and then call
-the audit; the audit detects invalid *state shapes* and any event-log edit, but
-cannot prove that every valid-looking zone/priority shape arose through the
-transition machine. This API-encapsulation gap is tracked in the public bug
-ledger and is not presented as complete protection against hostile external
-mutation.
+compact, authored fixture construction. Fixture-only mutations refresh the
+private state-integrity seal; after a live transition, a caller that directly
+mutates any sealed public game or player field is rejected with `public game
+state was mutated outside an engine transition` before the state can be
+accepted. This is provenance back-pressure rather than Rust-level
+encapsulation: callers can still mutate memory, but receipt-free edits fail
+closed and cannot silently masquerade as legal transitions.
