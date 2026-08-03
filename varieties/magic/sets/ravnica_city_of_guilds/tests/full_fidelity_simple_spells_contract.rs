@@ -17,6 +17,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-AGRUS-KOS-WOJEK-VETERAN",
             "RAV-INSTILL-FUROR",
             "RAV-GALVANIC-ARC",
+            "RAV-BREATH-OF-FURY",
             "RAV-FLAME-FUSILLADE",
             "RAV-LIGHTNING-HELIX",
             "RAV-LIFE-FROM-THE-LOAM",

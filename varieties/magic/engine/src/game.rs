@@ -834,6 +834,13 @@ enum TriggerEventPayload {
     /// committed. Neither value is a target, and both remain meaningful even
     /// if the source changes zones before its triggered ability resolves.
     CombatDamagePlayer { player: PlayerId, amount: i32 },
+    /// An Aura captured the exact creature that dealt combat damage to a
+    /// player. The permanent is held by incarnation because the resulting
+    /// sacrifice must never drift to the Aura's later attachment endpoint.
+    AttachedCreatureCombatDamagePlayer {
+        creature: ObjectId,
+        creature_incarnation: u64,
+    },
     /// A nonartifact permanent entered under the observing source's
     /// controller. The snapshot keeps this event distinct from a later
     /// incarnation of the same stable object id and never asks a departed
@@ -1172,6 +1179,10 @@ pub struct Game {
     /// proceeding directly to the next turn.
     cleanup_repeat_required: bool,
     combat: Option<CombatState>,
+    /// Additional combat phases scheduled after the combat phase currently
+    /// in progress. The counter is consumed at each End-of-Combat transition
+    /// before ordinary Postcombat Main can begin.
+    additional_combat_phases: u16,
     /// The player currently choosing a replacement for a draw. This prevents
     /// dredge from becoming a free graveyard action and makes that compulsory
     /// decision visible to submitted policies.
@@ -1458,6 +1469,7 @@ impl Game {
             terminal_event_emitted: false,
             cleanup_repeat_required: false,
             combat: None,
+            additional_combat_phases: 0,
             pending_draw_replacement: None,
             pending_draw_replacement_decision: None,
             pending_empty_library_draw_losses: BTreeSet::new(),
@@ -13333,6 +13345,105 @@ impl Game {
                     Ok(())
                 })?;
             }
+            TriggeredEffectObjectDecisionKind::ReattachAuraAfterSacrificingCapturedCombatCreature {
+                creature,
+                creature_incarnation,
+            } => {
+                if player != controller {
+                    return Err(RulesError::IllegalAction(
+                        "Aura combat reattachment choice player does not match its controller",
+                    ));
+                }
+                let reattachment = selected.ok_or(RulesError::IllegalAction(
+                    "Aura combat reattachment choice requires one controlled creature",
+                ))?;
+                let source_incarnation = self
+                    .stack
+                    .last()
+                    .ok_or(RulesError::IllegalAction(
+                        "Aura combat reattachment choice has no live stack ability",
+                    ))?
+                    .source_incarnation;
+                self.complete_pending_decision(decision)?;
+                self.finish_trigger_effect_object_choice(source, ability, |game| {
+                    if game.zone_of(*creature) != Some(Zone::Battlefield)
+                        || !game.object_has_incarnation(*creature, *creature_incarnation)
+                    {
+                        return Ok(());
+                    }
+                    if game.zone_of(reattachment) != Some(Zone::Battlefield)
+                        || reattachment == *creature
+                        || game.controller_of(reattachment)? != controller
+                        || !game
+                            .characteristics(reattachment)?
+                            .card_types
+                            .contains(&CardType::Creature)
+                    {
+                        return Err(RulesError::IllegalAction(
+                            "Aura combat reattachment choice is no longer a different controlled creature",
+                        ));
+                    }
+                    let sacrificed_controller = game.controller_of(*creature)?;
+                    game.record_event(GameEvent::SacrificedByEffect {
+                        source,
+                        player: sacrificed_controller,
+                        permanent: *creature,
+                    });
+                    game.move_to_graveyard_or_remove_token(*creature)?;
+                    if game.zone_of(source) != Some(Zone::Battlefield)
+                        || !game.object_has_incarnation(source, source_incarnation)
+                    {
+                        return Ok(());
+                    }
+                    let binding = game.attachment_binding_for(source)?.ok_or(
+                        RulesError::IllegalAction(
+                            "Aura combat reattachment source lacks an attachment binding",
+                        ),
+                    )?;
+                    if binding.kind != AttachmentKind::Aura
+                        || binding.target != TargetRequirement::ControlledCreature
+                    {
+                        return Err(RulesError::IllegalAction(
+                            "Aura combat reattachment requires a controlled-creature Aura binding",
+                        ));
+                    }
+                    game.attach_with_binding(source, reattachment, &binding, true)?;
+                    let mut untapped = Vec::new();
+                    for permanent in game.all_battlefield_cards() {
+                        if game.controller_of(permanent)? == controller
+                            && game
+                                .characteristics(permanent)?
+                                .card_types
+                                .contains(&CardType::Creature)
+                            && game.object(permanent)?.tapped
+                        {
+                            game.objects
+                                .get_mut(&permanent)
+                                .ok_or(RulesError::UnknownCard(permanent))?
+                                .tapped = false;
+                            untapped.push(permanent);
+                        }
+                    }
+                    if !untapped.is_empty() {
+                        game.record_event(GameEvent::PermanentsUntapped {
+                            player: controller,
+                            cards: untapped,
+                        });
+                    }
+                    game.additional_combat_phases = game
+                        .additional_combat_phases
+                        .checked_add(1)
+                        .ok_or(RulesError::IllegalAction(
+                            "additional combat phase count overflowed",
+                        ))?;
+                    game.record_event(GameEvent::AdditionalCombatPhaseCreated {
+                        source,
+                        source_incarnation,
+                        controller,
+                    });
+                    Ok(())
+                })?;
+            }
             TriggeredEffectObjectDecisionKind::ReturnAnotherControlledPermanentSharingEnteredCardTypes {
                 entered,
                 entered_incarnation,
@@ -15642,13 +15753,20 @@ impl Game {
                     } else if trigger_condition
                         == Some(TriggerCondition::AttachedCreatureDealsCombatDamageToPlayer)
                     {
-                        matches!(
-                            (effects.as_slice(), stack_object.effects.as_slice()),
+                        match (effects.as_slice(), stack_object.effects.as_slice()) {
                             (
                                 [Effect::CreateTokensForControllerEqualToCombatDamage { token }],
                                 [Effect::CreateToken { token: materialized_token, count }]
-                            ) if token == materialized_token && *count > 0
-                        )
+                            ) => token == materialized_token && *count > 0,
+                            (
+                                [Effect::SacrificeAttachedCombatDamagerReattachAuraUntapControllerCreaturesAddCombat],
+                                [Effect::SacrificeCapturedAttachedCombatDamagerReattachAuraUntapControllerCreaturesAddCombat {
+                                    creature,
+                                    creature_incarnation,
+                                }]
+                            ) => creature.0 > 0 && *creature_incarnation > 0,
+                            _ => false,
+                        }
                     } else if trigger_condition
                         == Some(TriggerCondition::ControlledNonartifactPermanentEntersBattlefield)
                     {
@@ -18587,6 +18705,12 @@ impl Game {
                 Effect::CreateTokensForControllerEqualToCombatDamage { .. } => {
                     return Err(RulesError::IllegalAction(
                         "attached combat-damage token marker is valid only on its triggered ability",
+                    ));
+                }
+                Effect::SacrificeAttachedCombatDamagerReattachAuraUntapControllerCreaturesAddCombat
+                | Effect::SacrificeCapturedAttachedCombatDamagerReattachAuraUntapControllerCreaturesAddCombat { .. } => {
+                    return Err(RulesError::IllegalAction(
+                        "attached combat Aura reattachment effect is valid only on its triggered ability",
                     ));
                 }
                 Effect::DealDamage { amount, .. }
@@ -22925,6 +23049,7 @@ impl Game {
                 | TriggerEventPayload::DamageAmountAndSourceController { .. }
                 | TriggerEventPayload::CombatDamageRecipient { .. }
                 | TriggerEventPayload::CombatDamagePlayer { .. }
+                | TriggerEventPayload::AttachedCreatureCombatDamagePlayer { .. }
                 | TriggerEventPayload::EnteredPermanent { .. }
                 | TriggerEventPayload::ConvokeContributors(_)
                 | TriggerEventPayload::CastCreatureSpell { .. }
@@ -23113,6 +23238,17 @@ impl Game {
                     token,
                     count: u8::try_from(*amount)
                         .expect("attached combat-token trigger amount was validated while queuing"),
+                },
+                (
+                    Effect::SacrificeAttachedCombatDamagerReattachAuraUntapControllerCreaturesAddCombat,
+                    TriggerEventPayload::AttachedCreatureCombatDamagePlayer {
+                        creature,
+                        creature_incarnation,
+                        ..
+                    },
+                ) => Effect::SacrificeCapturedAttachedCombatDamagerReattachAuraUntapControllerCreaturesAddCombat {
+                    creature: *creature,
+                    creature_incarnation: *creature_incarnation,
                 },
                 (
                     Effect::ReturnAnotherControlledPermanentSharingEnteredCardTypes,
@@ -24104,6 +24240,13 @@ impl Game {
                     player: *player,
                 }
             }
+            [Effect::SacrificeCapturedAttachedCombatDamagerReattachAuraUntapControllerCreaturesAddCombat {
+                creature,
+                creature_incarnation,
+            }] => TriggeredEffectObjectDecisionKind::ReattachAuraAfterSacrificingCapturedCombatCreature {
+                creature: *creature,
+                creature_incarnation: *creature_incarnation,
+            },
             [Effect::ReturnAnotherControlledPermanentSharingCardTypes {
                 entered,
                 entered_incarnation,
@@ -24123,6 +24266,7 @@ impl Game {
             ))?,
             TriggeredEffectObjectDecisionKind::SacrificeControllerCreature
             | TriggeredEffectObjectDecisionKind::SacrificeCreatureOrCounterTargetSpell { .. }
+            | TriggeredEffectObjectDecisionKind::ReattachAuraAfterSacrificingCapturedCombatCreature { .. }
             | TriggeredEffectObjectDecisionKind::ReturnAnotherControlledPermanentSharingEnteredCardTypes { .. } => top.controller,
             TriggeredEffectObjectDecisionKind::SacrificeCapturedPlayerCreature { player } => *player,
             TriggeredEffectObjectDecisionKind::SacrificeCapturedPlayerUntappedLand { player } => {
@@ -24146,6 +24290,30 @@ impl Game {
                         })
                 })
                 .collect(),
+            TriggeredEffectObjectDecisionKind::ReattachAuraAfterSacrificingCapturedCombatCreature {
+                creature,
+                creature_incarnation,
+            } => {
+                if self.zone_of(top.card) != Some(Zone::Battlefield)
+                    || !self.object_has_incarnation(top.card, top.source_incarnation)
+                    || self.zone_of(*creature) != Some(Zone::Battlefield)
+                    || !self.object_has_incarnation(*creature, *creature_incarnation)
+                {
+                    Vec::new()
+                } else {
+                    self.all_battlefield_cards()
+                        .into_iter()
+                        .filter(|card| *card != *creature)
+                        .filter(|card| {
+                            self.controller_of(*card)
+                                .is_ok_and(|controller| controller == chooser)
+                                && self.characteristics(*card).is_ok_and(|characteristics| {
+                                    characteristics.card_types.contains(&CardType::Creature)
+                                })
+                        })
+                        .collect()
+                }
+            }
             TriggeredEffectObjectDecisionKind::SacrificeCapturedPlayerUntappedLand { .. } => self
                 .all_battlefield_cards()
                 .into_iter()
@@ -24175,6 +24343,7 @@ impl Game {
                     | TriggeredEffectObjectDecisionKind::SacrificeCreatureOrCounterTargetSpell { .. }
                     | TriggeredEffectObjectDecisionKind::SacrificeCapturedPlayerCreature { .. }
                     | TriggeredEffectObjectDecisionKind::SacrificeCapturedPlayerUntappedLand { .. }
+                    | TriggeredEffectObjectDecisionKind::ReattachAuraAfterSacrificingCapturedCombatCreature { .. }
             )
         {
             // A mandatory sacrifice with no legal permanent does not open a
@@ -24200,6 +24369,7 @@ impl Game {
                 | TriggeredEffectObjectDecisionKind::SacrificeCreatureOrCounterTargetSpell { .. }
                 | TriggeredEffectObjectDecisionKind::SacrificeCapturedPlayerCreature { .. }
                 | TriggeredEffectObjectDecisionKind::SacrificeCapturedPlayerUntappedLand { .. }
+                | TriggeredEffectObjectDecisionKind::ReattachAuraAfterSacrificingCapturedCombatCreature { .. }
                 | TriggeredEffectObjectDecisionKind::ReturnAnotherControlledPermanentSharingEnteredCardTypes { .. } => {
                     DecisionVisibility::Public
                 }
@@ -24545,6 +24715,19 @@ impl Game {
                     amount,
                 });
             }
+            let payload = if ability.effects.contains(
+                &Effect::SacrificeAttachedCombatDamagerReattachAuraUntapControllerCreaturesAddCombat,
+            ) {
+                TriggerEventPayload::AttachedCreatureCombatDamagePlayer {
+                    creature: source,
+                    creature_incarnation: source_incarnation,
+                }
+            } else {
+                TriggerEventPayload::CombatDamagePlayer {
+                    player: recipient,
+                    amount,
+                }
+            };
             self.pending_trigger_events
                 .push(PendingTriggeredAbilityEvent {
                     source: aura,
@@ -24552,10 +24735,7 @@ impl Game {
                     source_colors: aura_colors,
                     controller: aura_controller,
                     ability,
-                    payload: TriggerEventPayload::CombatDamagePlayer {
-                        player: recipient,
-                        amount,
-                    },
+                    payload,
                 });
         }
         Ok(())
@@ -27218,6 +27398,44 @@ impl Game {
                     permanent,
                 });
                 self.move_to_graveyard_or_remove_token(permanent)?;
+            }
+            Effect::SacrificeAttachedCombatDamagerReattachAuraUntapControllerCreaturesAddCombat => {
+                return Err(RulesError::IllegalAction(
+                    "attached combat Aura effect was not materialized before resolution",
+                ));
+            }
+            Effect::SacrificeCapturedAttachedCombatDamagerReattachAuraUntapControllerCreaturesAddCombat {
+                creature,
+                creature_incarnation,
+            } => {
+                if self.zone_of(*creature) != Some(Zone::Battlefield)
+                    || !self.object_has_incarnation(*creature, *creature_incarnation)
+                {
+                    return Ok(());
+                }
+                let reattachment_exists = self.zone_of(source) == Some(Zone::Battlefield)
+                    && self.object_has_incarnation(source, source_incarnation)
+                    && self.all_battlefield_cards().into_iter().any(|candidate| {
+                        candidate != *creature
+                            && self
+                                .controller_of(candidate)
+                                .is_ok_and(|candidate_controller| candidate_controller == controller)
+                            && self.characteristics(candidate).is_ok_and(|characteristics| {
+                                characteristics.card_types.contains(&CardType::Creature)
+                            })
+                    });
+                if reattachment_exists {
+                    return Err(RulesError::IllegalAction(
+                        "attached combat Aura effect bypassed its reattachment decision boundary",
+                    ));
+                }
+                let sacrificed_controller = self.controller_of(*creature)?;
+                self.record_event(GameEvent::SacrificedByEffect {
+                    source,
+                    player: sacrificed_controller,
+                    permanent: *creature,
+                });
+                self.move_to_graveyard_or_remove_token(*creature)?;
             }
             Effect::SacrificeCapturedPlayerCreature { player } => {
                 let candidate = self
@@ -30018,7 +30236,10 @@ impl Game {
         // combat-damage step. Likewise, when the fixed defending player
         // leaves, attackers are removed from combat instead of retargeting a
         // later seat. The combat state is cleared at EndOfCombat.
-        self.step = if skip_combat {
+        self.step = if self.step == Step::EndOfCombat && self.additional_combat_phases > 0 {
+            self.additional_combat_phases -= 1;
+            Step::BeginningOfCombat
+        } else if skip_combat {
             Step::EndOfCombat
         } else if self.step == Step::DeclareBlockers && !self.combat_has_first_striker()? {
             // First-strike combat damage is an additional step only when at
@@ -32222,6 +32443,29 @@ impl Game {
         {
             return Err(RulesError::IllegalAction(
                 "attached combat-damage token marker requires one target-free Aura trigger",
+            ));
+        }
+        let has_attached_combat_reattachment_marker = ability.effects.contains(
+            &Effect::SacrificeAttachedCombatDamagerReattachAuraUntapControllerCreaturesAddCombat,
+        );
+        if has_attached_combat_reattachment_marker
+            && (ability.condition != TriggerCondition::AttachedCreatureDealsCombatDamageToPlayer
+                || !ability.targets.is_empty()
+                || ability.effects.as_slice()
+                    != [Effect::SacrificeAttachedCombatDamagerReattachAuraUntapControllerCreaturesAddCombat])
+        {
+            return Err(RulesError::IllegalAction(
+                "attached combat Aura reattachment requires one target-free Aura trigger",
+            ));
+        }
+        if ability.effects.iter().any(|effect| {
+            matches!(
+                effect,
+                Effect::SacrificeCapturedAttachedCombatDamagerReattachAuraUntapControllerCreaturesAddCombat { .. }
+            )
+        }) {
+            return Err(RulesError::IllegalAction(
+                "materialized attached combat Aura effect escaped onto a triggered binding",
             ));
         }
         let has_attacking_color_modifier = ability.effects.iter().any(|effect| {
@@ -39003,6 +39247,38 @@ impl Game {
                                 [Effect::SacrificeCapturedPlayerUntappedLand {
                                     player: stack_player,
                                 }] if stack_player == player
+                            ),
+                    ),
+                    TriggeredEffectObjectDecisionKind::ReattachAuraAfterSacrificingCapturedCombatCreature {
+                        creature,
+                        creature_incarnation,
+                    } => (
+                        self.all_battlefield_cards()
+                            .into_iter()
+                            .filter(|card| *card != *creature)
+                            .filter(|card| {
+                                self.zone_of(*source) == Some(Zone::Battlefield)
+                                    && self.object_has_incarnation(*source, top.source_incarnation)
+                                    && self.zone_of(*creature) == Some(Zone::Battlefield)
+                                    && self.object_has_incarnation(*creature, *creature_incarnation)
+                                    && self.controller_of(*card).is_ok_and(|card_controller| {
+                                        card_controller == *controller
+                                    })
+                                    && self.characteristics(*card).is_ok_and(|characteristics| {
+                                        characteristics.card_types.contains(&CardType::Creature)
+                                    })
+                            })
+                            .map(DecisionOption::Object)
+                            .collect::<Vec<_>>(),
+                        DecisionVisibility::Public,
+                        decision.player == *controller
+                            && matches!(
+                                top.effects.as_slice(),
+                                [Effect::SacrificeCapturedAttachedCombatDamagerReattachAuraUntapControllerCreaturesAddCombat {
+                                    creature: stack_creature,
+                                    creature_incarnation: stack_incarnation,
+                                }] if stack_creature == creature
+                                    && stack_incarnation == creature_incarnation
                             ),
                     ),
                     TriggeredEffectObjectDecisionKind::ReturnAnotherControlledPermanentSharingEnteredCardTypes {

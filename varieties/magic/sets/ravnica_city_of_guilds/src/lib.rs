@@ -46,11 +46,12 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 276] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 277] = [
     "RAV-CHAR",
     "RAV-AGRUS-KOS-WOJEK-VETERAN",
     "RAV-INSTILL-FUROR",
     "RAV-GALVANIC-ARC",
+    "RAV-BREATH-OF-FURY",
     "RAV-FLAME-FUSILLADE",
     "RAV-LIGHTNING-HELIX",
     "RAV-LIFE-FROM-THE-LOAM",
@@ -424,6 +425,36 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![Effect::AttachSourceToTarget {
                 target: TargetRequirement::Creature,
+                changes: vec![],
+            }],
+        },
+        // Full fidelity: an Aura-relative combat trigger captures the exact
+        // creature that dealt combat damage, sacrifices it, then suspends for
+        // its controller's required reattachment choice. A successful
+        // reattachment untaps every controlled creature and inserts one
+        // additional combat phase before ordinary postcombat main.
+        CardDefinition {
+            id: "RAV-BREATH-OF-FURY",
+            name: "Breath of Fury",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(2, [Color::Red, Color::Red]),
+            colors: colors([Color::Red]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Enchantment]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "aura-enchant-controlled-creature",
+                "attached-creature-combat-damage-sacrifice-reattach",
+                "controller-creature-untap",
+                "additional-combat-phase",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![Effect::AttachSourceToTarget {
+                target: TargetRequirement::ControlledCreature,
                 changes: vec![],
             }],
         },
@@ -8725,6 +8756,13 @@ pub fn rav_attachment_bindings() -> Vec<AttachmentBinding> {
             }],
         },
         AttachmentBinding {
+            card_definition: "RAV-BREATH-OF-FURY",
+            kind: AttachmentKind::Aura,
+            target: TargetRequirement::ControlledCreature,
+            changes: vec![],
+            granted_activated_abilities: vec![],
+        },
+        AttachmentBinding {
             card_definition: "RAV-INSTILL-FUROR",
             kind: AttachmentKind::Aura,
             target: TargetRequirement::Creature,
@@ -9237,6 +9275,19 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                 effects: vec![Effect::CreateTokensForControllerEqualToCombatDamage {
                     token: TokenSpec::saproling(),
                 }],
+            },
+        },
+        TriggeredAbilityBinding {
+            card_definition: "RAV-BREATH-OF-FURY",
+            ability: TriggeredAbility {
+                id: "attached-creature-combat-damage-sacrifice-reattach-untap-add-combat",
+                condition: TriggerCondition::AttachedCreatureDealsCombatDamageToPlayer,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![
+                    Effect::SacrificeAttachedCombatDamagerReattachAuraUntapControllerCreaturesAddCombat,
+                ],
             },
         },
         TriggeredAbilityBinding {

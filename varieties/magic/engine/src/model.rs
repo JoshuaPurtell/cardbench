@@ -1959,6 +1959,18 @@ pub enum Effect {
     CreateTokensForControllerEqualToCombatDamage {
         token: TokenSpec,
     },
+    /// Trigger-only marker for an Aura attached to a creature that dealt
+    /// combat damage to a player. The event's exact creature incarnation is
+    /// materialized before resolution so the sacrifice cannot drift to a
+    /// later attachment endpoint.
+    SacrificeAttachedCombatDamagerReattachAuraUntapControllerCreaturesAddCombat,
+    /// Runtime form of [`Self::SacrificeAttachedCombatDamagerReattachAuraUntapControllerCreaturesAddCombat`].
+    /// It is derived only from committed attached-creature combat provenance,
+    /// never stored in an expansion's static triggered-ability binding.
+    SacrificeCapturedAttachedCombatDamagerReattachAuraUntapControllerCreaturesAddCombat {
+        creature: ObjectId,
+        creature_incarnation: u64,
+    },
     /// The materialized recipient-private discard instruction for an exact
     /// combat-damage-to-player event. This is runtime-only; definition-bound
     /// triggered abilities retain the event-relative marker above.
@@ -3166,6 +3178,8 @@ impl Effect {
             | Self::ModifyAllCreaturesPtUntilEndOfTurnIfManaColorSpent { .. }
             | Self::CreateToken { .. }
             | Self::CreateTokensForControllerEqualToCombatDamage { .. }
+            | Self::SacrificeAttachedCombatDamagerReattachAuraUntapControllerCreaturesAddCombat
+            | Self::SacrificeCapturedAttachedCombatDamagerReattachAuraUntapControllerCreaturesAddCombat { .. }
             | Self::ReturnOneCreatureCardFromEachGraveyardToHand
             | Self::ReturnAllCreatureCardsMatchingCastCreatureSpellNameFromGraveyards
             | Self::ReturnAllCreatureCardsMatchingNameFromGraveyards { .. }
@@ -4361,6 +4375,15 @@ pub enum TriggeredEffectObjectDecisionKind {
     /// field.
     SacrificeCapturedPlayerUntappedLand {
         player: PlayerId,
+    },
+    /// A resolving Aura-relative combat trigger sacrifices its exact captured
+    /// combat creature, then its controller chooses a different controlled
+    /// creature for the Aura's required reattachment. The choice is stored
+    /// before resolution commits so no later attachment endpoint can replace
+    /// the combat event's original creature.
+    ReattachAuraAfterSacrificingCapturedCombatCreature {
+        creature: ObjectId,
+        creature_incarnation: u64,
     },
     /// The source controller may choose one other currently controlled
     /// permanent that shares at least one card type with the nonartifact
@@ -6217,6 +6240,14 @@ pub enum GameEvent {
     PermanentsUntapped {
         player: PlayerId,
         cards: Vec<ObjectId>,
+    },
+    /// A resolving effect scheduled one additional combat phase after the
+    /// combat phase currently in progress. The source's later departure does
+    /// not revoke the already-created turn structure.
+    AdditionalCombatPhaseCreated {
+        source: ObjectId,
+        source_incarnation: u64,
+        controller: PlayerId,
     },
     AttackersDeclared {
         player: PlayerId,
