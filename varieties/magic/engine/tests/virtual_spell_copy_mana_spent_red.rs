@@ -15,6 +15,8 @@ const CONDITIONAL: &str = "TST-COPY-MANA-SPENT-CONDITIONAL";
 const COPY: &str = "TST-COPY-MANA-SPENT-COPY";
 const LIBRARY_CARD: &str = "TST-COPY-MANA-SPENT-LIBRARY";
 const ISLAND: &str = "TST-COPY-MANA-SPENT-ISLAND";
+const X_REMOVAL: &str = "TST-COPY-MANA-SPENT-X-REMOVAL";
+const CREATURE: &str = "TST-COPY-MANA-SPENT-CREATURE";
 
 fn definition(id: &'static str, mana_cost: ManaCost, effects: Vec<Effect>) -> CardDefinition {
     CardDefinition {
@@ -65,6 +67,24 @@ fn island() -> CardDefinition {
         supported_rules: &["virtual-spell-copy-mana-spent-red"],
         power: None,
         toughness: None,
+        keywords: vec![],
+        effects: vec![],
+    }
+}
+
+fn creature() -> CardDefinition {
+    CardDefinition {
+        id: CREATURE,
+        name: CREATURE,
+        set_code: "TST",
+        mana_cost: ManaCost::new(0),
+        colors: BTreeSet::new(),
+        mana_colors: BTreeSet::new(),
+        card_types: BTreeSet::from([CardType::Creature]),
+        is_basic_land: false,
+        supported_rules: &["virtual-spell-copy-mana-spent-red"],
+        power: Some(1),
+        toughness: Some(1),
         keywords: vec![],
         effects: vec![],
     }
@@ -175,4 +195,84 @@ fn copied_spell_does_not_inherit_originals_spent_mana() {
         Some(Zone::Library),
         "the physical original remains below the resolved copy"
     );
+}
+
+#[test]
+fn copied_x_spell_keeps_x_without_fabricating_a_payment_receipt() {
+    let caster = PlayerId(0);
+    let copy_controller = PlayerId(1);
+    let mut game = Game::new_with_basic_land_types(
+        [
+            definition(
+                X_REMOVAL,
+                ManaCost::new(0),
+                vec![Effect::DestroyTargetCreatureWithManaValueAtMostChosenX],
+            ),
+            definition(
+                COPY,
+                ManaCost::new(0),
+                vec![Effect::CopyTargetInstantOrSorcerySpell {
+                    may_choose_new_targets: false,
+                }],
+            ),
+            creature(),
+            island(),
+        ],
+        2,
+        [BasicLandTypeBinding {
+            card_definition: ISLAND,
+            land_type: BasicLandType::Island,
+        }],
+    )
+    .expect("X-copy fixture initializes");
+    let removal = game
+        .add_card(caster, X_REMOVAL, Zone::Hand)
+        .expect("X removal enters caster hand");
+    let copy_effect = game
+        .add_card(copy_controller, COPY, Zone::Hand)
+        .expect("copy effect enters opponent hand");
+    let target = game
+        .put_on_battlefield(copy_controller, CREATURE)
+        .expect("one-mana target enters battlefield");
+    let island = game
+        .put_on_battlefield(caster, ISLAND)
+        .expect("caster has Island payment source");
+    game.begin_game().expect("game begins");
+
+    game.cast_spell_with_x(
+        caster,
+        CastRequest {
+            card: removal,
+            targets: vec![Target::Permanent(target)],
+            convoke: vec![],
+            payment_mana_abilities: vec![CastPaymentManaAbility::BasicLand(
+                BasicLandManaAbilityActivation {
+                    land: island,
+                    color: Color::Blue,
+                },
+            )],
+        },
+        1,
+        ManaPaymentSelection {
+            generic: vec![Color::Blue],
+            hybrid: vec![],
+        },
+    )
+    .expect("original X removal pays one generic mana");
+    game.pass_priority(caster).expect("caster passes priority");
+    game.cast_spell(
+        copy_controller,
+        request(copy_effect, vec![Target::Spell(removal)]),
+    )
+    .expect("opponent copies the X spell");
+    resolve_top(&mut game);
+    resolve_top(&mut game);
+
+    assert_eq!(
+        game.zone_of(target),
+        Some(Zone::Graveyard),
+        "the copy retains X=1 even though it has no invented mana payment"
+    );
+    game.validate_invariants()
+        .expect("a copied X spell has valid payment-free stack provenance");
 }
