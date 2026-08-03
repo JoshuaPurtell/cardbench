@@ -49,8 +49,8 @@ a zone move. The fetched Aura's ordinary ETB trigger is queued only after the
 Mage trigger's terminal receipt. The opponent sees neither unselected Aura
 identities nor a private decision projection.
 
-The current catalog partition is 278 full / 6 partial / 7 catalog-only unique
-names (293 / 6 / 7 printings). The independently checked coverage-report
+The current catalog partition is 279 full / 6 partial / 6 catalog-only unique
+names (294 / 6 / 6 printings). The independently checked coverage-report
 binary emits the same partition.
 
 Molten Sentry is a full-fidelity entry whose setup-only deterministic seed
@@ -102,6 +102,20 @@ active-player order, then performs one no-priority sacrifice batch for the
 unselected permanent identities. Its direct Rust trace proves that no permanent
 moves before all choices are complete, a player may retain none, terminal
 receipts are ordered, and invariants hold.
+
+The 2026-08-03 completeness audit for Circu, Dimir Lobotomist consulted the
+public RAV printing record [#196](https://scryfall.com/card/rav/196/circu-dimir-lobotomist)
+and the public [Comprehensive Rules index](https://magic.wizards.com/en/rules).
+It retained no upstream card prose, scans, art, or JSON. The full-fidelity
+definition uses CardBench-authored semantics: Blue and Black controller casts
+each queue a normal targeted-opponent trigger, with a multicolored cast placing
+both independently orderable triggers. Each resolution moves only the current
+top card of that opponent's library to exile and records an exact source/card
+incarnation restriction. That restriction rejects only an otherwise valid
+effect-created exile-cast permission for an opponent-owned card while the same
+Circu incarnation remains on the battlefield; it is removed when either object
+changes zone. All other catalog-only rows remain fail-closed and are not blank
+executable cards.
 
 Mindleech Mass is a full-fidelity direct combat-recipient trigger entry. Its
 six-damage combat trace captures the damaged player before stack resolution,
