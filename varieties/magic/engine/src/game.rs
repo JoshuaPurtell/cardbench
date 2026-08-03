@@ -32567,6 +32567,15 @@ impl Game {
             ));
         }
         for effect in effects {
+            if let Some((target, bundled_effects)) = effect.target_bundle_members() {
+                Self::validate_targeted_bundle(target, bundled_effects)?;
+                // Reuse the binding-specific checks for every member. This
+                // keeps a shared target occurrence from smuggling a
+                // spell-only chosen-X/color instruction into an activated or
+                // triggered ability.
+                Self::validate_cast_effects_for_ability(bundled_effects)?;
+                continue;
+            }
             if let Effect::AnimateTargetLand {
                 colors,
                 creature_subtypes,
