@@ -45,7 +45,7 @@ Oracle Magic rules coverage.
   `SpellCopyLeftGame { copy, original, controller }` receipt. No departed
   player's object or virtual copy may later appear in a zone, on the stack, in
   combat, or in an effect. Before each physical object is removed, every
-  object-keyed last-known-characteristics record, graveyard or effect-created
+  object-keyed last-known source-provenance record, graveyard or effect-created
   cast permission is revoked with its ordinary matching expiry receipt; a
   non-owned object exiled rather than removed retains its LKI provenance. A
   stack-only timing exception or
@@ -195,19 +195,21 @@ Oracle Magic rules coverage.
   controller always remains its owner. Only `Game::controller_of` may expose a
   different live battlefield controller.
 - Immediately before each zone transition, the engine freezes one private
-  last-known `Characteristics` record under that object's exact former
-  `(ObjectId, incarnation)`. A record must name an existing strictly older
-  incarnation and may not contain `Colorless` as a card color. Live
-  battlefield sources use their current characteristics only when their exact
-  incarnation equals the resolving stack source; any departed or re-entered
-  source instead uses that immutable former record for source-quality rules,
-  including `Deathtouch` and `DamageCannotBePrevented`. A later graveyard,
-  exile, or re-entered incarnation can therefore neither lose nor invent a
-  quality for an already pending effect's damage packet. The same exact
-  source incarnation is mandatory while discovering, opening, validating,
-  applying, and resuming a prospective damage-replacement decision; an
-  affected player can never be offered prevention against historically
-  unpreventable damage.
+  last-known `Characteristics` record and source-controller record under that
+  object's exact former `(ObjectId, incarnation)`. The two maps have exactly
+  the same keys; every record must name an existing strictly older incarnation,
+  and no characteristic record may contain `Colorless` as a card color. Live
+  battlefield sources use their current characteristics and controller only
+  when their exact incarnation equals the resolving stack source; any departed
+  or re-entered source instead uses those immutable former facts for
+  source-quality and controller-relative damage-prevention rules, including
+  `Deathtouch` and `DamageCannotBePrevented`. A later graveyard, exile, or
+  re-entered incarnation can therefore neither lose nor invent a quality or
+  controller relationship for an already pending effect's damage packet. The
+  same exact source incarnation is mandatory while discovering, opening,
+  validating, applying, and resuming a prospective damage-replacement
+  decision; an affected player can never be offered prevention against
+  historically unpreventable damage.
 - `ReturnSourceToOwnersHand` is a source-relative resolution instruction, not
   an activation cost. It moves the source only when that exact source
   incarnation is still on the battlefield; an already departed source leaves
