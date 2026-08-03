@@ -111,6 +111,7 @@ fn witch_keeps_ability_on_stack_for_a_controller_private_opponent_library_choice
         PlayerId(0),
         "thoughtpicker-private-choice-contract",
         PolicyAction::ChoosePrivateOpponentLibraryCardToExile {
+            decision: controller_choice.decision,
             source: witch,
             ability: "sacrifice-creature-private-opponent-top-two-exile",
             selected: Some(second),

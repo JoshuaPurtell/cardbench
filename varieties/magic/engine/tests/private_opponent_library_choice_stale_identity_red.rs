@@ -145,6 +145,7 @@ fn stale_private_opponent_library_choice_cannot_answer_a_reentered_source_activa
         controller,
         "private-opponent-library-stale.first-empty.v1",
         PolicyAction::ChoosePrivateOpponentLibraryCardToExile {
+            decision: first_choice.decision,
             source,
             ability: ABILITY,
             selected: None,
@@ -171,6 +172,10 @@ fn stale_private_opponent_library_choice_cannot_answer_a_reentered_source_activa
         .private_opponent_library_choice
         .expect("second empty private choice opens");
     assert!(second_choice.cards.is_empty());
+    assert_ne!(
+        first_choice.decision, second_choice.decision,
+        "a new suspended activation receives a fresh decision identity"
+    );
     let second_incarnation = game
         .object(source)
         .expect("source remains live")
@@ -180,6 +185,7 @@ fn stale_private_opponent_library_choice_cannot_answer_a_reentered_source_activa
         controller,
         "private-opponent-library-stale.replay.v1",
         PolicyAction::ChoosePrivateOpponentLibraryCardToExile {
+            decision: first_choice.decision,
             source,
             ability: ABILITY,
             selected: None,
@@ -195,6 +201,19 @@ fn stale_private_opponent_library_choice_cannot_answer_a_reentered_source_activa
         stale_result.is_err(),
         "a first activation's private choice must not answer the reentered source's later activation"
     );
+    game.submit_policy_move(
+        controller,
+        "private-opponent-library-stale.second-empty.v1",
+        PolicyAction::ChoosePrivateOpponentLibraryCardToExile {
+            decision: second_choice.decision,
+            source,
+            ability: ABILITY,
+            selected: None,
+        },
+    )
+    .expect("the current private opponent-library choice resolves with its own identity");
+    game.validate_invariants()
+        .expect("current private opponent-library choice preserves engine invariants");
     assert!(game.event_log.iter().any(|event| matches!(
         event,
         GameEvent::PrivateOpponentLibraryChoiceOpened { source: opened, .. } if *opened == source

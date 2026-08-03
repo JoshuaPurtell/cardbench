@@ -83,6 +83,7 @@ pub trait CodePolicy {
             .as_ref()
             .expect("private opponent-library choice proposal requires a visible choice");
         PolicyAction::ChoosePrivateOpponentLibraryCardToExile {
+            decision: choice.decision,
             source: choice.source,
             ability: choice.ability,
             selected: choice.cards.first().map(|card| card.id),

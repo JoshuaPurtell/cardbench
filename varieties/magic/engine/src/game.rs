@@ -224,9 +224,12 @@ pub enum PolicyAction {
         selected: Vec<ObjectId>,
     },
     /// Completes one controller-private selection opened during a targeted
-    /// activated ability's resolution. This is not a priority action and the
-    /// target opponent never receives the candidate identities in a view.
+    /// activated ability's resolution. `decision` must echo the fresh,
+    /// controller-private identity exposed by the corresponding game view.
+    /// This is not a priority action and the target opponent never receives
+    /// the candidate identities in a view.
     ChoosePrivateOpponentLibraryCardToExile {
+        decision: DecisionId,
         source: ObjectId,
         ability: &'static str,
         selected: Option<ObjectId>,
@@ -450,6 +453,8 @@ pub struct PrivateLibraryChoiceView {
 /// public event log.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PrivateOpponentLibraryChoiceView {
+    /// Fresh controller-private identity for this suspended resolution.
+    pub decision: DecisionId,
     pub source: ObjectId,
     pub ability: &'static str,
     pub cards: Vec<CardView>,
@@ -718,6 +723,7 @@ struct ValidatedGeneralizedActivationCostPayment {
 /// card from the target opponent's current top-of-library snapshot.
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct PendingPrivateOpponentLibraryExileChoice {
+    decision: DecisionId,
     source: ObjectId,
     ability: &'static str,
     controller: PlayerId,
@@ -3984,6 +3990,7 @@ impl Game {
                     .map(|card| self.card_view(*card))
                     .collect::<Result<Vec<_>, _>>()
                     .map(|cards| PrivateOpponentLibraryChoiceView {
+                        decision: choice.decision,
                         source: choice.source,
                         ability: choice.ability,
                         cards,
@@ -4432,12 +4439,13 @@ impl Game {
                 self.choose_private_library_cards(player, decision, spell, selected)?;
             }
             PolicyAction::ChoosePrivateOpponentLibraryCardToExile {
+                decision,
                 source,
                 ability,
                 selected,
             } => {
                 self.choose_private_opponent_library_card_to_exile(
-                    player, source, ability, selected,
+                    player, decision, source, ability, selected,
                 )?;
             }
             PolicyAction::ChooseLibrarySearchCard { source, selected } => {
@@ -7815,13 +7823,14 @@ impl Game {
     pub fn choose_private_opponent_library_card_to_exile(
         &mut self,
         player: PlayerId,
+        decision: DecisionId,
         source: ObjectId,
         ability: &'static str,
         selected: Option<ObjectId>,
     ) -> Result<(), RulesError> {
         self.atomic_transition(|game| {
             game.resolve_pending_private_opponent_library_exile_choice(
-                player, source, ability, selected,
+                player, decision, source, ability, selected,
             )
         })
     }
@@ -7830,6 +7839,7 @@ impl Game {
     fn resolve_pending_private_opponent_library_exile_choice(
         &mut self,
         player: PlayerId,
+        decision: DecisionId,
         source: ObjectId,
         ability: &'static str,
         selected: Option<ObjectId>,
@@ -7841,9 +7851,13 @@ impl Game {
             .ok_or(RulesError::IllegalAction(
                 "there is no pending private opponent-library choice",
             ))?;
-        if choice.controller != player || choice.source != source || choice.ability != ability {
+        if choice.decision != decision
+            || choice.controller != player
+            || choice.source != source
+            || choice.ability != ability
+        {
             return Err(RulesError::IllegalAction(
-                "only the resolving controller may submit this private opponent-library choice",
+                "private opponent-library choice does not match the pending id, controller, source, or ability",
             ));
         }
         let stack_object = self.stack.last().ok_or(RulesError::IllegalAction(
@@ -13256,7 +13270,9 @@ impl Game {
                 .take(usize::from(count))
                 .copied()
                 .collect::<Vec<_>>();
-            if self.pending_draw_replacement.is_some()
+            if choice.decision.0 == 0
+                || choice.decision.0 >= self.next_decision_id
+                || self.pending_draw_replacement.is_some()
                 || self.pending_decision.is_some()
                 || self.pending_private_library_choice.is_some()
                 || top.card != choice.source
@@ -19975,8 +19991,10 @@ impl Game {
                 )
             })?,
         });
+        let decision = self.allocate_decision_id()?;
         self.pending_private_opponent_library_exile_choice =
             Some(PendingPrivateOpponentLibraryExileChoice {
+                decision,
                 source,
                 ability,
                 controller,
