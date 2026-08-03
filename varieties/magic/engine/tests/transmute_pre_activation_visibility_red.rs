@@ -11,11 +11,7 @@ const TRANSMUTER: &str = "TST-TRANSMUTE-HIDDEN-SEARCH";
 const MATCH: &str = "TST-TRANSMUTE-HIDDEN-MATCH";
 const NONMATCH: &str = "TST-TRANSMUTE-HIDDEN-NONMATCH";
 
-fn definition(
-    id: &'static str,
-    mana_cost: ManaCost,
-    keywords: Vec<Keyword>,
-) -> CardDefinition {
+fn definition(id: &'static str, mana_cost: ManaCost, keywords: Vec<Keyword>) -> CardDefinition {
     CardDefinition {
         id,
         name: id,
