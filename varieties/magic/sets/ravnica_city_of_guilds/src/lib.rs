@@ -27,7 +27,7 @@ use cardbench_magic_engine::{
     ActivatedCounterCostTarget, ActivatedManaAbility, AdditionalSpellCost,
     AdditionalSpellCostBinding, AttachmentBinding, AttachmentKind, BasicLandType,
     BasicLandTypeBinding, CardDefinition, CardType, CastRequest, Color, ContinuousChange,
-    ConvokeContribution, ConvokePayment, CostReductionBinding, CounterKind,
+    ConvokeContribution, ConvokePayment, CostReductionBinding, CounterKind, CreatureSubtype,
     DamageReplacementEffect, DamageReplacementEffectBinding, DeckEntry, DeckList, DeckRules,
     Effect, Game, GeneralizedActivatedAbilityCost, HybridManaSymbol, Keyword, LandEntryBinding,
     LibrarySearchCardinality, LibrarySearchDestination, LibrarySearchRequirement,
@@ -44,7 +44,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 252] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 253] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
@@ -151,6 +151,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 252] = [
     "RAV-DIMIR-HOUSE-GUARD",
     "RAV-DIMIR-MACHINATIONS",
     "RAV-PERPLEX",
+    "RAV-WOODWRAITH-CORRUPTER",
     "RAV-DIMIR-INFILTRATOR",
     "RAV-LURKING-INFORMANT",
     "RAV-SANDSOWER",
@@ -5657,17 +5658,28 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Flying],
             effects: vec![],
         },
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed graveyard-exile activation is
-        // deliberately omitted from this compatibility slice.
-        bounded_creature_chassis(
-            "RAV-WOODWRAITH-CORRUPTER",
-            "Woodwraith Corrupter",
-            ManaCost::with_colors(3, [Color::Black, Color::Black, Color::Green]),
-            colors([Color::Black, Color::Green]),
-            3,
-            6,
-        ),
+        // Full fidelity: the typed Forest animation retains its independent
+        // target-incarnation-bound layer changes after this source leaves.
+        CardDefinition {
+            id: "RAV-WOODWRAITH-CORRUPTER",
+            name: "Woodwraith Corrupter",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(3, [Color::Black, Color::Black, Color::Green]),
+            colors: colors([Color::Black, Color::Green]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "activated-persistent-forest-animation",
+            ],
+            power: Some(3),
+            toughness: Some(6),
+            keywords: vec![],
+            effects: vec![],
+        },
         // Full fidelity: normal colored-cost casting, base characteristics,
         // Flying blocker legality, and vigilance attack declaration are all
         // represented by the shared engine.
@@ -6395,6 +6407,33 @@ pub fn rav_land_entry_bindings() -> Vec<LandEntryBinding> {
 #[allow(clippy::too_many_lines)]
 pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
     vec![
+        ActivatedAbilityBinding {
+            card_definition: "RAV-WOODWRAITH-CORRUPTER",
+            ability: ActivatedAbility {
+                id: "animate-target-forest",
+                mana_cost: ManaCost::with_colors(1, [Color::Black, Color::Green]),
+                tap_cost: true,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![TargetRequirement::LandWithBasicLandType(
+                    BasicLandType::Forest,
+                )],
+                effects: vec![Effect::AnimateTargetLand {
+                    land_type: BasicLandType::Forest,
+                    colors: colors([Color::Black, Color::Green]),
+                    creature_subtypes: BTreeSet::from([
+                        CreatureSubtype::Elemental,
+                        CreatureSubtype::Horror,
+                    ]),
+                    power: 4,
+                    toughness: 4,
+                }],
+            },
+        },
         ActivatedAbilityBinding {
             card_definition: "RAV-BLOCKBUSTER",
             ability: ActivatedAbility {

@@ -4433,10 +4433,36 @@ impl Game {
                 }
             }
         }
+        for effect in effects.iter().filter(|effect| {
+            !matches!(
+                effect.change.layer(),
+                Layer::Type | Layer::Color | Layer::PowerToughness
+            )
+        }) {
+            self.apply_timestamped_continuous_change_to_characteristics(
+                card,
+                &mut characteristics,
+                &effect.change,
+            )?;
+        }
+        // Layer 7b base-setting effects apply after static characteristic
+        // definitions but before ordinary layer-7c modifiers and counters.
+        // This gives an animated land its first represented P/T without
+        // losing a separately applied +1/+1 effect.
         for effect in effects
-            .into_iter()
-            .filter(|effect| !matches!(effect.change.layer(), Layer::Type | Layer::Color))
+            .iter()
+            .filter(|effect| matches!(effect.change, ContinuousChange::SetPowerToughness { .. }))
         {
+            self.apply_timestamped_continuous_change_to_characteristics(
+                card,
+                &mut characteristics,
+                &effect.change,
+            )?;
+        }
+        for effect in effects.into_iter().filter(|effect| {
+            matches!(effect.change.layer(), Layer::PowerToughness)
+                && !matches!(effect.change, ContinuousChange::SetPowerToughness { .. })
+        }) {
             self.apply_timestamped_continuous_change_to_characteristics(
                 card,
                 &mut characteristics,
@@ -4481,12 +4507,18 @@ impl Game {
             ContinuousChange::AddCardType(card_type) => {
                 characteristics.card_types.insert(card_type.clone());
             }
+            ContinuousChange::AddCreatureSubtype(subtype) => {
+                characteristics.creature_subtypes.insert(*subtype);
+            }
             ContinuousChange::AddColor(color) => {
                 characteristics.colors.insert(*color);
             }
             ContinuousChange::ReplaceColorsWith(color) => {
                 characteristics.colors.clear();
                 characteristics.colors.insert(*color);
+            }
+            ContinuousChange::ReplaceColorsWithSet(colors) => {
+                characteristics.colors.clone_from(colors);
             }
             ContinuousChange::AddKeyword(keyword) => {
                 characteristics.keywords.push(keyword.clone());
@@ -4510,6 +4542,10 @@ impl Game {
                 characteristics.toughness = characteristics
                     .toughness
                     .map(|current| current + i32::from(*toughness));
+            }
+            ContinuousChange::SetPowerToughness { power, toughness } => {
+                characteristics.power = Some(i32::from(*power));
+                characteristics.toughness = Some(i32::from(*toughness));
             }
             ContinuousChange::ModifyPowerToughnessForEachOtherCreatureControlledByTarget {
                 power_per_creature,
@@ -4925,6 +4961,12 @@ impl Game {
                 "continuous effects may not add the colorless mana kind as a card color",
             ));
         }
+        if matches!(&change, ContinuousChange::ReplaceColorsWithSet(colors) if colors.is_empty() || colors.contains(&Color::Colorless))
+        {
+            return Err(RulesError::IllegalAction(
+                "continuous color replacement requires nonempty card colors",
+            ));
+        }
         if matches!(&change, ContinuousChange::AddDamageShield(amount) if *amount <= 0) {
             return Err(RulesError::IllegalAction(
                 "damage shield effect requires a positive amount",
@@ -4988,6 +5030,13 @@ impl Game {
             Duration::EndOfTurn(_) if self.zone_of(target) != Some(Zone::Battlefield) => {
                 return Err(RulesError::IllegalAction(
                     "an end-of-turn effect requires a battlefield target",
+                ));
+            }
+            Duration::UntilTargetLeavesBattlefield
+                if self.zone_of(target) != Some(Zone::Battlefield) =>
+            {
+                return Err(RulesError::IllegalAction(
+                    "a target-lifetime effect requires a battlefield target",
                 ));
             }
             _ => {}
@@ -13980,7 +14029,14 @@ impl Game {
                         "permanent continuous effect outlived a battlefield endpoint",
                     ));
                 }
-                Duration::Permanent => {}
+                Duration::UntilTargetLeavesBattlefield
+                    if self.zone_of(effect.target) != Some(Zone::Battlefield) =>
+                {
+                    return Err(RulesError::IllegalAction(
+                        "target-lifetime continuous effect outlived its target",
+                    ));
+                }
+                Duration::Permanent | Duration::UntilTargetLeavesBattlefield => {}
             }
         }
         for attachment in self.all_battlefield_cards() {
@@ -15735,6 +15791,7 @@ impl Game {
                 | Effect::DealDamageToEachPlayerFromReceivedDamage
                 | Effect::DealDamageEqualToAttackingCreatures { .. }
                 | Effect::ModifyTargetPtUntilEndOfTurn { .. }
+                | Effect::AnimateTargetLand { .. }
                 | Effect::ModifyTargetPtAndKeywordUntilEndOfTurn { .. }
                 | Effect::ModifyTargetKeywordUntilEndOfTurn { .. }
                 | Effect::PreventTargetBlockingSourceUntilEndOfTurn
@@ -23154,6 +23211,60 @@ impl Game {
                     Duration::EndOfTurn(self.turn),
                 )?;
             }
+            Effect::AnimateTargetLand {
+                land_type,
+                colors,
+                creature_subtypes,
+                power,
+                toughness,
+            } => {
+                if colors.is_empty()
+                    || colors.contains(&Color::Colorless)
+                    || creature_subtypes.is_empty()
+                    || *power < 0
+                    || *toughness < 0
+                {
+                    return Err(RulesError::IllegalAction(
+                        "land animation requires colors, creature subtypes, and nonnegative base P/T",
+                    ));
+                }
+                let target = Self::target_permanent(target)?;
+                if !self.target_matches(
+                    Target::Permanent(target),
+                    TargetRequirement::LandWithBasicLandType(*land_type),
+                ) {
+                    return Err(RulesError::IllegalTarget(Target::Permanent(target)));
+                }
+                self.install_continuous_effect(
+                    source,
+                    target,
+                    ContinuousChange::AddCardType(CardType::Creature),
+                    Duration::UntilTargetLeavesBattlefield,
+                )?;
+                for subtype in creature_subtypes {
+                    self.install_continuous_effect(
+                        source,
+                        target,
+                        ContinuousChange::AddCreatureSubtype(*subtype),
+                        Duration::UntilTargetLeavesBattlefield,
+                    )?;
+                }
+                self.install_continuous_effect(
+                    source,
+                    target,
+                    ContinuousChange::ReplaceColorsWithSet(colors.clone()),
+                    Duration::UntilTargetLeavesBattlefield,
+                )?;
+                self.install_continuous_effect(
+                    source,
+                    target,
+                    ContinuousChange::SetPowerToughness {
+                        power: *power,
+                        toughness: *toughness,
+                    },
+                    Duration::UntilTargetLeavesBattlefield,
+                )?;
+            }
             Effect::ModifyTargetPtAndKeywordUntilEndOfTurn {
                 power,
                 toughness,
@@ -24581,6 +24692,13 @@ impl Game {
                         characteristics.card_types.contains(&CardType::Land)
                     })
             }
+            (Target::Permanent(card), TargetRequirement::LandWithBasicLandType(land_type)) => {
+                self.zone_of(card) == Some(Zone::Battlefield)
+                    && self.characteristics(card).is_ok_and(|characteristics| {
+                        characteristics.card_types.contains(&CardType::Land)
+                            && characteristics.basic_land_type == Some(land_type)
+                    })
+            }
             (Target::Permanent(card), TargetRequirement::Artifact) => {
                 self.zone_of(card) == Some(Zone::Battlefield)
                     && self.characteristics(card).is_ok_and(|characteristics| {
@@ -24853,6 +24971,7 @@ impl Game {
                     | TargetRequirement::BlockingCreature
                     | TargetRequirement::AttackingOrBlockingCreature
                     | TargetRequirement::Land
+                    | TargetRequirement::LandWithBasicLandType(_)
                     | TargetRequirement::ControlledLand
                     | TargetRequirement::Artifact
                     | TargetRequirement::Enchantment
@@ -26821,6 +26940,25 @@ impl Game {
             ));
         }
         for effect in effects {
+            if let Effect::AnimateTargetLand {
+                colors,
+                creature_subtypes,
+                power,
+                toughness,
+                ..
+            } = effect
+            {
+                if colors.is_empty()
+                    || colors.contains(&Color::Colorless)
+                    || creature_subtypes.is_empty()
+                    || *power < 0
+                    || *toughness < 0
+                {
+                    return Err(RulesError::IllegalAction(
+                        "land animation requires colors, creature subtypes, and nonnegative base P/T",
+                    ));
+                }
+            }
             if matches!(
                 effect,
                 Effect::SearchControllerLibrary {
@@ -33326,6 +33464,9 @@ impl Game {
             Duration::Permanent => {
                 self.zone_of(effect.source) == Some(Zone::Battlefield)
                     && self.object_has_incarnation(effect.source, effect.source_incarnation)
+            }
+            Duration::UntilTargetLeavesBattlefield => {
+                self.zone_of(effect.target) == Some(Zone::Battlefield)
             }
         }
     }

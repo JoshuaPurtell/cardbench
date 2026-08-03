@@ -119,6 +119,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-DIMIR-HOUSE-GUARD",
             "RAV-DIMIR-MACHINATIONS",
             "RAV-PERPLEX",
+            "RAV-WOODWRAITH-CORRUPTER",
             "RAV-DIMIR-INFILTRATOR",
             "RAV-LURKING-INFORMANT",
             "RAV-SANDSOWER",

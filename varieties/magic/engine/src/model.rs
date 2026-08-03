@@ -1490,6 +1490,11 @@ pub enum TargetRequirement {
     /// of Devouring Light without weakening generic creature-exile effects.
     AttackingOrBlockingCreature,
     Land,
+    /// A battlefield land whose current basic-land subtype is the exact
+    /// declared type. This derives from the live layer-four characteristic,
+    /// so type-changing effects can make or break target legality before cost
+    /// payment and again at resolution.
+    LandWithBasicLandType(BasicLandType),
     /// A battlefield land controlled by the resolving source's controller.
     /// This is distinct from `Land` so source-relative return effects cannot
     /// silently accept an opponent's land.
@@ -1617,6 +1622,7 @@ pub struct AdditionalSpellCostBinding {
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 pub enum CreatureSubtype {
     Centaur,
+    Elemental,
     Faerie,
     Goblin,
     Horror,
@@ -2178,6 +2184,16 @@ pub enum Effect {
         power: i16,
         toughness: i16,
     },
+    /// Permanently animate one target land with an exact live basic-land
+    /// target, resulting colors/subtypes, and base P/T. The resulting layer
+    /// effects are target-incarnation-bound rather than source-bound.
+    AnimateTargetLand {
+        land_type: BasicLandType,
+        colors: BTreeSet<Color>,
+        creature_subtypes: BTreeSet<CreatureSubtype>,
+        power: i16,
+        toughness: i16,
+    },
     /// Apply a temporary layer-seven adjustment and layer-six keyword grant to
     /// one creature target. Keeping the pair in one instruction preserves one
     /// target word and therefore one stack target slot.
@@ -2726,6 +2742,9 @@ impl Effect {
             | Self::DestroyTargetCreatureWithManaValueAtMostChosenX => {
                 Some(TargetRequirement::Creature)
             }
+            Self::AnimateTargetLand { land_type, .. } => {
+                Some(TargetRequirement::LandWithBasicLandType(*land_type))
+            }
             Self::PreventTargetCreatureCombatDamageUntilEndOfTurn { .. } => {
                 Some(TargetRequirement::AttackingOrBlockingCreature)
             }
@@ -3268,11 +3287,18 @@ pub enum ContinuousChange {
     /// ability through the engine's existing typed-land activation path.
     ReplaceBasicLandType(BasicLandType),
     AddCardType(CardType),
+    /// Add one creature subtype in layer four. It is legal to install this
+    /// alongside a same-resolution `AddCardType(Creature)` land animation.
+    AddCreatureSubtype(CreatureSubtype),
     AddColor(Color),
     /// Replace the affected permanent's complete color set in layer five.
     /// This is not an additive color grant: cards with multiple printed
     /// colors become exactly this color until the effect expires.
     ReplaceColorsWith(Color),
+    /// Replace the affected permanent's complete color set in layer five.
+    /// This generalizes the one-color compatibility variant without treating
+    /// a multi-colored animation as an additive color effect.
+    ReplaceColorsWithSet(BTreeSet<Color>),
     AddKeyword(Keyword),
     RemoveKeyword(Keyword),
     /// A timestamped layer-six grant of an exact stack-backed activated
@@ -3288,6 +3314,12 @@ pub enum ContinuousChange {
     CannotBlockSource(ObjectId),
     AddDamageShield(i16),
     ModifyPowerToughness {
+        power: i16,
+        toughness: i16,
+    },
+    /// Set layer-7b base P/T before layer-7c modifiers and P/T counters. This
+    /// can give a land its first represented power/toughness.
+    SetPowerToughness {
         power: i16,
         toughness: i16,
     },
@@ -3341,8 +3373,12 @@ impl ContinuousChange {
     pub const fn layer(&self) -> Layer {
         match self {
             Self::ChangeController(_) | Self::ChangeControllerToSourceController => Layer::Control,
-            Self::ReplaceBasicLandType(_) | Self::AddCardType(_) => Layer::Type,
-            Self::AddColor(_) | Self::ReplaceColorsWith(_) => Layer::Color,
+            Self::ReplaceBasicLandType(_) | Self::AddCardType(_) | Self::AddCreatureSubtype(_) => {
+                Layer::Type
+            }
+            Self::AddColor(_) | Self::ReplaceColorsWith(_) | Self::ReplaceColorsWithSet(_) => {
+                Layer::Color
+            }
             Self::AddKeyword(_)
             | Self::RemoveKeyword(_)
             | Self::GrantActivatedAbility(_)
@@ -3354,6 +3390,7 @@ impl ContinuousChange {
             | Self::ControlledCreaturesAddKeywordIfSourceEnchanted(_)
             | Self::SuppressNonManaActivatedAbilities => Layer::Ability,
             Self::ModifyPowerToughness { .. }
+            | Self::SetPowerToughness { .. }
             | Self::ModifyPowerToughnessForEachOtherCreatureControlledByTarget { .. }
             | Self::ControlledCreatureCountPowerToughness
             | Self::OtherControlledCreaturesModifyPowerToughness { .. }
@@ -3368,6 +3405,9 @@ impl ContinuousChange {
 pub enum Duration {
     EndOfTurn(u32),
     Permanent,
+    /// A source-independent continuous effect that remains while this exact
+    /// target permanent incarnation stays on the battlefield.
+    UntilTargetLeavesBattlefield,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
