@@ -518,7 +518,10 @@ Oracle Magic rules coverage.
   live restriction source. Source departure immediately
   revokes the restriction without a delayed cleanup effect.
 - A definition-bound mana ability may require a registered source sacrifice as
-  a physical cost. The policy submits every selected output color bundle
+  a physical cost. Its immutable pregame source-cost registration batch is
+  atomic, so a rejected later member cannot retain an earlier sacrifice
+  requirement that changes the corrected configuration. The policy submits
+  every selected output color bundle
   explicitly; it must contain only offered colored mana and exactly the
   declared positive total. The engine preflights the entire bundle and mana
   cost before mutation, then records `SacrificedAsManaAbilityCost` followed
@@ -1736,7 +1739,9 @@ Oracle Magic rules coverage.
   total, missing effective-payment receipt, or malformed explicit selection.
 - An expansion may register one nonempty immutable
   `GeneralizedActivatedAbilityCost` profile for an already-bound stack-using
-  activated ability before the game begins. Its concrete choices arrive only
+  activated ability before the game begins. Its whole registration batch is
+  atomic, so a later duplicate or invalid profile cannot retain an earlier
+  generalized cost. Its concrete choices arrive only
   in the normal priority action `GeneralizedAbilityActivation`; this is not a
   resolution-time pending decision and therefore cannot interleave with a
   stack continuation. Counter-source selection has exact ordered arity and
