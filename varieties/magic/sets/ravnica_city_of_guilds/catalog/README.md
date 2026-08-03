@@ -49,9 +49,16 @@ a zone move. The fetched Aura's ordinary ETB trigger is queued only after the
 Mage trigger's terminal receipt. The opponent sees neither unselected Aura
 identities nor a private decision projection.
 
-The current catalog partition is 259 full / 6 partial / 26 catalog-only unique
-names (274 / 6 / 26 printings). The independently checked coverage-report
+The current catalog partition is 261 full / 6 partial / 24 catalog-only unique
+names (276 / 6 / 24 printings). The independently checked coverage-report
 binary emits the same partition.
+
+Psychic Drain is a positive-manifest chosen-X entry. Its spell retains the
+policy-submitted X and target-player identity through the normal response
+window, moves up to X current library cards through ordinary graveyard receipts,
+then records controller life gain for that same declared X. A short library
+never changes the retained life quantity, and no card text, art, or upstream
+card payload is stored here.
 
 Agrus Kos, Wojek Veteran is a full-fidelity combat-trigger entry. Its public
 scenario keeps the normal post-attackers priority window visible, then records

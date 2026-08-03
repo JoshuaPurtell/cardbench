@@ -1512,6 +1512,13 @@ Oracle Magic rules coverage.
   resolution-time checks read their respective retained values, so a
   fabricated or undersized receipt fails the invariant audit before it is
   treated as a legal state transition.
+- A chosen-X instruction targeting a player may use that immutable stack
+  value as a resolution quantity without re-reading mana: it keeps the one
+  target through ordinary all-illegal-target checking, mills up to that many
+  current library cards in order, then records exactly that declared amount as
+  the resolving controller's `LifeGained`. A short or empty target library
+  never reduces the retained life-gain amount, while zero X creates neither a
+  zero-value life-gain receipt nor a fabricated zone transition.
 - A nonempty Convoke-contributor provenance group is keyed by one live,
   physical non-ability spell and that spell's exact stack incarnation. Its
   captured contributors are nonzero, duplicate-free `(ObjectId, incarnation)`
