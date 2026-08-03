@@ -44,10 +44,14 @@ Oracle Magic rules coverage.
   player has no owner-zone move, so it instead ceases with one
   `SpellCopyLeftGame { copy, original, controller }` receipt. No departed
   player's object or virtual copy may later appear in a zone, on the stack, in
-  combat, or in an effect. Before each physical object is removed, every
+  combat, or in an effect. An activated or triggered ability controlled by a
+  survivor is distinct from its departed physical source and remains on the
+  stack with exact temporary LKI; a spell or an ability controlled by the
+  departed player does not. Before each physical object is removed, every
   object-keyed last-known source-provenance record, graveyard or effect-created
-  cast permission is revoked with its ordinary matching expiry receipt; a
-  non-owned object exiled rather than removed retains its LKI provenance. A
+  cast permission is revoked with its ordinary matching expiry receipt unless
+  that survivor-controlled ability still needs it. A non-owned object exiled
+  rather than removed retains its LKI provenance. A
   stack-only timing exception or
   exile-on-resolution marker for that object is cleared at the same boundary.
   A battlefield creature removed with its owner is not a death or an ordinary
@@ -197,9 +201,12 @@ Oracle Magic rules coverage.
 - Immediately before each zone transition, the engine freezes one private
   last-known `Characteristics` record and source-controller record under that
   object's exact former `(ObjectId, incarnation)`. The two maps have exactly
-  the same keys; every record must name an existing strictly older incarnation,
-  and no characteristic record may contain `Colorless` as a card color. Live
-  battlefield sources use their current characteristics and controller only
+  the same keys; every record must normally name an existing strictly older
+  incarnation, except the exact source of a live ability controlled by a
+  survivor after the physical source left the game. That exceptional pair is
+  pruned at the first later SBA fixed point once the ability has a terminal
+  receipt. No characteristic record may contain `Colorless` as a card color.
+  Live battlefield sources use their current characteristics and controller only
   when their exact incarnation equals the resolving stack source; any departed
   or re-entered source instead uses those immutable former facts for
   source-quality and controller-relative damage-prevention rules, including
