@@ -10,7 +10,7 @@ use cardbench_magic_engine::{
 const CREATURE: &str = "TST-LIVE-ATTACHMENT-CREATURE";
 const AURA: &str = "TST-LIVE-ATTACHMENT-AURA";
 
-fn definition(id: &'static str, card_type: CardType) -> CardDefinition {
+fn definition(id: &'static str, card_type: &CardType) -> CardDefinition {
     CardDefinition {
         id,
         name: id,
@@ -21,8 +21,8 @@ fn definition(id: &'static str, card_type: CardType) -> CardDefinition {
         card_types: BTreeSet::from([card_type.clone()]),
         is_basic_land: false,
         supported_rules: &["live-attachment-primitive-injection-red"],
-        power: (card_type == CardType::Creature).then_some(2),
-        toughness: (card_type == CardType::Creature).then_some(2),
+        power: (card_type == &CardType::Creature).then_some(2),
+        toughness: (card_type == &CardType::Creature).then_some(2),
         keywords: vec![],
         effects: (id == AURA)
             .then(|| Effect::AttachSourceToTarget {
@@ -38,8 +38,8 @@ fn definition(id: &'static str, card_type: CardType) -> CardDefinition {
 fn entering_an_aura_without_cast_rejects_a_live_call_without_priority_or_policy() {
     let mut game = Game::new(
         [
-            definition(CREATURE, CardType::Creature),
-            definition(AURA, CardType::Enchantment),
+            definition(CREATURE, &CardType::Creature),
+            definition(AURA, &CardType::Enchantment),
         ],
         2,
     )

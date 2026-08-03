@@ -2922,6 +2922,7 @@ impl Game {
     pub fn copy_permanent(&mut self, target: ObjectId, source: ObjectId) -> Result<(), RulesError> {
         self.atomic_transition(|game| {
             game.require_game_in_progress()?;
+            game.require_live_fixture_primitive_window()?;
             if target == source {
                 return Err(RulesError::IllegalAction(
                     "a copy effect requires distinct source and target permanents",
@@ -3056,6 +3057,7 @@ impl Game {
         target: ObjectId,
     ) -> Result<(), RulesError> {
         self.atomic_transition(|game| {
+            game.require_live_fixture_primitive_window()?;
             if game.zone_of(attachment) == Some(Zone::Battlefield) {
                 return Err(RulesError::IllegalAction(
                     "an entering attachment is already on the battlefield",
@@ -5909,6 +5911,7 @@ impl Game {
     ) -> Result<(), RulesError> {
         self.atomic_transition(|game| {
             game.require_game_in_progress()?;
+            game.require_live_fixture_primitive_window()?;
             game.install_continuous_effect(source, target, change, duration)?;
             // A public installation is a completed state-changing transition,
             // so its new characteristics must reach the SBA fixed point before
@@ -39094,6 +39097,19 @@ impl Game {
         } else {
             Ok(())
         }
+    }
+
+    /// Direct fixture primitives are useful for constructing a pregame state,
+    /// but cannot silently mutate a live game after its active player has
+    /// yielded priority. Rules-driven copies, attachments, and continuous
+    /// effects use internal resolution paths instead.
+    fn require_live_fixture_primitive_window(&self) -> Result<(), RulesError> {
+        if self.started && self.priority != self.active_player {
+            return Err(RulesError::IllegalAction(
+                "a live fixture primitive requires the active player to hold priority",
+            ));
+        }
+        Ok(())
     }
 
     /// Runs one public transition as an all-or-error operation. The current
