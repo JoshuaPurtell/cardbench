@@ -19399,6 +19399,7 @@ impl Game {
     }
 
     #[allow(clippy::too_many_arguments)] // The continuation stores the complete prospective packet and its assignment suffix.
+    #[allow(clippy::too_many_lines)] // One exact no-priority packet validation must remain reviewable as one state-machine boundary.
     fn resolve_combat_damage_replacement_decision(
         &mut self,
         decision: &PendingDecision,
