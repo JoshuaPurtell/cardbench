@@ -28,8 +28,8 @@ use crate::{
     ManaCost, ManaPaymentSelection, ObjectId, PendingDecision, PlayerId, PlayerState,
     PolicyMoveKind, PreservedPermanentSnapshot, QuantityReplacementResolution, ReplacementChoice,
     ReplacementEffect, ReplacementEffectBinding, ReplacementEventKind,
-    ResolutionPaymentManaAbility, StackEffectResolution, StackObject, StackObjectId,
-    StackResolutionPlan, StaticAttackRestriction, StaticAttackRestrictionBinding,
+    ResolutionPaymentManaAbility, RetainedActivatedAbility, StackEffectResolution, StackObject,
+    StackObjectId, StackResolutionPlan, StaticAttackRestriction, StaticAttackRestrictionBinding,
     StaticContinuousEffectBinding, StaticCreatureSpellCostModifier,
     StaticCreatureSpellCostModifierBinding, StaticEntryRestriction, StaticEntryRestrictionBinding,
     StaticLibraryTopRevealBinding, StaticLibraryTopRevealScope, Step, TRANSMUTE_ABILITY_ID, Target,
@@ -2950,6 +2950,11 @@ impl Game {
                 source_incarnation,
                 timestamp,
             });
+            game.objects
+                .get_mut(&target)
+                .ok_or(RulesError::UnknownCard(target))?
+                .retained_activated_abilities
+                .clear();
             game.record_event(GameEvent::PermanentCopied {
                 source,
                 source_incarnation,
@@ -2962,6 +2967,80 @@ impl Game {
             game.check_state_based_actions_impl()?;
             Ok(())
         })
+    }
+
+    /// Applies copiable values captured from a targeted public graveyard card
+    /// to a live resolving ability source. The selected card has already
+    /// moved to exile by the time this runs, so the copied layer-one values
+    /// can never be reconstructed from a later graveyard incarnation. Only
+    /// the one ability named by the resolving instruction is retained on the
+    /// resulting copied source.
+    #[allow(clippy::too_many_arguments)] // The retained public identities are one rules instruction.
+    fn copy_source_from_graveyard_card_values(
+        &mut self,
+        copied_source: ObjectId,
+        copied_source_incarnation: u64,
+        graveyard_card: ObjectId,
+        graveyard_card_incarnation: u64,
+        values: CopiableValues,
+        retained_ability: &'static str,
+    ) -> Result<(), RulesError> {
+        self.require_zone(copied_source, Zone::Battlefield)?;
+        if !self.object_has_incarnation(copied_source, copied_source_incarnation) {
+            return Err(RulesError::IllegalAction(
+                "graveyard-copy source changed zones before its copy instruction",
+            ));
+        }
+        let retained_definition =
+            self.object(copied_source)?
+                .definition
+                .ok_or(RulesError::IllegalAction(
+                    "a token cannot retain a physical source activated ability while copying",
+                ))?;
+        if self
+            .activated_ability_for_definition(retained_definition, retained_ability)
+            .is_none()
+        {
+            return Err(RulesError::IllegalAction(
+                "graveyard-copy effect names an unbound retained source ability",
+            ));
+        }
+        let target_incarnation = self.object(copied_source)?.incarnation;
+        let timestamp = self.next_timestamp;
+        self.next_timestamp =
+            self.next_timestamp
+                .checked_add(1)
+                .ok_or(RulesError::IllegalAction(
+                    "copy-effect timestamp counter overflowed",
+                ))?;
+        let source = self
+            .objects
+            .get_mut(&copied_source)
+            .ok_or(RulesError::UnknownCard(copied_source))?;
+        source.copied_permanent = Some(CopiedPermanent {
+            values,
+            source: graveyard_card,
+            source_incarnation: graveyard_card_incarnation,
+            timestamp,
+        });
+        source.retained_activated_abilities.clear();
+        source
+            .retained_activated_abilities
+            .insert(RetainedActivatedAbility {
+                definition: retained_definition,
+                ability: retained_ability,
+            });
+        self.record_event(GameEvent::PermanentCopied {
+            source: graveyard_card,
+            source_incarnation: graveyard_card_incarnation,
+            target: copied_source,
+            target_incarnation,
+            timestamp,
+        });
+        // The enclosing stack resolver owns the ordinary post-resolution SBA
+        // checkpoint.  Running it here would move a copied 0/0 before the
+        // activated ability receives its terminal receipt.
+        Ok(())
     }
 
     pub fn add_card(
@@ -3020,6 +3099,7 @@ impl Game {
                 token: None,
                 entry_characteristic_override: None,
                 copied_permanent: None,
+                retained_activated_abilities: BTreeSet::new(),
             },
         );
         self.place_in_zone(owner, id, zone)?;
@@ -3554,22 +3634,43 @@ impl Game {
         let direct_ability = self
             .activated_ability_for_definition(source_definition_id, activation.ability_id)
             .map(|ability| (source_definition_id, ability.clone()));
-        let attached_ability = if direct_ability.is_some() {
+        let retained_ability = if direct_ability.is_some() {
+            None
+        } else {
+            source
+                .retained_activated_abilities
+                .iter()
+                .find_map(|retained| {
+                    (retained.ability == activation.ability_id)
+                        .then(|| {
+                            self.activated_ability_for_definition(
+                                retained.definition,
+                                activation.ability_id,
+                            )
+                            .map(|ability| (retained.definition, ability.clone()))
+                        })
+                        .flatten()
+                })
+        };
+        let attached_ability = if direct_ability.is_some() || retained_ability.is_some() {
             None
         } else {
             self.attached_granted_activated_ability(activation.source, activation.ability_id)?
         };
-        let continuous_ability = if direct_ability.is_some() || attached_ability.is_some() {
-            None
-        } else {
-            self.continuous_granted_activated_ability(activation.source, activation.ability_id)?
-        };
+        let continuous_ability =
+            if direct_ability.is_some() || retained_ability.is_some() || attached_ability.is_some()
+            {
+                None
+            } else {
+                self.continuous_granted_activated_ability(activation.source, activation.ability_id)?
+            };
         let (definition_id, ability) = direct_ability
+            .or(retained_ability)
             .or(attached_ability)
             .or(continuous_ability)
             .ok_or(RulesError::IllegalAction(
-            "source does not have the requested activated ability",
-        ))?;
+                "source does not have the requested activated ability",
+            ))?;
         if ability
             .effects
             .iter()
@@ -15403,6 +15504,31 @@ impl Game {
                     ));
                 }
                 Self::validate_activated_ability_definition(ability)?;
+                if let [
+                    Effect::ExileTargetCreatureCardFromGraveyardAndCopySourceRetainingAbility {
+                        ability: retained_ability,
+                    },
+                ] = ability.effects.as_slice()
+                    && (ability.targets != [TargetRequirement::CreatureCardInGraveyard]
+                        || retained_ability != ability_id)
+                {
+                    return Err(RulesError::IllegalAction(
+                        "graveyard-copy activation requires its one public creature-card target and retained identity",
+                    ));
+                }
+                if ability.effects.iter().any(|effect| {
+                    matches!(
+                        effect,
+                        Effect::ExileTargetCreatureCardFromGraveyardAndCopySourceRetainingAbility { .. }
+                    )
+                }) && !matches!(
+                    ability.effects.as_slice(),
+                    [Effect::ExileTargetCreatureCardFromGraveyardAndCopySourceRetainingAbility { .. }]
+                ) {
+                    return Err(RulesError::IllegalAction(
+                        "graveyard-copy activation may not bundle unrelated effects",
+                    ));
+                }
             }
         }
         for (definition_id, abilities) in &self.triggered_abilities {
@@ -15609,6 +15735,27 @@ impl Game {
                             CopiableValues::Token(token) => {
                                 Self::validate_token_spec(token)?;
                             }
+                        }
+                    }
+                    if !object.retained_activated_abilities.is_empty()
+                        && (zone != Zone::Battlefield || object.copied_permanent.is_none())
+                    {
+                        return Err(RulesError::IllegalAction(
+                            "retained activated abilities escaped their copied battlefield incarnation",
+                        ));
+                    }
+                    for retained in &object.retained_activated_abilities {
+                        if object.definition != Some(retained.definition)
+                            || self
+                                .activated_ability_for_definition(
+                                    retained.definition,
+                                    retained.ability,
+                                )
+                                .is_none()
+                        {
+                            return Err(RulesError::IllegalAction(
+                                "retained activated ability lacks physical-source binding provenance",
+                            ));
                         }
                     }
                     match (object.definition, object.token.as_ref()) {
@@ -19123,6 +19270,9 @@ impl Game {
                     ..
                 }
                 | Effect::PutTargetCreatureCardInControllerGraveyardOnOwnersLibraryTop
+                | Effect::ExileTargetCreatureCardFromGraveyardAndCopySourceRetainingAbility {
+                    ..
+                }
                 | Effect::ReturnOneCreatureCardFromEachGraveyardToHand
                 | Effect::ReturnAllCreatureCardsMatchingCastCreatureSpellNameFromGraveyards
                 | Effect::ReturnAllCreatureCardsMatchingNameFromGraveyards { .. }
@@ -30132,6 +30282,32 @@ impl Game {
                 let target = Self::target_permanent(target)?;
                 self.move_to_zone(target, Zone::Exile)?;
             }
+            Effect::ExileTargetCreatureCardFromGraveyardAndCopySourceRetainingAbility {
+                ability,
+            } => {
+                let target = Self::target_permanent(target)?;
+                if !self.target_matches(
+                    Target::Permanent(target),
+                    TargetRequirement::CreatureCardInGraveyard,
+                ) {
+                    return Err(RulesError::IllegalTarget(Target::Permanent(target)));
+                }
+                let target_incarnation = self.object(target)?.incarnation;
+                let values = self.copiable_values(target)?;
+                self.move_to_zone(target, Zone::Exile)?;
+                if self.zone_of(source) == Some(Zone::Battlefield)
+                    && self.object_has_incarnation(source, source_incarnation)
+                {
+                    self.copy_source_from_graveyard_card_values(
+                        source,
+                        source_incarnation,
+                        target,
+                        target_incarnation,
+                        values,
+                        *ability,
+                    )?;
+                }
+            }
             Effect::ExileTargetCreatureUntilEndStep => {
                 let target = Self::target_permanent(target)?;
                 self.exile_target_creature_until_end_step(
@@ -30700,6 +30876,7 @@ impl Game {
                     TargetRequirement::OwnGraveyardCard
                     | TargetRequirement::GraveyardCard
                     | TargetRequirement::CreatureCardInControllerGraveyard
+                    | TargetRequirement::CreatureCardInGraveyard
                     | TargetRequirement::EnchantmentCardInControllerGraveyard
                     | TargetRequirement::InstantOrSorceryCardInControllerGraveyard => {
                         Zone::Graveyard
@@ -30794,6 +30971,12 @@ impl Game {
                 TargetRequirement::OwnGraveyardCard | TargetRequirement::GraveyardCard,
             ) => self.zone_of(card) == Some(Zone::Graveyard),
             (Target::Permanent(card), TargetRequirement::CreatureCardInControllerGraveyard) => {
+                self.zone_of(card) == Some(Zone::Graveyard)
+                    && self
+                        .card_definition(card)
+                        .is_ok_and(|definition| definition.card_types.contains(&CardType::Creature))
+            }
+            (Target::Permanent(card), TargetRequirement::CreatureCardInGraveyard) => {
                 self.zone_of(card) == Some(Zone::Graveyard)
                     && self
                         .card_definition(card)
@@ -30984,7 +31167,7 @@ impl Game {
     /// target requirement, regardless of the source controller or color, but
     /// never to a player, spell, or ability stack target.
     fn permanent_has_shroud_for_target(&self, target: Target) -> bool {
-        matches!(target, Target::Permanent(card) if self.characteristics(card).is_ok_and(|characteristics| {
+        matches!(target, Target::Permanent(card) if self.zone_of(card) == Some(Zone::Battlefield) && self.characteristics(card).is_ok_and(|characteristics| {
             characteristics.keywords.contains(&Keyword::Shroud)
         }))
     }
@@ -30995,9 +31178,10 @@ impl Game {
         source_colors: &BTreeSet<Color>,
     ) -> bool {
         match target {
-            Target::Permanent(card) => {
+            Target::Permanent(card) if self.zone_of(card) == Some(Zone::Battlefield) => {
                 self.permanent_has_protection_from_colors(card, source_colors)
             }
+            Target::Permanent(_) => false,
             Target::Player(_)
             | Target::Spell(_)
             | Target::ActivatedAbility(_)
@@ -31054,6 +31238,7 @@ impl Game {
                     | TargetRequirement::OwnGraveyardCard
                     | TargetRequirement::GraveyardCard
                     | TargetRequirement::CreatureCardInControllerGraveyard
+                    | TargetRequirement::CreatureCardInGraveyard
                     | TargetRequirement::EnchantmentCardInControllerGraveyard
                     | TargetRequirement::InstantOrSorceryCardInControllerGraveyard
                     | TargetRequirement::InstantOrSorceryCardInControllerExile
@@ -31899,6 +32084,7 @@ impl Game {
                 token: Some(token),
                 entry_characteristic_override: None,
                 copied_permanent,
+                retained_activated_abilities: BTreeSet::new(),
             },
         );
         self.place_in_zone(controller, id, Zone::Battlefield)?;
@@ -32601,6 +32787,11 @@ impl Game {
                 .get_mut(&card)
                 .ok_or(RulesError::UnknownCard(card))?
                 .attached_to_incarnation = None;
+            self.objects
+                .get_mut(&card)
+                .ok_or(RulesError::UnknownCard(card))?
+                .retained_activated_abilities
+                .clear();
         }
         // Every public zone vector is ownership-indexed. Control effects are
         // derived layer-two state and therefore never relocate a permanent

@@ -46,7 +46,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 280] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 281] = [
     "RAV-CHAR",
     "RAV-AGRUS-KOS-WOJEK-VETERAN",
     "RAV-INSTILL-FUROR",
@@ -162,6 +162,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 280] = [
     "RAV-GOLGARI-GUILDMAGE",
     "RAV-DIMIR-GUILDMAGE",
     "RAV-DIMIR-CUTPURSE",
+    "RAV-DIMIR-DOPPELGANGER",
     "RAV-MINDLEECH-MASS",
     "RAV-GLEANCRAWLER",
     "RAV-DIMIR-HOUSE-GUARD",
@@ -5103,6 +5104,33 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
+        // Full fidelity: the ability targets a public creature card in either
+        // graveyard, snapshots its copiable values, exiles that incarnation,
+        // then applies the snapshot to the still-live source. The source's
+        // physical activated ability is deliberately retained by the generic
+        // graveyard-copy substrate rather than approximated as a virtual card.
+        CardDefinition {
+            id: "RAV-DIMIR-DOPPELGANGER",
+            name: "Dimir Doppelganger",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(1, [Color::Blue, Color::Black]),
+            colors: colors([Color::Blue, Color::Black]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "exile-target-creature-card-from-any-graveyard-copy-source",
+                "copied-form-retains-graveyard-copy-activation",
+                "graveyard-target-incarnation-provenance",
+            ],
+            power: Some(0),
+            toughness: Some(2),
+            keywords: vec![],
+            effects: vec![],
+        },
         // Full fidelity: a positive combat-damage receipt to a player queues
         // a source-owned trigger. Its exact combat recipient privately selects
         // three current hand cards, and the ability resolves only after that
@@ -8712,6 +8740,26 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                 discard_cards: 0,
                 targets: vec![cardbench_magic_engine::TargetRequirement::Player],
                 effects: vec![Effect::DiscardTargetPlayer { count: 1 }],
+            },
+        },
+        ActivatedAbilityBinding {
+            card_definition: "RAV-DIMIR-DOPPELGANGER",
+            ability: ActivatedAbility {
+                id: "exile-graveyard-creature-card-copy-source",
+                mana_cost: ManaCost::with_colors(1, [Color::Blue, Color::Black]),
+                tap_cost: false,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![TargetRequirement::CreatureCardInGraveyard],
+                effects: vec![
+                    Effect::ExileTargetCreatureCardFromGraveyardAndCopySourceRetainingAbility {
+                        ability: "exile-graveyard-creature-card-copy-source",
+                    },
+                ],
             },
         },
         ActivatedAbilityBinding {

@@ -1627,6 +1627,11 @@ pub enum TargetRequirement {
     /// keeps graveyard-recursion effects from accepting an arbitrary spell or
     /// land card merely because it shares the controller's graveyard.
     CreatureCardInControllerGraveyard,
+    /// A creature card in any public graveyard. Unlike the controller-owned
+    /// form, this is deliberately available to effects that can consume an
+    /// opponent-owned creature card without moving it through the source
+    /// controller's zones first.
+    CreatureCardInGraveyard,
     /// An enchantment card in the resolving source controller's graveyard.
     /// This keeps enchantment-only recursion from accepting another permanent
     /// card type merely because it is owned by that controller.
@@ -2901,6 +2906,14 @@ pub enum Effect {
     /// graveyard on top of its owner's library. The target remains tied to
     /// its exact graveyard incarnation while the stack item waits.
     PutTargetCreatureCardInControllerGraveyardOnOwnersLibraryTop,
+    /// Exile one targeted creature card from any public graveyard, then give
+    /// the resolving source's live battlefield incarnation that card's
+    /// layer-one copiable values while retaining one named source ability.
+    /// The target's graveyard incarnation is captured on the stack, so a
+    /// zone round trip cannot supply values from a later object incarnation.
+    ExileTargetCreatureCardFromGraveyardAndCopySourceRetainingAbility {
+        ability: &'static str,
+    },
     /// Put one targeted public graveyard card on the bottom of its owner's
     /// library. The target retains its exact graveyard incarnation while the
     /// stack item waits to resolve.
@@ -3129,6 +3142,9 @@ impl Effect {
             | Self::ReturnTargetCreatureCardToBattlefieldWithCounterIfManaColorSpent { .. }
             | Self::PutTargetCreatureCardInControllerGraveyardOnOwnersLibraryTop => {
                 Some(TargetRequirement::CreatureCardInControllerGraveyard)
+            }
+            Self::ExileTargetCreatureCardFromGraveyardAndCopySourceRetainingAbility { .. } => {
+                Some(TargetRequirement::CreatureCardInGraveyard)
             }
             Self::ReturnControlledLandToHand => Some(TargetRequirement::ControlledLand),
             Self::ReturnOpponentCreatureToHand => Some(TargetRequirement::OpponentCreature),
@@ -3571,6 +3587,21 @@ pub struct CardObject {
     /// damage, counters, attachments, controller, tapped state, and ordinary
     /// timestamped effects remain runtime state of this object.
     pub copied_permanent: Option<CopiedPermanent>,
+    /// Exact definition-bound activated abilities a copy effect explicitly
+    /// retained for this battlefield incarnation. This is separate from the
+    /// copied values themselves: it models effects that say a permanent
+    /// becomes a copy and also gains one named ability, without accidentally
+    /// retaining every ability from the physical card underneath the copy.
+    pub retained_activated_abilities: BTreeSet<RetainedActivatedAbility>,
+}
+
+/// One definition-bound activated ability retained by an explicit copy
+/// effect. The pair remains valid only while its containing [`CardObject`]
+/// remains on the battlefield in the same incarnation.
+#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+pub struct RetainedActivatedAbility {
+    pub definition: &'static str,
+    pub ability: &'static str,
 }
 
 /// The characteristic payload an object contributes when another permanent
