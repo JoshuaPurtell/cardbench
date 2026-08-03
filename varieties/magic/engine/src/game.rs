@@ -24427,9 +24427,15 @@ impl Game {
             if let Some(former_blockers) = combat.blockers.remove(&card) {
                 for blocker in former_blockers {
                     // A removed attacker has no live blocker group. Keeping
-                    // its departed-blocker markers would violate the same
-                    // membership invariant that prevents forged combat state.
+                    // any live blocker-derived markers would violate the
+                    // membership invariants that prevent forged combat
+                    // state. Immutable `block_history` stays available for
+                    // delayed effects only.
                     combat.removed_from_combat.remove(&blocker);
+                    combat.evasion_qualified_blockers.remove(&blocker);
+                    combat.fear_qualified_blockers.remove(&blocker);
+                    combat.black_evasion_qualified_blockers.remove(&blocker);
+                    combat.first_strike_damage_sources.remove(&blocker);
                 }
             }
             combat.damage_ordered_attackers.remove(&card);

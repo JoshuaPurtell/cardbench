@@ -93,6 +93,16 @@ fn control_change_of_blocked_flying_attacker_retires_blocker_qualification_prove
             .is_empty(),
         "the control-changed attacker left combat"
     );
+    game.pass_priority(PlayerId(0))
+        .expect("former attacker controller passes");
+    game.pass_priority(PlayerId(1))
+        .expect("combat skips damage after the attacker left combat");
+    assert_eq!(game.step, Step::EndOfCombat);
+    assert_eq!(
+        game.player(PlayerId(1)).expect("defender exists").life,
+        20,
+        "the formerly blocked attacker deals no combat damage"
+    );
     game.validate_invariants()
         .expect("no blocker qualification provenance survives its attacker removal");
 }
