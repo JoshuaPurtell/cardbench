@@ -40709,8 +40709,24 @@ impl Game {
                     "discard-cost receipt is not followed by a graveyard move",
                 ));
             }
-            let object = self.object(*card)?;
-            if object.owner != *player {
+            // A player-departure cleanup may remove the discarded card's
+            // object record after this public receipt was already committed.
+            // The receipt itself retains the payer, and the departure map plus
+            // terminal ObjectLeftGame receipt provide the same immutable
+            // historical boundary used by spell-cost validation.
+            let owner = match self.object(*card) {
+                Ok(object) => object.owner,
+                Err(RulesError::UnknownCard(missing))
+                    if missing == *card
+                        && self.departed_card_definitions.contains_key(card)
+                        && self.event_log.get(index + 1..).is_some_and(|events| {
+                            events.iter().any(|event| {
+                                matches!(event, GameEvent::ObjectLeftGame { object, .. } if *object == *card)
+                            })
+                        }) => *player,
+                Err(error) => return Err(error),
+            };
+            if owner != *player {
                 return Err(RulesError::IllegalAction(
                     "discard-cost receipt names a card not owned by its payer",
                 ));
