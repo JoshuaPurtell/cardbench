@@ -18,14 +18,17 @@ cargo run -p cardbench-magic-policies --bin rav-reference-deck-matrix
 cargo run -p cardbench-magic-policies --bin rav-engine-audit
 ```
 
-For the normal edit loop, run `scripts/fast-check.sh`. It reuses one Cargo
+For the normal edit loop, run `scripts/core-check.sh`. It reuses one Cargo
 target directory across worktrees and runs the engine library suite, one policy
 worker-boundary contract, one RAV catalog contract, and
-`rav-engine-audit --quick`; a warm run is normally a few seconds. Full package
-suites, parity, the default audit, and matrix binaries intentionally remain
-explicit scale-campaign commands. Set `FAST_CHECK_FULL_FMT=1` when the edit
-loop should include the slower full-workspace formatter instead of its
-changed-Rust-file check.
+`rav-engine-audit --quick`. The gate reports its elapsed time and fails closed
+if it exceeds the 30-second budget (`CORE_CHECK_BUDGET_SECONDS` can override
+the local budget). A warm run is normally a few seconds; a cold local target
+was measured at 21 seconds. `scripts/fast-check.sh` remains the underlying
+unbudgeted command. Full package suites, parity, the default audit, and matrix
+binaries intentionally remain explicit scale-campaign commands. Set
+`FAST_CHECK_FULL_FMT=1` when the edit loop should include the slower
+full-workspace formatter instead of its changed-Rust-file check.
 
 `rav-engine-parity` validates the original Ravnica-block manifests and public
 deck pool, executes every shown RAV scenario twice, and compares each deterministic
