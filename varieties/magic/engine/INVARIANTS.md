@@ -2087,6 +2087,10 @@ Oracle Magic rules coverage.
   the selected live physical land cards in their captured incarnations before
   emitting `SpellCopyResolved`; the stack-only source never emits
   `SpellResolved` or a physical terminal-zone movement.
+- A virtual copy's public graveyard-creature return preserves each affected
+  player's selection order, commits all selected exact-incarnation physical
+  creatures, then emits only `SpellCopyResolved`; neither the virtual source
+  nor an omitted player selection may create a physical terminal-zone move.
 - A virtual copied draw-then-conditional-discard spell retains the same
   boundary after its target player's valid private selection: its ordinary
   draw and discard receipts commit first, then its stack-only source emits
