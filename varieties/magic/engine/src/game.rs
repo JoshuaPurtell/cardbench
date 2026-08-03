@@ -2920,7 +2920,7 @@ impl Game {
             });
             // A copy can make a creature noncreature or reduce its toughness;
             // reach the ordinary SBA fixed point before exposing the result.
-            game.check_state_based_actions()?;
+            game.check_state_based_actions_impl()?;
             Ok(())
         })
     }
@@ -3044,7 +3044,7 @@ impl Game {
             }
             game.move_to_zone(attachment, Zone::Battlefield)?;
             game.attach_with_binding(attachment, target, &binding, false)?;
-            game.check_state_based_actions()?;
+            game.check_state_based_actions_impl()?;
             Ok(())
         })
     }
@@ -3354,8 +3354,8 @@ impl Game {
             game.activate_bound_mana_ability_impl(player, activation, None, None)?;
             game.consecutive_passes = 0;
             game.priority = player;
-            game.flush_pending_dies_triggers();
-            game.check_state_based_actions()?;
+            game.flush_pending_dies_triggers()?;
+            game.check_state_based_actions_impl()?;
             Ok(())
         })
     }
@@ -3379,8 +3379,8 @@ impl Game {
             )?;
             game.consecutive_passes = 0;
             game.priority = player;
-            game.flush_pending_dies_triggers();
-            game.check_state_based_actions()?;
+            game.flush_pending_dies_triggers()?;
+            game.check_state_based_actions_impl()?;
             Ok(())
         })
     }
@@ -3405,8 +3405,8 @@ impl Game {
         self.atomic_transition(|game| {
             game.require_priority(player)?;
             game.activate_ability_impl(player, activation, None, &cost_payment)?;
-            game.flush_pending_dies_triggers();
-            game.check_state_based_actions()?;
+            game.flush_pending_dies_triggers()?;
+            game.check_state_based_actions_impl()?;
             game.validate_invariants()
         })
     }
@@ -3434,8 +3434,8 @@ impl Game {
         self.atomic_transition(|game| {
             game.require_priority(player)?;
             game.activate_ability_impl(player, activation, Some(&selection), &cost_payment)?;
-            game.flush_pending_dies_triggers();
-            game.check_state_based_actions()?;
+            game.flush_pending_dies_triggers()?;
+            game.check_state_based_actions_impl()?;
             game.validate_invariants()
         })
     }
@@ -3464,8 +3464,8 @@ impl Game {
                 mana_payment_selection.as_ref(),
                 &cost_payment,
             )?;
-            game.flush_pending_dies_triggers();
-            game.check_state_based_actions()?;
+            game.flush_pending_dies_triggers()?;
+            game.check_state_based_actions_impl()?;
             game.validate_invariants()
         })
     }
@@ -5858,7 +5858,7 @@ impl Game {
             // so its new characteristics must reach the SBA fixed point before
             // a caller receives control again. The enclosing transaction also
             // rolls back an unexpected later SBA or invariant failure.
-            game.check_state_based_actions()?;
+            game.check_state_based_actions_impl()?;
             Ok(())
         })
     }
@@ -6884,7 +6884,7 @@ impl Game {
                 }
             }
         }
-        self.check_state_based_actions()?;
+        self.check_state_based_actions_impl()?;
         Ok(())
     }
 
@@ -7087,8 +7087,8 @@ impl Game {
                 .tapped = true;
         }
         self.consecutive_passes = 0;
-        self.check_state_based_actions()?;
-        self.flush_pending_dies_triggers();
+        self.check_state_based_actions_impl()?;
+        self.flush_pending_dies_triggers()?;
         self.enqueue_enter_triggers(card, definition_id, player, &[])?;
         self.enqueue_land_entry_triggers(player)?;
         Ok(())
@@ -8258,8 +8258,8 @@ impl Game {
         if self.pending_decision.is_none() {
             self.priority = player;
         }
-        self.check_state_based_actions()?;
-        self.flush_pending_dies_triggers();
+        self.check_state_based_actions_impl()?;
+        self.flush_pending_dies_triggers()?;
         Ok(())
     }
 
@@ -8701,12 +8701,12 @@ impl Game {
             self.record_event(GameEvent::SpellResolved { card: spell });
             self.move_to_spell_terminal_zone(spell)?;
         }
-        self.check_state_based_actions()?;
-        self.flush_pending_dies_triggers();
+        self.check_state_based_actions_impl()?;
+        self.flush_pending_dies_triggers()?;
         self.flush_pending_land_entry_triggers()?;
         self.flush_pending_damage_triggers();
         self.flush_pending_life_gain_triggers();
-        self.flush_pending_dies_triggers();
+        self.flush_pending_dies_triggers()?;
         self.priority = self.priority_after_resolution();
         Ok(())
     }
@@ -8824,11 +8824,11 @@ impl Game {
             source_incarnation,
             ability,
         });
-        self.check_state_based_actions()?;
+        self.check_state_based_actions_impl()?;
         self.flush_pending_land_entry_triggers()?;
         self.flush_pending_damage_triggers();
         self.flush_pending_life_gain_triggers();
-        self.flush_pending_dies_triggers();
+        self.flush_pending_dies_triggers()?;
         self.priority = self.priority_after_resolution();
         Ok(())
     }
@@ -9498,16 +9498,16 @@ impl Game {
                 card,
             )?;
         }
-        self.check_state_based_actions()?;
+        self.check_state_based_actions_impl()?;
         if self.pending_decision.is_some() {
             return Ok(());
         }
         self.priority = self.priority_after_resolution();
-        self.flush_pending_dies_triggers();
+        self.flush_pending_dies_triggers()?;
         self.flush_pending_land_entry_triggers()?;
         self.flush_pending_damage_triggers();
         self.flush_pending_life_gain_triggers();
-        self.flush_pending_dies_triggers();
+        self.flush_pending_dies_triggers()?;
         if self.step == Step::Untap
             && self.pending_decision.is_none()
             && self.stack.is_empty()
@@ -9635,11 +9635,11 @@ impl Game {
             source_incarnation,
             ability,
         });
-        self.check_state_based_actions()?;
+        self.check_state_based_actions_impl()?;
         self.flush_pending_land_entry_triggers()?;
         self.flush_pending_damage_triggers();
         self.flush_pending_life_gain_triggers();
-        self.flush_pending_dies_triggers();
+        self.flush_pending_dies_triggers()?;
         self.priority = self.priority_after_resolution();
         Ok(())
     }
@@ -9843,12 +9843,12 @@ impl Game {
             self.record_event(GameEvent::SpellResolved { card: source });
             self.move_to_spell_terminal_zone(source)?;
         }
-        self.check_state_based_actions()?;
-        self.flush_pending_dies_triggers();
+        self.check_state_based_actions_impl()?;
+        self.flush_pending_dies_triggers()?;
         self.flush_pending_land_entry_triggers()?;
         self.flush_pending_damage_triggers();
         self.flush_pending_life_gain_triggers();
-        self.flush_pending_dies_triggers();
+        self.flush_pending_dies_triggers()?;
         self.priority = self.priority_after_resolution();
         Ok(())
     }
@@ -9992,12 +9992,12 @@ impl Game {
             self.record_event(GameEvent::SpellResolved { card: source });
             self.move_to_spell_terminal_zone(source)?;
         }
-        self.check_state_based_actions()?;
-        self.flush_pending_dies_triggers();
+        self.check_state_based_actions_impl()?;
+        self.flush_pending_dies_triggers()?;
         self.flush_pending_land_entry_triggers()?;
         self.flush_pending_damage_triggers();
         self.flush_pending_life_gain_triggers();
-        self.flush_pending_dies_triggers();
+        self.flush_pending_dies_triggers()?;
         self.priority = self.priority_after_resolution();
         Ok(())
     }
@@ -10111,12 +10111,12 @@ impl Game {
             });
             self.move_to_spell_terminal_zone(resolved.card)?;
         }
-        self.check_state_based_actions()?;
-        self.flush_pending_dies_triggers();
+        self.check_state_based_actions_impl()?;
+        self.flush_pending_dies_triggers()?;
         self.flush_pending_land_entry_triggers()?;
         self.flush_pending_damage_triggers();
         self.flush_pending_life_gain_triggers();
-        self.flush_pending_dies_triggers();
+        self.flush_pending_dies_triggers()?;
         self.restore_priority_after_stack_resolution();
         self.record_game_end_if_needed();
         Ok(())
@@ -10367,12 +10367,12 @@ impl Game {
             self.record_event(GameEvent::SpellResolved { card: source });
             self.move_to_spell_terminal_zone(source)?;
         }
-        self.check_state_based_actions()?;
-        self.flush_pending_dies_triggers();
+        self.check_state_based_actions_impl()?;
+        self.flush_pending_dies_triggers()?;
         self.flush_pending_land_entry_triggers()?;
         self.flush_pending_damage_triggers();
         self.flush_pending_life_gain_triggers();
-        self.flush_pending_dies_triggers();
+        self.flush_pending_dies_triggers()?;
         self.priority = self.priority_after_resolution();
         Ok(())
     }
@@ -10828,11 +10828,11 @@ impl Game {
                 source_incarnation: stack_object.source_incarnation,
                 ability,
             });
-            self.check_state_based_actions()?;
+            self.check_state_based_actions_impl()?;
             self.flush_pending_land_entry_triggers()?;
             self.flush_pending_damage_triggers();
             self.flush_pending_life_gain_triggers();
-            self.flush_pending_dies_triggers();
+            self.flush_pending_dies_triggers()?;
             self.restore_priority_after_stack_resolution();
             return Ok(());
         }
@@ -10841,12 +10841,12 @@ impl Game {
                 copy: stack_object.card,
                 original: copy.original,
             });
-            self.check_state_based_actions()?;
-            self.flush_pending_dies_triggers();
+            self.check_state_based_actions_impl()?;
+            self.flush_pending_dies_triggers()?;
             self.flush_pending_land_entry_triggers()?;
             self.flush_pending_damage_triggers();
             self.flush_pending_life_gain_triggers();
-            self.flush_pending_dies_triggers();
+            self.flush_pending_dies_triggers()?;
             self.restore_priority_after_stack_resolution();
             return Ok(());
         }
@@ -10889,9 +10889,9 @@ impl Game {
         } else {
             self.move_to_spell_terminal_zone(stack_object.card)?;
         }
-        self.check_state_based_actions()?;
-        self.flush_pending_dies_triggers();
-        self.flush_pending_dies_triggers();
+        self.check_state_based_actions_impl()?;
+        self.flush_pending_dies_triggers()?;
+        self.flush_pending_dies_triggers()?;
         if permanent_resolution {
             self.enqueue_enter_triggers(
                 stack_object.card,
@@ -10906,7 +10906,7 @@ impl Game {
         self.flush_pending_land_entry_triggers()?;
         self.flush_pending_damage_triggers();
         self.flush_pending_life_gain_triggers();
-        self.flush_pending_dies_triggers();
+        self.flush_pending_dies_triggers()?;
         self.restore_priority_after_stack_resolution();
         Ok(())
     }
@@ -11420,11 +11420,11 @@ impl Game {
             self.record_event(GameEvent::SpellResolved { card: source });
             self.move_to_spell_terminal_zone(source)?;
         }
-        self.check_state_based_actions()?;
-        self.flush_pending_dies_triggers();
+        self.check_state_based_actions_impl()?;
+        self.flush_pending_dies_triggers()?;
         self.flush_pending_damage_triggers();
         self.flush_pending_life_gain_triggers();
-        self.flush_pending_dies_triggers();
+        self.flush_pending_dies_triggers()?;
         self.priority = self.priority_after_resolution();
         Ok(())
     }
@@ -11642,12 +11642,12 @@ impl Game {
             self.record_event(GameEvent::SpellResolved { card: source });
             self.move_to_spell_terminal_zone(source)?;
         }
-        self.check_state_based_actions()?;
-        self.flush_pending_dies_triggers();
+        self.check_state_based_actions_impl()?;
+        self.flush_pending_dies_triggers()?;
         self.flush_pending_land_entry_triggers()?;
         self.flush_pending_damage_triggers();
         self.flush_pending_life_gain_triggers();
-        self.flush_pending_dies_triggers();
+        self.flush_pending_dies_triggers()?;
         self.priority = self.priority_after_resolution();
         Ok(())
     }
@@ -11793,11 +11793,11 @@ impl Game {
             });
             self.pending_trigger_events
                 .append(&mut self.deferred_exiled_spell_copy_trigger_events);
-            self.check_state_based_actions()?;
+            self.check_state_based_actions_impl()?;
             self.flush_pending_land_entry_triggers()?;
             self.flush_pending_damage_triggers();
             self.flush_pending_life_gain_triggers();
-            self.flush_pending_dies_triggers();
+            self.flush_pending_dies_triggers()?;
             self.flush_pending_trigger_events()?;
             self.restore_priority_after_stack_resolution();
             return Ok(());
@@ -12329,12 +12329,12 @@ impl Game {
             self.record_event(GameEvent::SpellResolved { card: source });
             self.move_to_spell_terminal_zone(source)?;
         }
-        self.check_state_based_actions()?;
-        self.flush_pending_dies_triggers();
+        self.check_state_based_actions_impl()?;
+        self.flush_pending_dies_triggers()?;
         self.flush_pending_land_entry_triggers()?;
         self.flush_pending_damage_triggers();
         self.flush_pending_life_gain_triggers();
-        self.flush_pending_dies_triggers();
+        self.flush_pending_dies_triggers()?;
         self.priority = self.priority_after_resolution();
         Ok(())
     }
@@ -12460,11 +12460,11 @@ impl Game {
                 "library search-and-cast parent is not an activated ability",
             ))?,
         });
-        self.check_state_based_actions()?;
+        self.check_state_based_actions_impl()?;
         self.flush_pending_land_entry_triggers()?;
         self.flush_pending_damage_triggers();
         self.flush_pending_life_gain_triggers();
-        self.flush_pending_dies_triggers();
+        self.flush_pending_dies_triggers()?;
         self.restore_priority_after_stack_resolution();
         Ok(())
     }
@@ -12659,8 +12659,8 @@ impl Game {
             self.record_event(GameEvent::SpellResolved { card: source });
             self.move_to_spell_terminal_zone(source)?;
         }
-        self.check_state_based_actions()?;
-        self.flush_pending_dies_triggers();
+        self.check_state_based_actions_impl()?;
+        self.flush_pending_dies_triggers()?;
         for (card, definition, controller) in entered_permanents {
             if self.zone_of(card) == Some(Zone::Battlefield) {
                 self.enqueue_enter_triggers(card, definition, controller, &[])?;
@@ -12672,7 +12672,7 @@ impl Game {
         self.flush_pending_land_entry_triggers()?;
         self.flush_pending_damage_triggers();
         self.flush_pending_life_gain_triggers();
-        self.flush_pending_dies_triggers();
+        self.flush_pending_dies_triggers()?;
         self.priority = self.priority_after_resolution();
         Ok(())
     }
@@ -12822,12 +12822,12 @@ impl Game {
             self.record_event(GameEvent::SpellResolved { card: source });
             self.move_to_spell_terminal_zone(source)?;
         }
-        self.check_state_based_actions()?;
-        self.flush_pending_dies_triggers();
+        self.check_state_based_actions_impl()?;
+        self.flush_pending_dies_triggers()?;
         self.flush_pending_land_entry_triggers()?;
         self.flush_pending_damage_triggers();
         self.flush_pending_life_gain_triggers();
-        self.flush_pending_dies_triggers();
+        self.flush_pending_dies_triggers()?;
         self.priority = self.priority_after_resolution();
         Ok(())
     }
@@ -13011,12 +13011,12 @@ impl Game {
             self.record_event(GameEvent::SpellResolved { card: source });
             self.move_to_spell_terminal_zone(source)?;
         }
-        self.check_state_based_actions()?;
-        self.flush_pending_dies_triggers();
+        self.check_state_based_actions_impl()?;
+        self.flush_pending_dies_triggers()?;
         self.flush_pending_land_entry_triggers()?;
         self.flush_pending_damage_triggers();
         self.flush_pending_life_gain_triggers();
-        self.flush_pending_dies_triggers();
+        self.flush_pending_dies_triggers()?;
         self.priority = self.priority_after_resolution();
         Ok(())
     }
@@ -13128,12 +13128,12 @@ impl Game {
             self.record_event(GameEvent::SpellResolved { card: source });
             self.move_to_spell_terminal_zone(source)?;
         }
-        self.check_state_based_actions()?;
-        self.flush_pending_dies_triggers();
+        self.check_state_based_actions_impl()?;
+        self.flush_pending_dies_triggers()?;
         self.flush_pending_land_entry_triggers()?;
         self.flush_pending_damage_triggers();
         self.flush_pending_life_gain_triggers();
-        self.flush_pending_dies_triggers();
+        self.flush_pending_dies_triggers()?;
         self.priority = self.priority_after_resolution();
         Ok(())
     }
@@ -14211,7 +14211,17 @@ impl Game {
     }
 
     /// Applies state-based actions until the game reaches a fixed point.
+    ///
+    /// This is a public rules transition as well as an internal checkpoint:
+    /// a dynamically unrepresentable trigger-placement decision must return
+    /// its error without exposing an SBA prefix. Internal callers use the
+    /// private implementation inside their enclosing transaction.
     pub fn check_state_based_actions(&mut self) -> Result<(), RulesError> {
+        self.atomic_transition(Self::check_state_based_actions_impl)
+    }
+
+    /// Applies the SBA fixed point inside an existing game transaction.
+    fn check_state_based_actions_impl(&mut self) -> Result<(), RulesError> {
         loop {
             let mut changed = false;
             for player in 0..self.players.len() {
@@ -14291,7 +14301,7 @@ impl Game {
                     self.record_game_end_if_needed();
                     return Ok(());
                 }
-                self.flush_pending_dies_triggers();
+                self.flush_pending_dies_triggers()?;
                 self.normalize_priority_after_elimination()?;
                 self.record_game_end_if_needed();
                 return Ok(());
@@ -18993,15 +19003,15 @@ impl Game {
             top.controller,
             &convoke_contributors,
         )?;
-        self.check_state_based_actions()?;
-        self.flush_pending_dies_triggers();
+        self.check_state_based_actions_impl()?;
+        self.flush_pending_dies_triggers()?;
         if entering_is_land {
             self.enqueue_land_entry_triggers(top.controller)?;
         }
         self.flush_pending_land_entry_triggers()?;
         self.flush_pending_damage_triggers();
         self.flush_pending_life_gain_triggers();
-        self.flush_pending_dies_triggers();
+        self.flush_pending_dies_triggers()?;
         self.restore_priority_after_stack_resolution();
         Ok(())
     }
@@ -19235,11 +19245,11 @@ impl Game {
                 source_incarnation: declined.source_incarnation,
                 ability,
             });
-            self.check_state_based_actions()?;
+            self.check_state_based_actions_impl()?;
             self.flush_pending_land_entry_triggers()?;
             self.flush_pending_damage_triggers();
             self.flush_pending_life_gain_triggers();
-            self.flush_pending_dies_triggers();
+            self.flush_pending_dies_triggers()?;
             self.restore_priority_after_stack_resolution();
             return Ok(());
         }
@@ -19378,8 +19388,8 @@ impl Game {
                 });
                 self.move_to_spell_terminal_zone(stack_object.card)?;
             }
-            self.check_state_based_actions()?;
-            self.flush_pending_dies_triggers();
+            self.check_state_based_actions_impl()?;
+            self.flush_pending_dies_triggers()?;
             self.restore_priority_after_stack_resolution();
             return Ok(());
         }
@@ -19846,11 +19856,11 @@ impl Game {
                 source_incarnation: stack_object.source_incarnation,
                 ability,
             });
-            self.check_state_based_actions()?;
+            self.check_state_based_actions_impl()?;
             self.flush_pending_land_entry_triggers()?;
             self.flush_pending_damage_triggers();
             self.flush_pending_life_gain_triggers();
-            self.flush_pending_dies_triggers();
+            self.flush_pending_dies_triggers()?;
             self.restore_priority_after_stack_resolution();
             return Ok(());
         }
@@ -19859,12 +19869,12 @@ impl Game {
                 copy: stack_object.card,
                 original: copy.original,
             });
-            self.check_state_based_actions()?;
-            self.flush_pending_dies_triggers();
+            self.check_state_based_actions_impl()?;
+            self.flush_pending_dies_triggers()?;
             self.flush_pending_land_entry_triggers()?;
             self.flush_pending_damage_triggers();
             self.flush_pending_life_gain_triggers();
-            self.flush_pending_dies_triggers();
+            self.flush_pending_dies_triggers()?;
             self.restore_priority_after_stack_resolution();
             return Ok(());
         }
@@ -19938,15 +19948,15 @@ impl Game {
         } else {
             self.move_to_spell_terminal_zone(stack_object.card)?;
         }
-        self.check_state_based_actions()?;
-        self.flush_pending_dies_triggers();
+        self.check_state_based_actions_impl()?;
+        self.flush_pending_dies_triggers()?;
         if permanent_resolution && entering_is_land {
             self.enqueue_land_entry_triggers(entering_controller)?;
         }
         self.flush_pending_land_entry_triggers()?;
         self.flush_pending_damage_triggers();
         self.flush_pending_life_gain_triggers();
-        self.flush_pending_dies_triggers();
+        self.flush_pending_dies_triggers()?;
         self.restore_priority_after_stack_resolution();
         Ok(())
     }
@@ -21943,12 +21953,12 @@ impl Game {
                 self.record_event(GameEvent::SpellResolved { card: source });
                 self.move_to_spell_terminal_zone(source)?;
             }
-            self.check_state_based_actions()?;
-            self.flush_pending_dies_triggers();
+            self.check_state_based_actions_impl()?;
+            self.flush_pending_dies_triggers()?;
             self.flush_pending_land_entry_triggers()?;
             self.flush_pending_damage_triggers();
             self.flush_pending_life_gain_triggers();
-            self.flush_pending_dies_triggers();
+            self.flush_pending_dies_triggers()?;
             self.restore_priority_after_stack_resolution();
             self.record_game_end_if_needed();
             return Ok(true);
@@ -23854,11 +23864,11 @@ impl Game {
                 source_incarnation,
                 ability,
             });
-            self.check_state_based_actions()?;
+            self.check_state_based_actions_impl()?;
             self.flush_pending_land_entry_triggers()?;
             self.flush_pending_damage_triggers();
             self.flush_pending_life_gain_triggers();
-            self.flush_pending_dies_triggers();
+            self.flush_pending_dies_triggers()?;
             self.restore_priority_after_stack_resolution();
             return Ok(());
         }
@@ -23871,11 +23881,11 @@ impl Game {
             self.record_event(GameEvent::SpellResolved { card: source });
             self.move_to_spell_terminal_zone(source)?;
         }
-        self.check_state_based_actions()?;
-        self.flush_pending_dies_triggers();
+        self.check_state_based_actions_impl()?;
+        self.flush_pending_dies_triggers()?;
         self.flush_pending_damage_triggers();
         self.flush_pending_life_gain_triggers();
-        self.flush_pending_dies_triggers();
+        self.flush_pending_dies_triggers()?;
         self.priority = self.priority_after_resolution();
         Ok(())
     }
@@ -23939,11 +23949,11 @@ impl Game {
             source_incarnation,
             ability,
         });
-        self.check_state_based_actions()?;
+        self.check_state_based_actions_impl()?;
         self.flush_pending_land_entry_triggers()?;
         self.flush_pending_damage_triggers();
         self.flush_pending_life_gain_triggers();
-        self.flush_pending_dies_triggers();
+        self.flush_pending_dies_triggers()?;
         self.priority = self.priority_after_resolution();
         Ok(())
     }
@@ -24862,9 +24872,8 @@ impl Game {
     /// Places dies triggers above the already-completed action's stack object.
     /// Deferring until costs/effects finish preserves the rule that a trigger
     /// created during an activation cost is stacked after that activation.
-    fn flush_pending_dies_triggers(&mut self) {
+    fn flush_pending_dies_triggers(&mut self) -> Result<(), RulesError> {
         self.flush_pending_trigger_events()
-            .expect("dies trigger flush follows a valid rules transition");
     }
 
     /// Pushes all triggers observed during the just-completed damage batch.
@@ -29995,7 +30004,7 @@ impl Game {
             // Untap itself has no priority window. Stabilize the battlefield
             // after its automatic work and before advancing to the first
             // priority-bearing Upkeep state.
-            self.check_state_based_actions()?;
+            self.check_state_based_actions_impl()?;
         }
         if (self.step == Step::Untap
             || (self.step == Step::Cleanup && !self.cleanup_repeat_required))
@@ -30161,7 +30170,7 @@ impl Game {
                 target: shield.target,
             });
         }
-        self.check_state_based_actions()?;
+        self.check_state_based_actions_impl()?;
         // Cleanup normally has no priority. Its exceptional CR 514.3 path
         // starts only when this completed Cleanup pass creates stack work.
         self.cleanup_repeat_required = !self.is_game_over()
@@ -30401,10 +30410,10 @@ impl Game {
     /// damage packet has committed. A suspended replacement continuation
     /// calls this only after it has resumed every retained player packet.
     fn finish_combat_damage_batch(&mut self) -> Result<(), RulesError> {
-        self.check_state_based_actions()?;
+        self.check_state_based_actions_impl()?;
         self.flush_pending_damage_triggers();
         self.flush_pending_life_gain_triggers();
-        self.flush_pending_dies_triggers();
+        self.flush_pending_dies_triggers()?;
         if self.step == Step::FirstStrikeCombatDamage {
             self.combat
                 .as_mut()
