@@ -91,6 +91,13 @@ Oracle Magic rules coverage.
   zone move, but surviving `AnotherCreatureLeavesBattlefield` observers are
   captured at its last-known battlefield state and stack normally after the
   player-loss SBA fixed point.
+- A creature card's current-turn battlefield-to-graveyard eligibility is live
+  zone state, not a claim that survives its owner leaving the game. Player
+  departure removes that candidate before CR 800.4a deletes the object. Its
+  earlier `CreatureCardPutIntoGraveyardFromBattlefieldThisTurn` receipt remains
+  valid historical provenance only when immutable departed-card metadata and a
+  later matching `ObjectLeftGame` receipt prove the ordinary graveyard
+  transition occurred first.
 - A virtual spell copy has a fresh stack-only identity, an immediate original
   identity for receipt provenance, and the immutable catalog definition it
   copied when it was created. Its immediate original may itself be a live
