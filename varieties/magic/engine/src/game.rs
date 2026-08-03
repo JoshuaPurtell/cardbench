@@ -14228,6 +14228,11 @@ impl Game {
                             .ok_or(RulesError::UnknownCard(*card))?
                             .tapped = true;
                     }
+                    // The deterministic compatibility resolver shares the
+                    // normal selected-permanent entry capture path. The
+                    // enclosing spell remains responsible for its terminal
+                    // lifecycle and post-resolution SBA/trigger flush.
+                    self.capture_library_search_permanent_entry(*card)?;
                 }
                 LibrarySearchDestination::Hand => self.move_to_zone(*card, Zone::Hand)?,
                 LibrarySearchDestination::LibraryTop => {}
