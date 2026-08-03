@@ -19681,10 +19681,14 @@ impl Game {
         ))?;
         self.stack_effect_cursors.remove(&stack_object.id);
         // Target legality is snapshotted once, per target occurrence, before
-        // any instruction resolves to establish the all-illegal boundary. An
-        // initially legal slot is rechecked before its own instruction: an
-        // earlier instruction can legally remove a later repeated target.
-        // The model-owned plan preserves repeated targets as independent slots.
+        // any instruction resolves to establish the all-illegal boundary.
+        // Later instructions retain that legal-target result: an earlier
+        // instruction can grant Shroud, change a type, or change control, but
+        // it cannot retroactively make another occurrence illegal.  The
+        // dispatcher still checks that a later instruction names the same
+        // object in its original expected zone, so a zone change or player
+        // departure cannot affect a new object or departed player. The
+        // model-owned plan preserves repeated targets as independent slots.
         let mut target_index = 0;
         let plan = stack_object
             .resolution_plan(|target, requirement| {
@@ -19905,12 +19909,7 @@ impl Game {
                                 "target-resolution plan named an untargeted effect",
                             ))?;
                     if self.stack_target_incarnation_matches(&stack_object, occurrence, target)
-                        && self.target_matches_for_colors(
-                            stack_object.controller,
-                            target,
-                            requirement,
-                            &stack_object.source_colors,
-                        )
+                        && self.target_remains_in_resolution_zone(target, requirement)
                     {
                         if matches!(effect, Effect::AddOneManaOfTargetPlayersChosenColor) {
                             let color = self
@@ -20041,12 +20040,7 @@ impl Game {
                                 occurrence,
                                 target,
                             )
-                            && self.target_matches_for_colors(
-                                stack_object.controller,
-                                target,
-                                requirement,
-                                &stack_object.source_colors,
-                            )
+                            && self.target_remains_in_resolution_zone(target, requirement)
                         {
                             self.resolve_effect(
                                 stack_object.card,
@@ -30249,6 +30243,46 @@ impl Game {
                     .is_ok_and(|object| object.incarnation == expected)
             }
             Target::Player(_) | Target::BasicLandType(_) | Target::ActivatedAbility(_) => true,
+        }
+    }
+
+    /// Checks only whether a target that was legal as resolution started
+    /// continues to name the same addressable game entity.  Comprehensive
+    /// Rules 608.2b performs the full target-legality check before resolving
+    /// instructions; a prior instruction cannot make a later occurrence
+    /// illegal by adding Shroud, changing types, or changing control.  Zone
+    /// changes and player departures still sever that target relationship.
+    fn target_remains_in_resolution_zone(
+        &self,
+        target: Target,
+        requirement: TargetRequirement,
+    ) -> bool {
+        match target {
+            Target::Player(player) => self.players.get(player.0).is_some_and(|state| !state.lost),
+            Target::Permanent(card) | Target::SacrificePermanent(card) => {
+                let expected_zone = match requirement {
+                    TargetRequirement::OwnGraveyardCard
+                    | TargetRequirement::GraveyardCard
+                    | TargetRequirement::CreatureCardInControllerGraveyard
+                    | TargetRequirement::EnchantmentCardInControllerGraveyard
+                    | TargetRequirement::InstantOrSorceryCardInControllerGraveyard => {
+                        Zone::Graveyard
+                    }
+                    TargetRequirement::InstantOrSorceryCardInControllerExile => Zone::Exile,
+                    _ => Zone::Battlefield,
+                };
+                self.zone_of(card) == Some(expected_zone)
+            }
+            Target::Spell(card) => self
+                .stack
+                .iter()
+                .any(|stack_object| stack_object.card == card && stack_object.ability_id.is_none()),
+            Target::ActivatedAbility(stack_item) => self.stack.iter().any(|stack_object| {
+                stack_object.id == stack_item
+                    && stack_object.ability_id.is_some()
+                    && stack_object.target_count() == 1
+            }),
+            Target::BasicLandType(_) => false,
         }
     }
 
