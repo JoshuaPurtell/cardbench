@@ -11147,8 +11147,15 @@ impl Game {
             source,
             inspected: count,
         });
-        self.record_event(GameEvent::SpellResolved { card: source });
-        self.move_to_spell_terminal_zone(source)?;
+        if let Some(copy) = self.virtual_spell_copies.remove(&source) {
+            self.record_event(GameEvent::SpellCopyResolved {
+                copy: source,
+                original: copy.original,
+            });
+        } else {
+            self.record_event(GameEvent::SpellResolved { card: source });
+            self.move_to_spell_terminal_zone(source)?;
+        }
         self.check_state_based_actions()?;
         self.flush_pending_dies_triggers();
         self.flush_pending_land_entry_triggers()?;
