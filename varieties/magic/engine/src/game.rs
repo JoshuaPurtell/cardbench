@@ -7424,8 +7424,20 @@ impl Game {
     /// Performs the turn-based action of assigning each blocker to one
     /// attacker. More than one blocker may be assigned to the same attacker;
     /// declaration order is retained as the bounded damage-assignment order.
-    #[allow(clippy::too_many_lines)] // Declaration validates every evasion and restriction atomically.
     pub fn declare_blockers(
+        &mut self,
+        player: PlayerId,
+        assignments: &[CombatBlock],
+    ) -> Result<(), RulesError> {
+        self.atomic_transition(|game| game.declare_blockers_impl(player, assignments))
+    }
+
+    /// Applies a turn-based blocker declaration inside the public transaction
+    /// journal. The declaration is not complete until every required combat
+    /// damage-order decision is either exposed or normal priority resumes, so
+    /// a later decision-encoding failure must restore the pre-block state.
+    #[allow(clippy::too_many_lines)] // Declaration validates every evasion and restriction atomically.
+    fn declare_blockers_impl(
         &mut self,
         player: PlayerId,
         assignments: &[CombatBlock],
