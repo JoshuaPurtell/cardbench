@@ -931,11 +931,12 @@ Oracle Magic rules coverage.
   owner-indexed graveyard before any return moves, moves the complete matching
   set to the battlefield, then applies each entrant's entry replacements from
   the pre-event battlefield plus that entrant alone. Own ETB triggers are
-  captured for every entrant, while controlled-nonartifact entry observers
-  are sampled only from the same pre-event battlefield. Thus two creatures
-  entering in the same event cannot make one another enter tapped, receive a
-  replacement-only counter, or observe each other's entry; their ordinary
-  SBAs and trigger placement occur only after the complete batch commits.
+  captured for every entrant, while every controlled-nonartifact observer is
+  sampled from one post-event battlefield snapshot. Thus replacement effects
+  still cannot let one newcomer change how another entered, but every
+  newcomer observes each permanent in the one entry event as CR 603.6a
+  requires; ordinary SBAs and trigger placement occur only after the complete
+  batch commits.
 - An `BeginningOfAnyUpkeep` trigger is stacked only after that upkeep's own
   `StepBegan` receipt and before its first priority window. Its active player
   is captured into a materialized `SacrificeCapturedPlayerCreature` stack
@@ -2650,9 +2651,12 @@ Oracle Magic rules coverage.
   typed group and delayed-action records remain invariant-valid while a sole
   target creature, or that creature plus its linked Auras, is suspended in
   exile, and the consuming end-step transition reaches the normal SBA boundary
-  after returns. It is a substrate only: individual card promotion, arbitrary
-  simultaneous delayed action ordering, and broader blink/zone-replacement
-  interactions remain separate coverage work.
+  after returns. A multi-member return captures self ETBs and controller-scoped
+  nonartifact/Aura observers from one post-entry snapshot, so every newcomer
+  observes every member of that event before the shared SBA/trigger boundary.
+  It is a substrate only: individual card promotion, arbitrary simultaneous
+  delayed action ordering, and broader blink/zone-replacement interactions
+  remain separate coverage work.
 - Static continuous bindings are immutable expansion data, never timestamped
   runtime effects. Each registered binding names one supported static change
   and a creature or other compatible permanent definition. It applies only

@@ -9,8 +9,9 @@ use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
     AbilityActivation, ActivatedAbility, ActivatedAbilityBinding, AttachmentBinding,
-    AttachmentKind, CardDefinition, CardType, Effect, Game, GameEvent, ManaCost, PlayerId, Step,
-    TargetRequirement, TriggerCondition, TriggeredAbility, TriggeredAbilityBinding, Zone,
+    AttachmentKind, CardDefinition, CardType, DecisionKind, DecisionSelection, Effect, Game,
+    GameEvent, ManaCost, PlayerId, Step, TargetRequirement, TriggerCondition, TriggeredAbility,
+    TriggeredAbilityBinding, Zone,
 };
 
 const CREATURE: &str = "TST-SIMULTANEOUS-LINKED-RETURN-CREATURE";
@@ -133,6 +134,23 @@ fn linked_delayed_return_checks_its_whole_simultaneous_entry_event() {
     .expect("linked exile ability stacks");
     pass_pair(&mut game); // Exile and schedule the delayed return.
     advance_to_end_step(&mut game);
+
+    let order = game
+        .view_for_player(controller)
+        .expect("controller view is available")
+        .pending_decision
+        .expect("two simultaneous observer events require an explicit order");
+    assert_eq!(order.kind, DecisionKind::TriggeredAbilityOrder);
+    assert_eq!(order.trigger_candidates.len(), 2);
+    assert!(order.trigger_candidates.iter().all(|entry| {
+        entry.source == aura && entry.ability == "observe-controlled-nonartifact-entry"
+    }));
+    game.submit_decision(
+        controller,
+        order.id,
+        DecisionSelection::TriggerOrder(order.trigger_candidates.clone()),
+    )
+    .expect("controller orders both simultaneous entry observations");
 
     let return_observer_triggers = game.event_log[delayed_return_start..]
         .iter()

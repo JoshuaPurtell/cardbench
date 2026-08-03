@@ -6832,7 +6832,6 @@ impl Game {
         let mut returned = Vec::new();
         let returned_primary = if self.member_is_still_in_linked_exile(primary) {
             self.move_to_zone(primary.object, Zone::Battlefield)?;
-            self.capture_linked_exile_return_entry(primary.object)?;
             returned.push(primary.object);
             Some(primary.object)
         } else {
@@ -6868,24 +6867,13 @@ impl Game {
                     }
                 }
             }
-            self.capture_linked_exile_return_entry(aura.object)?;
         }
+        // CR 603.6a observes a single multi-permanent return only after every
+        // member has entered and every returned Aura has its final attachment.
+        // In particular, a returning Aura can observe its companion creature
+        // entering; serial capture would silently lose that trigger.
+        self.capture_simultaneous_entry_triggers(&returned)?;
         Ok(returned)
-    }
-
-    /// Records each non-token member's normal entry observations while its
-    /// delayed linked-exile return incarnation is still on the battlefield.
-    /// The end-step action owns the later shared SBA/trigger-placement
-    /// boundary, so an immediately fragile return keeps LKI without exposing
-    /// a trigger between group members.
-    fn capture_linked_exile_return_entry(&mut self, card: ObjectId) -> Result<(), RulesError> {
-        let definition = self
-            .effective_definition_id(card)?
-            .ok_or(RulesError::IllegalAction(
-                "a token cannot return from linked exile",
-            ))?;
-        let controller = self.controller_of(card)?;
-        self.capture_enter_triggers(card, definition, controller, &[])
     }
 
     fn consume_due_delayed_actions(&mut self) -> Result<(), RulesError> {
@@ -23075,32 +23063,11 @@ impl Game {
         entering: ObjectId,
         entering_controller: PlayerId,
     ) -> Result<(), RulesError> {
-        if self.zone_of(entering) != Some(Zone::Battlefield)
-            || self.controller_of(entering)? != entering_controller
-            || !self.is_aura_like(entering)?
-        {
-            return Ok(());
-        }
-        let observers = self
-            .all_battlefield_cards()
-            .into_iter()
-            .filter_map(|source| {
-                if self.controller_of(source).ok()? != entering_controller {
-                    return None;
-                }
-                let definition = self.effective_definition_id(source).ok()??;
-                Some((source, definition))
-            })
-            .collect::<Vec<_>>();
-        for (source, definition) in observers {
-            self.enqueue_triggers_for_source(
-                source,
-                definition,
-                entering_controller,
-                TriggerCondition::ControlledAuraEntersBattlefield,
-            );
-        }
-        Ok(())
+        self.enqueue_controlled_aura_entry_triggers_from_observers(
+            entering,
+            entering_controller,
+            &self.all_battlefield_cards(),
+        )
     }
 
     /// Captures each live observer of a nonartifact permanent entering under
@@ -23119,10 +23086,10 @@ impl Game {
         )
     }
 
-    /// Queues nonartifact-entry observer triggers from an explicit observer
-    /// snapshot.  Simultaneous entries pass the pre-event battlefield here so
-    /// newly-entered creatures cannot observe one another's simultaneous
-    /// entry, while ordinary entry retains the current battlefield behavior.
+    /// Queues nonartifact-entry observer triggers from one exact post-event
+    /// battlefield snapshot. Simultaneous entries share that snapshot, so all
+    /// newcomers can observe every member of the one entry event without a
+    /// serial move changing who was present for a later entrant.
     fn enqueue_controlled_nonartifact_permanent_entry_triggers_from_observers(
         &mut self,
         entering: ObjectId,
@@ -23184,6 +23151,96 @@ impl Game {
                         },
                     });
             }
+        }
+        Ok(())
+    }
+
+    /// Queues Aura-entry observer triggers from one exact post-event
+    /// battlefield snapshot. This is the Aura-specific counterpart to the
+    /// nonartifact observer helper: each observer sees every Aura that joined
+    /// the same simultaneous entry event, including a newly returned Aura.
+    fn enqueue_controlled_aura_entry_triggers_from_observers(
+        &mut self,
+        entering: ObjectId,
+        entering_controller: PlayerId,
+        observer_sources: &[ObjectId],
+    ) -> Result<(), RulesError> {
+        if self.zone_of(entering) != Some(Zone::Battlefield)
+            || self.controller_of(entering)? != entering_controller
+            || !self.is_aura_like(entering)?
+        {
+            return Ok(());
+        }
+        let observers = observer_sources
+            .iter()
+            .copied()
+            .filter_map(|source| {
+                if self.controller_of(source).ok()? != entering_controller {
+                    return None;
+                }
+                let definition = self.effective_definition_id(source).ok()??;
+                Some((source, definition))
+            })
+            .collect::<Vec<_>>();
+        for (source, definition) in observers {
+            self.enqueue_triggers_for_source(
+                source,
+                definition,
+                entering_controller,
+                TriggerCondition::ControlledAuraEntersBattlefield,
+            );
+        }
+        Ok(())
+    }
+
+    /// Captures each entrant's self ETB plus every controller-scoped
+    /// nonartifact and Aura observer from the post-event battlefield. This
+    /// is deliberately separate from ordinary serial entry: it has no
+    /// convoke provenance and is used only after the complete represented
+    /// simultaneous zone transition has committed.
+    fn capture_simultaneous_entry_triggers(
+        &mut self,
+        entrants: &[ObjectId],
+    ) -> Result<(), RulesError> {
+        let observer_sources = self.all_battlefield_cards();
+        let mut captured = BTreeSet::new();
+        let entrants = entrants
+            .iter()
+            .copied()
+            .map(|card| {
+                if !captured.insert(card) || self.zone_of(card) != Some(Zone::Battlefield) {
+                    return Err(RulesError::IllegalAction(
+                        "simultaneous entry capture requires unique live battlefield entrants",
+                    ));
+                }
+                let definition =
+                    self.effective_definition_id(card)?
+                        .ok_or(RulesError::IllegalAction(
+                            "a token cannot be a represented simultaneous card entrant",
+                        ))?;
+                Ok((card, definition, self.controller_of(card)?))
+            })
+            .collect::<Result<Vec<_>, RulesError>>()?;
+
+        for (card, definition, controller) in &entrants {
+            self.enqueue_triggers_for_source(
+                *card,
+                definition,
+                *controller,
+                TriggerCondition::EntersBattlefield,
+            );
+        }
+        for (card, _, controller) in entrants {
+            self.enqueue_controlled_nonartifact_permanent_entry_triggers_from_observers(
+                card,
+                controller,
+                &observer_sources,
+            )?;
+            self.enqueue_controlled_aura_entry_triggers_from_observers(
+                card,
+                controller,
+                &observer_sources,
+            )?;
         }
         Ok(())
     }
@@ -32403,21 +32460,7 @@ impl Game {
             entry_sources.push(*card);
             self.apply_static_entry_restriction_from_sources(*card, &entry_sources)?;
         }
-        for card in &returning {
-            let definition = self.card_definition(*card)?.id;
-            let controller = self.controller_of(*card)?;
-            self.enqueue_triggers_for_source(
-                *card,
-                definition,
-                controller,
-                TriggerCondition::EntersBattlefield,
-            );
-            self.enqueue_controlled_nonartifact_permanent_entry_triggers_from_observers(
-                *card,
-                controller,
-                &pre_event_sources,
-            )?;
-        }
+        self.capture_simultaneous_entry_triggers(&returning)?;
         Ok(())
     }
 
