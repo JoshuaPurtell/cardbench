@@ -120,6 +120,12 @@ fn centaur_safeguard_dies_then_its_controller_can_accept_three_life() {
         PlayerId(0),
         "test.centaur-safeguard-accept.v1",
         PolicyAction::ResolveOptionalTriggeredAbility {
+            decision: game
+                .view_for_player(PlayerId(0))
+                .expect("controller view")
+                .optional_triggered_ability_choice
+                .expect("optional trigger choice")
+                .decision,
             source: safeguard,
             ability: "dies-may-gain-three-life",
             pay: true,

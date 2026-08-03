@@ -66,6 +66,12 @@ fn sadistic_augermage_controller_can_decline_the_dies_trigger() {
         PlayerId(1),
         "test.sadistic-augermage-decline-wrong-player.v1",
         PolicyAction::ResolveOptionalTriggeredAbility {
+            decision: game
+                .view_for_player(PlayerId(0))
+                .expect("controller view")
+                .optional_triggered_ability_choice
+                .expect("optional trigger choice")
+                .decision,
             source: augermage,
             ability: "another-creature-dies-each-player-discards",
             pay: false,
@@ -89,6 +95,12 @@ fn sadistic_augermage_controller_can_decline_the_dies_trigger() {
         PlayerId(0),
         "test.sadistic-augermage-decline.v1",
         PolicyAction::ResolveOptionalTriggeredAbility {
+            decision: game
+                .view_for_player(PlayerId(0))
+                .expect("controller view")
+                .optional_triggered_ability_choice
+                .expect("optional trigger choice")
+                .decision,
             source: augermage,
             ability: "another-creature-dies-each-player-discards",
             pay: false,

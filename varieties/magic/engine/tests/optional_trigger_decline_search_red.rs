@@ -89,6 +89,12 @@ fn declined_optional_trigger_skips_its_private_library_search_instead_of_opening
         PlayerId(0),
         "test.optional-trigger-decline-search.v1",
         PolicyAction::ResolveOptionalTriggeredAbility {
+            decision: game
+                .view_for_player(PlayerId(0))
+                .expect("controller receives optional choice view")
+                .optional_triggered_ability_choice
+                .expect("optional trigger awaits controller")
+                .decision,
             source,
             ability: ABILITY,
             pay: false,

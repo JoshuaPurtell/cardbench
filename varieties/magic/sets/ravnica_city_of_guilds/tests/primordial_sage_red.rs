@@ -105,6 +105,12 @@ fn primordial_sage_accepted_draw_resolves_above_creature_spell() {
         PlayerId(0),
         "primordial-sage-test.v1",
         PolicyAction::ResolveOptionalTriggeredAbility {
+            decision: game
+                .view_for_player(PlayerId(0))
+                .expect("controller view")
+                .optional_triggered_ability_choice
+                .expect("optional trigger choice")
+                .decision,
             source: sage,
             ability: "controller-creature-spell-cast-may-draw",
             pay: true,
@@ -199,6 +205,12 @@ fn primordial_sage_decline_leaves_the_library_card_in_place() {
         PlayerId(0),
         "primordial-sage-test.v1",
         PolicyAction::ResolveOptionalTriggeredAbility {
+            decision: game
+                .view_for_player(PlayerId(0))
+                .expect("controller view")
+                .optional_triggered_ability_choice
+                .expect("optional trigger choice")
+                .decision,
             source: sage,
             ability: "controller-creature-spell-cast-may-draw",
             pay: false,
@@ -287,6 +299,12 @@ fn primordial_sage_trigger_draws_after_its_source_leaves_before_resolution() {
         PlayerId(0),
         "primordial-sage-test.v1",
         PolicyAction::ResolveOptionalTriggeredAbility {
+            decision: game
+                .view_for_player(PlayerId(0))
+                .expect("controller view")
+                .optional_triggered_ability_choice
+                .expect("optional trigger choice")
+                .decision,
             source: sage,
             ability: "controller-creature-spell-cast-may-draw",
             pay: true,

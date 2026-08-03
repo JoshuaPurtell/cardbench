@@ -86,6 +86,12 @@ fn grozoth_etb_privately_reveals_any_chosen_mana_value_nine_cards_then_shuffles(
         PlayerId(0),
         "test.grozoth-etb-accept.v1",
         PolicyAction::ResolveOptionalTriggeredAbility {
+            decision: game
+                .view_for_player(PlayerId(0))
+                .expect("controller view")
+                .optional_triggered_ability_choice
+                .expect("optional trigger choice")
+                .decision,
             source: grozoth,
             ability: "etb-search-mana-value-nine",
             pay: true,
@@ -167,6 +173,12 @@ fn grozoth_controller_may_decline_the_entry_search_without_opening_library_choic
         PlayerId(0),
         "test.grozoth-etb-decline.v1",
         PolicyAction::ResolveOptionalTriggeredAbility {
+            decision: game
+                .view_for_player(PlayerId(0))
+                .expect("controller view")
+                .optional_triggered_ability_choice
+                .expect("optional trigger choice")
+                .decision,
             source: grozoth,
             ability: "etb-search-mana-value-nine",
             pay: false,

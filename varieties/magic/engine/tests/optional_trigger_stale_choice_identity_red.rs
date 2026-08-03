@@ -60,6 +60,7 @@ fn activate_life_gain(
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // This transcript needs both distinct trigger instances and the stale replay boundary.
 fn stale_optional_trigger_response_cannot_answer_a_later_identical_trigger() {
     let controller = PlayerId(0);
     let mut game = Game::new_with_all_bindings_and_triggers(
@@ -112,6 +113,7 @@ fn stale_optional_trigger_response_cannot_answer_a_later_identical_trigger() {
         controller,
         "optional-trigger-stale-choice.first-decline.v1",
         PolicyAction::ResolveOptionalTriggeredAbility {
+            decision: first_choice.decision,
             source,
             ability: TRIGGER,
             pay: false,
@@ -130,6 +132,7 @@ fn stale_optional_trigger_response_cannot_answer_a_later_identical_trigger() {
         controller,
         "optional-trigger-stale-choice.replay.v1",
         PolicyAction::ResolveOptionalTriggeredAbility {
+            decision: first_choice.decision,
             source,
             ability: TRIGGER,
             pay: false,
@@ -142,8 +145,26 @@ fn stale_optional_trigger_response_cannot_answer_a_later_identical_trigger() {
         game.stack,
         game.canonical_event_log(),
     );
+    assert_ne!(
+        first_choice.decision, second_choice.decision,
+        "every optional trigger instance needs a fresh monotonic identity"
+    );
     assert!(
         stale_result.is_err(),
         "a response captured for the first optional trigger must not be accepted for a later identical trigger"
     );
+    game.submit_policy_move(
+        controller,
+        "optional-trigger-stale-choice.second-decline.v1",
+        PolicyAction::ResolveOptionalTriggeredAbility {
+            decision: second_choice.decision,
+            source,
+            ability: TRIGGER,
+            pay: false,
+            target: None,
+        },
+    )
+    .expect("the current optional trigger id remains legal");
+    game.validate_invariants()
+        .expect("fresh optional-trigger identity remains invariant-valid");
 }

@@ -147,6 +147,7 @@ fn accepted_optional_trigger_does_not_reopen_after_middle_quantity_replacement()
         controller,
         "optional-trigger-quantity-resume-red.accept.v1",
         PolicyAction::ResolveOptionalTriggeredAbility {
+            decision: optional.decision,
             source,
             ability: ABILITY,
             pay: true,

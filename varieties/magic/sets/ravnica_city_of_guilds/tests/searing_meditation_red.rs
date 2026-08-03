@@ -126,6 +126,12 @@ fn searing_meditation_pays_two_and_deals_two_after_life_gain() {
         PlayerId(0),
         "test.searing-pay.v1",
         PolicyAction::ResolveOptionalTriggeredAbility {
+            decision: game
+                .view_for_player(PlayerId(0))
+                .expect("controller view")
+                .optional_triggered_ability_choice
+                .expect("optional trigger choice")
+                .decision,
             source: meditation,
             ability: "life-gain-deal-two",
             pay: true,
@@ -221,6 +227,12 @@ fn searing_meditation_may_decline_when_two_mana_is_unavailable() {
         PlayerId(0),
         "test.searing-decline.v1",
         PolicyAction::ResolveOptionalTriggeredAbility {
+            decision: game
+                .view_for_player(PlayerId(0))
+                .expect("controller view")
+                .optional_triggered_ability_choice
+                .expect("optional trigger choice")
+                .decision,
             source: meditation,
             ability: "life-gain-deal-two",
             pay: false,

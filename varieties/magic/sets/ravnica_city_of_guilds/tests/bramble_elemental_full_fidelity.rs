@@ -145,6 +145,12 @@ fn bramble_elemental_accepts_its_controller_aura_entry_and_creates_one_saproling
         PlayerId(0),
         "bramble-elemental-test.v1",
         PolicyAction::ResolveOptionalTriggeredAbility {
+            decision: game
+                .view_for_player(PlayerId(0))
+                .expect("controller view")
+                .optional_triggered_ability_choice
+                .expect("optional trigger choice")
+                .decision,
             source: bramble,
             ability: "controlled-aura-enters-create-saproling",
             pay: true,
@@ -181,6 +187,12 @@ fn bramble_elemental_decline_creates_no_token() {
         PlayerId(0),
         "bramble-elemental-test.v1",
         PolicyAction::ResolveOptionalTriggeredAbility {
+            decision: game
+                .view_for_player(PlayerId(0))
+                .expect("controller view")
+                .optional_triggered_ability_choice
+                .expect("optional trigger choice")
+                .decision,
             source: bramble,
             ability: "controlled-aura-enters-create-saproling",
             pay: false,

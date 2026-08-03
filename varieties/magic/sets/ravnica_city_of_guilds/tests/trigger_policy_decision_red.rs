@@ -194,6 +194,7 @@ fn optional_trigger_payment_does_not_auto_pay_at_resolution() {
         PlayerId(0),
         "test.pay-optional-trigger.v1",
         PolicyAction::ResolveOptionalTriggeredAbility {
+            decision: choice.decision,
             source: meditation,
             ability: "life-gain-deal-two",
             pay: true,

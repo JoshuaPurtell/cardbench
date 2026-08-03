@@ -70,6 +70,12 @@ fn another_creature_dying_stacks_then_resolves_all_player_discards() {
         PlayerId(0),
         "test.augermage-accept.v1",
         PolicyAction::ResolveOptionalTriggeredAbility {
+            decision: game
+                .view_for_player(PlayerId(0))
+                .expect("controller view")
+                .optional_triggered_ability_choice
+                .expect("optional trigger choice")
+                .decision,
             source: augermage,
             ability: "another-creature-dies-each-player-discards",
             pay: true,

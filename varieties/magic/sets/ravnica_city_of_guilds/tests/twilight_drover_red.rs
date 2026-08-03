@@ -124,6 +124,12 @@ fn twilight_drover_triggers_when_another_creature_bounces_and_creates_spirit() {
         PlayerId(0),
         "twilight-drover-test.v1",
         PolicyAction::ResolveOptionalTriggeredAbility {
+            decision: game
+                .view_for_player(PlayerId(0))
+                .expect("controller view")
+                .optional_triggered_ability_choice
+                .expect("optional trigger choice")
+                .decision,
             source: drover,
             ability: "another-creature-leaves-plus-one-counter",
             pay: true,

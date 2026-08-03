@@ -145,6 +145,12 @@ fn spawnbroker_exchanges_two_targets_and_the_other_half_survives_source_departur
         PlayerId(0),
         "spawnbroker-accept.v1",
         PolicyAction::ResolveOptionalTriggeredAbility {
+            decision: game
+                .view_for_player(PlayerId(0))
+                .expect("controller view")
+                .optional_triggered_ability_choice
+                .expect("optional trigger choice")
+                .decision,
             source: broker,
             ability: EXCHANGE_ABILITY,
             pay: true,
@@ -244,6 +250,12 @@ fn spawnbroker_rejects_an_overpowered_second_target_without_mutation_then_may_de
         PlayerId(0),
         "spawnbroker-decline.v1",
         PolicyAction::ResolveOptionalTriggeredAbility {
+            decision: game
+                .view_for_player(PlayerId(0))
+                .expect("controller view")
+                .optional_triggered_ability_choice
+                .expect("optional trigger choice")
+                .decision,
             source: broker,
             ability: EXCHANGE_ABILITY,
             pay: false,
@@ -313,6 +325,7 @@ fn spawnbroker_never_partially_exchanges_when_a_selected_target_leaves_before_re
         PlayerId(0),
         "spawnbroker-illegal-pair.v1",
         PolicyAction::ResolveOptionalTriggeredAbility {
+            decision: choice.decision,
             source: broker,
             ability: EXCHANGE_ABILITY,
             pay: true,

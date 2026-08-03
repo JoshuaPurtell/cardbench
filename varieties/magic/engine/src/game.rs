@@ -260,8 +260,11 @@ pub enum PolicyAction {
         replacement: DamageReplacementChoice,
     },
     /// Accepts or declines an optional triggered mana payment after every
-    /// player has passed. A conditional target is supplied only when paying.
+    /// player has passed. The exact monotonic decision id keeps a response to
+    /// one trigger from resolving a later identical trigger from the same
+    /// source. A conditional target is supplied only when paying.
     ResolveOptionalTriggeredAbility {
+        decision: DecisionId,
         source: ObjectId,
         ability: &'static str,
         pay: bool,
@@ -469,6 +472,9 @@ pub struct TriggeredAbilityTargetChoiceView {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct OptionalTriggeredAbilityChoiceView {
+    /// Policies must echo this id. Source and ability names are not unique
+    /// across repeated trigger instances.
+    pub decision: DecisionId,
     pub source: ObjectId,
     pub ability: &'static str,
     pub mana_cost: ManaCost,
@@ -715,6 +721,7 @@ struct PendingPrivateOpponentLibraryExileChoice {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct PendingOptionalTriggeredAbilityChoice {
+    decision: DecisionId,
     source: ObjectId,
     source_incarnation: u64,
     source_colors: BTreeSet<Color>,
@@ -4144,6 +4151,7 @@ impl Game {
                 });
                 let mut pool = self.players[choice.controller.0].mana_pool.clone();
                 OptionalTriggeredAbilityChoiceView {
+                    decision: choice.decision,
                     source: choice.source,
                     ability: choice.ability.id,
                     mana_cost: choice.ability.mana_cost.clone(),
@@ -4448,12 +4456,15 @@ impl Game {
                 )?;
             }
             PolicyAction::ResolveOptionalTriggeredAbility {
+                decision,
                 source,
                 ability,
                 pay,
                 target,
             } => {
-                self.resolve_optional_triggered_ability(player, source, ability, pay, target)?;
+                self.resolve_optional_triggered_ability(
+                    player, decision, source, ability, pay, target,
+                )?;
             }
             PolicyAction::SubmitDecision {
                 decision,
@@ -11909,11 +11920,7 @@ impl Game {
                 "pending decision has invalid selection cardinality",
             ));
         }
-        let id = DecisionId(self.next_decision_id);
-        self.next_decision_id = self
-            .next_decision_id
-            .checked_add(1)
-            .ok_or(RulesError::IllegalAction("decision id space exhausted"))?;
+        let id = self.allocate_decision_id()?;
         if matches!(
             continuation,
             DecisionContinuation::TriggeredAbilityOrder { .. }
@@ -11943,6 +11950,18 @@ impl Game {
         self.pending_decision = Some(decision);
         self.priority = player;
         self.consecutive_passes = 0;
+        Ok(id)
+    }
+
+    /// Allocates the shared, never-reused identity space for every
+    /// no-priority policy response. Compatibility projections must not
+    /// reintroduce an identity-free state-machine transition.
+    fn allocate_decision_id(&mut self) -> Result<DecisionId, RulesError> {
+        let id = DecisionId(self.next_decision_id);
+        self.next_decision_id = self
+            .next_decision_id
+            .checked_add(1)
+            .ok_or(RulesError::IllegalAction("decision id space exhausted"))?;
         Ok(id)
     }
 
@@ -13272,7 +13291,9 @@ impl Game {
                 .ok()
                 .and_then(|definition| self.triggered_abilities.get(definition.id))
                 .and_then(|abilities| abilities.get(choice.ability.id));
-            if top.card != choice.source
+            if choice.decision.0 == 0
+                || choice.decision.0 >= self.next_decision_id
+                || top.card != choice.source
                 || top.controller != choice.controller
                 || top.ability_id != Some(choice.ability.id)
                 || top.source_incarnation != choice.source_incarnation
@@ -17328,14 +17349,21 @@ impl Game {
                         })
                 })
         {
+            let source = top.card;
+            let source_incarnation = top.source_incarnation;
+            let source_colors = top.source_colors.clone();
+            let controller = top.controller;
+            let ability = ability.clone();
+            let decision = self.allocate_decision_id()?;
             self.pending_optional_trigger_choice = Some(PendingOptionalTriggeredAbilityChoice {
-                source: top.card,
-                source_incarnation: top.source_incarnation,
-                source_colors: top.source_colors.clone(),
-                controller: top.controller,
-                ability: ability.clone(),
+                decision,
+                source,
+                source_incarnation,
+                source_colors,
+                controller,
+                ability,
             });
-            self.priority = top.controller;
+            self.priority = controller;
             self.consecutive_passes = 0;
             return Ok(());
         }
@@ -20884,6 +20912,7 @@ impl Game {
     fn resolve_optional_triggered_ability(
         &mut self,
         player: PlayerId,
+        decision: DecisionId,
         source: ObjectId,
         ability_id: &'static str,
         pay: bool,
@@ -20896,12 +20925,13 @@ impl Game {
                     .ok_or(RulesError::IllegalAction(
                         "no optional triggered ability is awaiting a decision",
                     ))?;
-            if player != choice.controller
+            if decision != choice.decision
+                || player != choice.controller
                 || source != choice.source
                 || ability_id != choice.ability.id
             {
                 return Err(RulesError::IllegalAction(
-                    "optional trigger decision does not match the pending controller or identity",
+                    "optional trigger decision does not match the pending id, controller, or identity",
                 ));
             }
             let requirement = Self::optional_trigger_target_requirement(&choice.ability);

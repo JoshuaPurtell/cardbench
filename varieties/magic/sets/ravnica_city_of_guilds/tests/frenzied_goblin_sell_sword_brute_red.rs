@@ -84,6 +84,12 @@ fn frenzied_goblin_attack_trigger_pays_red_and_restricts_a_blocker() {
         PlayerId(0),
         "test.frenzied-pay.v1",
         PolicyAction::ResolveOptionalTriggeredAbility {
+            decision: game
+                .view_for_player(PlayerId(0))
+                .expect("controller view")
+                .optional_triggered_ability_choice
+                .expect("optional trigger choice")
+                .decision,
             source: goblin,
             ability: "attack-cannot-block",
             pay: true,
@@ -151,6 +157,12 @@ fn frenzied_goblin_target_remains_able_to_attack() {
         PlayerId(0),
         "test.frenzied-pay.v1",
         PolicyAction::ResolveOptionalTriggeredAbility {
+            decision: game
+                .view_for_player(PlayerId(0))
+                .expect("controller view")
+                .optional_triggered_ability_choice
+                .expect("optional trigger choice")
+                .decision,
             source: goblin,
             ability: "attack-cannot-block",
             pay: true,

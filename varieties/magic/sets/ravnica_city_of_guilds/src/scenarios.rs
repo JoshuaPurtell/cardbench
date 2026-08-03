@@ -983,6 +983,12 @@ fn execute_action(
             .map_err(rules_error)
         }
         "resolve_optional_trigger" => {
+            let decision = game
+                .view_for_player(player)
+                .map_err(rules_error)?
+                .optional_triggered_ability_choice
+                .ok_or_else(|| "no optional triggered ability decision is pending".to_owned())?
+                .decision;
             let source = lookup(labels, &action.card)?;
             let definition = game.card_definition(source).map_err(rules_error)?.id;
             let ability_id = rav_triggered_ability_bindings()
@@ -1005,6 +1011,7 @@ fn execute_action(
                 player,
                 "rav-scenario.resolve-optional-trigger.v1",
                 cardbench_magic_engine::PolicyAction::ResolveOptionalTriggeredAbility {
+                    decision,
                     source,
                     ability: ability_id,
                     pay: action.pay,

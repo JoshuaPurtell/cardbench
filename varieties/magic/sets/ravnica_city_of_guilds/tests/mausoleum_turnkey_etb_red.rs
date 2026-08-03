@@ -130,6 +130,7 @@ fn mausoleum_turnkey_stacks_and_resolves_when_another_creature_remains() {
         PlayerId(0),
         "test.mausoleum-turnkey-accept.v1",
         PolicyAction::ResolveOptionalTriggeredAbility {
+            decision: optional_choice.decision,
             source: turnkey,
             ability: "conditional-graveyard-return",
             pay: true,
@@ -202,6 +203,12 @@ fn mausoleum_turnkey_controller_may_decline_the_selected_return() {
         PlayerId(0),
         "test.mausoleum-turnkey-decline.v1",
         PolicyAction::ResolveOptionalTriggeredAbility {
+            decision: game
+                .view_for_player(PlayerId(0))
+                .expect("controller view")
+                .optional_triggered_ability_choice
+                .expect("optional trigger choice")
+                .decision,
             source: turnkey,
             ability: "conditional-graveyard-return",
             pay: false,
