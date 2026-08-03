@@ -112,12 +112,20 @@ fn firemane_angel_gains_life_from_battlefield_and_owner_graveyard_then_returns_f
     let graveyard_angel = graveyard_game
         .add_card(controller, "RAV-FIREMANE-ANGEL", Zone::Graveyard)
         .expect("graveyard Angel setup");
-    graveyard_game
-        .grant_mana(controller, Color::Red, 8)
-        .expect("red activation mana");
-    graveyard_game
-        .grant_mana(controller, Color::White, 2)
-        .expect("white activation mana");
+    let mountains = (0..8)
+        .map(|_| {
+            graveyard_game
+                .put_on_battlefield(controller, "RAV-MOUNTAIN")
+                .expect("red mana source setup")
+        })
+        .collect::<Vec<_>>();
+    let plains = (0..2)
+        .map(|_| {
+            graveyard_game
+                .put_on_battlefield(controller, "RAV-PLAINS")
+                .expect("white mana source setup")
+        })
+        .collect::<Vec<_>>();
     graveyard_game.begin_game().expect("game begins");
     pass_pair(&mut graveyard_game);
     assert_eq!(
@@ -127,6 +135,16 @@ fn firemane_angel_gains_life_from_battlefield_and_owner_graveyard_then_returns_f
             .life,
         21
     );
+    for mountain in mountains {
+        graveyard_game
+            .activate_mana_ability(controller, mountain, Color::Red)
+            .expect("red activation mana");
+    }
+    for plain in plains {
+        graveyard_game
+            .activate_mana_ability(controller, plain, Color::White)
+            .expect("white activation mana");
+    }
     graveyard_game
         .activate_ability(
             controller,

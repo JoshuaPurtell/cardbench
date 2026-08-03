@@ -2,7 +2,7 @@
 
 use cardbench_magic_engine::{
     AbilityActivation, CardType, CastRequest, Color, Effect, Game, GameEvent, ManaCost, PlayerId,
-    PolicyAction, Target, TargetRequirement, TriggerCondition, Zone,
+    PolicyAction, Step, Target, TargetRequirement, TriggerCondition, Zone,
 };
 use cardbench_magic_rav::{
     card_definitions, rav_activated_ability_bindings, rav_additional_spell_cost_bindings,
@@ -34,6 +34,12 @@ fn pass_pair(game: &mut Game) {
     game.pass_priority(first).expect("first player passes");
     let second = game.priority;
     game.pass_priority(second).expect("second player passes");
+}
+
+fn advance_to_precombat_main(game: &mut Game) {
+    while game.step != Step::PrecombatMain {
+        pass_pair(game);
+    }
 }
 
 #[test]
@@ -102,9 +108,18 @@ fn strands_of_undeath_discards_on_entry_then_grants_regeneration_to_its_exact_cr
     let discarded = game
         .add_card(opponent, "RAV-WATCHWOLF", Zone::Hand)
         .expect("opponent hand setup");
-    game.grant_mana(controller, Color::Black, 5)
-        .expect("Aura and activation mana");
+    let swamps = (0..5)
+        .map(|_| {
+            game.put_on_battlefield(controller, "RAV-SWAMP")
+                .expect("black mana source setup")
+        })
+        .collect::<Vec<_>>();
     game.begin_game().expect("game begins");
+    advance_to_precombat_main(&mut game);
+    for swamp in swamps {
+        game.activate_mana_ability(controller, swamp, Color::Black)
+            .expect("Aura and activation mana");
+    }
 
     game.cast_spell(
         controller,
