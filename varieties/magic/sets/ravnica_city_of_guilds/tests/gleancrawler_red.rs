@@ -3,8 +3,7 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardType, CastRequest, Color, Game, GameEvent, Keyword, ManaCost, PlayerId, Step, Target,
-    Zone,
+    CardType, CastRequest, Color, Game, GameEvent, Keyword, ManaCost, PlayerId, Step, Target, Zone,
 };
 use cardbench_magic_rav::{
     RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, executable_definition_id_for_collector,
@@ -40,6 +39,12 @@ fn advance_to_step(game: &mut Game, step: Step) {
         if game.step == step {
             return;
         }
+        if game.step == Step::DeclareAttackers {
+            game.declare_attackers(game.active_player, &[])
+                .expect("fixture declares no attackers while advancing");
+            pass_pair(game);
+            continue;
+        }
         pass_pair(game);
     }
     panic!("fixture did not reach {step:?}");
@@ -61,7 +66,10 @@ fn gleancrawler_requires_exact_controller_end_step_return_definition() {
         definition.mana_cost,
         ManaCost::with_colors(3, [Color::Black, Color::Green])
     );
-    assert_eq!(definition.colors, BTreeSet::from([Color::Black, Color::Green]));
+    assert_eq!(
+        definition.colors,
+        BTreeSet::from([Color::Black, Color::Green])
+    );
     assert_eq!(definition.card_types, BTreeSet::from([CardType::Creature]));
     assert_eq!((definition.power, definition.toughness), (Some(6), Some(6)));
     assert_eq!(definition.keywords, vec![Keyword::Trample]);
@@ -91,11 +99,14 @@ fn gleancrawler_returns_only_its_controllers_creature_cards_that_died_this_turn(
     let removal = game
         .add_card(controller, "RAV-LAST-GASP", Zone::Hand)
         .expect("removal setup");
-    game.grant_mana(controller, Color::Black, 1)
-        .expect("removal payment setup");
+    let swamp = game
+        .put_on_battlefield(controller, "RAV-SWAMP")
+        .expect("removal mana source setup");
 
     game.begin_game().expect("game begins");
     advance_to_step(&mut game, Step::PrecombatMain);
+    game.activate_mana_ability(controller, swamp, Color::Black)
+        .expect("Swamp produces black mana");
     game.cast_spell(
         controller,
         CastRequest {

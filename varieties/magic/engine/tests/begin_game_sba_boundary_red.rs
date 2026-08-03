@@ -63,6 +63,9 @@ fn game_start_applies_zero_toughness_sba_before_upkeep_priority() {
             ),
             format!("CardMoved {{ card: {creature:?}, to: Graveyard }}"),
             format!("ObjectIncarnationAdvanced {{ object: {creature:?}, incarnation: 2 }}"),
+            format!(
+                "CreatureCardPutIntoGraveyardFromBattlefieldThisTurn {{ turn: 1, player: {player:?}, card: {creature:?}, incarnation: 2 }}"
+            ),
             format!("StepBegan {{ turn: 1, active_player: {player:?}, step: Upkeep }}"),
         ],
         "the turn boundary records Untap, stabilizes SBAs, then opens Upkeep priority"

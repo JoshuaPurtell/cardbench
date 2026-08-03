@@ -46,7 +46,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 274] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 275] = [
     "RAV-CHAR",
     "RAV-AGRUS-KOS-WOJEK-VETERAN",
     "RAV-INSTILL-FUROR",
@@ -161,6 +161,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 274] = [
     "RAV-DIMIR-GUILDMAGE",
     "RAV-DIMIR-CUTPURSE",
     "RAV-MINDLEECH-MASS",
+    "RAV-GLEANCRAWLER",
     "RAV-DIMIR-HOUSE-GUARD",
     "RAV-DIMIR-MACHINATIONS",
     "RAV-PERPLEX",
@@ -5036,6 +5037,30 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Trample],
             effects: vec![],
         },
+        // Full fidelity: the source controller's own end step reads only
+        // that turn's exact creature-card battlefield-to-graveyard
+        // incarnations, then returns every still-matching card to hand.
+        CardDefinition {
+            id: "RAV-GLEANCRAWLER",
+            name: "Gleancrawler",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(3, [Color::Black, Color::Green]),
+            colors: colors([Color::Black, Color::Green]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "trample",
+                "controller-end-step-return-creature-cards-put-into-graveyard-from-battlefield-this-turn",
+            ],
+            power: Some(6),
+            toughness: Some(6),
+            keywords: vec![Keyword::Trample],
+            effects: vec![],
+        },
         // Full fidelity: a player-targeted stack activation pays generic two
         // and taps this hybrid creature, then suspends for the controller's
         // private, explicit may-choice over the exact current top card of the
@@ -8932,6 +8957,19 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                 optional: false,
                 targets: vec![],
                 effects: vec![Effect::DiscardCombatDamagePlayer { count: 3 }],
+            },
+        },
+        TriggeredAbilityBinding {
+            card_definition: "RAV-GLEANCRAWLER",
+            ability: TriggeredAbility {
+                id: "controller-end-step-return-this-turn-battlefield-creatures",
+                condition: TriggerCondition::BeginningOfControllerEndStep,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![
+                    Effect::ReturnControllerCreatureCardsPutIntoGraveyardFromBattlefieldThisTurnToHand,
+                ],
             },
         },
         TriggeredAbilityBinding {

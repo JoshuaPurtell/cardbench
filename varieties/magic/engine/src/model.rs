@@ -392,6 +392,11 @@ pub enum TriggerCondition {
     /// trigger event before priority, so an effect can refer to that player
     /// even though the trigger source may be controlled by another player.
     BeginningOfAnyEndStep,
+    /// The end step began for this source's current controller. The source
+    /// controller is captured with the trigger before either player receives
+    /// priority, so a later control change cannot make an old trigger occur
+    /// on another player's turn.
+    BeginningOfControllerEndStep,
     /// The end step began for the player who currently controls the exact
     /// creature to which this Aura source is attached. This models an ability
     /// granted by an Aura to its enchanted creature: the Aura remains the
@@ -2737,6 +2742,11 @@ pub enum Effect {
         /// Public name of the captured creature spell.
         name: &'static str,
     },
+    /// Return every current creature card in the trigger source controller's
+    /// graveyard that entered there from the battlefield during this turn.
+    /// The eligible graveyard incarnations are retained by the game state
+    /// machine, rather than inferred from a final-zone snapshot.
+    ReturnControllerCreatureCardsPutIntoGraveyardFromBattlefieldThisTurnToHand,
     /// Marker bound to an upkeep trigger from an Aura-like source. It
     /// materializes into the exact attached creature captured at the upkeep
     /// boundary before the trigger becomes a stack object.
@@ -3120,6 +3130,7 @@ impl Effect {
             | Self::ReturnOneCreatureCardFromEachGraveyardToHand
             | Self::ReturnAllCreatureCardsMatchingCastCreatureSpellNameFromGraveyards
             | Self::ReturnAllCreatureCardsMatchingNameFromGraveyards { .. }
+            | Self::ReturnControllerCreatureCardsPutIntoGraveyardFromBattlefieldThisTurnToHand
             | Self::CreateTokenCopyOfAttachedCreature
             | Self::CreateTokenCopyOfPermanent { .. }
             | Self::ReturnUpToThreeControllerGraveyardLandCardsToHand
@@ -5149,6 +5160,15 @@ pub enum GameEvent {
     /// without conflating a returned object with its former self.
     ObjectIncarnationAdvanced {
         object: ObjectId,
+        incarnation: u64,
+    },
+    /// A non-token creature card moved from the battlefield to its owner's
+    /// graveyard during this exact turn. The graveyard incarnation is the
+    /// durable candidate identity for controller-end-step return effects.
+    CreatureCardPutIntoGraveyardFromBattlefieldThisTurn {
+        turn: u32,
+        player: PlayerId,
+        card: ObjectId,
         incarnation: u64,
     },
     /// A live static entry restriction changed an ordinary battlefield entry

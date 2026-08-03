@@ -1073,6 +1073,12 @@ pub struct Game {
     /// still satisfied an earlier "attacked this turn" condition, while a
     /// returned object has a fresh incarnation and cannot inherit it.
     attacked_creature_incarnations_this_turn: BTreeSet<(ObjectId, u64)>,
+    /// Exact current graveyard incarnations of non-token creature cards that
+    /// moved there from the battlefield during this turn. A later zone change
+    /// removes the candidate, and the next Untap boundary clears the turn
+    /// scope, so controller-end-step returns cannot reach stale objects.
+    creature_cards_put_into_graveyard_from_battlefield_this_turn:
+        BTreeSet<(PlayerId, ObjectId, u64)>,
     /// Live virtual spell copies keyed by their unique stack-only identity.
     /// This map is the ownership boundary that prevents a copy terminal path
     /// from moving the original physical card.
@@ -1413,6 +1419,7 @@ impl Game {
             spell_timing_exceptions: BTreeSet::new(),
             noncreature_spell_casters_this_turn: BTreeSet::new(),
             attacked_creature_incarnations_this_turn: BTreeSet::new(),
+            creature_cards_put_into_graveyard_from_battlefield_this_turn: BTreeSet::new(),
             virtual_spell_copies: BTreeMap::new(),
             deferred_virtual_sources: BTreeMap::new(),
             exile_on_resolution: BTreeSet::new(),
@@ -2008,6 +2015,7 @@ impl Game {
                         | TriggerCondition::BeginningOfAnyUpkeep
                         | TriggerCondition::BeginningOfAttachedCreaturesControllerUpkeep
                         | TriggerCondition::BeginningOfAnyEndStep
+                        | TriggerCondition::BeginningOfControllerEndStep
                         | TriggerCondition::BeginningOfAttachedCreaturesControllerEndStep
                         | TriggerCondition::LifeGained
                         | TriggerCondition::DealsDamage
@@ -4414,6 +4422,9 @@ impl Game {
             || !self.virtual_spell_copies.is_empty()
             || !self.spell_timing_exceptions.is_empty()
             || !self.delayed_actions.is_empty()
+            || !self
+                .creature_cards_put_into_graveyard_from_battlefield_this_turn
+                .is_empty()
             || self.objects.values().any(|object| {
                 object.attached_to.is_some()
                     && object
@@ -14498,6 +14509,7 @@ impl Game {
         Self::validate_trigger_order_event_order(&self.event_log)?;
         self.validate_any_upkeep_trigger_event_order()?;
         self.validate_any_end_step_trigger_event_order()?;
+        self.validate_controller_end_step_trigger_event_order()?;
         self.validate_attached_creature_controller_end_step_trigger_event_order()?;
         self.validate_blocks_trigger_event_order()?;
         self.validate_enters_battlefield_trigger_event_order()?;
@@ -14510,6 +14522,7 @@ impl Game {
         Self::validate_spell_mana_payment_event_order(&self.event_log)?;
         Self::validate_creature_spell_extra_mana_payment_event_order(&self.event_log)?;
         self.validate_first_noncreature_spell_cast_event_order()?;
+        self.validate_creature_card_battlefield_graveyard_turn_history()?;
         Self::validate_counter_unless_pays_payment_event_order(&self.event_log)?;
         Self::validate_counter_unless_discard_hand_event_order(&self.event_log)?;
         self.validate_additional_spell_cost_event_order()?;
@@ -14960,6 +14973,7 @@ impl Game {
                             | TriggerCondition::BeginningOfAnyUpkeep
                             | TriggerCondition::BeginningOfAttachedCreaturesControllerUpkeep
                             | TriggerCondition::BeginningOfAnyEndStep
+                            | TriggerCondition::BeginningOfControllerEndStep
                             | TriggerCondition::BeginningOfAttachedCreaturesControllerEndStep
                             | TriggerCondition::LifeGained
                             | TriggerCondition::DealsDamage
@@ -18501,6 +18515,7 @@ impl Game {
                 | Effect::ReturnOneCreatureCardFromEachGraveyardToHand
                 | Effect::ReturnAllCreatureCardsMatchingCastCreatureSpellNameFromGraveyards
                 | Effect::ReturnAllCreatureCardsMatchingNameFromGraveyards { .. }
+                | Effect::ReturnControllerCreatureCardsPutIntoGraveyardFromBattlefieldThisTurnToHand
                 | Effect::CreateTokenCopyOfAttachedCreature
                 | Effect::CreateTokenCopyOfPermanent { .. }
                 | Effect::ReturnUpToThreeControllerGraveyardLandCardsToHand
@@ -23049,6 +23064,11 @@ impl Game {
             for ability in triggers {
                 let controller = match ability.condition {
                     TriggerCondition::BeginningOfAnyEndStep => source_controller,
+                    TriggerCondition::BeginningOfControllerEndStep
+                        if source_controller == active_player =>
+                    {
+                        source_controller
+                    }
                     TriggerCondition::BeginningOfAttachedCreaturesControllerEndStep => {
                         let Some(attached_creature) = self
                             .attached_creature_for_source_incarnation(source, source_incarnation)?
@@ -28956,6 +28976,28 @@ impl Game {
                     name,
                 )?;
             }
+            Effect::ReturnControllerCreatureCardsPutIntoGraveyardFromBattlefieldThisTurnToHand => {
+                // Snapshot the complete current-turn provenance group before
+                // moving any card. A card that left and returned to the
+                // graveyard has a different incarnation and is not an old
+                // candidate; a card that has already left is removed from the
+                // group by the ordinary zone-transition path.
+                let returns = self
+                    .creature_cards_put_into_graveyard_from_battlefield_this_turn
+                    .iter()
+                    .filter_map(|(owner, card, incarnation)| {
+                        (*owner == controller
+                            && self.zone_of(*card) == Some(Zone::Graveyard)
+                            && self.object(*card).is_ok_and(|object| {
+                                object.owner == controller && object.incarnation == *incarnation
+                            }))
+                        .then_some(*card)
+                    })
+                    .collect::<Vec<_>>();
+                for card in returns {
+                    self.move_to_zone(card, Zone::Hand)?;
+                }
+            }
             Effect::CreateTokenCopyOfAttachedCreature => {
                 return Err(RulesError::IllegalAction(
                     "attached-creature token-copy marker escaped trigger materialization",
@@ -29692,6 +29734,8 @@ impl Game {
             self.turn += 1;
             self.noncreature_spell_casters_this_turn.clear();
             self.attacked_creature_incarnations_this_turn.clear();
+            self.creature_cards_put_into_graveyard_from_battlefield_this_turn
+                .clear();
             self.library_search_prevented_until = None;
         }
         self.priority = self.priority_after_resolution();
@@ -31036,9 +31080,26 @@ impl Game {
             .transpose()?;
         let left_battlefield =
             previous_zone == Some(Zone::Battlefield) && zone != Zone::Battlefield;
+        // A creature card's graveyard status is determined from its physical
+        // card definition, not a temporary animation or a layer-one copied
+        // battlefield definition. The tracked incarnation below is assigned
+        // only after the ordinary zone change exposes the new graveyard
+        // object.
+        let creature_card_to_own_graveyard_from_battlefield = previous_zone
+            == Some(Zone::Battlefield)
+            && zone == Zone::Graveyard
+            && object.token.is_none()
+            && object
+                .definition
+                .and_then(|definition| self.catalog.get(definition))
+                .is_some_and(|definition| definition.card_types.contains(&CardType::Creature));
         let battlefield_controller = left_battlefield
             .then(|| self.controller_of(card))
             .transpose()?;
+        if previous_zone == Some(Zone::Graveyard) && zone != Zone::Graveyard {
+            self.creature_cards_put_into_graveyard_from_battlefield_this_turn
+                .retain(|(_, tracked_card, _)| *tracked_card != card);
+        }
         if previous_zone == Some(Zone::Exile) && zone != Zone::Exile {
             self.unlink_hand_exile_member_before_zone_departure(card, object.incarnation);
             self.unlink_exiled_spell_copy_member_before_zone_departure(card, object.incarnation);
@@ -31140,6 +31201,19 @@ impl Game {
                 object: card,
                 incarnation: self.object(card)?.incarnation,
             });
+        }
+        if creature_card_to_own_graveyard_from_battlefield {
+            let incarnation = self.object(card)?.incarnation;
+            self.creature_cards_put_into_graveyard_from_battlefield_this_turn
+                .insert((object.owner, card, incarnation));
+            self.record_event(
+                GameEvent::CreatureCardPutIntoGraveyardFromBattlefieldThisTurn {
+                    turn: self.turn,
+                    player: object.owner,
+                    card,
+                    incarnation,
+                },
+            );
         }
         if zone == Zone::Battlefield {
             self.apply_entry_coin_flip_if_needed(card)?;
@@ -31980,6 +32054,17 @@ impl Game {
         {
             return Err(RulesError::IllegalAction(
                 "end-step-player untapped-land sacrifice requires one target-free any-end-step trigger effect",
+            ));
+        }
+        if ability.effects.contains(
+            &Effect::ReturnControllerCreatureCardsPutIntoGraveyardFromBattlefieldThisTurnToHand,
+        ) && (ability.condition != TriggerCondition::BeginningOfControllerEndStep
+            || !ability.targets.is_empty()
+            || ability.effects.as_slice()
+                != [Effect::ReturnControllerCreatureCardsPutIntoGraveyardFromBattlefieldThisTurnToHand])
+        {
+            return Err(RulesError::IllegalAction(
+                "current-turn creature return requires one target-free controller end-step trigger",
             ));
         }
         if ability
@@ -34368,6 +34453,84 @@ impl Game {
         Ok(())
     }
 
+    /// Audits the live current-turn provenance used by controller end-step
+    /// creature-card return effects. Every live candidate is one exact
+    /// graveyard incarnation, owned by the recorded player, and must retain
+    /// the ordinary zone/incarnation receipts plus its turn-history receipt.
+    fn validate_creature_card_battlefield_graveyard_turn_history(&self) -> Result<(), RulesError> {
+        let mut recorded = BTreeSet::new();
+        for (index, event) in self.event_log.iter().enumerate() {
+            let GameEvent::CreatureCardPutIntoGraveyardFromBattlefieldThisTurn {
+                turn,
+                player,
+                card,
+                incarnation,
+            } = event
+            else {
+                continue;
+            };
+            let is_physical_creature_card = self.objects.get(card).is_some_and(|object| {
+                object.owner == *player
+                    && object.token.is_none()
+                    && object
+                        .definition
+                        .and_then(|definition| self.catalog.get(definition))
+                        .is_some_and(|definition| {
+                            definition.card_types.contains(&CardType::Creature)
+                        })
+            });
+            if *turn == 0
+                || *turn > self.turn
+                || player.0 >= self.players.len()
+                || card.0 == 0
+                || *incarnation == 0
+                || !recorded.insert((*turn, *player, *card, *incarnation))
+                || !is_physical_creature_card
+                || !matches!(
+                    self.event_log.get(index.checked_sub(1).unwrap_or(usize::MAX)),
+                    Some(GameEvent::ObjectIncarnationAdvanced {
+                        object,
+                        incarnation: advanced,
+                    }) if object == card && advanced == incarnation
+                )
+                || !matches!(
+                    index.checked_sub(2).and_then(|prior| self.event_log.get(prior)),
+                    Some(GameEvent::CardMoved { card: moved, to: Zone::Graveyard })
+                        if moved == card
+                )
+            {
+                return Err(RulesError::IllegalAction(
+                    "creature-card battlefield-graveyard turn receipt lacks exact transition provenance",
+                ));
+            }
+        }
+        if self
+            .creature_cards_put_into_graveyard_from_battlefield_this_turn
+            .iter()
+            .any(|(player, card, incarnation)| {
+                *incarnation == 0
+                    || self.zone_of(*card) != Some(Zone::Graveyard)
+                    || !self.objects.get(card).is_some_and(|object| {
+                        object.owner == *player
+                            && object.incarnation == *incarnation
+                            && object.token.is_none()
+                            && object
+                                .definition
+                                .and_then(|definition| self.catalog.get(definition))
+                                .is_some_and(|definition| {
+                                    definition.card_types.contains(&CardType::Creature)
+                                })
+                    })
+                    || !recorded.contains(&(self.turn, *player, *card, *incarnation))
+            })
+        {
+            return Err(RulesError::IllegalAction(
+                "current-turn creature graveyard history has stale or missing provenance",
+            ));
+        }
+        Ok(())
+    }
+
     /// A resolution-time "unless pays" receipt has no ordinary priority
     /// window around it.  It must therefore be immediately followed by the
     /// matching generic decision completion, after which the retained top
@@ -34911,6 +35074,57 @@ impl Game {
             ) {
                 return Err(RulesError::IllegalAction(
                     "any-end-step trigger lacks its active-player end-step boundary",
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// A source-controller end-step trigger can enter the stack only at its
+    /// controller's own End step. The stack controller is captured at trigger
+    /// placement, so this checks the historical boundary without requiring
+    /// the source to remain controlled or on the battlefield at resolution.
+    fn validate_controller_end_step_trigger_event_order(&self) -> Result<(), RulesError> {
+        for (stacked_index, event) in self.event_log.iter().enumerate() {
+            let GameEvent::TriggeredAbilityStacked {
+                source,
+                controller,
+                ability,
+                ..
+            } = event
+            else {
+                continue;
+            };
+            let Some(definition) = self
+                .objects
+                .get(source)
+                .and_then(|object| object.definition)
+                .or_else(|| self.departed_card_definitions.get(source).copied())
+            else {
+                continue;
+            };
+            let is_controller_end_step = self
+                .triggered_abilities
+                .get(definition)
+                .and_then(|abilities| abilities.get(ability))
+                .is_some_and(|binding| {
+                    binding.condition == TriggerCondition::BeginningOfControllerEndStep
+                });
+            if !is_controller_end_step {
+                continue;
+            }
+            if !matches!(
+                self.event_log[..stacked_index].iter().rev().find(|prior| {
+                    matches!(prior, GameEvent::StepBegan { .. })
+                }),
+                Some(GameEvent::StepBegan {
+                    active_player,
+                    step: Step::End,
+                    ..
+                }) if active_player == controller
+            ) {
+                return Err(RulesError::IllegalAction(
+                    "controller end-step trigger lacks its controller end-step boundary",
                 ));
             }
         }
@@ -37019,6 +37233,29 @@ impl Game {
             let mut index = activation_index;
             while let Some(previous) = index.checked_sub(1) {
                 match self.event_log.get(previous) {
+                    Some(GameEvent::CreatureCardPutIntoGraveyardFromBattlefieldThisTurn {
+                        card,
+                        incarnation,
+                        ..
+                    }) => {
+                        // A physical creature-card provenance receipt follows
+                        // the ordinary move and incarnation receipts. It is
+                        // orthogonal to whether that move paid this ability's
+                        // sacrifice cost, so step over it and keep consuming
+                        // the immediate causal transition below.
+                        if !matches!(
+                            previous
+                                .checked_sub(1)
+                                .and_then(|receipt| self.event_log.get(receipt)),
+                            Some(GameEvent::ObjectIncarnationAdvanced {
+                                object,
+                                incarnation: advanced,
+                            }) if object == card && advanced == incarnation
+                        ) {
+                            break;
+                        }
+                        index = previous;
+                    }
                     Some(GameEvent::ObjectIncarnationAdvanced { object, .. }) => {
                         let Some(move_index) = previous.checked_sub(1) else {
                             break;
@@ -37581,6 +37818,8 @@ impl Game {
             self.step = Step::Untap;
             self.turn += 1;
             self.noncreature_spell_casters_this_turn.clear();
+            self.creature_cards_put_into_graveyard_from_battlefield_this_turn
+                .clear();
             self.combat = None;
             self.consecutive_passes = 0;
             return self.start_step();
