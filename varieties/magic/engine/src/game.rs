@@ -21647,10 +21647,7 @@ impl Game {
         // resolution must close its own stack lifecycle first, then the SBA
         // removes the recipient and records the terminal game event.  This is
         // the same source-before-loss ordering used by ordinary draw effects.
-        if self
-            .pending_empty_library_draw_losses
-            .contains(&recipient)
-        {
+        if self.pending_empty_library_draw_losses.contains(&recipient) {
             let resolved = self.stack.pop().ok_or(RulesError::IllegalAction(
                 "conditional discard spell disappeared before terminal draw-loss resolution",
             ))?;
