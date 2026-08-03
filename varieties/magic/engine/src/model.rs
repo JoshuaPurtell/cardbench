@@ -4046,11 +4046,16 @@ pub enum DecisionKind {
 /// Source incarnation is intentionally part of the identity: a source may
 /// have left the battlefield after triggering, and a later incarnation with
 /// the same stable object id must not satisfy a stale ordering response.
+/// `occurrence` is one-based and scoped to this exact pending APNAP group.
+/// It distinguishes two events that legitimately trigger the same ability of
+/// one source at the same time; the enclosing `DecisionId` prevents that
+/// short-lived ordering identity from being replayed into a later group.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct TriggerOrderEntry {
     pub source: ObjectId,
     pub source_incarnation: u64,
     pub ability: &'static str,
+    pub occurrence: u8,
 }
 
 /// A concrete option retained in typed pending-decision state. This first

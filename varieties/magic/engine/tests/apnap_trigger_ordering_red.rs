@@ -134,11 +134,13 @@ fn simultaneous_trigger_groups_use_controller_order_then_apnap_stack_order() {
                 source: first,
                 source_incarnation: 1,
                 ability: "first-landfall",
+                occurrence: 1,
             },
             TriggerOrderEntry {
                 source: second,
                 source_incarnation: 1,
                 ability: "second-landfall",
+                occurrence: 2,
             },
         ],
         "the decision presents both independently orderable active-player triggers"

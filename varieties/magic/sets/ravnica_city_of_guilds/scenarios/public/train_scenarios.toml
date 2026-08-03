@@ -2821,7 +2821,7 @@ powers = ["necroplasm:2", "mana_two:3"]
 stack_size = 0
 priority = 0
 event_markers = ["DecisionOpened", "TriggeredAbilityOrderChosen", "TriggeredAbilityStacked", "CounterPlaced", "CardDestroyed", "AbilityResolved"]
-digest = "fnv1a64:09d4754914b6db04"
+digest = "fnv1a64:fe9252a446d7ef33"
 
 [[scenario]]
 id = "rav_grave_shell_scarab_dredge_and_cast_slice"

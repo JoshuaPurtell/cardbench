@@ -10737,6 +10737,7 @@ impl Game {
             if entry.source.0 == 0
                 || entry.source_incarnation == 0
                 || entry.ability.is_empty()
+                || entry.occurrence == 0
                 || !seen.insert(*entry)
                 || !decision
                     .options
@@ -10810,10 +10811,7 @@ impl Game {
             .ok_or(RulesError::IllegalAction(
                 "trigger-order decision has no pending APNAP group",
             ))?;
-        let expected = events
-            .iter()
-            .map(Self::trigger_order_entry)
-            .collect::<Vec<_>>();
+        let expected = Self::trigger_order_entries(&events)?;
         if controller != decision.player
             || selected.len() != events.len()
             || selected.iter().any(|entry| !expected.contains(entry))
@@ -10829,9 +10827,9 @@ impl Game {
         });
         let mut ordered_events = Vec::with_capacity(selected.len());
         for entry in selected {
-            let index = events
+            let index = expected
                 .iter()
-                .position(|event| Self::trigger_order_entry(event) == entry)
+                .position(|expected_entry| *expected_entry == entry)
                 .ok_or(RulesError::IllegalAction(
                     "selected trigger disappeared from its APNAP group",
                 ))?;
@@ -21619,12 +21617,31 @@ impl Game {
         Ok(())
     }
 
-    fn trigger_order_entry(event: &PendingTriggeredAbilityEvent) -> TriggerOrderEntry {
+    fn trigger_order_entry(
+        event: &PendingTriggeredAbilityEvent,
+        occurrence: u8,
+    ) -> TriggerOrderEntry {
         TriggerOrderEntry {
             source: event.source,
             source_incarnation: event.source_incarnation,
             ability: event.ability.id,
+            occurrence,
         }
+    }
+
+    fn trigger_order_entries(
+        events: &[PendingTriggeredAbilityEvent],
+    ) -> Result<Vec<TriggerOrderEntry>, RulesError> {
+        events
+            .iter()
+            .enumerate()
+            .map(|(index, event)| {
+                let occurrence = u8::try_from(index + 1).map_err(|_| {
+                    RulesError::IllegalAction("APNAP trigger group exceeds engine range")
+                })?;
+                Ok(Self::trigger_order_entry(event, occurrence))
+            })
+            .collect()
     }
 
     fn open_trigger_order_decision(
@@ -21632,23 +21649,16 @@ impl Game {
         controller: PlayerId,
         events: Vec<PendingTriggeredAbilityEvent>,
     ) -> Result<(), RulesError> {
-        if events.len() < 2
-            || events.iter().any(|event| event.controller != controller)
-            || events.iter().enumerate().any(|(index, event)| {
-                events[index + 1..].iter().any(|other| {
-                    Self::trigger_order_entry(other) == Self::trigger_order_entry(event)
-                })
-            })
-        {
+        if events.len() < 2 || events.iter().any(|event| event.controller != controller) {
             return Err(RulesError::IllegalAction(
-                "APNAP trigger group has invalid controller or duplicate identity",
+                "APNAP trigger group has invalid controller provenance",
             ));
         }
         let count = u8::try_from(events.len())
             .map_err(|_| RulesError::IllegalAction("APNAP trigger group exceeds engine range"))?;
-        let options = events
-            .iter()
-            .map(|event| DecisionOption::TriggerOrder(Self::trigger_order_entry(event)))
+        let options = Self::trigger_order_entries(&events)?
+            .into_iter()
+            .map(DecisionOption::TriggerOrder)
             .collect();
         self.open_pending_decision(
             controller,
@@ -31838,6 +31848,7 @@ impl Game {
                             entry.source.0 == 0
                                 || entry.source_incarnation == 0
                                 || entry.ability.is_empty()
+                                || entry.occurrence == 0
                                 || !unique.insert(*entry)
                         })
                     {
@@ -36869,20 +36880,15 @@ impl Game {
                 let count = u8::try_from(events.len()).map_err(|_| {
                     RulesError::IllegalAction("APNAP trigger group exceeds engine range")
                 })?;
-                let expected_options = events
-                    .iter()
-                    .map(|event| DecisionOption::TriggerOrder(Self::trigger_order_entry(event)))
+                let expected_options = Self::trigger_order_entries(events)?
+                    .into_iter()
+                    .map(DecisionOption::TriggerOrder)
                     .collect::<Vec<_>>();
                 if decision.kind != DecisionKind::TriggeredAbilityOrder
                     || decision.visibility != DecisionVisibility::Public
                     || decision.player != *controller
                     || events.len() < 2
                     || events.iter().any(|event| event.controller != *controller)
-                    || events.iter().enumerate().any(|(index, event)| {
-                        events[index + 1..].iter().any(|other| {
-                            Self::trigger_order_entry(other) == Self::trigger_order_entry(event)
-                        })
-                    })
                     || decision.options != expected_options
                     || decision.min_selections != count
                     || decision.max_selections != count

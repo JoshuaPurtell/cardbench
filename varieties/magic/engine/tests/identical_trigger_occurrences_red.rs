@@ -4,8 +4,9 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardDefinition, CardType, CastRequest, Color, DecisionKind, Effect, Game, ManaCost,
-    PlayerId, TriggerCondition, TriggeredAbility, TriggeredAbilityBinding, Zone,
+    CardDefinition, CardType, CastRequest, Color, DecisionKind, DecisionSelection, Effect, Game,
+    GameEvent, ManaCost, PlayerId, TriggerCondition, TriggeredAbility, TriggeredAbilityBinding,
+    Zone,
 };
 
 const OBSERVER: &str = "TST-IDENTICAL-TRIGGER-OBSERVER";
@@ -37,6 +38,7 @@ fn definition(
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // The complete simultaneous-death, ordering, and stack provenance trace is one regression boundary.
 fn simultaneous_deaths_keep_identical_source_trigger_occurrences_distinct() {
     let binding = TriggeredAbilityBinding {
         card_definition: OBSERVER,
@@ -113,6 +115,32 @@ fn simultaneous_deaths_keep_identical_source_trigger_occurrences_distinct() {
     assert_ne!(
         decision.trigger_candidates[0], decision.trigger_candidates[1],
         "the public decision needs an occurrence discriminator, not just source/ability identity"
+    );
+    let reversed = vec![
+        decision.trigger_candidates[1],
+        decision.trigger_candidates[0],
+    ];
+    game.submit_decision(
+        PlayerId(0),
+        decision.id,
+        DecisionSelection::TriggerOrder(reversed.clone()),
+    )
+    .expect("the controller can order both distinct trigger occurrences");
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::TriggeredAbilityOrderChosen { controller, order }
+            if *controller == PlayerId(0) && *order == reversed
+    )));
+    assert_eq!(
+        game.stack
+            .iter()
+            .filter(|stack_object| {
+                stack_object.card == observer
+                    && stack_object.ability_id == Some("another-creature-died")
+            })
+            .count(),
+        2,
+        "each identical occurrence receives its own stack object"
     );
     game.validate_invariants()
         .expect("identical simultaneous trigger occurrences retain valid state-machine provenance");
