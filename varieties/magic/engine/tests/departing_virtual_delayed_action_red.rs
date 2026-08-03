@@ -399,8 +399,9 @@ fn departing_controller_removes_stacked_virtual_delayed_ability_with_terminal_re
     );
     assert!(game.event_log.iter().any(|event| matches!(
         event,
-        GameEvent::AbilityCounteredByRules { source, ability, .. }
+        GameEvent::AbilityLeftGame { source, ability, controller, .. }
             if *source == virtual_copy && *ability == "delayed-combat-history-destruction"
+                && *controller == departing_copy_controller
     )));
     game.validate_invariants()
         .expect("no ability receipt remains open after player-loss cleanup");

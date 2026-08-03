@@ -31372,6 +31372,12 @@ impl Game {
                     source,
                     source_incarnation,
                     ability,
+                }
+                | GameEvent::AbilityLeftGame {
+                    source,
+                    source_incarnation,
+                    ability,
+                    ..
                 } => {
                     let count = open
                         .get_mut(&(*source, *source_incarnation, *ability))
@@ -35713,8 +35719,29 @@ impl Game {
         // a CardObject nor a live-copy map entry. More generally, every stack
         // object controlled by a departed player leaves now; physical-source
         // cleanup below still preserves only survivor-controlled abilities.
+        // Stack abilities have an opening receipt, so write their truthful
+        // non-resolution terminal before removing the actual stack entries.
+        let departing_abilities = self
+            .stack
+            .iter()
+            .filter_map(|stack_object| {
+                (stack_object.controller == player)
+                    .then_some(stack_object.ability_id.map(|ability| {
+                        (stack_object.card, stack_object.source_incarnation, ability)
+                    }))
+                    .flatten()
+            })
+            .collect::<Vec<_>>();
         self.stack
             .retain(|stack_object| stack_object.controller != player);
+        for (source, source_incarnation, ability) in departing_abilities {
+            self.record_event(GameEvent::AbilityLeftGame {
+                source,
+                source_incarnation,
+                ability,
+                controller: player,
+            });
+        }
 
         let owned_objects = self
             .objects

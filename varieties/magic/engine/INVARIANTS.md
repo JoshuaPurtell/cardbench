@@ -2134,7 +2134,9 @@ Oracle Magic rules coverage.
   ability they control leaves before any later timing window; linked-exile
   schedule metadata retires with the departed controller while exiled cards
   remain in their actual zones. No later end-step or end-of-combat receipt may
-  stack an ability controlled by an eliminated player.
+  stack an ability controlled by an eliminated player. An ability already on
+  the stack receives exactly one `AbilityLeftGame` terminal receipt rather
+  than a fabricated resolution or rules-counter receipt.
 - A counter-unless decision binds its lower spell by the exact live lower
   stack item's source incarnation, not by a physical-zone lookup. The same
   public pay-or-counter and discard-your-hand boundaries must work for

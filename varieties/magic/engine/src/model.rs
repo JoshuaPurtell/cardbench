@@ -5474,6 +5474,16 @@ pub enum GameEvent {
         source_incarnation: u64,
         ability: &'static str,
     },
+    /// A player left a continuing multiplayer game while controlling this
+    /// stack ability. It is a terminal stack lifecycle event, but it is not a
+    /// rules counter or a resolution and therefore remains distinct from both
+    /// existing ability terminals.
+    AbilityLeftGame {
+        source: ObjectId,
+        source_incarnation: u64,
+        ability: &'static str,
+        controller: PlayerId,
+    },
     /// A spell still resolved because it retained another legal target, but
     /// this particular target-bearing instruction did nothing. The stable
     /// effect index identifies the original target occurrence in the card's
