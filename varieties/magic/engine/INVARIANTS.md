@@ -617,6 +617,16 @@ Oracle Magic rules coverage.
   recast with a new stack incarnation. A stale, foreign, or malformed answer
   leaves the suspended spell, private snapshot, zones, life, and event log
   unchanged.
+- The specialized controller-private opponent-library exile choice likewise
+  consumes the shared monotonic `DecisionId` space even though it is not a
+  generic `PendingDecision`. Its positive id is lower than the next allocation,
+  names the exact top activated ability, controller, opponent, source, and
+  ability identity, and is visible only to that controller with the private
+  candidate snapshot. `ChoosePrivateOpponentLibraryCardToExile` must echo it:
+  source and ability alone do not distinguish an old activation from a later
+  activation after the same permanent leaves and re-enters. A stale, foreign,
+  or malformed answer leaves the suspended ability, private snapshot, zones,
+  and event log unchanged.
 - `PolicyAction::SubmitDecision` must supply the currently live exact id and a
   selection whose type, cardinality, uniqueness, and options match the typed
   continuation. A stale id, different player, duplicate, out-of-range count,
@@ -1137,7 +1147,8 @@ Oracle Magic rules coverage.
   to graveyard, and only then records the spell's terminal resolution and
   source-zone receipts. No priority action or pass can interleave.
 - A private opponent-library exile choice is a one-effect, targeted
-  activated-ability suspension with a positive inspection count. Its live top
+  activated-ability suspension with a positive inspection count. Its
+  controller-private fresh `DecisionId` is positive and already allocated. Its live top
   stack object must retain the activating source, ability identity, controller,
   and one living opponent target; it never exposes candidate identities through
   the public event log or the target opponent's `GameView`. The controller-only
