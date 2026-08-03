@@ -152,6 +152,13 @@ Oracle Magic rules coverage.
   The primary creature returns first; linked Auras follow in stable object-id
   order and may attach only through a new ordinary legality-checked attachment
   to that returned incarnation.
+- An Aura-relative linked-exile instruction snapshots whether its attached
+  primary is a token before the zone boundary. If it is, the token ceases
+  rather than becoming a primary exile member; every Aura captured as attached
+  to that exact token moves to `Exile`, but the engine schedules no linked
+  return. The Aura return is contingent on a primary creature card returning,
+  so neither a delayed action nor a fabricated token exile incarnation may
+  exist after that resolution.
 - A source-linked hand-exile group is keyed by one positive source identity
   and exact source incarnation and contains a nonempty duplicate-free set of
   cards that remain in `Exile` at their captured exact incarnations. It is
