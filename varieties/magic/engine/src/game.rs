@@ -136,13 +136,20 @@ struct EffectCreatedCastPermission {
 /// The copy itself uses an otherwise unallocated `ObjectId`; it never enters
 /// `objects` or a player zone and therefore cannot move the original physical
 /// card at terminal resolution.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 struct VirtualSpellCopy {
     original: ObjectId,
     /// A copy is its own stack object. The original may leave the stack (or
     /// the game with its owner) before the copy resolves, so definition
     /// lookup cannot be deferred to the original physical card.
     original_definition: &'static str,
+    /// Damage, replacement, and target-protection paths may run after the
+    /// resolver removes this stack object. Preserve its source facts here
+    /// rather than reading a physical original which may have another
+    /// controller, incarnation, or no longer exist.
+    source_incarnation: u64,
+    source_colors: BTreeSet<Color>,
+    controller: PlayerId,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -10198,6 +10205,9 @@ impl Game {
             VirtualSpellCopy {
                 original: original.card,
                 original_definition,
+                source_incarnation: original.source_incarnation,
+                source_colors: original.source_colors.clone(),
+                controller,
             },
         );
         let stack_item = self.allocate_stack_object_id();
@@ -13276,9 +13286,12 @@ impl Game {
                 if copy_provenance.original == stack_object.card
                     || !self.virtual_spell_copy_chain_is_valid(stack_object.card)
                     || copy_provenance.original_definition != definition.id
+                    || copy_provenance.source_incarnation != stack_object.source_incarnation
+                    || copy_provenance.source_colors != stack_object.source_colors
+                    || copy_provenance.controller != stack_object.controller
                 {
                     return Err(RulesError::IllegalAction(
-                        "virtual stack spell lacks immutable copied-definition provenance",
+                        "virtual stack spell lacks immutable copy provenance",
                     ));
                 }
             }
@@ -21665,6 +21678,20 @@ impl Game {
         source: ObjectId,
         source_incarnation: u64,
     ) -> Option<PlayerId> {
+        // A virtual copy has immutable controller provenance because its
+        // stack item is removed before effect dispatch. It is distinct from
+        // the physical original's controller.
+        if let Some(copy) = self.virtual_spell_copies.get(&source) {
+            return (copy.source_incarnation == source_incarnation).then_some(copy.controller);
+        }
+        // Stack control is authoritative for a resolving ability. Consult it
+        // before physical-object state, which may belong to a later
+        // incarnation after an old source left the battlefield.
+        if let Some(stack_object) = self.stack.iter().rev().find(|stack_object| {
+            stack_object.card == source && stack_object.source_incarnation == source_incarnation
+        }) {
+            return Some(stack_object.controller);
+        }
         let object = self.object(source).ok()?;
         if object.incarnation == source_incarnation {
             return self.controller_of(source).ok();
@@ -21943,7 +21970,10 @@ impl Game {
         pending: &mut PendingDamageReplacementChoice,
         replacement: DamageReplacementChoice,
     ) -> Result<(), RulesError> {
-        let source_colors = self.characteristics(pending.source)?.colors;
+        let source_colors = self
+            .damage_source_characteristics(pending.source, pending.source_incarnation)
+            .ok_or(RulesError::UnknownCard(pending.source))?
+            .colors;
         self.apply_damage_replacement_with_source_colors(pending, &source_colors, replacement)
     }
 
@@ -22516,15 +22546,8 @@ impl Game {
             return Ok(amount);
         };
         let controller = self
-            .objects
-            .get(&source)
-            .or_else(|| {
-                self.virtual_spell_copies
-                    .get(&source)
-                    .and_then(|copy| self.objects.get(&copy.original))
-            })
-            .ok_or(RulesError::UnknownCard(source))?
-            .controller;
+            .damage_source_controller_for_incarnation(source, source_incarnation)
+            .ok_or(RulesError::UnknownCard(source))?;
         let mut pending = PendingDamageReplacementChoice {
             source,
             source_incarnation,
@@ -23155,6 +23178,26 @@ impl Game {
         source: ObjectId,
         source_incarnation: u64,
     ) -> Option<Characteristics> {
+        // A virtual spell copy has no CardObject, and resolving it removes
+        // the stack item before its effects run. Immutable copy metadata
+        // therefore owns the source facts for every downstream damage path.
+        // Never follow its physical original: a stolen or surviving copy is
+        // a distinct stack object and must not inherit later live layers.
+        if let Some(copy) = self.virtual_spell_copies.get(&source) {
+            if copy.source_incarnation != source_incarnation {
+                return None;
+            }
+            let definition = self.card_definition(source).ok()?;
+            return Some(Characteristics {
+                colors: copy.source_colors.clone(),
+                card_types: definition.card_types.clone(),
+                creature_subtypes: BTreeSet::new(),
+                basic_land_type: self.basic_land_types.get(definition.id).copied(),
+                power: definition.power.map(i32::from),
+                toughness: definition.toughness.map(i32::from),
+                keywords: definition.keywords.clone(),
+            });
+        }
         let object = self.object(source).ok()?;
         if object.incarnation == source_incarnation {
             return self.characteristics(source).ok();
