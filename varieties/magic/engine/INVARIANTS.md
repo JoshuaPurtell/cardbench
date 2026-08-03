@@ -177,6 +177,10 @@ Oracle Magic rules coverage.
   `DelayedActionConsumed` records only the duplicate-free subset that was
   still eligible to return. Those receipts are replay-audited against their
   schedule; ordinary `CardMoved` and incarnation receipts remain zone truth.
+  Every returned member captures its self and applicable controller-scoped
+  entry observations after its final attachment state but before the delayed
+  action's shared SBA fixed point; the batch stacks only after that checkpoint,
+  retaining the returned battlefield incarnation if SBA immediately moves it.
 - An attachment binding has one typed source kind (`Aura` or `Equipment`),
   one permanent-only target restriction, and a duplicate-free set of optional
   linked continuous changes. Aura bindings require an Enchantment source and
