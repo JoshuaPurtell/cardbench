@@ -2057,6 +2057,13 @@ Oracle Magic rules coverage.
   The global-prevention receipt audit accepts only a matching bound ability,
   physical spell, or `SpellCopied` provenance whose catalog definition
   contains that exact effect.
+- A virtual spell copy may suspend for a private library choice. The pending
+  choice and `CardsLookedAt` receipt use the live stack item's immutable
+  source incarnation rather than a physical-object lookup; only its
+  controller receives the candidate identities. When the submitted choice
+  completes, the virtual stack item emits `SpellCopyResolved` and is removed
+  from copy provenance without a fabricated `SpellResolved` or card-zone
+  movement.
 - An end-of-turn effect created by a resolved instruction is independent of a
   former battlefield source. Source departure preserves it through that
   turn's cleanup; target departure still expires it immediately. In contrast,
