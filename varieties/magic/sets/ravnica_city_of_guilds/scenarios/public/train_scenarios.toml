@@ -9421,7 +9421,7 @@ zones = ["augermage:battlefield", "p0_discard:graveyard", "p0_keep:hand", "p1_di
 stack_size = 0
 priority = 0
 event_markers = ["StateBasedAction", "TriggeredAbilityStacked", "PolicyMoveSubmitted", "CardDiscarded", "AbilityResolved"]
-digest = "fnv1a64:e052440f7a68645c"
+digest = "fnv1a64:d58c699ebfb9ffb2"
 
 [[scenario]]
 id = "rav_dimir_house_guard_fear_and_transmute_compatibility"
