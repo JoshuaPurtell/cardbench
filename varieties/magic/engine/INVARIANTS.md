@@ -2753,9 +2753,14 @@ Oracle Magic rules coverage.
   library-search compatibility path shares that exact capture pipeline for
   `Battlefield` and `BattlefieldTapped` results; it may not silently skip a
   selected permanent's self or controller-scoped entry observation. The
-  deterministic multi-card search branch shares the same pipeline for every
-  selected battlefield result, before batch-result, shuffle, terminal, and
-  post-resolution SBA receipts. For creature deaths selected
+  deterministic and policy-submitted multi-card search branches first commit
+  every selected battlefield result as one zone-change event. Their entry
+  replacements see only the pre-event battlefield plus the entrant itself;
+  self ETBs and controlled nonartifact/Aura observers then use one post-event
+  snapshot, so a selected newcomer observes every peer as required by CR
+  603.6a. Land-entry observers are captured only after that group snapshot.
+  This all occurs before batch-result, shuffle, terminal, and post-resolution
+  SBA receipts. For creature deaths selected
   in one pass, regeneration shields are consumed first, then the remaining
   death set receives one shared last-known-information observer snapshot
   before its members take their individual graveyard/token-departure
