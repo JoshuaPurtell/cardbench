@@ -264,7 +264,9 @@ pub fn run_rav_deck_matchup(
             .get_mut(player.0)
             .ok_or_else(|| format!("no policy installed for seated player {}", player.0))?;
         let policy_id = policy.id().to_owned();
-        let action = if view.draw_replacement_pending {
+        let action = if let Some(action) = policy.propose_pending_decision(&view) {
+            action
+        } else if view.draw_replacement_pending {
             policy.propose_draw_replacement(&view)
         } else if view.private_library_choice.is_some() {
             policy.propose_private_library_choice(&view)
