@@ -1408,6 +1408,7 @@ impl Game {
     /// this data owns the persistent attachment lifecycle.  This prevents an
     /// activated ability from silently becoming an Aura merely because it has
     /// a target and a continuous effect.
+    #[allow(clippy::too_many_lines)] // Binding registration validates every attachment capability atomically.
     pub fn register_attachment_bindings(
         &mut self,
         bindings: impl IntoIterator<Item = AttachmentBinding>,
