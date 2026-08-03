@@ -501,7 +501,9 @@ Oracle Magic rules coverage.
   currently typed land and its current intrinsic color; it cannot use an
   untyped land or produce a different color while paying a spell cost.
 - A registered static entry restriction names a permanent source, is immutable
-  before the game begins, and is rechecked from the battlefield at each
+  before the game begins, and its complete registration batch is atomic: a
+  later duplicate or invalid member cannot retain an earlier entry rule. It is
+  rechecked from the battlefield at each
   ordinary entry. The represented rules apply either to opponents' artifacts,
   creatures, and lands or to the source's own artifact/creature/land entry;
   neither alters setup injection, an ally's entry, or an
@@ -1662,7 +1664,9 @@ Oracle Magic rules coverage.
   sequence, and event log unchanged—including no accepted policy-move receipt.
 - `PolicyAction::CastWithCreatureSpellAdditionalMana` is the one policy-facing
   boundary for a live static source that permits optional extra mana while a
-  creature spell is cast. Each source is a distinct live battlefield object,
+  creature spell is cast. Its immutable pregame modifier registration is an
+  atomic batch, so a rejected later member cannot retain an earlier live
+  optional-payment source. Each source is a distinct live battlefield object,
   may appear at most once, and captures its exact current incarnation before
   any mana leaves the controller's pool. A noncreature spell, an empty payment,
   a duplicate/departed/foreign source, or a source without the registered
@@ -2505,8 +2509,9 @@ Oracle Magic rules coverage.
   rejected declaration is therefore atomic; normal source departure revokes
   the restriction without a synthetic event or stale combat marker.
 - Static top-library reveal bindings are immutable pregame data that name only
-  permanent definitions. Duplicate, unknown, nonpermanent, or live-game
-  registration is rejected atomically. A binding supplies public information
+  permanent definitions. Their full registration batch is atomic; duplicate,
+  unknown, nonpermanent, or live-game registration leaves no visibility
+  prefix. A binding supplies public information
   only while at least one permanent using its effective definition is actually
   on the battlefield; copies therefore use their copied definition, while a
   departed source leaves no persistent or mutable reveal record behind. The
