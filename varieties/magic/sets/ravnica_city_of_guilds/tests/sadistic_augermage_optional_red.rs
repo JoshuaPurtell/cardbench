@@ -48,7 +48,10 @@ fn sadistic_augermage_controller_can_decline_the_dies_trigger() {
         .expect("controller receives the public may-trigger choice");
     assert_eq!(choice.source, augermage);
     assert_eq!(choice.ability, "another-creature-dies-each-player-discards");
-    assert!(choice.can_pay, "zero-cost may trigger can always be accepted");
+    assert!(
+        choice.can_pay,
+        "zero-cost may trigger can always be accepted"
+    );
     assert!(
         game.view_for_player(PlayerId(1))
             .expect("opponent view")
