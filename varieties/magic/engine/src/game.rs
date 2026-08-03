@@ -24065,6 +24065,7 @@ impl Game {
     /// player. The player is event provenance, not a policy-selected target:
     /// prevention and replacement must therefore be observed from the final
     /// damage receipt before this function is called.
+    #[allow(clippy::too_many_lines)] // Direct and Aura-relative combat provenance share one receipt boundary.
     fn enqueue_combat_damage_to_player_triggers(
         &mut self,
         source: ObjectId,
