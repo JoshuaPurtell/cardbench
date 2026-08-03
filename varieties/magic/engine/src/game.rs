@@ -1089,6 +1089,17 @@ struct PendingDamageReplacementChoice {
     deferred_packets: Vec<DamageReplacementPacket>,
 }
 
+/// One layer-six characteristic change paired with the shared timestamp used
+/// to order it. Static bindings retain their source because their recipient
+/// predicate remains live; ordinary effects retain their complete provenance.
+enum AbilityLayerChange<'a> {
+    Static {
+        source: ObjectId,
+        change: &'a ContinuousChange,
+    },
+    Timestamped(&'a ContinuousEffect),
+}
+
 /// A deterministic, two-or-more-player Magic game state.
 ///
 /// Setup helpers (`add_card`, `put_on_battlefield`, and `grant_mana`) intentionally
@@ -1232,6 +1243,12 @@ pub struct Game {
     next_object_id: u64,
     next_stack_object_id: u64,
     next_timestamp: u64,
+    /// Layer timestamp of each exact physical battlefield incarnation whose
+    /// printed definition supplies a static continuous effect. Static and
+    /// resolving continuous effects draw from the same monotonic identity
+    /// space so same-layer application can follow chronology across effect
+    /// classes instead of hard-coding one class first.
+    static_source_timestamps: BTreeMap<(ObjectId, u64), u64>,
     /// The next identity assigned to an opened typed decision. It is never
     /// rewound by a successful continuation, so stale policy responses cannot
     /// alias a later prompt from the same source.
@@ -1540,6 +1557,7 @@ impl Game {
             next_object_id: 1,
             next_stack_object_id: 1,
             next_timestamp: 1,
+            static_source_timestamps: BTreeMap::new(),
             next_decision_id: 1,
             departed_card_definitions: BTreeMap::new(),
             consecutive_passes: 0,
@@ -3164,6 +3182,7 @@ impl Game {
         );
         self.place_in_zone(owner, id, zone)?;
         if zone == Zone::Battlefield {
+            self.record_static_source_entry_timestamp(id)?;
             self.apply_entry_coin_flip_if_needed(id)?;
         }
         Ok(id)
@@ -5630,6 +5649,11 @@ impl Game {
                 &effect.change,
             )?;
         }
+        let mut ability_changes = effects
+            .iter()
+            .filter(|effect| effect.change.layer() == Layer::Ability)
+            .map(|effect| (effect.timestamp, AbilityLayerChange::Timestamped(effect)))
+            .collect::<Vec<_>>();
         if self.zone_of(card) == Some(Zone::Battlefield) {
             // Static bindings are keyed by source definition, but their
             // recipient can be another permanent. Iterate all live sources
@@ -5643,6 +5667,26 @@ impl Game {
                     continue;
                 };
                 for change in changes {
+                    if change.layer() == Layer::Ability {
+                        ability_changes.push((
+                            self.static_source_timestamp(source)?,
+                            AbilityLayerChange::Static { source, change },
+                        ));
+                    } else {
+                        self.apply_static_continuous_change(
+                            source,
+                            card,
+                            &mut characteristics,
+                            change,
+                        )?;
+                    }
+                }
+            }
+        }
+        ability_changes.sort_by_key(|(timestamp, _)| *timestamp);
+        for (_, change) in ability_changes {
+            match change {
+                AbilityLayerChange::Static { source, change } => {
                     self.apply_static_continuous_change(
                         source,
                         card,
@@ -5650,12 +5694,19 @@ impl Game {
                         change,
                     )?;
                 }
+                AbilityLayerChange::Timestamped(effect) => {
+                    self.apply_timestamped_continuous_change_to_characteristics(
+                        card,
+                        &mut characteristics,
+                        &effect.change,
+                    )?;
+                }
             }
         }
         for effect in effects.iter().filter(|effect| {
             !matches!(
                 effect.change.layer(),
-                Layer::Type | Layer::Color | Layer::PowerToughness
+                Layer::Type | Layer::Color | Layer::Ability | Layer::PowerToughness
             )
         }) {
             self.apply_timestamped_continuous_change_to_characteristics(
@@ -5881,6 +5932,56 @@ impl Game {
             ));
         }
         Ok(())
+    }
+
+    /// Assigns the battlefield timestamp used by a physical definition's
+    /// static continuous effects. The timestamp is retained while a copy
+    /// effect temporarily hides the printed ability and is discarded at the
+    /// exact leave-battlefield incarnation boundary.
+    fn record_static_source_entry_timestamp(&mut self, source: ObjectId) -> Result<(), RulesError> {
+        self.require_zone(source, Zone::Battlefield)?;
+        let object = self.object(source)?;
+        let Some(definition) = object.definition else {
+            return Ok(());
+        };
+        if !self.static_continuous_effects.contains_key(definition) {
+            return Ok(());
+        }
+        let incarnation = object.incarnation;
+        let timestamp = self.next_timestamp;
+        self.next_timestamp =
+            self.next_timestamp
+                .checked_add(1)
+                .ok_or(RulesError::IllegalAction(
+                    "static-effect timestamp counter overflowed",
+                ))?;
+        if self
+            .static_source_timestamps
+            .insert((source, incarnation), timestamp)
+            .is_some()
+        {
+            return Err(RulesError::IllegalAction(
+                "static source received two battlefield timestamps",
+            ));
+        }
+        Ok(())
+    }
+
+    /// Returns the live static ability's shared layer timestamp. A permanent
+    /// currently copying a static definition uses the copy effect's timestamp;
+    /// otherwise its printed static ability uses its battlefield timestamp.
+    fn static_source_timestamp(&self, source: ObjectId) -> Result<u64, RulesError> {
+        self.require_zone(source, Zone::Battlefield)?;
+        let object = self.object(source)?;
+        if let Some(copy) = &object.copied_permanent {
+            return Ok(copy.timestamp);
+        }
+        self.static_source_timestamps
+            .get(&(source, object.incarnation))
+            .copied()
+            .ok_or(RulesError::IllegalAction(
+                "static continuous source lacks its battlefield timestamp",
+            ))
     }
 
     #[allow(clippy::too_many_lines)] // One exhaustive static layer dispatcher keeps unsupported variants fail-closed.
@@ -17922,7 +18023,37 @@ impl Game {
             }
         }
         let mut effect_timestamps = BTreeSet::new();
+        for ((source, incarnation), timestamp) in &self.static_source_timestamps {
+            let object = self.object(*source)?;
+            let has_printed_static_binding = object
+                .definition
+                .is_some_and(|definition| self.static_continuous_effects.contains_key(definition));
+            if *incarnation == 0
+                || *timestamp == 0
+                || *timestamp >= self.next_timestamp
+                || self.zone_of(*source) != Some(Zone::Battlefield)
+                || object.incarnation != *incarnation
+                || !has_printed_static_binding
+                || !effect_timestamps.insert(*timestamp)
+            {
+                return Err(RulesError::IllegalAction(
+                    "static source timestamp has stale, duplicate, or invalid provenance",
+                ));
+            }
+        }
         for card in self.all_battlefield_cards() {
+            let object = self.object(card)?;
+            if object
+                .definition
+                .is_some_and(|definition| self.static_continuous_effects.contains_key(definition))
+                && !self
+                    .static_source_timestamps
+                    .contains_key(&(card, object.incarnation))
+            {
+                return Err(RulesError::IllegalAction(
+                    "live printed static source lacks its battlefield timestamp",
+                ));
+            }
             if let Some(copy) = &self.object(card)?.copied_permanent
                 && (copy.timestamp >= self.next_timestamp
                     || !effect_timestamps.insert(copy.timestamp))
@@ -34369,6 +34500,10 @@ impl Game {
             self.effect_created_cast_permissions.remove(&card);
             self.graveyard_cast_permissions.remove(&card);
         }
+        if left_battlefield {
+            self.static_source_timestamps
+                .remove(&(card, object.incarnation));
+        }
         self.remove_from_all_zones(card);
         let expired_copy = if left_battlefield {
             self.objects
@@ -34440,6 +34575,7 @@ impl Game {
             );
         }
         if zone == Zone::Battlefield {
+            self.record_static_source_entry_timestamp(card)?;
             self.apply_entry_coin_flip_if_needed(card)?;
             if apply_static_entry_restriction {
                 self.apply_static_entry_restriction(card)?;
@@ -44082,6 +44218,8 @@ impl Game {
                         .then_some(stack_object.source_incarnation)
                 })
                 .collect::<BTreeSet<_>>();
+            self.static_source_timestamps
+                .retain(|(card, _), _| *card != object);
             self.objects.remove(&object);
             // CR 800.4a removes this object from the game rather than moving
             // it to a zone with a fresh incarnation. Retire its private LKI
