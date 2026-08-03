@@ -11,7 +11,8 @@ use cardbench_magic_engine::{
     PolicyAction, Step, Target, Zone,
 };
 use cardbench_magic_policies::{
-    EngineTournamentFailure, run_rav_reference_deck_matrix, run_rav_trigger_probe,
+    EngineTournamentFailure, TriggerProbeResult, run_rav_optional_trigger_probe,
+    run_rav_reference_deck_matrix, run_rav_trigger_order_probe, run_rav_trigger_probe,
 };
 use cardbench_magic_rav::{card_definitions, load_reference_decks};
 
@@ -69,8 +70,26 @@ fn main() -> ExitCode {
         println!("policy_matrix_seed_count={policy_matrix_seed_count}");
         println!("policy_matrix_match_count={}", policy_matrix.match_count);
     }
-    let trigger_probe = run_rav_trigger_probe();
-    match trigger_probe {
+    for probe in [
+        run_rav_trigger_probe(),
+        run_rav_optional_trigger_probe(),
+        run_rav_trigger_order_probe(),
+    ] {
+        review_trigger_probe(probe, &mut findings);
+    }
+    println!("finding_count={}", findings.len());
+    for finding in &findings {
+        println!("finding=code:{} detail:{}", finding.code, finding.detail);
+    }
+    if findings.is_empty() {
+        ExitCode::SUCCESS
+    } else {
+        ExitCode::FAILURE
+    }
+}
+
+fn review_trigger_probe(probe: Result<TriggerProbeResult, String>, findings: &mut Vec<Finding>) {
+    match probe {
         Ok(result) if result.passed() => {
             println!(
                 "trigger_probe_id={} triggered_ability_count={} event_digest={} passed=true",
@@ -97,15 +116,6 @@ fn main() -> ExitCode {
                 detail: error,
             });
         }
-    }
-    println!("finding_count={}", findings.len());
-    for finding in &findings {
-        println!("finding=code:{} detail:{}", finding.code, finding.detail);
-    }
-    if findings.is_empty() {
-        ExitCode::SUCCESS
-    } else {
-        ExitCode::FAILURE
     }
 }
 

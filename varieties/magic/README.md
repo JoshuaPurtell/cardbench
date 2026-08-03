@@ -306,9 +306,9 @@ engine/policy/capability failures: 847 Player 0 wins, 948 Player 1 wins, and
 events; every terminal receipt, move count, event count, and digest replay
 check passed. It deliberately includes real Dredge, transmute, token-SBA,
 effect-expiry, and simultaneous-loss-draw traces. The reference policies did
-not produce triggered-ability receipts in this matrix, so trigger ordering and
-optional-trigger behavior remain a targeted-scenario coverage obligation; exact
-counts and review checks are recorded in
+not produce triggered-ability receipts in this matrix, so the audit runs three
+policy-submitted trigger fixtures covering mandatory ETB, optional payment, and
+simultaneous ordering; exact counts and review checks are recorded in
 [`ENGINE_BUG_LEDGER.md`](ENGINE_BUG_LEDGER.md).
 
 ## Provenance and rights

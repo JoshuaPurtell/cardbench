@@ -101,9 +101,11 @@ deck matrix did not exercise a triggered-ability receipt, so trigger ordering
 and optional-trigger decisions remain targeted-scenario coverage rather than a
 claim made by this campaign.
 `RAV_MATRIX_SEED_COUNT` and `RAV_MATRIX_SUMMARY_ONLY=1` make bounded review
-passes practical. `rav-engine-audit` adds adversarial public-API probes and a
-one-seed interactive matrix, streams progress at every stage/seed boundary,
-and accepts `RAV_AUDIT_SEED_COUNT=N` for broader campaigns. Matrix workers are
+passes practical. `rav-engine-audit` adds adversarial public-API probes, a
+mandatory-ETB trigger fixture, an optional-trigger payment fixture, a
+simultaneous trigger-order fixture, and a one-seed interactive matrix. It
+streams progress at every stage/seed boundary and accepts
+`RAV_AUDIT_SEED_COUNT=N` for broader campaigns. Matrix workers are
 bounded by available parallelism (and a ceiling of 16) rather than creating one
 OS thread per matchup. Both commands fail closed when an invariant, policy, or
 coverage problem is discovered.

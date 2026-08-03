@@ -43,7 +43,11 @@ pub use radiance_convoke_assault::RadianceConvokeAssaultPolicy;
 pub use selesnya_convoke::SelesnyaConvokePolicy;
 pub use selesnya_radiance_tokens::SelesnyaRadianceTokensPolicy;
 pub use selesnya_siege::SelesnyaSiegePolicy;
-pub use trigger_campaign::{RAV_TRIGGER_PROBE_ID, TriggerProbeResult, run_rav_trigger_probe};
+pub use trigger_campaign::{
+    RAV_OPTIONAL_TRIGGER_PROBE_ID, RAV_TRIGGER_ORDER_PROBE_ID, RAV_TRIGGER_PROBE_ID,
+    TriggerProbeResult, run_rav_optional_trigger_probe, run_rav_trigger_order_probe,
+    run_rav_trigger_probe,
+};
 
 use cardbench_magic_engine::{DecisionKind, DecisionSelection, GameView, PolicyAction};
 
