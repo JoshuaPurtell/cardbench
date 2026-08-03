@@ -1,8 +1,8 @@
 //! Public contract for the remaining bounded RAV creature-chassis batch.
 //!
-//! These compatibility definitions deliberately expose normal casting and base
-//! characteristics only. No printed activated, triggered, evasion, token, or
-//! combat behavior is represented by this test or the executable slice.
+//! This historical chassis contract retains the normal casting/base-characteristic
+//! assertions while allowing cards promoted by later generic engine substrates
+//! to enumerate their now-supported rules explicitly.
 
 use std::collections::BTreeSet;
 
@@ -35,8 +35,14 @@ fn second_creature_chassis_batch_is_exactly_bounded_to_public_base_facts() {
         assert_eq!(definition.toughness, Some(toughness), "{id}");
         assert_eq!(
             definition.supported_rules,
-            ["colored-cost-casting", "base-characteristics"],
-            "{id} must not present an unsupported card-specific ability"
+            [
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "tap-activated-each-player-draws-one",
+                "simultaneous-private-each-player-discard-after-draw",
+            ],
+            "{id} must expose its promoted generic ability substrate"
         );
         assert!(definition.keywords.is_empty(), "{id}");
         assert!(definition.effects.is_empty(), "{id}");
