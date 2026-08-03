@@ -201,7 +201,11 @@ Oracle Magic rules coverage.
   source instead uses that immutable former record for source-quality rules,
   including `Deathtouch` and `DamageCannotBePrevented`. A later graveyard,
   exile, or re-entered incarnation can therefore neither lose nor invent a
-  quality for an already pending effect's damage packet.
+  quality for an already pending effect's damage packet. The same exact
+  source incarnation is mandatory while discovering, opening, validating,
+  applying, and resuming a prospective damage-replacement decision; an
+  affected player can never be offered prevention against historically
+  unpreventable damage.
 - `ReturnSourceToOwnersHand` is a source-relative resolution instruction, not
   an activation cost. It moves the source only when that exact source
   incarnation is still on the battlefield; an already departed source leaves
