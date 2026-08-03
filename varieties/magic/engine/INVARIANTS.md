@@ -1096,8 +1096,10 @@ Oracle Magic rules coverage.
   `Spell` accepts any represented physical spell card (including permanent
   spells), never an activated or triggered ability.
   The invariant validates that immutable target shape separately from dynamic
-  target legality; in particular, every stack player target names a seated
-  player, although that player may later have lost. At resolution, an all-illegal
+  target legality. Target shape and occurrence order are always derived from
+  the immutable stack effect list, so a chosen modal branch cannot be checked
+  against its unmaterialized `ChooseOneOf` wrapper. In particular, every stack
+  player target names a seated player, although that player may later have lost. At resolution, an all-illegal
   target set emits `SpellCounteredByRules`; if at least one target remains
   legal, the spell resolves and only instructions addressed to the now-illegal
   target slots do nothing. The engine snapshots initial legality in a
