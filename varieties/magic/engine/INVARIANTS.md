@@ -222,6 +222,16 @@ Oracle Magic rules coverage.
   satisfy the condition with a reused object ID. A new Untap step clears this
   turn history. The public trace is `StepBegan(End) →
   TriggeredAbilityStacked → SacrificedByEffect → CardMoved → AbilityResolved`.
+- An Aura-relative combat-damage-to-player trigger observes only its exact
+  currently attached creature incarnation and remains sourced and controlled
+  by the Aura. A positive committed combat `DamageDealtToPlayer` receipt is
+  immediately followed by `AttachedCombatDamageTokenCountCaptured`, which
+  preserves the Aura/creature incarnations, recipient, bound trigger identity,
+  and count. The capture must match a registered target-free token-count
+  trigger and a count representable by the token receipt surface. Prevention
+  or a zero packet creates neither capture nor trigger; a later zone change or
+  reattachment cannot revise the captured count. Materialization yields only
+  the captured count of token receipts before that ability's terminal event.
 - A non-token object has exactly one catalog definition; a token has exactly
   one token specification and exists only on the battlefield. An object cannot
   be both, and no nonpermanent card can occupy the battlefield.

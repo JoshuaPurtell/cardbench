@@ -49,8 +49,8 @@ a zone move. The fetched Aura's ordinary ETB trigger is queued only after the
 Mage trigger's terminal receipt. The opponent sees neither unselected Aura
 identities nor a private decision projection.
 
-The current catalog partition is 272 full / 6 partial / 13 catalog-only unique
-names (287 / 6 / 13 printings). The independently checked coverage-report
+The current catalog partition is 273 full / 6 partial / 12 catalog-only unique
+names (288 / 6 / 12 printings). The independently checked coverage-report
 binary emits the same partition.
 
 Molten Sentry is a full-fidelity entry whose setup-only deterministic seed
@@ -66,6 +66,13 @@ damage receipts that actually committed after prevention or replacement. Its
 direct Rust trace pairs the aggregate receipt with ordinary life gain and
 exercises a same-color prevention replacement; it retains no card prose or
 source payload.
+
+Pollenbright Wings is a full-fidelity Aura entry. Its reusable combat trigger
+captures an attached creature's actual positive player-damage packet with both
+object incarnations, then materializes the matching Saproling token count on
+the ordinary stack. The direct Rust trace includes the captured-count receipt,
+three token receipts from three committed damage, and final invariant audit;
+it retains no card prose or source payload.
 
 Eye of the Storm is a source-incarnation-scoped linked-exile entry. An observed
 physical instant-or-sorcery spell first moves to exile through ordinary
