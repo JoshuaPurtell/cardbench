@@ -49,8 +49,8 @@ a zone move. The fetched Aura's ordinary ETB trigger is queued only after the
 Mage trigger's terminal receipt. The opponent sees neither unselected Aura
 identities nor a private decision projection.
 
-The current catalog partition is 270 full / 6 partial / 15 catalog-only unique
-names (285 / 6 / 15 printings). The independently checked coverage-report
+The current catalog partition is 271 full / 6 partial / 14 catalog-only unique
+names (286 / 6 / 14 printings). The independently checked coverage-report
 binary emits the same partition.
 
 Molten Sentry is a full-fidelity entry whose setup-only deterministic seed

@@ -68,8 +68,8 @@ definition; Gather Courage, Seeds of Strength, Scatter the Seeds, and Guardian
 of Vitu-Ghazi are in the latest audited tranches. All other definitions remain
 explicitly scoped compatibility slices.
 
-The current checked-in RAV catalog partitions its public inventory into 270
-full-fidelity names (285 printings), six bounded executable names, and 15
+The current checked-in RAV catalog partitions its public inventory into 271
+full-fidelity names (286 printings), six bounded executable names, and 14
 catalog-only names. The catalog contract is intentionally fail-closed: a
 catalog-only printing cannot be submitted as a blank executable card.
 
