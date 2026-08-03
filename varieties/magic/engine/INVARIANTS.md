@@ -278,6 +278,16 @@ Oracle Magic rules coverage.
   creation, while the shield itself follows the ordinary target lifecycle: a
   later source tap state or source departure cannot retarget, duplicate, or
   silently revoke that already-created shield.
+- A bounded temporary damage-redirection effect retains the exact battlefield
+  incarnation of its protected permanent and, when its destination is a
+  permanent, that destination's exact battlefield incarnation too. Both
+  permanent endpoints must remain current battlefield objects for the effect
+  to be live; an endpoint's ordinary zone departure retires the replacement
+  before the stable `ObjectId` can return in a later incarnation. A player
+  destination has no object incarnation but is retired if that player leaves
+  the game. The resolved effect remains independent of a later source
+  departure, and a surviving endpoint may change card types without creating
+  a new target identity.
 - A permanent static source may grant
   `PreventDamageFromControlledSources` to each current creature its controller
   controls. The quality is evaluated for every prospective permanent-damage

@@ -9,8 +9,7 @@ use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
     AbilityActivation, ActivatedAbility, ActivatedAbilityBinding, CardDefinition, CardType,
-    CastRequest, Color, Effect, Game, Keyword, ManaCost, PlayerId, Target, TargetRequirement,
-    Zone,
+    CastRequest, Color, Effect, Game, Keyword, ManaCost, PlayerId, Target, TargetRequirement, Zone,
 };
 
 const REDIRECTOR: &str = "TST-REDIRECTION-INCARNATION-REDIRECTOR";
@@ -196,7 +195,9 @@ fn temporary_redirection_does_not_follow_a_destination_through_a_zone_change() {
         game.canonical_event_log(),
     );
     assert_eq!(
-        game.object(protected).expect("protected remains live").damage,
+        game.object(protected)
+            .expect("protected remains live")
+            .damage,
         2,
         "the old redirection destination is no longer the object it targeted",
     );
