@@ -830,10 +830,10 @@ enum TriggerEventPayload {
         permanent: ObjectId,
         incarnation: u64,
     },
-    /// The exact player who actually received the combat-damage packet. This
-    /// is not a target and remains meaningful even if the source changes
-    /// zones before its triggered ability resolves.
-    CombatDamagePlayer(PlayerId),
+    /// The exact player and positive amount of combat damage actually
+    /// committed. Neither value is a target, and both remain meaningful even
+    /// if the source changes zones before its triggered ability resolves.
+    CombatDamagePlayer { player: PlayerId, amount: i32 },
     /// A nonartifact permanent entered under the observing source's
     /// controller. The snapshot keeps this event distinct from a later
     /// incarnation of the same stable object id and never asks a departed
@@ -2013,6 +2013,7 @@ impl Game {
                         | TriggerCondition::DealsDamage
                         | TriggerCondition::DealsCombatDamageToCreature
                         | TriggerCondition::DealsCombatDamageToPlayer
+                        | TriggerCondition::AttachedCreatureDealsCombatDamageToPlayer
                         | TriggerCondition::ReceivesDamage
                         | TriggerCondition::Dies
                         | TriggerCondition::AnotherCreatureLeavesBattlefield
@@ -14502,6 +14503,7 @@ impl Game {
         self.validate_replacement_effect_events()?;
         self.validate_damage_amount_replacement_events()?;
         Self::validate_damage_batch_life_gain_event_order(&self.event_log)?;
+        self.validate_attached_combat_damage_token_count_events()?;
         self.validate_self_damage_prevention_counter_replacement_events()?;
         self.validate_combat_damage_mill_counter_replacement_events()?;
         self.validate_global_combat_damage_prevention_event_order()?;
@@ -14930,6 +14932,7 @@ impl Game {
                             | TriggerCondition::DealsDamage
                             | TriggerCondition::DealsCombatDamageToCreature
                             | TriggerCondition::DealsCombatDamageToPlayer
+                            | TriggerCondition::AttachedCreatureDealsCombatDamageToPlayer
                             | TriggerCondition::ReceivesDamage
                             | TriggerCondition::Dies
                             | TriggerCondition::AnotherCreatureLeavesBattlefield
@@ -15478,6 +15481,16 @@ impl Game {
                                     ) || bound == actual
                                 },
                             )
+                    } else if trigger_condition
+                        == Some(TriggerCondition::AttachedCreatureDealsCombatDamageToPlayer)
+                    {
+                        matches!(
+                            (effects.as_slice(), stack_object.effects.as_slice()),
+                            (
+                                [Effect::CreateTokensForControllerEqualToCombatDamage { token }],
+                                [Effect::CreateToken { token: materialized_token, count }]
+                            ) if token == materialized_token && *count > 0
+                        )
                     } else if trigger_condition
                         == Some(TriggerCondition::ControlledNonartifactPermanentEntersBattlefield)
                     {
@@ -18326,6 +18339,11 @@ impl Game {
                 Effect::ChooseOneOf(_) => {
                     return Err(RulesError::IllegalAction(
                         "a modal effect must be materialized during spell casting",
+                    ));
+                }
+                Effect::CreateTokensForControllerEqualToCombatDamage { .. } => {
+                    return Err(RulesError::IllegalAction(
+                        "attached combat-damage token marker is valid only on its triggered ability",
                     ));
                 }
                 Effect::DealDamage { amount, .. }
@@ -22539,7 +22557,7 @@ impl Game {
                 | TriggerEventPayload::DamageAmount(_)
                 | TriggerEventPayload::DamageAmountAndSourceController { .. }
                 | TriggerEventPayload::CombatDamageRecipient { .. }
-                | TriggerEventPayload::CombatDamagePlayer(_)
+                | TriggerEventPayload::CombatDamagePlayer { .. }
                 | TriggerEventPayload::EnteredPermanent { .. }
                 | TriggerEventPayload::ConvokeContributors(_)
                 | TriggerEventPayload::CastCreatureSpell { .. }
@@ -22716,10 +22734,18 @@ impl Game {
                 },
                 (
                     Effect::DiscardCombatDamagePlayer { count },
-                    TriggerEventPayload::CombatDamagePlayer(player),
+                    TriggerEventPayload::CombatDamagePlayer { player, .. },
                 ) => Effect::DiscardCapturedPlayer {
                     player: *player,
                     count,
+                },
+                (
+                    Effect::CreateTokensForControllerEqualToCombatDamage { token },
+                    TriggerEventPayload::CombatDamagePlayer { amount, .. },
+                ) => Effect::CreateToken {
+                    token,
+                    count: u8::try_from(*amount)
+                        .expect("attached combat-token trigger amount was validated while queuing"),
                 },
                 (
                     Effect::ReturnAnotherControlledPermanentSharingEnteredCardTypes,
@@ -24043,8 +24069,10 @@ impl Game {
         &mut self,
         source: ObjectId,
         recipient: PlayerId,
+        amount: i32,
     ) -> Result<(), RulesError> {
-        if self.zone_of(source) != Some(Zone::Battlefield)
+        if amount <= 0
+            || self.zone_of(source) != Some(Zone::Battlefield)
             || self.object(source)?.token.is_some()
             || self.player(recipient)?.lost
         {
@@ -24062,6 +24090,57 @@ impl Game {
             .filter(|ability| ability.condition == TriggerCondition::DealsCombatDamageToPlayer)
             .cloned()
             .collect::<Vec<_>>();
+
+        // An attached Aura observes combat damage dealt by its exact current
+        // creature endpoint. The Aura remains the trigger source and its
+        // controller owns the resulting ability, so neither identity is
+        // inferred from the attacking creature after state-based actions.
+        let mut attached_triggers = Vec::new();
+        for aura in self.all_battlefield_cards() {
+            let Some((attached, attached_incarnation)) = self.current_attached_creature(aura)?
+            else {
+                continue;
+            };
+            if attached != source || attached_incarnation != source_incarnation {
+                continue;
+            }
+            let aura_definition = self.card_definition(aura)?.id;
+            let aura_controller = self.controller_of(aura)?;
+            let aura_incarnation = self.object(aura)?.incarnation;
+            let aura_colors = self.characteristics(aura)?.colors;
+            for ability in self
+                .triggered_abilities
+                .get(aura_definition)
+                .into_iter()
+                .flat_map(|abilities| abilities.values())
+                .filter(|ability| {
+                    ability.condition == TriggerCondition::AttachedCreatureDealsCombatDamageToPlayer
+                })
+                .cloned()
+            {
+                attached_triggers.push((
+                    aura,
+                    aura_incarnation,
+                    aura_colors.clone(),
+                    aura_controller,
+                    ability,
+                ));
+            }
+        }
+        if attached_triggers.iter().any(|(_, _, _, _, ability)| {
+            ability.effects.iter().any(|effect| {
+                matches!(
+                    effect,
+                    Effect::CreateTokensForControllerEqualToCombatDamage { .. }
+                )
+            })
+        }) && amount > i32::from(u8::MAX)
+        {
+            return Err(RulesError::IllegalAction(
+                "attached combat-damage token count exceeds engine token receipt capacity",
+            ));
+        }
+
         for ability in triggers {
             self.pending_trigger_events
                 .push(PendingTriggeredAbilityEvent {
@@ -24070,7 +24149,40 @@ impl Game {
                     source_colors: source_colors.clone(),
                     controller,
                     ability,
-                    payload: TriggerEventPayload::CombatDamagePlayer(recipient),
+                    payload: TriggerEventPayload::CombatDamagePlayer {
+                        player: recipient,
+                        amount,
+                    },
+                });
+        }
+        for (aura, aura_incarnation, aura_colors, aura_controller, ability) in attached_triggers {
+            if ability.effects.iter().any(|effect| {
+                matches!(
+                    effect,
+                    Effect::CreateTokensForControllerEqualToCombatDamage { .. }
+                )
+            }) {
+                self.record_event(GameEvent::AttachedCombatDamageTokenCountCaptured {
+                    aura,
+                    aura_incarnation,
+                    creature: source,
+                    creature_incarnation: source_incarnation,
+                    player: recipient,
+                    ability: ability.id,
+                    amount,
+                });
+            }
+            self.pending_trigger_events
+                .push(PendingTriggeredAbilityEvent {
+                    source: aura,
+                    source_incarnation: aura_incarnation,
+                    source_colors: aura_colors,
+                    controller: aura_controller,
+                    ability,
+                    payload: TriggerEventPayload::CombatDamagePlayer {
+                        player: recipient,
+                        amount,
+                    },
                 });
         }
         Ok(())
@@ -25694,12 +25806,14 @@ impl Game {
                     source: event_source,
                     player: recipient,
                     amount: event_amount,
-                } if *event_source == source && *event_amount > 0 => Some(*recipient),
+                } if *event_source == source && *event_amount > 0 => {
+                    Some((*recipient, *event_amount))
+                }
                 _ => None,
             })
             .collect::<Vec<_>>();
-        for recipient in recipients {
-            self.enqueue_combat_damage_to_player_triggers(source, recipient)?;
+        for (recipient, dealt) in recipients {
+            self.enqueue_combat_damage_to_player_triggers(source, recipient, dealt)?;
         }
         Ok(())
     }
@@ -28785,6 +28899,11 @@ impl Game {
                     "attached-creature token-copy marker escaped trigger materialization",
                 ));
             }
+            Effect::CreateTokensForControllerEqualToCombatDamage { .. } => {
+                return Err(RulesError::IllegalAction(
+                    "attached combat-damage token marker escaped trigger materialization",
+                ));
+            }
             Effect::CreateTokenCopyOfPermanent {
                 creature,
                 creature_incarnation,
@@ -31634,6 +31753,21 @@ impl Game {
         {
             return Err(RulesError::IllegalAction(
                 "materialized combat-damage player discard escaped onto a triggered binding",
+            ));
+        }
+        let has_attached_combat_token_marker = ability.effects.iter().any(|effect| {
+            matches!(
+                effect,
+                Effect::CreateTokensForControllerEqualToCombatDamage { .. }
+            )
+        });
+        if has_attached_combat_token_marker
+            && (ability.condition != TriggerCondition::AttachedCreatureDealsCombatDamageToPlayer
+                || !ability.targets.is_empty()
+                || ability.effects.len() != 1)
+        {
+            return Err(RulesError::IllegalAction(
+                "attached combat-damage token marker requires one target-free Aura trigger",
             ));
         }
         let has_attacking_color_modifier = ability.effects.iter().any(|effect| {
@@ -36455,6 +36589,71 @@ impl Game {
             {
                 return Err(RulesError::IllegalAction(
                     "damage-batch life-gain receipt lacks a matching positive life receipt",
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// An Aura-relative combat-token marker must be emitted only for one
+    /// already committed positive combat-damage receipt and only by a bound
+    /// target-free Aura trigger with a token-count materializer. The exact
+    /// source/creature incarnations are historical facts; they deliberately
+    /// do not require the Aura or creature to survive state-based actions
+    /// before the triggered ability resolves.
+    fn validate_attached_combat_damage_token_count_events(&self) -> Result<(), RulesError> {
+        for (index, event) in self.event_log.iter().enumerate() {
+            let GameEvent::AttachedCombatDamageTokenCountCaptured {
+                aura,
+                aura_incarnation,
+                creature,
+                creature_incarnation,
+                player,
+                ability,
+                amount,
+            } = event
+            else {
+                continue;
+            };
+            let definition = self
+                .objects
+                .get(aura)
+                .and_then(CardObject::effective_definition)
+                .or_else(|| self.departed_card_definitions.get(aura).copied())
+                .ok_or(RulesError::IllegalAction(
+                    "attached combat-token receipt source has no catalog definition",
+                ))?;
+            let valid_binding = self
+                .triggered_abilities
+                .get(definition)
+                .and_then(|abilities| abilities.get(ability))
+                .is_some_and(|binding| {
+                    binding.condition == TriggerCondition::AttachedCreatureDealsCombatDamageToPlayer
+                        && binding.targets.is_empty()
+                        && matches!(
+                            binding.effects.as_slice(),
+                            [Effect::CreateTokensForControllerEqualToCombatDamage { .. }]
+                        )
+                });
+            if *aura_incarnation == 0
+                || *creature_incarnation == 0
+                || player.0 >= self.players.len()
+                || *amount <= 0
+                || *amount > i32::from(u8::MAX)
+                || !valid_binding
+                || !matches!(
+                    self.event_log.get(index.checked_sub(1).ok_or(RulesError::IllegalAction(
+                        "attached combat-token receipt has no preceding combat damage",
+                    ))?),
+                    Some(GameEvent::DamageDealtToPlayer {
+                        source,
+                        player: damaged_player,
+                        amount: dealt,
+                    }) if source == creature && damaged_player == player && dealt == amount
+                )
+            {
+                return Err(RulesError::IllegalAction(
+                    "attached combat-token receipt lacks committed damage or valid Aura trigger provenance",
                 ));
             }
         }

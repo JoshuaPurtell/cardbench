@@ -203,6 +203,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-HALCYON-GLAZE",
             "RAV-GROZOTH",
             "RAV-FLIGHT-OF-FANCY",
+            "RAV-POLLENBRIGHT-WINGS",
             "RAV-FLOW-OF-IDEAS",
             "RAV-SURVEILLING-SPRITE",
             "RAV-DREAM-LEASH",
@@ -342,6 +343,15 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
         (
             "RAV-BRIGHTFLAME",
             vec![Effect::RadianceDealChosenXDamageToCreaturesAndGainLifeEqualToDamageDealt],
+        ),
+        (
+            "RAV-POLLENBRIGHT-WINGS",
+            vec![Effect::AttachSourceToTarget {
+                target: TargetRequirement::Creature,
+                changes: vec![cardbench_magic_engine::ContinuousChange::AddKeyword(
+                    Keyword::Flying,
+                )],
+            }],
         ),
         (
             "RAV-RALLY-THE-RIGHTEOUS",

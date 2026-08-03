@@ -46,7 +46,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 272] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 273] = [
     "RAV-CHAR",
     "RAV-AGRUS-KOS-WOJEK-VETERAN",
     "RAV-INSTILL-FUROR",
@@ -237,6 +237,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 272] = [
     "RAV-HALCYON-GLAZE",
     "RAV-GROZOTH",
     "RAV-FLIGHT-OF-FANCY",
+    "RAV-POLLENBRIGHT-WINGS",
     "RAV-FLOW-OF-IDEAS",
     "RAV-SURVEILLING-SPRITE",
     "RAV-DREAM-LEASH",
@@ -4648,6 +4649,32 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             supported_rules: &[
                 "full-rules-fidelity",
                 "aura-enchant-creature-flying-etb-draw-two",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![Effect::AttachSourceToTarget {
+                target: TargetRequirement::Creature,
+                changes: vec![ContinuousChange::AddKeyword(Keyword::Flying)],
+            }],
+        },
+        // Full fidelity: this Aura attaches to a creature, grants Flying,
+        // and observes only that exact attached creature's committed combat
+        // damage to a player. The trigger materializes its token count from
+        // the captured damage packet rather than a later power lookup.
+        CardDefinition {
+            id: "RAV-POLLENBRIGHT-WINGS",
+            name: "Pollenbright Wings",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(4, [Color::Green, Color::Blue]),
+            colors: colors([Color::Green, Color::Blue]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Enchantment]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "aura-enchant-creature-flying",
+                "attached-creature-combat-damage-saproling-count",
             ],
             power: None,
             toughness: None,
@@ -9085,6 +9112,19 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                 optional: false,
                 targets: vec![],
                 effects: vec![Effect::DrawController, Effect::DrawController],
+            },
+        },
+        TriggeredAbilityBinding {
+            card_definition: "RAV-POLLENBRIGHT-WINGS",
+            ability: TriggeredAbility {
+                id: "attached-creature-combat-damage-create-saprolings",
+                condition: TriggerCondition::AttachedCreatureDealsCombatDamageToPlayer,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![Effect::CreateTokensForControllerEqualToCombatDamage {
+                    token: TokenSpec::saproling(),
+                }],
             },
         },
         TriggeredAbilityBinding {

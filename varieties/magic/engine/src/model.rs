@@ -415,6 +415,11 @@ pub enum TriggerCondition {
     /// recipient is captured with the event rather than selected as a target
     /// while the triggered ability resolves.
     DealsCombatDamageToPlayer,
+    /// The source is an Aura attached to the exact creature that dealt the
+    /// positive combat damage. The Aura's controller owns the triggered
+    /// ability; recipient and committed amount are event provenance rather
+    /// than targets or a later characteristic lookup.
+    AttachedCreatureDealsCombatDamageToPlayer,
     /// The source received positive damage. The source may leave the
     /// battlefield during state-based actions before this trigger is stacked.
     ReceivesDamage,
@@ -1923,6 +1928,13 @@ pub enum Effect {
     DiscardCombatDamagePlayer {
         count: u8,
     },
+    /// Trigger-only marker that materializes into token creation with the
+    /// exact positive combat-damage amount captured from an attached creature
+    /// reaching a player. The token specification is expansion data, while
+    /// the amount is never inferred at later resolution.
+    CreateTokensForControllerEqualToCombatDamage {
+        token: TokenSpec,
+    },
     /// The materialized recipient-private discard instruction for an exact
     /// combat-damage-to-player event. This is runtime-only; definition-bound
     /// triggered abilities retain the event-relative marker above.
@@ -3104,6 +3116,7 @@ impl Effect {
             | Self::DrawControllerIfManaColorSpent { .. }
             | Self::ModifyAllCreaturesPtUntilEndOfTurnIfManaColorSpent { .. }
             | Self::CreateToken { .. }
+            | Self::CreateTokensForControllerEqualToCombatDamage { .. }
             | Self::ReturnOneCreatureCardFromEachGraveyardToHand
             | Self::ReturnAllCreatureCardsMatchingCastCreatureSpellNameFromGraveyards
             | Self::ReturnAllCreatureCardsMatchingNameFromGraveyards { .. }
@@ -5881,6 +5894,19 @@ pub enum GameEvent {
     DamageDealtToPlayer {
         source: ObjectId,
         player: PlayerId,
+        amount: i32,
+    },
+    /// An Aura observed its exact attached creature's positive combat damage
+    /// to a player and captured the packet amount for a later token-producing
+    /// trigger. The card and creature incarnations make a later attachment or
+    /// leave-and-return unable to alter the already-triggered count.
+    AttachedCombatDamageTokenCountCaptured {
+        aura: ObjectId,
+        aura_incarnation: u64,
+        creature: ObjectId,
+        creature_incarnation: u64,
+        player: PlayerId,
+        ability: &'static str,
         amount: i32,
     },
     /// A resolving source-counter instruction materialized a positive
