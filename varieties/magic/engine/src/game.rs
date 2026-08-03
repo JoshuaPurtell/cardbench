@@ -2327,6 +2327,15 @@ impl Game {
         &mut self,
         bindings: impl IntoIterator<Item = EntryCoinFlipBinding>,
     ) -> Result<(), RulesError> {
+        self.atomic_transition(|game| game.register_entry_coin_flip_bindings_impl(bindings))
+    }
+
+    /// Applies one setup batch inside the public transaction journal so an
+    /// invalid later member cannot retain an earlier entry-replacement prefix.
+    fn register_entry_coin_flip_bindings_impl(
+        &mut self,
+        bindings: impl IntoIterator<Item = EntryCoinFlipBinding>,
+    ) -> Result<(), RulesError> {
         if self.started {
             return Err(RulesError::IllegalAction(
                 "entry coin-flip bindings cannot change after the game starts",
