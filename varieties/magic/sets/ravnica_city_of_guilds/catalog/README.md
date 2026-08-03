@@ -49,8 +49,8 @@ a zone move. The fetched Aura's ordinary ETB trigger is queued only after the
 Mage trigger's terminal receipt. The opponent sees neither unselected Aura
 identities nor a private decision projection.
 
-The current catalog partition is 255 full / 6 partial / 30 catalog-only unique
-names (259 / 14 / 33 printings). The independently checked coverage-report
+The current catalog partition is 256 full / 6 partial / 29 catalog-only unique
+names (271 / 6 / 29 printings). The independently checked coverage-report
 binary emits the same partition.
 
 Grozoth is a positive-manifest entry. Its target-free optional entry trigger

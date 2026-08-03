@@ -1258,6 +1258,14 @@ Oracle Magic rules coverage.
   that card's graveyard move and before `AbilityActivated`. The invariant audit
   rejects orphaned discard receipts, receipts for abilities without a discard
   binding, and any non-graveyard destination.
+- A generalized graveyard-exile cost has an exact positive card count from
+  its immutable binding. Each selected object must be distinct, currently in
+  the activating player's own graveyard, and a creature card; it is rejected
+  before mana, stack, or event mutation otherwise. Each successful selection
+  emits `ExiledFromGraveyardAsAbilityCost` immediately followed by the same
+  card's `CardMoved { to: Exile }` receipt before `AbilityActivated`. The
+  invariant audit rejects an orphaned, duplicate, wrong-owner, noncreature,
+  wrong-cardinality, or non-exile receipt.
 - A stack-using activated ability captures its controller at activation in the
   immutable stack object and matching `AbilityActivated` receipt. A later
   layer-two control change to its live battlefield source does not change or
