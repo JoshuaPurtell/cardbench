@@ -44,7 +44,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 260] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 261] = [
     "RAV-CHAR",
     "RAV-AGRUS-KOS-WOJEK-VETERAN",
     "RAV-GALVANIC-ARC",
@@ -108,6 +108,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 260] = [
     "RAV-BRAINSPOIL",
     "RAV-CLUTCH-OF-THE-UNDERCITY",
     "RAV-DISEMBOWEL",
+    "RAV-PSYCHIC-DRAIN",
     "RAV-NIGHTMARE-VOID",
     "RAV-MOONLIGHT-BARGAIN",
     "RAV-ROLLING-SPOIL",
@@ -2034,6 +2035,29 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             toughness: None,
             keywords: vec![],
             effects: vec![Effect::DestroyTargetCreatureWithManaValueAtMostChosenX],
+        },
+        // Full fidelity: the policy-declared X is paid as additional generic
+        // mana, remains on the stack through the normal target/priority
+        // lifecycle, then supplies the same ordered mill and life-gain
+        // amount. An empty target library mills as far as possible while the
+        // life gain remains the declared X value.
+        CardDefinition {
+            id: "RAV-PSYCHIC-DRAIN",
+            name: "Psychic Drain",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(0, [Color::Blue, Color::Black]),
+            colors: colors([Color::Blue, Color::Black]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Sorcery]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "chosen-x-targeted-mill-and-controller-life-gain",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![Effect::MillTargetPlayerAndGainLifeControllerEqualToChosenX],
         },
         // Full fidelity: player targeting remains a stack slot and, at
         // resolution, the targeted player makes an exact private selection

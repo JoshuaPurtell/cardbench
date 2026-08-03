@@ -1893,6 +1893,11 @@ pub enum Effect {
     MillTargetPlayer {
         count: i16,
     },
+    /// Mill the one targeted player's current library by the exact X value
+    /// declared while this spell was cast, then gain that same amount of life
+    /// for the resolving controller.  The amount is stack provenance, never a
+    /// read of a mutable mana pool at resolution.
+    MillTargetPlayerAndGainLifeControllerEqualToChosenX,
     /// A recipient-damage trigger materializes this into
     /// [`Self::MillTargetPlayer`] when the damage event is queued. Keeping the
     /// event amount out of the card binding prevents a later resolution from
@@ -2746,6 +2751,7 @@ impl Effect {
             self,
             Self::DestroyTargetCreatureWithManaValueAtMostChosenX
                 | Self::AddControllerDamageShieldEqualToChosenXUntilEndOfTurn
+                | Self::MillTargetPlayerAndGainLifeControllerEqualToChosenX
                 | Self::SearchControllerLibrary {
                     requirement: LibrarySearchRequirement::CreatureWithManaValueAtMostChosenX,
                     ..
@@ -2834,6 +2840,7 @@ impl Effect {
             | Self::DiscardTargetPlayer { .. }
             | Self::TargetPlayerSacrificesCreatureThenControllerDrawsEqualToPower
             | Self::MillTargetPlayer { .. }
+            | Self::MillTargetPlayerAndGainLifeControllerEqualToChosenX
             | Self::MillTargetPlayerFromSourceDamage
             | Self::AddOneManaOfTargetPlayersChosenColor
             | Self::AddManaToTargetPlayer { .. } => Some(TargetRequirement::Player),

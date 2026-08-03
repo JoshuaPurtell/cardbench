@@ -7353,16 +7353,24 @@ impl Game {
                 if !effect.requires_chosen_x() {
                     continue;
                 }
-                if requirement != TargetRequirement::Creature {
-                    return Err(RulesError::IllegalAction(
-                        "chosen-X instruction has an unsupported target requirement",
-                    ));
-                }
-                let Target::Permanent(card) = target else {
-                    return Err(RulesError::IllegalTarget(target));
-                };
-                if self.permanent_mana_value(card)? > i16::from(x_value) {
-                    return Err(RulesError::IllegalTarget(target));
+                match requirement {
+                    TargetRequirement::Creature => {
+                        let Target::Permanent(card) = target else {
+                            return Err(RulesError::IllegalTarget(target));
+                        };
+                        if self.permanent_mana_value(card)? > i16::from(x_value) {
+                            return Err(RulesError::IllegalTarget(target));
+                        }
+                    }
+                    // The selected X can also be a resolution quantity for a
+                    // targeted player. Target planning already checked the
+                    // player shape, and it has no creature-mana-value bound.
+                    TargetRequirement::Player => {}
+                    _ => {
+                        return Err(RulesError::IllegalAction(
+                            "chosen-X instruction has an unsupported target requirement",
+                        ));
+                    }
                 }
             }
         }
@@ -16633,6 +16641,7 @@ impl Game {
                 | Effect::AttachSourceAndModifyTargetPt { .. }
                 | Effect::RevealTopCardPutIntoHandLoseLifeEqualToManaValue
                 | Effect::GainLifeControllerFromSourceDamage
+                | Effect::MillTargetPlayerAndGainLifeControllerEqualToChosenX
                 | Effect::MillTargetPlayerFromSourceDamage
                 | Effect::MillSourceControllerFromSourceDamage
                 | Effect::GainLifeForEachCreature
@@ -24072,6 +24081,31 @@ impl Game {
                         break;
                     };
                     self.move_to_zone(card, Zone::Graveyard)?;
+                }
+            }
+            Effect::MillTargetPlayerAndGainLifeControllerEqualToChosenX => {
+                let player = match target
+                    .ok_or(RulesError::IllegalAction("missing chosen-X mill target player"))?
+                {
+                    Target::Player(player) if !self.players[player.0].lost => player,
+                    other => return Err(RulesError::IllegalTarget(other)),
+                };
+                let amount = i16::from(chosen_x.ok_or(RulesError::IllegalAction(
+                    "chosen-X mill-and-life effect resolved without a declared X value",
+                ))?);
+                for _ in 0..usize::try_from(amount).expect("chosen X fits usize") {
+                    let Some(card) = self.players[player.0].library.pop() else {
+                        break;
+                    };
+                    self.move_to_zone(card, Zone::Graveyard)?;
+                }
+                if amount > 0 {
+                    self.players[controller.0].life += i64::from(amount);
+                    self.record_event(GameEvent::LifeGained {
+                        player: controller,
+                        amount,
+                    });
+                    self.enqueue_life_gain_triggers(controller);
                 }
             }
             Effect::MillTargetPlayerFromSourceDamage => {

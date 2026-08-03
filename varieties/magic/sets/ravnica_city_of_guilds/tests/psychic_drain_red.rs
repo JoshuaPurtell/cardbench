@@ -51,15 +51,17 @@ fn psychic_drain_couples_the_declared_x_for_target_mill_and_controller_life_gain
     let drain = game
         .add_card(PlayerId(0), "RAV-PSYCHIC-DRAIN", Zone::Hand)
         .expect("Psychic Drain setup");
+    // The final library element is the draw top, so seed the unaffected card
+    // first and the two expected mill cards above it.
+    let unmilled = game
+        .add_card(PlayerId(1), "RAV-BOROS-RECRUIT", Zone::Library)
+        .expect("unmilled target-library card");
     let milled = [
         game.add_card(PlayerId(1), "RAV-WATCHWOLF", Zone::Library)
             .expect("first target-library card"),
         game.add_card(PlayerId(1), "RAV-GOLIATH-SPIDER", Zone::Library)
             .expect("second target-library card"),
     ];
-    let unmilled = game
-        .add_card(PlayerId(1), "RAV-BOROS-RECRUIT", Zone::Library)
-        .expect("unmilled target-library card");
     game.grant_mana(PlayerId(0), Color::Blue, 2)
         .expect("blue payment setup");
     game.grant_mana(PlayerId(0), Color::Black, 2)
@@ -94,4 +96,47 @@ fn psychic_drain_couples_the_declared_x_for_target_mill_and_controller_life_gain
     println!("Psychic Drain trace={:?}", game.canonical_event_log());
     game.validate_invariants()
         .expect("Psychic Drain chosen-X coupling preserves invariants");
+}
+
+#[test]
+fn psychic_drain_gains_the_declared_x_even_when_the_target_library_is_smaller() {
+    let mut game = Game::new(card_definitions(), 2).expect("RAV fixture builds");
+    let drain = game
+        .add_card(PlayerId(0), "RAV-PSYCHIC-DRAIN", Zone::Hand)
+        .expect("Psychic Drain setup");
+    let only_library_card = game
+        .add_card(PlayerId(1), "RAV-WATCHWOLF", Zone::Library)
+        .expect("sole target-library card");
+    game.grant_mana(PlayerId(0), Color::Blue, 4)
+        .expect("blue payment setup");
+    game.grant_mana(PlayerId(0), Color::Black, 1)
+        .expect("black payment setup");
+
+    game.cast_spell_with_x(
+        PlayerId(0),
+        CastRequest {
+            card: drain,
+            targets: vec![Target::Player(PlayerId(1))],
+            convoke: vec![],
+            payment_mana_abilities: vec![],
+        },
+        3,
+        ManaPaymentSelection {
+            generic: vec![Color::Blue, Color::Blue, Color::Blue],
+            hybrid: vec![],
+        },
+    )
+    .expect("Psychic Drain X=3 casts");
+    game.pass_priority(PlayerId(0)).expect("caster passes");
+    game.pass_priority(PlayerId(1)).expect("spell resolves");
+
+    assert_eq!(game.zone_of(only_library_card), Some(Zone::Graveyard));
+    assert!(game.players[1].library.is_empty());
+    assert_eq!(game.players[0].life, 23);
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::LifeGained { player, amount } if *player == PlayerId(0) && *amount == 3
+    )));
+    game.validate_invariants()
+        .expect("short-library Psychic Drain preserves invariants");
 }

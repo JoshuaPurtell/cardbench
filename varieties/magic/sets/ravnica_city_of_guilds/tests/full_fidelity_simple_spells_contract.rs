@@ -76,6 +76,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-BRAINSPOIL",
             "RAV-CLUTCH-OF-THE-UNDERCITY",
             "RAV-DISEMBOWEL",
+            "RAV-PSYCHIC-DRAIN",
             "RAV-NIGHTMARE-VOID",
             "RAV-MOONLIGHT-BARGAIN",
             "RAV-ROLLING-SPOIL",
@@ -186,6 +187,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-VINDICTIVE-MOB",
             "RAV-BELLTOWER-SPHINX",
             "RAV-COMPULSIVE-RESEARCH",
+            "RAV-TWISTED-JUSTICE",
             "RAV-DRIFT-OF-PHANTASMS",
             "RAV-ETHEREAL-USHER",
             "RAV-HALCYON-GLAZE",
@@ -372,6 +374,10 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
         (
             "RAV-DISEMBOWEL",
             vec![Effect::DestroyTargetCreatureWithManaValueAtMostChosenX],
+        ),
+        (
+            "RAV-PSYCHIC-DRAIN",
+            vec![Effect::MillTargetPlayerAndGainLifeControllerEqualToChosenX],
         ),
         (
             "RAV-MOONLIGHT-BARGAIN",
