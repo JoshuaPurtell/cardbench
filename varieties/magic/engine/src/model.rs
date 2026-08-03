@@ -2334,6 +2334,14 @@ pub enum Effect {
     LookAtTopCardsOfTargetPlayerAndReorder {
         count: u8,
     },
+    /// The resolving controller publicly names one represented card, then
+    /// the target player's library is revealed from its current top through
+    /// the first matching card.  A match stays on top while the other
+    /// revealed cards move to that owner's graveyard; the library is then
+    /// shuffled.  The named-card choice is a typed resolution boundary so it
+    /// cannot be inferred from hidden library state or supplied after the
+    /// traversal begins.
+    TraverseTargetPlayerLibraryUntilNamedCardThenMillOthersAndShuffle,
     /// Privately inspect the current top `count` cards of the resolving
     /// controller's library. The controller chooses exactly one card for
     /// hand, one of the remainder for the top when present, and orders every
@@ -3124,7 +3132,8 @@ impl Effect {
                 Some(TargetRequirement::Opponent)
             }
             Self::LookAtTopCardsOfTargetPlayerAndReorder { .. }
-            | Self::LookAtTargetPlayerTopLibraryMayPutIntoGraveyard => {
+            | Self::LookAtTargetPlayerTopLibraryMayPutIntoGraveyard
+            | Self::TraverseTargetPlayerLibraryUntilNamedCardThenMillOthersAndShuffle => {
                 Some(TargetRequirement::Player)
             }
             Self::DestroyTargetLand | Self::DestroyTargetLandAndUntapSourceIfNonbasic => {
@@ -4298,6 +4307,10 @@ pub enum DecisionKind {
     /// bottom order. The target is captured on the stack; no policy gets a
     /// free library-reordering action outside this suspended boundary.
     TargetPlayerLibraryTopReorder,
+    /// The resolving spell's controller publicly chooses one represented card
+    /// name before a target-library traversal may reveal its deterministic
+    /// prefix.  The choice is independent of the hidden target library.
+    NamedCardTargetLibraryTraversal,
     /// Each affected player selects one of their own creature cards from a
     /// public graveyard while one target-free spell remains suspended on the
     /// stack. The selection is public, but it is still a no-priority rules
@@ -4377,6 +4390,10 @@ pub enum DecisionOption {
     /// One of Magic's five card colors. `Colorless` is a mana kind rather
     /// than a card color and is never a legal choice for this option.
     Color(Color),
+    /// One public card name from the immutable definitions known to this game.
+    /// This never names a hidden card object, so it cannot reveal library
+    /// membership merely by being offered as a decision option.
+    CardName(&'static str),
 }
 
 /// A submitted answer to a typed decision. The continuation determines which
@@ -4422,6 +4439,7 @@ pub enum DecisionSelection {
     TriggerOrder(Vec<TriggerOrderEntry>),
     Replacements(Vec<ReplacementChoice>),
     Color(Color),
+    CardName(&'static str),
     /// A resolution-time mana payment is either an explicit decline or a
     /// complete selected spend, optionally preceded by listed mana abilities.
     CounterUnlessPaysMana {
@@ -4595,6 +4613,15 @@ pub enum DecisionContinuation {
         controller: PlayerId,
         target: PlayerId,
         cards: Vec<ObjectId>,
+    },
+    /// Retains the spell and target provenance while its controller names a
+    /// card before an otherwise hidden target-library traversal.
+    NamedCardTargetLibraryTraversal {
+        source_stack_item: StackObjectId,
+        source: ObjectId,
+        source_incarnation: u64,
+        controller: PlayerId,
+        target: PlayerId,
     },
     TriggeredEffectObject {
         source: ObjectId,
@@ -6437,6 +6464,13 @@ pub enum GameEvent {
         player: PlayerId,
         card: ObjectId,
         definition: &'static str,
+    },
+    /// A resolving effect publicly named one represented card before acting
+    /// on a hidden library.  The name is a catalog fact, not copied card text.
+    CardNameChosen {
+        decision: DecisionId,
+        player: PlayerId,
+        name: &'static str,
     },
     Transmuted {
         player: PlayerId,

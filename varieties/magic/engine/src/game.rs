@@ -603,6 +603,10 @@ pub struct PendingDecisionView {
     /// is separate from card, target, and replacement domains so a policy
     /// cannot accidentally submit a cross-domain choice.
     pub color_candidates: Vec<Color>,
+    /// Public card-name options for a name-before-hidden-library traversal.
+    /// They are immutable catalog names, never identities drawn from the
+    /// target player's library.
+    pub card_name_candidates: Vec<&'static str>,
 }
 
 /// Public, stale-safe details for a prospective damage event requiring an
@@ -4784,6 +4788,7 @@ impl Game {
                         trigger_candidates: Self::decision_trigger_candidates(decision),
                         replacement_candidates: Self::decision_replacement_candidates(decision),
                         color_candidates: Self::decision_color_candidates(decision),
+                        card_name_candidates: Self::decision_card_name_candidates(decision),
                     })
             })
             .transpose()?;
@@ -4828,6 +4833,7 @@ impl Game {
                 | DecisionContinuation::HandToLibraryBottomDraw { .. }
                 | DecisionContinuation::LibraryTopPartition { .. }
                 | DecisionContinuation::TargetPlayerLibraryTopReorder { .. }
+                | DecisionContinuation::NamedCardTargetLibraryTraversal { .. }
                 | DecisionContinuation::TriggeredEffectObject { .. }
                 | DecisionContinuation::CombatDamageOrder { .. }
                 | DecisionContinuation::SpellCopyTargets { .. }
@@ -4912,6 +4918,7 @@ impl Game {
                 | DecisionContinuation::HandToLibraryBottomDraw { .. }
                 | DecisionContinuation::LibraryTopPartition { .. }
                 | DecisionContinuation::TargetPlayerLibraryTopReorder { .. }
+                | DecisionContinuation::NamedCardTargetLibraryTraversal { .. }
                 | DecisionContinuation::TriggeredEffectObject { .. }
                 | DecisionContinuation::CombatDamageOrder { .. }
                 | DecisionContinuation::SpellCopyTargets { .. }
@@ -4982,6 +4989,7 @@ impl Game {
                 | DecisionContinuation::HandToLibraryBottomDraw { .. }
                 | DecisionContinuation::LibraryTopPartition { .. }
                 | DecisionContinuation::TargetPlayerLibraryTopReorder { .. }
+                | DecisionContinuation::NamedCardTargetLibraryTraversal { .. }
                 | DecisionContinuation::CombatDamageOrder { .. }
                 | DecisionContinuation::SpellCopyTargets { .. }
                 | DecisionContinuation::ExiledSpellCopyCast { .. }
@@ -5085,6 +5093,7 @@ impl Game {
                 | DecisionContinuation::HandToLibraryBottomDraw { .. }
                 | DecisionContinuation::LibraryTopPartition { .. }
                 | DecisionContinuation::TargetPlayerLibraryTopReorder { .. }
+                | DecisionContinuation::NamedCardTargetLibraryTraversal { .. }
                 | DecisionContinuation::TriggeredEffectObject { .. }
                 | DecisionContinuation::CombatDamageOrder { .. }
                 | DecisionContinuation::SpellCopyTargets { .. }
@@ -9482,6 +9491,24 @@ impl Game {
                     &bottom,
                 )
             }
+            DecisionContinuation::NamedCardTargetLibraryTraversal {
+                source_stack_item,
+                source,
+                source_incarnation,
+                controller,
+                target,
+            } => {
+                let name = Self::validate_card_name_decision_selection(&decision, &selection)?;
+                self.resolve_named_card_target_library_traversal_decision(
+                    &decision,
+                    source_stack_item,
+                    source,
+                    source_incarnation,
+                    controller,
+                    target,
+                    name,
+                )
+            }
             DecisionContinuation::TriggeredEffectObject {
                 source,
                 controller,
@@ -11614,7 +11641,8 @@ impl Game {
                 DecisionOption::Target(_)
                 | DecisionOption::TriggerOrder(_)
                 | DecisionOption::Replacement(_)
-                | DecisionOption::Color(_) => Err(RulesError::IllegalAction(
+                | DecisionOption::Color(_)
+                | DecisionOption::CardName(_) => Err(RulesError::IllegalAction(
                     "private library partition contains a non-card option",
                 )),
             })
@@ -11670,7 +11698,8 @@ impl Game {
                 DecisionOption::Target(_)
                 | DecisionOption::TriggerOrder(_)
                 | DecisionOption::Replacement(_)
-                | DecisionOption::Color(_) => Err(RulesError::IllegalAction(
+                | DecisionOption::Color(_)
+                | DecisionOption::CardName(_) => Err(RulesError::IllegalAction(
                     "private target-library reorder contains a non-card option",
                 )),
             })
@@ -11772,6 +11801,26 @@ impl Game {
             ));
         }
         Ok(color)
+    }
+
+    fn validate_card_name_decision_selection(
+        decision: &PendingDecision,
+        selection: &DecisionSelection,
+    ) -> Result<&'static str, RulesError> {
+        let DecisionSelection::CardName(name) = selection else {
+            return Err(RulesError::IllegalAction(
+                "this decision requires one represented card name",
+            ));
+        };
+        if decision.min_selections != 1
+            || decision.max_selections != 1
+            || !decision.options.contains(&DecisionOption::CardName(name))
+        {
+            return Err(RulesError::IllegalAction(
+                "named-card decision selected an unavailable name",
+            ));
+        }
+        Ok(name)
     }
 
     fn resolve_triggered_ability_order_decision(
@@ -13719,6 +13768,106 @@ impl Game {
         self.flush_pending_dies_triggers()?;
         self.priority = self.priority_after_resolution();
         Ok(())
+    }
+
+    /// Resolves the name-first target-library traversal.  The named option is
+    /// public, but all library membership remains private until the printed
+    /// reveal instruction emits ordinary `CardRevealed` receipts.  If the
+    /// name is absent, no revealed card moves zones; the target library is
+    /// still shuffled normally.
+    #[allow(clippy::too_many_arguments)] // Typed stack and target provenance is intentionally explicit.
+    fn resolve_named_card_target_library_traversal_decision(
+        &mut self,
+        decision: &PendingDecision,
+        source_stack_item: StackObjectId,
+        source: ObjectId,
+        source_incarnation: u64,
+        controller: PlayerId,
+        target: PlayerId,
+        name: &'static str,
+    ) -> Result<(), RulesError> {
+        let top = self.stack.last().cloned().ok_or(RulesError::IllegalAction(
+            "named-card traversal choice escaped its stack spell",
+        ))?;
+        let expected_options = self.named_card_decision_options();
+        if decision.kind != DecisionKind::NamedCardTargetLibraryTraversal
+            || decision.visibility != DecisionVisibility::Public
+            || decision.player != controller
+            || decision.min_selections != 1
+            || decision.max_selections != 1
+            || decision.options != expected_options
+            || !decision.options.contains(&DecisionOption::CardName(name))
+            || top.id != source_stack_item
+            || top.card != source
+            || top.source_incarnation != source_incarnation
+            || top.controller != controller
+            || top.ability_id.is_some()
+            || top.targets.as_slice() != [Target::Player(target)]
+            || top.effects.as_slice()
+                != [Effect::TraverseTargetPlayerLibraryUntilNamedCardThenMillOthersAndShuffle]
+            || !self.target_matches_for_controller(
+                controller,
+                Target::Player(target),
+                TargetRequirement::Player,
+            )
+        {
+            return Err(RulesError::IllegalAction(
+                "named-card traversal decision no longer matches its stack or target provenance",
+            ));
+        }
+
+        self.complete_pending_decision(decision)?;
+        self.record_event(GameEvent::CardNameChosen {
+            decision: decision.id,
+            player: controller,
+            name,
+        });
+
+        let mut revealed = Vec::new();
+        let mut found = false;
+        for card in self.players[target.0].library.iter().rev().copied() {
+            revealed.push(card);
+            if self.card_definition(card)?.name == name {
+                found = true;
+                break;
+            }
+        }
+        for card in &revealed {
+            self.record_event(GameEvent::CardRevealed {
+                player: target,
+                card: *card,
+                definition: self.card_definition(*card)?.id,
+            });
+        }
+        if found {
+            let named = *revealed.last().ok_or(RulesError::IllegalAction(
+                "named-card traversal found no revealed named card",
+            ))?;
+            if self.card_definition(named)?.name != name {
+                return Err(RulesError::IllegalAction(
+                    "named-card traversal lost its matching-card provenance",
+                ));
+            }
+            // `revealed` is top-to-bottom, ending in the named card. Moving
+            // the preceding cards through ordinary zone transitions leaves
+            // that exact named card on top immediately before the required
+            // shuffle.
+            for card in &revealed[..revealed.len().saturating_sub(1)] {
+                self.move_to_zone(*card, Zone::Graveyard)?;
+            }
+        }
+        self.shuffle_library_and_record(target)?;
+
+        let terminal = self.stack.pop().ok_or(RulesError::IllegalAction(
+            "named-card traversal stack spell disappeared before terminal resolution",
+        ))?;
+        if terminal.id != source_stack_item {
+            return Err(RulesError::IllegalAction(
+                "named-card traversal terminal stack identity changed",
+            ));
+        }
+        self.stack_effect_cursors.remove(&terminal.id);
+        self.finish_resolved_decision_stack_item(&terminal)
     }
 
     #[allow(clippy::too_many_lines)] // One typed trigger-choice dispatcher preserves each continuation's stale checks.
@@ -19626,6 +19775,7 @@ impl Game {
                 | Effect::RevealTopLibraryCardsAndReorder { .. }
                 | Effect::PutControllerHandOnLibraryBottomThenDrawSameCount
                 | Effect::LookAtTopCardsOfTargetPlayerAndReorder { .. }
+                | Effect::TraverseTargetPlayerLibraryUntilNamedCardThenMillOthersAndShuffle
                 | Effect::LookAtTopCardsPutOneInHandOneOnTopRestOnBottom { .. }
                 | Effect::AttachSourceAndModifyTargetPt { .. }
                 | Effect::RevealTopCardPutIntoHandLoseLifeEqualToManaValue
@@ -20377,6 +20527,9 @@ impl Game {
             return Ok(());
         }
         if self.suspend_top_stack_item_for_target_player_library_reorder_choice()? {
+            return Ok(());
+        }
+        if self.suspend_top_stack_item_for_named_card_target_library_traversal_choice()? {
             return Ok(());
         }
         if self.suspend_top_stack_item_for_conditional_private_discard_choice()? {
@@ -23363,6 +23516,81 @@ impl Game {
             target,
             count: card_count,
         });
+        Ok(true)
+    }
+
+    /// Opens the public name-choice boundary before a spell can inspect the
+    /// target player's library.  Options come from the immutable game catalog
+    /// rather than the target library, so a policy cannot infer membership of
+    /// a hidden zone from the decision surface.
+    fn suspend_top_stack_item_for_named_card_target_library_traversal_choice(
+        &mut self,
+    ) -> Result<bool, RulesError> {
+        if self.pending_decision.is_some()
+            || self.pending_private_library_choice.is_some()
+            || self.pending_private_opponent_library_exile_choice.is_some()
+        {
+            return Err(RulesError::IllegalAction(
+                "a second named-card choice attempted to open during resolution",
+            ));
+        }
+        let Some(top) = self.stack.last() else {
+            return Ok(false);
+        };
+        let (source_stack_item, source, source_incarnation, controller, target) = match (
+            top.ability_id,
+            top.targets.as_slice(),
+            top.effects.as_slice(),
+        ) {
+            (
+                None,
+                [Target::Player(target)],
+                [Effect::TraverseTargetPlayerLibraryUntilNamedCardThenMillOthersAndShuffle],
+            ) => (
+                top.id,
+                top.card,
+                top.source_incarnation,
+                top.controller,
+                *target,
+            ),
+            (_, _, [Effect::TraverseTargetPlayerLibraryUntilNamedCardThenMillOthersAndShuffle]) => {
+                return Err(RulesError::IllegalAction(
+                    "named-card traversal must be one targeted spell instruction",
+                ));
+            }
+            _ => return Ok(false),
+        };
+        // An illegal target follows the ordinary all-targets-illegal
+        // counter path.  A name choice must never happen after a player has
+        // left the game or otherwise ceased to be a legal target.
+        if !self.target_matches_for_controller(
+            controller,
+            Target::Player(target),
+            TargetRequirement::Player,
+        ) {
+            return Ok(false);
+        }
+        let options = self.named_card_decision_options();
+        if options.is_empty() {
+            return Err(RulesError::IllegalAction(
+                "named-card traversal requires at least one represented card name",
+            ));
+        }
+        self.open_pending_decision(
+            controller,
+            DecisionVisibility::Public,
+            DecisionKind::NamedCardTargetLibraryTraversal,
+            1,
+            1,
+            options,
+            DecisionContinuation::NamedCardTargetLibraryTraversal {
+                source_stack_item,
+                source,
+                source_incarnation,
+                controller,
+                target,
+            },
+        )?;
         Ok(true)
     }
 
@@ -28471,6 +28699,11 @@ impl Game {
                 // no-priority continuation before this generic dispatcher.
                 // With none available, the target-change instruction is an
                 // ordinary no-op and later effects still resolve.
+            }
+            Effect::TraverseTargetPlayerLibraryUntilNamedCardThenMillOthersAndShuffle => {
+                return Err(RulesError::IllegalAction(
+                    "named-card traversal bypassed its public decision boundary",
+                ));
             }
             Effect::ReturnAnotherControlledPermanentSharingEnteredCardTypes
             | Effect::ReturnAnotherControlledPermanentSharingCardTypes { .. } => {
@@ -40463,7 +40696,8 @@ impl Game {
                 DecisionOption::Target(_)
                 | DecisionOption::TriggerOrder(_)
                 | DecisionOption::Replacement(_)
-                | DecisionOption::Color(_) => None,
+                | DecisionOption::Color(_)
+                | DecisionOption::CardName(_) => None,
             })
             .collect()
     }
@@ -40477,7 +40711,8 @@ impl Game {
                 DecisionOption::Object(_)
                 | DecisionOption::TriggerOrder(_)
                 | DecisionOption::Replacement(_)
-                | DecisionOption::Color(_) => None,
+                | DecisionOption::Color(_)
+                | DecisionOption::CardName(_) => None,
             })
             .collect()
     }
@@ -40491,7 +40726,8 @@ impl Game {
                 DecisionOption::Object(_)
                 | DecisionOption::Target(_)
                 | DecisionOption::Replacement(_)
-                | DecisionOption::Color(_) => None,
+                | DecisionOption::Color(_)
+                | DecisionOption::CardName(_) => None,
             })
             .collect()
     }
@@ -40505,7 +40741,8 @@ impl Game {
                 DecisionOption::Object(_)
                 | DecisionOption::Target(_)
                 | DecisionOption::TriggerOrder(_)
-                | DecisionOption::Color(_) => None,
+                | DecisionOption::Color(_)
+                | DecisionOption::CardName(_) => None,
             })
             .collect()
     }
@@ -40519,8 +40756,38 @@ impl Game {
                 DecisionOption::Object(_)
                 | DecisionOption::Target(_)
                 | DecisionOption::TriggerOrder(_)
-                | DecisionOption::Replacement(_) => None,
+                | DecisionOption::Replacement(_)
+                | DecisionOption::CardName(_) => None,
             })
+            .collect()
+    }
+
+    fn decision_card_name_candidates(decision: &PendingDecision) -> Vec<&'static str> {
+        decision
+            .options
+            .iter()
+            .filter_map(|option| match option {
+                DecisionOption::CardName(name) => Some(*name),
+                DecisionOption::Object(_)
+                | DecisionOption::Target(_)
+                | DecisionOption::TriggerOrder(_)
+                | DecisionOption::Replacement(_)
+                | DecisionOption::Color(_) => None,
+            })
+            .collect()
+    }
+
+    /// Returns one stable public option per represented card name.  The
+    /// catalog may contain multiple definitions only when their names differ;
+    /// collecting through a set keeps the policy surface duplicate-free even
+    /// if a future multi-set game intentionally registers reprints.
+    fn named_card_decision_options(&self) -> Vec<DecisionOption> {
+        self.catalog
+            .values()
+            .map(|definition| definition.name)
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .map(DecisionOption::CardName)
             .collect()
     }
 
@@ -40996,6 +41263,41 @@ impl Game {
                 {
                     return Err(RulesError::IllegalAction(
                         "target-player library reorder violates its private stack snapshot",
+                    ));
+                }
+            }
+            DecisionContinuation::NamedCardTargetLibraryTraversal {
+                source_stack_item,
+                source,
+                source_incarnation,
+                controller,
+                target,
+            } => {
+                let stack = self.stack.last().ok_or(RulesError::IllegalAction(
+                    "named-card traversal decision escaped its stack spell",
+                ))?;
+                if decision.kind != DecisionKind::NamedCardTargetLibraryTraversal
+                    || decision.visibility != DecisionVisibility::Public
+                    || decision.player != *controller
+                    || decision.min_selections != 1
+                    || decision.max_selections != 1
+                    || decision.options != self.named_card_decision_options()
+                    || stack.id != *source_stack_item
+                    || stack.card != *source
+                    || stack.source_incarnation != *source_incarnation
+                    || stack.controller != *controller
+                    || stack.ability_id.is_some()
+                    || stack.targets.as_slice() != [Target::Player(*target)]
+                    || stack.effects.as_slice()
+                        != [Effect::TraverseTargetPlayerLibraryUntilNamedCardThenMillOthersAndShuffle]
+                    || !self.target_matches_for_controller(
+                        *controller,
+                        Target::Player(*target),
+                        TargetRequirement::Player,
+                    )
+                {
+                    return Err(RulesError::IllegalAction(
+                        "named-card traversal decision violates stack, target, or catalog provenance",
                     ));
                 }
             }

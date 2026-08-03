@@ -73,14 +73,14 @@ fn executable_slice_size_is_explicit_and_does_not_masquerade_as_set_coverage() {
         .collect::<std::collections::BTreeSet<_>>();
 
     // Twenty executable basic-land printings collapse to five names. The
-    // two hundred and eighty-three executable nonbasic names include the positive
+    // two hundred and eighty-four executable nonbasic names include the positive
     // full-fidelity manifest entries; all others remain deliberately bounded
     // compatibility slices. The full-fidelity Clinging Darkness and
     // Moldervine Cloak entries use the bounded static-modifier Aura substrate;
     // regeneration remains independently capability-gated.
-    assert_eq!(executable_printings, 303);
-    assert_eq!(executable_names.len(), 288);
-    assert_eq!(catalog_only_names.len(), 3);
+    assert_eq!(executable_printings, 304);
+    assert_eq!(executable_names.len(), 289);
+    assert_eq!(catalog_only_names.len(), 2);
     assert!(executable_names.is_disjoint(&catalog_only_names));
 }
 
@@ -89,6 +89,14 @@ fn clinging_darkness_resolves_to_its_executable_aura_definition() {
     assert_eq!(
         executable_definition_id_for_collector(80),
         Ok("RAV-CLINGING-DARKNESS")
+    );
+}
+
+#[test]
+fn tunnel_vision_resolves_to_its_full_named_card_traversal_definition() {
+    assert_eq!(
+        executable_definition_id_for_collector(72),
+        Ok("RAV-TUNNEL-VISION")
     );
 }
 

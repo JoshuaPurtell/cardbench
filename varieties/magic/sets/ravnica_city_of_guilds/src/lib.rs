@@ -46,7 +46,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 282] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 283] = [
     "RAV-CHAR",
     "RAV-AGRUS-KOS-WOJEK-VETERAN",
     "RAV-INSTILL-FUROR",
@@ -252,6 +252,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 282] = [
     "RAV-REMAND",
     "RAV-INDUCE-PARANOIA",
     "RAV-TELLING-TIME",
+    "RAV-TUNNEL-VISION",
     "RAV-MARK-OF-EVICTION",
     "RAV-VEDALKEN-ENTRANCER",
     "RAV-VEDALKEN-DISMISSER",
@@ -4893,6 +4894,34 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             toughness: None,
             keywords: vec![],
             effects: vec![Effect::LookAtTopCardsPutOneInHandOneOnTopRestOnBottom { count: 3 }],
+        },
+        // Full fidelity: the name is a public resolution-time decision drawn
+        // from the represented catalog, never inferred from the hidden target
+        // library.  The generic traversal then reveals only the printed
+        // prefix, moves preceding revealed cards only if the name was found,
+        // and records the required target-library shuffle.
+        CardDefinition {
+            id: "RAV-TUNNEL-VISION",
+            name: "Tunnel Vision",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(5, [Color::Blue]),
+            colors: colors([Color::Blue]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Sorcery]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "target-player-library-named-card-traversal",
+                "named-card-placed-on-library-top-before-shuffle",
+                "other-revealed-cards-move-to-target-graveyard",
+                "target-library-shuffled-after-named-traversal",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![
+                Effect::TraverseTargetPlayerLibraryUntilNamedCardThenMillOthersAndShuffle,
+            ],
         },
         // Full fidelity: the Aura attaches only to a creature, then its
         // active-controller upkeep trigger reads that exact live attachment
