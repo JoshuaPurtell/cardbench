@@ -471,6 +471,14 @@ pub enum TriggerCondition {
     /// from the creature/noncreature capture conditions because the trigger
     /// itself need not retain the cast spell as a target.
     CastsSpell,
+    /// A Blue spell was cast by this permanent's controller. The trigger
+    /// itself need not retain the cast spell; any printed target is selected
+    /// through the ordinary triggered-ability decision boundary.
+    CastsBlueSpell,
+    /// A Black spell was cast by this permanent's controller. The trigger
+    /// itself need not retain the cast spell; any printed target is selected
+    /// through the ordinary triggered-ability decision boundary.
+    CastsBlackSpell,
     /// A creature spell was cast by any player. The trigger payload retains
     /// the public cast-card identity so a later effect can match card names
     /// without consulting a later incarnation of that spell object.
@@ -2821,6 +2829,12 @@ pub enum Effect {
     LookAtTopCardsOfTargetOpponentExileOne {
         count: u8,
     },
+    /// Exile the current top card of the target opponent's library. While
+    /// this exact source incarnation remains a battlefield permanent, that
+    /// card's owner cannot cast it through an effect-created exile
+    /// permission. The source/card identities are retained so a zone change
+    /// or source reentry never restricts an unrelated future object.
+    ExileTopCardOfTargetOpponentLibraryAndRestrictOwnerCasting,
     /// Suspend a targeted activated ability while its controller privately
     /// inspects the current top card of the target player's library. The
     /// controller then explicitly chooses whether that exact card moves to
@@ -3060,7 +3074,8 @@ impl Effect {
             | Self::AddOneManaOfTargetPlayersChosenColor
             | Self::AddManaToTargetPlayer { .. } => Some(TargetRequirement::Player),
             Self::CreateTokenForTargetOpponent { .. } => Some(TargetRequirement::Opponent),
-            Self::LookAtTopCardsOfTargetOpponentExileOne { .. } => {
+            Self::LookAtTopCardsOfTargetOpponentExileOne { .. }
+            | Self::ExileTopCardOfTargetOpponentLibraryAndRestrictOwnerCasting => {
                 Some(TargetRequirement::Opponent)
             }
             Self::LookAtTopCardsOfTargetPlayerAndReorder { .. }

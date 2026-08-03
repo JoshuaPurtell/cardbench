@@ -46,7 +46,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 278] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 279] = [
     "RAV-CHAR",
     "RAV-AGRUS-KOS-WOJEK-VETERAN",
     "RAV-INSTILL-FUROR",
@@ -281,6 +281,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 278] = [
     "RAV-SELESNYA-SANCTUARY",
     "RAV-CONVOLUTE",
     "RAV-CONSULT-THE-NECROSAGES",
+    "RAV-CIRCU-DIMIR-LOBOTOMIST",
     "RAV-SHAMBLING-SHELL",
     "RAV-DOWSING-SHAMAN",
     "RAV-IVY-DANCER",
@@ -1194,6 +1195,33 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 vec![Effect::DrawTargetPlayerCards { count: 2 }],
                 vec![Effect::DiscardTargetPlayer { count: 2 }],
             ])],
+        },
+        // Full fidelity: each controller-cast Blue or Black spell queues its
+        // own targeted opponent-library exile trigger. The source-bound
+        // exile restriction blocks an opponent's later effect-created cast
+        // permission only while this exact Circu incarnation remains live.
+        CardDefinition {
+            id: "RAV-CIRCU-DIMIR-LOBOTOMIST",
+            name: "Circu, Dimir Lobotomist",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(2, [Color::Blue, Color::Black]),
+            colors: colors([Color::Blue, Color::Black]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "legendary-permanent",
+                "controller-blue-spell-target-opponent-library-exile",
+                "controller-black-spell-target-opponent-library-exile",
+                "source-bound-opponent-exile-cast-restriction",
+            ],
+            power: Some(2),
+            toughness: Some(3),
+            keywords: vec![],
+            effects: vec![],
         },
         // Full fidelity: the expansion-neutral delayed-action substrate
         // records exact block-incarnation history, waits until the current
@@ -8842,6 +8870,9 @@ pub fn rav_legendary_permanent_bindings() -> Vec<LegendaryPermanentBinding> {
             card_definition: "RAV-AGRUS-KOS-WOJEK-VETERAN",
         },
         LegendaryPermanentBinding {
+            card_definition: "RAV-CIRCU-DIMIR-LOBOTOMIST",
+        },
+        LegendaryPermanentBinding {
             card_definition: "RAV-RAZIA-BOROS-ARCHANGEL",
         },
         LegendaryPermanentBinding {
@@ -8991,6 +9022,32 @@ pub fn rav_static_entry_restriction_bindings() -> Vec<StaticEntryRestrictionBind
 #[allow(clippy::too_many_lines)] // Keep the declarative trigger registry centralized for audit review.
 pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
     vec![
+        TriggeredAbilityBinding {
+            card_definition: "RAV-CIRCU-DIMIR-LOBOTOMIST",
+            ability: TriggeredAbility {
+                id: "controller-casts-blue-spell-exile-opponent-library-top",
+                condition: TriggerCondition::CastsBlueSpell,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![TargetRequirement::Opponent],
+                effects: vec![
+                    Effect::ExileTopCardOfTargetOpponentLibraryAndRestrictOwnerCasting,
+                ],
+            },
+        },
+        TriggeredAbilityBinding {
+            card_definition: "RAV-CIRCU-DIMIR-LOBOTOMIST",
+            ability: TriggeredAbility {
+                id: "controller-casts-black-spell-exile-opponent-library-top",
+                condition: TriggerCondition::CastsBlackSpell,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![TargetRequirement::Opponent],
+                effects: vec![
+                    Effect::ExileTopCardOfTargetOpponentLibraryAndRestrictOwnerCasting,
+                ],
+            },
+        },
         TriggeredAbilityBinding {
             card_definition: "RAV-MINDMOIL",
             ability: TriggeredAbility {

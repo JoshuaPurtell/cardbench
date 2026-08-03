@@ -22,7 +22,10 @@ fn circu_has_an_executable_full_fidelity_definition() {
         definition.mana_cost,
         ManaCost::with_colors(2, [Color::Blue, Color::Black])
     );
-    assert_eq!(definition.colors, BTreeSet::from([Color::Blue, Color::Black]));
+    assert_eq!(
+        definition.colors,
+        BTreeSet::from([Color::Blue, Color::Black])
+    );
     assert_eq!(definition.card_types, BTreeSet::from([CardType::Creature]));
     assert_eq!(definition.power, Some(2));
     assert_eq!(definition.toughness, Some(3));

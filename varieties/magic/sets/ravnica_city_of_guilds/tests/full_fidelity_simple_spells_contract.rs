@@ -247,6 +247,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-SELESNYA-SANCTUARY",
             "RAV-CONVOLUTE",
             "RAV-CONSULT-THE-NECROSAGES",
+            "RAV-CIRCU-DIMIR-LOBOTOMIST",
             "RAV-SHAMBLING-SHELL",
             "RAV-DOWSING-SHAMAN",
             "RAV-IVY-DANCER",

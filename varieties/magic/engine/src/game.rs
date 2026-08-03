@@ -154,6 +154,16 @@ struct EffectCreatedCastPermission {
     card_incarnation: u64,
 }
 
+/// A battlefield-only restriction on casting one opponent-owned card from
+/// exile. Both the source and card incarnations are required so a source
+/// reentry or card zone round trip cannot restrict a new object.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct SourceExileCastRestriction {
+    source: ObjectId,
+    source_incarnation: u64,
+    card_incarnation: u64,
+}
+
 /// Metadata retained only while a virtual spell copy remains on the stack.
 /// The copy itself uses an otherwise unallocated `ObjectId`; it never enters
 /// `objects` or a player zone and therefore cannot move the original physical
@@ -1077,6 +1087,7 @@ pub struct Game {
         BTreeMap<(ObjectId, u64), Vec<PendingCreatureSpellEntryCounters>>,
     graveyard_cast_permissions: BTreeMap<ObjectId, GraveyardCastPermission>,
     effect_created_cast_permissions: BTreeMap<ObjectId, EffectCreatedCastPermission>,
+    source_exile_cast_restrictions: BTreeMap<ObjectId, SourceExileCastRestriction>,
     /// Physical instant/sorcery cards currently on the stack under an
     /// effect-created as-though-instant timing exception.
     spell_timing_exceptions: BTreeSet<ObjectId>,
@@ -1438,6 +1449,7 @@ impl Game {
             pending_creature_spell_entry_counters: BTreeMap::new(),
             graveyard_cast_permissions: BTreeMap::new(),
             effect_created_cast_permissions: BTreeMap::new(),
+            source_exile_cast_restrictions: BTreeMap::new(),
             spell_timing_exceptions: BTreeSet::new(),
             noncreature_spell_casters_this_turn: BTreeSet::new(),
             attacked_creature_incarnations_this_turn: BTreeSet::new(),
@@ -2057,6 +2069,8 @@ impl Game {
                         | TriggerCondition::CastsNoncreatureSpell
                         | TriggerCondition::CastsCreatureSpell
                         | TriggerCondition::CastsSpell
+                        | TriggerCondition::CastsBlueSpell
+                        | TriggerCondition::CastsBlackSpell
                         | TriggerCondition::AnyPlayerCastsCreatureSpell
                         | TriggerCondition::AnyPlayerCastsInstantOrSorcerySpell
                         | TriggerCondition::FirstNoncreatureSpellCastEachTurn
@@ -7987,6 +8001,13 @@ impl Game {
                                 })
                     })
             });
+        if effect_permission.is_some_and(|permission| permission.zone == CastPermissionZone::Exile)
+            && self.exile_cast_is_restricted_for_player(player, request.card)
+        {
+            return Err(RulesError::IllegalAction(
+                "an opponent-owned card exiled by a live source cannot be cast",
+            ));
+        }
         if !from_graveyard && effect_permission.is_none() {
             self.require_zone(request.card, Zone::Hand)?;
         }
@@ -15313,6 +15334,8 @@ impl Game {
                             | TriggerCondition::CastsNoncreatureSpell
                             | TriggerCondition::CastsCreatureSpell
                             | TriggerCondition::CastsSpell
+                            | TriggerCondition::CastsBlueSpell
+                            | TriggerCondition::CastsBlackSpell
                             | TriggerCondition::AnyPlayerCastsCreatureSpell
                             | TriggerCondition::AnyPlayerCastsInstantOrSorcerySpell
                             | TriggerCondition::FirstNoncreatureSpellCastEachTurn
@@ -16411,6 +16434,27 @@ impl Game {
         {
             return Err(RulesError::IllegalAction(
                 "effect-created cast permission has stale zone, player, or incarnation provenance",
+            ));
+        }
+        if self
+            .source_exile_cast_restrictions
+            .iter()
+            .any(|(card, restriction)| {
+                card.0 == 0
+                    || restriction.source.0 == 0
+                    || restriction.source_incarnation == 0
+                    || restriction.card_incarnation == 0
+                    || self.zone_of(*card) != Some(Zone::Exile)
+                    || !self
+                        .object(*card)
+                        .is_ok_and(|object| object.incarnation == restriction.card_incarnation)
+                    || self.zone_of(restriction.source) != Some(Zone::Battlefield)
+                    || !self
+                        .object_has_incarnation(restriction.source, restriction.source_incarnation)
+            })
+        {
+            return Err(RulesError::IllegalAction(
+                "source exile-cast restriction has stale source or card provenance",
             ));
         }
         if self.spell_timing_exceptions.iter().any(|card| {
@@ -18967,6 +19011,7 @@ impl Game {
                 | Effect::ReturnSourceAttachedPermanentToHand
                 | Effect::LookAtTopCardsChooseForLifeOrGraveyard { .. }
                 | Effect::LookAtTopCardsOfTargetOpponentExileOne { .. }
+                | Effect::ExileTopCardOfTargetOpponentLibraryAndRestrictOwnerCasting
                 | Effect::LookAtTargetPlayerTopLibraryMayPutIntoGraveyard
                 | Effect::ShuffleGraveyardsIntoLibraries
                 | Effect::ReturnControlledCreatureToHand
@@ -22998,6 +23043,7 @@ impl Game {
         is_first_noncreature_spell_this_turn: bool,
     ) -> Result<(), RulesError> {
         let sources = self.all_battlefield_cards();
+        let spell_colors = self.card_definition(spell)?.colors.clone();
         let mut first_turn_provenance_recorded = false;
         for source in sources {
             let Some(definition) = self.effective_definition_id(source)? else {
@@ -23015,6 +23061,12 @@ impl Game {
                         ability.condition,
                         TriggerCondition::CastsNoncreatureSpell | TriggerCondition::CastsSpell
                     ) && source_controller == caster)
+                        || (ability.condition == TriggerCondition::CastsBlueSpell
+                            && source_controller == caster
+                            && spell_colors.contains(&Color::Blue))
+                        || (ability.condition == TriggerCondition::CastsBlackSpell
+                            && source_controller == caster
+                            && spell_colors.contains(&Color::Black))
                         || (ability.condition
                             == TriggerCondition::FirstNoncreatureSpellCastEachTurn
                             && is_first_noncreature_spell_this_turn)
@@ -23022,8 +23074,15 @@ impl Game {
                 .cloned()
                 .collect::<Vec<_>>();
             for ability in triggers {
-                let payload = if ability.condition == TriggerCondition::CastsSpell {
-                    if !ability.targets.is_empty() {
+                let payload = if matches!(
+                    ability.condition,
+                    TriggerCondition::CastsSpell
+                        | TriggerCondition::CastsBlueSpell
+                        | TriggerCondition::CastsBlackSpell
+                ) {
+                    if ability.condition == TriggerCondition::CastsSpell
+                        && !ability.targets.is_empty()
+                    {
                         return Err(RulesError::IllegalAction(
                             "controller-casts-spell trigger must be target-free",
                         ));
@@ -23073,6 +23132,7 @@ impl Game {
         spell_name: &'static str,
     ) -> Result<(), RulesError> {
         let sources = self.all_battlefield_cards();
+        let spell_colors = self.card_definition(spell)?.colors.clone();
         for source in sources {
             let Some(definition) = self.effective_definition_id(source)? else {
                 continue;
@@ -23090,7 +23150,10 @@ impl Game {
                         matches!(
                             ability.condition,
                             TriggerCondition::CastsCreatureSpell | TriggerCondition::CastsSpell
-                        )
+                        ) || (ability.condition == TriggerCondition::CastsBlueSpell
+                            && spell_colors.contains(&Color::Blue))
+                            || (ability.condition == TriggerCondition::CastsBlackSpell
+                                && spell_colors.contains(&Color::Black))
                     })
                     .cloned()
                     .collect::<Vec<_>>();
@@ -29983,6 +30046,33 @@ impl Game {
                     "private opponent-library choice effect bypassed its resolution boundary",
                 ));
             }
+            Effect::ExileTopCardOfTargetOpponentLibraryAndRestrictOwnerCasting => {
+                let opponent = match target.ok_or(RulesError::IllegalAction(
+                    "opponent-library exile effect is missing its target",
+                ))? {
+                    Target::Player(player)
+                        if self.target_matches_for_controller(
+                            controller,
+                            Target::Player(player),
+                            TargetRequirement::Opponent,
+                        ) =>
+                    {
+                        player
+                    }
+                    other => return Err(RulesError::IllegalTarget(other)),
+                };
+                if let Some(card) = self.players[opponent.0].library.last().copied() {
+                    self.move_to_zone(card, Zone::Exile)?;
+                    self.source_exile_cast_restrictions.insert(
+                        card,
+                        SourceExileCastRestriction {
+                            source,
+                            source_incarnation,
+                            card_incarnation: self.object(card)?.incarnation,
+                        },
+                    );
+                }
+            }
             Effect::LookAtTargetPlayerTopLibraryMayPutIntoGraveyard => {
                 let Some(Target::Player(target)) = target else {
                     return Err(RulesError::IllegalAction(
@@ -31762,6 +31852,23 @@ impl Game {
         }
     }
 
+    /// Checks the live, source-incarnation-scoped exile restriction before an
+    /// effect-created permission can move a card from exile to the stack.
+    fn exile_cast_is_restricted_for_player(&self, player: PlayerId, card: ObjectId) -> bool {
+        let Some(restriction) = self.source_exile_cast_restrictions.get(&card) else {
+            return false;
+        };
+        self.zone_of(card) == Some(Zone::Exile)
+            && self.object(card).is_ok_and(|object| {
+                object.owner == player && object.incarnation == restriction.card_incarnation
+            })
+            && self.zone_of(restriction.source) == Some(Zone::Battlefield)
+            && self.object_has_incarnation(restriction.source, restriction.source_incarnation)
+            && self
+                .controller_of(restriction.source)
+                .is_ok_and(|controller| controller != player)
+    }
+
     /// Moves a spell card from a normal zone onto the stack.  The stack is a
     /// rules-relevant zone even though it is represented separately from the
     /// player zone vectors, so this transition must create a new incarnation
@@ -32067,6 +32174,11 @@ impl Game {
         if previous_zone == Some(Zone::Exile) && zone != Zone::Exile {
             self.unlink_hand_exile_member_before_zone_departure(card, object.incarnation);
             self.unlink_exiled_spell_copy_member_before_zone_departure(card, object.incarnation);
+            self.source_exile_cast_restrictions.remove(&card);
+        }
+        if left_battlefield {
+            self.source_exile_cast_restrictions
+                .retain(|_, restriction| restriction.source != card);
         }
         if left_battlefield && capture_zone_transition_observers {
             self.enqueue_another_creature_leaves_battlefield_triggers(card)?;
@@ -32959,6 +33071,21 @@ impl Game {
         {
             return Err(RulesError::IllegalAction(
                 "hand-recycle effect requires one mandatory target-free controller-casts-spell trigger",
+            ));
+        }
+        if ability
+            .effects
+            .contains(&Effect::ExileTopCardOfTargetOpponentLibraryAndRestrictOwnerCasting)
+            && (!matches!(
+                ability.condition,
+                TriggerCondition::CastsBlueSpell | TriggerCondition::CastsBlackSpell
+            ) || ability.optional
+                || ability.targets != [TargetRequirement::Opponent]
+                || ability.effects.as_slice()
+                    != [Effect::ExileTopCardOfTargetOpponentLibraryAndRestrictOwnerCasting])
+        {
+            return Err(RulesError::IllegalAction(
+                "source-bound opponent-library exile requires one mandatory colored-spell trigger",
             ));
         }
         let has_exiled_spell_copy_marker = ability
@@ -41186,6 +41313,9 @@ impl Game {
     /// of an incarnation transition; owner departure has no destination zone,
     /// so it needs this explicit lifecycle boundary instead.
     fn revoke_cast_permissions_for_departing_object(&mut self, card: ObjectId) {
+        self.source_exile_cast_restrictions.remove(&card);
+        self.source_exile_cast_restrictions
+            .retain(|_, restriction| restriction.source != card);
         if self.graveyard_cast_permissions.remove(&card).is_some() {
             self.record_event(GameEvent::GraveyardCastPermissionExpired { card });
         }
