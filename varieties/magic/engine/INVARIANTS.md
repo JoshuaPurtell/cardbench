@@ -18,6 +18,11 @@ Oracle Magic rules coverage.
   `LibraryShuffled` receipt. A rejected live seed write is atomic and writes
   no receipt, so an external caller cannot silently choose a future search or
   shuffle outcome.
+- A `DamageReplacementEffectBinding` registration batch is one immutable
+  setup transition. Any unknown source, invalid source kind, duplicate effect,
+  or later invariant failure restores the complete pre-call configuration.
+  In particular, a rejected batch cannot make a subsequent valid retry fail
+  due to a hidden prefix binding.
 - A cast first places every represented cast trigger using APNAP. If that
   placement opens a mandatory trigger-order or trigger-target decision, the
   decision player remains the priority holder until the no-priority decision
