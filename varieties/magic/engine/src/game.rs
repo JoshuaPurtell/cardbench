@@ -17791,6 +17791,7 @@ impl Game {
         }
         let candidates = self.damage_replacement_candidates_for_source_colors(
             source,
+            source_incarnation,
             &top.source_colors,
             target,
             amount,
@@ -17901,6 +17902,7 @@ impl Game {
         let has_concurrent_choice = packets.iter().any(|packet| {
             self.damage_replacement_candidates_for_source_colors(
                 top.card,
+                top.source_incarnation,
                 &top.source_colors,
                 packet.target,
                 packet.amount,
@@ -17934,6 +17936,7 @@ impl Game {
     ) -> Result<(), RulesError> {
         let choices = self.damage_replacement_candidates_for_source_colors(
             pending.source,
+            pending.source_incarnation,
             source_colors,
             pending.target,
             pending.amount,
@@ -20170,6 +20173,7 @@ impl Game {
     }
 
     #[allow(clippy::too_many_arguments)] // The continuation intentionally stores every prospective-event fact.
+    #[allow(clippy::too_many_lines)] // Candidate revalidation and packet resumption share one state-machine boundary.
     fn resolve_damage_replacement_decision(
         &mut self,
         decision: &PendingDecision,
@@ -20198,6 +20202,7 @@ impl Game {
         ))?;
         let candidates = self.damage_replacement_candidates_for_source_colors(
             source,
+            source_incarnation,
             &top.source_colors,
             target,
             amount,
@@ -21505,6 +21510,7 @@ impl Game {
         let source_colors = self.characteristics(source)?.colors;
         self.damage_replacement_candidates_for_source_colors(
             source,
+            self.object(source)?.incarnation,
             &source_colors,
             target,
             amount,
@@ -21519,6 +21525,7 @@ impl Game {
     fn damage_replacement_candidates_for_source_colors(
         &self,
         source: ObjectId,
+        source_incarnation: u64,
         source_colors: &BTreeSet<Color>,
         target: Target,
         amount: i32,
@@ -21528,8 +21535,8 @@ impl Game {
             return Ok(Vec::new());
         }
         let mut candidates = self.damage_amount_replacement_candidates(target, used)?;
-        let prevention_allowed = !self
-            .damage_cannot_be_prevented_for_incarnation(source, self.object(source)?.incarnation);
+        let prevention_allowed =
+            !self.damage_cannot_be_prevented_for_incarnation(source, source_incarnation);
         match target {
             Target::Permanent(permanent) => {
                 candidates.extend(self.attached_damage_redirection_candidates(permanent, used)?);
@@ -21714,6 +21721,7 @@ impl Game {
     ) -> Result<(), RulesError> {
         let candidates = self.damage_replacement_candidates_for_source_colors(
             pending.source,
+            pending.source_incarnation,
             source_colors,
             pending.target,
             pending.amount,
@@ -21944,6 +21952,7 @@ impl Game {
             }
             let candidates = self.damage_replacement_candidates_for_source_colors(
                 pending.source,
+                pending.source_incarnation,
                 source_colors,
                 pending.target,
                 pending.amount,
@@ -33513,6 +33522,7 @@ impl Game {
                 ))?;
                 let choices = self.damage_replacement_candidates_for_source_colors(
                     *source,
+                    *source_incarnation,
                     &top.source_colors,
                     *target,
                     *amount,
