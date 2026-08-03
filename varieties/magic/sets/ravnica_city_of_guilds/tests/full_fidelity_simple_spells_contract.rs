@@ -129,6 +129,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-DIMIR-GUILDMAGE",
             "RAV-DIMIR-CUTPURSE",
             "RAV-DIMIR-DOPPELGANGER",
+            "RAV-SISTERS-OF-STONE-DEATH",
             "RAV-MINDLEECH-MASS",
             "RAV-GLEANCRAWLER",
             "RAV-DIMIR-HOUSE-GUARD",

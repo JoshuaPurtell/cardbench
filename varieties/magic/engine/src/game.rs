@@ -945,6 +945,27 @@ struct LinkedHandExileGroup {
     members: Vec<LinkedHandExileMember>,
 }
 
+/// One exact creature exile incarnation retained by a permanent for a later
+/// source-linked return.  This is deliberately separate from delayed Aura
+/// exile groups and private hand-exile groups: Sisters of Stone Death's
+/// association lasts only for one live source incarnation and its controller
+/// chooses a single public creature at the later ability's resolution.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct SourceLinkedExileCreatureMember {
+    object: ObjectId,
+    exile_incarnation: u64,
+}
+
+/// Public-zone provenance for creature cards one exact permanent exile
+/// action placed in exile.  The key is duplicated in the group so invariants
+/// can detect a malformed association rather than relying on map placement.
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct SourceLinkedExileCreatureGroup {
+    source: ObjectId,
+    source_incarnation: u64,
+    members: Vec<SourceLinkedExileCreatureMember>,
+}
+
 /// Physical instant/sorcery cards retained by one exact source incarnation
 /// after a global cast trigger exiled them from the stack.  The group stores
 /// only templates, never virtual spell copies: a copied spell ceases to
@@ -1125,6 +1146,10 @@ pub struct Game {
     /// `(source, source_incarnation)` so an ordinary leave/re-enter boundary
     /// cannot merge separate cards' private exile state.
     linked_hand_exile_groups: BTreeMap<(ObjectId, u64), LinkedHandExileGroup>,
+    /// Exact source-incarnation creature exile groups used by effects that
+    /// return a creature card exiled by that source under its controller's
+    /// control. A source zone change intentionally severs the association.
+    source_linked_exile_creature_groups: BTreeMap<(ObjectId, u64), SourceLinkedExileCreatureGroup>,
     /// Exact-source exile groups used by cast-trigger copy effects.  Records
     /// are intentionally source-incarnation scoped, so a later incarnation
     /// of the same permanent cannot claim an earlier card's exile templates.
@@ -1465,6 +1490,7 @@ impl Game {
             exile_on_resolution: BTreeSet::new(),
             linked_exile_groups: BTreeMap::new(),
             linked_hand_exile_groups: BTreeMap::new(),
+            source_linked_exile_creature_groups: BTreeMap::new(),
             exiled_spell_copy_groups: BTreeMap::new(),
             convoke_contributor_provenance: BTreeMap::new(),
             delayed_actions: Vec::new(),
@@ -4815,6 +4841,7 @@ impl Game {
                 | DecisionContinuation::ReturnUpToThreeControllerGraveyardLandCardsToHand {
                     ..
                 }
+                | DecisionContinuation::ReturnSourceLinkedExiledCreatureToBattlefieldUnderControllerControl { .. }
                 | DecisionContinuation::RetargetActivatedAbility { .. }
                 | DecisionContinuation::PermanentEntryCopySource { .. }
                 | DecisionContinuation::PermanentEntryCopyAuraAttachment { .. }
@@ -4897,6 +4924,7 @@ impl Game {
                 | DecisionContinuation::ReturnUpToThreeControllerGraveyardLandCardsToHand {
                     ..
                 }
+                | DecisionContinuation::ReturnSourceLinkedExiledCreatureToBattlefieldUnderControllerControl { .. }
                 | DecisionContinuation::RetargetActivatedAbility { .. }
                 | DecisionContinuation::PermanentEntryCopySource { .. }
                 | DecisionContinuation::PermanentEntryCopyAuraAttachment { .. }
@@ -4966,6 +4994,7 @@ impl Game {
                 | DecisionContinuation::ReturnUpToThreeControllerGraveyardLandCardsToHand {
                     ..
                 }
+                | DecisionContinuation::ReturnSourceLinkedExiledCreatureToBattlefieldUnderControllerControl { .. }
                 | DecisionContinuation::RetargetActivatedAbility { .. }
                 | DecisionContinuation::PermanentEntryCopySource { .. }
                 | DecisionContinuation::PermanentEntryCopyAuraAttachment { .. }
@@ -5067,6 +5096,7 @@ impl Game {
                 | DecisionContinuation::ReturnUpToThreeControllerGraveyardLandCardsToHand {
                     ..
                 }
+                | DecisionContinuation::ReturnSourceLinkedExiledCreatureToBattlefieldUnderControllerControl { .. }
                 | DecisionContinuation::RetargetActivatedAbility { .. }
                 | DecisionContinuation::PermanentEntryCopySource { .. }
                 | DecisionContinuation::PermanentEntryCopyAuraAttachment { .. }
@@ -5572,6 +5602,7 @@ impl Game {
             | ContinuousChange::GrantActivatedAbility(_)
             | ContinuousChange::RedirectDamageToAttachmentController
             | ContinuousChange::CannotBlockSource(_)
+            | ContinuousChange::MustBlockSource(_)
             | ContinuousChange::AddDamageShield(_)
             | ContinuousChange::SuppressNonManaActivatedAbilities => {}
             ContinuousChange::ModifyPowerToughness { power, toughness } => {
@@ -6435,6 +6466,7 @@ impl Game {
                 | TargetRequirement::DistinctCreature
                 | TargetRequirement::BlockingCreature
                 | TargetRequirement::AttackingOrBlockingCreature
+                | TargetRequirement::CreatureBlockingOrBlockedBySource
                 | TargetRequirement::Land
                 | TargetRequirement::ControlledLand
                 | TargetRequirement::Artifact
@@ -6675,6 +6707,125 @@ impl Game {
             });
             !group.members.is_empty()
         });
+    }
+
+    /// Records one successful source-relative creature exile.  The source
+    /// must still be the exact live battlefield object when the exile zone
+    /// transition finishes; an ability that resolves after its source left
+    /// can exile nothing into a later incarnation's association.
+    fn link_exiled_creature_to_source(
+        &mut self,
+        source: ObjectId,
+        source_incarnation: u64,
+        creature: ObjectId,
+    ) -> Result<(), RulesError> {
+        if source.0 == 0
+            || source_incarnation == 0
+            || creature.0 == 0
+            || self.zone_of(source) != Some(Zone::Battlefield)
+            || !self.object_has_incarnation(source, source_incarnation)
+            || self.zone_of(creature) != Some(Zone::Exile)
+        {
+            return Err(RulesError::IllegalAction(
+                "source-linked creature exile lacks live source or exile provenance",
+            ));
+        }
+        if !self
+            .card_definition(creature)?
+            .card_types
+            .contains(&CardType::Creature)
+        {
+            return Err(RulesError::IllegalAction(
+                "source-linked exile can retain only a creature card",
+            ));
+        }
+        let member = SourceLinkedExileCreatureMember {
+            object: creature,
+            exile_incarnation: self.object(creature)?.incarnation,
+        };
+        let key = (source, source_incarnation);
+        let group = self
+            .source_linked_exile_creature_groups
+            .entry(key)
+            .or_insert_with(|| SourceLinkedExileCreatureGroup {
+                source,
+                source_incarnation,
+                members: Vec::new(),
+            });
+        if group
+            .members
+            .iter()
+            .any(|existing| existing.object == creature)
+        {
+            return Err(RulesError::IllegalAction(
+                "source-linked creature exile has duplicate member provenance",
+            ));
+        }
+        group.members.push(member);
+        Ok(())
+    }
+
+    /// Lists just the live creature cards retained by one exact source
+    /// incarnation.  A departure prunes ordinary state immediately, but the
+    /// predicate is intentionally defensive so stale manual fabrication is
+    /// never accepted as a return candidate.
+    fn source_linked_exile_creature_candidates(
+        &self,
+        source: ObjectId,
+        source_incarnation: u64,
+    ) -> Result<Vec<ObjectId>, RulesError> {
+        let Some(group) = self
+            .source_linked_exile_creature_groups
+            .get(&(source, source_incarnation))
+        else {
+            return Ok(Vec::new());
+        };
+        if group.source != source || group.source_incarnation != source_incarnation {
+            return Err(RulesError::IllegalAction(
+                "source-linked creature exile group lost source provenance",
+            ));
+        }
+        Ok(group
+            .members
+            .iter()
+            .filter(|member| {
+                self.zone_of(member.object) == Some(Zone::Exile)
+                    && self.object_has_incarnation(member.object, member.exile_incarnation)
+                    && self
+                        .card_definition(member.object)
+                        .is_ok_and(|definition| definition.card_types.contains(&CardType::Creature))
+            })
+            .map(|member| member.object)
+            .collect())
+    }
+
+    /// An exile-zone departure ends the prior association before an object
+    /// receives its next incarnation.  Empty groups are removed because no
+    /// future ability may recreate their cards by stable object id alone.
+    fn unlink_source_linked_exile_creature_before_zone_departure(
+        &mut self,
+        card: ObjectId,
+        exile_incarnation: u64,
+    ) {
+        self.source_linked_exile_creature_groups.retain(|_, group| {
+            group.members.retain(|member| {
+                member.object != card || member.exile_incarnation != exile_incarnation
+            });
+            !group.members.is_empty()
+        });
+    }
+
+    /// A source zone change severs every persistent association belonging to
+    /// that exact battlefield object.  Already stacked return abilities are
+    /// deliberately unable to use the group: their source reference is a new
+    /// object once it leaves, matching the card's ordinary linked-exile rule.
+    fn expire_source_linked_exile_creature_group(
+        &mut self,
+        source: ObjectId,
+        source_incarnation: u64,
+    ) {
+        self.source_linked_exile_creature_groups
+            .remove(&(source, source_incarnation));
     }
 
     /// Removes one physical template when it leaves the exact exile object
@@ -7901,6 +8052,79 @@ impl Game {
             if has_legal_blocker {
                 return Err(RulesError::IllegalAction(
                     "a must-be-blocked attacker had a legal unassigned blocker",
+                ));
+            }
+        }
+        // Source-relative "must block this creature if able" effects apply
+        // to one exact blocker, not to every defender.  Evaluate ability
+        // against the pre-declaration board (all assignments are
+        // simultaneous), then require that exact attacker/blocker pair in
+        // the submitted assignment vector.  A different block cannot consume
+        // this requirement merely because it used the same creature.
+        let source_relative_requirements = self
+            .continuous_effects
+            .iter()
+            .filter(|effect| self.effect_is_active(effect))
+            .filter_map(|effect| match effect.change {
+                ContinuousChange::MustBlockSource(source) => Some((source, effect.target)),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        for (attacker, blocker) in source_relative_requirements {
+            if !combat.attackers.contains(&attacker)
+                || blocker_unblockable_attackers.contains(&attacker)
+                || self.controller_of(blocker) != Ok(player)
+            {
+                continue;
+            }
+            let can_block = self.object(blocker).is_ok_and(|object| {
+                !object.tapped
+                    && self.characteristics(blocker).is_ok_and(|characteristics| {
+                        let is_creature = characteristics.card_types.contains(&CardType::Creature);
+                        let combat_restricted = characteristics
+                            .keywords
+                            .contains(&Keyword::CannotAttackOrBlock)
+                            || characteristics.keywords.contains(&Keyword::CannotBlock);
+                        let mountain_condition_satisfied = !characteristics
+                            .keywords
+                            .contains(&Keyword::CannotBlockUnlessControlsMountain)
+                            || self
+                                .player_controls_basic_land_type(player, BasicLandType::Mountain);
+                        let saproling_restricted = self.controller_saprolings_cannot_block(player)
+                            && characteristics
+                                .creature_subtypes
+                                .contains(&CreatureSubtype::Saproling);
+                        let evasion_allows_block = (!blocker_flying_attackers.contains(&attacker)
+                            || characteristics.keywords.contains(&Keyword::Flying)
+                            || characteristics.keywords.contains(&Keyword::Reach))
+                            && (!blocker_black_evasion_attackers.contains(&attacker)
+                                || characteristics.colors.contains(&Color::Black))
+                            && (!blocker_fear_attackers.contains(&attacker)
+                                || characteristics.card_types.contains(&CardType::Artifact)
+                                || characteristics.colors.contains(&Color::Black))
+                            && !blocker_landwalk_attackers.get(&attacker).is_some_and(
+                                |land_types| {
+                                    land_types.iter().any(|land_type| {
+                                        self.player_controls_basic_land_type(player, *land_type)
+                                    })
+                                },
+                            );
+                        is_creature
+                            && !combat_restricted
+                            && mountain_condition_satisfied
+                            && !saproling_restricted
+                            && evasion_allows_block
+                            && !self.target_cannot_block_attacker(blocker, attacker)
+                            && !self.protection_prevents_block(blocker, attacker)
+                    })
+            });
+            if can_block
+                && !assignments.iter().any(|assignment| {
+                    assignment.attacker == attacker && assignment.blocker == blocker
+                })
+            {
+                return Err(RulesError::IllegalAction(
+                    "a creature required to block the source did not block it",
                 ));
             }
         }
@@ -9603,6 +9827,25 @@ impl Game {
                     selected_now,
                 )
             }
+            DecisionContinuation::ReturnSourceLinkedExiledCreatureToBattlefieldUnderControllerControl {
+                source_stack_item,
+                source,
+                source_incarnation,
+                controller,
+            } => {
+                let selected_now = Self::validate_object_decision_selection(&decision, selection)?;
+                let selected = selected_now.first().copied().ok_or(RulesError::IllegalAction(
+                    "source-linked exile return decision lacks its selected creature",
+                ))?;
+                self.resolve_source_linked_exile_creature_return_decision(
+                    &decision,
+                    source_stack_item,
+                    source,
+                    source_incarnation,
+                    controller,
+                    selected,
+                )
+            }
             DecisionContinuation::RetargetActivatedAbility {
                 source_stack_item,
                 controller,
@@ -10251,6 +10494,87 @@ impl Game {
         self.flush_pending_dies_triggers()?;
         self.priority = self.priority_after_resolution();
         Ok(())
+    }
+
+    /// Commits one selected source-linked exile member.  The ability remains
+    /// on top of the stack throughout validation so a stale policy answer
+    /// cannot return an object after the source changed zones, the card left
+    /// exile, or another ability consumed the association.
+    #[allow(clippy::too_many_arguments)] // The choice carries exact source, stack, and exile provenance.
+    fn resolve_source_linked_exile_creature_return_decision(
+        &mut self,
+        decision: &PendingDecision,
+        source_stack_item: StackObjectId,
+        source: ObjectId,
+        source_incarnation: u64,
+        controller: PlayerId,
+        selected: ObjectId,
+    ) -> Result<(), RulesError> {
+        let top = self.stack.last().cloned().ok_or(RulesError::IllegalAction(
+            "source-linked exile return decision escaped its stack ability",
+        ))?;
+        let candidates =
+            self.source_linked_exile_creature_candidates(source, source_incarnation)?;
+        let expected_options = candidates
+            .iter()
+            .copied()
+            .map(DecisionOption::Object)
+            .collect::<Vec<_>>();
+        if decision.kind != DecisionKind::SourceLinkedExileCreatureReturn
+            || decision.visibility != DecisionVisibility::Public
+            || decision.player != controller
+            || decision.options != expected_options
+            || decision.min_selections != 1
+            || decision.max_selections != 1
+            || !candidates.contains(&selected)
+            || self
+                .players
+                .get(controller.0)
+                .is_none_or(|player| player.lost)
+            || self.zone_of(source) != Some(Zone::Battlefield)
+            || !self.object_has_incarnation(source, source_incarnation)
+            || top.id != source_stack_item
+            || top.card != source
+            || top.source_incarnation != source_incarnation
+            || top.controller != controller
+            || top.ability_id.is_none()
+            || !top.targets.is_empty()
+            || top.effects.as_slice()
+                != [Effect::ReturnSourceLinkedExiledCreatureToBattlefieldUnderControllerControl]
+        {
+            return Err(RulesError::IllegalAction(
+                "source-linked exile return decision no longer matches its live ability or candidates",
+            ));
+        }
+        self.complete_pending_decision(decision)?;
+        let terminal = self.stack.pop().ok_or(RulesError::IllegalAction(
+            "source-linked exile return ability disappeared before resolution",
+        ))?;
+        if terminal.id != source_stack_item {
+            return Err(RulesError::IllegalAction(
+                "source-linked exile return stack identity changed before resolution",
+            ));
+        }
+        self.stack_effect_cursors.remove(&terminal.id);
+        self.move_to_zone(selected, Zone::Battlefield)?;
+        // A permanent instruction granting control is represented as an
+        // independent layer-two effect whose source is the returned object.
+        // It therefore survives Sisters leaving but ends on the returned
+        // object's next zone change, while the CardObject base controller
+        // remains its owner as required by the core object invariant.
+        self.install_continuous_effect(
+            selected,
+            selected,
+            ContinuousChange::ChangeController(controller),
+            Duration::Permanent,
+        )?;
+        let definition =
+            self.effective_definition_id(selected)?
+                .ok_or(RulesError::IllegalAction(
+                    "source-linked exile return selected an unrepresented token",
+                ))?;
+        self.capture_enter_triggers(selected, definition, controller, &[])?;
+        self.finish_resolved_decision_stack_item(&terminal)
     }
 
     #[allow(clippy::too_many_arguments, clippy::too_many_lines)] // The captured lower stack item is one stale-safe continuation.
@@ -15128,6 +15452,7 @@ impl Game {
         self.validate_enters_battlefield_trigger_event_order()?;
         self.validate_linked_exile_state()?;
         self.validate_linked_hand_exile_state()?;
+        self.validate_source_linked_exile_creature_state()?;
         self.validate_exiled_spell_copy_state()?;
         self.validate_convoke_contributor_provenance()?;
         self.validate_creature_spell_entry_counter_provenance()?;
@@ -19312,6 +19637,8 @@ impl Game {
                 | Effect::ModifyTargetPtAndKeywordUntilEndOfTurn { .. }
                 | Effect::ModifyTargetKeywordUntilEndOfTurn { .. }
                 | Effect::PreventTargetBlockingSourceUntilEndOfTurn
+                | Effect::RequireTargetCreatureBlockSourceUntilEndOfTurn
+                | Effect::ExileTargetCreatureBlockingOrBlockedBySource
                 | Effect::ModifySourcePtUntilEndOfTurn { .. }
                 | Effect::AddSourceKeywordUntilEndOfTurn { .. }
                 | Effect::RemoveSourceKeywordUntilEndOfTurn { .. }
@@ -19367,6 +19694,7 @@ impl Game {
                 | Effect::CreateTokenCopyOfAttachedCreature
                 | Effect::CreateTokenCopyOfPermanent { .. }
                 | Effect::ReturnUpToThreeControllerGraveyardLandCardsToHand
+                | Effect::ReturnSourceLinkedExiledCreatureToBattlefieldUnderControllerControl
                 | Effect::ReturnAnotherControlledPermanentSharingEnteredCardTypes
                 | Effect::ReturnAnotherControlledPermanentSharingCardTypes { .. }
                 | Effect::ReturnSourceAttachedPermanentToHand
@@ -20067,6 +20395,9 @@ impl Game {
         if self.suspend_top_stack_item_for_public_graveyard_land_return_choice()? {
             return Ok(());
         }
+        if self.suspend_top_stack_item_for_source_linked_exile_creature_return_choice()? {
+            return Ok(());
+        }
         if self.suspend_top_spell_for_private_library_choice()? {
             return Ok(());
         }
@@ -20133,6 +20464,10 @@ impl Game {
                         requirement,
                         &stack_object.source_colors,
                     )
+                    && (!matches!(
+                        requirement,
+                        TargetRequirement::CreatureBlockingOrBlockedBySource
+                    ) || matches!(target, Target::Permanent(card) if self.creature_is_blocking_or_blocked_by_source(card, stack_object.card)))
             })
             .map_err(|_| RulesError::IllegalAction("stack object has an invalid target count"))?;
         let plan = if next_effect_index == 0 {
@@ -22493,6 +22828,56 @@ impl Game {
             maximum,
             candidates.into_iter().map(DecisionOption::Object).collect(),
             DecisionContinuation::ReturnUpToThreeControllerGraveyardLandCardsToHand {
+                source_stack_item: top.id,
+                source: top.card,
+                source_incarnation: top.source_incarnation,
+                controller: top.controller,
+            },
+        )?;
+        Ok(true)
+    }
+
+    /// Holds a source-linked creature-return ability on the stack while its
+    /// controller chooses one of the exact public exile members recorded for
+    /// that live source incarnation.  A no-candidate activation simply
+    /// resolves as a no-op; it must not manufacture an impossible 1-of-0
+    /// decision boundary.
+    fn suspend_top_stack_item_for_source_linked_exile_creature_return_choice(
+        &mut self,
+    ) -> Result<bool, RulesError> {
+        if self.pending_decision.is_some()
+            || self.pending_private_library_choice.is_some()
+            || self.pending_private_opponent_library_exile_choice.is_some()
+        {
+            return Err(RulesError::IllegalAction(
+                "source-linked exile return choice attempted to overlap another decision",
+            ));
+        }
+        let Some(top) = self.stack.last() else {
+            return Ok(false);
+        };
+        if top.ability_id.is_none()
+            || !top.targets.is_empty()
+            || top.effects.as_slice()
+                != [Effect::ReturnSourceLinkedExiledCreatureToBattlefieldUnderControllerControl]
+            || self.zone_of(top.card) != Some(Zone::Battlefield)
+            || !self.object_has_incarnation(top.card, top.source_incarnation)
+        {
+            return Ok(false);
+        }
+        let candidates =
+            self.source_linked_exile_creature_candidates(top.card, top.source_incarnation)?;
+        if candidates.is_empty() {
+            return Ok(false);
+        }
+        self.open_pending_decision(
+            top.controller,
+            DecisionVisibility::Public,
+            DecisionKind::SourceLinkedExileCreatureReturn,
+            1,
+            1,
+            candidates.into_iter().map(DecisionOption::Object).collect(),
+            DecisionContinuation::ReturnSourceLinkedExiledCreatureToBattlefieldUnderControllerControl {
                 source_stack_item: top.id,
                 source: top.card,
                 source_incarnation: top.source_incarnation,
@@ -29534,6 +29919,54 @@ impl Game {
                     Duration::EndOfTurn(self.turn),
                 )?;
             }
+            Effect::RequireTargetCreatureBlockSourceUntilEndOfTurn => {
+                let target = Self::target_permanent(target)?;
+                if !self
+                    .characteristics(target)?
+                    .card_types
+                    .contains(&CardType::Creature)
+                    || self.zone_of(source) != Some(Zone::Battlefield)
+                    || !self.object_has_incarnation(source, source_incarnation)
+                {
+                    return Err(RulesError::IllegalTarget(Target::Permanent(target)));
+                }
+                self.install_continuous_effect(
+                    source,
+                    target,
+                    ContinuousChange::MustBlockSource(source),
+                    Duration::EndOfTurn(self.turn),
+                )?;
+            }
+            Effect::ExileTargetCreatureBlockingOrBlockedBySource => {
+                let target = Self::target_permanent(target)?;
+                if !self.target_matches(Target::Permanent(target), TargetRequirement::Creature)
+                    || self.zone_of(source) != Some(Zone::Battlefield)
+                    || !self.object_has_incarnation(source, source_incarnation)
+                    || !self.creature_is_blocking_or_blocked_by_source(target, source)
+                {
+                    return Err(RulesError::IllegalTarget(Target::Permanent(target)));
+                }
+                self.move_to_zone(target, Zone::Exile)?;
+                self.link_exiled_creature_to_source(source, source_incarnation, target)?;
+            }
+            Effect::ReturnSourceLinkedExiledCreatureToBattlefieldUnderControllerControl => {
+                // This instruction chooses a member only when one remains
+                // linked to this exact live source.  Unlike a target, a
+                // missing source or an empty linked set is simply a legal
+                // no-op at resolution; the decision suspension above is
+                // reserved for the nonempty selection case.
+                if self.zone_of(source) != Some(Zone::Battlefield)
+                    || !self.object_has_incarnation(source, source_incarnation)
+                    || self
+                        .source_linked_exile_creature_candidates(source, source_incarnation)?
+                        .is_empty()
+                {
+                    return Ok(());
+                }
+                return Err(RulesError::IllegalAction(
+                    "source-linked exile return resolved without its choice boundary",
+                ));
+            }
             Effect::ModifySourcePtUntilEndOfTurn { power, toughness } => {
                 if self.zone_of(source) != Some(Zone::Battlefield)
                     || !self.object_has_incarnation(source, source_incarnation)
@@ -31076,6 +31509,7 @@ impl Game {
                 | TargetRequirement::PlayerOrCreature
                 | TargetRequirement::BlockingCreature
                 | TargetRequirement::AttackingOrBlockingCreature
+                | TargetRequirement::CreatureBlockingOrBlockedBySource
                 | TargetRequirement::ControlledCreature
                 | TargetRequirement::OpponentCreature,
             ) => self.creature_target_matches(card, requirement),
@@ -31227,6 +31661,17 @@ impl Game {
                             .flatten()
                             .any(|blocker| *blocker == card)
                 }))
+            && (!matches!(
+                requirement,
+                TargetRequirement::CreatureBlockingOrBlockedBySource
+            ) || self.combat.as_ref().is_some_and(|combat| {
+                combat.attackers.contains(&card)
+                    || combat
+                        .blockers
+                        .values()
+                        .flatten()
+                        .any(|blocker| *blocker == card)
+            }))
             && (!matches!(requirement, TargetRequirement::FlyingCreature)
                 || self.characteristics(card).is_ok_and(|characteristics| {
                     characteristics.keywords.contains(&Keyword::Flying)
@@ -31303,7 +31748,32 @@ impl Game {
             target,
             requirement,
             &source_characteristics.colors,
-        )
+        ) && (!matches!(
+            requirement,
+            TargetRequirement::CreatureBlockingOrBlockedBySource
+        ) || matches!(target, Target::Permanent(card) if self.creature_is_blocking_or_blocked_by_source(card, source)))
+    }
+
+    /// Returns whether `creature` is currently blocking `source`, or source
+    /// is currently blocking that creature.  Live combat membership (rather
+    /// than historical assignments) is intentional: this target restriction
+    /// applies when the activated ability is activated and again when it
+    /// resolves, and a zone change has already removed current membership.
+    fn creature_is_blocking_or_blocked_by_source(
+        &self,
+        creature: ObjectId,
+        source: ObjectId,
+    ) -> bool {
+        self.combat.as_ref().is_some_and(|combat| {
+            combat
+                .blockers
+                .get(&source)
+                .is_some_and(|blockers| blockers.contains(&creature))
+                || combat
+                    .blockers
+                    .get(&creature)
+                    .is_some_and(|blockers| blockers.contains(&source))
+        })
     }
 
     fn target_matches_for_colors(
@@ -31383,6 +31853,7 @@ impl Game {
                     | TargetRequirement::DistinctCreature
                     | TargetRequirement::BlockingCreature
                     | TargetRequirement::AttackingOrBlockingCreature
+                    | TargetRequirement::CreatureBlockingOrBlockedBySource
                     | TargetRequirement::Land
                     | TargetRequirement::LandWithBasicLandType(_)
                     | TargetRequirement::ControlledLand
@@ -32864,6 +33335,10 @@ impl Game {
         }
         if previous_zone == Some(Zone::Exile) && zone != Zone::Exile {
             self.unlink_hand_exile_member_before_zone_departure(card, object.incarnation);
+            self.unlink_source_linked_exile_creature_before_zone_departure(
+                card,
+                object.incarnation,
+            );
             self.unlink_exiled_spell_copy_member_before_zone_departure(card, object.incarnation);
             self.source_exile_cast_restrictions.remove(&card);
         }
@@ -33015,6 +33490,7 @@ impl Game {
             });
         }
         if left_battlefield {
+            self.expire_source_linked_exile_creature_group(card, object.incarnation);
             // Permanent effects cease when either their source or target
             // changes zones. End-of-turn effects from instants remain because
             // their source was never a battlefield permanent.
@@ -35437,6 +35913,41 @@ impl Game {
             {
                 return Err(RulesError::IllegalAction(
                     "linked hand exile state has invalid source or member provenance",
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// Audits persistent public source-linked creature exile groups.  Unlike
+    /// a delayed Aura return, these groups are valid only while their exact
+    /// source remains a live battlefield object; every member must still be
+    /// the same physical creature card in exile and cannot appear under two
+    /// sources.
+    fn validate_source_linked_exile_creature_state(&self) -> Result<(), RulesError> {
+        let mut members = BTreeSet::new();
+        for ((source, source_incarnation), group) in &self.source_linked_exile_creature_groups {
+            let live_source = self.zone_of(*source) == Some(Zone::Battlefield)
+                && self.object_has_incarnation(*source, *source_incarnation);
+            if source.0 == 0
+                || *source_incarnation == 0
+                || *source != group.source
+                || *source_incarnation != group.source_incarnation
+                || !live_source
+                || group.members.is_empty()
+                || group.members.iter().any(|member| {
+                    member.object.0 == 0
+                        || member.exile_incarnation == 0
+                        || !members.insert(member.object)
+                        || self.zone_of(member.object) != Some(Zone::Exile)
+                        || !self.object_has_incarnation(member.object, member.exile_incarnation)
+                        || !self.card_definition(member.object).is_ok_and(|definition| {
+                            definition.card_types.contains(&CardType::Creature)
+                        })
+                })
+            {
+                return Err(RulesError::IllegalAction(
+                    "source-linked creature exile state has invalid source or member provenance",
                 ));
             }
         }
@@ -41650,6 +42161,43 @@ impl Game {
                 {
                     return Err(RulesError::IllegalAction(
                         "public graveyard land decision violates its stack and selection provenance",
+                    ));
+                }
+            }
+            DecisionContinuation::ReturnSourceLinkedExiledCreatureToBattlefieldUnderControllerControl {
+                source_stack_item,
+                source,
+                source_incarnation,
+                controller,
+            } => {
+                let top = self.stack.last().ok_or(RulesError::IllegalAction(
+                    "source-linked exile return decision escaped its stack ability",
+                ))?;
+                let expected_options = self
+                    .source_linked_exile_creature_candidates(*source, *source_incarnation)?
+                    .into_iter()
+                    .map(DecisionOption::Object)
+                    .collect::<Vec<_>>();
+                if decision.kind != DecisionKind::SourceLinkedExileCreatureReturn
+                    || decision.visibility != DecisionVisibility::Public
+                    || decision.player != *controller
+                    || self.zone_of(*source) != Some(Zone::Battlefield)
+                    || !self.object_has_incarnation(*source, *source_incarnation)
+                    || top.id != *source_stack_item
+                    || top.card != *source
+                    || top.source_incarnation != *source_incarnation
+                    || top.controller != *controller
+                    || top.ability_id.is_none()
+                    || !top.targets.is_empty()
+                    || top.effects.as_slice()
+                        != [Effect::ReturnSourceLinkedExiledCreatureToBattlefieldUnderControllerControl]
+                    || expected_options.is_empty()
+                    || decision.options != expected_options
+                    || decision.min_selections != 1
+                    || decision.max_selections != 1
+                {
+                    return Err(RulesError::IllegalAction(
+                        "source-linked exile return decision violates stack or exile provenance",
                     ));
                 }
             }

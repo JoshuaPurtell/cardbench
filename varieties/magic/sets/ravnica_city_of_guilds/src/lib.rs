@@ -46,7 +46,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 281] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 282] = [
     "RAV-CHAR",
     "RAV-AGRUS-KOS-WOJEK-VETERAN",
     "RAV-INSTILL-FUROR",
@@ -163,6 +163,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 281] = [
     "RAV-DIMIR-GUILDMAGE",
     "RAV-DIMIR-CUTPURSE",
     "RAV-DIMIR-DOPPELGANGER",
+    "RAV-SISTERS-OF-STONE-DEATH",
     "RAV-MINDLEECH-MASS",
     "RAV-GLEANCRAWLER",
     "RAV-DIMIR-HOUSE-GUARD",
@@ -5131,6 +5132,33 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
+        // Full fidelity: three independent activated abilities use the
+        // expansion-neutral source-relative combat and linked-exile
+        // substrates. The later return is a public policy choice from only
+        // this exact live source incarnation's retained creature cards.
+        CardDefinition {
+            id: "RAV-SISTERS-OF-STONE-DEATH",
+            name: "Sisters of Stone Death",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(4, [Color::Black, Color::Green]),
+            colors: colors([Color::Black, Color::Green]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "legendary-permanent",
+                "colored-cost-casting",
+                "base-characteristics",
+                "target-creature-must-block-source-this-turn-if-able",
+                "exile-target-creature-blocking-or-blocked-by-source",
+                "return-source-linked-exiled-creature-under-controller-control",
+            ],
+            power: Some(7),
+            toughness: Some(5),
+            keywords: vec![],
+            effects: vec![],
+        },
         // Full fidelity: a positive combat-damage receipt to a player queues
         // a source-owned trigger. Its exact combat recipient privately selects
         // three current hand cards, and the ability resolves only after that
@@ -8763,6 +8791,56 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
             },
         },
         ActivatedAbilityBinding {
+            card_definition: "RAV-SISTERS-OF-STONE-DEATH",
+            ability: ActivatedAbility {
+                id: "green-target-creature-must-block-source",
+                mana_cost: ManaCost::with_colors(0, [Color::Green]),
+                tap_cost: false,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![TargetRequirement::Creature],
+                effects: vec![Effect::RequireTargetCreatureBlockSourceUntilEndOfTurn],
+            },
+        },
+        ActivatedAbilityBinding {
+            card_definition: "RAV-SISTERS-OF-STONE-DEATH",
+            ability: ActivatedAbility {
+                id: "black-green-exile-creature-blocking-or-blocked-by-source",
+                mana_cost: ManaCost::with_colors(0, [Color::Black, Color::Green]),
+                tap_cost: false,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![TargetRequirement::CreatureBlockingOrBlockedBySource],
+                effects: vec![Effect::ExileTargetCreatureBlockingOrBlockedBySource],
+            },
+        },
+        ActivatedAbilityBinding {
+            card_definition: "RAV-SISTERS-OF-STONE-DEATH",
+            ability: ActivatedAbility {
+                id: "two-black-return-source-linked-exiled-creature",
+                mana_cost: ManaCost::with_colors(2, [Color::Black]),
+                tap_cost: false,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![],
+                effects: vec![
+                    Effect::ReturnSourceLinkedExiledCreatureToBattlefieldUnderControllerControl,
+                ],
+            },
+        },
+        ActivatedAbilityBinding {
             card_definition: "RAV-LURKING-INFORMANT",
             ability: ActivatedAbility {
                 id: "two-tap-target-player-top-library-may-graveyard",
@@ -8952,6 +9030,9 @@ pub fn rav_legendary_permanent_bindings() -> Vec<LegendaryPermanentBinding> {
         },
         LegendaryPermanentBinding {
             card_definition: "RAV-SZADEK",
+        },
+        LegendaryPermanentBinding {
+            card_definition: "RAV-SISTERS-OF-STONE-DEATH",
         },
         LegendaryPermanentBinding {
             card_definition: "RAV-TOLSIMIR-WOLFBLOOD",

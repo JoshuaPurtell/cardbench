@@ -1564,6 +1564,11 @@ pub enum TargetRequirement {
     /// in the active combat. This preserves the targeted-combat restriction
     /// of Devouring Light without weakening generic creature-exile effects.
     AttackingOrBlockingCreature,
+    /// A battlefield creature in the active combat that is blocking, or is
+    /// blocked by, the exact permanent that activated the ability.  This
+    /// source-relative target boundary keeps effects such as Sisters of Stone
+    /// Death from accepting an unrelated combatant.
+    CreatureBlockingOrBlockedBySource,
     Land,
     /// A battlefield land whose current basic-land subtype is the exact
     /// declared type. This derives from the live layer-four characteristic,
@@ -2453,6 +2458,17 @@ pub enum Effect {
     /// Prevent one selected creature from blocking the source permanent for
     /// this turn. This is source-relative rather than a global combat lock.
     PreventTargetBlockingSourceUntilEndOfTurn,
+    /// Require the selected creature to block the resolving source this turn
+    /// if it can legally do so when blockers are declared.
+    RequireTargetCreatureBlockSourceUntilEndOfTurn,
+    /// Exile the target creature only while it is blocking or blocked by the
+    /// resolving source, then retain the exact exile incarnation as a
+    /// source-linked future return candidate.
+    ExileTargetCreatureBlockingOrBlockedBySource,
+    /// Return one exact creature card previously exiled by the resolving
+    /// source's current battlefield incarnation under its controller's
+    /// control.  Selection occurs at the typed no-priority decision boundary.
+    ReturnSourceLinkedExiledCreatureToBattlefieldUnderControllerControl,
     /// Apply a temporary layer-7 modifier to the permanent that activated the
     /// resolving ability. This is intentionally source-relative rather than a
     /// target slot, matching self-pump abilities such as Goblin Fire Fiend.
@@ -3062,6 +3078,7 @@ impl Effect {
             | Self::RadianceAddKeywordUntilEndOfTurn { .. }
             | Self::BeginDamageRedirection { .. }
             | Self::PreventTargetBlockingSourceUntilEndOfTurn
+            | Self::RequireTargetCreatureBlockSourceUntilEndOfTurn
             | Self::ExileTargetCreature
             | Self::ExileTargetCreatureUntilEndStep
             | Self::TapTargetCreature
@@ -3072,6 +3089,9 @@ impl Effect {
             | Self::ReplaceTargetCreatureColorsWithChosenColorUntilEndOfTurn
             | Self::DestroyTargetCreatureWithManaValueAtMostChosenX => {
                 Some(TargetRequirement::Creature)
+            }
+            Self::ExileTargetCreatureBlockingOrBlockedBySource => {
+                Some(TargetRequirement::CreatureBlockingOrBlockedBySource)
             }
             Self::AnimateTargetLand { land_type, .. } => {
                 Some(TargetRequirement::LandWithBasicLandType(*land_type))
@@ -3237,6 +3257,7 @@ impl Effect {
             | Self::CreateTokenCopyOfAttachedCreature
             | Self::CreateTokenCopyOfPermanent { .. }
             | Self::ReturnUpToThreeControllerGraveyardLandCardsToHand
+            | Self::ReturnSourceLinkedExiledCreatureToBattlefieldUnderControllerControl
             | Self::ReturnAnotherControlledPermanentSharingEnteredCardTypes
             | Self::ReturnAnotherControlledPermanentSharingCardTypes { .. }
             | Self::ReturnSourceAttachedPermanentToHand
@@ -3736,6 +3757,10 @@ pub enum ContinuousChange {
     /// quantity, and ends with the ordinary attachment lifecycle.
     RedirectDamageToAttachmentController,
     CannotBlockSource(ObjectId),
+    /// A source-relative blocking requirement.  It remains a layer-six
+    /// ability change so an ordinary source/target zone change removes it
+    /// before a later combat declaration can inspect stale identities.
+    MustBlockSource(ObjectId),
     AddDamageShield(i16),
     ModifyPowerToughness {
         power: i16,
@@ -3830,6 +3855,7 @@ impl ContinuousChange {
             | Self::GrantActivatedAbility(_)
             | Self::RedirectDamageToAttachmentController
             | Self::CannotBlockSource(_)
+            | Self::MustBlockSource(_)
             | Self::AddDamageShield(_)
             | Self::OtherControlledCreaturesAddKeyword(_)
             | Self::OtherControlledPermanentsAddKeyword(_)
@@ -4281,6 +4307,11 @@ pub enum DecisionKind {
     /// their own land cards from their public graveyard. The one response is
     /// held against the exact stack item and each selected card incarnation.
     PublicGraveyardLandReturn,
+    /// The controller of a resolving source-linked exile ability selects one
+    /// creature card that exact source incarnation previously exiled.  The
+    /// choice is public because exile is a public zone, but it remains a
+    /// no-priority resolution boundary rather than a free zone action.
+    SourceLinkedExileCreatureReturn,
     /// Each affected player preserves up to three of their currently
     /// controlled public permanents while one target-free spell remains on
     /// the stack. Every unselected permanent is sacrificed only after all
@@ -4810,6 +4841,15 @@ pub enum DecisionContinuation {
     /// retain their exact incarnations, so a stale response cannot move a
     /// later graveyard incarnation with the same stable object id.
     ReturnUpToThreeControllerGraveyardLandCardsToHand {
+        source_stack_item: StackObjectId,
+        source: ObjectId,
+        source_incarnation: u64,
+        controller: PlayerId,
+    },
+    /// Resumes a source-relative creature-card return after the controller
+    /// selects one exact current exile incarnation.  Both source and selected
+    /// card provenance are revalidated before the pending ability completes.
+    ReturnSourceLinkedExiledCreatureToBattlefieldUnderControllerControl {
         source_stack_item: StackObjectId,
         source: ObjectId,
         source_incarnation: u64,

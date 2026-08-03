@@ -73,14 +73,14 @@ fn executable_slice_size_is_explicit_and_does_not_masquerade_as_set_coverage() {
         .collect::<std::collections::BTreeSet<_>>();
 
     // Twenty executable basic-land printings collapse to five names. The
-    // two hundred and eighty-two executable nonbasic names include the positive
+    // two hundred and eighty-three executable nonbasic names include the positive
     // full-fidelity manifest entries; all others remain deliberately bounded
     // compatibility slices. The full-fidelity Clinging Darkness and
     // Moldervine Cloak entries use the bounded static-modifier Aura substrate;
     // regeneration remains independently capability-gated.
-    assert_eq!(executable_printings, 302);
-    assert_eq!(executable_names.len(), 287);
-    assert_eq!(catalog_only_names.len(), 4);
+    assert_eq!(executable_printings, 303);
+    assert_eq!(executable_names.len(), 288);
+    assert_eq!(catalog_only_names.len(), 3);
     assert!(executable_names.is_disjoint(&catalog_only_names));
 }
 
@@ -161,6 +161,14 @@ fn dimir_doppelganger_resolves_to_its_full_graveyard_copy_definition() {
     assert_eq!(
         executable_definition_id_for_collector(202),
         Ok("RAV-DIMIR-DOPPELGANGER")
+    );
+}
+
+#[test]
+fn sisters_of_stone_death_resolves_to_its_full_source_linked_combat_definition() {
+    assert_eq!(
+        executable_definition_id_for_collector(231),
+        Ok("RAV-SISTERS-OF-STONE-DEATH")
     );
 }
 
