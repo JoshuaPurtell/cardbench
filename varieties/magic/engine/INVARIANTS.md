@@ -2457,6 +2457,14 @@ Oracle Magic rules coverage.
   controller-sacrifice, creature-departure, and opponent-graveyard dispatch.
   Definitionless tokens still have no bound observer ability and therefore
   remain absent only because no effective definition can select a binding.
+- A copied token that legally attacks, blocks, deals damage, deals combat
+  damage, or receives damage queues the matching definition-bound trigger;
+  physical token status is not a source or recipient exemption. An `Attacks`
+  receipt is accepted only if its exact source appears in the latest committed
+  `AttackersDeclared` boundary with no intervening step marker. The equivalent
+  blocker replay and turn-trigger replay checks resolve copied/departed
+  definition provenance before classifying their receipts, so copied sources
+  cannot bypass the state-machine audit.
 - Every registered legendary card definition, and every legendary token value,
   participates in CR 704.5j according to its current layer-one name. When a
   controller has two or more matching live permanents, the engine has exactly
