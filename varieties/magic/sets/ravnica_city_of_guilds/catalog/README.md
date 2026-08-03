@@ -49,8 +49,8 @@ a zone move. The fetched Aura's ordinary ETB trigger is queued only after the
 Mage trigger's terminal receipt. The opponent sees neither unselected Aura
 identities nor a private decision projection.
 
-The current catalog partition is 267 full / 6 partial / 18 catalog-only unique
-names (282 / 6 / 18 printings). The independently checked coverage-report
+The current catalog partition is 269 full / 6 partial / 16 catalog-only unique
+names (284 / 6 / 16 printings). The independently checked coverage-report
 binary emits the same partition.
 
 Instill Furor is a positive-manifest typed creature Aura with no synthetic
