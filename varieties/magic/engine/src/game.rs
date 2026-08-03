@@ -841,6 +841,10 @@ struct DamagePreventionShield {
 struct CombatDamagePrevention {
     id: u64,
     source: ObjectId,
+    /// A stack-only spell copy may create this independent current-turn
+    /// replacement record. Its source is receipt provenance, not a live
+    /// battlefield dependency.
+    source_is_virtual: bool,
     creature: ObjectId,
     creature_incarnation: u64,
     expires_turn: u32,
@@ -854,6 +858,10 @@ struct CombatDamagePrevention {
 struct GlobalCombatDamagePrevention {
     id: u64,
     source: ObjectId,
+    /// A stack-only spell copy may create this independent current-turn
+    /// replacement record. Its source is receipt provenance, not a live
+    /// battlefield dependency.
+    source_is_virtual: bool,
     expires_turn: u32,
 }
 
@@ -14582,7 +14590,11 @@ impl Game {
         }
         let mut combat_prevention_ids = BTreeSet::new();
         for prevention in &self.combat_damage_preventions {
-            if !self.object_identity_is_live_or_historically_departed(prevention.source)
+            if (prevention.source_is_virtual
+                && (self.objects.contains_key(&prevention.source)
+                    || self.virtual_spell_copies.contains_key(&prevention.source)))
+                || (!prevention.source_is_virtual
+                    && !self.object_identity_is_live_or_historically_departed(prevention.source))
                 || prevention.id == 0
                 || prevention.id >= self.next_timestamp
                 || prevention.expires_turn < self.turn
@@ -14608,11 +14620,15 @@ impl Game {
         }
         let mut global_combat_prevention_ids = BTreeSet::new();
         for prevention in &self.global_combat_damage_preventions {
-            if prevention.id == 0
+            if (prevention.source_is_virtual
+                && (self.objects.contains_key(&prevention.source)
+                    || self.virtual_spell_copies.contains_key(&prevention.source)))
+                || prevention.id == 0
                 || prevention.id >= self.next_timestamp
                 || prevention.source.0 == 0
                 || prevention.source.0 >= self.next_object_id
-                || !self.object_identity_is_live_or_historically_departed(prevention.source)
+                || (!prevention.source_is_virtual
+                    && !self.object_identity_is_live_or_historically_departed(prevention.source))
                 || prevention.expires_turn < self.turn
             {
                 return Err(RulesError::IllegalAction(
@@ -22450,7 +22466,20 @@ impl Game {
         source: ObjectId,
         creature: ObjectId,
     ) -> Result<(), RulesError> {
-        self.object(source)?;
+        let source_is_virtual = self.virtual_spell_copies.contains_key(&source);
+        if source_is_virtual
+            && self
+                .stack
+                .iter()
+                .any(|stack_object| stack_object.card == source)
+        {
+            return Err(RulesError::IllegalAction(
+                "a virtual combat-prevention source must be resolving",
+            ));
+        }
+        if !source_is_virtual {
+            self.object(source)?;
+        }
         if self.zone_of(creature) != Some(Zone::Battlefield)
             || !self.characteristics(creature).is_ok_and(|characteristics| {
                 characteristics.card_types.contains(&CardType::Creature)
@@ -22462,6 +22491,7 @@ impl Game {
         self.combat_damage_preventions.push(CombatDamagePrevention {
             id: self.next_timestamp,
             source,
+            source_is_virtual,
             creature,
             creature_incarnation,
             expires_turn: self.turn,
@@ -22479,11 +22509,25 @@ impl Game {
         &mut self,
         source: ObjectId,
     ) -> Result<(), RulesError> {
-        self.object(source)?;
+        let source_is_virtual = self.virtual_spell_copies.contains_key(&source);
+        if source_is_virtual
+            && self
+                .stack
+                .iter()
+                .any(|stack_object| stack_object.card == source)
+        {
+            return Err(RulesError::IllegalAction(
+                "a virtual combat-prevention source must be resolving",
+            ));
+        }
+        if !source_is_virtual {
+            self.object(source)?;
+        }
         self.global_combat_damage_preventions
             .push(GlobalCombatDamagePrevention {
                 id: self.next_timestamp,
                 source,
+                source_is_virtual,
                 expires_turn: self.turn,
             });
         self.next_timestamp += 1;
@@ -30850,6 +30894,7 @@ impl Game {
     /// prevention. Unlike target-specific combat prevention, this record has
     /// no creature incarnation and remains valid after its originating source
     /// leaves the battlefield (including a token source ceasing to exist).
+    #[allow(clippy::too_many_lines)] // One receipt audit validates ability, spell, and virtual-copy provenance.
     fn validate_global_combat_damage_prevention_event_order(&self) -> Result<(), RulesError> {
         let mut created = BTreeMap::<ObjectId, usize>::new();
         let mut expired = BTreeMap::<ObjectId, usize>::new();
@@ -30864,7 +30909,7 @@ impl Game {
                             "global combat prevention receipt has an invalid source or lifetime",
                         ));
                     }
-                    let mut found_bound_activation = false;
+                    let mut found_bound_source = false;
                     for prior in self.event_log[..index].iter().rev() {
                         match prior {
                             GameEvent::AbilityResolved {
@@ -30881,7 +30926,7 @@ impl Game {
                                 ability,
                                 ..
                             } if activation_source == source => {
-                                found_bound_activation = self
+                                found_bound_source = self
                                     .activated_ability_for_definition(definition, ability)
                                     .is_some_and(|binding| {
                                         binding.effects.iter().any(|effect| {
@@ -30893,12 +30938,36 @@ impl Game {
                                     });
                                 break;
                             }
+                            GameEvent::SpellCopied { copy, original, .. } if copy == source => {
+                                found_bound_source =
+                                    self.card_definition(*original).is_ok_and(|definition| {
+                                        definition.effects.iter().any(|effect| {
+                                            matches!(
+                                                effect,
+                                                Effect::PreventAllCombatDamageUntilEndOfTurn
+                                            )
+                                        })
+                                    });
+                                break;
+                            }
+                            GameEvent::SpellCast { card, .. } if card == source => {
+                                found_bound_source =
+                                    self.card_definition(*card).is_ok_and(|definition| {
+                                        definition.effects.iter().any(|effect| {
+                                            matches!(
+                                                effect,
+                                                Effect::PreventAllCombatDamageUntilEndOfTurn
+                                            )
+                                        })
+                                    });
+                                break;
+                            }
                             _ => {}
                         }
                     }
-                    if !found_bound_activation {
+                    if !found_bound_source {
                         return Err(RulesError::IllegalAction(
-                            "global combat prevention receipt lacks a matching bound activation",
+                            "global combat prevention receipt lacks a matching bound source",
                         ));
                     }
                     *created.entry(*source).or_default() += 1;
