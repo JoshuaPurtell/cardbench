@@ -30,6 +30,12 @@ binaries intentionally remain explicit scale-campaign commands. Set
 `FAST_CHECK_FULL_FMT=1` when the edit loop should include the slower
 full-workspace formatter instead of its changed-Rust-file check.
 
+The full `cargo test --workspace` command is deliberately not the edit-loop
+gate: it starts hundreds of separate integration-test binaries (and policy
+campaign tests), so a cold run can take several minutes even when every test
+body is sub-second. The bounded gate preserves the high-signal engine and
+event-log checks without paying that process-startup cost on every edit.
+
 `rav-engine-parity` validates the original Ravnica-block manifests and public
 deck pool, executes every shown RAV scenario twice, and compares each deterministic
 event log against its fixed public digest. With `--output-root PATH`, the Rust
