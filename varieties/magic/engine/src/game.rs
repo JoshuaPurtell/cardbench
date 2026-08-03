@@ -11126,7 +11126,11 @@ impl Game {
         let target = self
             .stack
             .iter()
-            .find(|stack_object| stack_object.card == target_spell)
+            .find(|stack_object| {
+                stack_object.card == target_spell
+                    && stack_object.ability_id.is_none()
+                    && stack_object.source_incarnation == target_incarnation
+            })
             .ok_or(RulesError::IllegalAction(
                 "counter-unless payment target escaped the stack",
             ))?;
@@ -11146,14 +11150,15 @@ impl Game {
             || top.targets.as_slice() != [Target::Spell(target_spell)]
             || target.controller != player
             || target.source_incarnation != target_incarnation
-            || self
-                .stack
-                .iter()
-                .position(|stack_object| stack_object.card == target_spell)
-                >= self
-                    .stack
-                    .iter()
-                    .position(|stack_object| stack_object.card == source)
+            || self.stack.iter().position(|stack_object| {
+                stack_object.card == target_spell
+                    && stack_object.ability_id.is_none()
+                    && stack_object.source_incarnation == target_incarnation
+            }) >= self.stack.iter().position(|stack_object| {
+                stack_object.card == source
+                    && stack_object.ability_id.is_none()
+                    && stack_object.source_incarnation == source_incarnation
+            })
         {
             return Err(RulesError::IllegalAction(
                 "counter-unless payment decision no longer matches its stack objects",
@@ -11224,7 +11229,11 @@ impl Game {
         let target = self
             .stack
             .iter()
-            .find(|stack_object| stack_object.card == target_spell)
+            .find(|stack_object| {
+                stack_object.card == target_spell
+                    && stack_object.ability_id.is_none()
+                    && stack_object.source_incarnation == target_incarnation
+            })
             .ok_or(RulesError::IllegalAction(
                 "counter-unless discard target escaped the stack",
             ))?;
@@ -11243,14 +11252,15 @@ impl Game {
             || target.controller != player
             || target.ability_id.is_some()
             || target.source_incarnation != target_incarnation
-            || self
-                .stack
-                .iter()
-                .position(|stack_object| stack_object.card == target_spell)
-                >= self
-                    .stack
-                    .iter()
-                    .position(|stack_object| stack_object.card == source)
+            || self.stack.iter().position(|stack_object| {
+                stack_object.card == target_spell
+                    && stack_object.ability_id.is_none()
+                    && stack_object.source_incarnation == target_incarnation
+            }) >= self.stack.iter().position(|stack_object| {
+                stack_object.card == source
+                    && stack_object.ability_id.is_none()
+                    && stack_object.source_incarnation == source_incarnation
+            })
         {
             return Err(RulesError::IllegalAction(
                 "counter-unless discard decision no longer matches its stack objects",
@@ -21395,7 +21405,10 @@ impl Game {
                                     let target_controller = self
                                         .stack
                                         .iter()
-                                        .find(|candidate| candidate.card == target)
+                                        .find(|candidate| {
+                                            candidate.card == target
+                                                && candidate.ability_id.is_none()
+                                        })
                                         .ok_or(RulesError::IllegalTarget(Target::Spell(target)))?
                                         .controller;
                                     for snapshot in
@@ -22072,11 +22085,9 @@ impl Game {
                 "counter-unless payment cost must be positive",
             ));
         }
-        let Some(target_position) = self
-            .stack
-            .iter()
-            .position(|candidate| candidate.card == *target_spell)
-        else {
+        let Some(target_position) = self.stack.iter().position(|candidate| {
+            candidate.card == *target_spell && candidate.ability_id.is_none()
+        }) else {
             // The target may have been countered by a response above this
             // spell.  Leave it for the common target-legality plan, which
             // counters this all-illegal spell by the rules instead of
@@ -22089,9 +22100,6 @@ impl Game {
             ));
         }
         let target = &self.stack[target_position];
-        if target.ability_id.is_some() {
-            return Err(RulesError::IllegalTarget(Target::Spell(*target_spell)));
-        }
         // A virtual spell copy is stack-only. The lower stack item's captured
         // incarnation is the authoritative identity for either a physical
         // spell or that copy; no physical object lookup is permitted here.
@@ -22139,11 +22147,9 @@ impl Game {
                 "counter-unless discard spell has an invalid target shape",
             ));
         };
-        let Some(target_position) = self
-            .stack
-            .iter()
-            .position(|candidate| candidate.card == *target_spell)
-        else {
+        let Some(target_position) = self.stack.iter().position(|candidate| {
+            candidate.card == *target_spell && candidate.ability_id.is_none()
+        }) else {
             // Keep the discard-hand branch aligned with the mana-payment
             // branch: a vanished target is an ordinary rules counter, not a
             // failed resolution-time choice.
@@ -22155,9 +22161,6 @@ impl Game {
             ));
         }
         let target = &self.stack[target_position];
-        if target.ability_id.is_some() {
-            return Err(RulesError::IllegalTarget(Target::Spell(*target_spell)));
-        }
         // See the payment counterpart above: a target spell may be a virtual
         // copy and therefore has only stack provenance.
         let target_incarnation = target.source_incarnation;
@@ -43749,11 +43752,19 @@ impl Game {
                 let target_position = self
                     .stack
                     .iter()
-                    .position(|candidate| candidate.card == *target_spell);
+                    .position(|candidate| {
+                        candidate.card == *target_spell
+                            && candidate.ability_id.is_none()
+                            && candidate.source_incarnation == *target_incarnation
+                    });
                 let source_position = self
                     .stack
                     .iter()
-                    .position(|candidate| candidate.card == *source);
+                    .position(|candidate| {
+                        candidate.card == *source
+                            && candidate.ability_id.is_none()
+                            && candidate.source_incarnation == *source_incarnation
+                    });
                 let target = target_position.and_then(|position| self.stack.get(position));
                 if decision.kind != DecisionKind::CounterUnlessPaysMana
                     || decision.visibility != DecisionVisibility::Public
@@ -43796,11 +43807,19 @@ impl Game {
                 let target_position = self
                     .stack
                     .iter()
-                    .position(|candidate| candidate.card == *target_spell);
+                    .position(|candidate| {
+                        candidate.card == *target_spell
+                            && candidate.ability_id.is_none()
+                            && candidate.source_incarnation == *target_incarnation
+                    });
                 let source_position = self
                     .stack
                     .iter()
-                    .position(|candidate| candidate.card == *source);
+                    .position(|candidate| {
+                        candidate.card == *source
+                            && candidate.ability_id.is_none()
+                            && candidate.source_incarnation == *source_incarnation
+                    });
                 let target = target_position.and_then(|position| self.stack.get(position));
                 if decision.kind != DecisionKind::CounterUnlessDiscardsHand
                     || decision.visibility != DecisionVisibility::Public
