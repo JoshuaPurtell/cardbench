@@ -68,8 +68,8 @@ definition; Gather Courage, Seeds of Strength, Scatter the Seeds, and Guardian
 of Vitu-Ghazi are in the latest audited tranches. All other definitions remain
 explicitly scoped compatibility slices.
 
-The current checked-in RAV catalog partitions its public inventory into 264
-full-fidelity names (279 printings), six bounded executable names, and 21
+The current checked-in RAV catalog partitions its public inventory into 265
+full-fidelity names (280 printings), six bounded executable names, and 20
 catalog-only names. The catalog contract is intentionally fail-closed: a
 catalog-only printing cannot be submitted as a blank executable card.
 
@@ -80,6 +80,9 @@ current corpus contains 187 scenarios and covers:
 
 - casting to the stack and both-player priority passes (`Lightning Helix`);
 - colored-cost creature casting and permanent characteristics (`Watchwolf`);
+- a policy-declared, source-incarnation-safe optional creature-spell mana
+  payment that resolves into matching entry counters and cleans up on a
+  countered spell (`Chorus of the Conclave`);
 - full-fidelity Flying plus a tap-for-one-of-five-colors mana ability, including
   summoning-sickness rejection, explicit choice during cast payment, and
   ordered nonstack receipts (`Birds of Paradise`);

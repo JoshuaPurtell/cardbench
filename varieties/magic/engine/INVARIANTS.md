@@ -1581,6 +1581,22 @@ Oracle Magic rules coverage.
   successful complete action. A malformed allocation, missing required X, or
   spurious X therefore leaves mana sources, mana pool, zones, stack, pass
   sequence, and event log unchanged—including no accepted policy-move receipt.
+- `PolicyAction::CastWithCreatureSpellAdditionalMana` is the one policy-facing
+  boundary for a live static source that permits optional extra mana while a
+  creature spell is cast. Each source is a distinct live battlefield object,
+  may appear at most once, and captures its exact current incarnation before
+  any mana leaves the controller's pool. A noncreature spell, an empty payment,
+  a duplicate/departed/foreign source, or a source without the registered
+  modifier rejects atomically. Every accepted source emits one positive
+  `CreatureSpellExtraManaPaid` receipt in a contiguous group immediately
+  before that cast's ordinary payment receipt (if any) and `SpellCast`; no
+  priority or unrelated cast can interleave. The matching pending entry state
+  belongs only to that exact physical live creature spell, is consumed after
+  its battlefield entry and before trigger stacking/state-based actions, and
+  places the same
+  number of `+1/+1` counters through ordinary counter replacement. It is
+  removed on every counter, terminal-zone, or player-departure path, so neither
+  a later incarnation nor a direct/noncast battlefield entry can inherit it.
 - A spell instruction that depends on a chosen `X` cannot use ordinary
   `cast_spell`: the caller must submit one explicit nonnegative value and an
   explicit payment allocation for every remaining symbol after reductions and
