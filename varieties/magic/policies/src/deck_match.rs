@@ -765,6 +765,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "explicit 16-seed campaign; run with --ignored"]
     fn sixteen_seed_tournament_fails_closed_on_all_engine_or_policy_errors() {
         let tournament = run_rav_engine_tournament(0..16).expect("sixteen-seed engine probe");
         assert_eq!(tournament.matches.len(), 16);
@@ -772,6 +773,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore = "explicit 15x15 one-seed matrix campaign; run with --ignored"]
     fn every_reference_deck_pair_has_an_attributable_fail_closed_trace() {
         let deck_count = load_reference_decks()
             .expect("public reference decks")

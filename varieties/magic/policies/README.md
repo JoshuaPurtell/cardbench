@@ -107,3 +107,15 @@ and accepts `RAV_AUDIT_SEED_COUNT=N` for broader campaigns. Matrix workers are
 bounded by available parallelism (and a ceiling of 16) rather than creating one
 OS thread per matchup. Both commands fail closed when an invariant, policy, or
 coverage problem is discovered.
+
+The two corresponding Rust integration tests are intentionally marked
+`ignored`: they are campaign runners, not ordinary unit checks. Run them
+explicitly when doing a scale audit:
+
+```bash
+cargo test -p cardbench-magic-policies --lib -- --ignored sixteen_seed_tournament
+cargo test -p cardbench-magic-policies --lib -- --ignored every_reference_deck_pair
+```
+
+This keeps the default workspace test loop fast while preserving the exact
+fail-closed campaign assertions as explicit audit commands.
