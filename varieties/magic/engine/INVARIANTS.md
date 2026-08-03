@@ -280,8 +280,10 @@ Oracle Magic rules coverage.
   damage batches therefore still honor protection even when no target slot
   exists. A stack object retains the source colors of its originating
   incarnation, so a source that leaves the battlefield and loses a temporary
-  color cannot evade protection during target revalidation or damage
-  prevention. Nonmatching-color and colorless sources remain unaffected. A
+  color cannot evade protection during target revalidation, ordinary damage
+  prevention, or the prospective replacement-candidate/application/resumption
+  path for one suspended direct or global damage packet. Nonmatching-color and
+  colorless sources remain unaffected. A
   matching-color Aura becomes illegally attached when protection is gained,
   then the ordinary SBA moves it to its owner's graveyard and expires every
   attachment-linked continuous effect.
