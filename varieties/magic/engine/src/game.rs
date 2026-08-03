@@ -12,22 +12,24 @@ use crate::{
     CapturedConvokeCreature, CardDefinition, CardObject, CardType, CastPaymentManaAbility,
     CastPermissionPayment, CastPermissionZone, CastTiming, Characteristics, Color, CombatBlock,
     ContinuousChange, ContinuousEffect, CopiableValues, CopiedPermanent, CostReductionBinding,
-    CounterKind, CreatureSubtype, DELAYED_COMBAT_HISTORY_DESTRUCTION_ABILITY_ID,
-    DamageReplacementChoice, DamageReplacementEffect, DamageReplacementEffectBinding,
-    DamageReplacementPacket, DecisionContinuation, DecisionId, DecisionKind, DecisionOption,
-    DecisionSelection, DecisionVisibility, DeckList, DelayedAction, DelayedActionId,
-    DelayedActionKind, DelayedActionTiming, Duration, Effect, EntryCopyBinding, EntryCopySnapshot,
-    GameEvent, GeneralizedAbilityActivation, GeneralizedActivatedAbilityCost,
-    GraveyardCreatureCardSnapshot, GraveyardLandCardSnapshot, HandCardSnapshot, Keyword,
-    LandEntryBinding, Layer, LibrarySearchCardinality, LibrarySearchDestination,
-    LibrarySearchRequirement, LibrarySearchSelection, LinkedExileGroup, LinkedExileGroupId,
-    LinkedExileMember, LinkedExileMemberRole, ManaAbilityActivation, ManaAbilityBinding,
+    CounterKind, CreatureSpellExtraManaPayment, CreatureSubtype,
+    DELAYED_COMBAT_HISTORY_DESTRUCTION_ABILITY_ID, DamageReplacementChoice,
+    DamageReplacementEffect, DamageReplacementEffectBinding, DamageReplacementPacket,
+    DecisionContinuation, DecisionId, DecisionKind, DecisionOption, DecisionSelection,
+    DecisionVisibility, DeckList, DelayedAction, DelayedActionId, DelayedActionKind,
+    DelayedActionTiming, Duration, Effect, EntryCopyBinding, EntryCopySnapshot, GameEvent,
+    GeneralizedAbilityActivation, GeneralizedActivatedAbilityCost, GraveyardCreatureCardSnapshot,
+    GraveyardLandCardSnapshot, HandCardSnapshot, Keyword, LandEntryBinding, Layer,
+    LibrarySearchCardinality, LibrarySearchDestination, LibrarySearchRequirement,
+    LibrarySearchSelection, LinkedExileGroup, LinkedExileGroupId, LinkedExileMember,
+    LinkedExileMemberRole, ManaAbilityActivation, ManaAbilityBinding,
     ManaAbilityBundleChoiceActivation, ManaAbilityCostBinding, ManaAbilityOutput, ManaBundle,
     ManaCost, ManaPaymentSelection, ObjectId, PendingDecision, PlayerId, PlayerState,
     PolicyMoveKind, QuantityReplacementResolution, ReplacementChoice, ReplacementEffect,
     ReplacementEffectBinding, ReplacementEventKind, ResolutionPaymentManaAbility,
     StackEffectResolution, StackObject, StackObjectId, StackResolutionPlan,
     StaticAttackRestriction, StaticAttackRestrictionBinding, StaticContinuousEffectBinding,
+    StaticCreatureSpellCostModifier, StaticCreatureSpellCostModifierBinding,
     StaticEntryRestriction, StaticEntryRestrictionBinding, StaticLibraryTopRevealBinding,
     StaticLibraryTopRevealScope, Step, TRANSMUTE_ABILITY_ID, Target, TargetRequirement, TokenSpec,
     TriggerCondition, TriggerOrderEntry, TriggeredAbilityBinding,
@@ -36,6 +38,23 @@ use crate::{
 
 type SourceCounterMaterialization = (CounterKind, i16);
 type MaterializedActivatedEffects = (Vec<Effect>, Vec<SourceCounterMaterialization>);
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct PendingCreatureSpellEntryCounters {
+    source: ObjectId,
+    source_incarnation: u64,
+    amount: i16,
+}
+
+/// A validated optional creature-spell payment. The static source's physical
+/// battlefield incarnation is captured before any mana is spent so the later
+/// permanent entry cannot accidentally inherit a newer object identity.
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct ValidatedCreatureSpellExtraManaPayment {
+    source: ObjectId,
+    source_incarnation: u64,
+    colors: Vec<Color>,
+}
 
 /// The complete immutable context for resolving one generic single-card
 /// controller-library search. Keeping the search instruction together makes
@@ -203,6 +222,16 @@ pub enum PolicyAction {
         chosen_x: Option<u8>,
         mana_selection: ManaPaymentSelection,
     },
+    /// Casts a creature spell while explicitly selecting one optional extra
+    /// mana payment for each applicable live battlefield source. The engine
+    /// captures every source incarnation and applies its matching entry
+    /// replacement only if this physical spell resolves as a permanent.
+    CastWithCreatureSpellAdditionalMana {
+        request: CastRequest,
+        chosen_x: Option<u8>,
+        mana_selection: ManaPaymentSelection,
+        extra_payments: Vec<CreatureSpellExtraManaPayment>,
+    },
     /// Casts a spell that requires one policy-submitted actual card color.
     /// The color is captured on the stack and is never inferred from payment.
     CastWithColorChoice {
@@ -345,9 +374,10 @@ impl PolicyAction {
     #[must_use]
     pub const fn kind(&self) -> PolicyMoveKind {
         match self {
-            Self::Cast(_) | Self::CastWithPayment { .. } | Self::CastWithColorChoice { .. } => {
-                PolicyMoveKind::Cast
-            }
+            Self::Cast(_)
+            | Self::CastWithPayment { .. }
+            | Self::CastWithCreatureSpellAdditionalMana { .. }
+            | Self::CastWithColorChoice { .. } => PolicyMoveKind::Cast,
             Self::CastWithMode { .. } => PolicyMoveKind::CastWithMode,
             Self::Draw { .. } => PolicyMoveKind::Draw,
             Self::ChoosePrivateLibraryCards { .. } => PolicyMoveKind::ChoosePrivateLibraryCards,
@@ -944,6 +974,8 @@ pub struct Game {
     entry_copy_bindings: BTreeMap<&'static str, EntryCopyBinding>,
     triggered_abilities: BTreeMap<&'static str, BTreeMap<&'static str, crate::TriggeredAbility>>,
     static_attack_restrictions: BTreeMap<&'static str, Vec<StaticAttackRestriction>>,
+    static_creature_spell_cost_modifiers:
+        BTreeMap<&'static str, Vec<StaticCreatureSpellCostModifier>>,
     static_entry_restrictions: BTreeMap<&'static str, Vec<StaticEntryRestriction>>,
     static_continuous_effects: BTreeMap<&'static str, Vec<ContinuousChange>>,
     static_library_top_reveals: BTreeMap<&'static str, StaticLibraryTopRevealScope>,
@@ -956,6 +988,8 @@ pub struct Game {
     basic_land_types: BTreeMap<&'static str, BasicLandType>,
     land_entry_behaviors: BTreeMap<&'static str, LandEntryBinding>,
     additional_spell_costs: BTreeMap<&'static str, Vec<AdditionalSpellCost>>,
+    pending_creature_spell_entry_counters:
+        BTreeMap<(ObjectId, u64), Vec<PendingCreatureSpellEntryCounters>>,
     graveyard_cast_permissions: BTreeMap<ObjectId, GraveyardCastPermission>,
     effect_created_cast_permissions: BTreeMap<ObjectId, EffectCreatedCastPermission>,
     /// Physical instant/sorcery cards currently on the stack under an
@@ -1278,6 +1312,7 @@ impl Game {
             entry_copy_bindings: BTreeMap::new(),
             triggered_abilities: BTreeMap::new(),
             static_attack_restrictions: BTreeMap::new(),
+            static_creature_spell_cost_modifiers: BTreeMap::new(),
             static_entry_restrictions: BTreeMap::new(),
             static_continuous_effects: BTreeMap::new(),
             static_library_top_reveals: BTreeMap::new(),
@@ -1289,6 +1324,7 @@ impl Game {
             basic_land_types,
             land_entry_behaviors: BTreeMap::new(),
             additional_spell_costs,
+            pending_creature_spell_entry_counters: BTreeMap::new(),
             graveyard_cast_permissions: BTreeMap::new(),
             effect_created_cast_permissions: BTreeMap::new(),
             spell_timing_exceptions: BTreeSet::new(),
@@ -1997,6 +2033,41 @@ impl Game {
                 ));
             }
             restrictions.push(binding.restriction);
+        }
+        self.validate_invariants()
+    }
+
+    /// Registers immutable battlefield sources that may collect an optional
+    /// extra mana payment while their controller casts creature spells.
+    pub fn register_static_creature_spell_cost_modifiers(
+        &mut self,
+        bindings: impl IntoIterator<Item = StaticCreatureSpellCostModifierBinding>,
+    ) -> Result<(), RulesError> {
+        if self.started {
+            return Err(RulesError::IllegalAction(
+                "static creature-spell cost modifiers cannot change after the game starts",
+            ));
+        }
+        for binding in bindings {
+            let definition = self
+                .catalog
+                .get(binding.source_definition)
+                .ok_or(RulesError::UnknownDefinition(binding.source_definition))?;
+            if !definition.is_permanent() {
+                return Err(RulesError::IllegalAction(
+                    "a static creature-spell cost modifier requires a permanent source",
+                ));
+            }
+            let modifiers = self
+                .static_creature_spell_cost_modifiers
+                .entry(binding.source_definition)
+                .or_default();
+            if modifiers.contains(&binding.modifier) {
+                return Err(RulesError::IllegalAction(
+                    "duplicate static creature-spell cost modifier binding",
+                ));
+            }
+            modifiers.push(binding.modifier);
         }
         self.validate_invariants()
     }
@@ -4480,6 +4551,20 @@ impl Game {
                 } else {
                     self.cast_spell_with_mana_spend(player, request, mana_selection)?;
                 }
+            }
+            PolicyAction::CastWithCreatureSpellAdditionalMana {
+                request,
+                chosen_x,
+                mana_selection,
+                extra_payments,
+            } => {
+                self.cast_creature_spell_with_additional_mana(
+                    player,
+                    request,
+                    chosen_x,
+                    mana_selection,
+                    extra_payments,
+                )?;
             }
             PolicyAction::CastWithColorChoice { request, color } => {
                 self.cast_spell_with_color_choice(player, request, color)?;
@@ -7072,7 +7157,7 @@ impl Game {
     #[allow(clippy::needless_pass_by_value)] // Public cast requests remain owned transactional inputs.
     pub fn cast_spell(&mut self, player: PlayerId, request: CastRequest) -> Result<(), RulesError> {
         self.atomic_transition(|game| {
-            game.cast_spell_impl(player, &request, None, None, None, None)
+            game.cast_spell_impl(player, &request, None, None, None, None, None)
         })
     }
 
@@ -7089,7 +7174,7 @@ impl Game {
         mode: u8,
     ) -> Result<(), RulesError> {
         self.atomic_transition(|game| {
-            game.cast_spell_impl(player, &request, None, None, None, Some(mode))
+            game.cast_spell_impl(player, &request, None, None, None, Some(mode), None)
         })
     }
 
@@ -7104,7 +7189,7 @@ impl Game {
         selection: ManaPaymentSelection,
     ) -> Result<(), RulesError> {
         self.atomic_transition(|game| {
-            game.cast_spell_impl(player, &request, Some(&selection), None, None, None)
+            game.cast_spell_impl(player, &request, Some(&selection), None, None, None, None)
         })
     }
 
@@ -7127,6 +7212,7 @@ impl Game {
                 Some(x_value),
                 None,
                 None,
+                None,
             )
         })
     }
@@ -7142,14 +7228,36 @@ impl Game {
         color: Color,
     ) -> Result<(), RulesError> {
         self.atomic_transition(|game| {
-            game.cast_spell_impl(player, &request, None, None, Some(color), None)
+            game.cast_spell_impl(player, &request, None, None, Some(color), None, None)
+        })
+    }
+
+    #[allow(clippy::needless_pass_by_value)]
+    pub fn cast_creature_spell_with_additional_mana(
+        &mut self,
+        player: PlayerId,
+        request: CastRequest,
+        chosen_x: Option<u8>,
+        selection: ManaPaymentSelection,
+        extra_payments: Vec<CreatureSpellExtraManaPayment>,
+    ) -> Result<(), RulesError> {
+        self.atomic_transition(|game| {
+            game.cast_spell_impl(
+                player,
+                &request,
+                Some(&selection),
+                chosen_x,
+                None,
+                None,
+                Some(&extra_payments),
+            )
         })
     }
 
     /// Applies a cast under one all-or-error transaction. Mana abilities named
     /// in `CastRequest::payment_mana_abilities` are the only non-stack actions
     /// admitted between cast validation and final spell-cost payment.
-    #[allow(clippy::too_many_lines)] // One cast transaction owns all cost receipts and rollback.
+    #[allow(clippy::too_many_arguments, clippy::too_many_lines)] // One cast transaction owns all cost receipts and rollback.
     fn cast_spell_impl(
         &mut self,
         player: PlayerId,
@@ -7158,6 +7266,7 @@ impl Game {
         chosen_x: Option<u8>,
         chosen_color: Option<Color>,
         chosen_modal_mode: Option<u8>,
+        extra_mana_payments: Option<&[CreatureSpellExtraManaPayment]>,
     ) -> Result<(), RulesError> {
         self.require_priority(player)?;
         let from_graveyard = self
@@ -7256,6 +7365,11 @@ impl Game {
             player,
             &additional_cost_selections,
         )?;
+        let extra_creature_spell_payments = self.validate_creature_spell_extra_mana_payments(
+            &definition,
+            player,
+            extra_mana_payments.unwrap_or(&[]),
+        )?;
         self.validate_effect_capacity(&definition, player)?;
         // The selected sacrifice is a genuine component of paying the total
         // cost, not an effect. Keeping it before later selected mana
@@ -7333,6 +7447,21 @@ impl Game {
                 mana_payment_selection,
             )?
         };
+        let mut paid_cost = paid_cost;
+        for payment in &extra_creature_spell_payments {
+            let extra_cost = ManaCost::new(u8::try_from(payment.colors.len()).map_err(|_| {
+                RulesError::IllegalAction("optional creature-spell mana payment exceeds range")
+            })?);
+            paid_cost
+                .pay_selected(
+                    &extra_cost,
+                    &ManaPaymentSelection {
+                        generic: payment.colors.clone(),
+                        hybrid: vec![],
+                    },
+                )
+                .map_err(RulesError::Mana)?;
+        }
         self.players[player.0].mana_pool = paid_cost;
         for payment in &request.convoke {
             self.objects
@@ -7349,6 +7478,32 @@ impl Game {
             });
         }
         let source_incarnation = self.move_to_stack(request.card)?;
+        if !extra_creature_spell_payments.is_empty() {
+            let entries = extra_creature_spell_payments
+                .iter()
+                .map(|payment| {
+                    let amount = i16::try_from(payment.colors.len()).map_err(|_| {
+                        RulesError::IllegalAction(
+                            "optional creature-spell mana payment exceeds counter range",
+                        )
+                    })?;
+                    self.record_event(GameEvent::CreatureSpellExtraManaPaid {
+                        player,
+                        card: request.card,
+                        source: payment.source,
+                        source_incarnation: payment.source_incarnation,
+                        amount: u8::try_from(amount).expect("checked i16 payment fits u8"),
+                    });
+                    Ok(PendingCreatureSpellEntryCounters {
+                        source: payment.source,
+                        source_incarnation: payment.source_incarnation,
+                        amount,
+                    })
+                })
+                .collect::<Result<Vec<_>, RulesError>>()?;
+            self.pending_creature_spell_entry_counters
+                .insert((request.card, source_incarnation), entries);
+        }
         if !request.convoke.is_empty() {
             let contributors = request
                 .convoke
@@ -9846,8 +10001,23 @@ impl Game {
         } else {
             Vec::new()
         };
+        let creature_spell_entry_counters = if permanent_resolution {
+            self.pending_creature_spell_entry_counters
+                .remove(&(stack_object.card, stack_object.source_incarnation))
+                .unwrap_or_default()
+        } else {
+            Vec::new()
+        };
         if permanent_resolution {
             self.move_to_zone(stack_object.card, Zone::Battlefield)?;
+            for pending in creature_spell_entry_counters {
+                self.place_counter(
+                    pending.source,
+                    stack_object.card,
+                    CounterKind::PlusOnePlusOne,
+                    pending.amount,
+                )?;
+            }
         } else {
             self.move_to_spell_terminal_zone(stack_object.card)?;
         }
@@ -11177,6 +11347,7 @@ impl Game {
                     convoke: vec![],
                     payment_mana_abilities: vec![],
                 },
+                None,
                 None,
                 None,
                 None,
@@ -13195,8 +13366,10 @@ impl Game {
         self.validate_linked_exile_state()?;
         self.validate_linked_hand_exile_state()?;
         self.validate_convoke_contributor_provenance()?;
+        self.validate_creature_spell_entry_counter_provenance()?;
         self.validate_linked_hand_exile_event_shape()?;
         Self::validate_spell_mana_payment_event_order(&self.event_log)?;
+        Self::validate_creature_spell_extra_mana_payment_event_order(&self.event_log)?;
         self.validate_first_noncreature_spell_cast_event_order()?;
         Self::validate_counter_unless_pays_payment_event_order(&self.event_log)?;
         Self::validate_counter_unless_discard_hand_event_order(&self.event_log)?;
@@ -14674,6 +14847,29 @@ impl Game {
             {
                 return Err(RulesError::IllegalAction(
                     "static attack-restriction binding has invalid source or duplicates",
+                ));
+            }
+        }
+        for (definition_id, modifiers) in &self.static_creature_spell_cost_modifiers {
+            let definition = self
+                .catalog
+                .get(definition_id)
+                .ok_or(RulesError::UnknownDefinition(definition_id))?;
+            if !definition.is_permanent()
+                || modifiers.is_empty()
+                || modifiers.iter().any(|modifier| {
+                    !matches!(
+                        modifier,
+                        StaticCreatureSpellCostModifier::OptionalAnyManaForEntryCounters
+                    )
+                })
+                || modifiers
+                    .iter()
+                    .enumerate()
+                    .any(|(index, modifier)| modifiers[..index].contains(modifier))
+            {
+                return Err(RulesError::IllegalAction(
+                    "static creature-spell cost modifier binding has invalid source or duplicates",
                 ));
             }
         }
@@ -16443,6 +16639,70 @@ impl Game {
         ))
     }
 
+    fn validate_creature_spell_extra_mana_payments(
+        &self,
+        definition: &CardDefinition,
+        player: PlayerId,
+        payments: &[CreatureSpellExtraManaPayment],
+    ) -> Result<Vec<ValidatedCreatureSpellExtraManaPayment>, RulesError> {
+        if !definition.is_creature() && !payments.is_empty() {
+            return Err(RulesError::IllegalAction(
+                "only creature spells can receive optional creature-spell mana payments",
+            ));
+        }
+        let mut sources = BTreeSet::new();
+        let mut validated = Vec::with_capacity(payments.len());
+        for payment in payments {
+            if payment.colors.is_empty()
+                || !sources.insert(payment.source)
+                || self.zone_of(payment.source) != Some(Zone::Battlefield)
+                || self.controller_of(payment.source)? != player
+            {
+                return Err(RulesError::IllegalAction(
+                    "optional creature-spell mana payment has an invalid source or amount",
+                ));
+            }
+            let definition_id =
+                self.effective_definition_id(payment.source)?
+                    .ok_or(RulesError::IllegalAction(
+                        "optional creature-spell source lacks a definition",
+                    ))?;
+            if !self
+                .static_creature_spell_cost_modifiers
+                .get(definition_id)
+                .is_some_and(|modifiers| {
+                    modifiers
+                        .contains(&StaticCreatureSpellCostModifier::OptionalAnyManaForEntryCounters)
+                })
+            {
+                return Err(RulesError::IllegalAction(
+                    "optional creature-spell mana payment source has no matching live modifier",
+                ));
+            }
+            if payment.colors.iter().any(|color| {
+                !matches!(
+                    color,
+                    Color::White
+                        | Color::Blue
+                        | Color::Black
+                        | Color::Red
+                        | Color::Green
+                        | Color::Colorless
+                )
+            }) {
+                return Err(RulesError::IllegalAction(
+                    "optional creature-spell mana payment names an invalid mana color",
+                ));
+            }
+            validated.push(ValidatedCreatureSpellExtraManaPayment {
+                source: payment.source,
+                source_incarnation: self.object(payment.source)?.incarnation,
+                colors: payment.colors.clone(),
+            });
+        }
+        Ok(validated)
+    }
+
     /// Validates the concrete choices for expansion-bound additional spell
     /// costs before mana, convoke taps, zones, stack, or event log mutate.
     fn validate_additional_spell_cost_selections(
@@ -18206,8 +18466,23 @@ impl Game {
         } else {
             Vec::new()
         };
+        let creature_spell_entry_counters = if permanent_resolution {
+            self.pending_creature_spell_entry_counters
+                .remove(&(stack_object.card, stack_object.source_incarnation))
+                .unwrap_or_default()
+        } else {
+            Vec::new()
+        };
         if permanent_resolution {
             self.move_to_zone(stack_object.card, Zone::Battlefield)?;
+            for pending in creature_spell_entry_counters {
+                self.place_counter(
+                    pending.source,
+                    stack_object.card,
+                    CounterKind::PlusOnePlusOne,
+                    pending.amount,
+                )?;
+            }
             if let Some((target, requirement, changes)) = pending_attachment {
                 let binding = self.attachment_binding_for(stack_object.card)?.ok_or(
                     RulesError::IllegalAction(
@@ -28283,6 +28558,8 @@ impl Game {
         let incarnation = self.object(card)?.incarnation;
         self.convoke_contributor_provenance
             .remove(&(card, incarnation));
+        self.pending_creature_spell_entry_counters
+            .remove(&(card, incarnation));
         if self.exile_on_resolution.remove(&card) {
             self.move_to_zone(card, Zone::Exile)
         } else {
@@ -30676,6 +30953,41 @@ impl Game {
         Ok(())
     }
 
+    /// Optional creature-spell payments may remain only while the exact
+    /// physical creature spell is on the stack. Their source is deliberately
+    /// allowed to leave after payment: this records a completed cast cost, not
+    /// a continuing battlefield effect. The map is consumed before the spell
+    /// enters and discarded by every terminal spell path.
+    fn validate_creature_spell_entry_counter_provenance(&self) -> Result<(), RulesError> {
+        for ((spell, spell_incarnation), entries) in &self.pending_creature_spell_entry_counters {
+            let live_spell = self.stack.iter().any(|stack_object| {
+                stack_object.card == *spell
+                    && stack_object.ability_id.is_none()
+                    && stack_object.source_incarnation == *spell_incarnation
+                    && self
+                        .card_definition(stack_object.card)
+                        .is_ok_and(CardDefinition::is_creature)
+            });
+            let mut sources = BTreeSet::new();
+            if spell.0 == 0
+                || *spell_incarnation == 0
+                || entries.is_empty()
+                || !live_spell
+                || entries.iter().any(|entry| {
+                    entry.source.0 == 0
+                        || entry.source_incarnation == 0
+                        || entry.amount <= 0
+                        || !sources.insert(entry.source)
+                })
+            {
+                return Err(RulesError::IllegalAction(
+                    "creature-spell entry-counter provenance lacks one live creature spell",
+                ));
+            }
+        }
+        Ok(())
+    }
+
     /// Audits source-relative private hand-exile groups independently of the
     /// card that created them. The group is live only while its exact source
     /// incarnation remains on the battlefield or an already-stacked return
@@ -31521,6 +31833,72 @@ impl Game {
                     "spell mana-payment receipt is not immediately followed by its spell cast",
                 ));
             }
+        }
+        Ok(())
+    }
+
+    /// Optional creature-spell payment receipts form one contiguous cast-cost
+    /// group. They precede either the ordinary explicit-spend receipt or the
+    /// cast receipt itself; no priority, unrelated payment, or second cast may
+    /// be interposed. This keeps the public trace aligned with the atomic
+    /// policy move while retaining source-incarnation provenance for entry.
+    fn validate_creature_spell_extra_mana_payment_event_order(
+        events: &[GameEvent],
+    ) -> Result<(), RulesError> {
+        let mut index = 0;
+        while index < events.len() {
+            let GameEvent::CreatureSpellExtraManaPaid { player, card, .. } = events[index] else {
+                index += 1;
+                continue;
+            };
+            let mut sources = BTreeSet::new();
+            let group_start = index;
+            while let Some(GameEvent::CreatureSpellExtraManaPaid {
+                player: receipt_player,
+                card: receipt_card,
+                source,
+                source_incarnation,
+                amount,
+            }) = events.get(index)
+            {
+                if *receipt_player != player
+                    || *receipt_card != card
+                    || source.0 == 0
+                    || *source_incarnation == 0
+                    || *amount == 0
+                    || !sources.insert(*source)
+                {
+                    return Err(RulesError::IllegalAction(
+                        "creature-spell extra-mana receipts have invalid grouped provenance",
+                    ));
+                }
+                index += 1;
+            }
+            let cast_index = match events.get(index) {
+                Some(GameEvent::SpellManaPaid {
+                    player: receipt_player,
+                    card: receipt_card,
+                    ..
+                }) if *receipt_player == player && *receipt_card == card => {
+                    index.checked_add(1).ok_or(RulesError::IllegalAction(
+                        "creature-spell extra-mana event index overflowed",
+                    ))?
+                }
+                _ => index,
+            };
+            if !matches!(
+                events.get(cast_index),
+                Some(GameEvent::SpellCast { player: caster, card: spell })
+                    if *caster == player && *spell == card
+            ) {
+                return Err(RulesError::IllegalAction(
+                    "creature-spell extra-mana receipt is not adjacent to its cast",
+                ));
+            }
+            debug_assert!(index > group_start);
+            index = cast_index.checked_add(1).ok_or(RulesError::IllegalAction(
+                "creature-spell extra-mana event index overflowed",
+            ))?;
         }
         Ok(())
     }
@@ -36797,6 +37175,14 @@ impl Game {
             debug_assert_eq!(self.objects[&object].controller, owner);
         }
         self.convoke_contributor_provenance
+            .retain(|(spell, incarnation), _| {
+                self.stack.iter().any(|stack_object| {
+                    stack_object.card == *spell
+                        && stack_object.ability_id.is_none()
+                        && stack_object.source_incarnation == *incarnation
+                })
+            });
+        self.pending_creature_spell_entry_counters
             .retain(|(spell, incarnation), _| {
                 self.stack.iter().any(|stack_object| {
                     stack_object.card == *spell

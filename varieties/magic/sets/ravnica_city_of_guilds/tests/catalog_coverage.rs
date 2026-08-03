@@ -155,3 +155,11 @@ fn dimir_cutpurse_resolves_to_its_full_combat_player_trigger_definition() {
         Ok("RAV-DIMIR-CUTPURSE")
     );
 }
+
+#[test]
+fn chorus_of_the_conclave_resolves_to_its_full_optional_creature_payment_definition() {
+    assert_eq!(
+        executable_definition_id_for_collector(195),
+        Ok("RAV-CHORUS-OF-THE-CONCLAVE")
+    );
+}

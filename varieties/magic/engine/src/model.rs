@@ -1647,6 +1647,29 @@ pub struct AdditionalSpellCostBinding {
     pub cost: AdditionalSpellCost,
 }
 
+/// A battlefield-only source that can offer a creature spell's controller an
+/// optional extra mana payment while that spell is being cast.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum StaticCreatureSpellCostModifier {
+    OptionalAnyManaForEntryCounters,
+}
+
+/// Immutable expansion data for a static creature-spell cost modifier.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct StaticCreatureSpellCostModifierBinding {
+    pub source_definition: &'static str,
+    pub modifier: StaticCreatureSpellCostModifier,
+}
+
+/// One policy-declared optional extra mana payment for a live static creature
+/// spell cost source. Each named source may contribute one payment per cast;
+/// its exact incarnation is captured by the engine at the cast boundary.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CreatureSpellExtraManaPayment {
+    pub source: ObjectId,
+    pub colors: Vec<Color>,
+}
+
 /// A creature subtype carried by a token's type line.
 ///
 /// The initial RAV substrate needs only a small set of token subtypes, but
@@ -5328,6 +5351,16 @@ pub enum GameEvent {
         player: PlayerId,
         card: ObjectId,
         colors: Vec<Color>,
+    },
+    /// An optional battlefield-only creature-spell cost source accepted one
+    /// explicit extra mana payment. The matching cast stores its source
+    /// incarnation and paid quantity for the permanent-entry replacement.
+    CreatureSpellExtraManaPaid {
+        player: PlayerId,
+        card: ObjectId,
+        source: ObjectId,
+        source_incarnation: u64,
+        amount: u8,
     },
     /// One of Magic's five card colors was explicitly selected while casting
     /// a spell. It is retained by the associated stack object for resolution.

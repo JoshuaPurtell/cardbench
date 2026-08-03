@@ -34,7 +34,8 @@ use cardbench_magic_engine::{
     LibrarySearchSelection, ManaAbilityBinding, ManaAbilityCostBinding, ManaAbilityOutput,
     ManaBundle, ManaCost, PlayerId, ReplacementEffect, ReplacementEffectBinding, RulesError,
     SharedKeywordFamily, StaticAttackRestriction, StaticAttackRestrictionBinding,
-    StaticContinuousEffectBinding, StaticEntryRestriction, StaticEntryRestrictionBinding,
+    StaticContinuousEffectBinding, StaticCreatureSpellCostModifier,
+    StaticCreatureSpellCostModifierBinding, StaticEntryRestriction, StaticEntryRestrictionBinding,
     StaticLibraryTopRevealBinding, Target, TargetRequirement, TokenSpec, TriggerCondition,
     TriggeredAbility, TriggeredAbilityBinding, Zone,
 };
@@ -86,6 +87,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 265] = [
     "RAV-BOROS-RECRUIT",
     "RAV-NIGHTGUARD-PATROL",
     "RAV-WATCHWOLF",
+    "RAV-CHORUS-OF-THE-CONCLAVE",
     "RAV-GLASS-GOLEM",
     "RAV-OVERGROWN-TOMB",
     "RAV-SACRED-FOUNDRY",
@@ -3144,6 +3146,35 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             power: Some(3),
             toughness: Some(3),
             keywords: vec![],
+            effects: vec![],
+        },
+        // Full fidelity: each live source offers one policy-declared optional
+        // extra mana payment while its controller casts a creature spell. The
+        // shared engine captures that exact source incarnation, pays it inside
+        // the cast transaction, and places matching +1/+1 counters only if
+        // the physical creature spell resolves onto the battlefield.
+        CardDefinition {
+            id: "RAV-CHORUS-OF-THE-CONCLAVE",
+            name: "Chorus of the Conclave",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(
+                4,
+                [Color::Green, Color::Green, Color::White, Color::White],
+            ),
+            colors: colors([Color::Green, Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "forestwalk",
+                "battlefield-optional-any-mana-creature-cast-entry-counters",
+            ],
+            power: Some(3),
+            toughness: Some(8),
+            keywords: vec![Keyword::Landwalk(BasicLandType::Forest)],
             effects: vec![],
         },
         // Full printed behavior: every positive damage receipt to this
@@ -8536,6 +8567,18 @@ pub fn rav_static_attack_restriction_bindings() -> Vec<StaticAttackRestrictionBi
     }]
 }
 
+/// Battlefield-only optional creature-spell payment sources supplied by RAV.
+/// The engine checks the actual live source and records the selected mana as
+/// part of casting; set data names only the semantic modifier.
+#[must_use]
+pub fn rav_static_creature_spell_cost_modifier_bindings()
+-> Vec<StaticCreatureSpellCostModifierBinding> {
+    vec![StaticCreatureSpellCostModifierBinding {
+        source_definition: "RAV-CHORUS-OF-THE-CONCLAVE",
+        modifier: StaticCreatureSpellCostModifier::OptionalAnyManaForEntryCounters,
+    }]
+}
+
 /// Battlefield-only entry replacements supplied by RAV. Unlike ETB
 /// triggers, the engine applies these during the ordinary zone transition and
 /// emits source-incarnation receipt provenance when they change an entry.
@@ -10264,6 +10307,9 @@ fn fresh_game() -> Result<Game, RulesError> {
     )?;
     game.register_static_library_top_reveal_bindings(rav_static_library_top_reveal_bindings())?;
     game.register_static_attack_restrictions(rav_static_attack_restriction_bindings())?;
+    game.register_static_creature_spell_cost_modifiers(
+        rav_static_creature_spell_cost_modifier_bindings(),
+    )?;
     game.register_attachment_bindings(rav_attachment_bindings())?;
     game.register_entry_copy_bindings(rav_entry_copy_bindings())?;
     game.register_static_entry_restriction_bindings(rav_static_entry_restriction_bindings())?;
