@@ -1895,6 +1895,10 @@ impl TokenSpec {
 /// Effects are executable semantics, not copied Oracle wording.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Effect {
+    /// Each living player draws one card, then privately chooses one card from
+    /// their resulting hand. The shared discard batch commits only after every
+    /// player has submitted, so no later chooser observes an earlier discard.
+    EachPlayerDrawsThenDiscardsOneCard,
     /// For the remainder of this turn, the resolving spell controller makes
     /// the turn-based attacker and blocker declarations. The declarations
     /// remain subject to the creatures' actual controllers and every ordinary
@@ -3318,6 +3322,7 @@ impl Effect {
             | Self::DestroyCapturedCreature { .. }
             | Self::DestroyCapturedCombatParticipants { .. }
             | Self::ExileAttachedCreatureAndAurasUntilEndStep
+            | Self::EachPlayerDrawsThenDiscardsOneCard
             | Self::ChooseAllCombatDeclarationsThisTurn => None,
         }
     }

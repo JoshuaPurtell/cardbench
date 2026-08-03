@@ -109,6 +109,14 @@ fn master_warcraft_resolves_to_its_full_combat_choice_definition() {
 }
 
 #[test]
+fn lore_broker_resolves_to_its_full_simultaneous_draw_discard_definition() {
+    assert_eq!(
+        executable_definition_id_for_collector(57),
+        Ok("RAV-LORE-BROKER")
+    );
+}
+
+#[test]
 fn auratouched_mage_resolves_to_its_full_private_aura_search_definition() {
     assert_eq!(
         executable_definition_id_for_collector(1),

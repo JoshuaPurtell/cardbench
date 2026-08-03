@@ -19836,6 +19836,7 @@ impl Game {
                 Effect::AddManaController { amount, .. }
                 | Effect::AddManaToTargetPlayer { amount, .. } => i16::from(*amount),
                 Effect::ChooseAllCombatDeclarationsThisTurn
+                | Effect::EachPlayerDrawsThenDiscardsOneCard
                 | Effect::TargetedBundle { .. }
                 | Effect::CreateToken { .. }
                 | Effect::CreateTokenForTargetPlayer { .. }
@@ -25910,13 +25911,28 @@ impl Game {
                 "a second typed decision attempted to open during resolution",
             ));
         }
-        let Some(top) = self.stack.last() else {
+        let Some(top) = self.stack.last().cloned() else {
             return Ok(false);
         };
         let Some(ability) = top.ability_id else {
             return Ok(false);
         };
         let kind = match top.effects.as_slice() {
+            [Effect::EachPlayerDrawsThenDiscardsOneCard] => {
+                let players = self
+                    .players
+                    .iter()
+                    .filter(|player| !player.lost)
+                    .map(|player| player.id)
+                    .collect::<Vec<_>>();
+                for player in &players {
+                    self.draw_card_from_spell_effect(*player)?;
+                }
+                TriggeredEffectObjectDecisionKind::DiscardEachPlayer {
+                    remaining_players: players,
+                    selected: Vec::new(),
+                }
+            }
             [Effect::DiscardOneCardEachPlayer] => {
                 TriggeredEffectObjectDecisionKind::DiscardEachPlayer {
                     remaining_players: self
@@ -28846,6 +28862,11 @@ impl Game {
             Effect::TraverseTargetPlayerLibraryUntilNamedCardThenMillOthersAndShuffle => {
                 return Err(RulesError::IllegalAction(
                     "named-card traversal bypassed its public decision boundary",
+                ));
+            }
+            Effect::EachPlayerDrawsThenDiscardsOneCard => {
+                return Err(RulesError::IllegalAction(
+                    "each-player draw/discard bypassed its simultaneous private-choice boundary",
                 ));
             }
             Effect::ReturnAnotherControlledPermanentSharingEnteredCardTypes
@@ -41694,6 +41715,12 @@ impl Game {
                     .ok()
                     .and_then(|definition| self.triggered_abilities.get(definition.id))
                     .and_then(|abilities| abilities.get(ability));
+                let activated_registered = self
+                    .effective_definition_id(*source)
+                    .ok()
+                    .flatten()
+                    .and_then(|definition| self.activated_abilities.get(definition))
+                    .is_some_and(|abilities| abilities.contains_key(ability));
                 let (expected_options, expected_visibility, expected_effects) = match kind {
                     TriggeredEffectObjectDecisionKind::DiscardEachPlayer {
                         remaining_players,
@@ -41722,7 +41749,11 @@ impl Game {
                                 .map(DecisionOption::Object)
                                 .collect::<Vec<_>>(),
                             DecisionVisibility::Private,
-                            matches!(top.effects.as_slice(), [Effect::DiscardOneCardEachPlayer]),
+                            matches!(
+                                top.effects.as_slice(),
+                                [Effect::DiscardOneCardEachPlayer
+                                | Effect::EachPlayerDrawsThenDiscardsOneCard]
+                            ),
                         )
                     }
                     TriggeredEffectObjectDecisionKind::SacrificeControllerCreature => (
@@ -41929,7 +41960,7 @@ impl Game {
                     || top.card != *source
                     || top.controller != *controller
                     || top.ability_id != Some(*ability)
-                    || registered.is_none()
+                    || (registered.is_none() && !activated_registered)
                     || !expected_effects
                     || decision.visibility != expected_visibility
                     || decision.options != expected_options

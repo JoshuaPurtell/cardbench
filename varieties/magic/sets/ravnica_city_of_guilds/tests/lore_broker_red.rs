@@ -13,7 +13,10 @@ fn lore_broker_requires_each_player_draw_then_simultaneous_private_discard_choic
         .expect("Lore Broker definition exists");
 
     assert_eq!(definition.name, "Lore Broker");
-    assert_eq!(definition.mana_cost, ManaCost::with_colors(1, [Color::Blue]));
+    assert_eq!(
+        definition.mana_cost,
+        ManaCost::with_colors(1, [Color::Blue])
+    );
     assert_eq!(definition.colors, [Color::Blue].into());
     assert_eq!(definition.card_types, [CardType::Creature].into());
     assert_eq!((definition.power, definition.toughness), (Some(1), Some(2)));

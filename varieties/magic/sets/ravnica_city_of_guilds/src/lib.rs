@@ -46,7 +46,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 287] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 288] = [
     "RAV-CHAR",
     "RAV-AGRUS-KOS-WOJEK-VETERAN",
     "RAV-INSTILL-FUROR",
@@ -255,6 +255,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 287] = [
     "RAV-TELLING-TIME",
     "RAV-TUNNEL-VISION",
     "RAV-MASTER-WARCRAFT",
+    "RAV-LORE-BROKER",
     "RAV-MARK-OF-EVICTION",
     "RAV-VEDALKEN-ENTRANCER",
     "RAV-VEDALKEN-DISMISSER",
@@ -4520,17 +4521,27 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
-        // Compatibility scope: normal colored-cost creature casting and base
-        // characteristics only. Its printed activated behavior is deliberately
-        // omitted from this compatibility slice.
-        bounded_creature_chassis(
-            "RAV-LORE-BROKER",
-            "Lore Broker",
-            ManaCost::with_colors(1, [Color::Blue]),
-            colors([Color::Blue]),
-            1,
-            2,
-        ),
+        CardDefinition {
+            id: "RAV-LORE-BROKER",
+            name: "Lore Broker",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(1, [Color::Blue]),
+            colors: colors([Color::Blue]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "tap-activated-each-player-draws-one",
+                "simultaneous-private-each-player-discard-after-draw",
+            ],
+            power: Some(1),
+            toughness: Some(2),
+            keywords: vec![],
+            effects: vec![],
+        },
         // Full fidelity: its green activation uses the ordinary stack to
         // grant the source a temporary must-be-blocked combat keyword.
         CardDefinition {
@@ -7303,6 +7314,22 @@ pub fn rav_land_entry_bindings() -> Vec<LandEntryBinding> {
 #[allow(clippy::too_many_lines)]
 pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
     vec![
+        ActivatedAbilityBinding {
+            card_definition: "RAV-LORE-BROKER",
+            ability: ActivatedAbility {
+                id: "each-player-draws-then-discards",
+                mana_cost: ManaCost::new(0),
+                tap_cost: true,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![],
+                effects: vec![Effect::EachPlayerDrawsThenDiscardsOneCard],
+            },
+        },
         ActivatedAbilityBinding {
             card_definition: "RAV-WOODWRAITH-STRANGLER",
             ability: ActivatedAbility {
@@ -11175,34 +11202,6 @@ fn basic_land(id: &'static str, name: &'static str, land_type: BasicLandType) ->
         ],
         power: None,
         toughness: None,
-        keywords: vec![],
-        effects: vec![],
-    }
-}
-
-/// A deliberately bounded RAV creature slice. The caller supplies only public
-/// identity, mana-cost, color, and base-characteristic facts; card-specific
-/// printed abilities must remain outside this generic chassis.
-fn bounded_creature_chassis(
-    id: &'static str,
-    name: &'static str,
-    mana_cost: ManaCost,
-    colors: BTreeSet<Color>,
-    power: i16,
-    toughness: i16,
-) -> CardDefinition {
-    CardDefinition {
-        id,
-        name,
-        set_code: SET_CODE,
-        mana_cost,
-        colors,
-        mana_colors: BTreeSet::new(),
-        card_types: types([CardType::Creature]),
-        is_basic_land: false,
-        supported_rules: &["colored-cost-casting", "base-characteristics"],
-        power: Some(power),
-        toughness: Some(toughness),
         keywords: vec![],
         effects: vec![],
     }
