@@ -105,6 +105,9 @@ current corpus contains 187 scenarios and covers:
   (`Moldervine Cloak`), including state-based cleanup when its creature leaves;
 - a full-fidelity negative persistent Aura modifier (`Clinging Darkness`),
   including the same explicit attachment and state-based-action boundary;
+- an optional public no-priority enchantment-copy entry choice (`Copy
+  Enchantment`), including decline, layer-one snapshot provenance, and a
+  copied-Aura endpoint choice before battlefield entry;
 - a temporary controller-creature-only layer-six activated-ability grant with
   ordinary tap-cost, target, stack, cleanup, and source-departure behavior
   (`Flame Fusillade`);

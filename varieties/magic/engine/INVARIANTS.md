@@ -1946,6 +1946,21 @@ Oracle Magic rules coverage.
   `AbilityActivated` records its effective definition at activation, so a
   later source or target zone change cannot make a historical copied ability
   fail replay validation against its resumed printed definition.
+- A registered entry-copy permanent opens a public zero-or-one source decision
+  only while its physical spell remains the exact top stack item. Every option
+  is a live permanent of the registered type; a selected source snapshots its
+  exact copiable values and source incarnation, while an empty selection
+  resolves the printed permanent. No priority action can interleave with this
+  replacement-style boundary, and a stale source, entrant, option, or copied
+  value rejects atomically.
+- The selected snapshot is installed as layer one only after the entrant's new
+  battlefield incarnation exists and before copied static entry rules or ETB
+  triggers are captured. If those values are an Aura, the source choice admits
+  it only with a current legal endpoint, then a separate required public Aura
+  endpoint decision completes before the entrant reaches the battlefield. The
+  entry therefore cannot expose an unattached copied Aura to a state-based
+  action or priority boundary; its typed attachment uses the copied values'
+  target restriction and colors.
 - Continuous effects are applied in the implemented layer order (1, 2, 4--7).
   Timestamped type/color effects are evaluated before every static layer-six
   or layer-seven binding, so a static creature/color predicate observes the
