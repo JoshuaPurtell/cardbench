@@ -1834,8 +1834,10 @@ Oracle Magic rules coverage.
   decision; no `DamageDealt*`, `DamagePrevented`, or `DamageRedirected` receipt
   may commit before that decision. When a selected redirect changes the
   recipient, the new packet recomputes its affected player and replacement
-  candidates; a positive committed creature packet alone queues the matching
-  `DealsCombatDamageToCreature` trigger provenance.
+  candidates. Every direct or continuation-resumed combat assignment derives
+  `DealsCombatDamageToCreature` provenance from each positive final
+  `DamageDealtToPermanent` receipt in that assignment, not from its original
+  blocker target; prevention and player-only redirection therefore queue none.
 - `trampling_attackers` is declaration provenance only: it is a subset of the
   uniquely declared attackers and cannot exist before their declaration. At
   combat damage, Trample is evaluated from the attacker's live characteristics,
