@@ -1114,6 +1114,18 @@ Oracle Magic rules coverage.
   `TargetInstructionSkipped`. Mixed ranged/fixed target instructions and
   malformed range, shape, duplicate, or cross-graveyard membership cannot
   survive the stack invariant audit.
+- `TargetedBundle` owns one printed target occurrence for an ordered sequence
+  of target-preserving instructions. Its outer requirement and one captured
+  target incarnation are the only cast-time and resolution-time legality
+  boundary; bundle members do not allocate, duplicate, or independently
+  recheck target slots. The members resolve in declared order only after the
+  outer target remains legal. An all-targets-illegal bundle is countered by
+  rules as one stack instruction, so a broader trailing member cannot act on
+  a stale target. Empty, nested, ranged, zone-changing, deferred-decision, or
+  multi-target members are rejected by definition validation; every accepted
+  member must be compatible with the outer creature/land/permanent target
+  hierarchy. The public event log retains ordinary effect receipts but has no
+  synthetic duplicate target identity.
 - `PutTargetCreatureOnOwnersLibraryTop` accepts only a live creature target
   whose exact incarnation still matches the occurrence captured when its spell
   or triggered ability entered the stack. Its zone transition uses the ordinary
