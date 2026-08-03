@@ -274,6 +274,7 @@ fn mutation_audit_rejects_effect_and_step_marker_corruption() {
     zero_timestamp.continuous_effects.push(ContinuousEffect {
         source,
         source_incarnation: 1,
+        source_is_virtual: false,
         target,
         target_incarnation: 1,
         change: ContinuousChange::ModifyPowerToughness {
@@ -295,6 +296,7 @@ fn mutation_audit_rejects_effect_and_step_marker_corruption() {
     stale_duration.continuous_effects.push(ContinuousEffect {
         source,
         source_incarnation: 1,
+        source_is_virtual: false,
         target,
         target_incarnation: 1,
         change: ContinuousChange::AddColor(Color::Red),

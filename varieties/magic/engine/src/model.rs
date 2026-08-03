@@ -3490,6 +3490,10 @@ pub struct ContinuousEffect {
     /// identity alone cannot keep a persistent effect alive across a source
     /// zone change and later return.
     pub source_incarnation: u64,
+    /// An instant or sorcery copy has no physical card object after it begins
+    /// resolving. Such a source may create only a self-expiring effect whose
+    /// source facts are already frozen in stack/copy provenance.
+    pub source_is_virtual: bool,
     pub target: ObjectId,
     /// The target incarnation this effect is allowed to modify.  A physical
     /// card can retain its public id after leaving and re-entering, but the

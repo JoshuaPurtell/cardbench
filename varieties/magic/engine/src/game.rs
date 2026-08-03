@@ -5144,7 +5144,28 @@ impl Game {
         change: ContinuousChange,
         duration: Duration,
     ) -> Result<(), RulesError> {
-        self.object(source)?;
+        let virtual_source = self.virtual_spell_copies.get(&source);
+        let source_is_virtual = virtual_source.is_some();
+        if source_is_virtual
+            && (self
+                .stack
+                .iter()
+                .any(|stack_object| stack_object.card == source)
+                || !matches!(duration, Duration::EndOfTurn(_))
+                || matches!(
+                    change,
+                    ContinuousChange::ChangeControllerToSourceController
+                        | ContinuousChange::RedirectDamageToAttachmentController
+                        | ContinuousChange::GrantActivatedAbility(_)
+                ))
+        {
+            return Err(RulesError::IllegalAction(
+                "a virtual spell source may create only a resolving end-of-turn effect",
+            ));
+        }
+        if !source_is_virtual {
+            self.object(source)?;
+        }
         self.object(target)?;
         if matches!(
             change,
@@ -5248,7 +5269,10 @@ impl Game {
         let control_before = is_control_change
             .then(|| self.control_projection())
             .transpose()?;
-        let source_incarnation = self.object(source)?.incarnation;
+        let source_incarnation = match virtual_source {
+            Some(copy) => copy.source_incarnation,
+            None => self.object(source)?.incarnation,
+        };
         let target_incarnation = self.object(target)?.incarnation;
         if let ContinuousChange::AddDamageShield(amount) = &change {
             self.objects
@@ -5259,6 +5283,7 @@ impl Game {
         self.continuous_effects.push(ContinuousEffect {
             source,
             source_incarnation,
+            source_is_virtual,
             target,
             target_incarnation,
             change,
@@ -14269,6 +14294,21 @@ impl Game {
                     "continuous effect target incarnation is stale or invalid",
                 ));
             }
+            if effect.source_is_virtual
+                && (!matches!(effect.duration, Duration::EndOfTurn(_))
+                    || self.objects.contains_key(&effect.source)
+                    || self.virtual_spell_copies.contains_key(&effect.source)
+                    || matches!(
+                        effect.change,
+                        ContinuousChange::ChangeControllerToSourceController
+                            | ContinuousChange::RedirectDamageToAttachmentController
+                            | ContinuousChange::GrantActivatedAbility(_)
+                    ))
+            {
+                return Err(RulesError::IllegalAction(
+                    "virtual-source continuous effect lacks a valid self-expiring boundary",
+                ));
+            }
             if matches!(
                 effect.change,
                 ContinuousChange::AddColor(Color::Colorless)
@@ -14370,7 +14410,8 @@ impl Game {
                     ));
                 }
                 Duration::Permanent
-                    if self.zone_of(effect.source) != Some(Zone::Battlefield)
+                    if effect.source_is_virtual
+                        || self.zone_of(effect.source) != Some(Zone::Battlefield)
                         || self.zone_of(effect.target) != Some(Zone::Battlefield)
                         || !self
                             .object_has_incarnation(effect.source, effect.source_incarnation) =>
@@ -27523,6 +27564,7 @@ impl Game {
             self.continuous_effects.push(ContinuousEffect {
                 source: target,
                 source_incarnation: incarnation,
+                source_is_virtual: false,
                 target,
                 target_incarnation: incarnation,
                 change: ContinuousChange::ChangeController(next_controller),
