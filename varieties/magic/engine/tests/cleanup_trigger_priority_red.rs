@@ -4,8 +4,8 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardDefinition, CardType, CastRequest, Effect, Game, GameEvent, ManaCost, PlayerId, Step,
-    TokenSpec, TriggerCondition, TriggeredAbility, TriggeredAbilityBinding, Zone,
+    CardDefinition, CardType, CastRequest, Effect, Game, GameEvent, ManaCost, ObjectId, PlayerId,
+    Step, TokenSpec, TriggerCondition, TriggeredAbility, TriggeredAbilityBinding, Zone,
 };
 
 const OBSERVER: &str = "TST-CLEANUP-OBSERVER";
@@ -75,8 +75,7 @@ fn pass_round(game: &mut Game) {
     }
 }
 
-#[test]
-fn cleanup_sba_trigger_opens_priority_before_the_next_turn() {
+fn cleanup_fixture() -> (Game, ObjectId, PlayerId, PlayerId) {
     let first = PlayerId(0);
     let second = PlayerId(1);
     let trigger = TriggeredAbilityBinding {
@@ -123,6 +122,12 @@ fn cleanup_sba_trigger_opens_priority_before_the_next_turn() {
     for player in [first, second] {
         game.pass_priority(player).expect("token spell resolves");
     }
+    (game, observer, first, second)
+}
+
+#[test]
+fn cleanup_sba_trigger_opens_priority_before_the_next_turn() {
+    let (mut game, observer, first, second) = cleanup_fixture();
 
     for _ in 0..8 {
         pass_round(&mut game);

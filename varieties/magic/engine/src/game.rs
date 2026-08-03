@@ -12326,11 +12326,9 @@ impl Game {
         self.validate_damage_amount_replacement_events()?;
         self.validate_combat_damage_mill_counter_replacement_events()?;
         self.validate_global_combat_damage_prevention_event_order()?;
-        if self.started
-            && !self.is_game_over()
-            && !self.step.grants_priority()
-            && !(self.step == Step::Cleanup && self.cleanup_repeat_required)
-        {
+        let automatic_step_stable =
+            !self.step.grants_priority() && !self.has_cleanup_priority_window();
+        if self.started && !self.is_game_over() && automatic_step_stable {
             return Err(RulesError::IllegalAction(
                 "an automatic turn step remained stable with player priority",
             ));
@@ -31702,9 +31700,7 @@ impl Game {
     fn require_priority(&self, player: PlayerId) -> Result<(), RulesError> {
         self.player(player)?;
         self.require_game_in_progress()?;
-        if !self.step.grants_priority()
-            && !(self.step == Step::Cleanup && self.cleanup_repeat_required)
-        {
+        if !(self.step.grants_priority() || self.has_cleanup_priority_window()) {
             return Err(RulesError::IllegalAction(
                 "no player receives priority during this automatic step",
             ));
@@ -31788,6 +31784,10 @@ impl Game {
             }
         }
         player
+    }
+
+    fn has_cleanup_priority_window(&self) -> bool {
+        self.step == Step::Cleanup && self.cleanup_repeat_required
     }
 
     fn remaining_player_count(&self) -> usize {
