@@ -635,6 +635,12 @@ Oracle Magic rules coverage.
   and no other pending decision family may coexist. Compatibility actions for
   older policies dispatch through the same continuation but new policies must
   use the id-bearing generic action.
+- `LibrarySearchChoiceView` is a compatibility projection of a live generic
+  library-search decision, never an anonymous second boundary. Its
+  `ChooseLibrarySearchCard` compatibility action must echo that exact
+  `DecisionId` in addition to the source identity before it dispatches to the
+  generic continuation. A stale action after a search spell leaves a zone and
+  is recast must leave the newer pending decision and stack spell untouched.
 - `DecisionKind::PublicGraveyardCreatureReturn` retains one exact target-free
   spell stack object while its affected living players choose serially from
   their own public graveyards. Only a player with one or more current creature
