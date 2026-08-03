@@ -76,7 +76,8 @@ fn rejected_pregame_dredge_selector_does_not_consume_the_next_draw_decision_id()
     eprintln!("rejected pregame dredge selector: {rejected:?}");
     assert!(rejected.is_err(), "an unknown Dredge source must reject");
 
-    game.begin_game().expect("fixture begins after the rejected helper");
+    game.begin_game()
+        .expect("fixture begins after the rejected helper");
     advance_to_second_players_draw(&mut game);
     let draw_view = game
         .view_for_player(PlayerId(1))

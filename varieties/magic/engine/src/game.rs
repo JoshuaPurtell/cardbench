@@ -8408,6 +8408,18 @@ impl Game {
         player: PlayerId,
         dredge: Option<ObjectId>,
     ) -> Result<(), RulesError> {
+        self.atomic_transition(|game| game.draw_card_impl(player, dredge))
+    }
+
+    /// Applies the public direct-draw boundary inside the transaction journal.
+    /// The pregame Dredge compatibility path briefly allocates a draw marker
+    /// before validating its replacement source, so every later rejection
+    /// must restore that allocation as well as any visible zone transition.
+    fn draw_card_impl(
+        &mut self,
+        player: PlayerId,
+        dredge: Option<ObjectId>,
+    ) -> Result<(), RulesError> {
         self.player(player)?;
         self.require_game_in_progress()?;
         // Opening-hand setup deliberately uses this primitive before the game
