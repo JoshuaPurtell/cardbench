@@ -2085,6 +2085,17 @@ Oracle Magic rules coverage.
   subtype changes in layer four, complete color-set replacement in layer five,
   and base power/toughness in layer-seven 7b. Later layer-seven modifiers and
   counters apply after that base setting.
+- A target-free source animation may instead install a layer-7b base P/T
+  value equal to the **current** number of creature cards in one captured,
+  living player's graveyard. The effect captures the resolving controller's
+  `PlayerId`, not the source's later controller; it counts only public
+  non-token card definitions whose card types include `Creature`, and derives
+  the value whenever characteristics are read. An ordinary graveyard move
+  therefore updates the value without a synthetic layer receipt, while a
+  noncreature card does not contribute. The effect is valid only for the
+  exact live source incarnation on the battlefield and expires at that
+  resolving turn's cleanup with its ordinary type, color, and P/T lifecycle
+  receipts.
 - Every continuous effect names extant source and target objects, has a unique
   positive monotonic timestamp, captures both endpoint incarnations, and has a
   valid duration. A permanent-duration effect cannot outlive either matching

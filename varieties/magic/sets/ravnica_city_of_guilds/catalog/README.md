@@ -49,8 +49,8 @@ a zone move. The fetched Aura's ordinary ETB trigger is queued only after the
 Mage trigger's terminal receipt. The opponent sees neither unselected Aura
 identities nor a private decision projection.
 
-The current catalog partition is 262 full / 6 partial / 23 catalog-only unique
-names (277 / 6 / 23 printings). The independently checked coverage-report
+The current catalog partition is 263 full / 6 partial / 22 catalog-only unique
+names (278 / 6 / 22 printings). The independently checked coverage-report
 binary emits the same partition.
 
 Psychic Drain is a positive-manifest chosen-X entry. Its spell retains the
@@ -68,6 +68,17 @@ selection, prevention, and counter receipt sequence; a separate combat trace
 proves that an explicitly unpreventable packet bypasses this prevention rule.
 This is a CardBench-authored semantic description, not stored card prose or
 art.
+
+Svogthos, the Restless Tomb is a positive-manifest land entry. Its intrinsic
+colorless mana activation remains outside the stack. Its paid self-animation
+uses a target-free stack ability that captures the resolving controller and
+installs type, subtype, color, and layer-7b P/T effects through that turn's
+cleanup. The P/T effect continuously reads that captured player's public
+creature-card graveyard count, so ordinary graveyard moves update its value
+without a snapshot or synthetic receipt. Its direct public trace verifies a
+2/2 value becoming 3/3 after a normal removal spell and state-based graveyard
+move, then reviews all five cleanup expiration receipts. This is a
+CardBench-authored semantic description, not stored card prose or art.
 
 Agrus Kos, Wojek Veteran is a full-fidelity combat-trigger entry. Its public
 scenario keeps the normal post-attackers priority window visible, then records
