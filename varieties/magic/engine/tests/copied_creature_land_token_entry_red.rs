@@ -166,6 +166,19 @@ fn copied_creature_land_token_captures_its_land_entry_trigger() {
         }),
         "the copied token's trigger must reach the stack without physical-definition lookup"
     );
+    pass_pair(&mut game);
+    pass_pair(&mut game);
+    eprintln!(
+        "copied creature-land token trigger-resolution trace={:?}",
+        game.canonical_event_log()
+    );
+    assert_eq!(
+        game.player(controller)
+            .expect("controller remains live")
+            .life,
+        22,
+        "both original and copied creature-land entry triggers resolve"
+    );
     game.validate_invariants()
         .expect("copied creature-land token entry remains auditable");
 }

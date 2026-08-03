@@ -16335,8 +16335,8 @@ impl Game {
                     ));
                 }
             }
-            if object.is_some_and(|object| object.token.is_some())
-                || (!is_ability && definition.is_land())
+            if !is_ability
+                && (object.is_some_and(|object| object.token.is_some()) || definition.is_land())
             {
                 return Err(RulesError::IllegalAction(
                     "a token or land occupies the stack",
@@ -37428,14 +37428,12 @@ impl Game {
             else {
                 continue;
             };
-            let definition = self
-                .objects
-                .get(source)
-                .and_then(|object| object.definition)
-                .or_else(|| self.departed_card_definitions.get(source).copied())
-                .ok_or(RulesError::IllegalAction(
-                    "ETB trigger source lacks definition provenance",
-                ))?;
+            // A token copying a card definition has no physical printed
+            // definition of its own, but its copied values are the
+            // authoritative trigger provenance. `card_definition` follows
+            // that layer-one identity and still retains ordinary departed
+            // physical-source provenance for a short-lived ETB source.
+            let definition = self.card_definition(*source)?.id;
             let is_enters_battlefield = self
                 .triggered_abilities
                 .get(definition)
