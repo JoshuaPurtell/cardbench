@@ -12422,25 +12422,12 @@ impl Game {
                             .ok_or(RulesError::UnknownCard(card))?
                             .tapped = true;
                     }
-                    let controller = self.object(card)?.controller;
-                    let definition =
-                        self.effective_definition_id(card)?
-                            .ok_or(RulesError::IllegalAction(
-                                "a token cannot be selected from a library",
-                            ))?;
                     // This entry happens inside the resolving spell. Capture
                     // its observers now, but do not place them until the
                     // spell has completed its terminal lifecycle and SBA
                     // fixed point. Immediate placement would put an ETB
                     // above this still-resolving search on the stack.
-                    self.capture_enter_triggers(card, definition, controller, &[])?;
-                    if self
-                        .characteristics(card)?
-                        .card_types
-                        .contains(&CardType::Land)
-                    {
-                        self.capture_land_entry_triggers(controller)?;
-                    }
+                    self.capture_physical_permanent_entry(card, &[])?;
                 }
                 LibrarySearchDestination::Hand => self.move_to_zone(card, Zone::Hand)?,
                 LibrarySearchDestination::LibraryTop => {
@@ -14239,13 +14226,25 @@ impl Game {
     /// trigger-placement boundary, so a short-lived entrant retains its
     /// battlefield incarnation without creating a nested stack transition.
     fn capture_library_search_permanent_entry(&mut self, card: ObjectId) -> Result<(), RulesError> {
+        self.capture_physical_permanent_entry(card, &[])
+    }
+
+    /// Captures all entry observations for one non-token permanent that has
+    /// already crossed into the battlefield. The caller owns the later SBA
+    /// and trigger-placement boundary; this helper only keeps the exact live
+    /// entry provenance, including a creature-land's land-entry event.
+    fn capture_physical_permanent_entry(
+        &mut self,
+        card: ObjectId,
+        convoke_contributors: &[CapturedConvokeCreature],
+    ) -> Result<(), RulesError> {
         let controller = self.object(card)?.controller;
         let definition = self
             .effective_definition_id(card)?
             .ok_or(RulesError::IllegalAction(
-                "a token cannot be selected from a library",
+                "a token cannot use the physical permanent-entry capture path",
             ))?;
-        self.capture_enter_triggers(card, definition, controller, &[])?;
+        self.capture_enter_triggers(card, definition, controller, convoke_contributors)?;
         if self
             .characteristics(card)?
             .card_types
@@ -30503,14 +30502,10 @@ impl Game {
                 // The returned creature can immediately die at the enclosing
                 // spell's post-resolution SBA checkpoint. Retain its entry
                 // event while its battlefield incarnation is live; placement
-                // remains deferred until that shared boundary.
-                let definition = self
-                    .effective_definition_id(target)?
-                    .ok_or(RulesError::IllegalAction(
-                        "a token cannot be selected from a graveyard",
-                    ))?;
-                let target_controller = self.object(target)?.controller;
-                self.capture_enter_triggers(target, definition, target_controller, &[])?;
+                // remains deferred until that shared boundary. This common
+                // physical-entry capture also retains a creature-land's
+                // represented land-entry observation.
+                self.capture_physical_permanent_entry(target, &[])?;
                 if mana_spent.is_some_and(|spent| spent.contains(color)) {
                     self.place_counter(source, target, CounterKind::PlusOnePlusOne, 1)?;
                 }
