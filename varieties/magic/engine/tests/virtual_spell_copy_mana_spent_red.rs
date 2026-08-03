@@ -87,6 +87,7 @@ fn resolve_top(game: &mut Game) {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // One copy/payment stack trace keeps the causal boundary auditable.
 fn copied_spell_does_not_inherit_originals_spent_mana() {
     let caster = PlayerId(0);
     let copy_controller = PlayerId(1);

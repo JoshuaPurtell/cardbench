@@ -10147,9 +10147,15 @@ impl Game {
             chosen_x: original.chosen_x,
             chosen_color: original.chosen_color,
             chosen_modal_mode: original.chosen_modal_mode,
-            mana_spent: original.mana_spent.clone(),
-            convoke_symbols: original.convoke_symbols,
-            generic_cost_reduction: original.generic_cost_reduction,
+            // CR 707.10 copies decisions such as modes and X, but a copy is
+            // not cast. Mana is not an object, so an “if mana was spent”
+            // instruction cannot inherit the original spell's payment receipt.
+            // Cost-accounting fields are likewise zeroed; an effect that
+            // explicitly names an object used to pay costs retains that
+            // original object through its own typed provenance instead.
+            mana_spent: None,
+            convoke_symbols: 0,
+            generic_cost_reduction: 0,
         });
         self.record_event(GameEvent::SpellCopied {
             copy,
@@ -13533,7 +13539,7 @@ impl Game {
                     "a chosen-X stack spell lacks or fabricates its selected value",
                 ));
             }
-            if requires_chosen_x && stack_object.mana_spent.is_none() {
+            if requires_chosen_x && !is_virtual_copy && stack_object.mana_spent.is_none() {
                 return Err(RulesError::IllegalAction(
                     "a chosen-X stack spell lacks an explicit payment receipt",
                 ));
