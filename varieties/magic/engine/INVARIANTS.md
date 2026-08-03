@@ -61,6 +61,12 @@ Oracle Magic rules coverage.
   same loss transition before APNAP placement. Such a trigger cannot produce
   a `TriggeredAbilityStacked` receipt or a new decision after the game has
   ended; pre-existing stack provenance remains frozen only for replay audit.
+- Every public activated-ability and bound-mana-ability action reaches its
+  post-cost SBA fixed point before placing any trigger observed from that
+  action's costs. A cost trigger is stacked only if the game continues past
+  that checkpoint; a terminal life payment or other cost-driven loss leaves no
+  `TriggeredAbilityStacked` or `AbilityLeftGame` receipt for that unplaceable
+  trigger.
 - A stack instruction that records an empty-library draw during a private
   choice suspension must close the enclosing spell lifecycle before opening
   that choice. The loss marker is consumed at the following SBA boundary;
