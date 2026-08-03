@@ -16173,10 +16173,13 @@ impl Game {
             // A target may become illegal after a legal cast (for example, a
             // player can lose or a permanent can leave the battlefield), but
             // it cannot change its enum kind. Validate only immutable target
-            // shape here; dynamic legality remains the resolution rule.
+            // shape against the immutable stack instructions here; dynamic
+            // legality remains the resolution rule. In particular, a modal
+            // spell has already replaced `ChooseOneOf` with its selected
+            // branch before it enters the stack.
             let mut distinct_targets = HashSet::new();
             for (target, requirement) in stack_object.targets.iter().zip(
-                definition
+                stack_object
                     .effects
                     .iter()
                     .flat_map(|effect| effect.target_requirements().into_iter().flatten()),
