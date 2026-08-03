@@ -99,6 +99,10 @@ fn typed_rav_basic_lands_can_pay_a_colored_spell_cost_inside_one_cast() {
                 player,
                 card: spell,
             },
+            GameEvent::ObjectIncarnationAdvanced {
+                object: spell,
+                incarnation: 2,
+            },
         ],
         "each typed payment receipt immediately precedes its intrinsic activation and output"
     );
