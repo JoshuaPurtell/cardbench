@@ -342,10 +342,12 @@ RAV Watchwolf with the resulting permanent and player damage receipts.
 
 Greater Mossdog is also in the positive manifest. On 2026-07-30, a live
 public Scryfall API lookup for its RAV collector `#169` verified the encoded
-mana cost, color, creature characteristics, and that its sole functional rule
-is the engine's generic Dredge replacement. The source response's reminder
-annotation was not retained. A direct Rust contract pins the complete
-dredge-then-cast public receipt, including all three library moves.
+mana cost, color, creature characteristics, Dredge replacement, and its
+optional graveyard return trigger when a creature becomes the target of a
+spell or ability. The source response's reminder annotation was not retained.
+Direct Rust contracts pin both the complete dredge-then-cast receipt,
+including all three library moves, and the target-trigger policy choice that
+returns the exact graveyard incarnation to hand.
 
 The 2026-07-30 simple-spell audit removed Gaze of the Gorgon from the executable
 slice. A prior fixture had both an incorrect hybrid-cost model and an unrelated

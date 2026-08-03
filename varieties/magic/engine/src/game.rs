@@ -2133,6 +2133,7 @@ impl Game {
                         | TriggerCondition::CastsBlackSpell
                         | TriggerCondition::AnyPlayerCastsCreatureSpell
                         | TriggerCondition::AnyPlayerCastsInstantOrSorcerySpell
+                        | TriggerCondition::CreatureBecomesTarget
                         | TriggerCondition::FirstNoncreatureSpellCastEachTurn
                 )
                 || binding.ability.targets
@@ -4228,6 +4229,7 @@ impl Game {
             })
             .collect();
         let target_incarnations = self.target_incarnations(&targets);
+        let trigger_targets = targets.clone();
         let stack_item = self.allocate_stack_object_id();
         self.stack.push(StackObject {
             id: stack_item,
@@ -4254,6 +4256,8 @@ impl Game {
             definition: definition_id,
             ability: ability.id,
         });
+        self.enqueue_creature_becomes_target_triggers(&trigger_targets)?;
+        self.flush_pending_trigger_events()?;
         self.consecutive_passes = 0;
         self.priority = player;
         Ok(())
@@ -8811,7 +8815,7 @@ impl Game {
             controller: player,
             ability_id: None,
             ability_definition: None,
-            targets: spell_targets,
+            targets: spell_targets.clone(),
             target_incarnations,
             effects: definition.effects,
             chosen_x,
@@ -8873,6 +8877,7 @@ impl Game {
             object: request.card,
             incarnation: source_incarnation,
         });
+        self.enqueue_creature_becomes_target_triggers(&spell_targets)?;
         if definition.card_types.contains(&CardType::Creature) {
             self.queue_cast_creature_triggers(
                 player,
@@ -12822,7 +12827,10 @@ impl Game {
             payload: TriggerEventPayload::None,
         };
         self.complete_pending_decision(decision)?;
+        let trigger_targets = targets.clone();
         self.stack_triggered_event(&event, targets, effects);
+        self.enqueue_creature_becomes_target_triggers(&trigger_targets)?;
+        self.flush_pending_trigger_events()?;
         self.advance_pending_trigger_placements()?;
         Ok(())
     }
@@ -16325,6 +16333,7 @@ impl Game {
                             | TriggerCondition::CastsBlackSpell
                             | TriggerCondition::AnyPlayerCastsCreatureSpell
                             | TriggerCondition::AnyPlayerCastsInstantOrSorcerySpell
+                            | TriggerCondition::CreatureBecomesTarget
                             | TriggerCondition::FirstNoncreatureSpellCastEachTurn
                     )
                     || ability.targets
@@ -20102,6 +20111,7 @@ impl Game {
                 | Effect::ExileUpToTargetGraveyardCards { .. }
                 | Effect::PutTopCardOfControllerLibraryOnBottom
                 | Effect::ReturnSourceToOwnersHand
+                | Effect::ReturnSourceFromOwnersGraveyardToHand
                 | Effect::ReturnSourceFromOwnersGraveyardToBattlefield
                 | Effect::MoveSourceToOwnersLibraryAndShuffle
                 | Effect::ModifyControllerCreaturesPtUntilEndOfTurn { .. }
@@ -24782,6 +24792,69 @@ impl Game {
         }
     }
 
+    /// Captures graveyard sources whose registered ability triggers whenever
+    /// a creature becomes the target of a spell or ability. The target event
+    /// is sampled at stack placement, before priority can move either the
+    /// target or the source. Each creature-target occurrence produces one
+    /// trigger, matching the rules' per-event trigger semantics.
+    fn enqueue_creature_becomes_target_triggers(
+        &mut self,
+        targets: &[Target],
+    ) -> Result<(), RulesError> {
+        let creature_target_count = targets
+            .iter()
+            .filter(|target| {
+                matches!(
+                    target,
+                    Target::Permanent(card)
+                        if self.characteristics(*card).is_ok_and(|characteristics| {
+                            characteristics.card_types.contains(&CardType::Creature)
+                        })
+                )
+            })
+            .count();
+        if creature_target_count == 0 {
+            return Ok(());
+        }
+        let sources = self
+            .players
+            .iter()
+            .flat_map(|player| player.graveyard.iter().copied())
+            .collect::<Vec<_>>();
+        for source in sources {
+            if self.zone_of(source) != Some(Zone::Graveyard) {
+                continue;
+            }
+            let source_object = self.object(source)?.clone();
+            let Some(definition) = self.effective_definition_id(source)? else {
+                continue;
+            };
+            let source_colors = self.characteristics(source)?.colors;
+            let triggers = self
+                .triggered_abilities
+                .get(definition)
+                .into_iter()
+                .flat_map(|abilities| abilities.values())
+                .filter(|ability| ability.condition == TriggerCondition::CreatureBecomesTarget)
+                .cloned()
+                .collect::<Vec<_>>();
+            for ability in triggers {
+                for _ in 0..creature_target_count {
+                    self.pending_trigger_events
+                        .push(PendingTriggeredAbilityEvent {
+                            source,
+                            source_incarnation: source_object.incarnation,
+                            source_colors: source_colors.clone(),
+                            controller: source_object.owner,
+                            ability: ability.clone(),
+                            payload: TriggerEventPayload::None,
+                        });
+                }
+            }
+        }
+        Ok(())
+    }
+
     /// Moves every just-observed trigger condition into one APNAP-ordered
     /// placement batch.  The active player's triggers are placed first (and
     /// therefore sit lower on the stack), followed by each next living seat.
@@ -24885,6 +24958,11 @@ impl Game {
                         })
                 {
                     self.stack_triggered_event(&event, targets, effects);
+                    let trigger_targets = self
+                        .stack
+                        .last()
+                        .map_or_else(Vec::new, |stack| stack.targets.clone());
+                    self.enqueue_creature_becomes_target_triggers(&trigger_targets)?;
                 }
                 continue;
             }
@@ -24933,6 +25011,9 @@ impl Game {
             }
             // The represented trigger has no legal target at its trigger
             // placement boundary, so it cannot become a legal stack object.
+        }
+        if !self.pending_trigger_events.is_empty() {
+            self.flush_pending_trigger_events()?;
         }
         self.restore_priority_after_trigger_placement();
         Ok(())
@@ -31882,6 +31963,17 @@ impl Game {
                     self.move_to_zone(source, Zone::Hand)?;
                 }
             }
+            Effect::ReturnSourceFromOwnersGraveyardToHand => {
+                // A graveyard trigger retains the exact source incarnation
+                // observed when the creature was targeted. If the card has
+                // left the graveyard or changed incarnation, the instruction
+                // is a no-op rather than moving a later object.
+                if self.zone_of(source) == Some(Zone::Graveyard)
+                    && self.object_has_incarnation(source, source_incarnation)
+                {
+                    self.move_to_zone(source, Zone::Hand)?;
+                }
+            }
             Effect::ReturnSourceFromOwnersGraveyardToBattlefield => {
                 // The activation records the source's exact graveyard
                 // incarnation. A response may move it elsewhere, in which
@@ -34906,6 +34998,25 @@ impl Game {
             ));
         }
         Self::validate_mana_cost(&ability.mana_cost)?;
+        if ability.condition == TriggerCondition::CreatureBecomesTarget
+            && (ability.mana_cost != ManaCost::new(0)
+                || !ability.optional
+                || !ability.targets.is_empty()
+                || ability.effects.as_slice() != [Effect::ReturnSourceFromOwnersGraveyardToHand])
+        {
+            return Err(RulesError::IllegalAction(
+                "creature-target trigger requires one optional target-free graveyard-return effect",
+            ));
+        }
+        if ability.condition != TriggerCondition::CreatureBecomesTarget
+            && ability
+                .effects
+                .contains(&Effect::ReturnSourceFromOwnersGraveyardToHand)
+        {
+            return Err(RulesError::IllegalAction(
+                "graveyard source return requires a creature-target trigger",
+            ));
+        }
         let effect_targets = ability
             .effects
             .iter()

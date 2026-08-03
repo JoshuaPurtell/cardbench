@@ -459,6 +459,10 @@ pub enum TriggerCondition {
     /// discards, mills, destroyed permanents, countered spells, and costs all
     /// produce the same expansion-neutral observed event.
     OpponentCardPutIntoGraveyard,
+    /// A creature became the target of a spell or ability. The trigger
+    /// source may be a card in its owner's graveyard, so its exact graveyard
+    /// incarnation is captured when the target is chosen.
+    CreatureBecomesTarget,
     /// This source card moved from its owner's graveyard to that owner's
     /// hand. The trigger holds the prior graveyard incarnation even though
     /// the source has already advanced to its hand incarnation.
@@ -2989,6 +2993,9 @@ pub enum Effect {
     /// the ability stays on the stack and resolves even if the source has
     /// already changed zones.
     ReturnSourceToOwnersHand,
+    /// Move the exact source incarnation from its owner's graveyard to that
+    /// owner's hand. A later incarnation or a different zone is a no-op.
+    ReturnSourceFromOwnersGraveyardToHand,
     /// Move the resolving source object to its owner's library and shuffle
     /// that owner's library, but only while the exact battlefield incarnation
     /// that created the stack object is still present. This keeps zone and
@@ -3307,6 +3314,7 @@ impl Effect {
             | Self::ExileUpToTargetGraveyardCards { .. }
             | Self::PutTopCardOfControllerLibraryOnBottom
             | Self::ReturnSourceToOwnersHand
+            | Self::ReturnSourceFromOwnersGraveyardToHand
             | Self::ReturnSourceFromOwnersGraveyardToBattlefield
             | Self::MoveSourceToOwnersLibraryAndShuffle
             | Self::ModifySourcePtUntilEndOfTurn { .. }

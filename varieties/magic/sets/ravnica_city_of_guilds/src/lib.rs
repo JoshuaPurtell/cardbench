@@ -43,9 +43,10 @@ use cardbench_magic_engine::{
 
 pub const SET_CODE: &str = "RAV";
 
-/// The deliberately small subset of RAV definitions for which every printed
-/// functional rule is represented by the engine and covered by public tests.
-/// All definitions absent from this list remain bounded compatibility slices.
+/// The authoritative RAV definitions for which every represented printed
+/// functional rule is implemented by the engine and covered by public tests.
+/// Any future bounded slice must remain outside this manifest until its
+/// generic substrate and regression contract are complete.
 pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 291] = [
     "RAV-CHAR",
     "RAV-AGRUS-KOS-WOJEK-VETERAN",
@@ -1336,8 +1337,8 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Flying, Keyword::Dredge(5)],
             effects: vec![],
         },
-        // Public RAV #169 audit: its sole functional rule is the shared Dredge
-        // replacement, alongside normal creature casting and characteristics.
+        // Public RAV #169 audit: Dredge plus its optional graveyard return
+        // trigger when a creature becomes the target of a spell or ability.
         CardDefinition {
             id: "RAV-GREATER-MOSSDOG",
             name: "Greater Mossdog",
@@ -1347,7 +1348,12 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Creature]),
             is_basic_land: false,
-            supported_rules: &["full-rules-fidelity", "dredge", "base-characteristics"],
+            supported_rules: &[
+                "full-rules-fidelity",
+                "dredge",
+                "base-characteristics",
+                "targeted-creature-becomes-target-return",
+            ],
             power: Some(3),
             toughness: Some(3),
             keywords: vec![Keyword::Dredge(3)],
@@ -9373,6 +9379,17 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                 optional: false,
                 targets: vec![],
                 effects: vec![Effect::GainLifeController { amount: 1 }],
+            },
+        },
+        TriggeredAbilityBinding {
+            card_definition: "RAV-GREATER-MOSSDOG",
+            ability: TriggeredAbility {
+                id: "targeted-creature-return-from-graveyard",
+                condition: TriggerCondition::CreatureBecomesTarget,
+                mana_cost: ManaCost::new(0),
+                optional: true,
+                targets: vec![],
+                effects: vec![Effect::ReturnSourceFromOwnersGraveyardToHand],
             },
         },
         TriggeredAbilityBinding {
