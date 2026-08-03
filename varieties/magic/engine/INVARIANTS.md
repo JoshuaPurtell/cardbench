@@ -151,7 +151,10 @@ Oracle Magic rules coverage.
   never revived or reattached merely because its stable `ObjectId` matches.
   The primary creature returns first; linked Auras follow in stable object-id
   order and may attach only through a new ordinary legality-checked attachment
-  to that returned incarnation.
+  to that returned incarnation. If the primary did not remain in its captured
+  exile incarnation and therefore does not return, every linked Aura remains
+  in exile: `DelayedActionConsumed` reports no Aura return, and no temporary
+  unattached Aura battlefield or graveyard transition is permitted.
 - An Aura-relative linked-exile instruction snapshots whether its attached
   primary is a token before the zone boundary. If it is, the token ceases
   rather than becoming a primary exile member; every Aura captured as attached
