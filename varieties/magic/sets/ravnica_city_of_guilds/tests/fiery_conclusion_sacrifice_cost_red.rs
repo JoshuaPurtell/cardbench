@@ -143,6 +143,10 @@ fn fiery_conclusion_sacrifices_before_its_single_effect_target_reaches_the_stack
                 player: PlayerId(0),
                 card: conclusion,
             },
+            GameEvent::ObjectIncarnationAdvanced {
+                object: conclusion,
+                incarnation: 2,
+            },
         ]
     );
     game.validate_invariants()
