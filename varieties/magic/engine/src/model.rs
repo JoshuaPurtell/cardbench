@@ -1653,9 +1653,11 @@ pub enum CreatureSubtype {
     Horror,
     Illusion,
     Knight,
+    Plant,
     Saproling,
     Spirit,
     Wolf,
+    Zombie,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -2271,6 +2273,15 @@ pub enum Effect {
         power: i16,
         toughness: i16,
         keywords: Vec<Keyword>,
+    },
+    /// Turn the resolving permanent source into a colored typed creature
+    /// through cleanup, with layer-7b power and toughness continuously equal
+    /// to the resolving controller's current creature-card graveyard count.
+    /// The controller is captured at resolution; a later control change does
+    /// not change whose graveyard supplies the value.
+    AnimateSourceIntoCreatureWithControllerGraveyardCountUntilEndOfTurn {
+        colors: BTreeSet<Color>,
+        creature_subtypes: BTreeSet<CreatureSubtype>,
     },
     /// Apply a temporary layer-seven adjustment and layer-six keyword grant to
     /// one creature target. Keeping the pair in one instruction preserves one
@@ -2986,6 +2997,9 @@ impl Effect {
             | Self::MoveSourceToOwnersLibraryAndShuffle
             | Self::ModifySourcePtUntilEndOfTurn { .. }
             | Self::AnimateSourceIntoCreatureUntilEndOfTurn { .. }
+            | Self::AnimateSourceIntoCreatureWithControllerGraveyardCountUntilEndOfTurn {
+                ..
+            }
             | Self::AddSourceKeywordUntilEndOfTurn { .. }
             | Self::RemoveSourceKeywordUntilEndOfTurn { .. }
             | Self::AddSourceDamageShieldUntilEndOfTurn { .. }
@@ -3416,6 +3430,13 @@ pub enum ContinuousChange {
         power: i16,
         toughness: i16,
     },
+    /// Set layer-7b base P/T to the current count of creature cards in one
+    /// exact player's graveyard. The player is captured by the resolving
+    /// effect, rather than derived from the animated permanent's later
+    /// controller.
+    SetPowerToughnessToPlayerGraveyardCreatureCardCount {
+        player: PlayerId,
+    },
     /// A timestamped layer-seven modifier that scales by the number of other
     /// creatures controlled by the continuous effect's target controller.
     /// The target itself is excluded even if it later changes controller.
@@ -3500,6 +3521,7 @@ impl ContinuousChange {
             | Self::SuppressNonManaActivatedAbilities => Layer::Ability,
             Self::ModifyPowerToughness { .. }
             | Self::SetPowerToughness { .. }
+            | Self::SetPowerToughnessToPlayerGraveyardCreatureCardCount { .. }
             | Self::ModifyPowerToughnessForEachOtherCreatureControlledByTarget { .. }
             | Self::ControlledCreatureCountPowerToughness
             | Self::OtherControlledCreaturesModifyPowerToughness { .. }

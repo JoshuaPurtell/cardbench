@@ -4615,20 +4615,31 @@ impl Game {
         // definitions but before ordinary layer-7c modifiers and counters.
         // This gives an animated land its first represented P/T without
         // losing a separately applied +1/+1 effect.
-        for effect in effects
-            .iter()
-            .filter(|effect| matches!(effect.change, ContinuousChange::SetPowerToughness { .. }))
-        {
+        for effect in effects.iter().filter(|effect| {
+            matches!(
+                effect.change,
+                ContinuousChange::SetPowerToughness { .. }
+                    | ContinuousChange::SetPowerToughnessToPlayerGraveyardCreatureCardCount { .. }
+            )
+        }) {
             self.apply_timestamped_continuous_change_to_characteristics(
                 card,
                 &mut characteristics,
                 &effect.change,
             )?;
         }
-        for effect in effects.into_iter().filter(|effect| {
-            matches!(effect.change.layer(), Layer::PowerToughness)
-                && !matches!(effect.change, ContinuousChange::SetPowerToughness { .. })
-        }) {
+        for effect in
+            effects.into_iter().filter(|effect| {
+                matches!(effect.change.layer(), Layer::PowerToughness)
+                    && !matches!(
+                    effect.change,
+                    ContinuousChange::SetPowerToughness { .. }
+                        | ContinuousChange::SetPowerToughnessToPlayerGraveyardCreatureCardCount {
+                            ..
+                        }
+                )
+            })
+        {
             self.apply_timestamped_continuous_change_to_characteristics(
                 card,
                 &mut characteristics,
@@ -4660,6 +4671,7 @@ impl Game {
     /// Applies one timestamped continuous change after the caller has placed
     /// it in the global layer sequence. Static-only variants fail closed here:
     /// they can be evaluated only by their live battlefield source bindings.
+    #[allow(clippy::too_many_lines)] // Closed-world layered characteristic changes remain auditable in one dispatcher.
     fn apply_timestamped_continuous_change_to_characteristics(
         &self,
         card: ObjectId,
@@ -4712,6 +4724,26 @@ impl Game {
             ContinuousChange::SetPowerToughness { power, toughness } => {
                 characteristics.power = Some(i32::from(*power));
                 characteristics.toughness = Some(i32::from(*toughness));
+            }
+            ContinuousChange::SetPowerToughnessToPlayerGraveyardCreatureCardCount { player } => {
+                self.player(*player)?;
+                let count = self.players[player.0].graveyard.iter().try_fold(
+                    0_i32,
+                    |count, graveyard_card| {
+                        let is_creature = self
+                            .card_definition(*graveyard_card)?
+                            .card_types
+                            .contains(&CardType::Creature);
+                        let increment = i32::from(is_creature);
+                        count.checked_add(increment).ok_or(
+                            RulesError::IllegalAction(
+                                "graveyard creature-card count exceeds supported range",
+                            ),
+                        )
+                    },
+                )?;
+                characteristics.power = Some(count);
+                characteristics.toughness = Some(count);
             }
             ContinuousChange::ModifyPowerToughnessForEachOtherCreatureControlledByTarget {
                 power_per_creature,
@@ -5247,6 +5279,13 @@ impl Game {
             ContinuousChange::ChangeController(controller) if self.player(*controller)?.lost => {
                 return Err(RulesError::IllegalAction(
                     "a departed player cannot control a permanent",
+                ));
+            }
+            ContinuousChange::SetPowerToughnessToPlayerGraveyardCreatureCardCount { player }
+                if self.player(*player)?.lost =>
+            {
+                return Err(RulesError::IllegalAction(
+                    "a graveyard-count characteristic effect cannot reference a departed player",
                 ));
             }
             ContinuousChange::ChangeControllerToSourceController if source == target => {
@@ -14752,6 +14791,14 @@ impl Game {
             if let ContinuousChange::GrantActivatedAbility(ability) = &effect.change {
                 Self::validate_activated_ability_definition(ability)?;
             }
+            if let ContinuousChange::SetPowerToughnessToPlayerGraveyardCreatureCardCount { player } =
+                &effect.change
+                && self.player(*player)?.lost
+            {
+                return Err(RulesError::IllegalAction(
+                    "graveyard-count characteristic effect references a departed player",
+                ));
+            }
             if effect.change == ContinuousChange::RedirectDamageToAttachmentController {
                 let binding = self.attachment_binding_for(effect.source)?.ok_or(
                     RulesError::IllegalAction(
@@ -16656,6 +16703,9 @@ impl Game {
                 | Effect::ModifyTargetPtUntilEndOfTurn { .. }
                 | Effect::AnimateTargetLand { .. }
                 | Effect::AnimateSourceIntoCreatureUntilEndOfTurn { .. }
+                | Effect::AnimateSourceIntoCreatureWithControllerGraveyardCountUntilEndOfTurn {
+                    ..
+                }
                 | Effect::ModifyTargetPtAndKeywordUntilEndOfTurn { .. }
                 | Effect::ModifyTargetKeywordUntilEndOfTurn { .. }
                 | Effect::PreventTargetBlockingSourceUntilEndOfTurn
@@ -25122,6 +25172,53 @@ impl Game {
                     )?;
                 }
             }
+            Effect::AnimateSourceIntoCreatureWithControllerGraveyardCountUntilEndOfTurn {
+                colors,
+                creature_subtypes,
+            } => {
+                if colors.is_empty()
+                    || colors.contains(&Color::Colorless)
+                    || creature_subtypes.is_empty()
+                {
+                    return Err(RulesError::IllegalAction(
+                        "dynamic source animation requires colors and creature subtypes",
+                    ));
+                }
+                if self.zone_of(source) != Some(Zone::Battlefield)
+                    || !self.object_has_incarnation(source, source_incarnation)
+                {
+                    return Ok(());
+                }
+                let duration = Duration::EndOfTurn(self.turn);
+                self.install_continuous_effect(
+                    source,
+                    source,
+                    ContinuousChange::AddCardType(CardType::Creature),
+                    duration,
+                )?;
+                for subtype in creature_subtypes {
+                    self.install_continuous_effect(
+                        source,
+                        source,
+                        ContinuousChange::AddCreatureSubtype(*subtype),
+                        duration,
+                    )?;
+                }
+                self.install_continuous_effect(
+                    source,
+                    source,
+                    ContinuousChange::ReplaceColorsWithSet(colors.clone()),
+                    duration,
+                )?;
+                self.install_continuous_effect(
+                    source,
+                    source,
+                    ContinuousChange::SetPowerToughnessToPlayerGraveyardCreatureCardCount {
+                        player: controller,
+                    },
+                    duration,
+                )?;
+            }
             Effect::ModifyTargetPtAndKeywordUntilEndOfTurn {
                 power,
                 toughness,
@@ -29039,6 +29136,20 @@ impl Game {
                 {
                     return Err(RulesError::IllegalAction(
                         "source animation requires colors, creature subtypes, and nonnegative base P/T",
+                    ));
+                }
+            }
+            if let Effect::AnimateSourceIntoCreatureWithControllerGraveyardCountUntilEndOfTurn {
+                colors,
+                creature_subtypes,
+            } = effect
+            {
+                if colors.is_empty()
+                    || colors.contains(&Color::Colorless)
+                    || creature_subtypes.is_empty()
+                {
+                    return Err(RulesError::IllegalAction(
+                        "dynamic source animation requires colors and creature subtypes",
                     ));
                 }
             }

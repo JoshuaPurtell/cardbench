@@ -44,7 +44,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 262] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 263] = [
     "RAV-CHAR",
     "RAV-AGRUS-KOS-WOJEK-VETERAN",
     "RAV-GALVANIC-ARC",
@@ -238,6 +238,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 262] = [
     "RAV-TIDEWATER-MINION",
     "RAV-SUNHOME-FORTRESS",
     "RAV-VITU-GHAZI",
+    "RAV-SVOGTHOS-THE-RESTLESS-TOMB",
     "RAV-DUSKMANTLE-HOUSE-OF-SHADOW",
     "RAV-NULLMAGE-SHEPHERD",
     "RAV-VIGOR-MORTIS",
@@ -6363,6 +6364,28 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
+        // Full fidelity: this land supplies colorless mana and a stack-backed
+        // self-animation whose layer-7b P/T reads the resolving controller's
+        // current creature-card graveyard count through cleanup.
+        CardDefinition {
+            id: "RAV-SVOGTHOS-THE-RESTLESS-TOMB",
+            name: "Svogthos, the Restless Tomb",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::new(0),
+            colors: BTreeSet::new(),
+            mana_colors: BTreeSet::from([Color::Colorless]),
+            card_types: types([CardType::Land]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colorless-mana-ability",
+                "activated-dynamic-graveyard-creature-animation",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![],
+        },
         // Full fidelity: this colorless land has no intrinsic mana ability;
         // its sole typed activation taps to mill one selected player through
         // the shared player-target stack effect.
@@ -6496,6 +6519,17 @@ pub fn rav_mana_ability_bindings() -> Vec<ManaAbilityBinding> {
         },
         ManaAbilityBinding {
             card_definition: "RAV-VITU-GHAZI",
+            ability: ActivatedManaAbility {
+                id: "produce-colorless",
+                tap_cost: true,
+                output: ManaAbilityOutput::Fixed(Color::Colorless),
+                amount: 1,
+                life_payment: None,
+                controller_damage: None,
+            },
+        },
+        ManaAbilityBinding {
+            card_definition: "RAV-SVOGTHOS-THE-RESTLESS-TOMB",
             ability: ActivatedManaAbility {
                 id: "produce-colorless",
                 tap_cost: true,
@@ -7932,6 +7966,30 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                     token: TokenSpec::saproling(),
                     count: 1,
                 }],
+            },
+        },
+        ActivatedAbilityBinding {
+            card_definition: "RAV-SVOGTHOS-THE-RESTLESS-TOMB",
+            ability: ActivatedAbility {
+                id: "animate-self-from-controller-graveyard-creatures",
+                mana_cost: ManaCost::with_colors(3, [Color::Black, Color::Green]),
+                tap_cost: false,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![],
+                effects: vec![
+                    Effect::AnimateSourceIntoCreatureWithControllerGraveyardCountUntilEndOfTurn {
+                        colors: BTreeSet::from([Color::Black, Color::Green]),
+                        creature_subtypes: BTreeSet::from([
+                            CreatureSubtype::Plant,
+                            CreatureSubtype::Zombie,
+                        ]),
+                    },
+                ],
             },
         },
         ActivatedAbilityBinding {

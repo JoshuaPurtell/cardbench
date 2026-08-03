@@ -206,6 +206,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-TIDEWATER-MINION",
             "RAV-SUNHOME-FORTRESS",
             "RAV-VITU-GHAZI",
+            "RAV-SVOGTHOS-THE-RESTLESS-TOMB",
             "RAV-DUSKMANTLE-HOUSE-OF-SHADOW",
             "RAV-NULLMAGE-SHEPHERD",
             "RAV-VIGOR-MORTIS",
