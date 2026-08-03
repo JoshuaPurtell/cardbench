@@ -370,13 +370,20 @@ Oracle Magic rules coverage.
   terminal stack lifecycle.
 - A registered damage-amount replacement has a catalogued permanent source and
   is fixed before the game begins. Every live source applies once to a
-  prospective player or permanent packet and retains its source incarnation in
-  both the `DamageReplacementApplied` identity and the immediately following
-  `DamageAmountReplaced` arithmetic receipt. The receipt has a positive input,
-  the bound reduced output, and must name the same source/target as its
-  preceding replacement identity. Direct and combat paths use the same source
-  discovery; the initial registered operation is integer halving, so stable
-  application of multiple identical sources cannot change its result.
+  prospective player or permanent packet only when its typed predicate holds,
+  and retains its source incarnation in `DamageReplacementApplied`. A halving
+  replacement then writes the immediately following `DamageAmountReplaced`
+  arithmetic receipt, whose positive input and bound reduced output name that
+  same source/target. A prevention-aware self replacement applies only when
+  its exact live source is also the permanent recipient and the incoming
+  damage may be prevented; it writes
+  `DamageReplacementApplied → DamagePreventedWithPlusOneCounters →
+  DamagePrevented`, followed only by counter-placement replacement receipts
+  and its matching source `CounterPlaced { PlusOnePlusOne }`. The counter
+  total is at least the prevented amount (and may be larger only through the
+  independently audited quantity-replacement chain). Direct and combat paths
+  use the same live-source discovery and an unpreventable packet never offers
+  this prevention candidate.
 - A registered source-bound combat replacement may replace that source's
   positive combat-damage packet to a player with immediate non-damage
   consequences. `CombatDamageReplacedWithMillAndCounters` records the exact
