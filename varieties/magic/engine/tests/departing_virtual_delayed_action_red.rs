@@ -4,14 +4,17 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardDefinition, CardType, CastRequest, Color, Effect, Game, GameEvent, ManaCost, ObjectId,
-    PlayerId, RulesError, Target, Zone,
+    AbilityActivation, ActivatedAbility, ActivatedAbilityBinding, CardDefinition, CardType,
+    CastRequest, Color, Effect, Game, GameEvent, ManaCost, ObjectId, PlayerId, RulesError, Target,
+    TargetRequirement, Zone,
 };
 
 const CREATURE: &str = "TST-DEPARTING-VIRTUAL-DELAYED-CREATURE";
 const GAZE: &str = "TST-DEPARTING-VIRTUAL-DELAYED-GAZE";
 const COPY: &str = "TST-DEPARTING-VIRTUAL-DELAYED-COPY";
 const COUNTER: &str = "TST-DEPARTING-VIRTUAL-DELAYED-COUNTER";
+const LINKED_SOURCE: &str = "TST-DEPARTING-LINKED-DELAYED-SOURCE";
+const KILLER: &str = "TST-DEPARTING-LINKED-DELAYED-KILLER";
 
 fn definition(id: &'static str, card_type: CardType, effects: Vec<Effect>) -> CardDefinition {
     let creature = card_type == CardType::Creature;
@@ -173,4 +176,110 @@ fn departing_virtual_delayed_action_cannot_stack_after_player_loss() {
     );
     game.validate_invariants()
         .expect("departed delayed-action provenance is absent from continuing game state");
+}
+
+#[test]
+fn departing_controller_retires_linked_exile_schedule_without_moving_exiled_card() {
+    let departing_controller = PlayerId(0);
+    let card_owner = PlayerId(1);
+    let killer_controller = PlayerId(2);
+    let mut game = Game::new_with_all_bindings(
+        [
+            definition(LINKED_SOURCE, CardType::Artifact, vec![]),
+            definition(CREATURE, CardType::Creature, vec![]),
+            definition(
+                KILLER,
+                CardType::Instant,
+                vec![Effect::DealDamage {
+                    amount: 20,
+                    target: TargetRequirement::Player,
+                }],
+            ),
+        ],
+        3,
+        [],
+        [],
+        [],
+        [ActivatedAbilityBinding {
+            card_definition: LINKED_SOURCE,
+            ability: ActivatedAbility {
+                id: "exile-until-end-step",
+                mana_cost: ManaCost::new(0),
+                tap_cost: false,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![TargetRequirement::Creature],
+                effects: vec![Effect::ExileTargetCreatureUntilEndStep],
+            },
+        }],
+    )
+    .expect("three-player linked-exile fixture initializes");
+    let source = game
+        .put_on_battlefield(departing_controller, LINKED_SOURCE)
+        .expect("departing player controls delayed source");
+    let target = game
+        .put_on_battlefield(card_owner, CREATURE)
+        .expect("survivor owns the exiled creature");
+    let killer = game
+        .add_card(killer_controller, KILLER, Zone::Hand)
+        .expect("third player has lethal spell");
+    game.begin_game().expect("game begins");
+
+    game.activate_ability(
+        departing_controller,
+        AbilityActivation {
+            source,
+            ability_id: "exile-until-end-step",
+            sacrifice_sources: vec![],
+            additional_tap_creatures: vec![],
+            discard_cards: vec![],
+            targets: vec![Target::Permanent(target)],
+        },
+    )
+    .expect("source exiles the survivor's creature");
+    resolve_top(&mut game).expect("linked exile ability resolves");
+    let group = game
+        .event_log
+        .iter()
+        .find_map(|event| match event {
+            GameEvent::DelayedActionScheduled {
+                group, controller, ..
+            } if *controller == departing_controller => Some(*group),
+            _ => None,
+        })
+        .expect("linked return schedule is recorded");
+    assert_eq!(game.zone_of(target), Some(Zone::Exile));
+    assert!(game.linked_exile_group(group).is_some());
+
+    game.pass_priority(departing_controller)
+        .expect("source controller passes to card owner");
+    game.pass_priority(card_owner)
+        .expect("card owner passes to killer controller");
+    game.cast_spell(
+        killer_controller,
+        request(killer, vec![Target::Player(departing_controller)]),
+    )
+    .expect("third player targets delayed-action controller with lethal damage");
+    resolve_top(&mut game).expect("lethal spell resolves and player leaves");
+
+    assert!(
+        game.player(departing_controller)
+            .expect("departed seat remains queryable")
+            .lost
+    );
+    assert!(
+        game.linked_exile_group(group).is_none(),
+        "a departed controller cannot retain a future linked-exile return schedule"
+    );
+    assert_eq!(
+        game.zone_of(target),
+        Some(Zone::Exile),
+        "retiring the schedule must not fabricate a return or zone move"
+    );
+    game.validate_invariants()
+        .expect("linked delayed state has no departed-controller survivor");
 }
