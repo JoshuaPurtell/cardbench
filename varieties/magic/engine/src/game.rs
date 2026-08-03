@@ -29835,6 +29835,7 @@ impl Game {
             if action.id == DelayedActionId(0)
                 || !action_ids.insert(action.id)
                 || action.due_turn < self.turn
+                || self.player(action.controller)?.lost
             {
                 return Err(RulesError::IllegalAction(
                     "delayed action has invalid identity or expired timing",
@@ -35658,6 +35659,32 @@ impl Game {
     /// action, so no stale object can receive priority or participate in SBA.
     #[allow(clippy::too_many_lines)] // One CR 800.4a transaction keeps ownership, control, stack, and LKI cleanup atomic.
     fn remove_departing_players_objects(&mut self, player: PlayerId) {
+        // A delayed action is controlled by the player that created it, just
+        // as the later ability it would place onto the stack would be. It is
+        // neither an ordinary card object nor a live virtual spell copy, so
+        // CR 800.4a needs this explicit cleanup before a due timing window
+        // can attempt to stack an ability for a departed seat. Linked-exile
+        // groups exist only to support their matching action; retiring their
+        // schedule does not move the exiled cards to a fabricated destination.
+        let departed_linked_groups = self
+            .delayed_actions
+            .iter()
+            .filter_map(|action| {
+                if action.controller != player {
+                    return None;
+                }
+                match action.kind {
+                    DelayedActionKind::ReturnLinkedExileGroup { group } => Some(group),
+                    DelayedActionKind::DestroyCombatParticipants { .. } => None,
+                }
+            })
+            .collect::<BTreeSet<_>>();
+        self.delayed_actions
+            .retain(|action| action.controller != player);
+        for group in departed_linked_groups {
+            self.linked_exile_groups.remove(&group);
+        }
+
         // CR 800.4a applies to every object a departing player controls,
         // including stack-only copies that have no owner-zone membership and
         // therefore cannot be reached by the physical owned-object loop.
@@ -35682,6 +35709,12 @@ impl Game {
                 controller: player,
             });
         }
+        // A delayed ability from an already-resolved virtual copy has neither
+        // a CardObject nor a live-copy map entry. More generally, every stack
+        // object controlled by a departed player leaves now; physical-source
+        // cleanup below still preserves only survivor-controlled abilities.
+        self.stack
+            .retain(|stack_object| stack_object.controller != player);
 
         let owned_objects = self
             .objects

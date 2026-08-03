@@ -2129,6 +2129,12 @@ Oracle Magic rules coverage.
   provenance after `SpellCopyResolved`. That provenance must name exactly one
   delayed action or stacked ability, supply its frozen source facts without a
   fabricated `CardObject`, and be pruned immediately after resolution.
+- A delayed action has one live controller. If that player leaves a
+  continuing multiplayer game, every delayed action and already-stacked
+  ability they control leaves before any later timing window; linked-exile
+  schedule metadata retires with the departed controller while exiled cards
+  remain in their actual zones. No later end-step or end-of-combat receipt may
+  stack an ability controlled by an eliminated player.
 - A counter-unless decision binds its lower spell by the exact live lower
   stack item's source incarnation, not by a physical-zone lookup. The same
   public pay-or-counter and discard-your-hand boundaries must work for
