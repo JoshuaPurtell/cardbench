@@ -33096,11 +33096,11 @@ impl Game {
                     self.enqueue_another_creature_dies_triggers(card)?;
                     self.enqueue_controlled_nontoken_creature_dies_triggers(card)?;
                 }
-                // A copied token still has the copied card's own Dies
-                // ability. Tokens do not make an ordinary graveyard zone
-                // move, so retain the exact source provenance before removing
-                // this object and queue the ability from that last-known
-                // battlefield incarnation.
+                // A copied token's source identity can remain required after
+                // token cessation by an already-pending trigger, a live
+                // activated ability, or its own Dies trigger. Tokens do not
+                // make an ordinary graveyard zone move, so freeze the copied
+                // definition and exact LKI before removing the object.
                 if let Some(definition) = self.effective_definition_id(card)? {
                     let has_dies_trigger = self
                         .triggered_abilities
@@ -33108,9 +33108,15 @@ impl Game {
                         .into_iter()
                         .flat_map(|abilities| abilities.values())
                         .any(|ability| ability.condition == TriggerCondition::Dies);
-                    if has_dies_trigger {
-                        let controller = self.controller_of(card)?;
-                        let colors = self.characteristics(card)?.colors;
+                    let has_pending_ability = self.pending_trigger_events.iter().any(|event| {
+                        event.source == card && event.source_incarnation == token_incarnation
+                    });
+                    let has_live_ability = self.stack.iter().any(|stack_object| {
+                        stack_object.card == card
+                            && stack_object.source_incarnation == token_incarnation
+                            && stack_object.ability_id.is_some()
+                    });
+                    if has_dies_trigger || has_pending_ability || has_live_ability {
                         // A self-sacrifice activation may already have frozen
                         // this exact token incarnation before the cost removed
                         // it. Reuse that source snapshot so one departure can
@@ -33123,6 +33129,10 @@ impl Game {
                             self.capture_last_known_characteristics(card)?;
                         }
                         self.departed_card_definitions.insert(card, definition);
+                    }
+                    if has_dies_trigger {
+                        let controller = self.controller_of(card)?;
+                        let colors = self.characteristics(card)?.colors;
                         self.enqueue_dies_triggers(
                             card,
                             token_incarnation,
