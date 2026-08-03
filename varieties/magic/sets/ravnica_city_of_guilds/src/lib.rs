@@ -9051,6 +9051,7 @@ fn stasis_cell_attachment_changes() -> Vec<ContinuousChange> {
 /// this registry makes the ongoing attachment and its layer-seven modifier
 /// auditable by the expansion-neutral Equipment lifecycle.
 #[must_use]
+#[allow(clippy::too_many_lines)]
 pub fn rav_attachment_bindings() -> Vec<AttachmentBinding> {
     vec![
         AttachmentBinding {
