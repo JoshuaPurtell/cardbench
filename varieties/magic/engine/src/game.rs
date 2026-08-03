@@ -7091,7 +7091,14 @@ impl Game {
         if !self.target_matches(Target::Permanent(target), TargetRequirement::Creature) {
             return Err(RulesError::IllegalTarget(Target::Permanent(target)));
         }
+        // A target token ceases as soon as this exile instruction moves it
+        // from the battlefield.  It has no exile incarnation and cannot be a
+        // delayed return member; the resolved blink simply leaves it gone.
+        let target_is_token = self.object(target)?.token.is_some();
         self.move_to_zone(target, Zone::Exile)?;
+        if target_is_token {
+            return Ok(());
+        }
         let member = LinkedExileMember {
             object: target,
             exile_incarnation: self.object(target)?.incarnation,
