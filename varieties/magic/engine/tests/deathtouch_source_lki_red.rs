@@ -39,6 +39,7 @@ fn pass_pair(game: &mut Game) {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // One response window owns this complete LKI/SBA causal trace.
 fn departed_activated_damage_source_uses_deathtouch_lki() {
     let controller = PlayerId(0);
     let opponent = PlayerId(1);

@@ -909,6 +909,12 @@ pub struct Game {
     regeneration_shields: BTreeMap<ObjectId, Vec<ObjectId>>,
     pub players: Vec<PlayerState>,
     objects: BTreeMap<ObjectId, CardObject>,
+    /// Characteristics frozen immediately before an object changes zones.
+    /// Stack effects that cause a departed source to deal damage consult this
+    /// exact former incarnation for source-quality rules such as Deathtouch
+    /// and "damage can't be prevented". The map is private state-machine
+    /// provenance, not an alternate live-characteristics cache.
+    last_known_characteristics: BTreeMap<(ObjectId, u64), Characteristics>,
     pub stack: Vec<StackObject>,
     /// The next unresolved instruction for a stack item paused at a
     /// no-priority replacement, recipient-private discard, or target-player
@@ -1193,6 +1199,7 @@ impl Game {
             regeneration_shields: BTreeMap::new(),
             players,
             objects: BTreeMap::new(),
+            last_known_characteristics: BTreeMap::new(),
             stack: Vec::new(),
             stack_effect_cursors: BTreeMap::new(),
             target_player_mana_choice_materializations: BTreeMap::new(),
@@ -12139,6 +12146,22 @@ impl Game {
                 "canonical event log was mutated outside an engine transition",
             ));
         }
+        if self
+            .last_known_characteristics
+            .iter()
+            .any(|((card, incarnation), characteristics)| {
+                *incarnation == 0
+                    || characteristics.colors.contains(&Color::Colorless)
+                    || self
+                        .objects
+                        .get(card)
+                        .is_none_or(|object| *incarnation >= object.incarnation)
+            })
+        {
+            return Err(RulesError::IllegalAction(
+                "last-known characteristic provenance has an invalid object incarnation",
+            ));
+        }
         if !self.pending_trigger_events.is_empty() {
             return Err(RulesError::IllegalAction(
                 "pending trigger event escaped its enclosing rules action",
@@ -20793,11 +20816,12 @@ impl Game {
     }
 
     fn damage_cannot_be_prevented(&self, source: ObjectId) -> bool {
-        self.characteristics(source).is_ok_and(|characteristics| {
-            characteristics
-                .keywords
-                .contains(&Keyword::DamageCannotBePrevented)
-        })
+        self.damage_source_characteristics(source)
+            .is_some_and(|characteristics| {
+                characteristics
+                    .keywords
+                    .contains(&Keyword::DamageCannotBePrevented)
+            })
     }
 
     fn target_prevents_damage_from_colors(
@@ -22248,8 +22272,30 @@ impl Game {
     /// combat paths; a later source zone or keyword change cannot retroactively
     /// alter an already marked packet.
     fn source_has_deathtouch(&self, source: ObjectId) -> bool {
-        self.characteristics(source)
-            .is_ok_and(|characteristics| characteristics.keywords.contains(&Keyword::Deathtouch))
+        self.damage_source_characteristics(source)
+            .is_some_and(|characteristics| characteristics.keywords.contains(&Keyword::Deathtouch))
+    }
+
+    /// Returns the characteristics that rules use for an object acting as a
+    /// damage source. A current battlefield incarnation is authoritative. If
+    /// that source has already left, the immediately preceding incarnation's
+    /// pre-transition snapshot is its last-known information; reading the
+    /// current graveyard/exile incarnation would incorrectly discard effects
+    /// that applied only while it was a permanent.
+    fn damage_source_characteristics(&self, source: ObjectId) -> Option<Characteristics> {
+        if self.zone_of(source) == Some(Zone::Battlefield) {
+            return self.characteristics(source).ok();
+        }
+        let object = self.object(source).ok()?;
+        let prior_incarnation = object.incarnation.checked_sub(1)?;
+        self.last_known_characteristics
+            .get(&(source, prior_incarnation))
+            .cloned()
+            // A physical spell on the stack has a normal definition but no
+            // owner-zone membership. Its printed characteristics remain a
+            // useful fallback when it has no relevant earlier battlefield
+            // incarnation, while departed permanents always take the map.
+            .or_else(|| self.characteristics(source).ok())
     }
 
     fn deal_damage_to_player(
@@ -25969,6 +26015,7 @@ impl Game {
     /// before stack provenance is captured.
     fn move_to_stack(&mut self, card: ObjectId) -> Result<u64, RulesError> {
         self.object(card)?;
+        self.capture_last_known_characteristics(card)?;
         self.advance_object_incarnation(card)?;
         self.remove_from_all_zones(card);
         Ok(self.object(card)?.incarnation)
@@ -25989,6 +26036,25 @@ impl Game {
             .get_mut(&card)
             .ok_or(RulesError::UnknownCard(card))?
             .incarnation = incarnation;
+        Ok(())
+    }
+
+    /// Captures one exact object incarnation before its zone identity changes.
+    /// The entry is intentionally immutable: every later zone move receives a
+    /// new incarnation, so no newer rules object can overwrite the former
+    /// source facts retained by a still-pending spell or ability.
+    fn capture_last_known_characteristics(&mut self, card: ObjectId) -> Result<(), RulesError> {
+        let incarnation = self.object(card)?.incarnation;
+        let characteristics = self.characteristics(card)?;
+        if self
+            .last_known_characteristics
+            .insert((card, incarnation), characteristics)
+            .is_some()
+        {
+            return Err(RulesError::IllegalAction(
+                "last-known characteristics already exist for this incarnation",
+            ));
+        }
         Ok(())
     }
 
@@ -26123,6 +26189,7 @@ impl Game {
         };
         let advanced_incarnation = previous_zone != Some(zone);
         if advanced_incarnation {
+            self.capture_last_known_characteristics(card)?;
             self.advance_object_incarnation(card)?;
             // A cast permission belongs to one exact zone incarnation. Any
             // ordinary zone change revokes it before the new zone is exposed;
