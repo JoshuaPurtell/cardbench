@@ -6304,6 +6304,52 @@ impl Game {
                 "only the defending player may declare blockers",
             ));
         }
+        // Evasion and blocking requirements are checked now, after the
+        // post-attackers priority window.  These are deliberately not the
+        // attacker-declaration snapshots: an attacker can gain or lose a
+        // keyword before blockers are declared.
+        let mut blocker_flying_attackers = BTreeSet::new();
+        let mut blocker_fear_attackers = BTreeSet::new();
+        let mut blocker_black_evasion_attackers = BTreeSet::new();
+        let mut blocker_unblockable_attackers = BTreeSet::new();
+        let mut blocker_must_be_blocked_attackers = BTreeSet::new();
+        let mut blocker_landwalk_attackers = BTreeMap::<ObjectId, BTreeSet<BasicLandType>>::new();
+        for attacker in &combat.attackers {
+            self.require_zone(*attacker, Zone::Battlefield)?;
+            let characteristics = self.characteristics(*attacker)?;
+            if characteristics.keywords.contains(&Keyword::Flying) {
+                blocker_flying_attackers.insert(*attacker);
+            }
+            if characteristics.keywords.contains(&Keyword::Fear) {
+                blocker_fear_attackers.insert(*attacker);
+            }
+            if characteristics.keywords.contains(&Keyword::BlackEvasion) {
+                blocker_black_evasion_attackers.insert(*attacker);
+            }
+            if characteristics.keywords.contains(&Keyword::Unblockable) {
+                blocker_unblockable_attackers.insert(*attacker);
+            }
+            if characteristics
+                .keywords
+                .contains(&Keyword::MustBeBlockedIfAble)
+            {
+                blocker_must_be_blocked_attackers.insert(*attacker);
+            }
+            if characteristics.keywords.contains(&Keyword::Mountainwalk) {
+                blocker_landwalk_attackers
+                    .entry(*attacker)
+                    .or_default()
+                    .insert(BasicLandType::Mountain);
+            }
+            for keyword in &characteristics.keywords {
+                if let Keyword::Landwalk(land_type) = keyword {
+                    blocker_landwalk_attackers
+                        .entry(*attacker)
+                        .or_default()
+                        .insert(*land_type);
+                }
+            }
+        }
         let mut blocked_attackers = BTreeSet::new();
         let mut blockers = BTreeSet::new();
         let mut evasion_qualified_blockers = BTreeSet::new();
@@ -6316,7 +6362,7 @@ impl Game {
                 return Err(RulesError::IllegalAction("invalid blocker assignment"));
             }
             blocked_attackers.insert(assignment.attacker);
-            if combat.unblockable_attackers.contains(&assignment.attacker) {
+            if blocker_unblockable_attackers.contains(&assignment.attacker) {
                 return Err(RulesError::IllegalAction(
                     "unblockable attacker cannot be blocked",
                 ));
@@ -6344,7 +6390,7 @@ impl Game {
             {
                 return Err(RulesError::IllegalAction("illegal blocker"));
             }
-            if combat.flying_attackers.contains(&assignment.attacker) {
+            if blocker_flying_attackers.contains(&assignment.attacker) {
                 if !(characteristics.keywords.contains(&Keyword::Flying)
                     || characteristics.keywords.contains(&Keyword::Reach))
                 {
@@ -6354,7 +6400,7 @@ impl Game {
                 }
                 evasion_qualified_blockers.insert(assignment.blocker);
             }
-            if combat.fear_attackers.contains(&assignment.attacker)
+            if blocker_fear_attackers.contains(&assignment.attacker)
                 && !characteristics.card_types.contains(&CardType::Artifact)
                 && !characteristics.colors.contains(&Color::Black)
             {
@@ -6362,26 +6408,20 @@ impl Game {
                     "fear attacker can be blocked only by black or artifact creatures",
                 ));
             }
-            if combat.fear_attackers.contains(&assignment.attacker) {
+            if blocker_fear_attackers.contains(&assignment.attacker) {
                 fear_qualified_blockers.insert(assignment.blocker);
             }
-            if combat
-                .black_evasion_attackers
-                .contains(&assignment.attacker)
+            if blocker_black_evasion_attackers.contains(&assignment.attacker)
                 && !characteristics.colors.contains(&Color::Black)
             {
                 return Err(RulesError::IllegalAction(
                     "black-only evasion attacker can be blocked only by black creatures",
                 ));
             }
-            if combat
-                .black_evasion_attackers
-                .contains(&assignment.attacker)
-            {
+            if blocker_black_evasion_attackers.contains(&assignment.attacker) {
                 black_evasion_qualified_blockers.insert(assignment.blocker);
             }
-            if combat
-                .landwalk_attackers
+            if blocker_landwalk_attackers
                 .get(&assignment.attacker)
                 .is_some_and(|land_types| {
                     land_types
@@ -6394,11 +6434,11 @@ impl Game {
                 ));
             }
         }
-        for attacker in &combat.must_be_blocked_attackers {
+        for attacker in &blocker_must_be_blocked_attackers {
             if blocked_attackers.contains(attacker) {
                 continue;
             }
-            if combat.unblockable_attackers.contains(attacker) {
+            if blocker_unblockable_attackers.contains(attacker) {
                 continue;
             }
             let has_legal_blocker = self.players[player.0].battlefield.iter().any(|candidate| {
@@ -6428,18 +6468,18 @@ impl Game {
                 {
                     return false;
                 }
-                if combat.flying_attackers.contains(attacker)
+                if blocker_flying_attackers.contains(attacker)
                     && !(characteristics.keywords.contains(&Keyword::Flying)
                         || characteristics.keywords.contains(&Keyword::Reach))
                 {
                     return false;
                 }
-                if combat.black_evasion_attackers.contains(attacker)
+                if blocker_black_evasion_attackers.contains(attacker)
                     && !characteristics.colors.contains(&Color::Black)
                 {
                     return false;
                 }
-                if combat.fear_attackers.contains(attacker)
+                if blocker_fear_attackers.contains(attacker)
                     && !characteristics.card_types.contains(&CardType::Artifact)
                     && !characteristics.colors.contains(&Color::Black)
                 {
@@ -6489,6 +6529,16 @@ impl Game {
         combat.evasion_qualified_blockers = evasion_qualified_blockers;
         combat.fear_qualified_blockers = fear_qualified_blockers;
         combat.black_evasion_qualified_blockers = black_evasion_qualified_blockers;
+        // These stores are declaration provenance for the completed blocker
+        // action, not stale attacker-declaration characteristics.  The
+        // invariant uses them to audit the qualifying blocker sets until
+        // combat ends; later keyword changes are not retroactive.
+        combat.flying_attackers = blocker_flying_attackers;
+        combat.fear_attackers = blocker_fear_attackers;
+        combat.black_evasion_attackers = blocker_black_evasion_attackers;
+        combat.unblockable_attackers = blocker_unblockable_attackers;
+        combat.must_be_blocked_attackers = blocker_must_be_blocked_attackers;
+        combat.landwalk_attackers = blocker_landwalk_attackers;
         combat.blockers_declared = true;
         self.record_event(GameEvent::BlockersDeclared {
             player,
