@@ -190,9 +190,11 @@ fn returned_source_cannot_replace_its_old_deathtouch_damage_identity() {
         power: None,
         toughness: None,
         keywords: vec![],
-        effects: vec![Effect::ReturnTargetCreatureCardToBattlefieldWithCounterIfManaColorSpent {
-            color: Color::Red,
-        }],
+        effects: vec![
+            Effect::ReturnTargetCreatureCardToBattlefieldWithCounterIfManaColorSpent {
+                color: Color::Red,
+            },
+        ],
     };
     let forest_definition = CardDefinition {
         id: FOREST,

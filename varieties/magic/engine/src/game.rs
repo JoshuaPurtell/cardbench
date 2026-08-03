@@ -16274,14 +16274,16 @@ impl Game {
                             "paid optional trigger is missing its conditional target",
                         ))?;
                         match selected {
-                            Target::Player(player) => self.deal_damage_to_player(
+                            Target::Player(player) => self.deal_damage_to_player_for_incarnation(
                                 stack_object.card,
+                                stack_object.source_incarnation,
                                 player,
                                 i32::from(*amount),
                             )?,
                             Target::Permanent(permanent) => self
-                                .deal_damage_to_permanent_from_colors(
+                                .deal_damage_to_permanent_from_colors_for_incarnation(
                                     stack_object.card,
+                                    stack_object.source_incarnation,
                                     &stack_object.source_colors,
                                     permanent,
                                     i32::from(*amount),
@@ -20828,13 +20830,23 @@ impl Game {
             .expect("life-gain trigger flush follows a valid rules transition");
     }
 
-    fn damage_cannot_be_prevented(&self, source: ObjectId) -> bool {
-        self.damage_source_characteristics(source)
+    fn damage_cannot_be_prevented_for_incarnation(
+        &self,
+        source: ObjectId,
+        source_incarnation: u64,
+    ) -> bool {
+        self.damage_source_characteristics(source, source_incarnation)
             .is_some_and(|characteristics| {
                 characteristics
                     .keywords
                     .contains(&Keyword::DamageCannotBePrevented)
             })
+    }
+
+    fn damage_cannot_be_prevented(&self, source: ObjectId) -> bool {
+        self.object(source).is_ok_and(|object| {
+            self.damage_cannot_be_prevented_for_incarnation(source, object.incarnation)
+        })
     }
 
     fn target_prevents_damage_from_colors(
@@ -20962,7 +20974,8 @@ impl Game {
             return Ok(Vec::new());
         }
         let mut candidates = self.damage_amount_replacement_candidates(target, used)?;
-        let prevention_allowed = !self.damage_cannot_be_prevented(source);
+        let prevention_allowed = !self
+            .damage_cannot_be_prevented_for_incarnation(source, self.object(source)?.incarnation);
         match target {
             Target::Permanent(permanent) => {
                 candidates.extend(self.attached_damage_redirection_candidates(permanent, used)?);
@@ -21384,7 +21397,12 @@ impl Game {
             )?;
             match candidates.as_slice() {
                 [] => {
-                    self.commit_damage_event(pending.source, pending.target, pending.amount)?;
+                    self.commit_damage_event_for_incarnation(
+                        pending.source,
+                        pending.source_incarnation,
+                        pending.target,
+                        pending.amount,
+                    )?;
                     if !self.advance_to_deferred_damage_packet(&mut pending)? {
                         return Ok(None);
                     }
@@ -21419,9 +21437,10 @@ impl Game {
         Ok(true)
     }
 
-    fn commit_damage_event(
+    fn commit_damage_event_for_incarnation(
         &mut self,
         source: ObjectId,
+        source_incarnation: u64,
         target: Target,
         amount: i32,
     ) -> Result<(), RulesError> {
@@ -21440,7 +21459,8 @@ impl Game {
                 self.enqueue_damage_triggers(source, amount)?;
             }
             Target::Permanent(permanent) => {
-                let deathtouch_damage = self.source_has_deathtouch(source);
+                let deathtouch_damage =
+                    self.source_has_deathtouch_for_incarnation(source, source_incarnation);
                 self.objects
                     .get_mut(&permanent)
                     .ok_or(RulesError::UnknownCard(permanent))?
@@ -21679,6 +21699,7 @@ impl Game {
     fn apply_automatic_damage_amount_replacements(
         &mut self,
         source: ObjectId,
+        source_incarnation: u64,
         target: Target,
         amount: i32,
     ) -> Result<i32, RulesError> {
@@ -21693,7 +21714,7 @@ impl Game {
         else {
             return Ok(amount);
         };
-        let source_object = self
+        let controller = self
             .objects
             .get(&source)
             .or_else(|| {
@@ -21701,11 +21722,12 @@ impl Game {
                     .get(&source)
                     .and_then(|copy| self.objects.get(&copy.original))
             })
-            .ok_or(RulesError::UnknownCard(source))?;
+            .ok_or(RulesError::UnknownCard(source))?
+            .controller;
         let mut pending = PendingDamageReplacementChoice {
             source,
-            source_incarnation: source_object.incarnation,
-            controller: source_object.controller,
+            source_incarnation,
+            controller,
             affected_player: self.affected_player_for_damage_target(target)?,
             original_target: target,
             target,
@@ -21735,7 +21757,14 @@ impl Game {
         amount: i32,
     ) -> Result<(), RulesError> {
         let source_colors = self.characteristics(source)?.colors;
-        self.deal_damage_to_permanent_from_colors(source, &source_colors, permanent, amount)
+        let source_incarnation = self.object(source)?.incarnation;
+        self.deal_damage_to_permanent_from_colors_for_incarnation(
+            source,
+            source_incarnation,
+            &source_colors,
+            permanent,
+            amount,
+        )
     }
 
     /// Commits one combat-damage assignment and captures every final creature
@@ -22000,7 +22029,8 @@ impl Game {
             return Ok(());
         }
         let event_start = self.event_log.len();
-        self.commit_damage_event(source, target, amount)?;
+        let source_incarnation = self.object(source)?.incarnation;
+        self.commit_damage_event_for_incarnation(source, source_incarnation, target, amount)?;
         if let Target::Permanent(permanent) = target {
             let dealt = self.event_log[event_start..].iter().any(|event| {
                 matches!(
@@ -22142,9 +22172,10 @@ impl Game {
     }
 
     #[allow(clippy::too_many_lines)] // Damage replacement and receipt ordering share one transaction.
-    fn deal_damage_to_permanent_from_colors(
+    fn deal_damage_to_permanent_from_colors_for_incarnation(
         &mut self,
         source: ObjectId,
+        source_incarnation: u64,
         source_colors: &BTreeSet<Color>,
         permanent: ObjectId,
         amount: i32,
@@ -22167,7 +22198,12 @@ impl Game {
                 to: Target::Player(destination),
                 amount,
             });
-            return self.deal_damage_to_player(source, destination, amount);
+            return self.deal_damage_to_player_for_incarnation(
+                source,
+                source_incarnation,
+                destination,
+                amount,
+            );
         }
         let redirect_index = self
             .damage_redirections
@@ -22189,11 +22225,17 @@ impl Game {
                 });
                 match destination {
                     Target::Player(player) => {
-                        self.deal_damage_to_player(source, player, redirected)?;
+                        self.deal_damage_to_player_for_incarnation(
+                            source,
+                            source_incarnation,
+                            player,
+                            redirected,
+                        )?;
                     }
                     Target::Permanent(target) => {
-                        self.deal_damage_to_permanent_from_colors(
+                        self.deal_damage_to_permanent_from_colors_for_incarnation(
                             source,
+                            source_incarnation,
                             source_colors,
                             target,
                             redirected,
@@ -22215,8 +22257,9 @@ impl Game {
                 if self.damage_redirections[index].remaining == 0 {
                     self.damage_redirections.remove(index);
                 }
-                return self.deal_damage_to_permanent_from_colors(
+                return self.deal_damage_to_permanent_from_colors_for_incarnation(
                     source,
+                    source_incarnation,
                     source_colors,
                     permanent,
                     amount - redirected,
@@ -22226,25 +22269,27 @@ impl Game {
         }
         let amount = self.apply_automatic_damage_amount_replacements(
             source,
+            source_incarnation,
             Target::Permanent(permanent),
             amount,
         )?;
-        let (prevented, consumes_shield) = if self.damage_cannot_be_prevented(source) {
-            (0, false)
-        } else if self.target_prevents_damage_from_colors(permanent, source_colors)
-            || self.target_prevents_damage_from_controlled_source(source, permanent)
-        {
-            (amount, false)
-        } else {
-            let targeted =
-                self.consume_damage_prevention_shield(Target::Permanent(permanent), amount);
-            if targeted > 0 {
-                (targeted, false)
+        let (prevented, consumes_shield) =
+            if self.damage_cannot_be_prevented_for_incarnation(source, source_incarnation) {
+                (0, false)
+            } else if self.target_prevents_damage_from_colors(permanent, source_colors)
+                || self.target_prevents_damage_from_controlled_source(source, permanent)
+            {
+                (amount, false)
             } else {
-                let object = self.object(permanent)?;
-                (amount.min(object.damage_shield), true)
-            }
-        };
+                let targeted =
+                    self.consume_damage_prevention_shield(Target::Permanent(permanent), amount);
+                if targeted > 0 {
+                    (targeted, false)
+                } else {
+                    let object = self.object(permanent)?;
+                    (amount.min(object.damage_shield), true)
+                }
+            };
         if prevented > 0 {
             if consumes_shield {
                 self.objects
@@ -22260,7 +22305,8 @@ impl Game {
         }
         let remaining = amount - prevented;
         if remaining > 0 {
-            let deathtouch_damage = self.source_has_deathtouch(source);
+            let deathtouch_damage =
+                self.source_has_deathtouch_for_incarnation(source, source_incarnation);
             self.objects
                 .get_mut(&permanent)
                 .ok_or(RulesError::UnknownCard(permanent))?
@@ -22284,8 +22330,12 @@ impl Game {
     /// That is enough for the current expansion-neutral direct-damage and
     /// combat paths; a later source zone or keyword change cannot retroactively
     /// alter an already marked packet.
-    fn source_has_deathtouch(&self, source: ObjectId) -> bool {
-        self.damage_source_characteristics(source)
+    fn source_has_deathtouch_for_incarnation(
+        &self,
+        source: ObjectId,
+        source_incarnation: u64,
+    ) -> bool {
+        self.damage_source_characteristics(source, source_incarnation)
             .is_some_and(|characteristics| characteristics.keywords.contains(&Keyword::Deathtouch))
     }
 
@@ -22295,38 +22345,39 @@ impl Game {
     /// pre-transition snapshot is its last-known information; reading the
     /// current graveyard/exile incarnation would incorrectly discard effects
     /// that applied only while it was a permanent.
-    fn damage_source_characteristics(&self, source: ObjectId) -> Option<Characteristics> {
-        if self.zone_of(source) == Some(Zone::Battlefield) {
+    fn damage_source_characteristics(
+        &self,
+        source: ObjectId,
+        source_incarnation: u64,
+    ) -> Option<Characteristics> {
+        let object = self.object(source).ok()?;
+        if object.incarnation == source_incarnation {
             return self.characteristics(source).ok();
         }
-        let object = self.object(source).ok()?;
-        let prior_incarnation = object.incarnation.checked_sub(1)?;
         self.last_known_characteristics
-            .get(&(source, prior_incarnation))
+            .get(&(source, source_incarnation))
             .cloned()
-            // A physical spell on the stack has a normal definition but no
-            // owner-zone membership. Its printed characteristics remain a
-            // useful fallback when it has no relevant earlier battlefield
-            // incarnation, while departed permanents always take the map.
-            .or_else(|| self.characteristics(source).ok())
     }
 
-    fn deal_damage_to_player(
+    fn deal_damage_to_player_for_incarnation(
         &mut self,
         source: ObjectId,
+        source_incarnation: u64,
         player: PlayerId,
         amount: i32,
     ) -> Result<(), RulesError> {
         let amount = self.apply_automatic_damage_amount_replacements(
             source,
+            source_incarnation,
             Target::Player(player),
             amount,
         )?;
-        let prevented = if self.damage_cannot_be_prevented(source) {
-            0
-        } else {
-            self.consume_damage_prevention_shield(Target::Player(player), amount)
-        };
+        let prevented =
+            if self.damage_cannot_be_prevented_for_incarnation(source, source_incarnation) {
+                0
+            } else {
+                self.consume_damage_prevention_shield(Target::Player(player), amount)
+            };
         if prevented > 0 {
             self.record_event(GameEvent::DamagePrevented {
                 source,
@@ -22345,6 +22396,16 @@ impl Game {
             self.enqueue_damage_triggers(source, remaining)?;
         }
         Ok(())
+    }
+
+    fn deal_damage_to_player(
+        &mut self,
+        source: ObjectId,
+        player: PlayerId,
+        amount: i32,
+    ) -> Result<(), RulesError> {
+        let source_incarnation = self.object(source)?.incarnation;
+        self.deal_damage_to_player_for_incarnation(source, source_incarnation, player, amount)
     }
 
     #[allow(clippy::too_many_lines)] // Effect dispatch stays centralized so stack resolution has one rules path.
@@ -22383,11 +22444,17 @@ impl Game {
                 .ok_or(RulesError::IllegalAction("missing damage target"))?
             {
                 Target::Player(player) => {
-                    self.deal_damage_to_player(source, player, i32::from(*amount))?;
+                    self.deal_damage_to_player_for_incarnation(
+                        source,
+                        source_incarnation,
+                        player,
+                        i32::from(*amount),
+                    )?;
                 }
                 Target::Permanent(permanent) => {
-                    self.deal_damage_to_permanent_from_colors(
+                    self.deal_damage_to_permanent_from_colors_for_incarnation(
                         source,
+                        source_incarnation,
                         source_colors,
                         permanent,
                         i32::from(*amount),
@@ -22718,11 +22785,17 @@ impl Game {
                 if amount != 0 {
                     match target.ok_or(RulesError::IllegalAction("missing damage target"))? {
                         Target::Player(player) => {
-                            self.deal_damage_to_player(source, player, amount)?;
+                            self.deal_damage_to_player_for_incarnation(
+                                source,
+                                source_incarnation,
+                                player,
+                                amount,
+                            )?;
                         }
                         Target::Permanent(permanent) => {
-                            self.deal_damage_to_permanent_from_colors(
+                            self.deal_damage_to_permanent_from_colors_for_incarnation(
                                 source,
+                                source_incarnation,
                                 source_colors,
                                 permanent,
                                 amount,
@@ -22750,7 +22823,12 @@ impl Game {
                 }
             }
             Effect::DealDamageController { amount } => {
-                self.deal_damage_to_player(source, controller, i32::from(*amount))?;
+                self.deal_damage_to_player_for_incarnation(
+                    source,
+                    source_incarnation,
+                    controller,
+                    i32::from(*amount),
+                )?;
             }
             Effect::DealDamageAfterOptionalManaPayment { amount, target } => {
                 let Some(selected) = self.select_trigger_targets(source, controller, &[*target])
@@ -22762,11 +22840,17 @@ impl Game {
                 };
                 match selected {
                     Target::Player(player) => {
-                        self.deal_damage_to_player(source, player, i32::from(*amount))?;
+                        self.deal_damage_to_player_for_incarnation(
+                            source,
+                            source_incarnation,
+                            player,
+                            i32::from(*amount),
+                        )?;
                     }
                     Target::Permanent(permanent) => {
-                        self.deal_damage_to_permanent_from_colors(
+                        self.deal_damage_to_permanent_from_colors_for_incarnation(
                             source,
+                            source_incarnation,
                             source_colors,
                             permanent,
                             i32::from(*amount),
@@ -22919,8 +23003,9 @@ impl Game {
                     })
                     .collect::<Vec<_>>();
                 for creature in creatures {
-                    self.deal_damage_to_permanent_from_colors(
+                    self.deal_damage_to_permanent_from_colors_for_incarnation(
                         source,
+                        source_incarnation,
                         source_colors,
                         creature,
                         i32::from(*amount),
@@ -22931,7 +23016,12 @@ impl Game {
                         continue;
                     }
                     let player = PlayerId(player);
-                    self.deal_damage_to_player(source, player, i32::from(*amount))?;
+                    self.deal_damage_to_player_for_incarnation(
+                        source,
+                        source_incarnation,
+                        player,
+                        i32::from(*amount),
+                    )?;
                 }
             }
             Effect::DealDamageToEachPlayer { amount } => {
@@ -22939,7 +23029,12 @@ impl Game {
                     if self.players[player].lost {
                         continue;
                     }
-                    self.deal_damage_to_player(source, PlayerId(player), i32::from(*amount))?;
+                    self.deal_damage_to_player_for_incarnation(
+                        source,
+                        source_incarnation,
+                        PlayerId(player),
+                        i32::from(*amount),
+                    )?;
                 }
             }
             Effect::DealDamageToEachNonFlyingCreature { amount } => {
@@ -22955,8 +23050,9 @@ impl Game {
                     })
                     .collect::<Vec<_>>();
                 for creature in creatures {
-                    self.deal_damage_to_permanent_from_colors(
+                    self.deal_damage_to_permanent_from_colors_for_incarnation(
                         source,
+                        source_incarnation,
                         source_colors,
                         creature,
                         i32::from(*amount),
@@ -22969,8 +23065,9 @@ impl Game {
                 // after the complete spell resolves, so every selected
                 // creature receives this effect's damage in the same batch.
                 for candidate in self.radiance_creatures_sharing_color(target)? {
-                    self.deal_damage_to_permanent_from_colors(
+                    self.deal_damage_to_permanent_from_colors_for_incarnation(
                         source,
+                        source_incarnation,
                         source_colors,
                         candidate,
                         i32::from(*amount),
@@ -23547,7 +23644,12 @@ impl Game {
                             ))?;
                     if power > 0 {
                         let creature_controller = self.controller_of(creature)?;
-                        self.deal_damage_to_player(source, creature_controller, power)?;
+                        self.deal_damage_to_player_for_incarnation(
+                            source,
+                            source_incarnation,
+                            creature_controller,
+                            power,
+                        )?;
                     }
                 }
             }
