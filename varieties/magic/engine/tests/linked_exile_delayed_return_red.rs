@@ -10,8 +10,8 @@ use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
     AbilityActivation, ActivatedAbility, ActivatedAbilityBinding, CardDefinition, CardType,
-    CastRequest, ContinuousChange, Effect, Game, ManaCost, PlayerId, Target,
-    TargetRequirement, Zone,
+    CastRequest, ContinuousChange, Effect, Game, ManaCost, PlayerId, Target, TargetRequirement,
+    Zone,
 };
 
 const CREATURE: &str = "TST-LINKED-CREATURE";

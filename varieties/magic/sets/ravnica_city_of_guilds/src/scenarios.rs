@@ -863,10 +863,16 @@ fn execute_action(
             let selected = (!action.found.is_empty())
                 .then(|| lookup(labels, &action.found))
                 .transpose()?;
+            let decision = game
+                .view_for_player(player)
+                .map_err(rules_error)?
+                .pending_decision
+                .ok_or_else(|| "no triggered-effect-object decision is pending".to_owned())?;
             game.submit_policy_move(
                 player,
                 "rav-scenario.choose-trigger-effect-object.v1",
                 cardbench_magic_engine::PolicyAction::ChooseTriggeredAbilityEffectObject {
+                    decision: decision.id,
                     source,
                     ability: ability_id,
                     selected,

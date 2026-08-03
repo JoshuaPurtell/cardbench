@@ -4,8 +4,8 @@ use cardbench_magic_engine::{CastRequest, Color, Game, GameEvent, PlayerId, Step
 use cardbench_magic_rav::{
     RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, rav_activated_ability_bindings,
     rav_additional_spell_cost_bindings, rav_attachment_bindings, rav_basic_land_type_bindings,
-    rav_mana_ability_bindings,
-    rav_static_entry_restriction_bindings, rav_triggered_ability_bindings,
+    rav_mana_ability_bindings, rav_static_entry_restriction_bindings,
+    rav_triggered_ability_bindings,
 };
 
 fn game_with_rav_triggers() -> Game {
