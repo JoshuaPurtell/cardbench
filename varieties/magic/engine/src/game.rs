@@ -25093,6 +25093,7 @@ impl Game {
     /// the public `StepBegan` receipt and before either player receives
     /// priority, which preserves both ordinary controller-upkeep and
     /// owner-graveyard trigger windows at the state-machine boundary.
+    #[allow(clippy::too_many_lines)]
     fn enqueue_upkeep_triggers(&mut self) -> Result<(), RulesError> {
         let active_player = self.active_player;
         let sources = self.all_battlefield_cards().into_iter().collect::<Vec<_>>();
