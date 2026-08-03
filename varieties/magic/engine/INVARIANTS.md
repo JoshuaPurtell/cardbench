@@ -1769,7 +1769,10 @@ Oracle Magic rules coverage.
   follows its matching private `DecisionOpened`, and matching
   `DecisionCompleted` must precede one identity-free
   `PrivateTargetPlayerLibraryReordered { inspected }` receipt and the normal
-  terminal spell lifecycle. Candidate identities and submitted order never
+  terminal spell lifecycle. A virtual copied reorder spell follows the same
+  private snapshot and partition rules, but ends only with
+  `SpellCopyResolved`; it never emits `SpellResolved` or attempts a physical
+  card-zone transition for its stack-only identity. Candidate identities and submitted order never
   enter the target player's view or the public event log.
 - A `Permanent` target is a current battlefield object, never a player or a
   card in another zone. A permanent-bounce instruction snapshots the target's
@@ -2138,6 +2141,10 @@ Oracle Magic rules coverage.
   LibraryReordered → SpellCopyResolved` lifecycle removes only stack/copy
   provenance. The selected order is committed atomically before the terminal
   copy receipt, and never authorizes a physical zone move for the virtual id.
+- The same terminal rule applies to a virtual copy's private
+  `TargetPlayerLibraryTopReorder` decision. Its private target-library order
+  is committed before `SpellCopyResolved`; neither `SpellResolved` nor a
+  physical terminal-zone move may name the virtual source.
 - A virtual copy's private `LibraryTopPartition` completion follows that
   exact terminal boundary after its private hand/top/bottom movements. The
   hidden selected identities remain absent from public receipts except for
