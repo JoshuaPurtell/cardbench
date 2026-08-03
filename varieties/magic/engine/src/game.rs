@@ -19887,6 +19887,31 @@ impl Game {
         self.resolve_top_of_stack_with_optional_decision(None, None, None)
     }
 
+    /// Checks the CR 608.2b all-illegal-target boundary without changing the
+    /// stack. Optional triggered abilities need this before offering their
+    /// payment choice: an ability with no legal targets is countered rather
+    /// than resolving far enough to ask whether its controller will pay.
+    fn stack_item_targets_all_illegal(
+        &self,
+        stack_object: &StackObject,
+    ) -> Result<bool, RulesError> {
+        let mut target_index = 0;
+        let plan = stack_object
+            .resolution_plan(|target, requirement| {
+                let occurrence = target_index;
+                target_index += 1;
+                self.stack_target_incarnation_matches(stack_object, occurrence, target)
+                    && self.target_matches_for_colors(
+                        stack_object.controller,
+                        target,
+                        requirement,
+                        &stack_object.source_colors,
+                    )
+            })
+            .map_err(|_| RulesError::IllegalAction("stack object has an invalid target count"))?;
+        Ok(matches!(plan, StackResolutionPlan::CounteredByRules))
+    }
+
     #[allow(clippy::too_many_lines)] // Spell and activated-ability resolution share one audited path.
     fn resolve_top_of_stack_with_optional_decision(
         &mut self,
@@ -19921,6 +19946,7 @@ impl Game {
                             )
                         })
                 })
+                && !self.stack_item_targets_all_illegal(top)?
         {
             let source = top.card;
             let source_incarnation = top.source_incarnation;
