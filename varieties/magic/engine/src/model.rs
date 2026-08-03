@@ -3383,6 +3383,10 @@ pub struct CardObject {
     /// it has Haste.
     pub controller_changed_turn: u32,
     pub token: Option<TokenSpec>,
+    /// A layer-one entry-time characteristic choice for this exact physical
+    /// card incarnation. Ordinary zone changes clear it, while copy effects
+    /// retain it through [`CopiableValues`].
+    pub entry_characteristic_override: Option<EntryCharacteristicOverride>,
     /// A layer-one copy snapshot currently applied to this battlefield
     /// incarnation.  It deliberately contains copiable values only: marked
     /// damage, counters, attachments, controller, tapped state, and ordinary
@@ -3399,6 +3403,13 @@ pub enum CopiableValues {
     /// already copying.  Definition-bound abilities are consequently copied
     /// without cloning executable closures or borrowing live source state.
     CardDefinition(&'static str),
+    /// A card definition whose current copiable values include an entry-time
+    /// characteristic choice. The selected values are copied exactly; they do
+    /// not cause another entry-time randomization on the copying permanent.
+    CardDefinitionWithEntryCharacteristicOverride {
+        definition: &'static str,
+        entry_characteristic_override: EntryCharacteristicOverride,
+    },
     /// A token's creation specification.  Copying this into a card changes
     /// its characteristics but does not turn that card into a token.
     Token(TokenSpec),
@@ -3426,7 +3437,9 @@ impl CardObject {
     pub fn effective_definition(&self) -> Option<&'static str> {
         match &self.copied_permanent {
             Some(CopiedPermanent {
-                values: CopiableValues::CardDefinition(definition),
+                values:
+                    CopiableValues::CardDefinition(definition)
+                    | CopiableValues::CardDefinitionWithEntryCharacteristicOverride { definition, .. },
                 ..
             }) => Some(*definition),
             Some(CopiedPermanent {
@@ -3789,6 +3802,29 @@ pub enum StaticEntryRestriction {
 pub struct StaticEntryRestrictionBinding {
     pub card_definition: &'static str,
     pub restriction: StaticEntryRestriction,
+}
+
+/// A permanent's copiable characteristics chosen while it enters the
+/// battlefield. This is object-local layer-one state: it is neither a
+/// temporary continuous effect nor an after-entry trigger.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EntryCharacteristicOverride {
+    pub power: i16,
+    pub toughness: i16,
+    pub keywords: Vec<Keyword>,
+}
+
+/// Immutable expansion data for one deterministic entry-time coin flip.
+///
+/// The engine records the result in the public event log and stores the
+/// selected characteristics on that exact permanent incarnation. A copy of
+/// the resulting permanent consequently copies the selected values rather
+/// than rolling again.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EntryCoinFlipBinding {
+    pub card_definition: &'static str,
+    pub heads: EntryCharacteristicOverride,
+    pub tails: EntryCharacteristicOverride,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -5031,6 +5067,17 @@ pub enum GameEvent {
         controller: PlayerId,
         source: ObjectId,
         source_incarnation: u64,
+    },
+    /// A registered entry-time coin flip selected one exact copiable
+    /// characteristic shape for the entering permanent. The outcome remains
+    /// public, while the selected values are read through ordinary
+    /// `Game::characteristics` and copied through `CopiableValues`.
+    PermanentEntryCoinFlipped {
+        permanent: ObjectId,
+        permanent_incarnation: u64,
+        controller: PlayerId,
+        source_definition: &'static str,
+        heads: bool,
     },
     /// A player elected to pay life as a land entered. The following ordinary
     /// battlefield transition is retained as a separate receipt so replay can

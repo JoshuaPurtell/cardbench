@@ -13510,3 +13510,42 @@ priority = 0
 mana = ["0:red:0"]
 event_markers = ["SpellCast", "AttachmentEstablishedWithoutContinuousEffect", "SpellResolved", "TriggeredAbilityStacked", "SacrificedByEffect", "AbilityResolved"]
 digest = "fnv1a64:d4fb470b065c76d5"
+
+[[scenario]]
+id = "rav_molten_sentry_entry_coin_flip"
+seed = 0
+description = "Cast Molten Sentry with a deterministic entry coin seed and retain the selected hasty 5/2 copiable shape through the ordinary permanent-resolution boundary."
+
+[[scenario.card]]
+label = "sentry"
+owner = 0
+definition = "RAV-MOLTEN-SENTRY"
+zone = "hand"
+
+[[scenario.mana]]
+player = 0
+color = "red"
+amount = 4
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "sentry"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["sentry:battlefield"]
+powers = ["sentry:5"]
+toughnesses = ["sentry:2"]
+mana = ["0:red:0"]
+stack_size = 0
+priority = 0
+event_markers = ["SpellCast", "PermanentEntryCoinFlipped", "SpellResolved"]
+digest = "fnv1a64:f938dd3eb8717ddb"

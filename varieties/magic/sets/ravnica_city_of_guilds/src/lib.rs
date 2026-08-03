@@ -29,12 +29,13 @@ use cardbench_magic_engine::{
     BasicLandTypeBinding, CardDefinition, CardType, CastRequest, Color, ContinuousChange,
     ConvokeContribution, ConvokePayment, CostReductionBinding, CounterKind, CreatureSubtype,
     DamageReplacementEffect, DamageReplacementEffectBinding, DeckEntry, DeckList, DeckRules,
-    Effect, EntryCopyBinding, Game, GeneralizedActivatedAbilityCost, HybridManaSymbol, Keyword,
-    LandEntryBinding, LegendaryPermanentBinding, LibrarySearchCardinality,
-    LibrarySearchDestination, LibrarySearchRequirement, LibrarySearchSelection, ManaAbilityBinding,
-    ManaAbilityCostBinding, ManaAbilityOutput, ManaBundle, ManaCost, PlayerId, ReplacementEffect,
-    ReplacementEffectBinding, RulesError, SharedKeywordFamily, StaticAttackRestriction,
-    StaticAttackRestrictionBinding, StaticContinuousEffectBinding, StaticCreatureSpellCostModifier,
+    Effect, EntryCharacteristicOverride, EntryCoinFlipBinding, EntryCopyBinding, Game,
+    GeneralizedActivatedAbilityCost, HybridManaSymbol, Keyword, LandEntryBinding,
+    LegendaryPermanentBinding, LibrarySearchCardinality, LibrarySearchDestination,
+    LibrarySearchRequirement, LibrarySearchSelection, ManaAbilityBinding, ManaAbilityCostBinding,
+    ManaAbilityOutput, ManaBundle, ManaCost, PlayerId, ReplacementEffect, ReplacementEffectBinding,
+    RulesError, SharedKeywordFamily, StaticAttackRestriction, StaticAttackRestrictionBinding,
+    StaticContinuousEffectBinding, StaticCreatureSpellCostModifier,
     StaticCreatureSpellCostModifierBinding, StaticEntryRestriction, StaticEntryRestrictionBinding,
     StaticLibraryTopRevealBinding, Target, TargetRequirement, TokenSpec, TriggerCondition,
     TriggeredAbility, TriggeredAbilityBinding, Zone,
@@ -45,7 +46,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 269] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 270] = [
     "RAV-CHAR",
     "RAV-AGRUS-KOS-WOJEK-VETERAN",
     "RAV-INSTILL-FUROR",
@@ -193,6 +194,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 269] = [
     "RAV-SUNHOME-ENFORCER",
     "RAV-ORDRUUN-COMMANDO",
     "RAV-INDENTURED-OAF",
+    "RAV-MOLTEN-SENTRY",
     "RAV-EXCRUCIATOR",
     "RAV-LOXODON-HIERARCH",
     "RAV-PHYTOHYDRA",
@@ -5154,6 +5156,28 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::PreventDamageFromColor(Color::Red)],
             effects: vec![],
         },
+        // Full fidelity: an entry-time deterministic coin outcome selects
+        // one persistent copiable P/T and keyword shape before state-based
+        // actions or ETB triggers observe this creature.
+        CardDefinition {
+            id: "RAV-MOLTEN-SENTRY",
+            name: "Molten Sentry",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(3, [Color::Red]),
+            colors: colors([Color::Red]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "entry-coin-flip-copiable-characteristics",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![],
+        },
         // Full-fidelity scope: colored-cost creature casting, base
         // characteristics, Defender, and the three-land activation.
         CardDefinition {
@@ -8562,6 +8586,26 @@ pub fn rav_entry_copy_bindings() -> Vec<EntryCopyBinding> {
     }]
 }
 
+/// Deterministic entry-time coin-flip replacements supplied by RAV. Each
+/// selected characteristic shape is stored as layer-one values of the entrant,
+/// so later copies inherit that result without consuming another coin flip.
+#[must_use]
+pub fn rav_entry_coin_flip_bindings() -> Vec<EntryCoinFlipBinding> {
+    vec![EntryCoinFlipBinding {
+        card_definition: "RAV-MOLTEN-SENTRY",
+        heads: EntryCharacteristicOverride {
+            power: 5,
+            toughness: 2,
+            keywords: vec![Keyword::Haste],
+        },
+        tails: EntryCharacteristicOverride {
+            power: 2,
+            toughness: 5,
+            keywords: vec![Keyword::Defender],
+        },
+    }]
+}
+
 /// Legendary-supertype metadata for executable RAV permanents. This registry
 /// intentionally tracks layer-one definition values so Followed Footsteps and
 /// other copy effects preserve the legend rule without naming card identities
@@ -10453,6 +10497,7 @@ fn fresh_game() -> Result<Game, RulesError> {
     )?;
     game.register_attachment_bindings(rav_attachment_bindings())?;
     game.register_entry_copy_bindings(rav_entry_copy_bindings())?;
+    game.register_entry_coin_flip_bindings(rav_entry_coin_flip_bindings())?;
     game.register_legendary_permanent_bindings(rav_legendary_permanent_bindings())?;
     game.register_static_entry_restriction_bindings(rav_static_entry_restriction_bindings())?;
     game.register_mana_ability_cost_bindings(rav_mana_ability_cost_bindings())?;

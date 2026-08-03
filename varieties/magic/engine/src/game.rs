@@ -17,12 +17,13 @@ use crate::{
     DamageReplacementEffect, DamageReplacementEffectBinding, DamageReplacementPacket,
     DecisionContinuation, DecisionId, DecisionKind, DecisionOption, DecisionSelection,
     DecisionVisibility, DeckList, DelayedAction, DelayedActionId, DelayedActionKind,
-    DelayedActionTiming, Duration, Effect, EntryCopyBinding, EntryCopySnapshot, GameEvent,
-    GeneralizedAbilityActivation, GeneralizedActivatedAbilityCost, GraveyardCreatureCardSnapshot,
-    GraveyardLandCardSnapshot, HandCardSnapshot, Keyword, LandEntryBinding, Layer,
-    LegendaryPermanentBinding, LibrarySearchCardinality, LibrarySearchDestination,
-    LibrarySearchRequirement, LibrarySearchSelection, LinkedExileGroup, LinkedExileGroupId,
-    LinkedExileMember, LinkedExileMemberRole, ManaAbilityActivation, ManaAbilityBinding,
+    DelayedActionTiming, Duration, Effect, EntryCharacteristicOverride, EntryCoinFlipBinding,
+    EntryCopyBinding, EntryCopySnapshot, GameEvent, GeneralizedAbilityActivation,
+    GeneralizedActivatedAbilityCost, GraveyardCreatureCardSnapshot, GraveyardLandCardSnapshot,
+    HandCardSnapshot, Keyword, LandEntryBinding, Layer, LegendaryPermanentBinding,
+    LibrarySearchCardinality, LibrarySearchDestination, LibrarySearchRequirement,
+    LibrarySearchSelection, LinkedExileGroup, LinkedExileGroupId, LinkedExileMember,
+    LinkedExileMemberRole, ManaAbilityActivation, ManaAbilityBinding,
     ManaAbilityBundleChoiceActivation, ManaAbilityCostBinding, ManaAbilityOutput, ManaBundle,
     ManaCost, ManaPaymentSelection, ObjectId, PendingDecision, PlayerId, PlayerState,
     PolicyMoveKind, QuantityReplacementResolution, ReplacementChoice, ReplacementEffect,
@@ -1019,6 +1020,7 @@ pub struct Game {
     static_creature_spell_cost_modifiers:
         BTreeMap<&'static str, Vec<StaticCreatureSpellCostModifier>>,
     static_entry_restrictions: BTreeMap<&'static str, Vec<StaticEntryRestriction>>,
+    entry_coin_flip_bindings: BTreeMap<&'static str, EntryCoinFlipBinding>,
     static_continuous_effects: BTreeMap<&'static str, Vec<ContinuousChange>>,
     static_library_top_reveals: BTreeMap<&'static str, StaticLibraryTopRevealScope>,
     legendary_permanents: BTreeSet<&'static str>,
@@ -1126,6 +1128,7 @@ pub struct Game {
     departed_card_definitions: BTreeMap<ObjectId, &'static str>,
     consecutive_passes: usize,
     shuffle_seed: u64,
+    entry_coin_flip_seed: u64,
     /// `Game::new` intentionally leaves a fixture/setup state available. A
     /// full-deck runner must call `begin_game` after decks and opening hands
     /// are established, which starts turn one at Untap then Upkeep.
@@ -1361,6 +1364,7 @@ impl Game {
             static_attack_restrictions: BTreeMap::new(),
             static_creature_spell_cost_modifiers: BTreeMap::new(),
             static_entry_restrictions: BTreeMap::new(),
+            entry_coin_flip_bindings: BTreeMap::new(),
             static_continuous_effects: BTreeMap::new(),
             static_library_top_reveals: BTreeMap::new(),
             legendary_permanents: BTreeSet::new(),
@@ -1410,6 +1414,7 @@ impl Game {
             departed_card_definitions: BTreeMap::new(),
             consecutive_passes: 0,
             shuffle_seed: 0,
+            entry_coin_flip_seed: 0,
             started: false,
             terminal_event_emitted: false,
             cleanup_repeat_required: false,
@@ -2247,6 +2252,44 @@ impl Game {
         self.validate_invariants()
     }
 
+    /// Registers deterministic entry-time coin-flip replacements before the
+    /// game starts. The selected result becomes exact layer-one state of the
+    /// entering permanent, so ordinary copy effects copy the choice rather
+    /// than manufacturing another random event.
+    pub fn register_entry_coin_flip_bindings(
+        &mut self,
+        bindings: impl IntoIterator<Item = EntryCoinFlipBinding>,
+    ) -> Result<(), RulesError> {
+        if self.started {
+            return Err(RulesError::IllegalAction(
+                "entry coin-flip bindings cannot change after the game starts",
+            ));
+        }
+        for binding in bindings {
+            let definition = self
+                .catalog
+                .get(binding.card_definition)
+                .ok_or(RulesError::UnknownDefinition(binding.card_definition))?;
+            if !definition.is_creature() {
+                return Err(RulesError::IllegalAction(
+                    "an entry coin-flip binding requires a creature source",
+                ));
+            }
+            Self::validate_entry_characteristic_override(&binding.heads)?;
+            Self::validate_entry_characteristic_override(&binding.tails)?;
+            if self
+                .entry_coin_flip_bindings
+                .insert(binding.card_definition, binding)
+                .is_some()
+            {
+                return Err(RulesError::IllegalAction(
+                    "duplicate entry coin-flip binding",
+                ));
+            }
+        }
+        self.validate_invariants()
+    }
+
     /// Registers immutable source-sacrifice costs for definition-bound mana
     /// abilities before play begins. Output selection remains on the ordinary
     /// mana-ability request; this registry owns only physical cost provenance.
@@ -2622,7 +2665,8 @@ impl Game {
             .as_ref()
             .and_then(|copy| match &copy.values {
                 CopiableValues::Token(token) => Some(token),
-                CopiableValues::CardDefinition(_) => None,
+                CopiableValues::CardDefinition(_)
+                | CopiableValues::CardDefinitionWithEntryCharacteristicOverride { .. } => None,
             })
             .or(object.token.as_ref())
             .filter(|token| token.is_legendary);
@@ -2633,7 +2677,10 @@ impl Game {
             return Ok(None);
         }
         match self.copiable_values(card)? {
-            CopiableValues::CardDefinition(definition) => {
+            CopiableValues::CardDefinition(definition)
+            | CopiableValues::CardDefinitionWithEntryCharacteristicOverride {
+                definition, ..
+            } => {
                 if !self.legendary_permanents.contains(definition) {
                     return Ok(None);
                 }
@@ -2711,12 +2758,18 @@ impl Game {
         if let Some(token) = &object.token {
             return Ok(CopiableValues::Token(token.clone()));
         }
-        object
-            .definition
-            .map(CopiableValues::CardDefinition)
-            .ok_or(RulesError::IllegalAction(
-                "a copy source must have copiable card or token values",
-            ))
+        let definition = object.definition.ok_or(RulesError::IllegalAction(
+            "a copy source must have copiable card or token values",
+        ))?;
+        Ok(object.entry_characteristic_override.clone().map_or(
+            CopiableValues::CardDefinition(definition),
+            |entry_characteristic_override| {
+                CopiableValues::CardDefinitionWithEntryCharacteristicOverride {
+                    definition,
+                    entry_characteristic_override,
+                }
+            },
+        ))
     }
 
     /// Applies a persistent layer-one copy snapshot from `source` to
@@ -2781,6 +2834,20 @@ impl Game {
         if !self.catalog.contains_key(definition) {
             return Err(RulesError::UnknownDefinition(definition));
         }
+        let definition_data = self
+            .catalog
+            .get(definition)
+            .ok_or(RulesError::UnknownDefinition(definition))?;
+        if zone == Zone::Battlefield
+            && definition_data.is_creature()
+            && definition_data.power.is_none()
+            && definition_data.toughness.is_none()
+            && !self.entry_coin_flip_bindings.contains_key(definition)
+        {
+            return Err(RulesError::IllegalAction(
+                "a creature without base power and toughness requires an entry replacement",
+            ));
+        }
         let id = ObjectId(self.next_object_id);
         self.next_object_id += 1;
         self.objects.insert(
@@ -2801,10 +2868,14 @@ impl Game {
                 entered_turn: self.turn,
                 controller_changed_turn: self.turn,
                 token: None,
+                entry_characteristic_override: None,
                 copied_permanent: None,
             },
         );
         self.place_in_zone(owner, id, zone)?;
+        if zone == Zone::Battlefield {
+            self.apply_entry_coin_flip_if_needed(id)?;
+        }
         Ok(id)
     }
 
@@ -4997,6 +5068,30 @@ impl Game {
                     keywords: definition.keywords.clone(),
                 }
             }
+            CopiableValues::CardDefinitionWithEntryCharacteristicOverride {
+                definition: definition_id,
+                entry_characteristic_override,
+            } => {
+                let definition = self
+                    .catalog
+                    .get(definition_id)
+                    .ok_or(RulesError::UnknownDefinition(definition_id))?;
+                let mut keywords = definition.keywords.clone();
+                for keyword in entry_characteristic_override.keywords {
+                    if !keywords.contains(&keyword) {
+                        keywords.push(keyword);
+                    }
+                }
+                Characteristics {
+                    colors: definition.colors.clone(),
+                    card_types: definition.card_types.clone(),
+                    creature_subtypes: BTreeSet::new(),
+                    basic_land_type: self.basic_land_types.get(definition_id).copied(),
+                    power: Some(i32::from(entry_characteristic_override.power)),
+                    toughness: Some(i32::from(entry_characteristic_override.toughness)),
+                    keywords,
+                }
+            }
         };
         let mut effects: Vec<_> = self
             .continuous_effects
@@ -6874,6 +6969,59 @@ impl Game {
         Ok(false)
     }
 
+    /// Applies a bound coin-flip replacement to a direct creature entry. The
+    /// choice is saved as layer-one values before state-based actions or ETB
+    /// triggers can inspect the permanent, and a copied entrant is explicitly
+    /// excluded because it already carries its source's copiable result.
+    fn apply_entry_coin_flip_if_needed(&mut self, permanent: ObjectId) -> Result<(), RulesError> {
+        self.require_zone(permanent, Zone::Battlefield)?;
+        let (is_copy, has_entry_characteristic_override, permanent_incarnation) = {
+            let object = self.object(permanent)?;
+            (
+                object.copied_permanent.is_some(),
+                object.entry_characteristic_override.is_some(),
+                object.incarnation,
+            )
+        };
+        if is_copy || has_entry_characteristic_override {
+            return Ok(());
+        }
+        let Some(definition) = self.effective_definition_id(permanent)? else {
+            return Ok(());
+        };
+        let Some(binding) = self.entry_coin_flip_bindings.get(definition).cloned() else {
+            let definition = self
+                .catalog
+                .get(definition)
+                .ok_or(RulesError::UnknownDefinition(definition))?;
+            if definition.is_creature()
+                && definition.power.is_none()
+                && definition.toughness.is_none()
+            {
+                return Err(RulesError::IllegalAction(
+                    "a creature without base power and toughness requires an entry replacement",
+                ));
+            }
+            return Ok(());
+        };
+        let heads = deterministic_mix(self.entry_coin_flip_seed) & 1 == 0;
+        self.entry_coin_flip_seed = self.entry_coin_flip_seed.wrapping_add(1);
+        let entry_characteristic_override = if heads { binding.heads } else { binding.tails };
+        let controller = self.controller_of(permanent)?;
+        self.objects
+            .get_mut(&permanent)
+            .ok_or(RulesError::UnknownCard(permanent))?
+            .entry_characteristic_override = Some(entry_characteristic_override);
+        self.record_event(GameEvent::PermanentEntryCoinFlipped {
+            permanent,
+            permanent_incarnation,
+            controller,
+            source_definition: definition,
+            heads,
+        });
+        Ok(())
+    }
+
     /// Applies each relevant stable-object-id-ordered live entry replacement
     /// during one ordinary battlefield transition. The replacement has already
     /// affected the permanent by the time its receipt is emitted, but no
@@ -8046,7 +8194,10 @@ impl Game {
     /// mana-value sweeps and chosen-X target checks share one rule boundary.
     fn permanent_mana_value(&self, card: ObjectId) -> Result<i16, RulesError> {
         match self.copiable_values(card)? {
-            CopiableValues::CardDefinition(definition) => self
+            CopiableValues::CardDefinition(definition)
+            | CopiableValues::CardDefinitionWithEntryCharacteristicOverride {
+                definition, ..
+            } => self
                 .catalog
                 .get(definition)
                 .map(|definition| i16::from(definition.mana_cost.mana_value()))
@@ -13372,6 +13523,19 @@ impl Game {
         Ok(())
     }
 
+    /// Sets the deterministic source consumed by registered entry-time coin
+    /// flips. Like shuffle seeding, this is setup-only so a live policy cannot
+    /// select a future random outcome after it has seen game state.
+    pub fn set_entry_coin_flip_seed(&mut self, seed: u64) -> Result<(), RulesError> {
+        if self.started {
+            return Err(RulesError::IllegalAction(
+                "entry coin-flip seed is setup-only",
+            ));
+        }
+        self.entry_coin_flip_seed = seed;
+        Ok(())
+    }
+
     /// Consumes one player's pending loss conditions at the SBA boundary.
     /// A failed draw has precedence in the receipt because it is the cause
     /// retained from the just-completed stack instruction.
@@ -14203,11 +14367,12 @@ impl Game {
                     "only land definitions may expose an intrinsic mana ability",
                 ));
             }
-            if definition.is_creature()
-                != (definition.power.is_some() && definition.toughness.is_some())
+            if definition.power.is_some() != definition.toughness.is_some()
+                || (!definition.is_creature()
+                    && (definition.power.is_some() || definition.toughness.is_some()))
             {
                 return Err(RulesError::IllegalAction(
-                    "creature definitions require both power and toughness",
+                    "card definitions require both power and toughness or neither",
                 ));
             }
             if definition.dredge() == Some(0) {
@@ -14448,6 +14613,30 @@ impl Game {
                             "opposing +1/+1 and -1/-1 counters escaped state-based actions",
                         ));
                     }
+                    if let Some(entry_characteristic_override) =
+                        &object.entry_characteristic_override
+                    {
+                        let definition = object.definition.ok_or(RulesError::IllegalAction(
+                            "entry characteristic override lacks a physical card definition",
+                        ))?;
+                        let binding = self.entry_coin_flip_bindings.get(definition).ok_or(
+                            RulesError::IllegalAction(
+                                "entry characteristic override lacks a registered coin-flip binding",
+                            ),
+                        )?;
+                        if zone != Zone::Battlefield
+                            || object.copied_permanent.is_some()
+                            || (entry_characteristic_override != &binding.heads
+                                && entry_characteristic_override != &binding.tails)
+                        {
+                            return Err(RulesError::IllegalAction(
+                                "entry characteristic override has invalid lifecycle or outcome provenance",
+                            ));
+                        }
+                        Self::validate_entry_characteristic_override(
+                            entry_characteristic_override,
+                        )?;
+                    }
                     if let Some(copy) = &object.copied_permanent {
                         if zone != Zone::Battlefield
                             || copy.source == *card
@@ -14459,9 +14648,22 @@ impl Game {
                             ));
                         }
                         match &copy.values {
-                            CopiableValues::CardDefinition(definition) => {
+                            CopiableValues::CardDefinition(definition)
+                            | CopiableValues::CardDefinitionWithEntryCharacteristicOverride {
+                                definition,
+                                ..
+                            } => {
                                 if !self.catalog.contains_key(definition) {
                                     return Err(RulesError::UnknownDefinition(definition));
+                                }
+                                if let CopiableValues::CardDefinitionWithEntryCharacteristicOverride {
+                                    entry_characteristic_override,
+                                    ..
+                                } = &copy.values
+                                {
+                                    Self::validate_entry_characteristic_override(
+                                        entry_characteristic_override,
+                                    )?;
                                 }
                             }
                             CopiableValues::Token(token) => {
@@ -15457,6 +15659,19 @@ impl Game {
                     "graveyard-count entry counter binding lacks a creature source",
                 ));
             }
+        }
+        for (definition_id, binding) in &self.entry_coin_flip_bindings {
+            let definition = self
+                .catalog
+                .get(definition_id)
+                .ok_or(RulesError::UnknownDefinition(definition_id))?;
+            if !definition.is_creature() || binding.card_definition != *definition_id {
+                return Err(RulesError::IllegalAction(
+                    "entry coin-flip binding has an invalid creature source",
+                ));
+            }
+            Self::validate_entry_characteristic_override(&binding.heads)?;
+            Self::validate_entry_characteristic_override(&binding.tails)?;
         }
         for (definition_id, changes) in &self.static_continuous_effects {
             let definition = self
@@ -17884,9 +18099,10 @@ impl Game {
 
     fn entry_copy_binding_for_values(&self, values: &CopiableValues) -> Option<EntryCopyBinding> {
         match values {
-            CopiableValues::CardDefinition(definition) => {
-                self.entry_copy_bindings.get(definition).cloned()
-            }
+            CopiableValues::CardDefinition(definition)
+            | CopiableValues::CardDefinitionWithEntryCharacteristicOverride {
+                definition, ..
+            } => self.entry_copy_bindings.get(definition).cloned(),
             CopiableValues::Token(_) => None,
         }
     }
@@ -17896,7 +18112,10 @@ impl Game {
         values: &CopiableValues,
     ) -> Option<AttachmentBinding> {
         match values {
-            CopiableValues::CardDefinition(definition) => self
+            CopiableValues::CardDefinition(definition)
+            | CopiableValues::CardDefinitionWithEntryCharacteristicOverride {
+                definition, ..
+            } => self
                 .attachment_bindings
                 .get(definition)
                 .filter(|binding| binding.kind == AttachmentKind::Aura)
@@ -17907,7 +18126,10 @@ impl Game {
 
     fn copied_values_colors(&self, values: &CopiableValues) -> Result<BTreeSet<Color>, RulesError> {
         match values {
-            CopiableValues::CardDefinition(definition) => Ok(self
+            CopiableValues::CardDefinition(definition)
+            | CopiableValues::CardDefinitionWithEntryCharacteristicOverride {
+                definition, ..
+            } => Ok(self
                 .catalog
                 .get(definition)
                 .ok_or(RulesError::UnknownDefinition(definition))?
@@ -29200,6 +29422,7 @@ impl Game {
                 entered_turn: self.turn,
                 controller_changed_turn: self.turn,
                 token: Some(token),
+                entry_characteristic_override: None,
                 copied_permanent,
             },
         );
@@ -29232,6 +29455,31 @@ impl Game {
                     keywords: definition.keywords.clone(),
                     power: definition.power.unwrap_or_default(),
                     toughness: definition.toughness.unwrap_or_default(),
+                })
+            }
+            CopiableValues::CardDefinitionWithEntryCharacteristicOverride {
+                definition: definition_id,
+                entry_characteristic_override,
+            } => {
+                let definition = self
+                    .catalog
+                    .get(definition_id)
+                    .ok_or(RulesError::UnknownDefinition(definition_id))?;
+                let mut keywords = definition.keywords.clone();
+                for keyword in &entry_characteristic_override.keywords {
+                    if !keywords.contains(keyword) {
+                        keywords.push(keyword.clone());
+                    }
+                }
+                Ok(TokenSpec {
+                    name: definition.name,
+                    is_legendary: false,
+                    colors: definition.colors.clone(),
+                    card_types: definition.card_types.clone(),
+                    creature_subtypes: BTreeSet::new(),
+                    keywords,
+                    power: entry_characteristic_override.power,
+                    toughness: entry_characteristic_override.toughness,
                 })
             }
         }
@@ -29790,6 +30038,10 @@ impl Game {
         if advanced_incarnation {
             self.capture_last_known_characteristics(card)?;
             self.advance_object_incarnation(card)?;
+            self.objects
+                .get_mut(&card)
+                .ok_or(RulesError::UnknownCard(card))?
+                .entry_characteristic_override = None;
             // A cast permission belongs to one exact zone incarnation. Any
             // ordinary zone change revokes it before the new zone is exposed;
             // only the authorized cast path consumes its own permission after
@@ -29849,8 +30101,11 @@ impl Game {
                 incarnation: self.object(card)?.incarnation,
             });
         }
-        if zone == Zone::Battlefield && apply_static_entry_restriction {
-            self.apply_static_entry_restriction(card)?;
+        if zone == Zone::Battlefield {
+            self.apply_entry_coin_flip_if_needed(card)?;
+            if apply_static_entry_restriction {
+                self.apply_static_entry_restriction(card)?;
+            }
         }
         if zone == Zone::Graveyard && advanced_incarnation && capture_zone_transition_observers {
             self.enqueue_opponent_graveyard_triggers(destination_owner);
@@ -35770,6 +36025,24 @@ impl Game {
         if colors.iter().any(|color| !color.is_colored()) {
             return Err(RulesError::IllegalAction(
                 "card colors may not include the colorless mana kind",
+            ));
+        }
+        Ok(())
+    }
+
+    fn validate_entry_characteristic_override(
+        entry_characteristic_override: &EntryCharacteristicOverride,
+    ) -> Result<(), RulesError> {
+        if entry_characteristic_override
+            .keywords
+            .iter()
+            .enumerate()
+            .any(|(index, keyword)| {
+                entry_characteristic_override.keywords[..index].contains(keyword)
+            })
+        {
+            return Err(RulesError::IllegalAction(
+                "entry characteristic override has duplicate keywords",
             ));
         }
         Ok(())
