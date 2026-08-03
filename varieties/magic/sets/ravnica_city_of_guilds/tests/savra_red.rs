@@ -235,11 +235,12 @@ fn savra_green_sacrifice_policy_can_gain_or_decline_two_life_without_paying_life
         activate_rotwurm_sacrificing(&mut game, rotwurm, green_victim, swamp);
         resolve_optional_trigger(&mut game, savra, GREEN_TRIGGER, pay);
         assert_eq!(game.players[0].life, expected_life);
-        assert!(
+        assert_eq!(
             game.event_log.iter().any(|event| matches!(
                 event,
                 GameEvent::LifeGained { player: PlayerId(0), amount: 2 } if pay
-            )) == pay
+            )),
+            pay
         );
         assert!(!game.event_log.iter().any(|event| matches!(
             event,

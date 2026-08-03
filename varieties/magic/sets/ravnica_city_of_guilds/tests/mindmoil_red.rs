@@ -83,6 +83,7 @@ fn mindmoil_requires_exact_cast_trigger_hand_bottom_draw_definition() {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // The private hand reorder/draw transcript is intentionally end-to-end.
 fn mindmoil_privately_orders_exact_hand_then_draws_the_same_count() {
     let controller = PlayerId(0);
     let opponent = PlayerId(1);

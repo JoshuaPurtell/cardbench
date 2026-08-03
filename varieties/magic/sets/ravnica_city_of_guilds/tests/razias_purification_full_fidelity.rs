@@ -40,6 +40,7 @@ fn razias_purification_has_exact_all_player_preservation_definition() {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // The multi-player preservation/sacrifice transcript is intentionally end-to-end.
 fn razias_purification_collects_all_choices_before_sacrificing_the_rest() {
     let controller = PlayerId(0);
     let opponent = PlayerId(1);

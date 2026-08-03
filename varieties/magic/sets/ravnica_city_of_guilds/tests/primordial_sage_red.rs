@@ -233,6 +233,7 @@ fn primordial_sage_decline_leaves_the_library_card_in_place() {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // The source-departure trigger transcript is intentionally end-to-end.
 fn primordial_sage_trigger_draws_after_its_source_leaves_before_resolution() {
     let mut game = game_with_rav_bindings();
     let putrefy = game

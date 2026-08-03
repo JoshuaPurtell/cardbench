@@ -1,7 +1,7 @@
 //! Red discovery contract for Twisted Justice's target-player sacrifice and
 //! power-derived draw resolution.
 //!
-//! The assertions use only CardBench semantic names and event receipts; they
+//! The assertions use only `CardBench` semantic names and event receipts; they
 //! intentionally do not reproduce printed card text or artwork.
 
 use cardbench_magic_engine::{
@@ -32,6 +32,7 @@ fn twisted_justice_definition_declares_target_player_sacrifice_then_power_draw()
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // The sacrifice-choice and draw transcript is intentionally end-to-end.
 fn twisted_justice_retains_target_players_sacrifice_choice_and_draws_from_sacrificed_power() {
     let mut game = Game::new(card_definitions(), 2).expect("RAV game builds");
     let justice = game

@@ -32,6 +32,7 @@ fn hunted_lammasu_requires_flying_and_a_targeted_opponent_horror_etb() {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // The ETB target/decision/token transcript is intentionally end-to-end.
 fn hunted_lammasu_etb_creates_one_black_horror_for_its_targeted_opponent() {
     let mut game = Game::new_with_all_bindings_and_triggers(
         card_definitions(),

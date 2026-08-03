@@ -181,7 +181,7 @@ fn doppelganger_copies_any_graveyard_creature_then_retains_its_physical_ability(
         (characteristics.power, characteristics.toughness),
         (Some(1), Some(1))
     );
-    assert!(
+    assert_eq!(
         game.event_log
             .iter()
             .filter(|event| matches!(
@@ -191,8 +191,8 @@ fn doppelganger_copies_any_graveyard_creature_then_retains_its_physical_ability(
                         && *definition == "RAV-DIMIR-DOPPELGANGER"
                         && *ability == COPY_ABILITY
             ))
-            .count()
-            == 2
+            .count(),
+        2
     );
     game.validate_invariants()
         .expect("copied activation retains valid provenance");

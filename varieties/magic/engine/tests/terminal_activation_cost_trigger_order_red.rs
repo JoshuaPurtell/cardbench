@@ -62,6 +62,7 @@ fn pass_pair(game: &mut Game) {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // The terminal SBA/trigger transcript is intentionally end-to-end.
 fn terminal_activation_cost_discards_its_dies_trigger_before_placement() {
     let mut game = Game::new_with_all_bindings_and_triggers(
         [source(), damage()],
