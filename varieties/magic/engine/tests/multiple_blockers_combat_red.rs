@@ -201,6 +201,11 @@ fn ordinary_defender_can_assign_two_blockers_to_one_attacker_atomically() {
         "two ordinary blockers on one attacker are legal; event log must remain atomic: {:#?}",
         game.event_log
     );
+    let decision = game
+        .view_for_player(PlayerId(0))
+        .expect("attacker view")
+        .pending_decision
+        .expect("combat damage order decision");
     assert_eq!(
         game.event_log,
         [
@@ -209,7 +214,7 @@ fn ordinary_defender_can_assign_two_blockers_to_one_attacker_atomically() {
                 assignments: vec![(attacker, first_blocker), (attacker, second_blocker)],
             },
             GameEvent::DecisionOpened {
-                decision: cardbench_magic_engine::DecisionId(1),
+                decision: decision.id,
                 player: PlayerId(0),
                 kind: DecisionKind::CombatDamageOrder,
                 visibility: cardbench_magic_engine::DecisionVisibility::Public,
