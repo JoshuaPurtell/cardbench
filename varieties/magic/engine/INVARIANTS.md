@@ -2074,6 +2074,11 @@ Oracle Magic rules coverage.
   hidden selected identities remain absent from public receipts except for
   ordinary revealed zone transitions; the terminal source is always
   `SpellCopyResolved`, never `SpellResolved` or a physical card-zone move.
+- A virtual copied draw-then-conditional-discard spell retains the same
+  boundary after its target player's valid private selection: its ordinary
+  draw and discard receipts commit first, then its stack-only source emits
+  `SpellCopyResolved`. A virtual source can never appear in a terminal
+  `SpellResolved` receipt or an owner-zone move.
 - An end-of-turn effect created by a resolved instruction is independent of a
   former battlefield source. Source departure preserves it through that
   turn's cleanup; target departure still expires it immediately. In contrast,
