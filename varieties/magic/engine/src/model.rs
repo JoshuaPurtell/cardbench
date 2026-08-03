@@ -3462,6 +3462,16 @@ pub struct AttachmentBinding {
     pub granted_activated_abilities: Vec<ActivatedAbility>,
 }
 
+/// Immutable expansion data for a replacement-style choice made while a
+/// permanent enters the battlefield.  The binding deliberately names the
+/// source definition and the copied characteristic family rather than
+/// attaching behavior to one card name in the engine.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EntryCopyBinding {
+    pub card_definition: &'static str,
+    pub copyable_type: CardType,
+}
+
 /// Immutable expansion data for a static continuous effect. The effect is
 /// active only while a permanent with the bound definition is on the
 /// battlefield; it creates neither a stack object nor an event-log receipt.
@@ -3766,6 +3776,15 @@ pub enum DecisionKind {
     /// The controller of a resolving effect selects one different legal
     /// replacement target for an exact single-target activated stack item.
     RetargetActivatedAbility,
+    /// The controller of a resolving permanent spell may choose one live
+    /// copyable permanent, or decline, before the entrant reaches the
+    /// battlefield.  This is a replacement-style no-priority boundary, not
+    /// a spell target selected while casting.
+    PermanentEntryCopySource,
+    /// A pending copied Aura must choose one legal attachment target as it
+    /// enters. The Aura has not yet reached the battlefield, so no orphaned
+    /// attachment can leak through a state-based-action boundary.
+    PermanentEntryCopyAuraAttachment,
 }
 
 /// One public member of an APNAP simultaneous-trigger ordering group.
@@ -3847,6 +3866,17 @@ pub enum DecisionSelection {
     CounterUnlessDiscardsHand {
         discard: bool,
     },
+}
+
+/// The layer-one values selected for an as-enters permanent-copy replacement.
+/// The timestamp is allocated only when the entrant actually appears on the
+/// battlefield, but the source incarnation is captured at selection so a
+/// later physical-card reincarnation cannot supply different copied values.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct EntryCopySnapshot {
+    pub source: ObjectId,
+    pub source_incarnation: u64,
+    pub values: CopiableValues,
 }
 
 /// Stateful continuation details for the migrated trigger-effect object
@@ -4182,6 +4212,31 @@ pub enum DecisionContinuation {
         target_stack_item: StackObjectId,
         target_requirement: TargetRequirement,
         original_target: Target,
+    },
+    /// A permanent spell remains on the stack while its controller decides
+    /// whether its incoming values should replace the entrant's printed
+    /// values. `copy` is populated when copied values themselves expose a
+    /// further as-enters copy replacement; the policy may then continue the
+    /// chain or decline and enter with that snapshot.
+    PermanentEntryCopySource {
+        source_stack_item: StackObjectId,
+        entrant: ObjectId,
+        entrant_incarnation: u64,
+        controller: PlayerId,
+        copyable_type: CardType,
+        copy: Option<EntryCopySnapshot>,
+    },
+    /// The same permanent spell remains unresolved while its selected Aura
+    /// values receive an ordinary, typed attachment endpoint. The snapshot
+    /// is applied only once that target is selected, so the Aura never exists
+    /// on the battlefield unattached between public transitions.
+    PermanentEntryCopyAuraAttachment {
+        source_stack_item: StackObjectId,
+        entrant: ObjectId,
+        entrant_incarnation: u64,
+        controller: PlayerId,
+        copy: EntryCopySnapshot,
+        attachment_definition: &'static str,
     },
 }
 

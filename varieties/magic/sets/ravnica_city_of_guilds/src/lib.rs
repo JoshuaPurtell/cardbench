@@ -29,8 +29,8 @@ use cardbench_magic_engine::{
     BasicLandTypeBinding, CardDefinition, CardType, CastRequest, Color, ContinuousChange,
     ConvokeContribution, ConvokePayment, CostReductionBinding, CounterKind, CreatureSubtype,
     DamageReplacementEffect, DamageReplacementEffectBinding, DeckEntry, DeckList, DeckRules,
-    Effect, Game, GeneralizedActivatedAbilityCost, HybridManaSymbol, Keyword, LandEntryBinding,
-    LibrarySearchCardinality, LibrarySearchDestination, LibrarySearchRequirement,
+    Effect, EntryCopyBinding, Game, GeneralizedActivatedAbilityCost, HybridManaSymbol, Keyword,
+    LandEntryBinding, LibrarySearchCardinality, LibrarySearchDestination, LibrarySearchRequirement,
     LibrarySearchSelection, ManaAbilityBinding, ManaAbilityCostBinding, ManaAbilityOutput,
     ManaBundle, ManaCost, PlayerId, ReplacementEffect, ReplacementEffectBinding, RulesError,
     SharedKeywordFamily, StaticAttackRestriction, StaticAttackRestrictionBinding,
@@ -44,7 +44,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 253] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 254] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
@@ -237,6 +237,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 253] = [
     "RAV-MOLDERVINE-CLOAK",
     "RAV-FISTS-OF-IRONWOOD",
     "RAV-CLINGING-DARKNESS",
+    "RAV-COPY-ENCHANTMENT",
     "RAV-URSAPINE",
     "RAV-TRANSLUMINANT",
     "RAV-INFECTIOUS-HOST",
@@ -1417,6 +1418,29 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 power: -3,
                 toughness: -1,
             }],
+        },
+        // Full fidelity: an optional public no-priority entry-copy choice
+        // snapshots a live enchantment's copiable values before this card
+        // enters, including the typed Aura attachment sub-boundary.
+        CardDefinition {
+            id: "RAV-COPY-ENCHANTMENT",
+            name: "Copy Enchantment",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(2, [Color::Blue]),
+            colors: colors([Color::Blue]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Enchantment]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "may-enter-as-copy-of-enchantment",
+                "public-entry-copy-decision",
+                "copied-aura-entry-attachment",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![],
         },
         // Compatibility scope: the exact Aura attachment persists on its
         // creature target, but its combat-damage graveyard-return trigger is
@@ -8035,6 +8059,17 @@ pub fn rav_attachment_bindings() -> Vec<AttachmentBinding> {
     ]
 }
 
+/// Replacement-style entry-copy bindings supplied by RAV. The controller's
+/// optional choice occurs while the permanent spell resolves, before entry
+/// triggers or state-based actions—not as a cast target or ordinary effect.
+#[must_use]
+pub fn rav_entry_copy_bindings() -> Vec<EntryCopyBinding> {
+    vec![EntryCopyBinding {
+        card_definition: "RAV-COPY-ENCHANTMENT",
+        copyable_type: CardType::Enchantment,
+    }]
+}
+
 /// Battlefield-only static characteristic bindings supplied by the RAV set.
 /// These do not create events or stack objects; the engine evaluates them
 /// whenever a caller reads a permanent's characteristics.
@@ -9768,6 +9803,7 @@ fn fresh_game() -> Result<Game, RulesError> {
     game.register_static_library_top_reveal_bindings(rav_static_library_top_reveal_bindings())?;
     game.register_static_attack_restrictions(rav_static_attack_restriction_bindings())?;
     game.register_attachment_bindings(rav_attachment_bindings())?;
+    game.register_entry_copy_bindings(rav_entry_copy_bindings())?;
     game.register_static_entry_restriction_bindings(rav_static_entry_restriction_bindings())?;
     game.register_mana_ability_cost_bindings(rav_mana_ability_cost_bindings())?;
     game.register_cost_reduction_bindings(rav_cost_reduction_bindings())?;

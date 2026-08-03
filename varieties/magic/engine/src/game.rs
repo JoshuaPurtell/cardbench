@@ -16,20 +16,21 @@ use crate::{
     DamageReplacementEffect, DamageReplacementEffectBinding, DamageReplacementPacket,
     DecisionContinuation, DecisionId, DecisionKind, DecisionOption, DecisionSelection,
     DecisionVisibility, DeckList, DelayedAction, DelayedActionId, DelayedActionKind,
-    DelayedActionTiming, Duration, Effect, GameEvent, GeneralizedAbilityActivation,
-    GeneralizedActivatedAbilityCost, GraveyardCreatureCardSnapshot, GraveyardLandCardSnapshot,
-    HandCardSnapshot, Keyword, LandEntryBinding, Layer, LibrarySearchCardinality,
-    LibrarySearchDestination, LibrarySearchRequirement, LibrarySearchSelection, LinkedExileGroup,
-    LinkedExileGroupId, LinkedExileMember, LinkedExileMemberRole, ManaAbilityActivation,
-    ManaAbilityBinding, ManaAbilityBundleChoiceActivation, ManaAbilityCostBinding,
-    ManaAbilityOutput, ManaBundle, ManaCost, ManaPaymentSelection, ObjectId, PendingDecision,
-    PlayerId, PlayerState, PolicyMoveKind, QuantityReplacementResolution, ReplacementChoice,
-    ReplacementEffect, ReplacementEffectBinding, ReplacementEventKind,
-    ResolutionPaymentManaAbility, StackEffectResolution, StackObject, StackObjectId,
-    StackResolutionPlan, StaticAttackRestriction, StaticAttackRestrictionBinding,
-    StaticContinuousEffectBinding, StaticEntryRestriction, StaticEntryRestrictionBinding,
-    StaticLibraryTopRevealBinding, StaticLibraryTopRevealScope, Step, TRANSMUTE_ABILITY_ID, Target,
-    TargetRequirement, TokenSpec, TriggerCondition, TriggerOrderEntry, TriggeredAbilityBinding,
+    DelayedActionTiming, Duration, Effect, EntryCopyBinding, EntryCopySnapshot, GameEvent,
+    GeneralizedAbilityActivation, GeneralizedActivatedAbilityCost, GraveyardCreatureCardSnapshot,
+    GraveyardLandCardSnapshot, HandCardSnapshot, Keyword, LandEntryBinding, Layer,
+    LibrarySearchCardinality, LibrarySearchDestination, LibrarySearchRequirement,
+    LibrarySearchSelection, LinkedExileGroup, LinkedExileGroupId, LinkedExileMember,
+    LinkedExileMemberRole, ManaAbilityActivation, ManaAbilityBinding,
+    ManaAbilityBundleChoiceActivation, ManaAbilityCostBinding, ManaAbilityOutput, ManaBundle,
+    ManaCost, ManaPaymentSelection, ObjectId, PendingDecision, PlayerId, PlayerState,
+    PolicyMoveKind, QuantityReplacementResolution, ReplacementChoice, ReplacementEffect,
+    ReplacementEffectBinding, ReplacementEventKind, ResolutionPaymentManaAbility,
+    StackEffectResolution, StackObject, StackObjectId, StackResolutionPlan,
+    StaticAttackRestriction, StaticAttackRestrictionBinding, StaticContinuousEffectBinding,
+    StaticEntryRestriction, StaticEntryRestrictionBinding, StaticLibraryTopRevealBinding,
+    StaticLibraryTopRevealScope, Step, TRANSMUTE_ABILITY_ID, Target, TargetRequirement, TokenSpec,
+    TriggerCondition, TriggerOrderEntry, TriggeredAbilityBinding,
     TriggeredEffectObjectDecisionKind, Zone,
 };
 
@@ -859,6 +860,7 @@ pub struct Game {
     mana_ability_costs: BTreeMap<(&'static str, &'static str), ManaAbilityCostBinding>,
     activated_abilities: BTreeMap<&'static str, BTreeMap<&'static str, ActivatedAbility>>,
     attachment_bindings: BTreeMap<&'static str, AttachmentBinding>,
+    entry_copy_bindings: BTreeMap<&'static str, EntryCopyBinding>,
     triggered_abilities: BTreeMap<&'static str, BTreeMap<&'static str, crate::TriggeredAbility>>,
     static_attack_restrictions: BTreeMap<&'static str, Vec<StaticAttackRestriction>>,
     static_entry_restrictions: BTreeMap<&'static str, Vec<StaticEntryRestriction>>,
@@ -1176,6 +1178,7 @@ impl Game {
             mana_ability_costs: BTreeMap::new(),
             activated_abilities: BTreeMap::new(),
             attachment_bindings: BTreeMap::new(),
+            entry_copy_bindings: BTreeMap::new(),
             triggered_abilities: BTreeMap::new(),
             static_attack_restrictions: BTreeMap::new(),
             static_entry_restrictions: BTreeMap::new(),
@@ -1404,6 +1407,44 @@ impl Game {
         self.attachment_bindings = next_bindings;
         if let Err(error) = self.validate_invariants() {
             self.attachment_bindings = previous_bindings;
+            return Err(error);
+        }
+        Ok(())
+    }
+
+    /// Registers immutable replacement-style entry-copy bindings before a
+    /// game begins.  A binding is intentionally separate from a card's
+    /// ordinary stack effects: the choice happens during entry, not while
+    /// casting and not as a post-entry triggered ability.
+    pub fn register_entry_copy_bindings(
+        &mut self,
+        bindings: impl IntoIterator<Item = EntryCopyBinding>,
+    ) -> Result<(), RulesError> {
+        if self.started {
+            return Err(RulesError::IllegalAction(
+                "entry-copy bindings cannot be changed after the game starts",
+            ));
+        }
+        let previous = self.entry_copy_bindings.clone();
+        let mut next = previous.clone();
+        for binding in bindings {
+            let definition = self
+                .catalog
+                .get(binding.card_definition)
+                .ok_or(RulesError::UnknownDefinition(binding.card_definition))?;
+            if !definition.is_permanent()
+                || !definition.card_types.contains(&binding.copyable_type)
+                || !definition.effects.is_empty()
+                || next.insert(binding.card_definition, binding).is_some()
+            {
+                return Err(RulesError::IllegalAction(
+                    "entry-copy binding requires a unique effect-free permanent of the copied type",
+                ));
+            }
+        }
+        self.entry_copy_bindings = next;
+        if let Err(error) = self.validate_invariants() {
+            self.entry_copy_bindings = previous;
             return Err(error);
         }
         Ok(())
@@ -3907,7 +3948,9 @@ impl Game {
                 | DecisionContinuation::ReturnUpToThreeControllerGraveyardLandCardsToHand {
                     ..
                 }
-                | DecisionContinuation::RetargetActivatedAbility { .. } => None,
+                | DecisionContinuation::RetargetActivatedAbility { .. }
+                | DecisionContinuation::PermanentEntryCopySource { .. }
+                | DecisionContinuation::PermanentEntryCopyAuraAttachment { .. } => None,
             })
             .map(|(source, destination, may_fail_to_find)| {
                 self.decision_candidate_cards(
@@ -3977,7 +4020,9 @@ impl Game {
                 | DecisionContinuation::ReturnUpToThreeControllerGraveyardLandCardsToHand {
                     ..
                 }
-                | DecisionContinuation::RetargetActivatedAbility { .. } => None,
+                | DecisionContinuation::RetargetActivatedAbility { .. }
+                | DecisionContinuation::PermanentEntryCopySource { .. }
+                | DecisionContinuation::PermanentEntryCopyAuraAttachment { .. } => None,
             });
         let optional_triggered_ability_choice = self
             .pending_optional_trigger_choice
@@ -4035,7 +4080,9 @@ impl Game {
                 | DecisionContinuation::ReturnUpToThreeControllerGraveyardLandCardsToHand {
                     ..
                 }
-                | DecisionContinuation::RetargetActivatedAbility { .. } => None,
+                | DecisionContinuation::RetargetActivatedAbility { .. }
+                | DecisionContinuation::PermanentEntryCopySource { .. }
+                | DecisionContinuation::PermanentEntryCopyAuraAttachment { .. } => None,
             })
             .map(|(source, ability)| {
                 self.decision_candidate_cards(
@@ -4123,7 +4170,9 @@ impl Game {
                 | DecisionContinuation::ReturnUpToThreeControllerGraveyardLandCardsToHand {
                     ..
                 }
-                | DecisionContinuation::RetargetActivatedAbility { .. } => None,
+                | DecisionContinuation::RetargetActivatedAbility { .. }
+                | DecisionContinuation::PermanentEntryCopySource { .. }
+                | DecisionContinuation::PermanentEntryCopyAuraAttachment { .. } => None,
             });
         let mut opponent_life = Vec::new();
         let mut opponent_battlefield = Vec::new();
@@ -8043,6 +8092,46 @@ impl Game {
                     target_requirement,
                     original_target,
                     new_target,
+                )
+            }
+            DecisionContinuation::PermanentEntryCopySource {
+                source_stack_item,
+                entrant,
+                entrant_incarnation,
+                controller,
+                copyable_type,
+                copy,
+            } => {
+                let selected = Self::validate_object_decision_selection(&decision, selection)?;
+                self.resolve_permanent_entry_copy_source_decision(
+                    &decision,
+                    source_stack_item,
+                    entrant,
+                    entrant_incarnation,
+                    controller,
+                    copyable_type,
+                    copy,
+                    selected.into_iter().next(),
+                )
+            }
+            DecisionContinuation::PermanentEntryCopyAuraAttachment {
+                source_stack_item,
+                entrant,
+                entrant_incarnation,
+                controller,
+                copy,
+                attachment_definition,
+            } => {
+                let selected = Self::validate_object_decision_selection(&decision, selection)?;
+                self.resolve_permanent_entry_copy_aura_attachment_decision(
+                    &decision,
+                    source_stack_item,
+                    entrant,
+                    entrant_incarnation,
+                    controller,
+                    copy,
+                    attachment_definition,
+                    selected.into_iter().next(),
                 )
             }
         }
@@ -13869,6 +13958,21 @@ impl Game {
                 ));
             }
         }
+        for (definition_id, binding) in &self.entry_copy_bindings {
+            let definition = self
+                .catalog
+                .get(definition_id)
+                .ok_or(RulesError::UnknownDefinition(definition_id))?;
+            if binding.card_definition != *definition_id
+                || !definition.is_permanent()
+                || !definition.card_types.contains(&binding.copyable_type)
+                || !definition.effects.is_empty()
+            {
+                return Err(RulesError::IllegalAction(
+                    "entry-copy binding has invalid source definition or entry shape",
+                ));
+            }
+        }
         for (definition_id, binding) in &self.cost_reductions {
             let definition = self
                 .catalog
@@ -15960,6 +16064,453 @@ impl Game {
         Ok(())
     }
 
+    fn entry_copy_binding_for_values(&self, values: &CopiableValues) -> Option<EntryCopyBinding> {
+        match values {
+            CopiableValues::CardDefinition(definition) => {
+                self.entry_copy_bindings.get(definition).cloned()
+            }
+            CopiableValues::Token(_) => None,
+        }
+    }
+
+    fn aura_attachment_binding_for_values(
+        &self,
+        values: &CopiableValues,
+    ) -> Option<AttachmentBinding> {
+        match values {
+            CopiableValues::CardDefinition(definition) => self
+                .attachment_bindings
+                .get(definition)
+                .filter(|binding| binding.kind == AttachmentKind::Aura)
+                .cloned(),
+            CopiableValues::Token(_) => None,
+        }
+    }
+
+    fn copied_values_colors(&self, values: &CopiableValues) -> Result<BTreeSet<Color>, RulesError> {
+        match values {
+            CopiableValues::CardDefinition(definition) => Ok(self
+                .catalog
+                .get(definition)
+                .ok_or(RulesError::UnknownDefinition(definition))?
+                .colors
+                .clone()),
+            CopiableValues::Token(token) => Ok(token.colors.clone()),
+        }
+    }
+
+    fn entry_copy_aura_target_candidates(
+        &self,
+        controller: PlayerId,
+        values: &CopiableValues,
+    ) -> Result<Vec<ObjectId>, RulesError> {
+        let Some(binding) = self.aura_attachment_binding_for_values(values) else {
+            return Ok(Vec::new());
+        };
+        let colors = self.copied_values_colors(values)?;
+        Ok(self
+            .all_battlefield_cards()
+            .into_iter()
+            .filter(|candidate| {
+                self.target_matches_for_colors(
+                    controller,
+                    Target::Permanent(*candidate),
+                    binding.target,
+                    &colors,
+                )
+            })
+            .collect())
+    }
+
+    fn entry_copy_source_candidates(
+        &self,
+        controller: PlayerId,
+        copyable_type: &CardType,
+    ) -> Result<Vec<ObjectId>, RulesError> {
+        let mut candidates = Vec::new();
+        for candidate in self.all_battlefield_cards() {
+            if !self
+                .characteristics(candidate)?
+                .card_types
+                .contains(copyable_type)
+            {
+                continue;
+            }
+            let values = self.copiable_values(candidate)?;
+            if self.aura_attachment_binding_for_values(&values).is_some()
+                && self
+                    .entry_copy_aura_target_candidates(controller, &values)?
+                    .is_empty()
+            {
+                continue;
+            }
+            candidates.push(candidate);
+        }
+        Ok(candidates)
+    }
+
+    fn top_matches_permanent_entry_copy(
+        &self,
+        top: &StackObject,
+        entrant: ObjectId,
+        entrant_incarnation: u64,
+        controller: PlayerId,
+    ) -> bool {
+        top.id == self.stack.last().map_or(StackObjectId(0), |item| item.id)
+            && top.card == entrant
+            && top.source_incarnation == entrant_incarnation
+            && top.controller == controller
+            && top.ability_id.is_none()
+            && top.effects.is_empty()
+            && self
+                .object(entrant)
+                .is_ok_and(|object| object.incarnation == entrant_incarnation)
+    }
+
+    fn open_permanent_entry_copy_source_decision(
+        &mut self,
+        top: &StackObject,
+        copyable_type: CardType,
+        copy: Option<EntryCopySnapshot>,
+    ) -> Result<bool, RulesError> {
+        let candidates = self.entry_copy_source_candidates(top.controller, &copyable_type)?;
+        if candidates.is_empty() {
+            return Ok(false);
+        }
+        self.open_pending_decision(
+            top.controller,
+            DecisionVisibility::Public,
+            DecisionKind::PermanentEntryCopySource,
+            0,
+            1,
+            candidates.into_iter().map(DecisionOption::Object).collect(),
+            DecisionContinuation::PermanentEntryCopySource {
+                source_stack_item: top.id,
+                entrant: top.card,
+                entrant_incarnation: top.source_incarnation,
+                controller: top.controller,
+                copyable_type,
+                copy,
+            },
+        )?;
+        Ok(true)
+    }
+
+    fn suspend_top_permanent_for_entry_copy_choice(&mut self) -> Result<bool, RulesError> {
+        if self.pending_decision.is_some() {
+            return Err(RulesError::IllegalAction(
+                "permanent entry-copy choice attempted to overlap another decision",
+            ));
+        }
+        let Some(top) = self.stack.last().cloned() else {
+            return Ok(false);
+        };
+        let Some(binding) = self
+            .card_definition(top.card)
+            .ok()
+            .and_then(|definition| self.entry_copy_bindings.get(definition.id))
+            .cloned()
+        else {
+            return Ok(false);
+        };
+        if !self.top_matches_permanent_entry_copy(
+            &top,
+            top.card,
+            top.source_incarnation,
+            top.controller,
+        ) {
+            return Err(RulesError::IllegalAction(
+                "entry-copy binding reached an invalid permanent stack object",
+            ));
+        }
+        self.open_permanent_entry_copy_source_decision(&top, binding.copyable_type, None)
+    }
+
+    fn install_entry_copy_snapshot(
+        &mut self,
+        entrant: ObjectId,
+        copy: &EntryCopySnapshot,
+    ) -> Result<(), RulesError> {
+        self.require_zone(entrant, Zone::Battlefield)?;
+        if entrant == copy.source
+            || self.zone_of(copy.source) != Some(Zone::Battlefield)
+            || !self.object_has_incarnation(copy.source, copy.source_incarnation)
+            || self.copiable_values(copy.source)? != copy.values
+        {
+            return Err(RulesError::IllegalAction(
+                "entry-copy snapshot no longer matches its live copied permanent",
+            ));
+        }
+        let target_incarnation = self.object(entrant)?.incarnation;
+        let timestamp = self.next_timestamp;
+        self.next_timestamp =
+            self.next_timestamp
+                .checked_add(1)
+                .ok_or(RulesError::IllegalAction(
+                    "copy-effect timestamp counter overflowed",
+                ))?;
+        self.objects
+            .get_mut(&entrant)
+            .ok_or(RulesError::UnknownCard(entrant))?
+            .copied_permanent = Some(CopiedPermanent {
+            values: copy.values.clone(),
+            source: copy.source,
+            source_incarnation: copy.source_incarnation,
+            timestamp,
+        });
+        self.record_event(GameEvent::PermanentCopied {
+            source: copy.source,
+            source_incarnation: copy.source_incarnation,
+            target: entrant,
+            target_incarnation,
+            timestamp,
+        });
+        // `move_to_zone` performed entry restrictions against the printed
+        // card. Re-evaluate them after the layer-one snapshot so a copied
+        // creature/artifact/land observes the same entry restrictions.
+        self.apply_static_entry_restriction(entrant)?;
+        Ok(())
+    }
+
+    fn finish_resolved_permanent_entry_copy(
+        &mut self,
+        top: &StackObject,
+        copy: Option<&EntryCopySnapshot>,
+        aura_target: Option<ObjectId>,
+    ) -> Result<(), RulesError> {
+        if !self.top_matches_permanent_entry_copy(
+            top,
+            top.card,
+            top.source_incarnation,
+            top.controller,
+        ) {
+            return Err(RulesError::IllegalAction(
+                "entry-copy continuation escaped its permanent stack object",
+            ));
+        }
+        let terminal = self.stack.pop().ok_or(RulesError::IllegalAction(
+            "entry-copy permanent disappeared before entering",
+        ))?;
+        if terminal.id != top.id {
+            return Err(RulesError::IllegalAction(
+                "entry-copy continuation changed stack identity before entering",
+            ));
+        }
+        self.stack_effect_cursors.remove(&top.id);
+        self.record_event(GameEvent::SpellResolved { card: top.card });
+        let convoke_contributors = self
+            .convoke_contributor_provenance
+            .remove(&(top.card, top.source_incarnation))
+            .unwrap_or_default();
+        self.move_to_zone(top.card, Zone::Battlefield)?;
+        if let Some(copy) = copy {
+            self.install_entry_copy_snapshot(top.card, copy)?;
+        }
+        if let Some(target) = aura_target {
+            let copy = copy.as_ref().ok_or(RulesError::IllegalAction(
+                "entry-copy Aura attachment lacks copied values",
+            ))?;
+            let binding = self
+                .aura_attachment_binding_for_values(&copy.values)
+                .ok_or(RulesError::IllegalAction(
+                    "entry-copy Aura attachment lacks an Aura binding",
+                ))?;
+            self.attach_with_binding(top.card, target, &binding, false)?;
+        } else if copy.is_some_and(|copy| {
+            self.aura_attachment_binding_for_values(&copy.values)
+                .is_some()
+        }) {
+            return Err(RulesError::IllegalAction(
+                "entry-copy Aura cannot enter without an attachment target",
+            ));
+        }
+        let definition_id = self.effective_definition_id(top.card)?.unwrap_or(
+            // A card copying token values has no definition-bound copied
+            // triggers. Its physical printed definition is still a valid
+            // empty fallback for the generic trigger dispatcher.
+            self.object(top.card)?
+                .definition
+                .ok_or(RulesError::IllegalAction(
+                    "entry-copy permanent has no card definition",
+                ))?,
+        );
+        let entering_is_land = self
+            .characteristics(top.card)?
+            .card_types
+            .contains(&CardType::Land);
+        self.capture_enter_triggers(
+            top.card,
+            definition_id,
+            top.controller,
+            &convoke_contributors,
+        )?;
+        self.check_state_based_actions()?;
+        self.flush_pending_dies_triggers();
+        if entering_is_land {
+            self.enqueue_land_entry_triggers(top.controller)?;
+        }
+        self.flush_pending_land_entry_triggers()?;
+        self.flush_pending_damage_triggers();
+        self.flush_pending_life_gain_triggers();
+        self.flush_pending_dies_triggers();
+        self.restore_priority_after_stack_resolution();
+        Ok(())
+    }
+
+    #[allow(clippy::needless_pass_by_value, clippy::too_many_arguments)] // The owned continuation is consumed by dispatch; its exact entry provenance is intentionally explicit.
+    fn resolve_permanent_entry_copy_source_decision(
+        &mut self,
+        decision: &PendingDecision,
+        source_stack_item: StackObjectId,
+        entrant: ObjectId,
+        entrant_incarnation: u64,
+        controller: PlayerId,
+        copyable_type: CardType,
+        copy: Option<EntryCopySnapshot>,
+        selected: Option<ObjectId>,
+    ) -> Result<(), RulesError> {
+        let top = self.stack.last().cloned().ok_or(RulesError::IllegalAction(
+            "entry-copy source choice has no live permanent spell",
+        ))?;
+        let binding_matches = match &copy {
+            None => self
+                .card_definition(entrant)
+                .ok()
+                .and_then(|definition| self.entry_copy_bindings.get(definition.id))
+                .is_some_and(|binding| binding.copyable_type == copyable_type),
+            Some(copy) => self
+                .entry_copy_binding_for_values(&copy.values)
+                .is_some_and(|binding| binding.copyable_type == copyable_type),
+        };
+        let expected_options = self
+            .entry_copy_source_candidates(controller, &copyable_type)?
+            .into_iter()
+            .map(DecisionOption::Object)
+            .collect::<Vec<_>>();
+        if decision.kind != DecisionKind::PermanentEntryCopySource
+            || decision.visibility != DecisionVisibility::Public
+            || decision.player != controller
+            || decision.min_selections != 0
+            || decision.max_selections != 1
+            || decision.options != expected_options
+            || top.id != source_stack_item
+            || !self.top_matches_permanent_entry_copy(
+                &top,
+                entrant,
+                entrant_incarnation,
+                controller,
+            )
+            || !binding_matches
+            || selected
+                .is_some_and(|source| !expected_options.contains(&DecisionOption::Object(source)))
+        {
+            return Err(RulesError::IllegalAction(
+                "entry-copy source decision no longer matches its permanent entry",
+            ));
+        }
+        self.complete_pending_decision(decision)?;
+        let Some(source) = selected else {
+            return self.finish_resolved_permanent_entry_copy(&top, copy.as_ref(), None);
+        };
+        let snapshot = EntryCopySnapshot {
+            source,
+            source_incarnation: self.object(source)?.incarnation,
+            values: self.copiable_values(source)?,
+        };
+        if let Some(binding) = self.entry_copy_binding_for_values(&snapshot.values) {
+            if self.open_permanent_entry_copy_source_decision(
+                &top,
+                binding.copyable_type,
+                Some(snapshot.clone()),
+            )? {
+                return Ok(());
+            }
+            return self.finish_resolved_permanent_entry_copy(&top, Some(&snapshot), None);
+        }
+        if let Some(binding) = self.aura_attachment_binding_for_values(&snapshot.values) {
+            let options = self
+                .entry_copy_aura_target_candidates(controller, &snapshot.values)?
+                .into_iter()
+                .map(DecisionOption::Object)
+                .collect::<Vec<_>>();
+            if options.is_empty() {
+                return Err(RulesError::IllegalAction(
+                    "entry-copy source was accepted without a legal Aura endpoint",
+                ));
+            }
+            self.open_pending_decision(
+                controller,
+                DecisionVisibility::Public,
+                DecisionKind::PermanentEntryCopyAuraAttachment,
+                1,
+                1,
+                options,
+                DecisionContinuation::PermanentEntryCopyAuraAttachment {
+                    source_stack_item: top.id,
+                    entrant,
+                    entrant_incarnation,
+                    controller,
+                    copy: snapshot,
+                    attachment_definition: binding.card_definition,
+                },
+            )?;
+            return Ok(());
+        }
+        self.finish_resolved_permanent_entry_copy(&top, Some(&snapshot), None)
+    }
+
+    #[allow(clippy::needless_pass_by_value, clippy::too_many_arguments)] // The owned continuation keeps the entry copy and Aura endpoint in one atomic replacement boundary.
+    fn resolve_permanent_entry_copy_aura_attachment_decision(
+        &mut self,
+        decision: &PendingDecision,
+        source_stack_item: StackObjectId,
+        entrant: ObjectId,
+        entrant_incarnation: u64,
+        controller: PlayerId,
+        copy: EntryCopySnapshot,
+        attachment_definition: &'static str,
+        selected: Option<ObjectId>,
+    ) -> Result<(), RulesError> {
+        let top = self.stack.last().cloned().ok_or(RulesError::IllegalAction(
+            "entry-copy Aura choice has no live permanent spell",
+        ))?;
+        let binding = self
+            .aura_attachment_binding_for_values(&copy.values)
+            .ok_or(RulesError::IllegalAction(
+                "entry-copy Aura choice lost its attachment binding",
+            ))?;
+        let expected_options = self
+            .entry_copy_aura_target_candidates(controller, &copy.values)?
+            .into_iter()
+            .map(DecisionOption::Object)
+            .collect::<Vec<_>>();
+        let target = selected.ok_or(RulesError::IllegalAction(
+            "entry-copy Aura choice requires one attachment target",
+        ))?;
+        if decision.kind != DecisionKind::PermanentEntryCopyAuraAttachment
+            || decision.visibility != DecisionVisibility::Public
+            || decision.player != controller
+            || decision.min_selections != 1
+            || decision.max_selections != 1
+            || decision.options != expected_options
+            || top.id != source_stack_item
+            || !self.top_matches_permanent_entry_copy(
+                &top,
+                entrant,
+                entrant_incarnation,
+                controller,
+            )
+            || binding.card_definition != attachment_definition
+            || !expected_options.contains(&DecisionOption::Object(target))
+        {
+            return Err(RulesError::IllegalAction(
+                "entry-copy Aura choice no longer matches its permanent entry",
+            ));
+        }
+        self.complete_pending_decision(decision)?;
+        self.finish_resolved_permanent_entry_copy(&top, Some(&copy), Some(target))
+    }
+
     #[allow(clippy::too_many_lines)] // Spell and activated-ability resolution share one audited path.
     fn resolve_top_of_stack(&mut self) -> Result<(), RulesError> {
         self.resolve_top_of_stack_with_optional_decision(None, None, None)
@@ -16104,6 +16655,9 @@ impl Game {
         if counter_unless_payment.is_none()
             && self.suspend_top_stack_item_for_counter_unless_pays_mana_choice()?
         {
+            return Ok(());
+        }
+        if self.suspend_top_permanent_for_entry_copy_choice()? {
             return Ok(());
         }
         let next_effect_index = self
@@ -33501,6 +34055,110 @@ impl Game {
                 {
                     return Err(RulesError::IllegalAction(
                         "activated-ability retarget decision violates stack identity or target provenance",
+                    ));
+                }
+            }
+            DecisionContinuation::PermanentEntryCopySource {
+                source_stack_item,
+                entrant,
+                entrant_incarnation,
+                controller,
+                copyable_type,
+                copy,
+            } => {
+                let top = self.stack.last().ok_or(RulesError::IllegalAction(
+                    "entry-copy source decision escaped its permanent spell",
+                ))?;
+                let binding_matches = match copy {
+                    None => self
+                        .card_definition(*entrant)
+                        .ok()
+                        .and_then(|definition| self.entry_copy_bindings.get(definition.id))
+                        .is_some_and(|binding| binding.copyable_type == *copyable_type),
+                    Some(copy) => self
+                        .entry_copy_binding_for_values(&copy.values)
+                        .is_some_and(|binding| binding.copyable_type == *copyable_type),
+                };
+                let copy_is_live = copy.as_ref().is_none_or(|copy| {
+                    copy.source != *entrant
+                        && self.zone_of(copy.source) == Some(Zone::Battlefield)
+                        && self.object_has_incarnation(copy.source, copy.source_incarnation)
+                        && self
+                            .copiable_values(copy.source)
+                            .is_ok_and(|values| values == copy.values)
+                });
+                let expected_options = self
+                    .entry_copy_source_candidates(*controller, copyable_type)?
+                    .into_iter()
+                    .map(DecisionOption::Object)
+                    .collect::<Vec<_>>();
+                if decision.kind != DecisionKind::PermanentEntryCopySource
+                    || decision.visibility != DecisionVisibility::Public
+                    || decision.player != *controller
+                    || decision.min_selections != 0
+                    || decision.max_selections != 1
+                    || top.id != *source_stack_item
+                    || !self.top_matches_permanent_entry_copy(
+                        top,
+                        *entrant,
+                        *entrant_incarnation,
+                        *controller,
+                    )
+                    || !binding_matches
+                    || !copy_is_live
+                    || decision.options != expected_options
+                {
+                    return Err(RulesError::IllegalAction(
+                        "entry-copy source decision violates stack or copied-value provenance",
+                    ));
+                }
+            }
+            DecisionContinuation::PermanentEntryCopyAuraAttachment {
+                source_stack_item,
+                entrant,
+                entrant_incarnation,
+                controller,
+                copy,
+                attachment_definition,
+            } => {
+                let top = self.stack.last().ok_or(RulesError::IllegalAction(
+                    "entry-copy Aura decision escaped its permanent spell",
+                ))?;
+                let binding = self
+                    .aura_attachment_binding_for_values(&copy.values)
+                    .ok_or(RulesError::IllegalAction(
+                        "entry-copy Aura decision lacks an attachment binding",
+                    ))?;
+                let copy_is_live = copy.source != *entrant
+                    && self.zone_of(copy.source) == Some(Zone::Battlefield)
+                    && self.object_has_incarnation(copy.source, copy.source_incarnation)
+                    && self
+                        .copiable_values(copy.source)
+                        .is_ok_and(|values| values == copy.values);
+                let expected_options = self
+                    .entry_copy_aura_target_candidates(*controller, &copy.values)?
+                    .into_iter()
+                    .map(DecisionOption::Object)
+                    .collect::<Vec<_>>();
+                if decision.kind != DecisionKind::PermanentEntryCopyAuraAttachment
+                    || decision.visibility != DecisionVisibility::Public
+                    || decision.player != *controller
+                    || decision.min_selections != 1
+                    || decision.max_selections != 1
+                    || top.id != *source_stack_item
+                    || !self.top_matches_permanent_entry_copy(
+                        top,
+                        *entrant,
+                        *entrant_incarnation,
+                        *controller,
+                    )
+                    || binding.card_definition != *attachment_definition
+                    || !copy_is_live
+                    || expected_options.is_empty()
+                    || decision.options != expected_options
+                {
+                    return Err(RulesError::IllegalAction(
+                        "entry-copy Aura decision violates stack or attachment provenance",
                     ));
                 }
             }

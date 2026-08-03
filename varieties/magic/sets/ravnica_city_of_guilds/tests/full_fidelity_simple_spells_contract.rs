@@ -205,6 +205,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-MOLDERVINE-CLOAK",
             "RAV-FISTS-OF-IRONWOOD",
             "RAV-CLINGING-DARKNESS",
+            "RAV-COPY-ENCHANTMENT",
             "RAV-URSAPINE",
             "RAV-TRANSLUMINANT",
             "RAV-INFECTIOUS-HOST",
