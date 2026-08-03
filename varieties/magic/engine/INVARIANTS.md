@@ -1071,13 +1071,18 @@ Oracle Magic rules coverage.
   resolution-time provenance.
 - A spell instruction that requires one chosen card color rejects an omitted
   choice and rejects `Colorless` before any payment, zone move, stack entry,
-  or accepted policy receipt. `PolicyAction::CastWithColorChoice` retains the
-  exact five-color value on the spell stack object and records one matching
-  `SpellColorChosen` receipt before `SpellCast`. The choice is neither inferred
-  from mana spent nor silently defaulted. An activated or triggered ability
-  cannot fabricate this spell-only provenance; a virtual copy instead keeps
-  the original spell's retained color. Resolution uses only the retained value
-  to install controller-team temporary protection or a target's temporary
+  or accepted policy receipt. `PolicyAction::CastWithColorChoice` and the
+  atomic `PolicyAction::CastWithModeAndColorChoice` retain the exact five-color
+  value on the spell stack object and record one matching `SpellColorChosen`
+  receipt before `SpellCast`. The latter also records its selected
+  `SpellModeChosen` branch in that same cast transaction; no policy can cast a
+  modal card and provide its color in a later action. The chosen-color
+  requirement is derived from the materialized stack effects, never an
+  unselected `ChooseOneOf` wrapper. The choice is neither inferred from mana
+  spent nor silently defaulted. An activated or triggered ability cannot
+  fabricate this spell-only provenance; a virtual copy instead keeps the
+  original spell's retained color. Resolution uses only the retained value to
+  install controller-team temporary protection or a target's temporary
   replacement color, so later policy state or mana-pool changes cannot alter
   it.
 - A spent-mana global modifier uses that same stack-owned receipt. When its
