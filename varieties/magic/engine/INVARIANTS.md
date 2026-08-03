@@ -2075,6 +2075,11 @@ Oracle Magic rules coverage.
 - Only the active player declares attackers. Each attacker is unique, on that
   player's battlefield, an eligible untapped creature, and is tapped when it
   attacks.
+- The public attacker-declaration boundary is transactional. Any downstream
+  failure while creating its mandatory triggered-ability placement or public
+  decision rolls back every tap, combat provenance field, pending trigger, and
+  `AttackersDeclared` receipt; a rejected declaration is indistinguishable
+  from not having been attempted.
 - Vigilance is attacker-declaration provenance: it records exactly the
   attackers that had Vigilance when they were declared and is a subset of the
   live declared-attacker set. It explains why those attackers did not tap at
