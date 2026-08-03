@@ -1701,16 +1701,17 @@ Oracle Magic rules coverage.
 - The next seated defending player is fixed when attackers are declared; only
   that player declares blockers. Each blocker is a unique untapped creature
   they control; every assigned attacker was declared; and each attacker may
-  retain an ordered list of distinct blockers. A creature declared with
-  Flying accepts only a blocker that had Flying or Reach at blocker
-  declaration; a creature declared with Fear accepts only a black or artifact
-  blocker; and a creature declared with the RAV black-only evasion restriction
-  accepts only a black blocker. A creature declared with `Unblockable` accepts
-  no blocker. The combat state records each
-  declaration-time qualification so a later characteristic change cannot
-  rewrite its legal history. If that defender leaves the game, the declared
-  attackers are removed from combat rather than being retargeted to another
-  surviving seat.
+  retain an ordered list of distinct blockers. After the post-attackers
+  priority window, an attacker's *current* Flying accepts only a blocker with
+  current Flying or Reach; current Fear accepts only a black or artifact
+  blocker; current RAV black-only evasion accepts only a black blocker; and
+  current `Unblockable` accepts no blocker. The same blocker-declaration
+  snapshot applies to current landwalk and must-block restrictions. The combat
+  state records that completed declaration-time projection only after its
+  legality check, so a later characteristic change cannot rewrite legal block
+  history while a pre-blockers change has its normal rules effect. If that
+  defender leaves the game, the declared attackers are removed from combat
+  rather than being retargeted to another surviving seat.
 - Declare-blockers cannot begin without an attacker declaration, and combat
   damage cannot begin without both declarations. A participant may leave after
   declaration, so later combat bookkeeping preserves the exact declared pair
@@ -1734,9 +1735,10 @@ Oracle Magic rules coverage.
   is retained only as historical block provenance, so the attacker remains
   blocked but neither former participant assigns combat damage as a consequence
   of the changed control.
-- `unblockable_attackers` is declaration provenance only: it is a subset of
-  the uniquely declared attackers and no blocker map entry may name one of
-  those attackers. A rejected block writes no `BlockersDeclared` receipt.
+- `unblockable_attackers` is completed blocker-declaration provenance only:
+  it is a subset of the uniquely declared attackers and no blocker map entry
+  may name one of those attackers. A rejected block writes no
+  `BlockersDeclared` receipt.
 - A Radiance enchantment-destruction spell has one live enchantment target at
   cast and resolution. At resolution it snapshots that target plus every other
   live enchantment sharing at least one target color before any zone change.
@@ -1750,13 +1752,14 @@ Oracle Magic rules coverage.
   destruction and zone-departure lifecycle. The complete batch of resulting
   receipts precedes the enclosing spell terminal receipt and one subsequent
   state-based-action fixed point.
-- Static and temporary landwalk are declaration provenance: every recorded
-  attacker is in the unique declared-attacker set and retains a nonempty set
-  of typed basic land types. A submitted blocker is rejected exactly when the
-  fixed defender controls at least one recorded land type for that attacker.
-  The provenance is cleared when that creature leaves combat or the combat
-  declaration resets, so a later keyword or land change cannot rewrite the
-  legality already recorded for that combat; a rejected block emits no
+- Static and temporary landwalk are blocker-declaration provenance: every
+  recorded attacker is in the unique declared-attacker set and retains a
+  nonempty set of typed basic land types sampled after the post-attackers
+  priority window. A submitted blocker is rejected exactly when the fixed
+  defender controls at least one currently relevant land type for that
+  attacker. The provenance is cleared when that creature leaves combat or the
+  combat declaration resets, so a later keyword or land change cannot rewrite
+  the legality already recorded for that combat; a rejected block emits no
   `BlockersDeclared` receipt or partial combat mutation.
 - A target constrained to an attacking-or-blocking creature has the normal
   permanent target shape, but must additionally identify a battlefield
