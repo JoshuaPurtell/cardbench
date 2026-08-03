@@ -58,12 +58,15 @@ Oracle Magic rules coverage.
   zone move, but surviving `AnotherCreatureLeavesBattlefield` observers are
   captured at its last-known battlefield state and stack normally after the
   player-loss SBA fixed point.
-- A virtual spell copy has a fresh stack-only identity, a physical original
+- A virtual spell copy has a fresh stack-only identity, an immediate original
   identity for receipt provenance, and the immutable catalog definition it
-  copied when it was created. Its original is never another virtual copy and
-  its copied definition must continue to agree with its stack effects and
-  source colors. It retains copied decisions (modes, targets, X, and explicit
-  color choices), but has no cast-payment receipt: `mana_spent`, Convoke cost
+  copied when it was created. Its immediate original may itself be a live
+  virtual instant or sorcery, but the resulting ancestry must be acyclic and
+  definition-consistent; a virtual predecessor must have an earlier,
+  nonterminal `SpellCopied` receipt. Its copied definition must continue to
+  agree with its stack effects and source colors. It retains copied decisions
+  (modes, targets, X, and explicit color choices), but has no cast-payment
+  receipt: `mana_spent`, Convoke cost
   symbols, and generic cost reductions are zero/absent. The lower physical
   original may resolve, be countered, or leave the game before the copy; that
   departure cannot invalidate a copy controlled by a surviving player or make
@@ -2231,9 +2234,11 @@ Oracle Magic rules coverage.
   live virtual stack object, `SpellCopyResolved`, `SpellCopyCounteredByRules`,
   `SpellCopyCountered`, or `SpellCopyLeftGame`; no copy may be live after any
   terminal receipt or have two terminal receipts. A counter receipt cannot
-  name the copy itself as its countering source. A scenario event-log reset is
-  rejected while a virtual copy is live, preserving the opening `SpellCopied`
-  provenance that the lifecycle audit requires.
+  name the copy itself as its countering source. Where a receipt copies a
+  virtual predecessor, that predecessor's opening receipt must appear earlier
+  in the same epoch and it must still be nonterminal. A scenario event-log
+  reset is rejected while a virtual copy is live, preserving the opening
+  `SpellCopied` provenance that the lifecycle audit requires.
 - A copy whose target set may be changed suspends through the same monotonic
   `DecisionId` state machine as other public choices. Its options are public
   legal target values, and its cardinality is zero through the original
