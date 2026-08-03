@@ -68,6 +68,11 @@ definition; Gather Courage, Seeds of Strength, Scatter the Seeds, and Guardian
 of Vitu-Ghazi are in the latest audited tranches. All other definitions remain
 explicitly scoped compatibility slices.
 
+The current checked-in RAV catalog partitions its public inventory into 264
+full-fidelity names (279 printings), six bounded executable names, and 21
+catalog-only names. The catalog contract is intentionally fail-closed: a
+catalog-only printing cannot be submitted as a blank executable card.
+
 RAV shown scenarios are fixture-driven from
 `sets/ravnica_city_of_guilds/scenarios/public/train_scenarios.toml`; each declares
 setup, actions, state assertions, event markers, and a fixed digest. The
@@ -175,6 +180,9 @@ current corpus contains 187 scenarios and covers:
   explicit Blue and non-Blue generic allocations retained on its stack object;
 - a full-fidelity life-gain trigger with optional resolution payment and
   resolution-time target selection (`Searing Meditation`);
+- a full-fidelity combat-player trigger whose actual damage recipient makes a
+  private discard choice before the source controller's draw suffix resumes
+  (`Dimir Cutpurse`);
 - bounded static Flying compatibility for `Belltower Sphinx`, `Screeching
   Griffin`, `Tattered Drake`, and `Moroii`, plus black-only evasion for
   `Undercity Shade`, plus full static Fear and stack-backed regeneration for

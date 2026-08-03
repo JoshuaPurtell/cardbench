@@ -1061,10 +1061,13 @@ Oracle Magic rules coverage.
   executes the already-resolved prefix exactly once, holds priority closed
   while the current replacement or recipient-private discard is chosen, and
   resumes only the unresolved suffix. A targeted-discard continuation binds
-  its cursor to the corresponding target occurrence, gives only that target
-  the current-hand candidates, revalidates their exact incarnations, commits
-  the selected discards before resuming, and cannot expose or deterministically
-  select a hidden card for the resolving player. The submitted option is revalidated,
+  its cursor to the corresponding target occurrence. An event-captured
+  combat-player discard instead binds that cursor to the exact positive final
+  `DamageDealtToPlayer` recipient, never a target occurrence. Either form
+  gives only its recipient the current-hand candidates, revalidates their
+  exact incarnations, commits the selected discards before resuming, and
+  cannot expose or deterministically select a hidden card for the resolving
+  player. The submitted option is revalidated,
   applied once, and candidates are recomputed; a fresh monotonic decision id
   opens only while two or more choices remain, while one remaining candidate
   applies without a prompt. `DecisionCompleted`/`DecisionOpened` and a
@@ -1993,7 +1996,11 @@ Oracle Magic rules coverage.
   candidates. Every direct or continuation-resumed combat assignment derives
   `DealsCombatDamageToCreature` provenance from each positive final
   `DamageDealtToPermanent` receipt in that assignment, not from its original
-  blocker target; prevention and player-only redirection therefore queue none.
+  blocker target. `DealsCombatDamageToPlayer` likewise derives its exact
+  player recipient only from a positive final `DamageDealtToPlayer` receipt.
+  Prevention and redirection that leave no corresponding final receipt queue
+  neither trigger; player-captured effects may not reopen a public target
+  choice or substitute a later player identity.
 - `trampling_attackers` is declaration provenance only: it is a subset of the
   uniquely declared attackers and cannot exist before their declaration. At
   combat damage, Trample is evaluated from the attacker's live characteristics,
