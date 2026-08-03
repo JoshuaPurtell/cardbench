@@ -7117,10 +7117,15 @@ impl Game {
                 .tapped = true;
         }
         self.consecutive_passes = 0;
+        // CR 603.2/704.3: capture every entry observation while the land and
+        // its observers are still live, then use the shared post-entry SBA
+        // boundary to place the complete batch. A terminal life-payment
+        // entry can remove this land and its controller at that boundary;
+        // such a trigger must be discarded with the ended game, not make the
+        // legal land play roll back by dereferencing its departed source.
+        self.capture_enter_triggers(card, definition_id, player, &[])?;
+        self.capture_land_entry_triggers(player)?;
         self.check_state_based_actions_impl()?;
-        self.flush_pending_dies_triggers()?;
-        self.enqueue_enter_triggers(card, definition_id, player, &[])?;
-        self.enqueue_land_entry_triggers(player)?;
         Ok(())
     }
 
@@ -22885,12 +22890,11 @@ impl Game {
         Ok(())
     }
 
-    /// Stacks every represented land-entry trigger on a live permanent. A
-    /// land entering does not have to share a controller with the triggered
-    /// source: the observer is the source permanent, not the land-play
-    /// action. Each represented entry path calls this after the land is live,
-    /// state-based actions are stable, and its own ETB triggers are queued.
-    fn enqueue_land_entry_triggers(
+    /// Captures every represented land-entry trigger while the entered land
+    /// and all observers are still live. Placement is deliberately deferred
+    /// to the caller's shared post-entry SBA boundary, where these events
+    /// join any deaths caused by entry's static changes.
+    fn capture_land_entry_triggers(
         &mut self,
         entering_controller: PlayerId,
     ) -> Result<(), RulesError> {
@@ -22920,6 +22924,16 @@ impl Game {
                 );
             }
         }
+        Ok(())
+    }
+
+    /// Captures and immediately places every represented land-entry trigger
+    /// for an entry path that has already reached its post-SBA boundary.
+    fn enqueue_land_entry_triggers(
+        &mut self,
+        entering_controller: PlayerId,
+    ) -> Result<(), RulesError> {
+        self.capture_land_entry_triggers(entering_controller)?;
         self.flush_pending_trigger_events()?;
         Ok(())
     }
