@@ -7267,8 +7267,20 @@ impl Game {
     }
 
     /// Performs the turn-based action of declaring attackers in the current combat.
-    #[allow(clippy::too_many_lines)] // Declaration captures every keyword's auditable provenance atomically.
     pub fn declare_attackers(
+        &mut self,
+        player: PlayerId,
+        attackers: &[ObjectId],
+    ) -> Result<(), RulesError> {
+        self.atomic_transition(|game| game.declare_attackers_impl(player, attackers))
+    }
+
+    /// Applies a turn-based attack declaration inside the public transaction
+    /// journal. Trigger placement can still reject an otherwise legal combat
+    /// declaration (for example, if its exposed decision cannot be encoded),
+    /// so no tap, combat provenance, or receipt may escape that rejection.
+    #[allow(clippy::too_many_lines)] // Declaration captures every keyword's auditable provenance atomically.
+    fn declare_attackers_impl(
         &mut self,
         player: PlayerId,
         attackers: &[ObjectId],
