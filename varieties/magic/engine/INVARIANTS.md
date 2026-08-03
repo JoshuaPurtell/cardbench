@@ -2451,7 +2451,12 @@ Oracle Magic rules coverage.
   attachment-relative turn trigger exactly as a non-token copy source does.
   End-step replay validation resolves copied or departed source provenance
   before classifying the receipt, so no copied token trigger is silently
-  exempt from the event-boundary audit.
+  exempt from the event-boundary audit. The same rule applies to every
+  represented observer snapshot: a copied token with an effective definition
+  participates in nonartifact-entry, dies, controlled-nontoken-death,
+  controller-sacrifice, creature-departure, and opponent-graveyard dispatch.
+  Definitionless tokens still have no bound observer ability and therefore
+  remain absent only because no effective definition can select a binding.
 - Every registered legendary card definition, and every legendary token value,
   participates in CR 704.5j according to its current layer-one name. When a
   controller has two or more matching live permanents, the engine has exactly
