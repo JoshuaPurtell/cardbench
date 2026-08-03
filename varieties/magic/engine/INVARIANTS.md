@@ -2044,8 +2044,11 @@ Oracle Magic rules coverage.
 - Opening-hand drawing preflights the requested count. It is an all-or-error
   setup transaction available only before the game begins and only into an
   empty hand: a short library cannot partially draw cards and then claim a
-  larger `OpeningHandDrawn` event. Deck loading is likewise pregame-only, so
-  setup events and hidden cards cannot be injected into a live turn.
+  larger `OpeningHandDrawn` event. Deck loading is likewise pregame-only and
+  transactional: it preflights the exact `u16` receipt cardinality before
+  creating any object, so `DeckLoaded` and `LibraryShuffled` never saturate or
+  claim fewer cards than the library contains. Setup events and hidden cards
+  cannot be injected into a live turn.
 - Once the game has begun, the public direct-draw primitive is legal only for
   the active player's pending Draw-step decision. It resolves that marker
   atomically; an arbitrary Upkeep, main-phase, combat, or opponent draw is
