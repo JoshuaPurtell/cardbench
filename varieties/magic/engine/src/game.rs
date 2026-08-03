@@ -12599,7 +12599,7 @@ impl Game {
         let original_stack = self
             .stack
             .iter()
-            .find(|candidate| candidate.card == original)
+            .find(|candidate| candidate.card == original && candidate.ability_id.is_none())
             .cloned()
             .ok_or(RulesError::IllegalAction(
                 "spell-copy target decision lost its original spell",
@@ -22961,10 +22961,10 @@ impl Game {
         let original_stack = self
             .stack
             .iter()
-            .find(|candidate| candidate.card == original)
+            .find(|candidate| candidate.card == original && candidate.ability_id.is_none())
             .cloned()
             .ok_or(RulesError::IllegalTarget(Target::Spell(original)))?;
-        if original_stack.ability_id.is_some() || original_stack.target_count() == 0 {
+        if original_stack.target_count() == 0 {
             // No legal target slot needs replacing. The ordinary effect path
             // creates a retained-target copy without a synthetic prompt.
             return Ok(false);
@@ -31619,7 +31619,7 @@ impl Game {
                 let original = self
                     .stack
                     .iter()
-                    .find(|candidate| candidate.card == target)
+                    .find(|candidate| candidate.card == target && candidate.ability_id.is_none())
                     .cloned()
                     .ok_or(RulesError::IllegalTarget(Target::Spell(target)))?;
                 // Target re-selection is handled before this stack item is
@@ -42570,7 +42570,9 @@ impl Game {
                 let original_stack = self
                     .stack
                     .iter()
-                    .find(|candidate| candidate.card == *original)
+                    .find(|candidate| {
+                        candidate.card == *original && candidate.ability_id.is_none()
+                    })
                     .ok_or(RulesError::IllegalAction(
                         "spell-copy decision lost its original spell",
                     ))?;
@@ -42610,7 +42612,6 @@ impl Game {
                             may_choose_new_targets: true,
                         }]
                     )
-                    || original_stack.ability_id.is_some()
                     || original_stack.source_incarnation != *original_source_incarnation
                     || original_stack.target_count() == 0
                     || decision.options != expected_options

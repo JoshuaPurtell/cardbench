@@ -180,6 +180,37 @@ fn copy_resolver_uses_the_new_spell_not_the_old_transmute_ability() {
         1,
         "the receipt names the exact copied spell incarnation"
     );
+
+    pass_pair(&mut game, player, opponent);
+    assert_eq!(game.stack.len(), 2, "the virtual copy resolves first");
+    assert_eq!(game.player(player).expect("player exists").life, 22);
+    assert!(matches!(
+        game.event_log
+            .iter()
+            .rev()
+            .find(|event| matches!(event, GameEvent::SpellCopyResolved { .. })),
+        Some(GameEvent::SpellCopyResolved { original, .. }) if *original == transmuter
+    ));
+
+    pass_pair(&mut game, player, opponent);
+    assert_eq!(game.stack.len(), 1, "the physical spell resolves second");
+    assert_eq!(game.player(player).expect("player exists").life, 24);
+    assert_eq!(game.zone_of(transmuter), Some(Zone::Graveyard));
+    let remaining = game.stack.last().expect("old ability remains last");
+    assert_eq!(remaining.card, transmuter);
+    assert_eq!(remaining.source_incarnation, first_incarnation);
+    assert_eq!(remaining.ability_id, Some("transmute"));
+    assert!(
+        !game.event_log.iter().any(|event| matches!(
+            event,
+            GameEvent::AbilityResolved {
+                source,
+                source_incarnation,
+                ability: "transmute",
+            } if *source == transmuter && *source_incarnation == first_incarnation
+        )),
+        "the lower ability has not resolved out of LIFO order"
+    );
     game.validate_invariants()
-        .expect("the resolved copy boundary remains invariant-valid");
+        .expect("every resolved copy/spell boundary remains invariant-valid");
 }
