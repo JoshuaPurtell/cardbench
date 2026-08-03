@@ -35620,7 +35620,10 @@ impl Game {
             && (object.controller_changed_turn < self.turn
                 || characteristics.keywords.contains(&Keyword::Haste))
             && characteristics.card_types.contains(&CardType::Creature)
-            && !characteristics.keywords.contains(&Keyword::Defender);
+            && !characteristics.keywords.contains(&Keyword::Defender)
+            && !characteristics
+                .keywords
+                .contains(&Keyword::CannotAttackOrBlock);
         Ok(CardView {
             id: card,
             definition: effective_definition,

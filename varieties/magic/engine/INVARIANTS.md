@@ -1251,10 +1251,11 @@ Oracle Magic rules coverage.
   control this turn unless it had Haste when declared. The combat state records
   that declaration-time Haste provenance; it must name only declared attackers,
   and every same-turn attacker still on the battlefield must retain that
-  provenance. `CardView::can_attack` applies the same exception so policies do
-  not hide a legal Haste attack. Non-Haste attack and tap-cost rejection are
-  atomic: they do not tap the source, create combat state, add mana, or write
-  accepted-action receipts.
+  provenance. `CardView::can_attack` applies the same exception and the
+  current `CannotAttackOrBlock` restriction, so policies neither hide a legal
+  Haste attack nor propose a creature the declaration boundary must reject.
+  Non-Haste attack and tap-cost rejection are atomic: they do not tap the
+  source, create combat state, add mana, or write accepted-action receipts.
 - A regenerated blocker remains associated with the attacker it blocked, so a
   nontrample attacker remains blocked, but the blocker is marked
   removed-from-combat and neither assigns nor receives combat damage. That
