@@ -2117,6 +2117,11 @@ Oracle Magic rules coverage.
   history while a pre-blockers change has its normal rules effect. If that
   defender leaves the game, the declared attackers are removed from combat
   rather than being retargeted to another surviving seat.
+- The public blocker-declaration boundary is transactional through required
+  attacker damage-order setup. A rejection while encoding one order decision
+  restores the exact pre-block state: it leaves no blocker map or history,
+  blocker-declaration projection, `BlockersDeclared` receipt, or pending
+  combat-order choice behind.
 - Declare-blockers cannot begin without an attacker declaration, and combat
   damage cannot begin without both declarations. A participant may leave after
   declaration, so later combat bookkeeping preserves the exact declared pair
