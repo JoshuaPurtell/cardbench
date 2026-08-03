@@ -20197,11 +20197,17 @@ impl Game {
                 "counter-unless payment cost must be positive",
             ));
         }
-        let target_position = self
+        let Some(target_position) = self
             .stack
             .iter()
             .position(|candidate| candidate.card == *target_spell)
-            .ok_or(RulesError::IllegalTarget(Target::Spell(*target_spell)))?;
+        else {
+            // The target may have been countered by a response above this
+            // spell.  Leave it for the common target-legality plan, which
+            // counters this all-illegal spell by the rules instead of
+            // manufacturing a payment choice or stranding the stack.
+            return Ok(false);
+        };
         if target_position + 1 >= self.stack.len() {
             return Err(RulesError::IllegalAction(
                 "counter-unless spell must target a lower stack spell",
@@ -20258,11 +20264,16 @@ impl Game {
                 "counter-unless discard spell has an invalid target shape",
             ));
         };
-        let target_position = self
+        let Some(target_position) = self
             .stack
             .iter()
             .position(|candidate| candidate.card == *target_spell)
-            .ok_or(RulesError::IllegalTarget(Target::Spell(*target_spell)))?;
+        else {
+            // Keep the discard-hand branch aligned with the mana-payment
+            // branch: a vanished target is an ordinary rules counter, not a
+            // failed resolution-time choice.
+            return Ok(false);
+        };
         if target_position + 1 >= self.stack.len() {
             return Err(RulesError::IllegalAction(
                 "counter-unless discard spell must target a lower stack spell",

@@ -134,3 +134,86 @@ fn counter_unless_with_a_target_removed_by_another_counter_is_countered_by_rules
     game.validate_invariants()
         .expect("stale-target countering preserves the stack state machine");
 }
+
+#[test]
+fn discard_hand_counter_unless_with_a_removed_target_is_countered_by_rules() {
+    let active = PlayerId(0);
+    let responder = PlayerId(1);
+    let mut game = Game::new(
+        [
+            definition(TARGET, vec![Effect::GainLifeController { amount: 1 }]),
+            definition(
+                UNLESS,
+                vec![Effect::CounterTargetSpellUnlessControllerDiscardsHand],
+            ),
+            definition(COUNTER, vec![Effect::CounterTargetSpell]),
+        ],
+        2,
+    )
+    .expect("fixture initializes");
+    let target = game
+        .add_card(active, TARGET, Zone::Hand)
+        .expect("target spell begins in hand");
+    let unless = game
+        .add_card(responder, UNLESS, Zone::Hand)
+        .expect("counter-unless begins in hand");
+    let counter = game
+        .add_card(responder, COUNTER, Zone::Hand)
+        .expect("ordinary counter begins in hand");
+    game.begin_game().expect("game begins");
+
+    game.cast_spell(
+        active,
+        CastRequest {
+            card: target,
+            targets: vec![],
+            convoke: vec![],
+            payment_mana_abilities: vec![],
+        },
+    )
+    .expect("target spell casts");
+    game.pass_priority(active)
+        .expect("active player passes to responder");
+    for card in [unless, counter] {
+        game.cast_spell(
+            responder,
+            CastRequest {
+                card,
+                targets: vec![Target::Spell(target)],
+                convoke: vec![],
+                payment_mana_abilities: vec![],
+            },
+        )
+        .expect("each counter spell casts targeting the lower spell");
+    }
+
+    pass_pair(&mut game);
+    assert_eq!(game.zone_of(target), Some(Zone::Graveyard));
+    let first = game.priority;
+    game.pass_priority(first)
+        .expect("active player passes to responder");
+    let second = game.priority;
+    let result = game.pass_priority(second);
+    eprintln!(
+        "stale discard-counter target result: {result:?}; stack={:?}; events={:?}",
+        game.stack,
+        game.canonical_event_log(),
+    );
+    result.expect("a discard-hand counter-unless with no target is countered by rules");
+
+    assert!(game.stack.is_empty());
+    assert_eq!(game.zone_of(unless), Some(Zone::Graveyard));
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::SpellCounteredByRules { card } if *card == unless
+    )));
+    assert!(
+        !game
+            .event_log
+            .iter()
+            .any(|event| matches!(event, GameEvent::DecisionOpened { .. })),
+        "a stale target cannot open the discard-hand decision"
+    );
+    game.validate_invariants()
+        .expect("discard branch preserves the stack state machine");
+}
