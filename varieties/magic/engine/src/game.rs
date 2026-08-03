@@ -29904,6 +29904,17 @@ impl Game {
                     return Err(RulesError::IllegalTarget(Target::Permanent(target)));
                 }
                 self.move_to_zone(target, Zone::Battlefield)?;
+                // The returned creature can immediately die at the enclosing
+                // spell's post-resolution SBA checkpoint. Retain its entry
+                // event while its battlefield incarnation is live; placement
+                // remains deferred until that shared boundary.
+                let definition = self
+                    .effective_definition_id(target)?
+                    .ok_or(RulesError::IllegalAction(
+                        "a token cannot be selected from a graveyard",
+                    ))?;
+                let target_controller = self.object(target)?.controller;
+                self.capture_enter_triggers(target, definition, target_controller, &[])?;
                 if mana_spent.is_some_and(|spent| spent.contains(color)) {
                     self.place_counter(source, target, CounterKind::PlusOnePlusOne, 1)?;
                 }
