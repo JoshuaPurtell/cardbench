@@ -2465,6 +2465,14 @@ Oracle Magic rules coverage.
   blocker replay and turn-trigger replay checks resolve copied/departed
   definition provenance before classifying their receipts, so copied sources
   cannot bypass the state-machine audit.
+- If a copied token with a definition-bound `Dies` ability leaves the
+  battlefield, it never enters a zone but still freezes its copied definition,
+  controller, colors, and exact battlefield incarnation before
+  `TokenCeasedToExist`. Those facts are retained through any mandatory SBA
+  pass while its observed trigger is pending, then through that historical
+  ability's terminal receipt only. A provenance pruner may remove them once
+  neither a pending trigger nor a live departed-source ability names that
+  exact token incarnation.
 - Every registered legendary card definition, and every legendary token value,
   participates in CR 704.5j according to its current layer-one name. When a
   controller has two or more matching live permanents, the engine has exactly
