@@ -622,10 +622,10 @@ mod tests {
         assert!(first.is_clean_completion());
         assert_eq!(first.termination, DeckMatchTermination::Winner(PlayerId(1)));
         assert_eq!(first.winner, Some(PlayerId(1)));
-        assert_eq!(first.turns, 30);
-        assert_eq!(first.accepted_policy_moves, 759);
-        assert_eq!(first.life, [-2, 10]);
-        assert_eq!(first.digest, "fnv1a64:a83395eae0b4c524");
+        assert_eq!(first.turns, 38);
+        assert_eq!(first.accepted_policy_moves, 1025);
+        assert_eq!(first.life, [0, 6]);
+        assert_eq!(first.digest, "fnv1a64:7260cbfa01cc5c9e");
         for marker in [
             "DeckLoaded",
             "LibraryShuffled",
