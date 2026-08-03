@@ -93,6 +93,13 @@ reviewable canonical events rather than only console output,
 run `RAV_MATRIX_OUTPUT_ROOT=artifacts/review cargo run -p
 cardbench-magic-policies --bin rav-reference-deck-matrix`. This writes one
 event log per game plus `event-log-manifest.tsv` and `matrix-summary.txt`.
+Each matchup is replayed from fresh state and the campaign fails closed if its
+canonical event log or FNV digest differs on replay. The latest final run had
+zero failures (847 Player 0 wins, 948 Player 1 wins, 5 draws); its 1,800 logs
+contain 1,335,664 accepted policy moves and 3,931,373 events. The reference
+deck matrix did not exercise a triggered-ability receipt, so trigger ordering
+and optional-trigger decisions remain targeted-scenario coverage rather than a
+claim made by this campaign.
 `RAV_MATRIX_SEED_COUNT` and `RAV_MATRIX_SUMMARY_ONLY=1` make bounded review
 passes practical. `rav-engine-audit` adds adversarial public-API probes and a
 one-seed interactive matrix, streams progress at every stage/seed boundary,

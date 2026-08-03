@@ -281,7 +281,9 @@ invariant failure is attributable to one exact matchup. Set
 `RAV_MATRIX_OUTPUT_ROOT=PATH` to retain one canonical event log per game,
 `event-log-manifest.tsv`, and `matrix-summary.txt`; set
 `RAV_MATRIX_SEED_COUNT=N` for a smaller public review pass and
-`RAV_MATRIX_SUMMARY_ONLY=1` to suppress trace printing. `rav-engine-audit`
+`RAV_MATRIX_SUMMARY_ONLY=1` to suppress trace printing. Each matchup is replayed
+from fresh state and admitted only when its canonical event log and FNV digest
+match exactly. `rav-engine-audit`
 adds public API adversarial probes and an interactive one-seed version of that
 full matrix. It streams progress, bounds live matrix workers, and accepts
 `RAV_AUDIT_SEED_COUNT=N` for broader campaigns. The engine integration suite also covers rejected-action
@@ -290,9 +292,14 @@ continuous-effect lifetime, blocked-combat history, terminal draws, and
 multiplayer survivor priority.
 
 The latest eight-seed public review generated 1,800 complete logs with zero
-engine/policy/capability failures. It deliberately includes real Dredge,
-transmute, token-SBA, effect-expiry, and simultaneous-loss-draw traces; exact
-counts and the review checks are recorded in
+engine/policy/capability failures: 847 Player 0 wins, 948 Player 1 wins, and
+5 valid draws. The logs contain 1,335,664 accepted policy moves and 3,931,373
+events; every terminal receipt, move count, event count, and digest replay
+check passed. It deliberately includes real Dredge, transmute, token-SBA,
+effect-expiry, and simultaneous-loss-draw traces. The reference policies did
+not produce triggered-ability receipts in this matrix, so trigger ordering and
+optional-trigger behavior remain a targeted-scenario coverage obligation; exact
+counts and review checks are recorded in
 [`ENGINE_BUG_LEDGER.md`](ENGINE_BUG_LEDGER.md).
 
 ## Provenance and rights
