@@ -13961,9 +13961,7 @@ impl Game {
             match destination {
                 LibrarySearchDestination::Battlefield => {
                     self.move_to_zone(card, Zone::Battlefield)?;
-                    if self.card_definition(card)?.is_land() {
-                        self.queue_land_entry_trigger_batch(player)?;
-                    }
+                    self.capture_library_search_permanent_entry(card)?;
                 }
                 LibrarySearchDestination::BattlefieldTapped => {
                     self.move_to_zone(card, Zone::Battlefield)?;
@@ -13971,9 +13969,7 @@ impl Game {
                         .get_mut(&card)
                         .ok_or(RulesError::UnknownCard(card))?
                         .tapped = true;
-                    if self.card_definition(card)?.is_land() {
-                        self.queue_land_entry_trigger_batch(player)?;
-                    }
+                    self.capture_library_search_permanent_entry(card)?;
                 }
                 LibrarySearchDestination::Hand => self.move_to_zone(card, Zone::Hand)?,
                 LibrarySearchDestination::LibraryTop => {
@@ -13995,6 +13991,28 @@ impl Game {
             destination,
         });
         self.shuffle_library_and_record(player)?;
+        Ok(())
+    }
+
+    /// Captures the full entry observation made by a deterministic library
+    /// search. The enclosing spell remains responsible for the later SBA and
+    /// trigger-placement boundary, so a short-lived entrant retains its
+    /// battlefield incarnation without creating a nested stack transition.
+    fn capture_library_search_permanent_entry(&mut self, card: ObjectId) -> Result<(), RulesError> {
+        let controller = self.object(card)?.controller;
+        let definition = self
+            .effective_definition_id(card)?
+            .ok_or(RulesError::IllegalAction(
+                "a token cannot be selected from a library",
+            ))?;
+        self.capture_enter_triggers(card, definition, controller, &[])?;
+        if self
+            .characteristics(card)?
+            .card_types
+            .contains(&CardType::Land)
+        {
+            self.capture_land_entry_triggers(controller)?;
+        }
         Ok(())
     }
 
@@ -23246,16 +23264,6 @@ impl Game {
     ) -> Result<(), RulesError> {
         self.capture_land_entry_triggers(entering_controller)?;
         self.flush_pending_trigger_events()?;
-        Ok(())
-    }
-
-    fn queue_land_entry_trigger_batch(
-        &mut self,
-        entering_controller: PlayerId,
-    ) -> Result<(), RulesError> {
-        self.player(entering_controller)?;
-        self.pending_land_entry_trigger_batches
-            .push(entering_controller);
         Ok(())
     }
 
