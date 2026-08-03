@@ -10979,20 +10979,24 @@ impl Game {
         } else {
             self.move_to_spell_terminal_zone(stack_object.card)?;
         }
-        self.check_state_based_actions_impl()?;
-        self.flush_pending_dies_triggers()?;
-        self.flush_pending_dies_triggers()?;
         if permanent_resolution {
-            self.enqueue_enter_triggers(
+            // This permanent entered only after a no-priority private
+            // resolution choice. Capture entry observations before SBAs just
+            // like the ordinary resolver: a 0/0 entrant can leave before
+            // placement, but its historical ETB must remain valid.
+            self.capture_enter_triggers(
                 stack_object.card,
                 definition_id,
                 entering_controller,
                 &convoke_contributors,
             )?;
             if entering_is_land {
-                self.enqueue_land_entry_triggers(entering_controller)?;
+                self.capture_land_entry_triggers(entering_controller)?;
             }
         }
+        self.check_state_based_actions_impl()?;
+        self.flush_pending_dies_triggers()?;
+        self.flush_pending_dies_triggers()?;
         self.flush_pending_land_entry_triggers()?;
         self.flush_pending_damage_triggers();
         self.flush_pending_life_gain_triggers();
@@ -22844,19 +22848,6 @@ impl Game {
         }
         self.enqueue_controlled_nonartifact_permanent_entry_triggers(source, controller)?;
         self.enqueue_controlled_aura_entry_triggers(source, controller)
-    }
-
-    /// Captures and immediately places entry triggers for an entry path whose
-    /// caller has already reached its post-SBA trigger-placement boundary.
-    fn enqueue_enter_triggers(
-        &mut self,
-        source: ObjectId,
-        definition: &'static str,
-        controller: PlayerId,
-        convoke_contributors: &[CapturedConvokeCreature],
-    ) -> Result<(), RulesError> {
-        self.capture_enter_triggers(source, definition, controller, convoke_contributors)?;
-        self.flush_pending_trigger_events()
     }
 
     /// Captures every live permanent controlled by the entering Aura's
