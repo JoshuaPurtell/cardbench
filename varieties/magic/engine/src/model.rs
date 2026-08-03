@@ -4001,17 +4001,21 @@ pub enum DecisionContinuation {
         /// arise only after a partial redirection of the current packet.
         remaining_global_packets: Vec<DamageReplacementPacket>,
     },
-    /// Resumes one combat player-damage packet after the affected player
-    /// selects an applicable replacement. The remaining already-assigned
-    /// combat player packets are retained in declaration/assignment order,
-    /// so opening a no-priority choice cannot recreate combat or discard a
-    /// later legal assignment.
+    /// Resumes one combat-damage packet after the affected player selects an
+    /// applicable replacement. The exact current recipient and its
+    /// incarnation, any partial-redirection packets, and both remaining
+    /// creature/player assignment suffixes are retained in combat order, so a
+    /// no-priority choice cannot recreate combat, commit a stale recipient,
+    /// or discard a later legal assignment.
     CombatDamageReplacement {
         source: ObjectId,
         source_incarnation: u64,
-        player: PlayerId,
+        target: Target,
+        target_incarnation: Option<u64>,
         amount: i32,
         used: Vec<DamageReplacementChoice>,
+        deferred_packets: Vec<DamageReplacementPacket>,
+        remaining_permanent_damage: Vec<(ObjectId, ObjectId, i32)>,
         remaining_player_damage: Vec<(ObjectId, PlayerId, i32)>,
     },
     /// A counterspell remains on top of the stack while the lower target

@@ -4066,14 +4066,15 @@ impl Game {
                 DecisionContinuation::CombatDamageReplacement {
                     source,
                     source_incarnation,
-                    player: affected_player,
+                    target,
+                    target_incarnation,
                     amount,
                     ..
                 } => Some(DamageReplacementChoiceView {
                     source: *source,
                     source_incarnation: *source_incarnation,
-                    target: Target::Player(*affected_player),
-                    target_incarnation: None,
+                    target: *target,
+                    target_incarnation: *target_incarnation,
                     amount: *amount,
                     replacements: Self::decision_replacement_candidates(decision)
                         .into_iter()
@@ -7790,9 +7791,12 @@ impl Game {
             DecisionContinuation::CombatDamageReplacement {
                 source,
                 source_incarnation,
-                player: affected_player,
+                target,
+                target_incarnation,
                 amount,
                 used,
+                deferred_packets,
+                remaining_permanent_damage,
                 remaining_player_damage,
             } => {
                 let selected = Self::validate_replacement_decision_selection(&decision, selection)?;
@@ -7800,9 +7804,12 @@ impl Game {
                     &decision,
                     source,
                     source_incarnation,
-                    affected_player,
+                    target,
+                    target_incarnation,
                     amount,
                     used,
+                    deferred_packets,
+                    remaining_permanent_damage,
                     remaining_player_damage,
                     selected,
                 )
@@ -17167,25 +17174,25 @@ impl Game {
     }
 
     /// Opens a no-priority affected-player choice for one already-assigned
-    /// combat player-damage packet. The remaining player packets are a
-    /// snapshot from the same combat-damage batch and resume only after this
-    /// exact packet has committed.
+    /// combat packet. Both creature and player suffixes are snapshots from
+    /// the same combat-damage batch and resume only after this exact current
+    /// recipient packet (including any partial redirection) has committed.
     fn open_combat_damage_replacement_decision(
         &mut self,
         pending: PendingDamageReplacementChoice,
+        remaining_permanent_damage: Vec<(ObjectId, ObjectId, i32)>,
         remaining_player_damage: Vec<(ObjectId, PlayerId, i32)>,
     ) -> Result<(), RulesError> {
         let choices = self.combat_damage_replacement_candidates(
             pending.source,
-            pending.affected_player,
+            pending.target,
             pending.amount,
             &pending.used,
         )?;
         if choices.len() < 2
-            || pending.original_target != Target::Player(pending.affected_player)
-            || pending.target != Target::Player(pending.affected_player)
-            || pending.target_incarnation.is_some()
-            || !pending.deferred_packets.is_empty()
+            || pending.amount <= 0
+            || pending.affected_player != self.affected_player_for_damage_target(pending.target)?
+            || pending.target_incarnation != self.damage_target_incarnation(pending.target)?
         {
             return Err(RulesError::IllegalAction(
                 "combat damage replacement decision has an invalid packet shape",
@@ -17204,9 +17211,12 @@ impl Game {
             DecisionContinuation::CombatDamageReplacement {
                 source: pending.source,
                 source_incarnation: pending.source_incarnation,
-                player: pending.affected_player,
+                target: pending.target,
+                target_incarnation: pending.target_incarnation,
                 amount: pending.amount,
                 used: pending.used,
+                deferred_packets: pending.deferred_packets,
+                remaining_permanent_damage,
                 remaining_player_damage,
             },
         )?;
@@ -19394,9 +19404,12 @@ impl Game {
         decision: &PendingDecision,
         source: ObjectId,
         source_incarnation: u64,
-        affected_player: PlayerId,
+        target: Target,
+        target_incarnation: Option<u64>,
         amount: i32,
         used: Vec<DamageReplacementChoice>,
+        deferred_packets: Vec<DamageReplacementPacket>,
+        remaining_permanent_damage: Vec<(ObjectId, ObjectId, i32)>,
         remaining_player_damage: Vec<(ObjectId, PlayerId, i32)>,
         selected: ReplacementChoice,
     ) -> Result<(), RulesError> {
@@ -19405,8 +19418,9 @@ impl Game {
                 "combat replacement decision selected a quantity replacement identity",
             ));
         };
+        let affected_player = self.affected_player_for_damage_target(target)?;
         let candidates =
-            self.combat_damage_replacement_candidates(source, affected_player, amount, &used)?;
+            self.combat_damage_replacement_candidates(source, target, amount, &used)?;
         let expected_options = candidates
             .iter()
             .copied()
@@ -19416,7 +19430,7 @@ impl Game {
             .iter()
             .enumerate()
             .any(|(index, choice)| used[index + 1..].contains(choice));
-        let suffix_is_valid =
+        let player_suffix_is_valid =
             remaining_player_damage
                 .iter()
                 .all(|(next_source, player, amount)| {
@@ -19426,11 +19440,35 @@ impl Game {
                         && *amount > 0
                         && self.zone_of(*next_source) == Some(Zone::Battlefield)
                 });
-        let combat_is_live = self.combat.as_ref().is_some_and(|combat| {
-            combat.attackers_declared
-                && combat.blockers_declared
-                && combat.defending_player == Some(affected_player)
+        let permanent_suffix_is_valid =
+            remaining_permanent_damage
+                .iter()
+                .all(|(next_source, permanent, next_amount)| {
+                    next_source.0 != 0
+                        && permanent.0 != 0
+                        && *next_amount > 0
+                        && self.zone_of(*next_source) == Some(Zone::Battlefield)
+                        && self.zone_of(*permanent) == Some(Zone::Battlefield)
+                        && self
+                            .characteristics(*permanent)
+                            .is_ok_and(|characteristics| {
+                                characteristics.card_types.contains(&CardType::Creature)
+                            })
+                });
+        let deferred_packets_are_valid = deferred_packets.iter().all(|packet| {
+            packet.amount > 0
+                && self
+                    .global_damage_packet_target_is_live(packet.target, packet.target_incarnation)
+                && !packet
+                    .used
+                    .iter()
+                    .enumerate()
+                    .any(|(index, choice)| packet.used[index + 1..].contains(choice))
         });
+        let combat_is_live = self
+            .combat
+            .as_ref()
+            .is_some_and(|combat| combat.attackers_declared && combat.blockers_declared);
         if decision.kind != DecisionKind::Replacement
             || decision.visibility != DecisionVisibility::Public
             || decision.player != affected_player
@@ -19442,9 +19480,12 @@ impl Game {
             || self.zone_of(source) != Some(Zone::Battlefield)
             || self.object(source)?.incarnation != source_incarnation
             || amount <= 0
+            || target_incarnation != self.damage_target_incarnation(target)?
             || self.players[affected_player.0].lost
             || !used_are_unique
-            || !suffix_is_valid
+            || !deferred_packets_are_valid
+            || !permanent_suffix_is_valid
+            || !player_suffix_is_valid
             || candidates.len() < 2
             || decision.options != expected_options
             || decision.min_selections != 1
@@ -19459,20 +19500,24 @@ impl Game {
             source_incarnation,
             controller: self.controller_of(source)?,
             affected_player,
-            original_target: Target::Player(affected_player),
-            target: Target::Player(affected_player),
-            target_incarnation: None,
+            original_target: target,
+            target,
+            target_incarnation,
             amount,
             used,
-            deferred_packets: Vec::new(),
+            deferred_packets,
         };
         self.apply_combat_damage_replacement(&mut pending, replacement)?;
         if let Some(next) = self.advance_combat_damage_replacement_pipeline(pending)? {
             self.complete_pending_decision(decision)?;
-            return self.open_combat_damage_replacement_decision(next, remaining_player_damage);
+            return self.open_combat_damage_replacement_decision(
+                next,
+                remaining_permanent_damage,
+                remaining_player_damage,
+            );
         }
         self.complete_pending_decision(decision)?;
-        if self.resolve_combat_player_damage_queue(remaining_player_damage)? {
+        if self.resolve_combat_damage_queues(remaining_permanent_damage, remaining_player_damage)? {
             return Ok(());
         }
         self.finish_combat_damage_batch()?;
@@ -21374,21 +21419,22 @@ impl Game {
     }
 
     /// Lists every represented replacement for one prospective combat-damage
-    /// packet that would be dealt to a player. The source-specific mill and
-    /// counter replacement joins the ordinary prospective-damage candidates
-    /// here instead of taking an eager shortcut, so the affected player can
-    /// order genuinely concurrent replacements.
+    /// packet. The source-specific mill-and-counter replacement applies only
+    /// to a player recipient, while ordinary damage replacements and
+    /// target-free combat prevention can apply to either a player or creature
+    /// packet. The affected player therefore orders every concurrent option
+    /// before a combat packet commits.
     fn combat_damage_replacement_candidates(
         &self,
         source: ObjectId,
-        player: PlayerId,
+        target: Target,
         amount: i32,
         used: &[DamageReplacementChoice],
     ) -> Result<Vec<DamageReplacementChoice>, RulesError> {
-        let mut candidates =
-            self.damage_replacement_candidates(source, Target::Player(player), amount, used)?;
+        let mut candidates = self.damage_replacement_candidates(source, target, amount, used)?;
         candidates.extend(self.combat_damage_prevention_candidates(source, used));
-        if amount > 0
+        if let Target::Player(_) = target
+            && amount > 0
             && self.zone_of(source) == Some(Zone::Battlefield)
             && self
                 .effective_definition_id(source)?
@@ -21423,7 +21469,7 @@ impl Game {
     ) -> Result<(), RulesError> {
         let candidates = self.combat_damage_replacement_candidates(
             pending.source,
-            pending.affected_player,
+            pending.target,
             pending.amount,
             &pending.used,
         )?;
@@ -21439,6 +21485,11 @@ impl Game {
         else {
             return Err(RulesError::IllegalAction(
                 "combat replacement pipeline received a non-combat replacement",
+            ));
+        };
+        let Target::Player(player) = pending.target else {
+            return Err(RulesError::IllegalAction(
+                "combat mill replacement was offered for a nonplayer damage recipient",
             ));
         };
         if source != pending.source
@@ -21462,16 +21513,16 @@ impl Game {
         }
         self.record_event(GameEvent::DamageReplacementApplied {
             affected_player: pending.affected_player,
-            target: Target::Player(pending.affected_player),
+            target: pending.target,
             replacement,
         });
         self.record_event(GameEvent::CombatDamageReplacedWithMillAndCounters {
             source,
             source_incarnation,
-            player: pending.affected_player,
+            player,
             amount: pending.amount,
         });
-        let cards = self.players[pending.affected_player.0]
+        let cards = self.players[player.0]
             .library
             .iter()
             .rev()
@@ -21501,7 +21552,7 @@ impl Game {
     ) -> Result<(), RulesError> {
         let candidates = self.combat_damage_replacement_candidates(
             pending.source,
-            pending.affected_player,
+            pending.target,
             pending.amount,
             &pending.used,
         )?;
@@ -21517,13 +21568,13 @@ impl Game {
             ))?;
         self.record_event(GameEvent::DamageReplacementApplied {
             affected_player: pending.affected_player,
-            target: Target::Player(pending.affected_player),
+            target: pending.target,
             replacement,
         });
         self.record_event(GameEvent::CombatDamagePrevented {
             source: pending.source,
             prevented_by,
-            target: Target::Player(pending.affected_player),
+            target: pending.target,
             amount: pending.amount,
         });
         pending.used.push(replacement);
@@ -21547,26 +21598,45 @@ impl Game {
         }
     }
 
-    /// Completes one prospective combat player-damage packet only after all
-    /// selected amount/prevention replacements have finished. This bypasses
-    /// the ordinary automatic amount-replacement helper because the chain
-    /// already records every applied identity in `pending.used`.
-    fn commit_combat_player_damage_after_replacements(
+    /// Commits one prospective combat packet only after all selected
+    /// replacements have finished. This bypasses the ordinary automatic
+    /// direct-damage path because this chain already records every applied
+    /// identity in `pending.used`. A committed creature recipient retains the
+    /// source-bound combat-damage trigger boundary even if redirection changed
+    /// the original blocker target.
+    fn commit_combat_damage_after_replacements(
         &mut self,
         source: ObjectId,
-        player: PlayerId,
+        target: Target,
         amount: i32,
     ) -> Result<(), RulesError> {
         if let Some(prevented_by) = self.combat_damage_prevented_by(source) {
             self.record_event(GameEvent::CombatDamagePrevented {
                 source,
                 prevented_by,
-                target: Target::Player(player),
+                target,
                 amount,
             });
             return Ok(());
         }
-        self.commit_damage_event(source, Target::Player(player), amount)
+        let event_start = self.event_log.len();
+        self.commit_damage_event(source, target, amount)?;
+        if let Target::Permanent(permanent) = target {
+            let dealt = self.event_log[event_start..].iter().any(|event| {
+                matches!(
+                    event,
+                    GameEvent::DamageDealtToPermanent {
+                        source: event_source,
+                        permanent: event_permanent,
+                        amount: event_amount,
+                    } if *event_source == source && *event_permanent == permanent && *event_amount > 0
+                )
+            });
+            if dealt {
+                self.enqueue_combat_damage_to_creature_triggers(source, permanent)?;
+            }
+        }
+        Ok(())
     }
 
     fn advance_combat_damage_replacement_pipeline(
@@ -21575,22 +21645,27 @@ impl Game {
     ) -> Result<Option<PendingDamageReplacementChoice>, RulesError> {
         loop {
             if pending.amount == 0 {
-                return Ok(None);
+                if !self.advance_to_deferred_damage_packet(&mut pending)? {
+                    return Ok(None);
+                }
+                continue;
             }
             let candidates = self.combat_damage_replacement_candidates(
                 pending.source,
-                pending.affected_player,
+                pending.target,
                 pending.amount,
                 &pending.used,
             )?;
             match candidates.as_slice() {
                 [] => {
-                    self.commit_combat_player_damage_after_replacements(
+                    self.commit_combat_damage_after_replacements(
                         pending.source,
-                        pending.affected_player,
+                        pending.target,
                         pending.amount,
                     )?;
-                    return Ok(None);
+                    if !self.advance_to_deferred_damage_packet(&mut pending)? {
+                        return Ok(None);
+                    }
                 }
                 [replacement] => {
                     self.apply_combat_damage_replacement(&mut pending, *replacement)?;
@@ -21603,15 +21678,16 @@ impl Game {
     fn suspend_combat_damage_replacement_if_needed(
         &mut self,
         source: ObjectId,
-        player: PlayerId,
+        target: Target,
         amount: i32,
+        remaining_permanent_damage: &[(ObjectId, ObjectId, i32)],
         remaining_player_damage: &[(ObjectId, PlayerId, i32)],
     ) -> Result<bool, RulesError> {
         if amount <= 0 {
             return Ok(false);
         }
         let source_incarnation = self.object(source)?.incarnation;
-        let candidates = self.combat_damage_replacement_candidates(source, player, amount, &[])?;
+        let candidates = self.combat_damage_replacement_candidates(source, target, amount, &[])?;
         if candidates.len() < 2 {
             return Ok(false);
         }
@@ -21620,14 +21696,15 @@ impl Game {
                 source,
                 source_incarnation,
                 controller: self.controller_of(source)?,
-                affected_player: player,
-                original_target: Target::Player(player),
-                target: Target::Player(player),
-                target_incarnation: None,
+                affected_player: self.affected_player_for_damage_target(target)?,
+                original_target: target,
+                target,
+                target_incarnation: self.damage_target_incarnation(target)?,
                 amount,
                 used: Vec::new(),
                 deferred_packets: Vec::new(),
             },
+            remaining_permanent_damage.to_vec(),
             remaining_player_damage.to_vec(),
         )?;
         Ok(true)
@@ -24991,29 +25068,42 @@ impl Game {
                 player_damage.push((attacker, defending_player, attacker_power));
             }
         }
-        for (source, permanent, amount) in permanent_damage {
-            self.deal_combat_damage_to_permanent(source, permanent, amount)?;
-        }
-        if self.resolve_combat_player_damage_queue(player_damage)? {
+        if self.resolve_combat_damage_queues(permanent_damage, player_damage)? {
             return Ok(());
         }
         self.finish_combat_damage_batch()
     }
 
-    /// Resolves the already-assigned combat player-damage packets in their
-    /// deterministic assignment order. A concurrent replacement choice stops
-    /// at one packet and captures the suffix in its continuation; it never
-    /// creates a fresh combat state or exposes an ordinary priority window.
-    fn resolve_combat_player_damage_queue(
+    /// Resolves every already-assigned combat packet in deterministic combat
+    /// order. Creature packets precede combatants' player packets exactly as
+    /// assignment established them. A concurrent replacement choice retains
+    /// both suffixes in one stackless continuation; it never recreates combat
+    /// or leaks an ordinary priority window between replacement and damage.
+    fn resolve_combat_damage_queues(
         &mut self,
+        mut permanent_damage: Vec<(ObjectId, ObjectId, i32)>,
         mut player_damage: Vec<(ObjectId, PlayerId, i32)>,
     ) -> Result<bool, RulesError> {
+        while !permanent_damage.is_empty() {
+            let (source, permanent, amount) = permanent_damage.remove(0);
+            if self.suspend_combat_damage_replacement_if_needed(
+                source,
+                Target::Permanent(permanent),
+                amount,
+                &permanent_damage,
+                &player_damage,
+            )? {
+                return Ok(true);
+            }
+            self.deal_combat_damage_to_permanent(source, permanent, amount)?;
+        }
         while !player_damage.is_empty() {
             let (source, player, amount) = player_damage.remove(0);
             if self.suspend_combat_damage_replacement_if_needed(
                 source,
-                player,
+                Target::Player(player),
                 amount,
+                &permanent_damage,
                 &player_damage,
             )? {
                 return Ok(true);
@@ -32296,13 +32386,16 @@ impl Game {
             DecisionContinuation::CombatDamageReplacement {
                 source,
                 source_incarnation,
-                player,
+                target,
+                target_incarnation,
                 amount,
                 used,
+                deferred_packets,
+                remaining_permanent_damage,
                 remaining_player_damage,
             } => {
                 let choices =
-                    self.combat_damage_replacement_candidates(*source, *player, *amount, used)?;
+                    self.combat_damage_replacement_candidates(*source, *target, *amount, used)?;
                 let expected_options = choices
                     .iter()
                     .copied()
@@ -32312,7 +32405,7 @@ impl Game {
                     .iter()
                     .enumerate()
                     .any(|(index, choice)| used[index + 1..].contains(choice));
-                let suffix_is_valid =
+                let player_suffix_is_valid =
                     remaining_player_damage
                         .iter()
                         .all(|(source, player, amount)| {
@@ -32322,14 +32415,40 @@ impl Game {
                                 && *amount > 0
                                 && self.zone_of(*source) == Some(Zone::Battlefield)
                         });
-                let combat_is_live = self.combat.as_ref().is_some_and(|combat| {
-                    combat.attackers_declared
-                        && combat.blockers_declared
-                        && combat.defending_player == Some(*player)
+                let permanent_suffix_is_valid =
+                    remaining_permanent_damage
+                        .iter()
+                        .all(|(source, permanent, amount)| {
+                            source.0 != 0
+                                && permanent.0 != 0
+                                && *amount > 0
+                                && self.zone_of(*source) == Some(Zone::Battlefield)
+                                && self.zone_of(*permanent) == Some(Zone::Battlefield)
+                                && self
+                                    .characteristics(*permanent)
+                                    .is_ok_and(|characteristics| {
+                                        characteristics.card_types.contains(&CardType::Creature)
+                                    })
+                        });
+                let deferred_packets_are_valid = deferred_packets.iter().all(|packet| {
+                    packet.amount > 0
+                        && self.global_damage_packet_target_is_live(
+                            packet.target,
+                            packet.target_incarnation,
+                        )
+                        && !packet
+                            .used
+                            .iter()
+                            .enumerate()
+                            .any(|(index, choice)| packet.used[index + 1..].contains(choice))
                 });
+                let combat_is_live = self
+                    .combat
+                    .as_ref()
+                    .is_some_and(|combat| combat.attackers_declared && combat.blockers_declared);
                 if decision.kind != DecisionKind::Replacement
                     || decision.visibility != DecisionVisibility::Public
-                    || decision.player != *player
+                    || decision.player != self.affected_player_for_damage_target(*target)?
                     || !matches!(
                         self.step,
                         Step::FirstStrikeCombatDamage | Step::CombatDamage
@@ -32338,9 +32457,12 @@ impl Game {
                     || self.zone_of(*source) != Some(Zone::Battlefield)
                     || self.object(*source)?.incarnation != *source_incarnation
                     || *amount <= 0
-                    || self.players[player.0].lost
+                    || *target_incarnation != self.damage_target_incarnation(*target)?
+                    || self.players[decision.player.0].lost
                     || !used_are_unique
-                    || !suffix_is_valid
+                    || !deferred_packets_are_valid
+                    || !permanent_suffix_is_valid
+                    || !player_suffix_is_valid
                     || choices.len() < 2
                     || decision.options != expected_options
                     || decision.min_selections != 1

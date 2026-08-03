@@ -10,8 +10,8 @@ use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
     AbilityActivation, ActivatedAbility, ActivatedAbilityBinding, CardDefinition, CardType,
-    CastRequest, CombatBlock, DecisionKind, Effect, Game, ManaCost, PlayerId, Target,
-    TargetRequirement, Zone,
+    CastRequest, CombatBlock, DamageReplacementChoice, DecisionKind, DecisionSelection, Effect,
+    Game, ManaCost, PlayerId, ReplacementChoice, Target, TargetRequirement, Zone,
 };
 
 const ATTACKER: &str = "TST-COMBAT-PERMANENT-REPLACEMENT-ATTACKER";
@@ -208,6 +208,57 @@ fn blocker_controller_orders_redirection_and_shield_for_combat_damage() {
             .expect("attacker player")
             .life,
         20
+    );
+    let shield_choice = decision
+        .replacement_candidates
+        .iter()
+        .copied()
+        .find(|choice| {
+            matches!(
+                choice,
+                ReplacementChoice::Damage(DamageReplacementChoice::TargetedShield { .. })
+            )
+        })
+        .expect("the blocker shield is one public ordering option");
+    game.submit_decision(
+        blocker_controller,
+        decision.id,
+        DecisionSelection::Replacements(vec![shield_choice]),
+    )
+    .expect("blocker controller chooses prevention before redirection");
+    assert!(
+        game.view_for_player(blocker_controller)
+            .expect("blocker controller view")
+            .pending_decision
+            .is_none(),
+        "the selected replacement completes the retained combat batch"
+    );
+    assert_eq!(game.object(blocker).expect("blocker exists").damage, 0);
+    assert_eq!(
+        game.player(attacker_controller)
+            .expect("attacker player")
+            .life,
+        20
+    );
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        cardbench_magic_engine::GameEvent::DamagePrevented {
+            source,
+            target: Target::Permanent(protected),
+            amount: 2,
+        } if *source == attacker && *protected == blocker
+    )));
+    assert!(
+        !game.event_log.iter().any(|event| matches!(
+            event,
+            cardbench_magic_engine::GameEvent::DamageRedirected {
+                source,
+                from,
+                amount: 2,
+                ..
+            } if *source == attacker && *from == blocker
+        )),
+        "the unselected redirect must not mutate the combat packet"
     );
     game.validate_invariants()
         .expect("suspended combat permanent replacement is invariant-valid");
