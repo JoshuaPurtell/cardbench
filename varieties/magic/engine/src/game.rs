@@ -32827,13 +32827,13 @@ impl Game {
                 target_incarnation: self.object(token_id)?.incarnation,
                 timestamp,
             });
-            if let Some(definition) = self.effective_definition_id(token_id)? {
-                self.capture_enter_triggers(token_id, definition, controller, &[])?;
-            } else {
-                self.enqueue_controlled_nonartifact_permanent_entry_triggers(token_id, controller)?;
-            }
             created.push(token_id);
         }
+        // One copy effect can create multiple tokens after a quantity
+        // replacement. They enter through one token-creation event, so their
+        // own ETBs, controller-scoped observers, and creature-land entry
+        // triggers all use the shared post-event snapshot.
+        self.capture_simultaneous_entry_triggers_and_land_entries(&created)?;
         Ok(created)
     }
 

@@ -8,8 +8,8 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    AttachmentBinding, AttachmentKind, CardDefinition, CardType, Effect, Game, GameEvent,
-    ManaCost, PlayerId, TargetRequirement, TriggerCondition, TriggeredAbility,
+    AttachmentBinding, AttachmentKind, CardDefinition, CardType, DecisionKind, Effect, Game,
+    GameEvent, ManaCost, PlayerId, TargetRequirement, TriggerCondition, TriggeredAbility,
     TriggeredAbilityBinding, Zone,
 };
 
@@ -47,6 +47,7 @@ fn pass_pair(game: &mut Game) {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // The full upkeep/copy/entry trigger transcript is the regression contract.
 fn copied_creature_land_token_captures_its_land_entry_trigger() {
     let controller = PlayerId(0);
     let mut game = Game::new_with_all_bindings_and_triggers(
@@ -112,7 +113,8 @@ fn copied_creature_land_token_captures_its_land_entry_trigger() {
         .expect("Aura setup");
     game.enter_attachment_without_cast(aura, creature_land)
         .expect("pregame Aura setup attaches");
-    game.begin_game().expect("game begins at the attached controller upkeep");
+    game.begin_game()
+        .expect("game begins at the attached controller upkeep");
 
     pass_pair(&mut game);
     let token = game
@@ -123,19 +125,31 @@ fn copied_creature_land_token_captures_its_land_entry_trigger() {
             _ => None,
         })
         .expect("upkeep ability creates one copied token");
+    let order = game
+        .view_for_player(controller)
+        .expect("controller view")
+        .pending_decision
+        .expect("both represented creature-lands observe the copied land entry");
+    assert_eq!(order.kind, DecisionKind::TriggeredAbilityOrder);
+    assert_eq!(order.trigger_candidates.len(), 2);
     eprintln!(
         "copied creature-land token entry trace={:?}",
         game.canonical_event_log()
     );
 
     assert_eq!(game.zone_of(token), Some(Zone::Battlefield));
-    assert!(game.event_log.iter().any(|event| {
-        matches!(
-            event,
-            GameEvent::TriggeredAbilityStacked { source, ability, .. }
-                if *source == token && *ability == "copied-creature-land-entry"
-        )
-    }), "the copied creature-land token must emit its own land-entry trigger");
+    assert!(
+        order.trigger_candidates.iter().any(|entry| {
+            entry.source == token && entry.ability == "copied-creature-land-entry"
+        }),
+        "the copied creature-land token must enter the land-trigger ordering batch"
+    );
+    assert!(
+        order.trigger_candidates.iter().any(|entry| {
+            entry.source == creature_land && entry.ability == "copied-creature-land-entry"
+        }),
+        "the original creature-land must observe the same copied land-entry event"
+    );
     game.validate_invariants()
         .expect("copied creature-land token entry remains auditable");
 }
