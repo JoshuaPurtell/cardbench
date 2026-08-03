@@ -50,6 +50,7 @@ fn advance_to_precombat_main(game: &mut Game) {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // The full cast/search/entry ordering transcript is the regression.
 fn source_bound_aura_search_stacks_controlled_aura_entry_observer() {
     let controller = PlayerId(0);
     let mut game = Game::new_with_all_bindings_and_triggers(
@@ -158,19 +159,19 @@ fn source_bound_aura_search_stacks_controlled_aura_entry_observer() {
         game.object(aura).expect("Aura exists").attached_to,
         Some(host)
     );
+    let watcher_incarnation = game.object(watcher).expect("watcher exists").incarnation;
     assert!(
-        game.event_log
-            .iter()
-            .any(|event| matches!(event, GameEvent::DecisionOpened { .. })),
-        "a fetched Aura must notify its controller's Aura-entry observer"
+        game.event_log.iter().any(|event| matches!(
+            event,
+            GameEvent::TriggeredAbilityStacked {
+                source,
+                source_incarnation,
+                ability: "controlled-aura-entered",
+                ..
+            } if *source == watcher && *source_incarnation == watcher_incarnation
+        )),
+        "a fetched Aura must stack its controller's Aura-entry observer"
     );
-    let choice = game
-        .view_for_player(controller)
-        .expect("controller view")
-        .optional_triggered_ability_choice
-        .expect("controlled Aura-entry observer opens its optional choice");
-    assert_eq!(choice.source, watcher);
-    assert_eq!(choice.ability, "controlled-aura-entered");
     game.validate_invariants()
         .expect("Aura-search observer transition remains auditable");
 }

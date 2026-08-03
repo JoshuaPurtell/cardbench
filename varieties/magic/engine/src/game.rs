@@ -14146,15 +14146,11 @@ impl Game {
             self.move_to_zone(aura, Zone::Battlefield)?;
             self.attach_with_binding(aura, source, &binding, false)?;
             // The enclosing stack object remains in the middle of resolving,
-            // so queue the fetched Aura's ETB trigger now and let the normal
-            // post-resolution flush place it only after this ability's own
-            // terminal receipt.
-            self.enqueue_triggers_for_source(
-                aura,
-                definition,
-                aura_controller,
-                TriggerCondition::EntersBattlefield,
-            );
+            // so capture every normal entry observation now and let the
+            // normal post-resolution flush place it only after this ability's
+            // own terminal receipt. The shared capture includes the Aura's
+            // own ETB and controlled Aura/nonartifact entry observers.
+            self.capture_enter_triggers(aura, definition, aura_controller, &[])?;
         }
 
         self.record_event(GameEvent::LibrarySearchResolved {
