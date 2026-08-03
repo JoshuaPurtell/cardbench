@@ -237,15 +237,12 @@ fn policy_submitted_transmute_uses_the_audited_engine_path() {
 
     let view = game
         .view_for_player(player)
-        .expect("controller receives transmute search choices");
-    let search = view
-        .transmute_searches
-        .iter()
-        .find(|search| search.card == transmuter)
-        .expect("transmute card has a candidate projection");
-    assert_eq!(search.candidates.len(), 1);
-    assert_eq!(search.candidates[0].id, found);
-    assert_ne!(search.candidates[0].id, opponent_library_card);
+        .expect("controller receives an ordinary policy view");
+    assert!(
+        view.transmute_searches.is_empty(),
+        "the ordinary view cannot reveal own-library Transmute candidates"
+    );
+    assert_ne!(found, opponent_library_card);
 
     game.submit_policy_move(
         player,

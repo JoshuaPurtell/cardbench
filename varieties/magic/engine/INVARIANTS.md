@@ -1194,11 +1194,10 @@ Oracle Magic rules coverage.
   card or cached prior top. The projection is recomputed from live battlefield
   source definitions and ordinary library zones, so draws, shuffles, zone
   changes, and source departure immediately change or revoke it without a
-  synthetic visibility receipt. It otherwise projects only the
-  controller-owned, mana-value-matching library cards for each transmute card
-  in that controller's hand, allowing an honest search decision without
-  granting general hidden-library access. A suspended typed library search
-  similarly projects only its resolving controller's matching candidate
+  synthetic visibility receipt. An ordinary view never projects a matching
+  card from any hidden library, including its own controller's library merely
+  because that controller holds a Transmute card. A suspended typed library
+  search instead projects only its resolving controller's matching candidate
   identities; opponents receive no candidate list or selected-card identity
   before a public reveal or ordinary zone-move receipt. The exported canonical event log
   follows the same boundary: private inspection receipts contain public

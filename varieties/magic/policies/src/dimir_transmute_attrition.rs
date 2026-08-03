@@ -117,16 +117,9 @@ fn transmute_for_helix(view: &GameView) -> Option<PolicyAction> {
     if view.mana_pool.amount(Color::Blue) < 2 || view.mana_pool.total() < 3 {
         return None;
     }
-    let search = view.transmute_searches.iter().find(|search| {
-        view.hand
-            .iter()
-            .any(|card| card.id == search.card && card.definition == Some("RAV-MUDDLE-THE-MIXTURE"))
-    })?;
-    let _found = search
-        .candidates
-        .iter()
-        .find(|card| card.definition == Some("RAV-LIGHTNING-HELIX"))?;
-    Some(PolicyAction::Transmute { card: search.card })
+    // The later resolving private search supplies candidates. Ordinary policy
+    // state only establishes that the visible Muddle activation is affordable.
+    card_in_hand(view, "RAV-MUDDLE-THE-MIXTURE").map(|card| PolicyAction::Transmute { card })
 }
 
 fn cast(card: ObjectId, target: Target) -> PolicyAction {

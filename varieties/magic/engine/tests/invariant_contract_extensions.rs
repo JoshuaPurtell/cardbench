@@ -703,7 +703,7 @@ fn deck_loading_shuffle_and_opening_hand_are_deterministic_and_zone_complete() {
 }
 
 #[test]
-fn card_views_expose_only_controller_hand_and_legal_transmute_choices() {
+fn card_views_hide_all_library_cards_until_a_search_resolves() {
     let controller = PlayerId(0);
     let opponent = PlayerId(1);
     let mut game = game(2);
@@ -731,30 +731,23 @@ fn card_views_expose_only_controller_hand_and_legal_transmute_choices() {
         view.hand.iter().map(|card| card.id).collect::<Vec<_>>(),
         vec![transmuter]
     );
-    assert_eq!(view.transmute_searches.len(), 1);
-    assert_eq!(view.transmute_searches[0].card, transmuter);
-    assert_eq!(
-        view.transmute_searches[0]
-            .candidates
-            .iter()
-            .map(|card| card.id)
-            .collect::<Vec<_>>(),
-        vec![legal]
+    assert!(
+        view.transmute_searches.is_empty(),
+        "an inactive Transmute card cannot reveal private library candidates"
     );
     let view_ids: BTreeSet<_> = view
         .hand
         .iter()
-        .chain(
-            view.transmute_searches
-                .iter()
-                .flat_map(|search| search.candidates.iter()),
-        )
         .chain(view.own_battlefield.iter())
         .chain(view.opponent_battlefield.iter())
         .map(|card| card.id)
         .collect();
     assert!(!view_ids.contains(&hidden_hand));
     assert!(!view_ids.contains(&hidden_library));
+    assert!(
+        !view_ids.contains(&legal),
+        "a controller's matching Transmute card remains hidden before the search resolves"
+    );
     assert!(view_ids.contains(&public_permanent));
     assert_eq!(
         view.opponent_battlefield

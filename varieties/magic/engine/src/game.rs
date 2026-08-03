@@ -414,10 +414,13 @@ pub struct RevealedLibraryTopView {
     pub card: CardView,
 }
 
-/// Controller-only legal search choices for one transmute card in hand.
+/// Retired compatibility projection for Transmute search choices.
 ///
-/// This projects only cards that the named ability could find; it does not
-/// expose either player's full library to a general code policy.
+/// This remains in the public shape so older policy consumers deserialize a
+/// stable `GameView`, but a live view always leaves it empty. Transmute's
+/// matching private-library cards are visible only through the resolving
+/// `PendingDecisionView` after the activated ability reaches its normal stack
+/// resolution boundary.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TransmuteSearchView {
     pub card: ObjectId,
@@ -569,7 +572,8 @@ pub struct GameView {
     /// Present only to the affected player while a bounded prospective damage
     /// event requires replacement ordering.
     pub damage_replacement_choice: Option<DamageReplacementChoiceView>,
-    /// Legal controller-owned library choices for each transmute card in hand.
+    /// Retired compatibility projection; always empty. See `pending_decision`
+    /// for the controller-only candidates of a resolving Transmute search.
     pub transmute_searches: Vec<TransmuteSearchView>,
     pub own_battlefield: Vec<CardView>,
     pub opponent_battlefield: Vec<CardView>,
@@ -3910,29 +3914,6 @@ impl Game {
             .map(|card| self.card_view(*card))
             .collect::<Result<Vec<_>, _>>()?;
         let revealed_library_tops = self.revealed_library_tops()?;
-        let mut transmute_searches = Vec::new();
-        for card in &state.hand {
-            let definition = self.card_definition(*card)?;
-            if definition.transmute_cost().is_none() {
-                continue;
-            }
-            let mana_value = definition.mana_cost.mana_value();
-            let candidates = state
-                .library
-                .iter()
-                .filter(|candidate| {
-                    self.card_definition(**candidate)
-                        .is_ok_and(|candidate_definition| {
-                            candidate_definition.mana_cost.mana_value() == mana_value
-                        })
-                })
-                .map(|candidate| self.card_view(*candidate))
-                .collect::<Result<Vec<_>, _>>()?;
-            transmute_searches.push(TransmuteSearchView {
-                card: *card,
-                candidates,
-            });
-        }
         let own_battlefield = self
             .all_battlefield_cards()
             .into_iter()
@@ -4380,7 +4361,7 @@ impl Game {
             triggered_ability_effect_object_choice,
             pending_decision,
             damage_replacement_choice,
-            transmute_searches,
+            transmute_searches: Vec::new(),
             own_battlefield,
             opponent_battlefield,
             combat_attackers,

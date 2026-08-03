@@ -117,16 +117,10 @@ fn transmute_for_helix(view: &GameView) -> Option<PolicyAction> {
     if !can_pay_transmute(view) {
         return None;
     }
-    let search = view.transmute_searches.iter().find(|search| {
-        view.hand
-            .iter()
-            .any(|card| card.id == search.card && card.definition == Some("RAV-MUDDLE-THE-MIXTURE"))
-    })?;
-    let _found = search
-        .candidates
-        .iter()
-        .find(|card| card.definition == Some("RAV-LIGHTNING-HELIX"))?;
-    Some(PolicyAction::Transmute { card: search.card })
+    // A legal policy cannot inspect its hidden library merely for holding
+    // Transmute. It commits the ability based on the public hand and selects
+    // Lightning Helix only if the later private resolving search presents it.
+    card_in_hand(view, "RAV-MUDDLE-THE-MIXTURE").map(|card| PolicyAction::Transmute { card })
 }
 
 fn counterspell_response(view: &GameView, player: PlayerId) -> Option<PolicyAction> {
@@ -333,8 +327,10 @@ mod tests {
             .expect("generic mana");
         let mut policy = DimirTransmuteHelixPolicy::new(PlayerId(0));
         let view = game.view_for_player(PlayerId(0)).expect("controller view");
-        assert_eq!(view.transmute_searches.len(), 1);
-        assert_eq!(view.transmute_searches[0].candidates.len(), 1);
+        assert!(
+            view.transmute_searches.is_empty(),
+            "an unactivated Transmute card cannot reveal private library matches"
+        );
         let action = policy.propose_move(&view);
         assert_eq!(action, PolicyAction::Transmute { card: muddle });
         game.submit_policy_move(PlayerId(0), policy.id(), action)
