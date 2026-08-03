@@ -1122,10 +1122,11 @@ Oracle Magic rules coverage.
   outer target remains legal. An all-targets-illegal bundle is countered by
   rules as one stack instruction, so a broader trailing member cannot act on
   a stale target. Empty, nested, ranged, zone-changing, deferred-decision, or
-  multi-target members are rejected by definition validation; every accepted
-  member must be compatible with the outer creature/land/permanent target
-  hierarchy. The public event log retains ordinary effect receipts but has no
-  synthetic duplicate target identity.
+  multi-target members are rejected identically at spell, activated-binding,
+  and triggered-binding definition validation; every accepted member must be
+  compatible with the outer creature/land/permanent target hierarchy. The
+  public event log retains ordinary effect receipts but has no synthetic
+  duplicate target identity.
 - `PutTargetCreatureOnOwnersLibraryTop` accepts only a live creature target
   whose exact incarnation still matches the occurrence captured when its spell
   or triggered ability entered the stack. Its zone transition uses the ordinary
