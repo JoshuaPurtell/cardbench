@@ -24812,19 +24812,21 @@ impl Game {
         let active_player = self.active_player;
         let sources = self.all_battlefield_cards().into_iter().collect::<Vec<_>>();
         for source in sources {
-            let (source_controller, source_is_token, source_incarnation, source_colors) = {
+            let (source_controller, source_incarnation, source_colors) = {
                 let object = self.object(source)?;
                 (
                     self.controller_of(source)?,
-                    object.token.is_some(),
                     object.incarnation,
                     self.characteristics(source)?.colors,
                 )
             };
-            if source_is_token {
+            // A token with copied layer-one characteristics has the copied
+            // card's triggered abilities.  Use the effective definition just
+            // as upkeep dispatch does; only an ordinary definitionless token
+            // has no self-bound end-step ability.
+            let Some(definition) = self.effective_definition_id(source)? else {
                 continue;
-            }
-            let definition = self.card_definition(source)?.id;
+            };
             let triggers = self
                 .triggered_abilities
                 .get(definition)
@@ -37519,17 +37521,12 @@ impl Game {
             else {
                 continue;
             };
-            let Some(definition) = self
-                .objects
-                .get(source)
-                .and_then(|object| object.definition)
-                .or_else(|| self.departed_card_definitions.get(source).copied())
-            else {
+            let Ok(definition) = self.card_definition(*source) else {
                 continue;
             };
             let is_any_end_step = self
                 .triggered_abilities
-                .get(definition)
+                .get(definition.id)
                 .and_then(|abilities| abilities.get(ability))
                 .is_some_and(|binding| {
                     binding.condition == TriggerCondition::BeginningOfAnyEndStep
@@ -37570,17 +37567,12 @@ impl Game {
             else {
                 continue;
             };
-            let Some(definition) = self
-                .objects
-                .get(source)
-                .and_then(|object| object.definition)
-                .or_else(|| self.departed_card_definitions.get(source).copied())
-            else {
+            let Ok(definition) = self.card_definition(*source) else {
                 continue;
             };
             let is_controller_end_step = self
                 .triggered_abilities
-                .get(definition)
+                .get(definition.id)
                 .and_then(|abilities| abilities.get(ability))
                 .is_some_and(|binding| {
                     binding.condition == TriggerCondition::BeginningOfControllerEndStep
@@ -37624,17 +37616,12 @@ impl Game {
             else {
                 continue;
             };
-            let Some(definition) = self
-                .objects
-                .get(source)
-                .and_then(|object| object.definition)
-                .or_else(|| self.departed_card_definitions.get(source).copied())
-            else {
+            let Ok(definition) = self.card_definition(*source) else {
                 continue;
             };
             let is_attachment_relative_end_step = self
                 .triggered_abilities
-                .get(definition)
+                .get(definition.id)
                 .and_then(|abilities| abilities.get(ability))
                 .is_some_and(|binding| {
                     binding.condition

@@ -161,7 +161,9 @@ fn copied_token_stacks_its_controller_end_step_trigger() {
     pass_pair(&mut game);
     pass_pair(&mut game);
     assert_eq!(
-        game.player(controller).expect("controller remains live").life,
+        game.player(controller)
+            .expect("controller remains live")
+            .life,
         22,
         "both original and copied creature end-step triggers resolve"
     );
