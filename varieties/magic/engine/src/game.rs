@@ -139,6 +139,10 @@ struct EffectCreatedCastPermission {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 struct VirtualSpellCopy {
     original: ObjectId,
+    /// A copy is its own stack object. The original may leave the stack (or
+    /// the game with its owner) before the copy resolves, so definition
+    /// lookup cannot be deferred to the original physical card.
+    original_definition: &'static str,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -2199,7 +2203,10 @@ impl Game {
 
     pub fn card_definition(&self, card: ObjectId) -> Result<&CardDefinition, RulesError> {
         if let Some(copy) = self.virtual_spell_copies.get(&card) {
-            return self.card_definition(copy.original);
+            return self
+                .catalog
+                .get(copy.original_definition)
+                .ok_or(RulesError::UnknownDefinition(copy.original_definition));
         }
         let definition = match self.effective_definition_id(card) {
             Ok(Some(definition)) => definition,
@@ -10093,10 +10100,13 @@ impl Game {
         targets: &[Target],
         retargeted: bool,
     ) -> Result<ObjectId, RulesError> {
+        let original_definition = self.card_definition(original.card)?.id;
         if original.ability_id.is_some()
             || self.virtual_spell_copies.contains_key(&original.card)
             || !self
-                .card_definition(original.card)?
+                .catalog
+                .get(original_definition)
+                .expect("card definition was just resolved from the immutable catalog")
                 .card_types
                 .iter()
                 .any(|kind| matches!(kind, CardType::Instant | CardType::Sorcery))
@@ -10116,6 +10126,7 @@ impl Game {
             copy,
             VirtualSpellCopy {
                 original: original.card,
+                original_definition,
             },
         );
         let stack_item = self.allocate_stack_object_id();
@@ -13182,21 +13193,17 @@ impl Game {
                 ));
             }
             if is_virtual_copy {
-                let original = self
-                    .virtual_spell_copies
-                    .get(&stack_object.card)
-                    .ok_or(RulesError::IllegalAction(
-                        "virtual stack spell lacks copy provenance",
-                    ))?
-                    .original;
-                if original == stack_object.card
-                    || !self.stack[..stack_index].iter().any(|candidate| {
-                        candidate.card == original && candidate.ability_id.is_none()
-                    })
-                    || self.virtual_spell_copies.contains_key(&original)
+                let copy_provenance = self.virtual_spell_copies.get(&stack_object.card).ok_or(
+                    RulesError::IllegalAction("virtual stack spell lacks copy provenance"),
+                )?;
+                if copy_provenance.original == stack_object.card
+                    || self
+                        .virtual_spell_copies
+                        .contains_key(&copy_provenance.original)
+                    || copy_provenance.original_definition != definition.id
                 {
                     return Err(RulesError::IllegalAction(
-                        "virtual stack spell lacks a lower physical original",
+                        "virtual stack spell lacks immutable copied-definition provenance",
                     ));
                 }
             }
