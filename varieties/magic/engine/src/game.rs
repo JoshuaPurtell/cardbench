@@ -19785,6 +19785,35 @@ impl Game {
         else {
             unreachable!("rules-counter plan returned above");
         };
+        // A two-target control exchange has an additional relationship: the
+        // second creature's power cannot exceed the first creature's power.
+        // It is part of target legality under CR 608.2b, so sample it before
+        // any instruction changes characteristics.  Later instructions may
+        // still sever either target by changing its zone or incarnation, but
+        // cannot retroactively invalidate this already-legal pair.
+        let control_exchange_pair_legal_at_resolution_start = stack_object
+            .effects
+            .iter()
+            .zip(effect_resolutions.iter())
+            .map(|(effect, resolution)| {
+                if !matches!(effect, Effect::ExchangeControlOfTargetCreatures) {
+                    return Ok(None);
+                }
+                let StackEffectResolution::TargetedPair { first, second, .. } = resolution else {
+                    return Err(RulesError::IllegalAction(
+                        "control exchange lacks a two-target resolution plan",
+                    ));
+                };
+                Ok(Some(
+                    self.validate_control_exchange_target_pair(
+                        stack_object.controller,
+                        *first,
+                        *second,
+                    )
+                    .is_ok(),
+                ))
+            })
+            .collect::<Result<Vec<_>, RulesError>>()?;
         // Triggered costs are paid on resolution.  In particular, an attack
         // trigger must be visible on the stack before its controller gets the
         // post-declaration priority window in which to activate mana abilities.
@@ -20112,9 +20141,9 @@ impl Game {
                 }
                 StackEffectResolution::TargetedPair {
                     first,
-                    first_legal: _,
+                    first_legal,
                     second,
-                    second_legal: _,
+                    second_legal,
                 } => {
                     let first_occurrence = target_index;
                     target_index += 2;
@@ -20130,38 +20159,31 @@ impl Game {
                             "unsupported multi-target effect reached stack resolution",
                         ));
                     }
-                    let first_still_legal = self.stack_target_incarnation_matches(
-                        &stack_object,
-                        first_occurrence,
-                        first,
-                    ) && self.target_matches_for_colors(
-                        stack_object.controller,
-                        first,
-                        first_requirement,
-                        &stack_object.source_colors,
-                    );
-                    let second_still_legal = self.stack_target_incarnation_matches(
-                        &stack_object,
-                        first_occurrence + 1,
-                        second,
-                    ) && self.target_matches_for_colors(
-                        stack_object.controller,
-                        second,
-                        second_requirement,
-                        &stack_object.source_colors,
-                    );
+                    let first_still_legal = first_legal
+                        && self.stack_target_incarnation_matches(
+                            &stack_object,
+                            first_occurrence,
+                            first,
+                        )
+                        && self.target_remains_in_resolution_zone(first, first_requirement);
+                    let second_still_legal = second_legal
+                        && self.stack_target_incarnation_matches(
+                            &stack_object,
+                            first_occurrence + 1,
+                            second,
+                        )
+                        && self.target_remains_in_resolution_zone(second, second_requirement);
                     let pair_still_legal = first_still_legal
                         && second_still_legal
-                        && self
-                            .validate_control_exchange_target_pair(
-                                stack_object.controller,
-                                first,
-                                second,
-                            )
-                            .is_ok();
+                        && control_exchange_pair_legal_at_resolution_start
+                            .get(effect_index)
+                            .copied()
+                            .flatten()
+                            .ok_or(RulesError::IllegalAction(
+                                "control exchange lacks an initial legality snapshot",
+                            ))?;
                     if pair_still_legal {
                         self.exchange_control_of_creatures(
-                            stack_object.controller,
                             Self::target_permanent(Some(first))?,
                             Self::target_permanent(Some(second))?,
                         )?;
@@ -32470,15 +32492,9 @@ impl Game {
     /// own control effect.
     fn exchange_control_of_creatures(
         &mut self,
-        controller: PlayerId,
         first: ObjectId,
         second: ObjectId,
     ) -> Result<(), RulesError> {
-        self.validate_control_exchange_target_pair(
-            controller,
-            Target::Permanent(first),
-            Target::Permanent(second),
-        )?;
         let first_controller = self.controller_of(first)?;
         let second_controller = self.controller_of(second)?;
         let control_before = self.control_projection()?;
