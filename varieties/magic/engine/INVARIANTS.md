@@ -655,6 +655,13 @@ Oracle Magic rules coverage.
   `DecisionId` in addition to the source identity before it dispatches to the
   generic continuation. A stale action after a search spell leaves a zone and
   is recast must leave the newer pending decision and stack spell untouched.
+- `TriggeredAbilityTargetChoiceView` is likewise only a projection of a live
+  `TriggeredAbilityTargets` generic decision. Its
+  `ChooseTriggeredAbilityTargets` compatibility action must echo that exact
+  `DecisionId` as well as source/ability identity; two otherwise-identical
+  trigger instances from one persistent source cannot share an answer. A
+  stale action leaves the later target choice, suspended trigger, and event
+  sequence unchanged.
 - `DecisionKind::PublicGraveyardCreatureReturn` retains one exact target-free
   spell stack object while its affected living players choose serially from
   their own public graveyards. Only a player with one or more current creature
