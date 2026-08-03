@@ -2091,6 +2091,10 @@ Oracle Magic rules coverage.
   hidden candidate visibility. It commits the selected physical card, records
   exact search/shuffle receipts, then emits `SpellCopyResolved`; neither
   `SpellResolved` nor a physical terminal-zone move may name the source.
+- A virtual copied multi-card library search commits every selected exact
+  physical card before recording its batch-search and shuffle receipts. Its
+  stack-only source then emits only `SpellCopyResolved`; it cannot emit
+  `SpellResolved` or create a physical terminal-zone move.
 - A virtual copy's public `PublicGraveyardLandReturn` completion commits only
   the selected live physical land cards in their captured incarnations before
   emitting `SpellCopyResolved`; the stack-only source never emits
