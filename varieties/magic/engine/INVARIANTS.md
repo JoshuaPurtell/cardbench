@@ -45,8 +45,10 @@ Oracle Magic rules coverage.
   `SpellCopyLeftGame { copy, original, controller }` receipt. No departed
   player's object or virtual copy may later appear in a zone, on the stack, in
   combat, or in an effect. Before each physical object is removed, every
-  object-keyed graveyard or effect-created cast permission is revoked with its
-  ordinary matching expiry receipt; a stack-only timing exception or
+  object-keyed last-known-characteristics record, graveyard or effect-created
+  cast permission is revoked with its ordinary matching expiry receipt; a
+  non-owned object exiled rather than removed retains its LKI provenance. A
+  stack-only timing exception or
   exile-on-resolution marker for that object is cleared at the same boundary.
   A battlefield creature removed with its owner is not a death or an ordinary
   zone move, but surviving `AnotherCreatureLeavesBattlefield` observers are
