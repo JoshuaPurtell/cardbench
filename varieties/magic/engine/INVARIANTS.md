@@ -2192,6 +2192,21 @@ Oracle Magic rules coverage.
   `AbilityActivated` records its effective definition at activation, so a
   later source or target zone change cannot make a historical copied ability
   fail replay validation against its resumed printed definition.
+- A token created as a permanent copy is still a token for zone/departure
+  rules, but its layer-one `CardDefinition` values remain authoritative for
+  characteristics, definition-bound triggers, and immutable static metadata.
+  A controller-upkeep attachment trigger captures the exact attached creature
+  and incarnation before it enters the stack; a later attachment move or zone
+  round trip cannot redirect the token copy to a newer object.
+- Every registered legendary card definition, and every legendary token value,
+  participates in CR 704.5j according to its current layer-one name. When a
+  controller has two or more matching live permanents, the engine has exactly
+  one public `LegendRule` no-priority decision with every current member as a
+  unique candidate and cardinality one. The selected permanent remains; every
+  other captured member moves in one simultaneous state-based action with its
+  exact incarnation checked before the move. Until that decision completes no
+  priority action may interleave, and a continuing started game may not retain
+  an illegal legendary group without that live decision boundary.
 - A registered entry-copy permanent opens a public zero-or-one source decision
   only while its physical spell remains the exact top stack item. Every option
   is a live permanent of the registered type; a selected source snapshots its
