@@ -13191,3 +13191,94 @@ priority = 0
 mana = ["0:green:0", "0:white:0"]
 event_markers = ["DecisionOpened", "DecisionCompleted", "CardRevealed", "LibrarySearchBatchResolved", "LibraryShuffled", "LibrarySearchTopCardsPlaced", "SpellResolved"]
 digest = "fnv1a64:8a3242c240d5971e"
+
+[[scenario]]
+id = "rav_privileged_position_other_permanent_shroud"
+seed = 190
+description = "Privileged Position grants Shroud only to another controlled permanent: an opposing target spell is rejected without a cast receipt, while the source remains targetable."
+
+[[scenario.card]]
+label = "position"
+owner = 0
+definition = "RAV-PRIVILEGED-POSITION"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "protected"
+owner = 0
+definition = "RAV-WATCHWOLF"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "last_gasp"
+owner = 1
+definition = "RAV-LAST-GASP"
+zone = "hand"
+
+[[scenario.card]]
+label = "leave_no_trace"
+owner = 1
+definition = "RAV-LEAVE-NO-TRACE"
+zone = "hand"
+
+[[scenario.card]]
+label = "swamp"
+owner = 1
+definition = "RAV-SWAMP"
+zone = "battlefield"
+
+[[scenario.card]]
+label = "plains"
+owner = 1
+definition = "RAV-PLAINS"
+zone = "battlefield"
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "cast"
+player = 1
+card = "last_gasp"
+target = "permanent:protected"
+expected_error = "illegal target"
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 1
+card = "swamp"
+color = "black"
+
+[[scenario.action]]
+kind = "activate_mana_ability"
+player = 1
+card = "plains"
+color = "white"
+
+[[scenario.action]]
+kind = "cast"
+player = 1
+card = "leave_no_trace"
+target = "permanent:position"
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[scenario.expected]
+zones = ["position:graveyard", "protected:battlefield", "last_gasp:hand", "leave_no_trace:graveyard", "swamp:battlefield", "plains:battlefield"]
+mana = ["1:black:0", "1:white:0"]
+stack_size = 0
+priority = 0
+event_markers = ["ManaAbilityActivated", "ManaAdded", "SpellCast", "CardDestroyed", "SpellResolved"]
+event_absent = ["ContinuousEffectCreated"]
+digest = "fnv1a64:916d6eb428b6564e"

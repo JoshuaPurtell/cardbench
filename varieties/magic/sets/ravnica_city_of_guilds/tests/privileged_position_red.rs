@@ -3,8 +3,8 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardType, CastRequest, Color, Game, GameEvent, HybridManaSymbol, ManaCost, PlayerId, Target,
-    Zone,
+    CardType, CastRequest, Color, Game, GameEvent, HybridManaSymbol, Keyword, ManaCost, PlayerId,
+    Target, Zone,
 };
 use cardbench_magic_rav::{
     RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, rav_activated_ability_bindings,
@@ -85,11 +85,29 @@ fn privileged_position_blocks_targeting_its_other_controlled_permanents_but_not_
     let leave_no_trace = game
         .add_card(PlayerId(1), "RAV-LEAVE-NO-TRACE", Zone::Hand)
         .expect("opponent has a targeted enchantment spell");
-    game.grant_mana(PlayerId(1), Color::Black, 1)
-        .expect("pre-game black mana setup");
-    game.grant_mana(PlayerId(1), Color::White, 1)
-        .expect("pre-game white mana setup");
+    let swamp = game
+        .put_on_battlefield(PlayerId(1), "RAV-SWAMP")
+        .expect("opponent Swamp setup");
+    let plains = game
+        .put_on_battlefield(PlayerId(1), "RAV-PLAINS")
+        .expect("opponent Plains setup");
     game.begin_game().expect("game begins");
+
+    assert!(
+        game.characteristics(protected)
+            .expect("protected ally remains live")
+            .keywords
+            .contains(&Keyword::Shroud),
+        "the static effect applies in layer six to other controlled permanents"
+    );
+    assert!(
+        !game
+            .characteristics(position)
+            .expect("source remains live")
+            .keywords
+            .contains(&Keyword::Shroud),
+        "the static effect excludes its source"
+    );
 
     game.pass_priority(PlayerId(0))
         .expect("opponent receives priority");
@@ -108,6 +126,11 @@ fn privileged_position_blocks_targeting_its_other_controlled_permanents_but_not_
     assert!(game.stack.is_empty());
     assert_eq!(game.canonical_event_log(), events_before_rejection);
 
+    game.activate_mana_ability(PlayerId(1), swamp, Color::Black)
+        .expect("Swamp supplies generic mana");
+    game.activate_mana_ability(PlayerId(1), plains, Color::White)
+        .expect("Plains supplies white mana");
+
     game.cast_spell(
         PlayerId(1),
         CastRequest {
@@ -118,8 +141,7 @@ fn privileged_position_blocks_targeting_its_other_controlled_permanents_but_not_
         },
     )
     .expect("the source itself is not Shrouded and remains a legal target");
-    game.pass_priority(PlayerId(1))
-        .expect("caster passes");
+    game.pass_priority(PlayerId(1)).expect("caster passes");
     game.pass_priority(PlayerId(0))
         .expect("targeted enchantment spell resolves");
 

@@ -2023,7 +2023,8 @@ impl Game {
                 .ok_or(RulesError::UnknownDefinition(binding.card_definition))?;
             let change_requires_only_permanent = matches!(
                 binding.change,
-                ContinuousChange::ControlledCreaturesAddKeyword(_)
+                ContinuousChange::OtherControlledPermanentsAddKeyword(_)
+                    | ContinuousChange::ControlledCreaturesAddKeyword(_)
                     | ContinuousChange::ControlledCreaturesSharingTopLibraryCreatureCardColorsModifyPowerToughness {
                         ..
                     }
@@ -2038,6 +2039,7 @@ impl Game {
                             ..
                         }
                         | ContinuousChange::OtherControlledCreaturesAddKeyword(_)
+                        | ContinuousChange::OtherControlledPermanentsAddKeyword(_)
                         | ContinuousChange::ControlledCreaturesAddKeyword(_)
                         | ContinuousChange::ControlledCreaturesAddKeywordIfSourceEnchanted(_)
                         | ContinuousChange::ControlledCreaturesSharingTopLibraryCreatureCardColorsModifyPowerToughness {
@@ -4711,6 +4713,7 @@ impl Game {
             | ContinuousChange::OtherControlledCreaturesModifyPowerToughness { .. }
             | ContinuousChange::OtherControlledCreaturesOfColorModifyPowerToughness { .. }
             | ContinuousChange::OtherControlledCreaturesAddKeyword(_)
+            | ContinuousChange::OtherControlledPermanentsAddKeyword(_)
             | ContinuousChange::ControlledCreaturesAddKeyword(_)
             | ContinuousChange::ControlledCreaturesAddKeywordIfSourceEnchanted(_)
             | ContinuousChange::ControlledCreaturesSharingTopLibraryCreatureCardColorsModifyPowerToughness {
@@ -4780,6 +4783,15 @@ impl Game {
                     || self.controller_of(source)? != self.controller_of(card)?
                     || !characteristics.card_types.contains(&CardType::Creature)
                 {
+                    return Ok(());
+                }
+                if !characteristics.keywords.contains(keyword) {
+                    characteristics.keywords.push(keyword.clone());
+                }
+                Ok(())
+            }
+            ContinuousChange::OtherControlledPermanentsAddKeyword(keyword) => {
+                if source == card || self.controller_of(source)? != self.controller_of(card)? {
                     return Ok(());
                 }
                 if !characteristics.keywords.contains(keyword) {
@@ -5172,6 +5184,7 @@ impl Game {
                     ..
                 }
                 | ContinuousChange::OtherControlledCreaturesAddKeyword(_)
+                | ContinuousChange::OtherControlledPermanentsAddKeyword(_)
                 | ContinuousChange::ControlledCreaturesAddKeyword(_)
                 | ContinuousChange::ControlledCreaturesAddKeywordIfSourceEnchanted(_)
                 | ContinuousChange::ControlledCreaturesSharingTopLibraryCreatureCardColorsModifyPowerToughness {
@@ -14029,7 +14042,8 @@ impl Game {
             let changes_require_only_permanent = changes.iter().all(|change| {
                 matches!(
                     change,
-                    ContinuousChange::ControlledCreaturesAddKeyword(_)
+                    ContinuousChange::OtherControlledPermanentsAddKeyword(_)
+                        | ContinuousChange::ControlledCreaturesAddKeyword(_)
                         | ContinuousChange::ControlledCreaturesSharingTopLibraryCreatureCardColorsModifyPowerToughness {
                             ..
                         }
@@ -14047,6 +14061,7 @@ impl Game {
                                 ..
                             }
                             | ContinuousChange::OtherControlledCreaturesAddKeyword(_)
+                            | ContinuousChange::OtherControlledPermanentsAddKeyword(_)
                             | ContinuousChange::ControlledCreaturesAddKeyword(_)
                             | ContinuousChange::ControlledCreaturesAddKeywordIfSourceEnchanted(_)
                             | ContinuousChange::ControlledCreaturesSharingTopLibraryCreatureCardColorsModifyPowerToughness {
@@ -14276,6 +14291,7 @@ impl Game {
                         ..
                     }
                     | ContinuousChange::OtherControlledCreaturesAddKeyword(_)
+                    | ContinuousChange::OtherControlledPermanentsAddKeyword(_)
                     | ContinuousChange::ControlledCreaturesAddKeyword(_)
                     | ContinuousChange::ControlledCreaturesAddKeywordIfSourceEnchanted(_)
                     | ContinuousChange::ControlledCreaturesSharingTopLibraryCreatureCardColorsModifyPowerToughness {
@@ -26054,7 +26070,17 @@ impl Game {
         source_colors: &BTreeSet<Color>,
     ) -> bool {
         self.target_matches_for_controller(controller, target, requirement)
+            && !self.permanent_has_shroud_for_target(target)
             && !self.permanent_has_protection_from_colors_for_target(target, source_colors)
+    }
+
+    /// Shroud is a target-selection rule: it applies to every permanent
+    /// target requirement, regardless of the source controller or color, but
+    /// never to a player, spell, or ability stack target.
+    fn permanent_has_shroud_for_target(&self, target: Target) -> bool {
+        matches!(target, Target::Permanent(card) if self.characteristics(card).is_ok_and(|characteristics| {
+            characteristics.keywords.contains(&Keyword::Shroud)
+        }))
     }
 
     fn permanent_has_protection_from_colors_for_target(

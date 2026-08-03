@@ -1399,6 +1399,10 @@ pub enum Keyword {
     /// controls cannot be declared as blockers while this source remains on
     /// the battlefield.
     SaprolingsCannotBlock,
+    /// This permanent cannot be chosen as a target by any spell or ability.
+    /// The target-legality boundary enforces this at selection and resolution;
+    /// it intentionally does not affect non-targeting effects.
+    Shroud,
     /// This creature can't be blocked while the defending player controls the
     /// named basic land type.
     Mountainwalk,
@@ -3408,6 +3412,12 @@ pub enum ContinuousChange {
     /// every other creature controlled by the source's controller.
     OtherControlledCreaturesAddKeyword(Keyword),
     /// A battlefield-only static layer-six effect that grants one keyword to
+    /// every other permanent controlled by the source's controller. This is
+    /// deliberately distinct from the creature-only anthem variant so a
+    /// source can protect artifacts, enchantments, and lands without
+    /// widening a creature-rule binding.
+    OtherControlledPermanentsAddKeyword(Keyword),
+    /// A battlefield-only static layer-six effect that grants one keyword to
     /// every creature controlled by the source's controller, including a
     /// creature source itself when applicable.
     ControlledCreaturesAddKeyword(Keyword),
@@ -3447,6 +3457,7 @@ impl ContinuousChange {
             | Self::CannotBlockSource(_)
             | Self::AddDamageShield(_)
             | Self::OtherControlledCreaturesAddKeyword(_)
+            | Self::OtherControlledPermanentsAddKeyword(_)
             | Self::ControlledCreaturesAddKeyword(_)
             | Self::ControlledCreaturesAddKeywordIfSourceEnchanted(_)
             | Self::SuppressNonManaActivatedAbilities => Layer::Ability,

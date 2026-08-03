@@ -44,13 +44,14 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 257] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 258] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
     "RAV-LIGHTNING-HELIX",
     "RAV-LIFE-FROM-THE-LOAM",
     "RAV-PERILOUS-FORAYS",
+    "RAV-PRIVILEGED-POSITION",
     "RAV-SEARING-MEDITATION",
     "RAV-BLOCKBUSTER",
     "RAV-BLOOD-FUNNEL",
@@ -6303,6 +6304,46 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
+        // Full fidelity: this noncreature static source grants Shroud in
+        // layer six to every other permanent its controller currently
+        // controls. The expansion-neutral target boundary rechecks that
+        // characteristic both when a target is chosen and when it resolves.
+        CardDefinition {
+            id: "RAV-PRIVILEGED-POSITION",
+            name: "Privileged Position",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_hybrid(
+                2,
+                [],
+                [
+                    HybridManaSymbol {
+                        first: Color::Green,
+                        second: Color::White,
+                    },
+                    HybridManaSymbol {
+                        first: Color::Green,
+                        second: Color::White,
+                    },
+                    HybridManaSymbol {
+                        first: Color::Green,
+                        second: Color::White,
+                    },
+                ],
+            ),
+            colors: colors([Color::Green, Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Enchantment]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "hybrid-cost-casting",
+                "other-controlled-permanents-have-shroud",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![],
+        },
         basic_land("RAV-PLAINS", "Plains", BasicLandType::Plains),
         basic_land("RAV-ISLAND", "Island", BasicLandType::Island),
         basic_land("RAV-SWAMP", "Swamp", BasicLandType::Swamp),
@@ -8229,6 +8270,10 @@ pub fn rav_static_continuous_effect_bindings() -> Vec<StaticContinuousEffectBind
             ),
         },
         StaticContinuousEffectBinding {
+            card_definition: "RAV-PRIVILEGED-POSITION",
+            change: ContinuousChange::OtherControlledPermanentsAddKeyword(Keyword::Shroud),
+        },
+        StaticContinuousEffectBinding {
             card_definition: "RAV-TOLSIMIR-WOLFBLOOD",
             change: ContinuousChange::OtherControlledCreaturesOfColorModifyPowerToughness {
                 color: Color::Green,
@@ -10143,7 +10188,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 188);
+        assert_eq!(first.len(), 189);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }

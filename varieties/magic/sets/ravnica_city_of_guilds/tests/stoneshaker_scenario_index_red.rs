@@ -18,7 +18,10 @@ fn shown_index_includes_the_stoneshaker_public_scenario() {
         .expect("public RAV scenarios execute")
         .len();
 
-    assert_eq!(executable_count, 188, "Stoneshaker is executable");
+    assert_eq!(
+        executable_count, 189,
+        "Stoneshaker remains in the shown corpus"
+    );
     assert_eq!(
         declared_count, executable_count,
         "shown.toml must track the executable RAV public-scenario corpus"

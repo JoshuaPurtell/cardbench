@@ -19,6 +19,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-LIGHTNING-HELIX",
             "RAV-LIFE-FROM-THE-LOAM",
             "RAV-PERILOUS-FORAYS",
+            "RAV-PRIVILEGED-POSITION",
             "RAV-SEARING-MEDITATION",
             "RAV-BLOCKBUSTER",
             "RAV-BLOOD-FUNNEL",
