@@ -28193,6 +28193,53 @@ impl Game {
         self.expire_continuous_effects_involving_with_control_before(card, None);
     }
 
+    /// CR 800.4a ends every active effect that gives a departing player
+    /// control before it considers the ordinary objects that player controls.
+    ///
+    /// This must be a single pre-departure batch: a source-relative control
+    /// effect can itself derive the departing controller through another
+    /// layer-two effect.  Projecting first and removing every matching effect
+    /// together prevents its target from being mistaken for a non-owned
+    /// permanent that still has to be exiled.
+    fn expire_control_effects_for_departing_player(&mut self, player: PlayerId) {
+        let expired = self
+            .continuous_effects
+            .iter()
+            .filter(|effect| {
+                self.effect_is_active(effect)
+                    && match effect.change {
+                        ContinuousChange::ChangeController(controller) => controller == player,
+                        ContinuousChange::ChangeControllerToSourceController => self
+                            .controller_of(effect.source)
+                            .is_ok_and(|controller| controller == player),
+                        _ => false,
+                    }
+            })
+            .cloned()
+            .collect::<Vec<_>>();
+        if expired.is_empty() {
+            return;
+        }
+        let expired_timestamps = expired
+            .iter()
+            .map(|effect| effect.timestamp)
+            .collect::<BTreeSet<_>>();
+        let control_before = self
+            .control_targets_before_expiration(&expired)
+            .expect("live control effects must admit a pre-departure projection");
+        self.continuous_effects
+            .retain(|effect| !expired_timestamps.contains(&effect.timestamp));
+        for effect in expired {
+            self.record_event(GameEvent::ContinuousEffectExpired {
+                source: effect.source,
+                target: effect.target,
+                layer: effect.change.layer(),
+            });
+        }
+        self.record_control_reversions(&control_before)
+            .expect("expired control effects must revert live battlefield targets");
+    }
+
     /// Removes all effects with the departed object as either source or
     /// target. A normal battlefield departure supplies its layer-two
     /// projection captured before the source changes incarnation; teardown
@@ -35699,6 +35746,12 @@ impl Game {
     /// action, so no stale object can receive priority or participate in SBA.
     #[allow(clippy::too_many_lines)] // One CR 800.4a transaction keeps ownership, control, stack, and LKI cleanup atomic.
     fn remove_departing_players_objects(&mut self, player: PlayerId) {
+        // CR 800.4a's control-effect clause precedes the object-control
+        // clause below.  In particular, an opponent's creature temporarily
+        // controlled by this player reverts before the non-owned-object loop
+        // decides which permanents must leave the game.
+        self.expire_control_effects_for_departing_player(player);
+
         // A delayed action is controlled by the player that created it, just
         // as the later ability it would place onto the stack would be. It is
         // neither an ordinary card object nor a live virtual spell copy, so

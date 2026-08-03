@@ -4,8 +4,8 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardDefinition, CardType, CastRequest, Effect, Game, GameEvent, ManaCost, ObjectId, PlayerId,
-    Target, TargetRequirement, Zone,
+    CardDefinition, CardType, CastRequest, ContinuousChange, Duration, Effect, Game, GameEvent,
+    ManaCost, ObjectId, PlayerId, Target, TargetRequirement, Zone,
 };
 
 const CREATURE: &str = "TST-DEPARTING-EOT-CONTROL-CREATURE";
@@ -131,4 +131,90 @@ fn departing_temporary_controller_does_not_exile_opponents_creature() {
     )));
     game.validate_invariants()
         .expect("control-effect departure leaves ordinary battlefield state");
+}
+
+#[test]
+fn departing_controller_ends_source_relative_control_with_its_source() {
+    let departing_controller = PlayerId(0);
+    let creature_owner = PlayerId(1);
+    let killer_controller = PlayerId(2);
+    let mut game = Game::new(
+        [
+            definition(CREATURE, CardType::Creature, vec![]),
+            definition(
+                ACT_OF_CONTROL,
+                CardType::Instant,
+                vec![Effect::GainControlTargetUntilEndOfTurn],
+            ),
+            definition(
+                KILLER,
+                CardType::Instant,
+                vec![Effect::DealDamage {
+                    amount: 20,
+                    target: TargetRequirement::Player,
+                }],
+            ),
+        ],
+        3,
+    )
+    .expect("fixture initializes");
+    let control_source = game
+        .put_on_battlefield(creature_owner, CREATURE)
+        .expect("opponent owns the source");
+    let controlled_target = game
+        .put_on_battlefield(creature_owner, CREATURE)
+        .expect("opponent owns the target");
+    let act_of_control = game
+        .add_card(departing_controller, ACT_OF_CONTROL, Zone::Hand)
+        .expect("departing player has temporary control spell");
+    let killer = game
+        .add_card(killer_controller, KILLER, Zone::Hand)
+        .expect("third player has lethal instant");
+    game.begin_game().expect("game begins");
+    game.add_continuous_effect(
+        control_source,
+        controlled_target,
+        ContinuousChange::ChangeControllerToSourceController,
+        Duration::Permanent,
+    )
+    .expect("source-relative control effect installs");
+
+    game.cast_spell(
+        departing_controller,
+        request(act_of_control, vec![Target::Permanent(control_source)]),
+    )
+    .expect("temporary control spell casts");
+    resolve_top(&mut game);
+    assert_eq!(game.controller_of(control_source), Ok(departing_controller));
+    assert_eq!(
+        game.controller_of(controlled_target),
+        Ok(departing_controller)
+    );
+
+    game.pass_priority(departing_controller)
+        .expect("departing controller passes");
+    game.pass_priority(creature_owner)
+        .expect("creature owner passes to lethal responder");
+    game.cast_spell(
+        killer_controller,
+        request(killer, vec![Target::Player(departing_controller)]),
+    )
+    .expect("third player casts lethal damage");
+    resolve_top(&mut game);
+
+    assert_eq!(game.zone_of(control_source), Some(Zone::Battlefield));
+    assert_eq!(game.zone_of(controlled_target), Some(Zone::Battlefield));
+    assert_eq!(game.controller_of(control_source), Ok(creature_owner));
+    assert_eq!(game.controller_of(controlled_target), Ok(creature_owner));
+    for target in [control_source, controlled_target] {
+        assert!(game.event_log.iter().any(|event| matches!(
+            event,
+            GameEvent::ControllerChanged { target: changed, from, to, .. }
+                if *changed == target
+                    && *from == departing_controller
+                    && *to == creature_owner
+        )));
+    }
+    game.validate_invariants()
+        .expect("source-relative control also reverts before departure object cleanup");
 }

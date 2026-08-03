@@ -1,5 +1,5 @@
-//! RED regression: a token controlled by a departing player must cease to
-//! exist, rather than entering an owner zone during CR 800.4a cleanup.
+//! Regression: CR 800.4a ends temporary control before it decides whether a
+//! departing player still controls an opponent's token.
 
 use std::collections::BTreeSet;
 
@@ -34,7 +34,7 @@ fn definition(
 }
 
 #[test]
-fn token_controlled_by_departing_player_ceases_instead_of_entering_exile() {
+fn token_controlled_by_departing_player_reverts_to_owner_before_cleanup() {
     let owner = PlayerId(0);
     let departing_controller = PlayerId(1);
     let surviving_effect_controller = PlayerId(2);
@@ -95,21 +95,30 @@ fn token_controlled_by_departing_player_ceases_instead_of_entering_exile() {
     game.check_state_based_actions()
         .expect("player-loss SBA itself should complete");
 
-    assert!(
-        game.object(token).is_err(),
-        "the token must cease to exist as its controller leaves, not survive in an owner zone; events: {:?}",
-        game.canonical_event_log()
-    );
-    assert!(game.event_log.iter().any(|event| {
-        matches!(event, GameEvent::TokenCeasedToExist { token: ceased } if *ceased == token)
-    }));
+    assert_eq!(game.zone_of(token), Some(Zone::Battlefield));
+    assert_eq!(game.controller_of(token), Ok(owner));
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::ContinuousEffectExpired { source, target, layer }
+            if *source == control_source
+                && *target == token
+                && *layer == cardbench_magic_engine::Layer::Control
+    )));
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::ControllerChanged { target, from, to, .. }
+            if *target == token && *from == departing_controller && *to == owner
+    )));
     assert!(
         !game.event_log.iter().any(|event| {
             matches!(event, GameEvent::CardMoved { card, to: Zone::Exile } if *card == token)
         }),
-        "a token's departure cannot impersonate an owner-zone exile; events: {:?}",
+        "reverted temporary control cannot fabricate an owner-zone exile; events: {:?}",
         game.canonical_event_log()
     );
+    assert!(!game.event_log.iter().any(|event| {
+        matches!(event, GameEvent::TokenCeasedToExist { token: ceased } if *ceased == token)
+    }));
     game.validate_invariants()
-        .expect("player-loss cleanup must leave no token outside the battlefield");
+        .expect("player-loss cleanup must not retain temporary control for a departed seat");
 }

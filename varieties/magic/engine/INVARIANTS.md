@@ -2206,6 +2206,12 @@ Oracle Magic rules coverage.
   departure snapshots the affected targets before source incarnation advances,
   then records expiration before every audited controller-reversion receipt.
   The base controller is never mutated.
+- A player's departure first expires every active layer-two effect that gives
+  that player control, including a source-relative effect whose source is
+  presently controlled by that player. The expiry batch records
+  `ContinuousEffectExpired` before its derived `ControllerChanged` reversions,
+  so CR 800.4a never exiles an opponent-owned permanent merely because stale
+  temporary control was still visible to departure cleanup.
 - A permanent records the turn of its most recent controller change. Attacking
   and tap-symbol ability checks use that provenance—not merely battlefield
   entry—so a creature stolen this turn is summoning sick for its new controller
