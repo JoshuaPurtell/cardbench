@@ -11647,12 +11647,12 @@ impl Game {
         // sampled while every member is still a live battlefield permanent;
         // doing this one zone move at a time loses the first dying source
         // before it can observe the later simultaneous departure through LKI.
-        self.enqueue_sba_creature_death_observer_triggers(
+        self.enqueue_simultaneous_creature_death_observer_triggers(
             dying_creatures.iter().map(|(card, _)| *card),
         )?;
         for (card, reason) in dying_creatures {
             self.record_event(GameEvent::StateBasedAction { card, reason });
-            self.move_to_graveyard_or_remove_token_after_sba_trigger_capture(card)?;
+            self.move_to_graveyard_or_remove_token_after_simultaneous_death_trigger_capture(card)?;
         }
         Ok(true)
     }
@@ -19698,12 +19698,12 @@ impl Game {
     }
 
     /// Captures the represented creature-departure observers for one complete
-    /// state-based-action death event.  All cards in this iterator are still
-    /// on the battlefield when this runs, so every source can contribute
-    /// last-known information for every simultaneous death.  The ensuing
-    /// individual zone moves deliberately suppress their ordinary observer
-    /// capture to avoid duplicating this one shared event.
-    fn enqueue_sba_creature_death_observer_triggers(
+    /// simultaneous death event. All cards in this iterator are still on the
+    /// battlefield when this runs, so every source can contribute last-known
+    /// information for every simultaneous death. The ensuing individual zone
+    /// moves deliberately suppress their ordinary observer capture to avoid
+    /// duplicating this one shared event.
+    fn enqueue_simultaneous_creature_death_observer_triggers(
         &mut self,
         dying_creatures: impl IntoIterator<Item = ObjectId>,
     ) -> Result<(), RulesError> {
@@ -23009,11 +23009,13 @@ impl Game {
                 // so every qualifying enchantment receives the same resolving
                 // instruction even when an earlier destruction changes a
                 // source's zone.
-                for candidate in
-                    self.radiance_permanents_sharing_color_of_type(target, &CardType::Enchantment)?
-                {
-                    self.destroy_permanent(source, candidate)?;
-                }
+                self.destroy_permanents_simultaneously(
+                    source,
+                    self.radiance_permanents_sharing_color_of_type(
+                        target,
+                        &CardType::Enchantment,
+                    )?,
+                )?;
             }
             Effect::DestroyAllNonTokenCreatures => {
                 // Snapshot every live non-token creature before destruction.
@@ -23032,9 +23034,7 @@ impl Game {
                                 })
                     })
                     .collect::<Vec<_>>();
-                for creature in creatures {
-                    self.destroy_permanent(source, creature)?;
-                }
+                self.destroy_permanents_simultaneously(source, creatures)?;
             }
             Effect::DestroyAllNonlandPermanentsWithManaValueEqualToSourceCounters { .. } => {
                 return Err(RulesError::IllegalAction(
@@ -23059,9 +23059,7 @@ impl Game {
                         permanents.push(candidate);
                     }
                 }
-                for permanent in permanents {
-                    self.destroy_permanent(source, permanent)?;
-                }
+                self.destroy_permanents_simultaneously(source, permanents)?;
             }
             Effect::DestroyAllCreaturesWithManaValueEqualToSourceCounters { counter } => {
                 if !counter.is_valid() {
@@ -23104,9 +23102,7 @@ impl Game {
                                 .is_ok_and(|candidate_value| candidate_value == mana_value)
                     })
                     .collect::<Vec<_>>();
-                for creature in creatures {
-                    self.destroy_permanent(source, creature)?;
-                }
+                self.destroy_permanents_simultaneously(source, creatures)?;
             }
             Effect::DestroyAllCreaturesWithManaValue { mana_value } => {
                 if *mana_value < 0 {
@@ -23130,9 +23126,7 @@ impl Game {
                                 .is_ok_and(|candidate_value| candidate_value == *mana_value)
                     })
                     .collect::<Vec<_>>();
-                for creature in creatures {
-                    self.destroy_permanent(source, creature)?;
-                }
+                self.destroy_permanents_simultaneously(source, creatures)?;
             }
             Effect::CounterTargetInstantOrSorcerySpell
             | Effect::CounterTargetSpell
@@ -24638,6 +24632,45 @@ impl Game {
         self.move_to_graveyard_or_remove_token(card)
     }
 
+    /// Resolves one represented simultaneous destruction instruction. Its
+    /// recipients are already selected by the caller, but regeneration still
+    /// replaces each eligible destruction before the shared death set is
+    /// frozen. Every remaining creature then contributes its last-known
+    /// creature-departure triggers before any selected permanent changes
+    /// zones; individual `CardDestroyed` and zone receipts remain ordered and
+    /// auditable without re-observing the same generic trigger event.
+    fn destroy_permanents_simultaneously(
+        &mut self,
+        source: ObjectId,
+        candidates: impl IntoIterator<Item = ObjectId>,
+    ) -> Result<(), RulesError> {
+        let mut selected = Vec::new();
+        let mut seen = BTreeSet::new();
+        for card in candidates {
+            if !seen.insert(card) {
+                return Err(RulesError::IllegalAction(
+                    "simultaneous destruction selected one permanent twice",
+                ));
+            }
+            if self.zone_of(card) != Some(Zone::Battlefield) {
+                continue;
+            }
+            if self.characteristics(card).is_ok_and(|characteristics| {
+                characteristics.card_types.contains(&CardType::Creature)
+            }) && self.use_regeneration_shield(card)?
+            {
+                continue;
+            }
+            selected.push(card);
+        }
+        self.enqueue_simultaneous_creature_death_observer_triggers(selected.iter().copied())?;
+        for card in selected {
+            self.record_event(GameEvent::CardDestroyed { source, card });
+            self.move_to_graveyard_or_remove_token_after_simultaneous_death_trigger_capture(card)?;
+        }
+        Ok(())
+    }
+
     /// Creates a token batch after its applicable quantity replacements have
     /// been resolved. The individual token constructor intentionally performs
     /// no replacement lookup, which makes the batch one non-recursive event.
@@ -24727,12 +24760,12 @@ impl Game {
         self.move_to_graveyard_or_remove_token_with_departure_observers(card, true)
     }
 
-    /// Performs an ordinary individual graveyard transition after an SBA
-    /// batch has already sampled every creature-departure observer.  The
-    /// exact zone, object-incarnation, dies-source, and graveyard-entry
-    /// lifecycles remain ordinary; only duplicate generic observer capture is
-    /// suppressed.
-    fn move_to_graveyard_or_remove_token_after_sba_trigger_capture(
+    /// Performs an ordinary individual graveyard transition after a
+    /// simultaneous death event has already sampled every creature-departure
+    /// observer. The exact zone, object-incarnation, dies-source, and
+    /// graveyard-entry lifecycles remain ordinary; only duplicate generic
+    /// observer capture is suppressed.
+    fn move_to_graveyard_or_remove_token_after_simultaneous_death_trigger_capture(
         &mut self,
         card: ObjectId,
     ) -> Result<(), RulesError> {
