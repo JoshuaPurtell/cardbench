@@ -43,6 +43,7 @@ fn pass_pair(game: &mut Game) {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)]
 fn stale_damage_replacement_action_cannot_answer_the_next_identical_packet() {
     let caster = PlayerId(0);
     let mut game = Game::new(
