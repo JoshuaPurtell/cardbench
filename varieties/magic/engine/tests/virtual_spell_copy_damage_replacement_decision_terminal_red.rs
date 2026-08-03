@@ -4,8 +4,9 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardDefinition, CardType, CastRequest, DecisionKind, Effect, Game, GameEvent, ManaCost,
-    ObjectId, PlayerId, Target, TargetRequirement, Zone,
+    CardDefinition, CardType, CastRequest, DamageReplacementChoice, DecisionKind,
+    DecisionSelection, Effect, Game, GameEvent, ManaCost, ObjectId, PlayerId, ReplacementChoice,
+    Target, TargetRequirement, Zone,
 };
 
 const TARGET: &str = "TST-VIRTUAL-COPY-DAMAGE-CHOICE-TARGET";
@@ -48,9 +49,9 @@ fn resolve_top(game: &mut Game) -> Result<(), cardbench_magic_engine::RulesError
     game.pass_priority(second)
 }
 
-#[test]
 #[allow(clippy::too_many_lines)] // The two shield receipts and pending-choice boundary form one atomic contract.
-fn virtual_copy_opens_competing_damage_replacement_decision() {
+fn game_with_virtual_copy_at_competing_damage_replacement_choice()
+-> (Game, ObjectId, ObjectId, ObjectId, PlayerId) {
     let caster = PlayerId(0);
     let copy_controller = PlayerId(1);
     let mut game = Game::new(
@@ -131,6 +132,13 @@ fn virtual_copy_opens_competing_damage_replacement_decision() {
             _ => None,
         })
         .expect("copy receipt identifies virtual bolt");
+    (game, target, bolt, virtual_copy, copy_controller)
+}
+
+#[test]
+fn virtual_copy_opens_competing_damage_replacement_decision() {
+    let (game, _target, bolt, virtual_copy, copy_controller) =
+        game_with_virtual_copy_at_competing_damage_replacement_choice();
     let decision = game
         .view_for_player(copy_controller)
         .expect("affected player view")
@@ -148,4 +156,46 @@ fn virtual_copy_opens_competing_damage_replacement_decision() {
     )));
     game.validate_invariants()
         .expect("an open virtual-copy replacement decision remains auditable");
+}
+
+#[test]
+fn virtual_copy_completes_damage_replacement_decision_without_zone_move() {
+    let (mut game, target, bolt, virtual_copy, copy_controller) =
+        game_with_virtual_copy_at_competing_damage_replacement_choice();
+    let decision = game
+        .view_for_player(copy_controller)
+        .expect("affected player view")
+        .pending_decision
+        .expect("two live shields open an affected-player decision");
+    let shield = decision
+        .replacement_candidates
+        .iter()
+        .copied()
+        .find(|choice| {
+            matches!(
+                choice,
+                ReplacementChoice::Damage(DamageReplacementChoice::TargetedShield { .. })
+            )
+        })
+        .expect("a shield is a legal replacement choice");
+    let result = game.submit_decision(
+        copy_controller,
+        decision.id,
+        DecisionSelection::Replacements(vec![shield]),
+    );
+    eprintln!(
+        "virtual-copy damage-replacement terminal red trace: result={result:?}; events={:?}",
+        game.canonical_event_log()
+    );
+    assert!(
+        result.is_ok(),
+        "virtual copy must end with SpellCopyResolved, never a physical terminal-zone move"
+    );
+    assert_eq!(game.object(target).expect("target exists").damage, 0);
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::SpellCopyResolved { copy, original } if *copy == virtual_copy && *original == bolt
+    )));
+    game.validate_invariants()
+        .expect("virtual damage-replacement terminal lifecycle remains auditable");
 }
