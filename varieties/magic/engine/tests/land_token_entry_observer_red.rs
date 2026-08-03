@@ -7,8 +7,8 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardDefinition, CardType, CastRequest, Effect, Game, GameEvent, ManaCost, PlayerId,
-    TokenSpec, TriggerCondition, TriggeredAbility, TriggeredAbilityBinding, Zone,
+    CardDefinition, CardType, CastRequest, Effect, Game, GameEvent, ManaCost, PlayerId, TokenSpec,
+    TriggerCondition, TriggeredAbility, TriggeredAbilityBinding, Zone,
 };
 
 const SPELL: &str = "TST-LAND-TOKEN-CREATOR";
@@ -107,13 +107,16 @@ fn generic_land_token_entry_stacks_existing_land_observers() {
     eprintln!("land token entry trace={:?}", game.canonical_event_log());
 
     assert_eq!(game.zone_of(token), Some(Zone::Battlefield));
-    assert!(game.event_log.iter().any(|event| {
-        matches!(
-            event,
-            GameEvent::TriggeredAbilityStacked { source, ability, .. }
-                if *source == watcher && *ability == "controlled-land-token-entry"
-        )
-    }), "an existing controlled-land observer must stack for a land token entry");
+    assert!(
+        game.event_log.iter().any(|event| {
+            matches!(
+                event,
+                GameEvent::TriggeredAbilityStacked { source, ability, .. }
+                    if *source == watcher && *ability == "controlled-land-token-entry"
+            )
+        }),
+        "an existing controlled-land observer must stack for a land token entry"
+    );
     game.validate_invariants()
         .expect("land-token entry keeps the game state valid");
 }

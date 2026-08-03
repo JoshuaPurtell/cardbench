@@ -23865,11 +23865,12 @@ impl Game {
         Ok(())
     }
 
-    /// Captures each entrant's self ETB plus every controller-scoped
-    /// nonartifact and Aura observer from the post-event battlefield. This
-    /// is deliberately separate from ordinary serial entry: it has no
-    /// convoke provenance and is used only after the complete represented
-    /// simultaneous zone transition has committed.
+    /// Captures each represented entrant's self ETB plus every controller-
+    /// scoped nonartifact and Aura observer from the post-event battlefield.
+    /// A definitionless token has no self ETB binding, but remains an entrant
+    /// that existing represented sources can observe. This is deliberately
+    /// separate from ordinary serial entry: it has no convoke provenance and
+    /// is used only after the complete simultaneous zone transition commits.
     fn capture_simultaneous_entry_triggers(
         &mut self,
         entrants: &[ObjectId],
@@ -23885,22 +23886,23 @@ impl Game {
                         "simultaneous entry capture requires unique live battlefield entrants",
                     ));
                 }
-                let definition =
-                    self.effective_definition_id(card)?
-                        .ok_or(RulesError::IllegalAction(
-                            "a token cannot be a represented simultaneous card entrant",
-                        ))?;
-                Ok((card, definition, self.controller_of(card)?))
+                Ok((
+                    card,
+                    self.effective_definition_id(card)?,
+                    self.controller_of(card)?,
+                ))
             })
             .collect::<Result<Vec<_>, RulesError>>()?;
 
         for (card, definition, controller) in &entrants {
-            self.enqueue_triggers_for_source(
-                *card,
-                definition,
-                *controller,
-                TriggerCondition::EntersBattlefield,
-            );
+            if let Some(definition) = definition {
+                self.enqueue_triggers_for_source(
+                    *card,
+                    definition,
+                    *controller,
+                    TriggerCondition::EntersBattlefield,
+                );
+            }
         }
         for (card, _, controller) in entrants {
             self.enqueue_controlled_nonartifact_permanent_entry_triggers_from_observers(
@@ -32655,24 +32657,15 @@ impl Game {
         })?;
         let mut created = Vec::with_capacity(usize::from(count));
         for _ in 0..count {
-            let token_id = self.create_token(controller, token.clone())?;
+            let token_id = self.create_token_with_copied_values(controller, token.clone(), None)?;
             self.record_event(GameEvent::TokenCreated {
                 player: controller,
                 token: token_id,
             });
             created.push(token_id);
         }
+        self.capture_simultaneous_entry_triggers_and_land_entries(&created)?;
         Ok(created)
-    }
-
-    fn create_token(
-        &mut self,
-        controller: PlayerId,
-        token: TokenSpec,
-    ) -> Result<ObjectId, RulesError> {
-        let id = self.create_token_with_copied_values(controller, token, None)?;
-        self.enqueue_controlled_nonartifact_permanent_entry_triggers(id, controller)?;
-        Ok(id)
     }
 
     /// Creates one token with its layer-one values already installed. Normal
