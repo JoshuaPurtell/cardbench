@@ -2242,11 +2242,12 @@ Oracle Magic rules coverage.
 - A copy whose target set may be changed suspends through the same monotonic
   `DecisionId` state machine as other public choices. Its options are public
   legal target values, and its cardinality is zero through the original
-  spell's target-slot count. Zero selections is the explicit optional-decline
-  branch: the virtual copy retains the original target values and captured
-  target incarnations. A nonempty selection must replace every target slot.
-  Its continuation can complete only while the copying spell is still on top
-  of the stack with the same original-source provenance. A stale decision, an
+  spell's target-slot count, whether that original is physical or a live
+  virtual copy. Zero selections is the explicit optional-decline branch: the
+  virtual copy retains the original target values and captured target
+  incarnations. A nonempty selection must replace every target slot. Its
+  continuation can complete only while the copying spell is still on top of
+  the stack with the same original-source provenance. A stale decision, an
   altered source, a partial retarget, or an illegal target rejects atomically.
 - Effect-created cast permissions are exact-card, exact-incarnation grants.
   They record player, source provenance, source zone, payment mode, timing
