@@ -9914,6 +9914,11 @@ impl Game {
                 source_incarnation,
                 ability,
             });
+        } else if let Some(copy) = self.virtual_spell_copies.remove(&source) {
+            self.record_event(GameEvent::SpellCopyResolved {
+                copy: source,
+                original: copy.original,
+            });
         } else {
             self.record_event(GameEvent::SpellResolved { card: source });
             self.move_to_spell_terminal_zone(source)?;

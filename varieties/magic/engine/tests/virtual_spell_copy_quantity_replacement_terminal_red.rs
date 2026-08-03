@@ -49,6 +49,7 @@ fn resolve_top(game: &mut Game) -> Result<(), cardbench_magic_engine::RulesError
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // One full replacement transcript proves source-independent virtual terminal handling.
 fn virtual_copy_can_complete_quantity_replacement_decision() {
     let caster = PlayerId(0);
     let copy_controller = PlayerId(1);
@@ -125,13 +126,15 @@ fn virtual_copy_can_complete_quantity_replacement_decision() {
         .replacement_candidates
         .iter()
         .copied()
-        .find(|choice| matches!(
-            choice,
-            ReplacementChoice::Quantity {
-                effect: ReplacementEffect::MultiplyTokenCreation { multiplier: 3 },
-                ..
-            }
-        ))
+        .find(|choice| {
+            matches!(
+                choice,
+                ReplacementChoice::Quantity {
+                    effect: ReplacementEffect::MultiplyTokenCreation { multiplier: 3 },
+                    ..
+                }
+            )
+        })
         .expect("tripler is a legal replacement choice");
     let result = game.submit_decision(
         copy_controller,
