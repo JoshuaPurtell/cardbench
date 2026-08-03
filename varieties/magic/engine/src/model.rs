@@ -1856,6 +1856,12 @@ pub enum Effect {
     DiscardTargetPlayer {
         count: u8,
     },
+    /// The targeted player selects one creature they control to sacrifice as
+    /// this spell resolves. The selected object's current positive power is
+    /// captured before its zone move, then the resolving spell's controller
+    /// makes that many ordinary draws. This one instruction preserves the
+    /// target player's resolution-time choice and printed operation order.
+    TargetPlayerSacrificesCreatureThenControllerDrawsEqualToPower,
     /// Sacrifice one creature controlled by the resolving source's controller.
     /// The controller selects the permanent at the trigger-resolution
     /// decision boundary.
@@ -2826,6 +2832,7 @@ impl Effect {
             | Self::DrawTargetPlayerCards { .. }
             | Self::DrawTargetPlayerThenConditionalPrivateDiscard
             | Self::DiscardTargetPlayer { .. }
+            | Self::TargetPlayerSacrificesCreatureThenControllerDrawsEqualToPower
             | Self::MillTargetPlayer { .. }
             | Self::MillTargetPlayerFromSourceDamage
             | Self::AddOneManaOfTargetPlayersChosenColor
@@ -3839,6 +3846,11 @@ pub enum DecisionKind {
     /// whether this is a fixed count or the conditional one-land/two-card
     /// branch; it is deliberately not a priority action.
     ConditionalPrivateDiscard,
+    /// A targeted player selects one controlled creature to sacrifice while
+    /// the resolving stack item remains live. The chosen creature's power is
+    /// captured before its sacrifice zone move determines the number of
+    /// ordinary draws for the resolving controller.
+    TargetPlayerSacrificeCreatureThenControllerDrawsEqualToPower,
     /// The target of a resolving mana effect chooses exactly one of the five
     /// card colors. This is a public no-priority decision because both the
     /// target and the received mana are public game information.
@@ -4242,6 +4254,17 @@ pub enum DecisionContinuation {
         count: u8,
         hand_snapshot: Vec<HandCardSnapshot>,
     },
+    /// Resumes an exact target-player sacrifice-and-power-draw instruction.
+    /// Candidate identities retain their battlefield incarnations so a stale
+    /// response cannot sacrifice a later object with the same stable id.
+    TargetPlayerSacrificeCreatureThenControllerDrawsEqualToPower {
+        source_stack_item: StackObjectId,
+        source: ObjectId,
+        source_incarnation: u64,
+        controller: PlayerId,
+        recipient: PlayerId,
+        creature_snapshot: Vec<BattlefieldCreatureSnapshot>,
+    },
     /// The top stack item remains live while its current target chooses a
     /// colored mana output. The recipient is captured from the target slot,
     /// so the resolving controller cannot substitute itself after seeing the
@@ -4336,6 +4359,15 @@ pub enum DecisionContinuation {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct HandCardSnapshot {
     pub card: ObjectId,
+    pub incarnation: u64,
+}
+
+/// One public creature that can be selected from a targeted player's
+/// battlefield while a stack instruction is suspended. Object identity alone
+/// is insufficient because a zone round trip creates a new rules object.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct BattlefieldCreatureSnapshot {
+    pub creature: ObjectId,
     pub incarnation: u64,
 }
 

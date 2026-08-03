@@ -44,7 +44,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 259] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 260] = [
     "RAV-CHAR",
     "RAV-AGRUS-KOS-WOJEK-VETERAN",
     "RAV-GALVANIC-ARC",
@@ -218,6 +218,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 259] = [
     "RAV-VINDICTIVE-MOB",
     "RAV-BELLTOWER-SPHINX",
     "RAV-COMPULSIVE-RESEARCH",
+    "RAV-TWISTED-JUSTICE",
     "RAV-DRIFT-OF-PHANTASMS",
     "RAV-ETHEREAL-USHER",
     "RAV-HALCYON-GLAZE",
@@ -4380,6 +4381,29 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             toughness: None,
             keywords: vec![],
             effects: vec![Effect::DrawTargetPlayerThenConditionalPrivateDiscard],
+        },
+        // Full fidelity: the one target is a player, not a creature. That
+        // player selects a currently controlled creature only when this
+        // sorcery resolves; its positive power is retained before sacrifice
+        // and determines the resolving controller's ordinary draw count.
+        CardDefinition {
+            id: "RAV-TWISTED-JUSTICE",
+            name: "Twisted Justice",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(4, [Color::Blue, Color::Black]),
+            colors: colors([Color::Blue, Color::Black]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Sorcery]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "target-player-sacrifice-creature-power-derived-draw",
+                "recipient-selected-public-creature-sacrifice",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![Effect::TargetPlayerSacrificesCreatureThenControllerDrawsEqualToPower],
         },
         // Full fidelity: this Aura attaches to a creature, grants Flying,
         // and its ETB trigger draws two cards through the ordinary stack.

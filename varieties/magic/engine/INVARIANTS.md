@@ -648,6 +648,22 @@ Oracle Magic rules coverage.
   catalog definition or permanent ability binding, cannot overwrite an
   earlier/future instruction, and no materialization may escape the live
   stack boundary.
+- `DecisionKind::TargetPlayerSacrificeCreatureThenControllerDrawsEqualToPower`
+  retains one exact non-ability spell stack item with one still-legal player
+  target and the matching sole target-player sacrifice instruction. It is a
+  public, recipient-owned, exactly-one creature choice: candidates are
+  rederived from that target's currently controlled battlefield creatures and
+  retain each exact object incarnation. The deciding player cannot choose an
+  opponent's creature, while the resolving controller cannot choose for the
+  target. Completion revalidates the stack id/source incarnation/controller,
+  target occurrence, effect shape, candidate set, and chosen incarnation;
+  only then does it capture the selected creature's nonnegative current power,
+  record `SacrificedByEffect`, perform the ordinary owner-graveyard move, and
+  emit exactly that many controller draw moves before the spell's terminal
+  receipt. If the legal target controls no creature, no impossible decision is
+  opened and the ordinary instruction performs no draw. A stale answer, zone
+  round trip, foreign creature, extra/missing selection, fabricated direct
+  resolver call, or wrong stack shape is atomic and fails the invariant audit.
 - This first unified-decision migration covers policy-submitted one-card
   library searches, trigger target selection and triggered discard/sacrifice
   object choices, multi-block combat order, spell-copy targets, concurrent

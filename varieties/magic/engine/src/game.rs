@@ -8,20 +8,20 @@ use crate::{
     ActivatedAbilityCostModifier, ActivatedAbilityCostModifierBinding, ActivatedAbilityKind,
     ActivatedCounterCostTarget, ActivatedManaAbility, AdditionalSpellCost,
     AdditionalSpellCostBinding, AttachmentBinding, AttachmentKind, BasicLandType,
-    BasicLandTypeBinding, CapturedCombatParticipant, CapturedConvokeCreature, CardDefinition,
-    CardObject, CardType, CastPaymentManaAbility, CastPermissionPayment, CastPermissionZone,
-    CastTiming, Characteristics, Color, CombatBlock, ContinuousChange, ContinuousEffect,
-    CopiableValues, CopiedPermanent, CostReductionBinding, CounterKind, CreatureSubtype,
-    DELAYED_COMBAT_HISTORY_DESTRUCTION_ABILITY_ID, DamageReplacementChoice,
-    DamageReplacementEffect, DamageReplacementEffectBinding, DamageReplacementPacket,
-    DecisionContinuation, DecisionId, DecisionKind, DecisionOption, DecisionSelection,
-    DecisionVisibility, DeckList, DelayedAction, DelayedActionId, DelayedActionKind,
-    DelayedActionTiming, Duration, Effect, EntryCopyBinding, EntryCopySnapshot, GameEvent,
-    GeneralizedAbilityActivation, GeneralizedActivatedAbilityCost, GraveyardCreatureCardSnapshot,
-    GraveyardLandCardSnapshot, HandCardSnapshot, Keyword, LandEntryBinding, Layer,
-    LibrarySearchCardinality, LibrarySearchDestination, LibrarySearchRequirement,
-    LibrarySearchSelection, LinkedExileGroup, LinkedExileGroupId, LinkedExileMember,
-    LinkedExileMemberRole, ManaAbilityActivation, ManaAbilityBinding,
+    BasicLandTypeBinding, BattlefieldCreatureSnapshot, CapturedCombatParticipant,
+    CapturedConvokeCreature, CardDefinition, CardObject, CardType, CastPaymentManaAbility,
+    CastPermissionPayment, CastPermissionZone, CastTiming, Characteristics, Color, CombatBlock,
+    ContinuousChange, ContinuousEffect, CopiableValues, CopiedPermanent, CostReductionBinding,
+    CounterKind, CreatureSubtype, DELAYED_COMBAT_HISTORY_DESTRUCTION_ABILITY_ID,
+    DamageReplacementChoice, DamageReplacementEffect, DamageReplacementEffectBinding,
+    DamageReplacementPacket, DecisionContinuation, DecisionId, DecisionKind, DecisionOption,
+    DecisionSelection, DecisionVisibility, DeckList, DelayedAction, DelayedActionId,
+    DelayedActionKind, DelayedActionTiming, Duration, Effect, EntryCopyBinding, EntryCopySnapshot,
+    GameEvent, GeneralizedAbilityActivation, GeneralizedActivatedAbilityCost,
+    GraveyardCreatureCardSnapshot, GraveyardLandCardSnapshot, HandCardSnapshot, Keyword,
+    LandEntryBinding, Layer, LibrarySearchCardinality, LibrarySearchDestination,
+    LibrarySearchRequirement, LibrarySearchSelection, LinkedExileGroup, LinkedExileGroupId,
+    LinkedExileMember, LinkedExileMemberRole, ManaAbilityActivation, ManaAbilityBinding,
     ManaAbilityBundleChoiceActivation, ManaAbilityCostBinding, ManaAbilityOutput, ManaBundle,
     ManaCost, ManaPaymentSelection, ObjectId, PendingDecision, PlayerId, PlayerState,
     PolicyMoveKind, QuantityReplacementResolution, ReplacementChoice, ReplacementEffect,
@@ -4035,6 +4035,7 @@ impl Game {
                 | DecisionContinuation::CounterUnlessDiscardsHand { .. }
                 | DecisionContinuation::ConditionalPrivateDiscard { .. }
                 | DecisionContinuation::TargetPlayerPrivateDiscard { .. }
+                | DecisionContinuation::TargetPlayerSacrificeCreatureThenControllerDrawsEqualToPower { .. }
                 | DecisionContinuation::TargetPlayerManaColor { .. }
                 | DecisionContinuation::TargetPlayerLibraryTopMayGraveyard { .. }
                 | DecisionContinuation::ReturnOneCreatureCardFromEachGraveyardToHand { .. }
@@ -4107,6 +4108,7 @@ impl Game {
                 | DecisionContinuation::CounterUnlessDiscardsHand { .. }
                 | DecisionContinuation::ConditionalPrivateDiscard { .. }
                 | DecisionContinuation::TargetPlayerPrivateDiscard { .. }
+                | DecisionContinuation::TargetPlayerSacrificeCreatureThenControllerDrawsEqualToPower { .. }
                 | DecisionContinuation::TargetPlayerManaColor { .. }
                 | DecisionContinuation::TargetPlayerLibraryTopMayGraveyard { .. }
                 | DecisionContinuation::ReturnOneCreatureCardFromEachGraveyardToHand { .. }
@@ -4167,6 +4169,7 @@ impl Game {
                 | DecisionContinuation::CounterUnlessDiscardsHand { .. }
                 | DecisionContinuation::ConditionalPrivateDiscard { .. }
                 | DecisionContinuation::TargetPlayerPrivateDiscard { .. }
+                | DecisionContinuation::TargetPlayerSacrificeCreatureThenControllerDrawsEqualToPower { .. }
                 | DecisionContinuation::TargetPlayerManaColor { .. }
                 | DecisionContinuation::TargetPlayerLibraryTopMayGraveyard { .. }
                 | DecisionContinuation::ReturnOneCreatureCardFromEachGraveyardToHand { .. }
@@ -4257,6 +4260,7 @@ impl Game {
                 | DecisionContinuation::CounterUnlessDiscardsHand { .. }
                 | DecisionContinuation::ConditionalPrivateDiscard { .. }
                 | DecisionContinuation::TargetPlayerPrivateDiscard { .. }
+                | DecisionContinuation::TargetPlayerSacrificeCreatureThenControllerDrawsEqualToPower { .. }
                 | DecisionContinuation::TargetPlayerManaColor { .. }
                 | DecisionContinuation::TargetPlayerLibraryTopMayGraveyard { .. }
                 | DecisionContinuation::ReturnOneCreatureCardFromEachGraveyardToHand { .. }
@@ -8176,6 +8180,26 @@ impl Game {
                     selected,
                 )
             }
+            DecisionContinuation::TargetPlayerSacrificeCreatureThenControllerDrawsEqualToPower {
+                source_stack_item,
+                source,
+                source_incarnation,
+                controller,
+                recipient,
+                creature_snapshot,
+            } => {
+                let selected = Self::validate_object_decision_selection(&decision, selection)?;
+                self.resolve_target_player_sacrifice_creature_then_controller_draws_equal_power_decision(
+                    &decision,
+                    source_stack_item,
+                    source,
+                    source_incarnation,
+                    controller,
+                    recipient,
+                    &creature_snapshot,
+                    &selected,
+                )
+            }
             DecisionContinuation::TargetPlayerManaColor {
                 source_stack_item,
                 effect_index,
@@ -9153,6 +9177,203 @@ impl Game {
             .collect()
     }
 
+    /// Captures every creature a resolving target player may currently
+    /// sacrifice. The current object incarnation is part of the snapshot so
+    /// an external state fabrication or a later zone round trip cannot turn a
+    /// pending public choice into permission to sacrifice a new object.
+    fn controlled_creature_snapshot(
+        &self,
+        player: PlayerId,
+    ) -> Result<Vec<BattlefieldCreatureSnapshot>, RulesError> {
+        if self.players.get(player.0).is_none() || self.players[player.0].lost {
+            return Err(RulesError::UnknownPlayer(player));
+        }
+        self.all_battlefield_cards()
+            .into_iter()
+            .filter(|card| {
+                self.controller_of(*card) == Ok(player)
+                    && self.characteristics(*card).is_ok_and(|characteristics| {
+                        characteristics.card_types.contains(&CardType::Creature)
+                    })
+            })
+            .map(|creature| {
+                Ok(BattlefieldCreatureSnapshot {
+                    creature,
+                    incarnation: self.object(creature)?.incarnation,
+                })
+            })
+            .collect()
+    }
+
+    /// Suspends the one target-player sacrifice-and-power-draw instruction
+    /// after its player target remains legal at resolution. This is a public
+    /// recipient-owned choice: the spell controller never selects which
+    /// opposing creature is sacrificed.
+    fn suspend_top_stack_item_for_target_player_sacrifice_creature_choice(
+        &mut self,
+    ) -> Result<bool, RulesError> {
+        if self.pending_decision.is_some()
+            || self.pending_private_library_choice.is_some()
+            || self.pending_private_opponent_library_exile_choice.is_some()
+        {
+            return Err(RulesError::IllegalAction(
+                "a target-player sacrifice choice attempted to overlap another decision",
+            ));
+        }
+        let Some(top) = self.stack.last().cloned() else {
+            return Ok(false);
+        };
+        let effect_index = self.stack_effect_cursor(&top)?;
+        let target_offset = Self::effect_target_offset(&top.effects, effect_index);
+        let (
+            Some(Effect::TargetPlayerSacrificesCreatureThenControllerDrawsEqualToPower),
+            Some(Target::Player(recipient)),
+        ) = (
+            top.effects.get(effect_index),
+            top.targets.get(target_offset).copied(),
+        )
+        else {
+            return Ok(false);
+        };
+        // Target legality is still owned by ordinary stack resolution. If it
+        // has failed, the all-illegal/skip paths must run without exposing a
+        // choice to a departed or otherwise illegal player.
+        if !self.stack_target_incarnation_matches(&top, target_offset, Target::Player(recipient))
+            || !self.target_matches_for_colors(
+                top.controller,
+                Target::Player(recipient),
+                TargetRequirement::Player,
+                &top.source_colors,
+            )
+        {
+            return Ok(false);
+        }
+        let creature_snapshot = self.controlled_creature_snapshot(recipient)?;
+        if creature_snapshot.is_empty() {
+            // "Sacrifice a creature" cannot be performed when none exists;
+            // the ordinary resolver then completes the zero-draw suffix.
+            return Ok(false);
+        }
+        self.open_pending_decision(
+            recipient,
+            DecisionVisibility::Public,
+            DecisionKind::TargetPlayerSacrificeCreatureThenControllerDrawsEqualToPower,
+            1,
+            1,
+            creature_snapshot
+                .iter()
+                .map(|snapshot| DecisionOption::Object(snapshot.creature))
+                .collect(),
+            DecisionContinuation::TargetPlayerSacrificeCreatureThenControllerDrawsEqualToPower {
+                source_stack_item: top.id,
+                source: top.card,
+                source_incarnation: top.source_incarnation,
+                controller: top.controller,
+                recipient,
+                creature_snapshot,
+            },
+        )?;
+        Ok(true)
+    }
+
+    /// Commits a target player's one public sacrifice choice, preserving the
+    /// chosen creature's current positive power before its zone transition.
+    /// The parent stack item remains live until draw receipts and terminal
+    /// lifecycle have committed in that order.
+    #[allow(clippy::too_many_arguments)] // The complete captured continuation is one stale-safe boundary.
+    fn resolve_target_player_sacrifice_creature_then_controller_draws_equal_power_decision(
+        &mut self,
+        decision: &PendingDecision,
+        source_stack_item: StackObjectId,
+        source: ObjectId,
+        source_incarnation: u64,
+        controller: PlayerId,
+        recipient: PlayerId,
+        creature_snapshot: &[BattlefieldCreatureSnapshot],
+        selected: &[ObjectId],
+    ) -> Result<(), RulesError> {
+        let top = self.stack.last().cloned().ok_or(RulesError::IllegalAction(
+            "target-player sacrifice choice escaped its stack item",
+        ))?;
+        let current_snapshot = self.controlled_creature_snapshot(recipient)?;
+        let expected_options = creature_snapshot
+            .iter()
+            .map(|snapshot| DecisionOption::Object(snapshot.creature))
+            .collect::<Vec<_>>();
+        let target_offset = Self::effect_target_offset(&top.effects, 0);
+        let Some(&sacrificed) = selected.first() else {
+            return Err(RulesError::IllegalAction(
+                "target-player sacrifice choice requires exactly one creature",
+            ));
+        };
+        if decision.kind
+            != DecisionKind::TargetPlayerSacrificeCreatureThenControllerDrawsEqualToPower
+            || decision.visibility != DecisionVisibility::Public
+            || decision.player != recipient
+            || decision.min_selections != 1
+            || decision.max_selections != 1
+            || decision.options != expected_options
+            || top.id != source_stack_item
+            || top.card != source
+            || top.source_incarnation != source_incarnation
+            || top.controller != controller
+            || top.ability_id.is_some()
+            || self.stack_effect_cursor(&top)? != 0
+            || top.effects.as_slice()
+                != [Effect::TargetPlayerSacrificesCreatureThenControllerDrawsEqualToPower]
+            || top.targets.get(target_offset) != Some(&Target::Player(recipient))
+            || !self.stack_target_incarnation_matches(
+                &top,
+                target_offset,
+                Target::Player(recipient),
+            )
+            || !self.target_matches_for_colors(
+                controller,
+                Target::Player(recipient),
+                TargetRequirement::Player,
+                &top.source_colors,
+            )
+            || current_snapshot != creature_snapshot
+            || selected.len() != 1
+            || !creature_snapshot
+                .iter()
+                .any(|snapshot| snapshot.creature == sacrificed)
+        {
+            return Err(RulesError::IllegalAction(
+                "target-player sacrifice choice no longer matches its stack or creature snapshot",
+            ));
+        }
+
+        let power = self
+            .characteristics(sacrificed)?
+            .power
+            .unwrap_or_default()
+            .max(0);
+        let draw_count = usize::try_from(power).map_err(|_| {
+            RulesError::IllegalAction("sacrificed creature power cannot fit a draw count")
+        })?;
+        self.complete_pending_decision(decision)?;
+        self.record_event(GameEvent::SacrificedByEffect {
+            source,
+            player: recipient,
+            permanent: sacrificed,
+        });
+        self.move_to_graveyard_or_remove_token(sacrificed)?;
+        for _ in 0..draw_count {
+            self.draw_card_from_spell_effect(controller)?;
+        }
+        let terminal = self.stack.pop().ok_or(RulesError::IllegalAction(
+            "target-player sacrifice stack item disappeared before terminal resolution",
+        ))?;
+        if terminal.id != top.id {
+            return Err(RulesError::IllegalAction(
+                "target-player sacrifice terminal stack identity changed",
+            ));
+        }
+        self.stack_effect_cursors.remove(&top.id);
+        self.finish_resolved_decision_stack_item(&top)
+    }
+
     /// Suspends one exact targeted-discard stack item so its target, never
     /// the resolving controller, privately chooses the cards to discard.
     /// This is shared by spells and activated abilities with a typed
@@ -9332,14 +9553,14 @@ impl Game {
             ));
         }
         self.stack_effect_cursors.remove(&top.id);
-        self.finish_resolved_private_discard_stack_item(&top)
+        self.finish_resolved_decision_stack_item(&top)
     }
 
-    /// Finishes the normal terminal lifecycle after a private discard has
-    /// committed its ordinary card moves. The discard may be the sole effect
-    /// or the final instruction in a resumed stack suffix, so only terminal
-    /// stack lifecycle, SBAs, and trigger flushing remain.
-    fn finish_resolved_private_discard_stack_item(
+    /// Finishes normal terminal lifecycle after a no-priority decision has
+    /// committed its ordinary state changes. The resolved instruction may be
+    /// the sole effect or the final instruction in a resumed suffix, so only
+    /// terminal stack lifecycle, SBAs, and trigger flushing remain.
+    fn finish_resolved_decision_stack_item(
         &mut self,
         stack_object: &StackObject,
     ) -> Result<(), RulesError> {
@@ -16285,6 +16506,7 @@ impl Game {
                 | Effect::LoseLifeEachOpponentEqualToControlledCreatures
                 | Effect::DiscardOneCardEachPlayer
                 | Effect::DiscardTargetPlayer { .. }
+                | Effect::TargetPlayerSacrificesCreatureThenControllerDrawsEqualToPower
                 | Effect::SacrificeControllerCreature
                 | Effect::SacrificeUpkeepPlayerCreature
                 | Effect::SacrificeCapturedPlayerCreature { .. }
@@ -16996,6 +17218,9 @@ impl Game {
             return Ok(());
         }
         if self.suspend_top_stack_item_for_conditional_private_discard_choice()? {
+            return Ok(());
+        }
+        if self.suspend_top_stack_item_for_target_player_sacrifice_creature_choice()? {
             return Ok(());
         }
         if self.suspend_top_stack_item_for_target_player_private_discard_choice()? {
@@ -23692,6 +23917,22 @@ impl Game {
                         self.move_to_zone(card, Zone::Graveyard)?;
                     }
                 }
+            }
+            Effect::TargetPlayerSacrificesCreatureThenControllerDrawsEqualToPower => {
+                let player = match target.ok_or(RulesError::IllegalAction(
+                    "missing target-player sacrifice target",
+                ))? {
+                    Target::Player(player) if !self.players[player.0].lost => player,
+                    other => return Err(RulesError::IllegalTarget(other)),
+                };
+                if !self.controlled_creature_snapshot(player)?.is_empty() {
+                    return Err(RulesError::IllegalAction(
+                        "target-player sacrifice effect bypassed its public choice boundary",
+                    ));
+                }
+                // No creature can be sacrificed, so no power-derived draw is
+                // defined. Normal stack terminal handling supplies the
+                // ordinary spell receipt and zone move.
             }
             Effect::MillTargetPlayer { count } => {
                 let player =
@@ -34546,6 +34787,76 @@ impl Game {
                 {
                     return Err(RulesError::IllegalAction(
                         "recipient private discard decision violates its stack and hand-incarnation boundary",
+                    ));
+                }
+            }
+            DecisionContinuation::TargetPlayerSacrificeCreatureThenControllerDrawsEqualToPower {
+                source_stack_item,
+                source,
+                source_incarnation,
+                controller,
+                recipient,
+                creature_snapshot,
+            } => {
+                let top = self.stack.last().ok_or(RulesError::IllegalAction(
+                    "target-player sacrifice decision escaped its stack item",
+                ))?;
+                let current_snapshot = self.controlled_creature_snapshot(*recipient)?;
+                let expected_options = creature_snapshot
+                    .iter()
+                    .map(|snapshot| DecisionOption::Object(snapshot.creature))
+                    .collect::<Vec<_>>();
+                let snapshots_are_valid = creature_snapshot.iter().enumerate().all(
+                    |(index, snapshot)| {
+                        snapshot.incarnation > 0
+                            && creature_snapshot[index + 1..]
+                                .iter()
+                                .all(|other| other.creature != snapshot.creature)
+                            && self.zone_of(snapshot.creature) == Some(Zone::Battlefield)
+                            && self
+                                .object(snapshot.creature)
+                                .is_ok_and(|object| object.incarnation == snapshot.incarnation)
+                            && self.controller_of(snapshot.creature) == Ok(*recipient)
+                            && self
+                                .characteristics(snapshot.creature)
+                                .is_ok_and(|characteristics| {
+                                    characteristics.card_types.contains(&CardType::Creature)
+                                })
+                    },
+                );
+                if decision.kind
+                    != DecisionKind::TargetPlayerSacrificeCreatureThenControllerDrawsEqualToPower
+                    || decision.visibility != DecisionVisibility::Public
+                    || decision.player != *recipient
+                    || creature_snapshot.is_empty()
+                    || !snapshots_are_valid
+                    || top.id != *source_stack_item
+                    || top.card != *source
+                    || top.source_incarnation != *source_incarnation
+                    || top.controller != *controller
+                    || top.ability_id.is_some()
+                    || self.stack_effect_cursor(top).ok() != Some(0)
+                    || top.effects.as_slice()
+                        != [Effect::TargetPlayerSacrificesCreatureThenControllerDrawsEqualToPower]
+                    || top.targets.as_slice() != [Target::Player(*recipient)]
+                    || !self.stack_target_incarnation_matches(
+                        top,
+                        0,
+                        Target::Player(*recipient),
+                    )
+                    || !self.target_matches_for_colors(
+                        *controller,
+                        Target::Player(*recipient),
+                        TargetRequirement::Player,
+                        &top.source_colors,
+                    )
+                    || current_snapshot != *creature_snapshot
+                    || decision.options != expected_options
+                    || decision.min_selections != 1
+                    || decision.max_selections != 1
+                {
+                    return Err(RulesError::IllegalAction(
+                        "target-player sacrifice decision violates its public stack and creature-incarnation boundary",
                     ));
                 }
             }
