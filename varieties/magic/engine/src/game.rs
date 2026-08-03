@@ -152,6 +152,18 @@ struct VirtualSpellCopy {
     controller: PlayerId,
 }
 
+/// Immutable source facts retained only while a delayed action or the delayed
+/// ability it created still needs the identity of a virtual spell copy.  A
+/// virtual copy itself still terminates normally; this is the later delayed
+/// instruction's last-known source provenance, not a second live copy.
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct DeferredVirtualSource {
+    definition: &'static str,
+    source_incarnation: u64,
+    source_colors: BTreeSet<Color>,
+    controller: PlayerId,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CastRequest {
     pub card: ObjectId,
@@ -923,6 +935,10 @@ pub struct Game {
     /// This map is the ownership boundary that prevents a copy terminal path
     /// from moving the original physical card.
     virtual_spell_copies: BTreeMap<ObjectId, VirtualSpellCopy>,
+    /// Last-known virtual source facts for delayed actions that outlive a
+    /// stack-only copy's ordinary terminal receipt. Entries are pruned as soon
+    /// as neither an action nor its delayed ability still names the source.
+    deferred_virtual_sources: BTreeMap<ObjectId, DeferredVirtualSource>,
     exile_on_resolution: BTreeSet<ObjectId>,
     /// Exact-incarnation exile groups that still own one delayed return.
     /// This is typed, clonable state; no resolver closure escapes onto the
@@ -1237,6 +1253,7 @@ impl Game {
             spell_timing_exceptions: BTreeSet::new(),
             noncreature_spell_casters_this_turn: BTreeSet::new(),
             virtual_spell_copies: BTreeMap::new(),
+            deferred_virtual_sources: BTreeMap::new(),
             exile_on_resolution: BTreeSet::new(),
             linked_exile_groups: BTreeMap::new(),
             linked_hand_exile_groups: BTreeMap::new(),
@@ -2232,6 +2249,12 @@ impl Game {
                 .catalog
                 .get(copy.original_definition)
                 .ok_or(RulesError::UnknownDefinition(copy.original_definition));
+        }
+        if let Some(source) = self.deferred_virtual_sources.get(&card) {
+            return self
+                .catalog
+                .get(source.definition)
+                .ok_or(RulesError::UnknownDefinition(source.definition));
         }
         let definition = match self.effective_definition_id(card) {
             Ok(Some(definition)) => definition,
@@ -6076,7 +6099,17 @@ impl Game {
                 } => {
                     let participants =
                         self.captured_combat_participants(target, target_incarnation);
-                    let source_colors = self.card_definition(source)?.colors.clone();
+                    let source_colors = if let Some(provenance) = self
+                        .deferred_virtual_sources
+                        .get(&source)
+                        .filter(|provenance| {
+                            provenance.source_incarnation == source_incarnation
+                                && provenance.controller == action.controller
+                        }) {
+                        provenance.source_colors.clone()
+                    } else {
+                        self.card_definition(source)?.colors.clone()
+                    };
                     let stack_item = self.allocate_stack_object_id();
                     self.stack.push(StackObject {
                         id: stack_item,
@@ -6166,6 +6199,27 @@ impl Game {
     ) -> Result<(), RulesError> {
         if !self.has_upcoming_end_of_combat_this_turn() {
             return Ok(());
+        }
+        if let Some(copy) = self.virtual_spell_copies.get(&source) {
+            if copy.source_incarnation != source_incarnation || copy.controller != controller {
+                return Err(RulesError::IllegalAction(
+                    "virtual delayed action source disagrees with its resolving stack provenance",
+                ));
+            }
+            let provenance = DeferredVirtualSource {
+                definition: copy.original_definition,
+                source_incarnation,
+                source_colors: copy.source_colors.clone(),
+                controller,
+            };
+            if let Some(existing) = self.deferred_virtual_sources.get(&source)
+                && existing != &provenance
+            {
+                return Err(RulesError::IllegalAction(
+                    "virtual delayed action source has conflicting immutable provenance",
+                ));
+            }
+            self.deferred_virtual_sources.insert(source, provenance);
         }
         let target_incarnation = self.object(target)?.incarnation;
         let action = DelayedActionId(self.next_delayed_action_id);
@@ -12767,6 +12821,41 @@ impl Game {
                 "last-known source-controller provenance has an invalid object incarnation",
             ));
         }
+        if self
+            .deferred_virtual_sources
+            .iter()
+            .any(|(source, provenance)| {
+                source.0 == 0
+                    || provenance.source_incarnation == 0
+                    || provenance.source_colors.contains(&Color::Colorless)
+                    || self.players.get(provenance.controller.0).is_none()
+                    || !self.catalog.contains_key(provenance.definition)
+                    || self.objects.contains_key(source)
+                    || self.virtual_spell_copies.contains_key(source)
+                    || (!self.delayed_actions.iter().any(|action| {
+                        matches!(
+                            action.kind,
+                            DelayedActionKind::DestroyCombatParticipants {
+                                source: action_source,
+                                source_incarnation,
+                                ..
+                            } if action_source == *source
+                                && source_incarnation == provenance.source_incarnation
+                                && action.controller == provenance.controller
+                        )
+                    }) && !self.stack.iter().any(|stack_object| {
+                        stack_object.card == *source
+                            && stack_object.source_incarnation == provenance.source_incarnation
+                            && stack_object.controller == provenance.controller
+                            && stack_object.ability_id
+                                == Some(DELAYED_COMBAT_HISTORY_DESTRUCTION_ABILITY_ID)
+                    }))
+            })
+        {
+            return Err(RulesError::IllegalAction(
+                "deferred virtual source lacks one exact delayed-action or ability consumer",
+            ));
+        }
         if !self.pending_trigger_events.is_empty() {
             return Err(RulesError::IllegalAction(
                 "pending trigger event escaped its enclosing rules action",
@@ -13572,8 +13661,19 @@ impl Game {
                     "a departed player controls a stack object",
                 ));
             }
+            let has_deferred_virtual_source = self
+                .deferred_virtual_sources
+                .get(&stack_object.card)
+                .is_some_and(|provenance| {
+                    provenance.source_incarnation == stack_object.source_incarnation
+                        && provenance.source_colors == stack_object.source_colors
+                        && provenance.controller == stack_object.controller
+                        && stack_object.ability_id
+                            == Some(DELAYED_COMBAT_HISTORY_DESTRUCTION_ABILITY_ID)
+                });
             if is_ability
                 && object.is_none()
+                && !has_deferred_virtual_source
                 && (!self
                     .departed_card_definitions
                     .contains_key(&stack_object.card)
@@ -27645,6 +27745,26 @@ impl Game {
             .retain(|key, _| self.objects.contains_key(&key.0) || retained.contains(key));
         self.last_known_controllers
             .retain(|key, _| self.objects.contains_key(&key.0) || retained.contains(key));
+        self.deferred_virtual_sources.retain(|source, provenance| {
+            self.delayed_actions.iter().any(|action| {
+                matches!(
+                    action.kind,
+                    DelayedActionKind::DestroyCombatParticipants {
+                        source: action_source,
+                        source_incarnation,
+                        ..
+                    } if action_source == *source
+                        && source_incarnation == provenance.source_incarnation
+                        && action.controller == provenance.controller
+                )
+            }) || self.stack.iter().any(|stack_object| {
+                stack_object.card == *source
+                    && stack_object.source_incarnation == provenance.source_incarnation
+                    && stack_object.controller == provenance.controller
+                    && stack_object.ability_id
+                        == Some(DELAYED_COMBAT_HISTORY_DESTRUCTION_ABILITY_ID)
+            })
+        });
     }
 
     /// Freezes every pending source-counter creature sweep at the exact

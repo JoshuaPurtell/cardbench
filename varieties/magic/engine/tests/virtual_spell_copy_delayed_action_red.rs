@@ -57,6 +57,7 @@ fn advance_empty_stack(game: &mut Game) -> Result<(), cardbench_magic_engine::Ru
 
 #[test]
 #[allow(clippy::too_many_lines)] // The copy, physical-original counter, and real turn path are one provenance contract.
+#[allow(clippy::similar_names)] // Fixture terms are intentionally the rules concepts under test.
 fn virtual_copy_delayed_action_reaches_end_of_combat_without_source_zone_lookup() {
     let caster = PlayerId(0);
     let copy_controller = PlayerId(1);
@@ -138,6 +139,15 @@ fn virtual_copy_delayed_action_reaches_end_of_combat_without_source_zone_lookup(
         event,
         GameEvent::DelayedCombatDestructionStacked { source, .. } if *source == virtual_copy
     )));
+    resolve_top(&mut game).expect("delayed virtual-source ability resolves without a card object");
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::AbilityResolved { source, .. } if *source == virtual_copy
+    )));
+    eprintln!(
+        "virtual delayed-action terminal trace: events={:?}",
+        game.canonical_event_log()
+    );
     game.validate_invariants()
-        .expect("virtual delayed-action provenance remains auditable");
+        .expect("virtual delayed-action provenance is pruned after its ability resolves");
 }

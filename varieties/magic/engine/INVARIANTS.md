@@ -2124,6 +2124,11 @@ Oracle Magic rules coverage.
   and any forced follow-up replacements. After authoritative prevention and
   damage receipts commit, the source emits exactly one `SpellCopyResolved`;
   it cannot emit `SpellResolved` or move the virtual source to a physical zone.
+- A virtual copy that creates a current-turn end-of-combat delayed action
+  retains only immutable definition, incarnation, colors, and controller
+  provenance after `SpellCopyResolved`. That provenance must name exactly one
+  delayed action or stacked ability, supply its frozen source facts without a
+  fabricated `CardObject`, and be pruned immediately after resolution.
 - A counter-unless decision binds its lower spell by the exact live lower
   stack item's source incarnation, not by a physical-zone lookup. The same
   public pay-or-counter and discard-your-hand boundaries must work for
