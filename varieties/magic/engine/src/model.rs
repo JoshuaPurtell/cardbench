@@ -1895,6 +1895,11 @@ impl TokenSpec {
 /// Effects are executable semantics, not copied Oracle wording.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Effect {
+    /// For the remainder of this turn, the resolving spell controller makes
+    /// the turn-based attacker and blocker declarations. The declarations
+    /// remain subject to the creatures' actual controllers and every ordinary
+    /// combat restriction and requirement.
+    ChooseAllCombatDeclarationsThisTurn,
     /// Choose exactly one listed effect bundle as the spell is cast.  The
     /// submitted zero-based mode is retained on the resulting stack object;
     /// the unresolved card definition never silently defaults to a branch.
@@ -3312,7 +3317,8 @@ impl Effect {
             | Self::DestroyCombatDamagedCreature
             | Self::DestroyCapturedCreature { .. }
             | Self::DestroyCapturedCombatParticipants { .. }
-            | Self::ExileAttachedCreatureAndAurasUntilEndStep => None,
+            | Self::ExileAttachedCreatureAndAurasUntilEndStep
+            | Self::ChooseAllCombatDeclarationsThisTurn => None,
         }
     }
 
@@ -6434,6 +6440,19 @@ pub enum GameEvent {
     BlockersDeclared {
         player: PlayerId,
         assignments: Vec<(ObjectId, ObjectId)>,
+    },
+    /// A resolving effect installed one exact current-turn authority to make
+    /// the otherwise turn-based attacker and blocker declarations.
+    CombatDeclarationAuthorityCreated {
+        source: ObjectId,
+        source_incarnation: u64,
+        controller: PlayerId,
+        expires_turn: u32,
+    },
+    CombatDeclarationAuthorityExpired {
+        source: ObjectId,
+        source_incarnation: u64,
+        controller: PlayerId,
     },
     /// The attacking player submitted the complete damage-assignment order
     /// for one multi-block group. Unlike `DecisionCompleted`, this is public

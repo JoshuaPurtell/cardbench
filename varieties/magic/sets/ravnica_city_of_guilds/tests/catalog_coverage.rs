@@ -101,6 +101,14 @@ fn tunnel_vision_resolves_to_its_full_named_card_traversal_definition() {
 }
 
 #[test]
+fn master_warcraft_resolves_to_its_full_combat_choice_definition() {
+    assert_eq!(
+        executable_definition_id_for_collector(250),
+        Ok("RAV-MASTER-WARCRAFT")
+    );
+}
+
+#[test]
 fn auratouched_mage_resolves_to_its_full_private_aura_search_definition() {
     assert_eq!(
         executable_definition_id_for_collector(1),

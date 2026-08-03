@@ -254,6 +254,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 284] = [
     "RAV-INDUCE-PARANOIA",
     "RAV-TELLING-TIME",
     "RAV-TUNNEL-VISION",
+    "RAV-MASTER-WARCRAFT",
     "RAV-MARK-OF-EVICTION",
     "RAV-VEDALKEN-ENTRANCER",
     "RAV-VEDALKEN-DISMISSER",
@@ -4949,6 +4950,43 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             effects: vec![
                 Effect::TraverseTargetPlayerLibraryUntilNamedCardThenMillOthersAndShuffle,
             ],
+        },
+        // Full fidelity: this current-turn rules effect changes only the
+        // player who makes each combat declaration; creature control and all
+        // ordinary declaration legality remain unchanged.
+        CardDefinition {
+            id: "RAV-MASTER-WARCRAFT",
+            name: "Master Warcraft",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_hybrid(
+                2,
+                [],
+                [
+                    HybridManaSymbol {
+                        first: Color::Red,
+                        second: Color::White,
+                    },
+                    HybridManaSymbol {
+                        first: Color::Red,
+                        second: Color::White,
+                    },
+                ],
+            ),
+            colors: colors([Color::Red, Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Instant]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "hybrid-cost-casting",
+                "cast-only-before-attackers-declared",
+                "controller-chooses-all-attackers-this-turn",
+                "controller-chooses-all-blockers-and-assignments-this-turn",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![Effect::ChooseAllCombatDeclarationsThisTurn],
         },
         // Full fidelity: the Aura attaches only to a creature, then its
         // active-controller upkeep trigger reads that exact live attachment

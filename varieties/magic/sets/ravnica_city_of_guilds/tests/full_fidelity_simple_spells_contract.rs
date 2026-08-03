@@ -220,6 +220,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-INDUCE-PARANOIA",
             "RAV-TELLING-TIME",
             "RAV-TUNNEL-VISION",
+            "RAV-MASTER-WARCRAFT",
             "RAV-MARK-OF-EVICTION",
             "RAV-VEDALKEN-ENTRANCER",
             "RAV-VEDALKEN-DISMISSER",

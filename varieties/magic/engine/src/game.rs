@@ -1060,6 +1060,18 @@ struct GlobalCombatDamagePrevention {
     expires_turn: u32,
 }
 
+/// An independent current-turn rule effect that changes who makes combat's
+/// mandatory turn-based declarations without changing any creature's
+/// controller. The source can leave the stack normally; its captured
+/// incarnation remains receipt provenance only.
+#[derive(Clone, Debug)]
+struct CombatDeclarationAuthority {
+    source: ObjectId,
+    source_incarnation: u64,
+    controller: PlayerId,
+    expires_turn: u32,
+}
+
 /// One prospective targeted damage packet paused on an exact stack
 /// instruction. The immutable stack item remains live while the affected
 /// player selects one replacement; a later resolver resumes only its suffix.
@@ -1293,6 +1305,7 @@ pub struct Game {
     damage_prevention_shields: Vec<DamagePreventionShield>,
     combat_damage_preventions: Vec<CombatDamagePrevention>,
     global_combat_damage_preventions: Vec<GlobalCombatDamagePrevention>,
+    combat_declaration_authorities: Vec<CombatDeclarationAuthority>,
 }
 
 impl Game {
@@ -1549,6 +1562,7 @@ impl Game {
             damage_prevention_shields: Vec::new(),
             combat_damage_preventions: Vec::new(),
             global_combat_damage_preventions: Vec::new(),
+            combat_declaration_authorities: Vec::new(),
         };
         // Construction is the first observable state-machine boundary. Do not
         // hand a caller a game whose immutable catalog or initial seats already
@@ -7672,6 +7686,16 @@ impl Game {
         Ok(())
     }
 
+    /// The active player ordinarily makes combat declarations. A current-turn
+    /// rules effect can instead install a separate, exact declaration authority.
+    fn combat_declaration_authority(&self, default: PlayerId) -> PlayerId {
+        self.combat_declaration_authorities
+            .iter()
+            .rev()
+            .find(|authority| authority.expires_turn == self.turn)
+            .map_or(default, |authority| authority.controller)
+    }
+
     /// Performs the turn-based action of declaring attackers in the current combat.
     pub fn declare_attackers(
         &mut self,
@@ -7692,9 +7716,11 @@ impl Game {
         attackers: &[ObjectId],
     ) -> Result<(), RulesError> {
         self.require_game_in_progress()?;
-        if self.step != Step::DeclareAttackers || player != self.active_player {
+        if self.step != Step::DeclareAttackers
+            || player != self.combat_declaration_authority(self.active_player)
+        {
             return Err(RulesError::IllegalAction(
-                "only the active player may declare attackers in this step",
+                "only the current combat declaration authority may declare attackers",
             ));
         }
         if self
@@ -7704,9 +7730,10 @@ impl Game {
         {
             return Err(RulesError::IllegalAction("attackers were already declared"));
         }
-        let defending_player = self.next_player(player);
+        let defending_player = self.next_player(self.active_player);
         if !attackers.is_empty()
-            && self.defending_player_is_protected_from_attacks(player, defending_player)?
+            && self
+                .defending_player_is_protected_from_attacks(self.active_player, defending_player)?
         {
             return Err(RulesError::IllegalAction(
                 "cannot attack a player protected by a static attack restriction",
@@ -7731,7 +7758,7 @@ impl Game {
             let object = self.object(*attacker)?;
             let characteristics = self.characteristics(*attacker)?;
             let has_haste = characteristics.keywords.contains(&Keyword::Haste);
-            if self.controller_of(*attacker)? != player
+            if self.controller_of(*attacker)? != self.active_player
                 || object.tapped
                 || (object.controller_changed_turn >= self.turn && !has_haste)
                 || !characteristics.card_types.contains(&CardType::Creature)
@@ -7849,9 +7876,12 @@ impl Game {
         assignments: &[CombatBlock],
     ) -> Result<(), RulesError> {
         self.require_game_in_progress()?;
-        if self.step != Step::DeclareBlockers || player == self.active_player {
+        let normal_defender = self.next_player(self.active_player);
+        if self.step != Step::DeclareBlockers
+            || player != self.combat_declaration_authority(normal_defender)
+        {
             return Err(RulesError::IllegalAction(
-                "only the defending player may declare blockers in this step",
+                "only the current combat declaration authority may declare blockers",
             ));
         }
         let combat = self
@@ -7861,11 +7891,9 @@ impl Game {
         if !combat.attackers_declared || combat.blockers_declared {
             return Err(RulesError::IllegalAction("blockers cannot be declared now"));
         }
-        if combat.defending_player != Some(player) {
-            return Err(RulesError::IllegalAction(
-                "only the defending player may declare blockers",
-            ));
-        }
+        let defending_player = combat.defending_player.ok_or(RulesError::IllegalAction(
+            "combat is missing its defending player",
+        ))?;
         // Evasion and blocking requirements are checked now, after the
         // post-attackers priority window.  These are deliberately not the
         // attacker-declaration snapshots: an attacker can gain or lose a
@@ -7932,7 +7960,7 @@ impl Game {
             self.require_zone(assignment.blocker, Zone::Battlefield)?;
             let object = self.object(assignment.blocker)?;
             let characteristics = self.characteristics(assignment.blocker)?;
-            if self.controller_of(assignment.blocker)? != player
+            if self.controller_of(assignment.blocker)? != defending_player
                 || object.tapped
                 || !characteristics.card_types.contains(&CardType::Creature)
                 || self.target_cannot_block_attacker(assignment.blocker, assignment.attacker)
@@ -7944,8 +7972,9 @@ impl Game {
                 || (characteristics
                     .keywords
                     .contains(&Keyword::CannotBlockUnlessControlsMountain)
-                    && !self.player_controls_basic_land_type(player, BasicLandType::Mountain))
-                || (self.controller_saprolings_cannot_block(player)
+                    && !self
+                        .player_controls_basic_land_type(defending_player, BasicLandType::Mountain))
+                || (self.controller_saprolings_cannot_block(defending_player)
                     && characteristics
                         .creature_subtypes
                         .contains(&CreatureSubtype::Saproling))
@@ -7986,9 +8015,9 @@ impl Game {
             if blocker_landwalk_attackers
                 .get(&assignment.attacker)
                 .is_some_and(|land_types| {
-                    land_types
-                        .iter()
-                        .any(|land_type| self.player_controls_basic_land_type(player, *land_type))
+                    land_types.iter().any(|land_type| {
+                        self.player_controls_basic_land_type(defending_player, *land_type)
+                    })
                 })
             {
                 return Err(RulesError::IllegalAction(
@@ -8007,7 +8036,7 @@ impl Game {
                 if blockers.contains(&candidate) {
                     return false;
                 }
-                if self.controller_of(candidate) != Ok(player) {
+                if self.controller_of(candidate) != Ok(defending_player) {
                     return false;
                 }
                 let Ok(object) = self.object(candidate) else {
@@ -8025,8 +8054,11 @@ impl Game {
                     || (characteristics
                         .keywords
                         .contains(&Keyword::CannotBlockUnlessControlsMountain)
-                        && !self.player_controls_basic_land_type(player, BasicLandType::Mountain))
-                    || (self.controller_saprolings_cannot_block(player)
+                        && !self.player_controls_basic_land_type(
+                            defending_player,
+                            BasicLandType::Mountain,
+                        ))
+                    || (self.controller_saprolings_cannot_block(defending_player)
                         && characteristics
                             .creature_subtypes
                             .contains(&CreatureSubtype::Saproling))
@@ -8054,7 +8086,7 @@ impl Game {
                     .get(attacker)
                     .is_some_and(|land_types| {
                         land_types.iter().any(|land_type| {
-                            self.player_controls_basic_land_type(player, *land_type)
+                            self.player_controls_basic_land_type(defending_player, *land_type)
                         })
                     })
                 {
@@ -8092,7 +8124,7 @@ impl Game {
         for (attacker, blocker) in source_relative_requirements {
             if !combat.attackers.contains(&attacker)
                 || blocker_unblockable_attackers.contains(&attacker)
-                || self.controller_of(blocker) != Ok(player)
+                || self.controller_of(blocker) != Ok(defending_player)
             {
                 continue;
             }
@@ -8107,9 +8139,12 @@ impl Game {
                         let mountain_condition_satisfied = !characteristics
                             .keywords
                             .contains(&Keyword::CannotBlockUnlessControlsMountain)
-                            || self
-                                .player_controls_basic_land_type(player, BasicLandType::Mountain);
-                        let saproling_restricted = self.controller_saprolings_cannot_block(player)
+                            || self.player_controls_basic_land_type(
+                                defending_player,
+                                BasicLandType::Mountain,
+                            );
+                        let saproling_restricted = self
+                            .controller_saprolings_cannot_block(defending_player)
                             && characteristics
                                 .creature_subtypes
                                 .contains(&CreatureSubtype::Saproling);
@@ -8124,7 +8159,10 @@ impl Game {
                             && !blocker_landwalk_attackers.get(&attacker).is_some_and(
                                 |land_types| {
                                     land_types.iter().any(|land_type| {
-                                        self.player_controls_basic_land_type(player, *land_type)
+                                        self.player_controls_basic_land_type(
+                                            defending_player,
+                                            *land_type,
+                                        )
                                     })
                                 },
                             );
@@ -8436,6 +8474,19 @@ impl Game {
             ));
         }
         Self::validate_cast_effects(&definition)?;
+        if definition
+            .effects
+            .iter()
+            .any(|effect| matches!(effect, Effect::ChooseAllCombatDeclarationsThisTurn))
+            && !matches!(
+                self.step,
+                Step::Upkeep | Step::Draw | Step::PrecombatMain | Step::BeginningOfCombat
+            )
+        {
+            return Err(RulesError::IllegalAction(
+                "this combat-choice spell may be cast only before attackers are declared",
+            ));
+        }
         let timing_exception = effect_permission
             .is_some_and(|permission| permission.timing == CastTiming::AsThoughInstant);
         if !definition.card_types.contains(&CardType::Instant)
@@ -17993,6 +18044,23 @@ impl Game {
                 ));
             }
         }
+        let mut combat_authority_sources = BTreeSet::new();
+        for authority in &self.combat_declaration_authorities {
+            if authority.source.0 == 0
+                || authority.source_incarnation == 0
+                || authority.expires_turn != self.turn
+                || self.player(authority.controller)?.lost
+                || !combat_authority_sources.insert((
+                    authority.source,
+                    authority.source_incarnation,
+                    authority.controller,
+                ))
+            {
+                return Err(RulesError::IllegalAction(
+                    "combat declaration authority has invalid provenance or lifetime",
+                ));
+            }
+        }
         if let Some(combat) = &self.combat {
             if !matches!(
                 self.step,
@@ -19732,7 +19800,8 @@ impl Game {
                 }
                 Effect::AddManaController { amount, .. }
                 | Effect::AddManaToTargetPlayer { amount, .. } => i16::from(*amount),
-                Effect::TargetedBundle { .. }
+                Effect::ChooseAllCombatDeclarationsThisTurn
+                | Effect::TargetedBundle { .. }
                 | Effect::CreateToken { .. }
                 | Effect::CreateTokenForTargetPlayer { .. }
                 | Effect::CreateTokenForTargetOpponent { .. }
@@ -28667,6 +28736,30 @@ impl Game {
         target: Option<Target>,
     ) -> Result<(), RulesError> {
         match effect {
+            Effect::ChooseAllCombatDeclarationsThisTurn => {
+                if !matches!(
+                    self.step,
+                    Step::Upkeep | Step::Draw | Step::PrecombatMain | Step::BeginningOfCombat
+                ) {
+                    return Err(RulesError::IllegalAction(
+                        "combat declaration authority must resolve before attackers are declared",
+                    ));
+                }
+                self.combat_declaration_authorities
+                    .retain(|authority| authority.expires_turn != self.turn);
+                self.combat_declaration_authorities.push(CombatDeclarationAuthority {
+                    source,
+                    source_incarnation,
+                    controller,
+                    expires_turn: self.turn,
+                });
+                self.record_event(GameEvent::CombatDeclarationAuthorityCreated {
+                    source,
+                    source_incarnation,
+                    controller,
+                    expires_turn: self.turn,
+                });
+            }
             Effect::TargetedBundle { effects, .. } => {
                 let target = target.ok_or(RulesError::IllegalAction(
                     "shared target bundle resolved without its target",
@@ -32368,6 +32461,14 @@ impl Game {
             .collect::<Vec<_>>();
         self.global_combat_damage_preventions
             .retain(|prevention| prevention.expires_turn != self.turn);
+        let expired_combat_authorities = self
+            .combat_declaration_authorities
+            .iter()
+            .filter(|authority| authority.expires_turn == self.turn)
+            .cloned()
+            .collect::<Vec<_>>();
+        self.combat_declaration_authorities
+            .retain(|authority| authority.expires_turn != self.turn);
         let expired_shields = self
             .damage_prevention_shields
             .iter()
@@ -32394,6 +32495,13 @@ impl Game {
         for prevention in expired_global_combat_preventions {
             self.record_event(GameEvent::GlobalCombatDamagePreventionExpired {
                 source: prevention.source,
+            });
+        }
+        for authority in expired_combat_authorities {
+            self.record_event(GameEvent::CombatDeclarationAuthorityExpired {
+                source: authority.source,
+                source_incarnation: authority.source_incarnation,
+                controller: authority.controller,
             });
         }
         for shield in expired_shields {
@@ -40898,12 +41006,11 @@ impl Game {
             (Some(combat), Step::DeclareAttackers)
                 if !combat.attackers_declared && !self.players[self.active_player.0].lost =>
             {
-                self.active_player
+                self.combat_declaration_authority(self.active_player)
             }
-            (Some(combat), Step::DeclareBlockers) if !combat.blockers_declared => combat
-                .defending_player
-                .filter(|player| !self.players[player.0].lost)
-                .unwrap_or(self.priority),
+            (Some(combat), Step::DeclareBlockers) if !combat.blockers_declared => {
+                self.combat_declaration_authority(combat.defending_player.unwrap_or(self.priority))
+            }
             _ => self.priority,
         }
     }
