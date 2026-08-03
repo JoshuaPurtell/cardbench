@@ -62,6 +62,7 @@ fn cast_and_resolve(
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // The full ETB trigger/target-resolution trace is one causal RAV contract.
 fn mausoleum_turnkey_stacks_and_resolves_when_another_creature_remains() {
     let mut game = trigger_game();
     let turnkey = game
