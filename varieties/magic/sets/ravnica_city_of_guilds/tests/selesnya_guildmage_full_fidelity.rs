@@ -52,7 +52,7 @@ fn selesnya_guildmage_public_scenario_creates_a_centaur_then_applies_anthem() {
         .find(|scenario| scenario.id == "rav_selesnya_guildmage_centaur_and_anthem")
         .expect("Selesnya Guildmage public scenario exists");
     println!("Selesnya Guildmage full trace: {:?}", trace.event_log);
-    assert_eq!(trace.digest, "fnv1a64:061ae0348caca68d");
+    assert_eq!(trace.digest, "fnv1a64:b807eedee321f3ab");
     assert!(
         trace
             .event_log

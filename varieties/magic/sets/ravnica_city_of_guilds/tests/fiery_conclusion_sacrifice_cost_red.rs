@@ -129,6 +129,16 @@ fn fiery_conclusion_sacrifices_before_its_single_effect_target_reaches_the_stack
                 card: sacrifice,
                 to: Zone::Graveyard,
             },
+            GameEvent::ObjectIncarnationAdvanced {
+                object: sacrifice,
+                incarnation: 2,
+            },
+            GameEvent::CreatureCardPutIntoGraveyardFromBattlefieldThisTurn {
+                turn: 1,
+                player: PlayerId(0),
+                card: sacrifice,
+                incarnation: 2,
+            },
             GameEvent::SpellCast {
                 player: PlayerId(0),
                 card: conclusion,

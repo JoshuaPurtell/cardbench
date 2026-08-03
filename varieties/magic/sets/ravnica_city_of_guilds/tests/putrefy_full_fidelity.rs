@@ -136,7 +136,7 @@ fn putrefy_public_scenario_records_destruction_without_regeneration_use() {
         .find(|scenario| scenario.id == "rav_putrefy_bypasses_regeneration")
         .expect("Putrefy public scenario exists");
     println!("Putrefy public trace: {:?}", trace.event_log);
-    assert_eq!(trace.digest, "fnv1a64:0c8cde22044bac97");
+    assert_eq!(trace.digest, "fnv1a64:8e2aa574113519a9");
     assert!(
         trace
             .event_log

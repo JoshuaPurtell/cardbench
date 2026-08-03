@@ -1,8 +1,6 @@
 //! Red RAV coverage probe for Selesnya Sagittars' shared Reach rule.
 //!
-//! The printed tap-to-damage activation remains deliberately outside this
-//! bounded slice; this contract requests only the existing static Reach
-//! substrate.
+//! The static Reach and typed tap-to-damage activation are both executable.
 
 use std::collections::BTreeSet;
 
@@ -31,11 +29,17 @@ fn selesnya_sagittars_exposes_its_reach_compatibility_slice() {
     assert!(sagittars.effects.is_empty());
     assert_eq!(
         sagittars.supported_rules,
-        ["colored-cost-casting", "base-characteristics", "reach"],
-        "the printed tap-to-damage activation remains intentionally bounded"
+        [
+            "full-rules-fidelity",
+            "colored-cost-casting",
+            "base-characteristics",
+            "reach",
+            "tap-damage-attacking-or-blocking-creature",
+        ],
+        "the typed activation is part of the current positive contract"
     );
     assert!(
-        !RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&sagittars.id),
-        "the omitted activation keeps Selesnya Sagittars outside positive fidelity"
+        RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&sagittars.id),
+        "the typed activation promotes Selesnya Sagittars to positive fidelity"
     );
 }

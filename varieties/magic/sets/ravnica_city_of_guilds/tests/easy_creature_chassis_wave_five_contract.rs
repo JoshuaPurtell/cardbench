@@ -3,7 +3,8 @@
 //! The former generic chassis entries are promoted only when their complete
 //! card-specific contracts become public. Sandsower, Divebomber Griffin,
 //! Drake Familiar, Drift of Phantasms, and Ethereal Usher have separate
-//! full-fidelity contracts.
+//! full-fidelity contracts; Grozoth is likewise promoted through its
+//! stack-backed transmute/search substrate.
 
 use std::collections::BTreeSet;
 
@@ -71,10 +72,12 @@ fn first_range_creature_promotions_leave_only_explicit_bounded_chassis() {
     assert_eq!(
         grozoth.supported_rules,
         [
+            "full-rules-fidelity",
             "colored-cost-casting",
             "base-characteristics",
             "defender",
-            "immediate-hand-zone-transmute-compatibility",
+            "optional-private-multi-card-mana-value-search",
+            "stack-backed-private-transmute",
         ]
     );
 }

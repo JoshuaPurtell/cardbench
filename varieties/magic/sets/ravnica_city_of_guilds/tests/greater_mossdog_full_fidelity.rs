@@ -39,14 +39,18 @@ fn greater_mossdog_public_trace_is_the_complete_dredge_then_cast_receipt() {
         .find(|scenario| scenario.id == "rav_greater_mossdog_dredge_and_cast")
         .expect("Greater Mossdog public scenario exists");
 
-    assert_eq!(mossdog.digest, "fnv1a64:6eb82ad42dbc780c");
+    assert_eq!(mossdog.digest, "fnv1a64:d55b48973736e61d");
     assert_eq!(
         mossdog.event_log,
         [
             "CardMoved { card: ObjectId(4), to: Graveyard }",
+            "ObjectIncarnationAdvanced { object: ObjectId(4), incarnation: 2 }",
             "CardMoved { card: ObjectId(3), to: Graveyard }",
+            "ObjectIncarnationAdvanced { object: ObjectId(3), incarnation: 2 }",
             "CardMoved { card: ObjectId(2), to: Graveyard }",
+            "ObjectIncarnationAdvanced { object: ObjectId(2), incarnation: 2 }",
             "CardMoved { card: ObjectId(1), to: Hand }",
+            "ObjectIncarnationAdvanced { object: ObjectId(1), incarnation: 2 }",
             "Dredged { player: PlayerId(0), card: ObjectId(1), count: 3 }",
             "SpellCast { player: PlayerId(0), card: ObjectId(1) }",
             "PriorityPassed { player: PlayerId(0) }",

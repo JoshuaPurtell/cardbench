@@ -155,7 +155,7 @@ fn scatter_the_seeds_public_trace_has_the_fixed_complete_receipt_digest() {
         .into_iter()
         .find(|result| result.id == "rav_convoke_scatter_the_seeds")
         .expect("Scatter public scenario exists");
-    assert_eq!(scenario.digest, "fnv1a64:964c69b67173b214");
+    assert_eq!(scenario.digest, "fnv1a64:f950b54473285b69");
     assert_eq!(
         scenario
             .event_log

@@ -6,7 +6,7 @@
 
 use cardbench_magic_engine::{
     AbilityActivation, CardType, CastRequest, Color, DecisionKind, DecisionSelection, Game,
-    GameEvent, HybridManaSymbol, ManaCost, PlayerId, Target, Zone,
+    GameEvent, HybridManaSymbol, ManaCost, PlayerId, Step, Target, Zone,
 };
 use cardbench_magic_rav::{
     RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, rav_activated_ability_bindings,
@@ -58,11 +58,14 @@ fn rav_game() -> Game {
     .expect("RAV game builds")
 }
 
-fn guildmage_discard(source: cardbench_magic_engine::ObjectId) -> AbilityActivation {
+fn rotwurm_life(
+    source: cardbench_magic_engine::ObjectId,
+    sacrifice: cardbench_magic_engine::ObjectId,
+) -> AbilityActivation {
     AbilityActivation {
         source,
-        ability_id: "target-player-discard",
-        sacrifice_sources: vec![],
+        ability_id: "sacrifice-creature-target-player-life-loss",
+        sacrifice_sources: vec![sacrifice],
         additional_tap_creatures: vec![],
         discard_cards: vec![],
         targets: vec![Target::Player(PlayerId(0))],
@@ -76,51 +79,59 @@ fn reroute_retargets_one_exact_lower_activated_stack_item_then_draws() {
     let reroute = game
         .add_card(PlayerId(0), "RAV-REROUTE", Zone::Hand)
         .expect("Reroute setup");
-    let original_discard = game
-        .add_card(PlayerId(0), "RAV-WATCHWOLF", Zone::Hand)
-        .expect("first discard setup");
     let drawn = game
         .add_card(PlayerId(0), "RAV-GLASS-GOLEM", Zone::Library)
         .expect("draw setup");
-    let retargeted_discard = game
-        .add_card(PlayerId(1), "RAV-WATCHWOLF", Zone::Hand)
-        .expect("second discard setup");
     let island = game
         .put_on_battlefield(PlayerId(0), "RAV-ISLAND")
         .expect("Reroute mana setup");
-    let guildmage = game
-        .put_on_battlefield(PlayerId(1), "RAV-DIMIR-GUILDMAGE")
-        .expect("Guildmage setup");
+    let first_rotwurm = game
+        .put_on_battlefield(PlayerId(0), "RAV-GOLGARI-ROTWURM")
+        .expect("first Rotwurm setup");
+    let second_rotwurm = game
+        .put_on_battlefield(PlayerId(0), "RAV-GOLGARI-ROTWURM")
+        .expect("second Rotwurm setup");
+    let first_sacrifice = game
+        .put_on_battlefield(PlayerId(0), "RAV-WATCHWOLF")
+        .expect("first sacrifice setup");
+    let second_sacrifice = game
+        .put_on_battlefield(PlayerId(0), "RAV-WATCHWOLF")
+        .expect("second sacrifice setup");
     let swamps = (0..8)
         .map(|_| {
-            game.put_on_battlefield(PlayerId(1), "RAV-SWAMP")
-                .expect("Guildmage mana setup")
+            game.put_on_battlefield(PlayerId(0), "RAV-SWAMP")
+                .expect("Rotwurm mana setup")
         })
         .collect::<Vec<_>>();
     game.begin_game().expect("game begins");
 
-    // Move from the starting player to the Guildmage controller without
-    // resolving anything, then pay for two same-source activations while the
-    // controller retains priority.
-    game.pass_priority(PlayerId(0))
-        .expect("starting player passes");
+    // Advance through the opening turn's untap, upkeep, and draw boundaries,
+    // then leave priority with the active Rotwurm controller in precombat
+    // main. These instant-speed sacrifice abilities may coexist on the stack.
+    for _ in 0..10 {
+        if game.step == Step::PrecombatMain && game.priority == PlayerId(0) {
+            break;
+        }
+        let priority = game.priority;
+        game.pass_priority(priority)
+            .expect("advance toward Guildmage main-phase priority");
+    }
+    assert_eq!(game.step, Step::PrecombatMain);
+    assert_eq!(game.priority, PlayerId(0));
     for swamp in swamps {
-        game.activate_mana_ability(PlayerId(1), swamp, Color::Black)
+        game.activate_mana_ability(PlayerId(0), swamp, Color::Black)
             .expect("black mana ability");
     }
-    game.activate_ability(PlayerId(1), guildmage_discard(guildmage))
-        .expect("first discard activation");
+    game.activate_ability(PlayerId(0), rotwurm_life(first_rotwurm, first_sacrifice))
+        .expect("first life-loss activation");
     let lower_ability = game.stack.last().expect("first ability stacked").id;
-    game.activate_ability(PlayerId(1), guildmage_discard(guildmage))
-        .expect("second discard activation");
+    game.activate_ability(PlayerId(0), rotwurm_life(second_rotwurm, second_sacrifice))
+        .expect("second life-loss activation");
     let upper_ability = game.stack.last().expect("second ability stacked").id;
     assert_ne!(
         lower_ability, upper_ability,
-        "same source creates distinct stack items"
+        "distinct activated sources create distinct stack items"
     );
-    game.pass_priority(PlayerId(1))
-        .expect("Guildmage controller passes to Reroute controller");
-
     let public_stack = game
         .view_for_player(PlayerId(0))
         .expect("public stack view");
@@ -191,8 +202,6 @@ fn reroute_retargets_one_exact_lower_activated_stack_item_then_draws() {
         .expect("resolve lower ability");
 
     println!("Reroute exact-stack-item trace: {:?}", game.event_log);
-    assert_eq!(game.zone_of(original_discard), Some(Zone::Graveyard));
-    assert_eq!(game.zone_of(retargeted_discard), Some(Zone::Graveyard));
     assert!(game.event_log.iter().any(|event| matches!(
         event,
         GameEvent::ActivatedAbilityTargetChanged {

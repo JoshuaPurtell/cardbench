@@ -37,8 +37,13 @@ fn easy_creature_wave_one_is_exactly_bounded_to_public_base_facts() {
         assert_eq!(definition.toughness, Some(toughness), "{id}");
         assert_eq!(
             definition.supported_rules,
-            ["colored-cost-casting", "base-characteristics"],
-            "{id} must not present unsupported card-specific behavior"
+            [
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "blocks-return-source-owner-hand",
+            ],
+            "{id} must expose its implemented card-specific behavior"
         );
         assert!(definition.keywords.is_empty(), "{id}");
         assert!(definition.effects.is_empty(), "{id}");

@@ -47,7 +47,7 @@ fn guardian_public_traces_cover_convoke_then_vigilance_declaration() {
     };
 
     let convoke = find("rav_guardian_of_vitu_ghazi_convoke_slice");
-    assert_eq!(convoke.digest, "fnv1a64:a68cdb671a037d94");
+    assert_eq!(convoke.digest, "fnv1a64:5879703a16844529");
     assert_eq!(
         convoke
             .event_log

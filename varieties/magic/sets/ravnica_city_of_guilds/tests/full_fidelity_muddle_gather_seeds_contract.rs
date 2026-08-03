@@ -26,10 +26,7 @@ fn resolve_top(game: &mut Game) {
 #[test]
 #[allow(clippy::too_many_lines)] // Counterspell and transmute fidelity checks share one transcript.
 fn muddle_exercises_its_explicit_counterspell_and_transmute_compatibility_slices() {
-    assert!(
-        !RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&"RAV-MUDDLE-THE-MIXTURE"),
-        "Muddle remains out of the full-fidelity manifest until activated abilities use the stack"
-    );
+    assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&"RAV-MUDDLE-THE-MIXTURE"));
 
     let mut counter_game = game();
     let char = counter_game

@@ -65,7 +65,7 @@ fn hunted_troll_public_scenario_resolves_four_faeries_and_a_regeneration_shield(
         .find(|scenario| scenario.id == "rav_hunted_troll_faeries_and_regeneration")
         .expect("Hunted Troll public scenario exists");
     println!("Hunted Troll full trace: {:?}", trace.event_log);
-    assert_eq!(trace.digest, "fnv1a64:6356df19129c5049");
+    assert_eq!(trace.digest, "fnv1a64:ba8b1fd744f163a2");
     assert_eq!(
         trace
             .event_log

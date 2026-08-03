@@ -1,8 +1,8 @@
 //! Red discovery contract for the White source-lane Hunted Lammasu path.
 
 use cardbench_magic_engine::{
-    CardType, CastRequest, Color, CreatureSubtype, Game, GameEvent, Keyword, ManaCost, PlayerId,
-    Target, Zone,
+    CardType, CastRequest, Color, CreatureSubtype, DecisionKind, DecisionSelection, Game,
+    GameEvent, Keyword, ManaCost, PlayerId, Target, Zone,
 };
 use cardbench_magic_rav::{
     RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, rav_activated_ability_bindings,
@@ -83,6 +83,18 @@ fn hunted_lammasu_etb_creates_one_black_horror_for_its_targeted_opponent() {
         .expect("caster passes creature spell");
     game.pass_priority(PlayerId(1))
         .expect("creature resolves and ETB trigger stacks");
+    let decision = game
+        .view_for_player(PlayerId(0))
+        .expect("controller view exists")
+        .pending_decision
+        .expect("targeted ETB opens a typed target decision");
+    assert_eq!(decision.kind, DecisionKind::TriggeredAbilityTargets);
+    game.submit_decision(
+        PlayerId(0),
+        decision.id,
+        DecisionSelection::Targets(vec![Target::Player(PlayerId(1))]),
+    )
+    .expect("controller chooses the opponent target");
     assert_eq!(
         game.stack.last().map(|object| object.targets.clone()),
         Some(vec![Target::Player(PlayerId(1))]),

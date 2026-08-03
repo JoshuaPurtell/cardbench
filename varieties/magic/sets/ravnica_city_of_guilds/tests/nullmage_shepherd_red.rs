@@ -107,13 +107,15 @@ fn nullmage_shepherd_taps_four_distinct_creatures_before_destroying_target() {
             "AdditionalCreatureTappedAsAbilityCost { player: PlayerId(0), source: ObjectId(1), permanent: ObjectId(3) }",
             "AdditionalCreatureTappedAsAbilityCost { player: PlayerId(0), source: ObjectId(1), permanent: ObjectId(4) }",
             "AdditionalCreatureTappedAsAbilityCost { player: PlayerId(0), source: ObjectId(1), permanent: ObjectId(5) }",
-            "AbilityActivated { player: PlayerId(0), source: ObjectId(1), ability: \"destroy-artifact-or-enchantment\" }",
+            "AbilityActivated { player: PlayerId(0), source: ObjectId(1), source_incarnation: 1, definition: \"RAV-NULLMAGE-SHEPHERD\", ability: \"destroy-artifact-or-enchantment\" }",
             "PolicyMoveSubmitted { player: PlayerId(0), policy: \"nullmage-shepherd-regression\", kind: ActivateAbility }",
             "PriorityPassed { player: PlayerId(0) }",
             "PriorityPassed { player: PlayerId(1) }",
             "CardDestroyed { source: ObjectId(1), card: ObjectId(6) }",
             "CardMoved { card: ObjectId(6), to: Graveyard }",
-            "AbilityResolved { source: ObjectId(1), ability: \"destroy-artifact-or-enchantment\" }",
+            "ObjectIncarnationAdvanced { object: ObjectId(6), incarnation: 2 }",
+            "CreatureCardPutIntoGraveyardFromBattlefieldThisTurn { turn: 1, player: PlayerId(1), card: ObjectId(6), incarnation: 2 }",
+            "AbilityResolved { source: ObjectId(1), source_incarnation: 1, ability: \"destroy-artifact-or-enchantment\" }",
         ]
     );
     game.validate_invariants()

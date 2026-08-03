@@ -53,7 +53,7 @@ fn public_elves_scenario_records_black_mana_source_damage_and_tapped_rejection()
         .find(|result| result.id == "rav_elves_of_deep_shadow_complete_mana_ability")
         .expect("complete Elves of Deep Shadow public scenario");
 
-    assert_eq!(scenario.digest, "fnv1a64:82956a3c643de2b8");
+    assert_eq!(scenario.digest, "fnv1a64:fbc77aaaa3194b51");
     assert!(scenario.event_log.iter().any(|event| {
         event.contains("BoundManaAbilityActivated")
             && event.contains("ability: \"produce-black-and-damage-controller\"")

@@ -1,7 +1,8 @@
 //! Red coverage probe for Keening Banshee's ETB creature modifier.
 
 use cardbench_magic_engine::{
-    CardType, CastRequest, Color, Game, GameEvent, Keyword, ManaCost, PlayerId, Target, Zone,
+    CardType, CastRequest, Color, DecisionKind, DecisionSelection, Game, GameEvent, Keyword,
+    ManaCost, PlayerId, Target, Zone,
 };
 use cardbench_magic_rav::{
     RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, rav_activated_ability_bindings,
@@ -78,6 +79,18 @@ fn keening_banshee_stacks_and_resolves_its_targeted_etb_modifier() {
     .expect("cast Keening Banshee");
     game.pass_priority(PlayerId(0)).expect("caster passes");
     game.pass_priority(PlayerId(1)).expect("Banshee resolves");
+    let decision = game
+        .view_for_player(PlayerId(0))
+        .expect("controller view exists")
+        .pending_decision
+        .expect("targeted ETB opens a typed target decision");
+    assert_eq!(decision.kind, DecisionKind::TriggeredAbilityTargets);
+    game.submit_decision(
+        PlayerId(0),
+        decision.id,
+        DecisionSelection::Targets(vec![Target::Permanent(target)]),
+    )
+    .expect("controller chooses the target creature");
     assert_eq!(
         game.stack.last().map(|object| object.targets.clone()),
         Some(vec![Target::Permanent(target)])

@@ -1,9 +1,7 @@
 //! Red coverage probe for Grozoth's already-supported shared mechanics.
 //!
-//! Grozoth also has an entry trigger which remains outside this compatibility
-//! slice.  This probe is deliberately limited to Defender and the existing
-//! immediate hand-zone Transmute operation, both of which the shared engine
-//! can already represent.
+//! Grozoth's entry/search path now uses the shared private-library and
+//! stack-backed Transmute substrate.
 
 use std::collections::BTreeSet;
 
@@ -37,11 +35,13 @@ fn grozoth_exposes_defender_and_bounded_transmute_compatibility() {
     assert_eq!(
         grozoth.supported_rules,
         [
+            "full-rules-fidelity",
             "colored-cost-casting",
             "base-characteristics",
             "defender",
-            "immediate-hand-zone-transmute-compatibility",
+            "optional-private-multi-card-mana-value-search",
+            "stack-backed-private-transmute",
         ],
-        "the entry trigger and stack-backed activation remain explicitly outside this slice"
+        "the complete entry/search path is represented by the shared engine"
     );
 }
