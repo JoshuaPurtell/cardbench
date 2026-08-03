@@ -2083,6 +2083,10 @@ Oracle Magic rules coverage.
   hidden selected identities remain absent from public receipts except for
   ordinary revealed zone transitions; the terminal source is always
   `SpellCopyResolved`, never `SpellResolved` or a physical card-zone move.
+- A virtual copy's public `PublicGraveyardLandReturn` completion commits only
+  the selected live physical land cards in their captured incarnations before
+  emitting `SpellCopyResolved`; the stack-only source never emits
+  `SpellResolved` or a physical terminal-zone movement.
 - A virtual copied draw-then-conditional-discard spell retains the same
   boundary after its target player's valid private selection: its ordinary
   draw and discard receipts commit first, then its stack-only source emits
