@@ -2046,6 +2046,11 @@ Oracle Magic rules coverage.
   turn/step/priority state, and the event log exactly pregame, so expansion
   setup may register the missing binding and retry the start without a hidden
   partially-started state.
+- State-based-action and pending-trigger placement failures always propagate
+  as `RulesError`; they never panic after committing a prefix. The public
+  state-based-action checkpoint is journaled, while internal checkpoints stay
+  within their caller's transaction, so a failed deferred trigger projection
+  leaves no partial step, death, zone, or trigger receipts behind.
 - Every entry coin-flip binding setup batch is atomic. An unknown source,
   invalid heads/tails characteristic override, or duplicate later binding
   leaves no prefix entry replacement behind, so the corrected batch can be
