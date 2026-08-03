@@ -46,7 +46,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 285] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 287] = [
     "RAV-CHAR",
     "RAV-AGRUS-KOS-WOJEK-VETERAN",
     "RAV-INSTILL-FUROR",
@@ -332,6 +332,8 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 285] = [
     "RAV-WIZENED-SNITCHES",
     "RAV-VULTUROUS-ZOMBIE",
     "RAV-VINELASHER-KUDZU",
+    "RAV-GHOSTS-OF-THE-INNOCENT",
+    "RAV-SZADEK",
 ];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -2896,10 +2898,10 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
-        // Compatibility scope: every represented positive damage packet is
-        // reduced by one live source-bound integer-halving replacement. The
-        // binding is intentionally not a full-fidelity claim while the engine
-        // has only bounded concurrent replacement-order coverage.
+        // Full fidelity: every represented positive damage packet is reduced
+        // by the live source-bound integer-halving replacement.  Concurrent
+        // damage replacements use the affected player's public ordering
+        // decision before either replacement commits.
         CardDefinition {
             id: "RAV-GHOSTS-OF-THE-INNOCENT",
             name: "Ghosts of the Innocent",
@@ -2910,9 +2912,11 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             card_types: types([CardType::Creature]),
             is_basic_land: false,
             supported_rules: &[
+                "full-rules-fidelity",
                 "colored-cost-casting",
                 "base-characteristics",
                 "static-global-damage-amount-halving",
+                "affected-player-damage-replacement-ordering",
             ],
             power: Some(4),
             toughness: Some(5),
@@ -3871,9 +3875,10 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![Keyword::Flying],
             effects: vec![],
         },
-        // Compatibility scope: a source-bound combat replacement converts
-        // player damage into immediate library movement and source counters.
-        // Competing replacement ordering remains a policy/infrastructure gap.
+        // Full fidelity: a source-bound combat replacement converts player
+        // damage into immediate library movement and source counters.  The
+        // affected player orders it against every other represented damage
+        // replacement before either outcome commits.
         CardDefinition {
             id: "RAV-SZADEK",
             name: "Szadek, Lord of Secrets",
@@ -3887,11 +3892,12 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             card_types: types([CardType::Creature]),
             is_basic_land: false,
             supported_rules: &[
+                "full-rules-fidelity",
                 "colored-cost-casting",
                 "base-characteristics",
                 "flying",
                 "combat-player-damage-mill-and-counter-replacement",
-                "automatic-replacement-order-compatibility",
+                "affected-player-combat-damage-replacement-ordering",
             ],
             power: Some(5),
             toughness: Some(5),

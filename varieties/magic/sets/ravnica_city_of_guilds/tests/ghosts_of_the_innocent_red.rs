@@ -38,8 +38,8 @@ fn ghosts_of_the_innocent_requires_a_global_damage_amount_replacement_slice() {
         Ok("RAV-GHOSTS-OF-THE-INNOCENT")
     );
     assert!(
-        !RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&"RAV-GHOSTS-OF-THE-INNOCENT"),
-        "global replacement-order coverage remains an explicit bounded compatibility scope"
+        RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&"RAV-GHOSTS-OF-THE-INNOCENT"),
+        "affected-player ordering now covers Ghosts' competing replacement cases"
     );
 }
 

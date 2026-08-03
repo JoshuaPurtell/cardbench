@@ -89,8 +89,8 @@ fn szadek_replaces_player_combat_damage_with_mill_and_source_counters() {
         "the original player-damage receipt must not survive the replacement"
     );
     assert!(
-        !RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&definition.id),
-        "automatic replacement ordering remains outside this bounded slice"
+        RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&definition.id),
+        "affected-player ordering covers Szadek's competing replacement cases"
     );
     assert!(
         definition

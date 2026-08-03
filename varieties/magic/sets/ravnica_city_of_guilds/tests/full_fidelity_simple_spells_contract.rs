@@ -298,6 +298,8 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-WIZENED-SNITCHES",
             "RAV-VULTUROUS-ZOMBIE",
             "RAV-VINELASHER-KUDZU",
+            "RAV-GHOSTS-OF-THE-INNOCENT",
+            "RAV-SZADEK",
         ]
     );
     let definitions = card_definitions();

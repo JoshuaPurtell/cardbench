@@ -531,8 +531,11 @@ Oracle Magic rules coverage.
   remaining assigned player-damage packets. It applies each selected identity
   at most once, recomputes the live candidates after every choice, and keeps
   the rest of combat-damage assignment unchanged until the packet reaches
-  zero or has no candidate. Only then can the queued packet suffix, state
-  actions, and triggers continue. Target-specific and target-free global
+  zero or has no candidate. A policy submits exactly one currently applicable
+  identity at this boundary; after it applies, a lone remaining candidate is
+  forced mechanically, while the ordered `DamageReplacementApplied` receipts
+  remain the authoritative replay evidence. Only then can the queued packet
+  suffix, state actions, and triggers continue. Target-specific and target-free global
   all-combat-damage prevention records participate with their exact record
   ids and historical sources; a selected prevention record produces
   `DamageReplacementApplied → CombatDamagePrevented`, zeroes only that
