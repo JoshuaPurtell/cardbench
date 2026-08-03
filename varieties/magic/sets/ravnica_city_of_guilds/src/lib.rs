@@ -3601,10 +3601,9 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             }],
         },
         // Full fidelity: temporarily take control of one creature, untap it,
-        // and grant Haste through the current turn. The engine's ordered
-        // target slots retain the one printed creature as each instruction's
-        // explicit target, so legality is rechecked independently at
-        // resolution for every part of the effect.
+        // and grant Haste through the current turn. One shared target bundle
+        // retains the printed target's identity and incarnation through every
+        // ordered instruction.
         CardDefinition {
             id: "RAV-FLASH-CONSCRIPTION",
             name: "Flash Conscription",
@@ -3624,15 +3623,18 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             power: None,
             toughness: None,
             keywords: vec![],
-            effects: vec![
-                Effect::GainControlTargetUntilEndOfTurn,
-                Effect::UntapTargetPermanent,
-                Effect::ModifyTargetPtAndKeywordUntilEndOfTurn {
-                    power: 0,
-                    toughness: 0,
-                    keyword: Keyword::Haste,
-                },
-            ],
+            effects: vec![Effect::TargetedBundle {
+                target: TargetRequirement::Creature,
+                effects: vec![
+                    Effect::GainControlTargetUntilEndOfTurn,
+                    Effect::UntapTargetPermanent,
+                    Effect::ModifyTargetPtAndKeywordUntilEndOfTurn {
+                        power: 0,
+                        toughness: 0,
+                        keyword: Keyword::Haste,
+                    },
+                ],
+            }],
         },
         // Full fidelity: the one-mana Radiance haste grant uses the shared
         // target-color selection and layer-6 keyword effect.

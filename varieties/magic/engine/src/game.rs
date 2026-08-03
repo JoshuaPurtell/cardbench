@@ -18202,6 +18202,69 @@ impl Game {
         Ok(())
     }
 
+    /// Confirms that a shared-target bundle retains exactly one outer target
+    /// occurrence while every ordered member can safely consume that same
+    /// stable target. Zone-changing, multi-target, ranged, and deferred
+    /// effects deliberately retain their own stack target boundaries.
+    fn validate_targeted_bundle(
+        target: TargetRequirement,
+        effects: &[Effect],
+    ) -> Result<(), RulesError> {
+        if effects.is_empty() {
+            return Err(RulesError::IllegalAction(
+                "a shared target bundle requires at least one member",
+            ));
+        }
+        for effect in effects {
+            if effect.target_bundle_members().is_some()
+                || effect.variable_target_group().is_some()
+                || !effect.can_share_target_bundle_occurrence()
+            {
+                return Err(RulesError::IllegalAction(
+                    "a shared target bundle has an unsupported member",
+                ));
+            }
+            let [Some(member_target), None] = effect.target_requirements() else {
+                return Err(RulesError::IllegalAction(
+                    "a shared target bundle member must own exactly one target",
+                ));
+            };
+            if !Self::target_requirement_implies(target, member_target) {
+                return Err(RulesError::IllegalAction(
+                    "a shared target bundle member is incompatible with its outer target",
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// Whether every object admitted by `outer` is also admitted by `member`.
+    /// The current bundle substrate is deliberately target-preserving, so this
+    /// small relation covers its creature/land/permanent hierarchy without
+    /// collapsing narrower spell, player, or hidden-zone target categories.
+    fn target_requirement_implies(outer: TargetRequirement, member: TargetRequirement) -> bool {
+        if outer == member {
+            return true;
+        }
+        matches!(
+            (outer, member),
+            (
+                TargetRequirement::Creature
+                    | TargetRequirement::NonblackCreature
+                    | TargetRequirement::FlyingCreature
+                    | TargetRequirement::DistinctCreature
+                    | TargetRequirement::BlockingCreature
+                    | TargetRequirement::AttackingOrBlockingCreature
+                    | TargetRequirement::ControlledCreature
+                    | TargetRequirement::OpponentCreature
+                    | TargetRequirement::Land
+                    | TargetRequirement::LandWithBasicLandType(_)
+                    | TargetRequirement::ControlledLand,
+                TargetRequirement::Permanent
+            )
+        )
+    }
+
     /// Reject malformed executable effect data before any casting cost, zone,
     /// stack, or event transition can be committed.  Printed modifiers may be
     /// negative, but the currently modelled damage and life-gain operations
@@ -18307,6 +18370,28 @@ impl Game {
             ));
         }
         for effect in &definition.effects {
+            if let Some((target, bundled_effects)) = effect.target_bundle_members() {
+                Self::validate_targeted_bundle(target, bundled_effects)?;
+                for bundled_effect in bundled_effects {
+                    let bundle_member = CardDefinition {
+                        id: "TARGETED-BUNDLE-MEMBER",
+                        name: "targeted bundle member",
+                        set_code: "ENGINE",
+                        mana_cost: ManaCost::new(0),
+                        colors: BTreeSet::new(),
+                        mana_colors: BTreeSet::new(),
+                        card_types: BTreeSet::new(),
+                        is_basic_land: false,
+                        supported_rules: &[],
+                        power: None,
+                        toughness: None,
+                        keywords: vec![],
+                        effects: vec![bundled_effect.clone()],
+                    };
+                    Self::validate_cast_effects(&bundle_member)?;
+                }
+                continue;
+            }
             if matches!(
                 effect,
                 Effect::SearchControllerLibrary {
@@ -18516,7 +18601,8 @@ impl Game {
                 }
                 Effect::AddManaController { amount, .. }
                 | Effect::AddManaToTargetPlayer { amount, .. } => i16::from(*amount),
-                Effect::CreateToken { .. }
+                Effect::TargetedBundle { .. }
+                | Effect::CreateToken { .. }
                 | Effect::CreateTokenForTargetPlayer { .. }
                 | Effect::CreateTokenForTargetOpponent { .. }
                 | Effect::AddOneManaOfTargetPlayersChosenColor
@@ -26717,6 +26803,24 @@ impl Game {
         target: Option<Target>,
     ) -> Result<(), RulesError> {
         match effect {
+            Effect::TargetedBundle { effects, .. } => {
+                let target = target.ok_or(RulesError::IllegalAction(
+                    "shared target bundle resolved without its target",
+                ))?;
+                for bundled_effect in effects {
+                    self.resolve_effect(
+                        source,
+                        source_incarnation,
+                        source_colors,
+                        controller,
+                        chosen_x,
+                        chosen_color,
+                        mana_spent,
+                        bundled_effect,
+                        Some(target),
+                    )?;
+                }
+            }
             Effect::ChooseOneOf(_) => {
                 return Err(RulesError::IllegalAction(
                     "an unmaterialized modal effect reached stack resolution",

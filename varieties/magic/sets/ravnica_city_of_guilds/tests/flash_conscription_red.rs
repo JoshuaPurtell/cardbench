@@ -72,13 +72,7 @@ fn flash_conscription_changes_control_untaps_and_grants_haste() {
         PlayerId(0),
         CastRequest {
             card: spell,
-            // The current expansion-neutral target model retains one explicit
-            // target occurrence per ordered instruction.
-            targets: vec![
-                Target::Permanent(target),
-                Target::Permanent(target),
-                Target::Permanent(target),
-            ],
+            targets: vec![Target::Permanent(target)],
             convoke: vec![],
             payment_mana_abilities: vec![],
         },

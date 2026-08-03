@@ -1881,6 +1881,21 @@ pub enum Effect {
     /// cost payment, and stack placement, so a mode's targets and resolution
     /// instructions remain ordinary typed engine behavior.
     ChooseOneOf(Vec<Vec<Effect>>),
+    /// A single printed target shared by an ordered set of ordinary target
+    /// instructions. The outer requirement owns the one cast-time target
+    /// occurrence and its exact incarnation. Every member receives that same
+    /// target only after the outer requirement has been rechecked at
+    /// resolution, so a later illegal target skips the complete bundle rather
+    /// than allowing a broader trailing instruction to affect it.
+    ///
+    /// Members must not introduce target occurrences, variable target groups,
+    /// or deferred decision boundaries. This keeps target identity,
+    /// target-incarnation provenance, and all-targets-illegal handling owned
+    /// by the one outer stack occurrence.
+    TargetedBundle {
+        target: TargetRequirement,
+        effects: Vec<Effect>,
+    },
     DealDamage {
         amount: i16,
         target: TargetRequirement,
@@ -2897,7 +2912,10 @@ impl Effect {
     /// object's explicit mana-payment receipt rather than a deterministic
     /// pool drain.
     #[must_use]
-    pub const fn requires_explicit_mana_spend(&self) -> bool {
+    pub fn requires_explicit_mana_spend(&self) -> bool {
+        if let Self::TargetedBundle { effects, .. } = self {
+            return effects.iter().any(Self::requires_explicit_mana_spend);
+        }
         matches!(
             self,
             Self::DrawControllerIfManaColorSpent { .. }
@@ -2914,7 +2932,10 @@ impl Effect {
     /// nonnegative X value. The value is paid as additional generic mana and
     /// retained in the ordered mana receipt through resolution.
     #[must_use]
-    pub const fn requires_chosen_x(&self) -> bool {
+    pub fn requires_chosen_x(&self) -> bool {
+        if let Self::TargetedBundle { effects, .. } = self {
+            return effects.iter().any(Self::requires_chosen_x);
+        }
         matches!(
             self,
             Self::DestroyTargetCreatureWithManaValueAtMostChosenX
@@ -2940,7 +2961,10 @@ impl Effect {
     /// part of the spell's cast action and retained on the stack through
     /// resolution. A chosen card color is never inferred from mana payment.
     #[must_use]
-    pub const fn requires_chosen_color(&self) -> bool {
+    pub fn requires_chosen_color(&self) -> bool {
+        if let Self::TargetedBundle { effects, .. } = self {
+            return effects.iter().any(Self::requires_chosen_color);
+        }
         matches!(
             self,
             Self::AddChosenColorProtectionToControllerCreaturesUntilEndOfTurn
@@ -2952,7 +2976,10 @@ impl Effect {
     /// choice in its activation request. The choice is never inferred from a
     /// mana color or a permanent's printed type line.
     #[must_use]
-    pub const fn requires_chosen_basic_land_type(&self) -> bool {
+    pub fn requires_chosen_basic_land_type(&self) -> bool {
+        if let Self::TargetedBundle { effects, .. } = self {
+            return effects.iter().any(Self::requires_chosen_basic_land_type);
+        }
         matches!(
             self,
             Self::ReplaceControllerLandsWithChosenBasicLandTypeUntilEndOfTurn
@@ -2963,7 +2990,8 @@ impl Effect {
     #[allow(clippy::too_many_lines)] // One exhaustive semantic-to-target map keeps stack planning reviewable.
     pub const fn target_requirement(&self) -> Option<TargetRequirement> {
         match self {
-            Self::DealDamage { target, .. }
+            Self::TargetedBundle { target, .. }
+            | Self::DealDamage { target, .. }
             | Self::DealDamageEqualToAttackingCreatures { target }
             | Self::AttachSourceToTarget { target, .. } => Some(*target),
             Self::ModifyTargetPtUntilEndOfTurn { .. }
@@ -3212,6 +3240,44 @@ impl Effect {
             ],
             _ => [self.target_requirement(), None],
         }
+    }
+
+    /// Returns the ordered members of one shared-target bundle. Callers must
+    /// validate the bundle boundary before recursive resolution; this accessor
+    /// deliberately does not flatten members into new target occurrences.
+    #[must_use]
+    pub fn target_bundle_members(&self) -> Option<(TargetRequirement, &[Effect])> {
+        let Self::TargetedBundle { target, effects } = self else {
+            return None;
+        };
+        Some((*target, effects))
+    }
+
+    /// Whether this is an ordinary, target-preserving instruction that can
+    /// safely share an outer [`Self::TargetedBundle`] occurrence. Effects that
+    /// change zones, open a decision, create a second target, or suspend for
+    /// replacement handling deliberately retain their own stack occurrence.
+    #[must_use]
+    pub const fn can_share_target_bundle_occurrence(&self) -> bool {
+        matches!(
+            self,
+            Self::GainControlTargetUntilEndOfTurn
+                | Self::ModifyTargetPtUntilEndOfTurn { .. }
+                | Self::ModifyTargetPtAndKeywordUntilEndOfTurn { .. }
+                | Self::ModifyTargetKeywordUntilEndOfTurn { .. }
+                | Self::PreventTargetBlockingSourceUntilEndOfTurn
+                | Self::AddTargetDamageShieldUntilEndOfTurn { .. }
+                | Self::PreventTargetCreatureCombatDamageUntilEndOfTurn { .. }
+                | Self::RegenerateTargetCreature
+                | Self::RegenerateTargetCreatureAndScheduleCombatHistoryDestruction
+                | Self::AddPlusOneCounterToTarget
+                | Self::AddCountersToTarget { .. }
+                | Self::RemoveCountersFromTarget { .. }
+                | Self::ReplaceTargetCreatureColorsWithChosenColorUntilEndOfTurn
+                | Self::TapTargetCreature
+                | Self::UntapTargetLand
+                | Self::UntapTargetPermanent
+        )
     }
 }
 
