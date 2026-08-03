@@ -25,11 +25,16 @@ fn mindmoil_requires_exact_cast_trigger_hand_bottom_draw_definition() {
         ManaCost::with_colors(3, [Color::Red, Color::Red])
     );
     assert_eq!(definition.colors, BTreeSet::from([Color::Red]));
-    assert_eq!(definition.card_types, BTreeSet::from([CardType::Enchantment]));
+    assert_eq!(
+        definition.card_types,
+        BTreeSet::from([CardType::Enchantment])
+    );
     assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&definition.id));
-    assert!(definition
-        .supported_rules
-        .contains(&"controller-casts-spell-private-hand-bottom-draw-same-count"));
+    assert!(
+        definition
+            .supported_rules
+            .contains(&"controller-casts-spell-private-hand-bottom-draw-same-count")
+    );
     assert!(rav_triggered_ability_bindings().iter().any(|binding| {
         binding.card_definition == definition.id
             && binding.ability.id == "controller-casts-spell-hand-bottom-draw-same-count"
