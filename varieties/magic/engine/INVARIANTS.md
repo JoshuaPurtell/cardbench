@@ -261,11 +261,15 @@ Oracle Magic rules coverage.
   does not erase an already-created shield, while the ordinary live-target
   shield invariant still governs each replacement endpoint.
 - A targeted damage-prevention shield is private replacement state with a
-  positive remaining amount, a seated player or live creature target, a
-  current-turn expiry, and a retained source identity. Creation is a stack
-  effect and emits `DamageShieldCreated`; the source may have left the
-  battlefield as an activation cost, or later leave the game with its owner,
-  without invalidating the shield. In the latter case an
+  positive remaining amount, a seated player or exact live permanent target,
+  a current-turn expiry, and a retained source identity. A permanent target's
+  exact battlefield incarnation is captured when the shield resolves: its
+  later card-type change does not erase the already-resolved effect, but a
+  zone departure retires it before the stable `ObjectId` can return in a new
+  incarnation. A player target is retired if that player leaves the game.
+  Creation is a stack effect and emits `DamageShieldCreated`; the source may
+  have left the battlefield as an activation cost, or later leave the game
+  with its owner, without invalidating the shield. In the latter case an
   `ObjectLeftGame`/`TokenCeasedToExist` receipt is sufficient historical source
   provenance, but source characteristics are never dereferenced. Damage
   consumes only the represented amount and emits `DamagePrevented`; no damage

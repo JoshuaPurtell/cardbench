@@ -848,6 +848,7 @@ struct DamagePreventionShield {
     /// provenance boundary instead of fabricating a physical source object.
     source_is_virtual: bool,
     target: Target,
+    target_incarnation: Option<u64>,
     remaining: i32,
     expires_turn: u32,
 }
@@ -14976,13 +14977,12 @@ impl Game {
                     "damage redirection has invalid identity, remaining amount, or lifetime",
                 ));
             }
-            if !self.damage_redirection_target_is_current(
+            if !self.damage_target_is_current(
                 Target::Permanent(redirect.protected),
                 Some(redirect.protected_incarnation),
-            ) || !self.damage_redirection_target_is_current(
-                redirect.destination,
-                redirect.destination_incarnation,
-            ) {
+            ) || !self
+                .damage_target_is_current(redirect.destination, redirect.destination_incarnation)
+            {
                 return Err(RulesError::IllegalAction(
                     "damage redirection has stale protected or destination provenance",
                 ));
@@ -15001,7 +15001,7 @@ impl Game {
         if let Some(pending) = &self.pending_damage_redirection {
             self.object(pending.source)?;
             if pending.remaining <= 0
-                || !self.damage_redirection_target_is_current(
+                || !self.damage_target_is_current(
                     Target::Permanent(pending.protected),
                     Some(pending.protected_incarnation),
                 )
@@ -15026,9 +15026,9 @@ impl Game {
                     "damage prevention shield has invalid identity, remaining amount, or lifetime",
                 ));
             }
-            if !self.target_matches(shield.target, TargetRequirement::PlayerOrCreature) {
+            if !self.damage_target_is_current(shield.target, shield.target_incarnation) {
                 return Err(RulesError::IllegalAction(
-                    "damage prevention shield has an illegal target",
+                    "damage prevention shield has stale target provenance",
                 ));
             }
         }
@@ -22399,13 +22399,13 @@ impl Game {
                         destination: redirect.destination,
                     };
                     if redirect.protected == permanent
-                        && self.damage_redirection_target_is_current(
+                        && self.damage_target_is_current(
                             Target::Permanent(permanent),
                             Some(redirect.protected_incarnation),
                         )
                         && redirect.remaining > 0
                         && redirect.destination != target
-                        && self.damage_redirection_target_is_current(
+                        && self.damage_target_is_current(
                             redirect.destination,
                             redirect.destination_incarnation,
                         )
@@ -22437,6 +22437,8 @@ impl Game {
                         if shield.target == target
                             && shield.remaining > 0
                             && shield.expires_turn >= self.turn
+                            && self
+                                .damage_target_is_current(shield.target, shield.target_incarnation)
                             && !used.contains(&candidate)
                         {
                             candidates.push(candidate);
@@ -22461,6 +22463,8 @@ impl Game {
                         if shield.target == target
                             && shield.remaining > 0
                             && shield.expires_turn >= self.turn
+                            && self
+                                .damage_target_is_current(shield.target, shield.target_incarnation)
                             && !used.contains(&candidate)
                         {
                             candidates.push(candidate);
@@ -22570,18 +22574,14 @@ impl Game {
         }
     }
 
-    /// A resolved redirection effect refers to the exact rules objects that
-    /// were targeted when it was created.  It does not retarget a later
+    /// An enduring damage replacement refers to the exact rules objects that
+    /// were targeted when it was created. It does not retarget a later
     /// incarnation merely because the physical `ObjectId` returned to the
     /// battlefield.  Unlike ordinary cast-time target validation, this
     /// deliberately does not reapply the original `PlayerOrCreature` shape:
     /// a surviving targeted permanent can later change types without making
     /// a completed replacement effect forget that object.
-    fn damage_redirection_target_is_current(
-        &self,
-        target: Target,
-        incarnation: Option<u64>,
-    ) -> bool {
+    fn damage_target_is_current(&self, target: Target, incarnation: Option<u64>) -> bool {
         match target {
             Target::Player(player) => {
                 incarnation.is_none() && self.players.get(player.0).is_some_and(|state| !state.lost)
@@ -23033,6 +23033,7 @@ impl Game {
             source,
             source_is_virtual,
             target,
+            target_incarnation: self.damage_target_incarnation(target)?,
             remaining: amount,
             expires_turn: self.turn,
         });
@@ -23047,7 +23048,10 @@ impl Game {
 
     fn consume_damage_prevention_shield(&mut self, target: Target, amount: i32) -> i32 {
         let Some(index) = self.damage_prevention_shields.iter().position(|shield| {
-            shield.target == target && shield.expires_turn >= self.turn && shield.remaining > 0
+            shield.target == target
+                && shield.expires_turn >= self.turn
+                && shield.remaining > 0
+                && self.damage_target_is_current(shield.target, shield.target_incarnation)
         }) else {
             return 0;
         };
@@ -23760,14 +23764,14 @@ impl Game {
         let redirect_index = self.damage_redirections.iter().position(|redirect| {
             redirect.protected == permanent
                 && redirect.remaining > 0
-                && self.damage_redirection_target_is_current(
+                && self.damage_target_is_current(
                     Target::Permanent(permanent),
                     Some(redirect.protected_incarnation),
                 )
         });
         if let Some(index) = redirect_index {
             let destination = self.damage_redirections[index].destination;
-            let destination_is_legal = self.damage_redirection_target_is_current(
+            let destination_is_legal = self.damage_target_is_current(
                 destination,
                 self.damage_redirections[index].destination_incarnation,
             ) && destination != Target::Permanent(permanent);
@@ -36126,6 +36130,20 @@ impl Game {
         self.damage_redirections.retain(|redirect| {
             !matches!(redirect.destination, Target::Player(destination) if destination == player)
         });
+        let expired_player_shields = self
+            .damage_prevention_shields
+            .iter()
+            .filter(|shield| shield.target == Target::Player(player))
+            .cloned()
+            .collect::<Vec<_>>();
+        self.damage_prevention_shields
+            .retain(|shield| shield.target != Target::Player(player));
+        for shield in expired_player_shields {
+            self.record_event(GameEvent::DamageShieldExpired {
+                source: shield.source,
+                target: shield.target,
+            });
+        }
 
         // A delayed action is controlled by the player that created it, just
         // as the later ability it would place onto the stack would be. It is
