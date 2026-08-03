@@ -47,6 +47,7 @@ pub const SET_CODE: &str = "RAV";
 pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 264] = [
     "RAV-CHAR",
     "RAV-AGRUS-KOS-WOJEK-VETERAN",
+    "RAV-INSTILL-FUROR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
     "RAV-LIGHTNING-HELIX",
@@ -3451,6 +3452,32 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             toughness: None,
             keywords: vec![],
             effects: vec![],
+        },
+        // Full fidelity: this creature Aura persists as an ordinary typed
+        // attachment, then its enchanted creature's controller receives the
+        // exact end-step attack-history sacrifice trigger.
+        CardDefinition {
+            id: "RAV-INSTILL-FUROR",
+            name: "Instill Furor",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(1, [Color::Red]),
+            colors: colors([Color::Red]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Enchantment]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "aura-enchant-creature",
+                "attached-creature-end-step-attack-sacrifice",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![Effect::AttachSourceToTarget {
+                target: TargetRequirement::Creature,
+                changes: vec![],
+            }],
         },
         // Full fidelity: the one-mana Radiance haste grant uses the shared
         // target-color selection and layer-6 keyword effect.
@@ -8388,6 +8415,13 @@ pub fn rav_attachment_bindings() -> Vec<AttachmentBinding> {
                 }],
             }],
         },
+        AttachmentBinding {
+            card_definition: "RAV-INSTILL-FUROR",
+            kind: AttachmentKind::Aura,
+            target: TargetRequirement::Creature,
+            changes: vec![],
+            granted_activated_abilities: vec![],
+        },
     ]
 }
 
@@ -9400,6 +9434,17 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                 optional: false,
                 targets: vec![],
                 effects: vec![Effect::SacrificeControllerCreature],
+            },
+        },
+        TriggeredAbilityBinding {
+            card_definition: "RAV-INSTILL-FUROR",
+            ability: TriggeredAbility {
+                id: "attached-creature-controller-end-step-sacrifice-unless-attacked",
+                condition: TriggerCondition::BeginningOfAttachedCreaturesControllerEndStep,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![Effect::SacrificeAttachedCreatureUnlessItAttackedThisTurn],
             },
         },
     ]

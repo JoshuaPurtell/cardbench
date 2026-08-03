@@ -13391,3 +13391,122 @@ priority = 0
 event_markers = ["AttackersDeclared", "TriggeredAbilityStacked", "ContinuousEffectCreated", "AbilityResolved"]
 event_absent = ["SpellCast"]
 digest = "fnv1a64:29b052fe6ec09e66"
+
+[[scenario]]
+id = "rav_instill_furor_unattacked_end_step"
+seed = 192
+description = "Resolve Instill Furor as a creature Aura, advance to the enchanted creature controller's end step, and sacrifice the unattacked attachment through the trigger stack."
+triggers = true
+
+[[scenario.card]]
+label = "furor"
+owner = 0
+definition = "RAV-INSTILL-FUROR"
+zone = "hand"
+
+[[scenario.card]]
+label = "target"
+owner = 0
+definition = "RAV-WATCHWOLF"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.mana]]
+player = 0
+color = "red"
+amount = 2
+
+[[scenario.action]]
+kind = "cast"
+player = 0
+card = "furor"
+target = "permanent:target"
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "declare_attackers"
+player = 0
+attackers = []
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+zones = ["furor:graveyard", "target:graveyard"]
+stack_size = 0
+priority = 0
+mana = ["0:red:0"]
+event_markers = ["SpellCast", "AttachmentEstablishedWithoutContinuousEffect", "SpellResolved", "TriggeredAbilityStacked", "SacrificedByEffect", "AbilityResolved"]
+digest = "fnv1a64:d4fb470b065c76d5"

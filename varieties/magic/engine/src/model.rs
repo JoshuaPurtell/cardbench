@@ -392,6 +392,12 @@ pub enum TriggerCondition {
     /// trigger event before priority, so an effect can refer to that player
     /// even though the trigger source may be controlled by another player.
     BeginningOfAnyEndStep,
+    /// The end step began for the player who currently controls the exact
+    /// creature to which this Aura source is attached. This models an ability
+    /// granted by an Aura to its enchanted creature: the Aura remains the
+    /// source for provenance, while the attached creature's controller owns
+    /// the triggered ability.
+    BeginningOfAttachedCreaturesControllerEndStep,
     /// The source's controller gained positive life. The trigger is queued
     /// at the life-gain receipt and may optionally pay its bound mana cost
     /// before it is put on the stack.
@@ -1914,6 +1920,12 @@ pub enum Effect {
     /// player is known. It deliberately has no target: that player chooses
     /// an untapped land at resolution through the public decision boundary.
     SacrificeEndStepPlayerUntappedLand,
+    /// Sacrifice the exact creature currently attached to this Aura source
+    /// only when that same battlefield incarnation was not declared as an
+    /// attacker during the current turn. The attachment endpoint is read at
+    /// resolution, so a detached Aura or a departed/re-entered creature has
+    /// no stale effect.
+    SacrificeAttachedCreatureUnlessItAttackedThisTurn,
     /// A materialized each-end-step sacrifice instruction. The player is
     /// captured at the trigger event rather than inferred from the source's
     /// current controller when the ability later resolves.
@@ -2970,6 +2982,7 @@ impl Effect {
             | Self::SacrificeUpkeepPlayerCreature
             | Self::SacrificeCapturedPlayerCreature { .. }
             | Self::SacrificeEndStepPlayerUntappedLand
+            | Self::SacrificeAttachedCreatureUnlessItAttackedThisTurn
             | Self::SacrificeCapturedPlayerUntappedLand { .. }
             | Self::DealDamageAfterOptionalManaPayment { .. }
             | Self::DealDamageToEachCreatureAndPlayer { .. }

@@ -966,6 +966,12 @@ pub struct Game {
     /// resolves; the set is cleared only as the turn state machine enters a
     /// new Untap step.
     noncreature_spell_casters_this_turn: BTreeSet<PlayerId>,
+    /// Exact battlefield incarnations declared as attackers during the
+    /// current turn. This is turn-history provenance, not mutable combat
+    /// membership: a creature that later leaves combat or changes controller
+    /// still satisfied an earlier "attacked this turn" condition, while a
+    /// returned object has a fresh incarnation and cannot inherit it.
+    attacked_creature_incarnations_this_turn: BTreeSet<(ObjectId, u64)>,
     /// Live virtual spell copies keyed by their unique stack-only identity.
     /// This map is the ownership boundary that prevents a copy terminal path
     /// from moving the original physical card.
@@ -1287,6 +1293,7 @@ impl Game {
             effect_created_cast_permissions: BTreeMap::new(),
             spell_timing_exceptions: BTreeSet::new(),
             noncreature_spell_casters_this_turn: BTreeSet::new(),
+            attacked_creature_incarnations_this_turn: BTreeSet::new(),
             virtual_spell_copies: BTreeMap::new(),
             deferred_virtual_sources: BTreeMap::new(),
             exile_on_resolution: BTreeSet::new(),
@@ -1498,6 +1505,10 @@ impl Game {
             }
         }
         self.attachment_bindings = next_bindings;
+        if let Err(error) = self.validate_attachment_relative_trigger_bindings() {
+            self.attachment_bindings = previous_bindings;
+            return Err(error);
+        }
         if let Err(error) = self.validate_invariants() {
             self.attachment_bindings = previous_bindings;
             return Err(error);
@@ -1791,6 +1802,7 @@ impl Game {
                         | TriggerCondition::BeginningOfOpponentsUpkeep
                         | TriggerCondition::BeginningOfAnyUpkeep
                         | TriggerCondition::BeginningOfAnyEndStep
+                        | TriggerCondition::BeginningOfAttachedCreaturesControllerEndStep
                         | TriggerCondition::LifeGained
                         | TriggerCondition::DealsDamage
                         | TriggerCondition::DealsCombatDamageToCreature
@@ -2182,9 +2194,43 @@ impl Game {
         self.step = Step::Untap;
         self.turn = 1;
         self.noncreature_spell_casters_this_turn.clear();
+        self.attacked_creature_incarnations_this_turn.clear();
+        self.validate_attachment_relative_trigger_bindings()?;
         self.consecutive_passes = 0;
         self.start_step()?;
         self.validate_invariants()
+    }
+
+    /// Attachment-relative end-step triggers are meaningful only for a typed
+    /// creature Aura. Validate this after attachment bindings are registered
+    /// and again at the live-game boundary, rather than rejecting a valid
+    /// staged constructor before expansion setup has supplied its bindings.
+    fn validate_attachment_relative_trigger_bindings(&self) -> Result<(), RulesError> {
+        for (definition, abilities) in &self.triggered_abilities {
+            for ability in abilities.values() {
+                if ability.condition
+                    != TriggerCondition::BeginningOfAttachedCreaturesControllerEndStep
+                {
+                    continue;
+                }
+                let Some(binding) = self.attachment_bindings.get(definition) else {
+                    return Err(RulesError::IllegalAction(
+                        "attachment-relative end-step trigger lacks an Aura binding",
+                    ));
+                };
+                if binding.kind != AttachmentKind::Aura
+                    || binding.target != TargetRequirement::Creature
+                    || !ability.targets.is_empty()
+                    || ability.effects.as_slice()
+                        != [Effect::SacrificeAttachedCreatureUnlessItAttackedThisTurn]
+                {
+                    return Err(RulesError::IllegalAction(
+                        "attachment-relative end-step trigger requires one creature Aura sacrifice effect",
+                    ));
+                }
+            }
+        }
+        Ok(())
     }
 
     #[must_use]
@@ -6603,6 +6649,7 @@ impl Game {
         let mut trampling_attackers = BTreeSet::new();
         let mut must_be_blocked_attackers = BTreeSet::new();
         let mut landwalk_attackers = BTreeMap::<ObjectId, BTreeSet<BasicLandType>>::new();
+        let mut attacked_incarnations = BTreeSet::new();
         for attacker in attackers {
             if !seen.insert(*attacker) {
                 return Err(RulesError::IllegalAction("an attacker was declared twice"));
@@ -6622,6 +6669,7 @@ impl Game {
             {
                 return Err(RulesError::IllegalAction("illegal attacker"));
             }
+            attacked_incarnations.insert((*attacker, object.incarnation));
             if has_haste {
                 hasty_attackers.insert(*attacker);
             }
@@ -6688,6 +6736,8 @@ impl Game {
         combat.landwalk_attackers = landwalk_attackers;
         combat.defending_player = Some(defending_player);
         combat.attackers_declared = true;
+        self.attacked_creature_incarnations_this_turn
+            .extend(attacked_incarnations);
         self.record_event(GameEvent::AttackersDeclared {
             player,
             attackers: attackers.to_vec(),
@@ -12919,6 +12969,25 @@ impl Game {
                 "canonical event log was mutated outside an engine transition",
             ));
         }
+        // Attack history is keyed by an exact battlefield incarnation. A
+        // current object may have a later incarnation after leaving and
+        // returning, but the engine must never retain a zero or future
+        // incarnation as turn history.
+        if self
+            .attacked_creature_incarnations_this_turn
+            .iter()
+            .any(|(card, incarnation)| {
+                *incarnation == 0
+                    || self
+                        .objects
+                        .get(card)
+                        .is_some_and(|object| *incarnation > object.incarnation)
+            })
+        {
+            return Err(RulesError::IllegalAction(
+                "attacked-creature turn history has invalid incarnation provenance",
+            ));
+        }
         if self
             .last_known_characteristics
             .iter()
@@ -13119,6 +13188,7 @@ impl Game {
         Self::validate_trigger_order_event_order(&self.event_log)?;
         self.validate_any_upkeep_trigger_event_order()?;
         self.validate_any_end_step_trigger_event_order()?;
+        self.validate_attached_creature_controller_end_step_trigger_event_order()?;
         self.validate_blocks_trigger_event_order()?;
         self.validate_enters_battlefield_trigger_event_order()?;
         self.validate_linked_exile_state()?;
@@ -13560,6 +13630,7 @@ impl Game {
                             | TriggerCondition::BeginningOfOpponentsUpkeep
                             | TriggerCondition::BeginningOfAnyUpkeep
                             | TriggerCondition::BeginningOfAnyEndStep
+                            | TriggerCondition::BeginningOfAttachedCreaturesControllerEndStep
                             | TriggerCondition::LifeGained
                             | TriggerCondition::DealsDamage
                             | TriggerCondition::DealsCombatDamageToCreature
@@ -16799,6 +16870,7 @@ impl Game {
                 | Effect::SacrificeUpkeepPlayerCreature
                 | Effect::SacrificeCapturedPlayerCreature { .. }
                 | Effect::SacrificeEndStepPlayerUntappedLand
+                | Effect::SacrificeAttachedCreatureUnlessItAttackedThisTurn
                 | Effect::SacrificeCapturedPlayerUntappedLand { .. }
                 | Effect::CompleteDamageRedirection
                 | Effect::DrawControllerIfManaColorSpent { .. }
@@ -20835,8 +20907,41 @@ impl Game {
         Ok(())
     }
 
-    /// Stacks each battlefield permanent's registered any-end-step trigger
-    /// after the public `StepBegan` receipt and before the end step's first
+    /// Returns the live creature endpoint for one exact Aura source
+    /// incarnation. The endpoint must still be the same battlefield object;
+    /// an Aura that detached or a creature that left and returned therefore
+    /// cannot produce a stale attachment-relative trigger or resolution.
+    fn attached_creature_for_source_incarnation(
+        &self,
+        source: ObjectId,
+        source_incarnation: u64,
+    ) -> Result<Option<ObjectId>, RulesError> {
+        if self.zone_of(source) != Some(Zone::Battlefield)
+            || self.object(source)?.incarnation != source_incarnation
+        {
+            return Ok(None);
+        }
+        let source_object = self.object(source)?;
+        let (Some(target), Some(target_incarnation)) = (
+            source_object.attached_to,
+            source_object.attached_to_incarnation,
+        ) else {
+            return Ok(None);
+        };
+        if self.zone_of(target) != Some(Zone::Battlefield)
+            || !self.object_has_incarnation(target, target_incarnation)
+            || !self
+                .characteristics(target)?
+                .card_types
+                .contains(&CardType::Creature)
+        {
+            return Ok(None);
+        }
+        Ok(Some(target))
+    }
+
+    /// Stacks each battlefield permanent's registered end-step trigger after
+    /// the public `StepBegan` receipt and before the end step's first
     /// priority window. The active player is captured in the payload instead
     /// of being recomputed when a target-free choice later resolves.
     fn enqueue_end_step_triggers(&mut self) -> Result<(), RulesError> {
@@ -20861,16 +20966,31 @@ impl Game {
                 .get(definition)
                 .into_iter()
                 .flat_map(|abilities| abilities.values())
-                .filter(|ability| ability.condition == TriggerCondition::BeginningOfAnyEndStep)
                 .cloned()
                 .collect::<Vec<_>>();
             for ability in triggers {
+                let controller = match ability.condition {
+                    TriggerCondition::BeginningOfAnyEndStep => source_controller,
+                    TriggerCondition::BeginningOfAttachedCreaturesControllerEndStep => {
+                        let Some(attached_creature) = self
+                            .attached_creature_for_source_incarnation(source, source_incarnation)?
+                        else {
+                            continue;
+                        };
+                        let attached_controller = self.controller_of(attached_creature)?;
+                        if attached_controller != active_player {
+                            continue;
+                        }
+                        attached_controller
+                    }
+                    _ => continue,
+                };
                 self.pending_trigger_events
                     .push(PendingTriggeredAbilityEvent {
                         source,
                         source_incarnation,
                         source_colors: source_colors.clone(),
-                        controller: source_controller,
+                        controller,
                         ability,
                         payload: TriggerEventPayload::EndStepPlayer(active_player),
                     });
@@ -24567,6 +24687,27 @@ impl Game {
                     "end-step-player untapped-land sacrifice trigger was not materialized before resolution",
                 ));
             }
+            Effect::SacrificeAttachedCreatureUnlessItAttackedThisTurn => {
+                let Some(permanent) =
+                    self.attached_creature_for_source_incarnation(source, source_incarnation)?
+                else {
+                    return Ok(());
+                };
+                let permanent_incarnation = self.object(permanent)?.incarnation;
+                if self
+                    .attacked_creature_incarnations_this_turn
+                    .contains(&(permanent, permanent_incarnation))
+                {
+                    return Ok(());
+                }
+                let permanent_controller = self.controller_of(permanent)?;
+                self.record_event(GameEvent::SacrificedByEffect {
+                    source,
+                    player: permanent_controller,
+                    permanent,
+                });
+                self.move_to_graveyard_or_remove_token(permanent)?;
+            }
             Effect::SacrificeCapturedPlayerCreature { player } => {
                 let candidate = self
                     .all_battlefield_cards()
@@ -27273,6 +27414,7 @@ impl Game {
             self.active_player = self.next_player(self.active_player);
             self.turn += 1;
             self.noncreature_spell_casters_this_turn.clear();
+            self.attacked_creature_incarnations_this_turn.clear();
             self.library_search_prevented_until = None;
         }
         self.priority = self.priority_after_resolution();
@@ -29186,6 +29328,19 @@ impl Game {
         {
             return Err(RulesError::IllegalAction(
                 "end-step-player untapped-land sacrifice requires one target-free any-end-step trigger effect",
+            ));
+        }
+        if ability
+            .effects
+            .contains(&Effect::SacrificeAttachedCreatureUnlessItAttackedThisTurn)
+            && (ability.condition
+                != TriggerCondition::BeginningOfAttachedCreaturesControllerEndStep
+                || !ability.targets.is_empty()
+                || ability.effects.as_slice()
+                    != [Effect::SacrificeAttachedCreatureUnlessItAttackedThisTurn])
+        {
+            return Err(RulesError::IllegalAction(
+                "attached-creature sacrifice requires one target-free attached-controller end-step trigger",
             ));
         }
         if ability.condition == TriggerCondition::ControlledNonartifactPermanentEntersBattlefield
@@ -31886,6 +32041,56 @@ impl Game {
             ) {
                 return Err(RulesError::IllegalAction(
                     "any-end-step trigger lacks its active-player end-step boundary",
+                ));
+            }
+        }
+        Ok(())
+    }
+
+    /// An Aura-granted end-step trigger is controlled by the creature's
+    /// controller, so its public stack receipt must be immediately anchored
+    /// to that controller's own End step. The live attachment may later
+    /// change or leave before resolution; this audits only the historical
+    /// state-machine transition that placed the ability on the stack.
+    fn validate_attached_creature_controller_end_step_trigger_event_order(
+        &self,
+    ) -> Result<(), RulesError> {
+        for (stacked_index, event) in self.event_log.iter().enumerate() {
+            let GameEvent::TriggeredAbilityStacked {
+                source,
+                controller,
+                ability,
+                ..
+            } = event
+            else {
+                continue;
+            };
+            let Some(definition) = self.object(*source)?.definition else {
+                continue;
+            };
+            let is_attachment_relative_end_step = self
+                .triggered_abilities
+                .get(definition)
+                .and_then(|abilities| abilities.get(ability))
+                .is_some_and(|binding| {
+                    binding.condition
+                        == TriggerCondition::BeginningOfAttachedCreaturesControllerEndStep
+                });
+            if !is_attachment_relative_end_step {
+                continue;
+            }
+            if !matches!(
+                self.event_log[..stacked_index].iter().rev().find(|prior| {
+                    matches!(prior, GameEvent::StepBegan { .. })
+                }),
+                Some(GameEvent::StepBegan {
+                    active_player,
+                    step: Step::End,
+                    ..
+                }) if active_player == controller
+            ) {
+                return Err(RulesError::IllegalAction(
+                    "attached-creature end-step trigger lacks its controller end-step boundary",
                 ));
             }
         }
