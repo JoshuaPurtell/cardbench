@@ -17,7 +17,10 @@ fn tunnel_vision_requires_named_card_target_library_traversal() {
         .expect("Tunnel Vision definition exists");
 
     assert_eq!(definition.name, "Tunnel Vision");
-    assert_eq!(definition.mana_cost, ManaCost::with_colors(5, [Color::Blue]));
+    assert_eq!(
+        definition.mana_cost,
+        ManaCost::with_colors(5, [Color::Blue])
+    );
     assert_eq!(definition.colors, [Color::Blue].into());
     assert_eq!(definition.card_types, [CardType::Sorcery].into());
     assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&definition.id));
