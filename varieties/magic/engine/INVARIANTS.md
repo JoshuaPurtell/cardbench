@@ -170,6 +170,16 @@ Oracle Magic rules coverage.
   `LinkedHandExileReturned`, and expiry receipts name nonempty, unique public
   object identities while ordinary zone/incarnation receipts remain the
   authoritative transition sequence.
+- A source-linked creature-exile group is keyed by one exact live battlefield
+  source incarnation and contains only nonempty, duplicate-free creature-card
+  members still in `Exile` at their captured incarnations.  An exile departure
+  removes that exact member and a source departure removes the whole group, so
+  a later incarnation cannot claim an earlier exile entitlement.  A target-free
+  return instruction opens a public exactly-one current-member choice only
+  while that exact source and at least one candidate remain; otherwise it is a
+  legal no-op.  The selected object returns through its ordinary zone move and
+  a permanent layer-two control effect, retaining its owner as base controller
+  while deriving control from the resolving source controller.
 - A delayed linked-exile action has a nonzero unique action identity, typed
   `EndStep` timing, and a due turn no earlier than the current turn. It is
   consumed exactly once with its group, removing both from suspended state.
@@ -2228,6 +2238,13 @@ Oracle Magic rules coverage.
   battlefield vector, and excludes every creature barred by that attacker's
   current landwalk. It never forces an impossible block merely because a
   matching basic land is controlled or an owner no longer controls their card.
+- A source-relative block requirement identifies one exact live attacker and
+  one exact defending creature.  It is enforced only at the blocker-declaration
+  snapshot: when that creature can legally block that attacker, the submitted
+  assignments contain that exact pair; if it cannot legally do so, the effect
+  creates no impossible requirement.  A related combat-only target is legal
+  both when activated and when resolved only while it is blocking, or blocked
+  by, that exact live source in the current combat.
 - The next seated defending player is fixed when attackers are declared; only
   that player declares blockers. Each blocker is a unique untapped creature
   they control; every assigned attacker was declared; and each attacker may
