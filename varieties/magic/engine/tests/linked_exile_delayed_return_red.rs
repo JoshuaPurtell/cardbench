@@ -115,6 +115,7 @@ fn advance_to_end_step(game: &mut Game) {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // Regression asserts the complete linked-exile event trace.
 fn attached_group_exiles_together_instead_of_orphaning_the_aura() {
     let controller = PlayerId(0);
     let mut game = game();
