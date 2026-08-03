@@ -15592,6 +15592,7 @@ impl Game {
         Self::validate_mana_ability_event_order(&self.event_log)?;
         self.validate_mana_ability_sacrifice_cost_event_order()?;
         Self::validate_object_incarnation_event_order(&self.event_log)?;
+        Self::validate_token_cessation_event_order(&self.event_log)?;
         self.validate_static_entry_restriction_event_order()?;
         self.validate_static_entry_counter_replacement_event_order()?;
         self.validate_land_entry_life_payment_event_order()?;
@@ -33202,6 +33203,86 @@ impl Game {
         Ok(())
     }
 
+    /// Removes a token that would otherwise move from the battlefield to a
+    /// non-graveyard zone.  Tokens cease to exist rather than acquiring a
+    /// hand, exile, or library identity; this remains a leaves-the-battlefield
+    /// event but is not a death.
+    #[allow(clippy::too_many_lines)] // Token cessation needs the normal departure teardown without a zone move.
+    fn remove_token_leaving_battlefield_without_dying(
+        &mut self,
+        token: ObjectId,
+        capture_zone_transition_observers: bool,
+    ) -> Result<(), RulesError> {
+        let object = self.object(token)?.clone();
+        if object.token.is_none() {
+            return Err(RulesError::IllegalAction(
+                "only a token can cease instead of taking a non-graveyard zone move",
+            ));
+        }
+        self.require_zone(token, Zone::Battlefield)?;
+        let controller = self.controller_of(token)?;
+        if capture_zone_transition_observers {
+            self.enqueue_another_creature_leaves_battlefield_triggers(token)?;
+        }
+        self.source_exile_cast_restrictions
+            .retain(|_, restriction| restriction.source != token);
+        self.remove_from_combat(token);
+        self.materialize_departing_source_counter_creature_sweeps(
+            token,
+            object.incarnation,
+            &object.counters,
+        )?;
+        // Capture layer-two control before removing the token. This is the
+        // same departure projection used by an ordinary zone change, and
+        // ensures source- or target-bound control effects produce the correct
+        // reversion receipts for a surviving counterpart.
+        let expired_effects = self
+            .continuous_effects
+            .iter()
+            .filter(|effect| effect.source == token || effect.target == token)
+            .cloned()
+            .collect::<Vec<_>>();
+        let control_before = self.control_targets_before_expiration(&expired_effects)?;
+        // A token can have an already-pending trigger or a live activated
+        // ability when another object returns or exiles it. Its source is
+        // gone after cessation, so retain exactly the copied definition and
+        // LKI needed by that preexisting stack lifecycle. This transition
+        // deliberately does not queue a new Dies trigger.
+        if let Some(definition) = self.effective_definition_id(token)? {
+            let has_pending_ability = self.pending_trigger_events.iter().any(|event| {
+                event.source == token && event.source_incarnation == object.incarnation
+            });
+            let has_live_ability = self.stack.iter().any(|stack_object| {
+                stack_object.card == token
+                    && stack_object.source_incarnation == object.incarnation
+                    && stack_object.ability_id.is_some()
+            });
+            if has_pending_ability || has_live_ability {
+                if !self
+                    .last_known_characteristics
+                    .contains_key(&(token, object.incarnation))
+                {
+                    self.capture_last_known_characteristics(token)?;
+                }
+                self.departed_card_definitions.insert(token, definition);
+            }
+        }
+        self.remove_from_all_zones(token);
+        self.objects.remove(&token);
+        self.regeneration_shields.remove(&token);
+        self.record_event(GameEvent::TokenCeasedToExist { token });
+        if let Some(copy) = object.copied_permanent {
+            self.record_event(GameEvent::PermanentCopyExpired {
+                target: token,
+                target_incarnation: object.incarnation,
+                timestamp: copy.timestamp,
+            });
+        }
+        self.expire_continuous_effects_involving_with_control_before(token, Some(control_before));
+        self.expire_unreturnable_linked_hand_exile_groups(token, object.incarnation, controller);
+        Ok(())
+    }
+
     /// Removes a token that leaves the game because its controller departed.
     /// This is a battlefield departure, so other "leaves the battlefield"
     /// abilities observe it, but it is neither a zone move nor a death: CR
@@ -33557,6 +33638,20 @@ impl Game {
     ) -> Result<(), RulesError> {
         let object = self.object(card)?.clone();
         let previous_zone = self.zone_of(card);
+        // A token never acquires a normal non-graveyard zone identity.  This
+        // covers bounce, exile, and library-return effects while preserving
+        // the dedicated graveyard path, which additionally records Dies
+        // provenance before a token ceases.
+        if object.token.is_some()
+            && previous_zone == Some(Zone::Battlefield)
+            && zone != Zone::Battlefield
+            && zone != Zone::Graveyard
+        {
+            return self.remove_token_leaving_battlefield_without_dying(
+                card,
+                capture_zone_transition_observers,
+            );
+        }
         if zone == Zone::Library
             && previous_zone != Some(Zone::Library)
             && self.player(object.owner)?.library.len() >= usize::from(u16::MAX)
@@ -36342,6 +36437,41 @@ impl Game {
                 ));
             }
             last.insert(*object, *incarnation);
+        }
+        Ok(())
+    }
+
+    /// A token's battlefield departure has no destination zone or new object
+    /// incarnation. Once the engine has recorded its terminal cessation, that
+    /// stable object id must never acquire either ordinary-zone receipt in the
+    /// same canonical event epoch. This makes token bounce/exile/library paths
+    /// auditable independently of the current object map, where the token no
+    /// longer exists by design.
+    fn validate_token_cessation_event_order(events: &[GameEvent]) -> Result<(), RulesError> {
+        let mut ceased_tokens = BTreeSet::new();
+        for event in events {
+            match event {
+                GameEvent::TokenCeasedToExist { token } => {
+                    if token.0 == 0 || !ceased_tokens.insert(*token) {
+                        return Err(RulesError::IllegalAction(
+                            "token cessation receipt has an invalid or duplicate identity",
+                        ));
+                    }
+                }
+                GameEvent::CardMoved { card, .. } if ceased_tokens.contains(card) => {
+                    return Err(RulesError::IllegalAction(
+                        "a ceased token acquired an ordinary zone-transition receipt",
+                    ));
+                }
+                GameEvent::ObjectIncarnationAdvanced { object, .. }
+                    if ceased_tokens.contains(object) =>
+                {
+                    return Err(RulesError::IllegalAction(
+                        "a ceased token acquired an object-incarnation receipt",
+                    ));
+                }
+                _ => {}
+            }
         }
         Ok(())
     }
