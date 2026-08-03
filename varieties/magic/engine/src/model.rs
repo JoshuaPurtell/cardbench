@@ -2090,6 +2090,14 @@ pub enum Effect {
     RevealTopLibraryCardsAndReorder {
         count: u8,
     },
+    /// Privately inspect the current top `count` cards of the targeted
+    /// player's library. The resolving controller submits an exhaustive
+    /// split: cards retained on top in top-to-bottom order and cards put on
+    /// bottom in bottom-to-top order. Candidate identities never enter public
+    /// receipts, even when the target is another player.
+    LookAtTopCardsOfTargetPlayerAndReorder {
+        count: u8,
+    },
     /// Privately inspect the current top `count` cards of the resolving
     /// controller's library. The controller chooses exactly one card for
     /// hand, one of the remainder for the top when present, and orders every
@@ -2737,7 +2745,8 @@ impl Effect {
             Self::LookAtTopCardsOfTargetOpponentExileOne { .. } => {
                 Some(TargetRequirement::Opponent)
             }
-            Self::LookAtTargetPlayerTopLibraryMayPutIntoGraveyard => {
+            Self::LookAtTopCardsOfTargetPlayerAndReorder { .. }
+            | Self::LookAtTargetPlayerTopLibraryMayPutIntoGraveyard => {
                 Some(TargetRequirement::Player)
             }
             Self::DestroyTargetLand | Self::DestroyTargetLandAndUntapSourceIfNonbasic => {
@@ -3688,6 +3697,11 @@ pub enum DecisionKind {
     /// inspects the exact current top of the target player's library and may
     /// select it for an ordinary graveyard zone change.
     TargetPlayerLibraryTopMayGraveyard,
+    /// The resolving spell's controller privately partitions the current top
+    /// slice of a targeted player's library into a retained top order and a
+    /// bottom order. The target is captured on the stack; no policy gets a
+    /// free library-reordering action outside this suspended boundary.
+    TargetPlayerLibraryTopReorder,
     /// Each affected player selects one of their own creature cards from a
     /// public graveyard while one target-free spell remains suspended on the
     /// stack. The selection is public, but it is still a no-priority rules
@@ -3755,6 +3769,13 @@ pub enum DecisionSelection {
     LibraryTopPartition {
         hand: ObjectId,
         top: Option<ObjectId>,
+        bottom: Vec<ObjectId>,
+    },
+    /// An exhaustive private partition of a targeted player's exact library
+    /// snapshot. `top` is top-to-bottom and `bottom` is bottom-to-top, so
+    /// each order can be restored without public card identity receipts.
+    TargetPlayerLibraryTopReorder {
+        top: Vec<ObjectId>,
         bottom: Vec<ObjectId>,
     },
     Targets(Vec<Target>),
@@ -3877,6 +3898,16 @@ pub enum DecisionContinuation {
     /// a stale policy response from changing a later library state.
     LibraryTopPartition {
         source: ObjectId,
+        cards: Vec<ObjectId>,
+    },
+    /// Retains a target-player library snapshot while the spell controller
+    /// privately chooses its top and bottom partitions. `target` owns the
+    /// library; `controller` alone owns the decision.
+    TargetPlayerLibraryTopReorder {
+        source: ObjectId,
+        source_incarnation: u64,
+        controller: PlayerId,
+        target: PlayerId,
         cards: Vec<ObjectId>,
     },
     TriggeredEffectObject {
@@ -4609,6 +4640,27 @@ pub enum GameEvent {
         source_incarnation: u64,
         ability: &'static str,
         target: PlayerId,
+    },
+    /// A resolving spell opened a private top-slice reordering choice over a
+    /// targeted player's library. The exact candidate and submitted ordering
+    /// deliberately remain private; the decision id and cardinality are the
+    /// public state-machine provenance.
+    PrivateTargetPlayerLibraryReorderOpened {
+        decision: DecisionId,
+        controller: PlayerId,
+        source: ObjectId,
+        source_incarnation: u64,
+        target: PlayerId,
+        count: u8,
+    },
+    /// A private target-player library reordering choice committed. Neither
+    /// the cards nor their chosen order appear in the public event log.
+    PrivateTargetPlayerLibraryReordered {
+        controller: PlayerId,
+        source: ObjectId,
+        source_incarnation: u64,
+        target: PlayerId,
+        inspected: u8,
     },
     /// A resolving private-library choice paid life for the selected cards.
     /// This is distinct from damage and from a mana-ability life-payment cost.

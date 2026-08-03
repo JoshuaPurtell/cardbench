@@ -44,7 +44,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 250] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 251] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
@@ -149,6 +149,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 250] = [
     "RAV-GOLGARI-GUILDMAGE",
     "RAV-DIMIR-GUILDMAGE",
     "RAV-DIMIR-HOUSE-GUARD",
+    "RAV-DIMIR-MACHINATIONS",
     "RAV-DIMIR-INFILTRATOR",
     "RAV-LURKING-INFORMANT",
     "RAV-SANDSOWER",
@@ -1718,9 +1719,12 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 Effect::DrawController,
             ],
         },
-        // Only the hand-zone transmute activation is executable. The printed
-        // spell effect is deliberately non-covered in this compatibility
-        // definition.
+        // Full fidelity: the black sorcery privately inspects the exact top
+        // three cards of any targeted player's library. Its controller then
+        // orders the retained top cards and chosen bottom cards separately;
+        // both candidate identities and submitted order stay out of public
+        // receipts. The generic stack-backed Transmute activation remains
+        // independently available from hand.
         CardDefinition {
             id: "RAV-DIMIR-MACHINATIONS",
             name: "Dimir Machinations",
@@ -1730,14 +1734,19 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Sorcery]),
             is_basic_land: false,
-            supported_rules: &["transmute"],
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "private-target-player-top-three-library-reorder",
+                "stack-backed-private-transmute-library-search",
+            ],
             power: None,
             toughness: None,
             keywords: vec![Keyword::Transmute(ManaCost::with_colors(
                 1,
                 [Color::Blue, Color::Blue],
             ))],
-            effects: vec![],
+            effects: vec![Effect::LookAtTopCardsOfTargetPlayerAndReorder { count: 3 }],
         },
         // Full fidelity: the instant may retain zero through four distinct
         // card targets from one graveyard, then exiles every target that is

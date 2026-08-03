@@ -36,20 +36,10 @@ fn rain_of_embers_is_exactly_the_target_free_global_damage_slice() {
 
 #[test]
 fn new_transmute_spells_are_explicitly_non_cast_effect_compatibility_slices() {
-    let expected = [
-        (
-            "RAV-DIMIR-MACHINATIONS",
-            ManaCost::with_colors(1, [Color::Blue, Color::Blue]),
-        ),
-        (
-            "RAV-SHRED-MEMORY",
-            ManaCost::with_colors(1, [Color::Black, Color::Black]),
-        ),
-        (
-            "RAV-PERPLEX",
-            ManaCost::with_colors(1, [Color::Blue, Color::Black]),
-        ),
-    ];
+    let expected = [(
+        "RAV-PERPLEX",
+        ManaCost::with_colors(1, [Color::Blue, Color::Black]),
+    )];
     for (id, transmute_cost) in expected {
         let card = definition(id);
         assert_eq!(card.supported_rules, ["transmute"], "{id}");

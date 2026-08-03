@@ -3875,6 +3875,7 @@ impl Game {
                 )),
                 DecisionContinuation::LibraryReorder { .. }
                 | DecisionContinuation::LibraryTopPartition { .. }
+                | DecisionContinuation::TargetPlayerLibraryTopReorder { .. }
                 | DecisionContinuation::TriggeredEffectObject { .. }
                 | DecisionContinuation::CombatDamageOrder { .. }
                 | DecisionContinuation::SpellCopyTargets { .. }
@@ -3944,6 +3945,7 @@ impl Game {
                 | DecisionContinuation::LibrarySearchMany { .. }
                 | DecisionContinuation::LibraryReorder { .. }
                 | DecisionContinuation::LibraryTopPartition { .. }
+                | DecisionContinuation::TargetPlayerLibraryTopReorder { .. }
                 | DecisionContinuation::TriggeredEffectObject { .. }
                 | DecisionContinuation::CombatDamageOrder { .. }
                 | DecisionContinuation::SpellCopyTargets { .. }
@@ -4000,6 +4002,7 @@ impl Game {
                 | DecisionContinuation::LibrarySearchMany { .. }
                 | DecisionContinuation::LibraryReorder { .. }
                 | DecisionContinuation::LibraryTopPartition { .. }
+                | DecisionContinuation::TargetPlayerLibraryTopReorder { .. }
                 | DecisionContinuation::CombatDamageOrder { .. }
                 | DecisionContinuation::SpellCopyTargets { .. }
                 | DecisionContinuation::TriggeredAbilityTargets { .. }
@@ -4086,6 +4089,7 @@ impl Game {
                 | DecisionContinuation::LibrarySearchMany { .. }
                 | DecisionContinuation::LibraryReorder { .. }
                 | DecisionContinuation::LibraryTopPartition { .. }
+                | DecisionContinuation::TargetPlayerLibraryTopReorder { .. }
                 | DecisionContinuation::TriggeredEffectObject { .. }
                 | DecisionContinuation::CombatDamageOrder { .. }
                 | DecisionContinuation::SpellCopyTargets { .. }
@@ -7637,6 +7641,26 @@ impl Game {
                     &decision, source, &cards, hand, top, &bottom,
                 )
             }
+            DecisionContinuation::TargetPlayerLibraryTopReorder {
+                source,
+                source_incarnation,
+                controller,
+                target,
+                cards,
+            } => {
+                let (top, bottom) =
+                    Self::validate_target_player_library_reorder_selection(&decision, selection)?;
+                self.resolve_target_player_library_reorder_decision(
+                    &decision,
+                    source,
+                    source_incarnation,
+                    controller,
+                    target,
+                    &cards,
+                    &top,
+                    &bottom,
+                )
+            }
             DecisionContinuation::TriggeredEffectObject {
                 source,
                 controller,
@@ -9081,6 +9105,47 @@ impl Game {
             ));
         }
         Ok((hand, top, bottom))
+    }
+
+    /// Validates an exhaustive private top/bottom order over the exact hidden
+    /// target-library snapshot. The two order vectors together must contain
+    /// each candidate exactly once; neither vector leaks through receipts.
+    fn validate_target_player_library_reorder_selection(
+        decision: &PendingDecision,
+        selection: DecisionSelection,
+    ) -> Result<(Vec<ObjectId>, Vec<ObjectId>), RulesError> {
+        let DecisionSelection::TargetPlayerLibraryTopReorder { top, bottom } = selection else {
+            return Err(RulesError::IllegalAction(
+                "this decision requires a private target-library reorder",
+            ));
+        };
+        let candidates = decision
+            .options
+            .iter()
+            .map(|option| match option {
+                DecisionOption::Object(card) => Ok(*card),
+                DecisionOption::Target(_)
+                | DecisionOption::TriggerOrder(_)
+                | DecisionOption::Replacement(_)
+                | DecisionOption::Color(_) => Err(RulesError::IllegalAction(
+                    "private target-library reorder contains a non-card option",
+                )),
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let mut ordered = top.clone();
+        ordered.extend(bottom.iter().copied());
+        if candidates.is_empty()
+            || ordered.len() != candidates.len()
+            || ordered
+                .iter()
+                .enumerate()
+                .any(|(index, card)| ordered[..index].contains(card) || !candidates.contains(card))
+        {
+            return Err(RulesError::IllegalAction(
+                "private target-library reorder must use each candidate exactly once",
+            ));
+        }
+        Ok((top, bottom))
     }
 
     fn validate_trigger_order_decision_selection(
@@ -10644,6 +10709,116 @@ impl Game {
         Ok(())
     }
 
+    /// Commits an exhaustive private reordering of a target player's current
+    /// library top. The spell remains on the stack until this exact snapshot,
+    /// target, source incarnation, and submitted partition have all been
+    /// revalidated, so the controller cannot reorder a later library state.
+    #[allow(clippy::too_many_arguments)] // One atomic hidden-zone transition retains the complete stack provenance.
+    fn resolve_target_player_library_reorder_decision(
+        &mut self,
+        decision: &PendingDecision,
+        source: ObjectId,
+        source_incarnation: u64,
+        controller: PlayerId,
+        target: PlayerId,
+        cards: &[ObjectId],
+        top: &[ObjectId],
+        bottom: &[ObjectId],
+    ) -> Result<(), RulesError> {
+        let stack = self.stack.last().ok_or(RulesError::IllegalAction(
+            "target-player library reorder has no live stack spell",
+        ))?;
+        let current = self.players[target.0]
+            .library
+            .iter()
+            .rev()
+            .take(cards.len())
+            .copied()
+            .collect::<Vec<_>>();
+        let expected_options = cards
+            .iter()
+            .copied()
+            .map(DecisionOption::Object)
+            .collect::<Vec<_>>();
+        let count = u8::try_from(cards.len()).map_err(|_| {
+            RulesError::IllegalAction(
+                "target-player library reorder candidates exceed decision range",
+            )
+        })?;
+        let mut ordered = top.to_vec();
+        ordered.extend(bottom.iter().copied());
+        if decision.kind != DecisionKind::TargetPlayerLibraryTopReorder
+            || decision.visibility != DecisionVisibility::Private
+            || decision.player != controller
+            || stack.card != source
+            || stack.source_incarnation != source_incarnation
+            || stack.controller != controller
+            || stack.ability_id.is_some()
+            || stack.targets.as_slice() != [Target::Player(target)]
+            || !matches!(
+                stack.effects.as_slice(),
+                [Effect::LookAtTopCardsOfTargetPlayerAndReorder { count: effect_count }]
+                    if usize::from(*effect_count) >= cards.len()
+            )
+            || !self.target_matches_for_controller(
+                controller,
+                Target::Player(target),
+                TargetRequirement::Player,
+            )
+            || current != cards
+            || cards.iter().enumerate().any(|(index, card)| {
+                cards[index + 1..].contains(card)
+                    || self.zone_of(*card) != Some(Zone::Library)
+                    || self
+                        .object(*card)
+                        .map_or(true, |object| object.owner != target)
+            })
+            || decision.options != expected_options
+            || decision.min_selections != count
+            || decision.max_selections != count
+            || ordered.len() != cards.len()
+            || ordered
+                .iter()
+                .enumerate()
+                .any(|(index, card)| ordered[..index].contains(card) || !cards.contains(card))
+        {
+            return Err(RulesError::IllegalAction(
+                "target-player library reorder no longer matches its private stack snapshot",
+            ));
+        }
+
+        self.stack.pop().ok_or(RulesError::IllegalAction(
+            "target-player library reorder stack spell disappeared before resolution",
+        ))?;
+        self.complete_pending_decision(decision)?;
+        self.players[target.0]
+            .library
+            .retain(|card| !cards.contains(card));
+        for card in bottom.iter().rev() {
+            self.players[target.0].library.insert(0, *card);
+        }
+        self.players[target.0]
+            .library
+            .extend(top.iter().rev().copied());
+        self.record_event(GameEvent::PrivateTargetPlayerLibraryReordered {
+            controller,
+            source,
+            source_incarnation,
+            target,
+            inspected: count,
+        });
+        self.record_event(GameEvent::SpellResolved { card: source });
+        self.move_to_spell_terminal_zone(source)?;
+        self.check_state_based_actions()?;
+        self.flush_pending_dies_triggers();
+        self.flush_pending_land_entry_triggers()?;
+        self.flush_pending_damage_triggers();
+        self.flush_pending_life_gain_triggers();
+        self.flush_pending_dies_triggers();
+        self.priority = self.priority_after_resolution();
+        Ok(())
+    }
+
     #[allow(clippy::too_many_lines)] // One typed trigger-choice dispatcher preserves each continuation's stale checks.
     fn resolve_triggered_effect_object_decision(
         &mut self,
@@ -11949,6 +12124,8 @@ impl Game {
             Self::validate_private_opponent_library_choice_event_order(&self.event_log)?;
         let outstanding_target_player_library_top_choices =
             Self::validate_target_player_library_top_choice_event_order(&self.event_log)?;
+        let outstanding_target_player_library_reorders =
+            Self::validate_target_player_library_reorder_event_order(&self.event_log)?;
         self.validate_ability_sacrifice_cost_event_order()?;
         self.validate_ability_discard_cost_event_order()?;
         Self::validate_effect_discard_event_order(&self.event_log)?;
@@ -12143,6 +12320,23 @@ impl Game {
         {
             return Err(RulesError::IllegalAction(
                 "target-player library-top receipts disagree with the live decision boundary",
+            ));
+        }
+        let expected_target_player_library_reorders = self
+            .pending_decision
+            .as_ref()
+            .and_then(|decision| {
+                matches!(
+                    decision.continuation,
+                    DecisionContinuation::TargetPlayerLibraryTopReorder { .. }
+                )
+                .then_some(decision.id)
+            })
+            .into_iter()
+            .collect::<BTreeSet<_>>();
+        if outstanding_target_player_library_reorders != expected_target_player_library_reorders {
+            return Err(RulesError::IllegalAction(
+                "target-player library-reorder receipts disagree with the live decision boundary",
             ));
         }
         if let Some(choice) = &self.pending_optional_trigger_choice {
@@ -15125,6 +15319,21 @@ impl Game {
                 "a private-library partition spell must contain exactly one effect",
             ));
         }
+        let private_target_library_reorder_effects = definition
+            .effects
+            .iter()
+            .filter(|effect| {
+                matches!(
+                    effect,
+                    Effect::LookAtTopCardsOfTargetPlayerAndReorder { .. }
+                )
+            })
+            .count();
+        if private_target_library_reorder_effects > 0 && definition.effects.len() != 1 {
+            return Err(RulesError::IllegalAction(
+                "a private target-library reorder spell must contain exactly one effect",
+            ));
+        }
         let policy_submitted_library_searches = definition
             .effects
             .iter()
@@ -15338,6 +15547,7 @@ impl Game {
                         | LibrarySearchCardinality::Exactly(0),
                     ..
                 } | Effect::RevealTopLibraryCardsAndReorder { count: 0 }
+                    | Effect::LookAtTopCardsOfTargetPlayerAndReorder { count: 0 }
             ) {
                 return Err(RulesError::IllegalAction(
                     "typed library search or reorder must request a positive card count",
@@ -15409,6 +15619,7 @@ impl Game {
                 | Effect::SearchControllerLibraryForCompatibleAuraAttachedToSource { .. }
                 | Effect::SearchControllerLibraryMany { .. }
                 | Effect::RevealTopLibraryCardsAndReorder { .. }
+                | Effect::LookAtTopCardsOfTargetPlayerAndReorder { .. }
                 | Effect::LookAtTopCardsPutOneInHandOneOnTopRestOnBottom { .. }
                 | Effect::AttachSourceAndModifyTargetPt { .. }
                 | Effect::RevealTopCardPutIntoHandLoseLifeEqualToManaValue
@@ -15640,6 +15851,9 @@ impl Game {
             return Ok(());
         }
         if self.suspend_top_stack_item_for_library_top_partition_choice()? {
+            return Ok(());
+        }
+        if self.suspend_top_stack_item_for_target_player_library_reorder_choice()? {
             return Ok(());
         }
         if self.suspend_top_stack_item_for_conditional_private_discard_choice()? {
@@ -17650,6 +17864,108 @@ impl Game {
             cards.iter().copied().map(DecisionOption::Object).collect(),
             DecisionContinuation::LibraryTopPartition { source, cards },
         )?;
+        Ok(true)
+    }
+
+    /// Opens the private no-priority boundary for a spell whose controller
+    /// reorders a targeted player's top library slice. The target may be the
+    /// controller; either way only the spell controller sees candidates.
+    fn suspend_top_stack_item_for_target_player_library_reorder_choice(
+        &mut self,
+    ) -> Result<bool, RulesError> {
+        if self.pending_decision.is_some()
+            || self.pending_private_library_choice.is_some()
+            || self.pending_private_opponent_library_exile_choice.is_some()
+        {
+            return Err(RulesError::IllegalAction(
+                "a second private-library choice attempted to open during resolution",
+            ));
+        }
+        let Some(top) = self.stack.last() else {
+            return Ok(false);
+        };
+        let (source, source_incarnation, controller, target, count) = match (
+            top.ability_id,
+            top.targets.as_slice(),
+            top.effects.as_slice(),
+        ) {
+            (
+                None,
+                [Target::Player(target)],
+                [Effect::LookAtTopCardsOfTargetPlayerAndReorder { count }],
+            ) => (
+                top.card,
+                top.source_incarnation,
+                top.controller,
+                *target,
+                *count,
+            ),
+            (_, _, [Effect::LookAtTopCardsOfTargetPlayerAndReorder { .. }]) => {
+                return Err(RulesError::IllegalAction(
+                    "private target-library reorder effect has an invalid spell shape",
+                ));
+            }
+            _ => return Ok(false),
+        };
+        if count == 0 {
+            return Err(RulesError::IllegalAction(
+                "private target-library reorder must inspect at least one card",
+            ));
+        }
+        // An illegal target follows the normal all-targets-illegal counter
+        // path and must never reveal a hidden library snapshot.
+        if !self.target_matches_for_controller(
+            controller,
+            Target::Player(target),
+            TargetRequirement::Player,
+        ) {
+            return Ok(false);
+        }
+        let cards = self.players[target.0]
+            .library
+            .iter()
+            .rev()
+            .take(usize::from(count))
+            .copied()
+            .collect::<Vec<_>>();
+        if cards.is_empty() {
+            return Ok(false);
+        }
+        let card_count = u8::try_from(cards.len()).map_err(|_| {
+            RulesError::IllegalAction(
+                "target-player library reorder candidates exceed decision range",
+            )
+        })?;
+        self.open_pending_decision(
+            controller,
+            DecisionVisibility::Private,
+            DecisionKind::TargetPlayerLibraryTopReorder,
+            card_count,
+            card_count,
+            cards.iter().copied().map(DecisionOption::Object).collect(),
+            DecisionContinuation::TargetPlayerLibraryTopReorder {
+                source,
+                source_incarnation,
+                controller,
+                target,
+                cards,
+            },
+        )?;
+        let decision = self
+            .pending_decision
+            .as_ref()
+            .ok_or(RulesError::IllegalAction(
+                "private target-library reorder decision failed to open",
+            ))?
+            .id;
+        self.record_event(GameEvent::PrivateTargetPlayerLibraryReorderOpened {
+            decision,
+            controller,
+            source,
+            source_incarnation,
+            target,
+            count: card_count,
+        });
         Ok(true)
     }
 
@@ -23645,6 +23961,20 @@ impl Game {
                     "private-library partition effect bypassed its resolution boundary",
                 ));
             }
+            Effect::LookAtTopCardsOfTargetPlayerAndReorder { .. } => {
+                let Some(Target::Player(target)) = target else {
+                    return Err(RulesError::IllegalAction(
+                        "target-player library reorder effect lacks a player target",
+                    ));
+                };
+                if !self.players[target.0].library.is_empty() {
+                    return Err(RulesError::IllegalAction(
+                        "target-player library reorder effect bypassed its resolution boundary",
+                    ));
+                }
+                // Looking at zero cards is a legal no-op. The stack's normal
+                // terminal spell lifecycle resumes without a fake decision.
+            }
             Effect::LookAtTopCardsOfTargetOpponentExileOne { .. } => {
                 return Err(RulesError::IllegalAction(
                     "private opponent-library choice effect bypassed its resolution boundary",
@@ -26105,6 +26435,16 @@ impl Game {
                 "target-player library-top may-choice is valid only on an activated ability",
             ));
         }
+        if ability.effects.iter().any(|effect| {
+            matches!(
+                effect,
+                Effect::LookAtTopCardsOfTargetPlayerAndReorder { .. }
+            )
+        }) {
+            return Err(RulesError::IllegalAction(
+                "target-player library reorder is valid only on a spell",
+            ));
+        }
         Self::validate_cast_effects_for_ability(&ability.effects)
     }
 
@@ -26261,6 +26601,14 @@ impl Game {
             ) {
                 return Err(RulesError::IllegalAction(
                     "private opponent-library choice must inspect at least one card",
+                ));
+            }
+            if matches!(
+                effect,
+                Effect::LookAtTopCardsOfTargetPlayerAndReorder { count: 0 }
+            ) {
+                return Err(RulesError::IllegalAction(
+                    "private target-library reorder must inspect at least one card",
                 ));
             }
             let amount = match effect {
@@ -29380,6 +29728,122 @@ impl Game {
         Ok(open.into_keys().collect())
     }
 
+    /// A target-player library reorder decision has a private candidate
+    /// projection but public lifecycle provenance. Its opening must follow
+    /// the matching generic decision receipt; completion must commit one
+    /// identity-free reorder receipt before the spell terminates.
+    #[allow(clippy::too_many_lines)] // One lifecycle audit keeps opening, completion, and private commit provenance adjacent.
+    fn validate_target_player_library_reorder_event_order(
+        events: &[GameEvent],
+    ) -> Result<BTreeSet<DecisionId>, RulesError> {
+        let mut open = BTreeMap::<DecisionId, (PlayerId, ObjectId, u64, PlayerId, u8, bool)>::new();
+        for (index, event) in events.iter().enumerate() {
+            match event {
+                GameEvent::PrivateTargetPlayerLibraryReorderOpened {
+                    decision,
+                    controller,
+                    source,
+                    source_incarnation,
+                    target,
+                    count,
+                } => {
+                    if *count == 0
+                        || !matches!(
+                            events.get(index.wrapping_sub(1)),
+                            Some(GameEvent::DecisionOpened {
+                                decision: opened_decision,
+                                player,
+                                kind: DecisionKind::TargetPlayerLibraryTopReorder,
+                                visibility: DecisionVisibility::Private,
+                                min_selections,
+                                max_selections,
+                            }) if opened_decision == decision
+                                && player == controller
+                                && min_selections == count
+                                && max_selections == count
+                        )
+                        || open
+                            .insert(
+                                *decision,
+                                (
+                                    *controller,
+                                    *source,
+                                    *source_incarnation,
+                                    *target,
+                                    *count,
+                                    false,
+                                ),
+                            )
+                            .is_some()
+                    {
+                        return Err(RulesError::IllegalAction(
+                            "target-player library-reorder opening lacks its private decision",
+                        ));
+                    }
+                }
+                GameEvent::DecisionCompleted {
+                    decision,
+                    player,
+                    kind: DecisionKind::TargetPlayerLibraryTopReorder,
+                } => {
+                    let Some((controller, _, _, _, _, completed)) = open.get_mut(decision) else {
+                        return Err(RulesError::IllegalAction(
+                            "target-player library-reorder completion lacks its opening",
+                        ));
+                    };
+                    if *controller != *player || *completed {
+                        return Err(RulesError::IllegalAction(
+                            "target-player library-reorder completion has invalid controller provenance",
+                        ));
+                    }
+                    *completed = true;
+                }
+                GameEvent::PrivateTargetPlayerLibraryReordered {
+                    controller,
+                    source,
+                    source_incarnation,
+                    target,
+                    inspected,
+                } => {
+                    let matching = open.iter().find_map(
+                        |(
+                            decision,
+                            (
+                                opened_controller,
+                                opened_source,
+                                opened_incarnation,
+                                opened_target,
+                                count,
+                                completed,
+                            ),
+                        )| {
+                            (*completed
+                                && *opened_controller == *controller
+                                && *opened_source == *source
+                                && *opened_incarnation == *source_incarnation
+                                && *opened_target == *target
+                                && *count == *inspected)
+                                .then_some(*decision)
+                        },
+                    );
+                    let Some(decision) = matching else {
+                        return Err(RulesError::IllegalAction(
+                            "target-player library-reorder receipt lacks its completed decision",
+                        ));
+                    };
+                    open.remove(&decision);
+                }
+                _ => {}
+            }
+        }
+        if open.values().any(|(_, _, _, _, _, completed)| *completed) {
+            return Err(RulesError::IllegalAction(
+                "completed target-player library-reorder decision lacks its commit receipt",
+            ));
+        }
+        Ok(open.into_keys().collect())
+    }
+
     /// A discard performed by a resolving effect must immediately enter its
     /// owner's graveyard. This is distinct from an activation's explicit
     /// `DiscardedAsAbilityCost` receipt, which is audited separately.
@@ -31229,6 +31693,69 @@ impl Game {
                 {
                     return Err(RulesError::IllegalAction(
                         "private library partition violates its source, stack, and candidate boundary",
+                    ));
+                }
+            }
+            DecisionContinuation::TargetPlayerLibraryTopReorder {
+                source,
+                source_incarnation,
+                controller,
+                target,
+                cards,
+            } => {
+                let stack = self.stack.last().ok_or(RulesError::IllegalAction(
+                    "target-player library reorder decision escaped its stack spell",
+                ))?;
+                let current = self.players[target.0]
+                    .library
+                    .iter()
+                    .rev()
+                    .take(cards.len())
+                    .copied()
+                    .collect::<Vec<_>>();
+                let expected_count = u8::try_from(cards.len()).map_err(|_| {
+                    RulesError::IllegalAction(
+                        "target-player library reorder candidates exceed decision range",
+                    )
+                })?;
+                if cards.is_empty()
+                    || decision.kind != DecisionKind::TargetPlayerLibraryTopReorder
+                    || decision.visibility != DecisionVisibility::Private
+                    || decision.player != *controller
+                    || stack.card != *source
+                    || stack.source_incarnation != *source_incarnation
+                    || stack.controller != *controller
+                    || stack.ability_id.is_some()
+                    || stack.targets.as_slice() != [Target::Player(*target)]
+                    || !matches!(
+                        stack.effects.as_slice(),
+                        [Effect::LookAtTopCardsOfTargetPlayerAndReorder { count }]
+                            if usize::from(*count) >= cards.len()
+                    )
+                    || !self.target_matches_for_controller(
+                        *controller,
+                        Target::Player(*target),
+                        TargetRequirement::Player,
+                    )
+                    || current != *cards
+                    || cards.iter().enumerate().any(|(index, card)| {
+                        cards[index + 1..].contains(card)
+                            || self.zone_of(*card) != Some(Zone::Library)
+                            || self
+                                .object(*card)
+                                .map_or(true, |object| object.owner != *target)
+                    })
+                    || decision.options
+                        != cards
+                            .iter()
+                            .copied()
+                            .map(DecisionOption::Object)
+                            .collect::<Vec<_>>()
+                    || decision.min_selections != expected_count
+                    || decision.max_selections != expected_count
+                {
+                    return Err(RulesError::IllegalAction(
+                        "target-player library reorder violates its private stack snapshot",
                     ));
                 }
             }
