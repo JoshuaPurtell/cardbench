@@ -607,6 +607,16 @@ Oracle Magic rules coverage.
   one permanent can put indistinguishable trigger instances on the stack at
   different times. A stale, foreign, or malformed response leaves the pending
   choice, stack, zones, mana, and event log unchanged.
+- The specialized controller-private top-library choice also consumes that
+  same monotonic `DecisionId` space even though it is not represented by the
+  generic cardinality-based `PendingDecision`. Its positive id is lower than
+  the next allocation, belongs to the exact top spell and controller, and is
+  visible only to that controller with the private inspected-card snapshot.
+  `ChoosePrivateLibraryCards` must echo that exact id: a source `ObjectId`
+  alone is insufficient because the physical spell may leave a zone and be
+  recast with a new stack incarnation. A stale, foreign, or malformed answer
+  leaves the suspended spell, private snapshot, zones, life, and event log
+  unchanged.
 - `PolicyAction::SubmitDecision` must supply the currently live exact id and a
   selection whose type, cardinality, uniqueness, and options match the typed
   continuation. A stale id, different player, duplicate, out-of-range count,
@@ -1117,7 +1127,8 @@ Oracle Magic rules coverage.
   `GameView`; opponents see no candidate identities. The opening
   `CardsLookedAt` receipt records only the viewer, current stack source and
   incarnation, and inspected count—never hidden card identities—and must
-  exactly agree with the live private snapshot. The snapshot must still be
+  exactly agree with the live private snapshot. Its controller-private fresh
+  `DecisionId` must be positive and already allocated. The snapshot must still be
   exactly the controller-owned current library top sequence, priority must
   stay with that controller with zero passes, and no draw replacement may
   coexist. A submitted selection is unique and a subset of that snapshot,
