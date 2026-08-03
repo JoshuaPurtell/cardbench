@@ -823,6 +823,11 @@ struct DamageRedirection {
 struct DamagePreventionShield {
     id: u64,
     source: ObjectId,
+    /// A copied instant or sorcery is stack-only and disappears after its
+    /// effect resolves. A target-side prevention shield is nevertheless an
+    /// independent end-of-turn replacement effect, so retain this explicit
+    /// provenance boundary instead of fabricating a physical source object.
+    source_is_virtual: bool,
     target: Target,
     remaining: i32,
     expires_turn: u32,
@@ -14545,7 +14550,11 @@ impl Game {
             }
         }
         for shield in &self.damage_prevention_shields {
-            if !self.object_identity_is_live_or_historically_departed(shield.source)
+            if (shield.source_is_virtual
+                && (self.objects.contains_key(&shield.source)
+                    || self.virtual_spell_copies.contains_key(&shield.source)))
+                || (!shield.source_is_virtual
+                    && !self.object_identity_is_live_or_historically_departed(shield.source))
                 || shield.id == 0
                 || shield.id >= self.next_timestamp
                 || shield.remaining <= 0
@@ -22390,11 +22399,25 @@ impl Game {
         if amount <= 0 || !self.target_matches(target, TargetRequirement::PlayerOrCreature) {
             return Err(RulesError::IllegalTarget(target));
         }
-        self.object(source)?;
+        let source_is_virtual = self.virtual_spell_copies.contains_key(&source);
+        if source_is_virtual
+            && self
+                .stack
+                .iter()
+                .any(|stack_object| stack_object.card == source)
+        {
+            return Err(RulesError::IllegalAction(
+                "a virtual spell shield source must be resolving",
+            ));
+        }
+        if !source_is_virtual {
+            self.object(source)?;
+        }
         let amount = i32::from(amount);
         self.damage_prevention_shields.push(DamagePreventionShield {
             id: self.next_timestamp,
             source,
+            source_is_virtual,
             target,
             remaining: amount,
             expires_turn: self.turn,
