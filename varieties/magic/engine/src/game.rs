@@ -34409,7 +34409,12 @@ impl Game {
             else {
                 continue;
             };
-            let Some(definition) = self.object(*source)?.definition else {
+            let Some(definition) = self
+                .objects
+                .get(source)
+                .and_then(|object| object.definition)
+                .or_else(|| self.departed_card_definitions.get(source).copied())
+            else {
                 continue;
             };
             let is_blocks_trigger = self
@@ -34515,7 +34520,12 @@ impl Game {
             else {
                 continue;
             };
-            let Some(definition) = self.object(*source)?.definition else {
+            let Some(definition) = self
+                .objects
+                .get(source)
+                .and_then(|object| object.definition)
+                .or_else(|| self.departed_card_definitions.get(source).copied())
+            else {
                 continue;
             };
             let is_any_upkeep = self
@@ -34556,7 +34566,12 @@ impl Game {
             else {
                 continue;
             };
-            let Some(definition) = self.object(*source)?.definition else {
+            let Some(definition) = self
+                .objects
+                .get(source)
+                .and_then(|object| object.definition)
+                .or_else(|| self.departed_card_definitions.get(source).copied())
+            else {
                 continue;
             };
             let is_any_end_step = self
@@ -34605,7 +34620,12 @@ impl Game {
             else {
                 continue;
             };
-            let Some(definition) = self.object(*source)?.definition else {
+            let Some(definition) = self
+                .objects
+                .get(source)
+                .and_then(|object| object.definition)
+                .or_else(|| self.departed_card_definitions.get(source).copied())
+            else {
                 continue;
             };
             let is_attachment_relative_end_step = self
@@ -35900,7 +35920,12 @@ impl Game {
             else {
                 continue;
             };
-            let Some(definition) = self.object(*source)?.definition else {
+            let Some(definition) = self
+                .objects
+                .get(source)
+                .and_then(|object| object.definition)
+                .or_else(|| self.departed_card_definitions.get(source).copied())
+            else {
                 continue;
             };
             let binding = self
