@@ -195,7 +195,7 @@ pub enum EngineTournamentFailure {
 /// while the public setup contract remains valid. Determinism is asserted by tests
 /// through replaying the same configuration.
 pub fn run_rav_full_deck_match(config: DeckMatchConfig) -> Result<DeckMatchResult, String> {
-    run_rav_deck_matchup(config, "rav_boros_helix", "rav_selesnya_convoke")
+    run_rav_deck_matchup_verified(config, "rav_boros_helix", "rav_selesnya_convoke")
 }
 
 /// Runs any two shown RAV deck fixtures against their declared Rust policies.
@@ -359,6 +359,26 @@ pub fn run_rav_deck_matchup(
     ))
 }
 
+/// Executes one public matchup twice from fresh state and fails closed if the
+/// canonical event transcript or digest drifts. Campaign binaries use this
+/// boundary so a policy or engine that depends on hidden iteration order cannot
+/// silently produce a different result on replay.
+fn run_rav_deck_matchup_verified(
+    config: DeckMatchConfig,
+    deck_p0_id: &str,
+    deck_p1_id: &str,
+) -> Result<DeckMatchResult, String> {
+    let first = run_rav_deck_matchup(config, deck_p0_id, deck_p1_id)?;
+    let replay = run_rav_deck_matchup(config, deck_p0_id, deck_p1_id)?;
+    if first.event_log != replay.event_log || first.digest != replay.digest {
+        return Err(format!(
+            "non-deterministic event log for {deck_p0_id} vs {deck_p1_id} at seed {}: first={} replay={}",
+            config.shuffle_seed, first.digest, replay.digest
+        ));
+    }
+    Ok(first)
+}
+
 fn expected_deck<'a>(decks: &'a [DeckFixture], id: &str) -> Result<&'a DeckFixture, String> {
     decks
         .iter()
@@ -403,10 +423,14 @@ pub fn run_rav_full_deck_sweep(
     let mut matches = Vec::new();
     let mut engine_findings = Vec::new();
     for shuffle_seed in seeds {
-        let result = run_rav_full_deck_match(DeckMatchConfig {
-            shuffle_seed,
-            ..DeckMatchConfig::default()
-        })?;
+        let result = run_rav_deck_matchup_verified(
+            DeckMatchConfig {
+                shuffle_seed,
+                ..DeckMatchConfig::default()
+            },
+            "rav_boros_helix",
+            "rav_selesnya_convoke",
+        )?;
         engine_findings.extend(result.engine_findings.iter().cloned());
         matches.push(result);
     }
@@ -481,7 +505,7 @@ pub fn run_rav_reference_deck_matrix(
                 .map(|(batch_index, (deck_p0, deck_p1, shuffle_seed))| {
                     let index = batch_start + batch_index;
                 scope.spawn(move || {
-                    let result = run_rav_deck_matchup(
+                    let result = run_rav_deck_matchup_verified(
                         DeckMatchConfig {
                             shuffle_seed,
                             ..DeckMatchConfig::default()
