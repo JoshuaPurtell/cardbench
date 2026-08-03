@@ -18399,7 +18399,17 @@ impl Game {
         let amount = i32::from(*amount);
         if amount <= 0
             || !self.stack_target_incarnation_matches(&top, target_offset, target)
-            || !self.target_matches_for_source(controller, source, target, *requirement)
+            // A virtual spell copy is stack-only, so re-reading `source` as
+            // a physical object would silently skip this decision boundary.
+            // Target legality during resolution is defined by the stack
+            // snapshot, including the colors held by the exact source
+            // incarnation, just as the ordinary resolver does.
+            || !self.target_matches_for_colors(
+                controller,
+                target,
+                *requirement,
+                &top.source_colors,
+            )
         {
             // The ordinary resolver owns malformed/illegal target handling.
             return Ok(false);

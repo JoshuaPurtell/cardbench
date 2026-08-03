@@ -334,7 +334,10 @@ Oracle Magic rules coverage.
   amount, and the exact replacement identities already used. For any exact
   targeted `DealDamage` instruction of a represented stack spell or ability, the
   engine gathers live target-shields, permanent shields/protection, and
-  bounded redirections before it records any damage. Two or more candidates
+  bounded redirections before it records any damage. The suspension check uses
+  that exact stack object's frozen source colors rather than re-reading a
+  physical source, so the identical choice boundary applies to a stack-only
+  virtual copy. Two or more candidates
   open the same public, id-bearing `DecisionKind::Replacement` boundary used
   by quantity replacement; its options are `ReplacementChoice::Damage` values
   visible only to the affected player. The continuation captures the immutable
