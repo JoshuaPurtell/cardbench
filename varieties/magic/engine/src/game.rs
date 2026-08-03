@@ -6974,7 +6974,7 @@ impl Game {
         // member has entered and every returned Aura has its final attachment.
         // In particular, a returning Aura can observe its companion creature
         // entering; serial capture would silently lose that trigger.
-        self.capture_simultaneous_entry_triggers(&returned)?;
+        self.capture_simultaneous_entry_triggers_and_land_entries(&returned)?;
         Ok(returned)
     }
 
@@ -14271,16 +14271,7 @@ impl Game {
             entry_sources.push(*entrant);
             self.apply_static_entry_restriction_from_sources(*entrant, &entry_sources)?;
         }
-        self.capture_simultaneous_entry_triggers(entrants)?;
-        for entrant in entrants {
-            if self
-                .characteristics(*entrant)?
-                .card_types
-                .contains(&CardType::Land)
-            {
-                self.capture_land_entry_triggers(self.controller_of(*entrant)?)?;
-            }
-        }
+        self.capture_simultaneous_entry_triggers_and_land_entries(entrants)?;
         Ok(())
     }
 
@@ -23463,6 +23454,27 @@ impl Game {
                 controller,
                 &observer_sources,
             )?;
+        }
+        Ok(())
+    }
+
+    /// Completes the trigger-observation portion of one simultaneous entry
+    /// event. Generic self/nonartifact/Aura observers use the one post-event
+    /// battlefield snapshot first; every land entrant then produces its own
+    /// land-entry event against that same completed battlefield.
+    fn capture_simultaneous_entry_triggers_and_land_entries(
+        &mut self,
+        entrants: &[ObjectId],
+    ) -> Result<(), RulesError> {
+        self.capture_simultaneous_entry_triggers(entrants)?;
+        for entrant in entrants {
+            if self
+                .characteristics(*entrant)?
+                .card_types
+                .contains(&CardType::Land)
+            {
+                self.capture_land_entry_triggers(self.controller_of(*entrant)?)?;
+            }
         }
         Ok(())
     }
@@ -32719,16 +32731,7 @@ impl Game {
             entry_sources.push(*card);
             self.apply_static_entry_restriction_from_sources(*card, &entry_sources)?;
         }
-        self.capture_simultaneous_entry_triggers(&returning)?;
-        for card in &returning {
-            if self
-                .characteristics(*card)?
-                .card_types
-                .contains(&CardType::Land)
-            {
-                self.capture_land_entry_triggers(self.controller_of(*card)?)?;
-            }
-        }
+        self.capture_simultaneous_entry_triggers_and_land_entries(&returning)?;
         Ok(())
     }
 
