@@ -18,7 +18,8 @@ use crate::{
     DecisionContinuation, DecisionId, DecisionKind, DecisionOption, DecisionSelection,
     DecisionVisibility, DeckList, DelayedAction, DelayedActionId, DelayedActionKind,
     DelayedActionTiming, Duration, Effect, EntryCharacteristicOverride, EntryCoinFlipBinding,
-    EntryCopyBinding, EntryCopySnapshot, GameEvent, GeneralizedAbilityActivation,
+    EntryCopyBinding, EntryCopySnapshot, ExiledSpellCopyMember, GameEvent,
+    GeneralizedAbilityActivation,
     GeneralizedActivatedAbilityCost, GraveyardCreatureCardSnapshot, GraveyardLandCardSnapshot,
     HandCardSnapshot, Keyword, LandEntryBinding, Layer, LegendaryPermanentBinding,
     LibrarySearchCardinality, LibrarySearchDestination, LibrarySearchRequirement,
@@ -855,6 +856,17 @@ enum TriggerEventPayload {
         incarnation: u64,
         name: &'static str,
     },
+    /// One instant or sorcery was cast. Unlike an ordinary spell target, the
+    /// observed identity may be a stack-only virtual copy, so its physical
+    /// incarnation and virtual status are retained explicitly. `caster` is
+    /// captured separately from the triggered ability's controller.
+    CastInstantOrSorcerySpell {
+        spell: ObjectId,
+        incarnation: u64,
+        is_virtual: bool,
+        caster: PlayerId,
+        prior_exiled: Vec<ExiledSpellCopyMember>,
+    },
     /// An Aura-like source observed the beginning of the upkeep belonging to
     /// the controller of this exact attached creature incarnation.
     AttachedCreature {
@@ -904,6 +916,17 @@ struct LinkedHandExileGroup {
     source: ObjectId,
     source_incarnation: u64,
     members: Vec<LinkedHandExileMember>,
+}
+
+/// Physical instant/sorcery cards retained by one exact source incarnation
+/// after a global cast trigger exiled them from the stack.  The group stores
+/// only templates, never virtual spell copies: a copied spell ceases to
+/// exist when this trigger observes it, so it cannot become a later source.
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct ExiledSpellCopyGroup {
+    source: ObjectId,
+    source_incarnation: u64,
+    members: Vec<ExiledSpellCopyMember>,
 }
 
 /// A queued APNAP controller group. A singleton is stacked directly; a group
@@ -1068,6 +1091,10 @@ pub struct Game {
     /// `(source, source_incarnation)` so an ordinary leave/re-enter boundary
     /// cannot merge separate cards' private exile state.
     linked_hand_exile_groups: BTreeMap<(ObjectId, u64), LinkedHandExileGroup>,
+    /// Exact-source exile groups used by cast-trigger copy effects.  Records
+    /// are intentionally source-incarnation scoped, so a later incarnation
+    /// of the same permanent cannot claim an earlier card's exile templates.
+    exiled_spell_copy_groups: BTreeMap<(ObjectId, u64), ExiledSpellCopyGroup>,
     /// Exact creatures that paid one live physical spell's Convoke cost. The
     /// key is that spell's stack incarnation, so terminal resolution,
     /// countering, elimination, and zone changes cannot leak provenance into
@@ -1177,6 +1204,11 @@ pub struct Game {
     /// placement queue preserves that order while target-bearing triggers wait
     /// for their controllers' no-priority choices.
     pending_trigger_events: Vec<PendingTriggeredAbilityEvent>,
+    /// Triggers observed while a source-scoped exiled-spell copy is cast
+    /// during the parent ability's resolution. They are captured at cast time
+    /// but cannot be placed on the stack or create a priority window until
+    /// the serial cast/decline continuation has completed.
+    deferred_exiled_spell_copy_trigger_events: Vec<PendingTriggeredAbilityEvent>,
     pending_trigger_placements: Vec<PendingTriggerPlacement>,
     /// Land entries produced while a spell or ability resolves. Their trigger
     /// batches wait until that enclosing stack object has completed its own
@@ -1387,6 +1419,7 @@ impl Game {
             exile_on_resolution: BTreeSet::new(),
             linked_exile_groups: BTreeMap::new(),
             linked_hand_exile_groups: BTreeMap::new(),
+            exiled_spell_copy_groups: BTreeMap::new(),
             convoke_contributor_provenance: BTreeMap::new(),
             delayed_actions: Vec::new(),
             next_linked_exile_group_id: 1,
@@ -1430,6 +1463,7 @@ impl Game {
             pending_optional_trigger_choice: None,
             library_search_prevented_until: None,
             pending_trigger_events: Vec::new(),
+            deferred_exiled_spell_copy_trigger_events: Vec::new(),
             pending_trigger_placements: Vec::new(),
             pending_land_entry_trigger_batches: Vec::new(),
             pending_damage_redirection: None,
@@ -1981,6 +2015,7 @@ impl Game {
                         | TriggerCondition::CastsNoncreatureSpell
                         | TriggerCondition::CastsCreatureSpell
                         | TriggerCondition::AnyPlayerCastsCreatureSpell
+                        | TriggerCondition::AnyPlayerCastsInstantOrSorcerySpell
                         | TriggerCondition::FirstNoncreatureSpellCastEachTurn
                 )
                 || binding.ability.targets
@@ -4530,6 +4565,7 @@ impl Game {
                 | DecisionContinuation::TriggeredEffectObject { .. }
                 | DecisionContinuation::CombatDamageOrder { .. }
                 | DecisionContinuation::SpellCopyTargets { .. }
+                | DecisionContinuation::ExiledSpellCopyCast { .. }
                 | DecisionContinuation::TriggeredAbilityTargets { .. }
                 | DecisionContinuation::TriggeredAbilityOrder { .. }
                 | DecisionContinuation::QuantityReplacement { .. }
@@ -4608,6 +4644,7 @@ impl Game {
                 | DecisionContinuation::TriggeredEffectObject { .. }
                 | DecisionContinuation::CombatDamageOrder { .. }
                 | DecisionContinuation::SpellCopyTargets { .. }
+                | DecisionContinuation::ExiledSpellCopyCast { .. }
                 | DecisionContinuation::TriggeredAbilityOrder { .. }
                 | DecisionContinuation::QuantityReplacement { .. }
                 | DecisionContinuation::DamageReplacement { .. }
@@ -4671,6 +4708,7 @@ impl Game {
                 | DecisionContinuation::TargetPlayerLibraryTopReorder { .. }
                 | DecisionContinuation::CombatDamageOrder { .. }
                 | DecisionContinuation::SpellCopyTargets { .. }
+                | DecisionContinuation::ExiledSpellCopyCast { .. }
                 | DecisionContinuation::TriggeredAbilityTargets { .. }
                 | DecisionContinuation::TriggeredAbilityOrder { .. }
                 | DecisionContinuation::QuantityReplacement { .. }
@@ -4769,6 +4807,7 @@ impl Game {
                 | DecisionContinuation::TriggeredEffectObject { .. }
                 | DecisionContinuation::CombatDamageOrder { .. }
                 | DecisionContinuation::SpellCopyTargets { .. }
+                | DecisionContinuation::ExiledSpellCopyCast { .. }
                 | DecisionContinuation::TriggeredAbilityTargets { .. }
                 | DecisionContinuation::TriggeredAbilityOrder { .. }
                 | DecisionContinuation::QuantityReplacement { .. }
@@ -6383,6 +6422,22 @@ impl Game {
             });
             !group.members.is_empty()
         });
+    }
+
+    /// Removes one physical template when it leaves the exact exile object
+    /// observed by a source-scoped copy trigger. Empty groups deliberately
+    /// remain: they prevent a stale trigger payload from restoring a template
+    /// after the current source group has observed its departure.
+    fn unlink_exiled_spell_copy_member_before_zone_departure(
+        &mut self,
+        card: ObjectId,
+        exile_incarnation: u64,
+    ) {
+        for group in self.exiled_spell_copy_groups.values_mut() {
+            group.members.retain(|member| {
+                member.card != card || member.exile_incarnation != exile_incarnation
+            });
+        }
     }
 
     /// Drops a private hand-exile group only after its source leaves and no
@@ -8075,7 +8130,7 @@ impl Game {
             incarnation: source_incarnation,
         });
         if definition.card_types.contains(&CardType::Creature) {
-            self.enqueue_cast_creature_triggers(
+            self.queue_cast_creature_triggers(
                 player,
                 request.card,
                 source_incarnation,
@@ -8084,12 +8139,25 @@ impl Game {
         } else {
             let is_first_noncreature_spell_this_turn =
                 self.noncreature_spell_casters_this_turn.insert(player);
-            self.enqueue_cast_noncreature_triggers(
+            self.queue_cast_noncreature_triggers(
                 player,
                 request.card,
                 is_first_noncreature_spell_this_turn,
             )?;
         }
+        if definition
+            .card_types
+            .iter()
+            .any(|kind| matches!(kind, CardType::Instant | CardType::Sorcery))
+        {
+            self.queue_cast_instant_or_sorcery_triggers(
+                player,
+                request.card,
+                source_incarnation,
+                false,
+            )?;
+        }
+        self.flush_pending_trigger_events()?;
         self.consecutive_passes = 0;
         // CR 601.2i / 117.3c normally returns priority to the player who
         // completed the cast.  Trigger placement happens before that window,
@@ -8873,6 +8941,23 @@ impl Game {
                     &selected,
                 )
             }
+            DecisionContinuation::ExiledSpellCopyCast {
+                source_stack_item,
+                source,
+                source_incarnation,
+                caster,
+                cast_cards,
+                prior_exiled,
+            } => self.resolve_exiled_spell_copy_cast_decision(
+                &decision,
+                source_stack_item,
+                source,
+                source_incarnation,
+                caster,
+                &cast_cards,
+                &prior_exiled,
+                selection,
+            ),
             DecisionContinuation::TriggeredAbilityTargets {
                 source,
                 source_incarnation,
@@ -11490,6 +11575,250 @@ impl Game {
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)] // The serial continuation carries one complete cast-copy provenance boundary.
+    #[allow(clippy::too_many_lines)] // Validation, casting, and terminal flush must stay adjacent for this no-priority transition.
+    fn resolve_exiled_spell_copy_cast_decision(
+        &mut self,
+        decision: &PendingDecision,
+        source_stack_item: StackObjectId,
+        source: ObjectId,
+        source_incarnation: u64,
+        caster: PlayerId,
+        cast_cards: &[ObjectId],
+        prior_exiled: &[ExiledSpellCopyMember],
+        selection: DecisionSelection,
+    ) -> Result<(), RulesError> {
+        let DecisionSelection::ExiledSpellCopyCast {
+            card,
+            targets,
+            mode,
+            color,
+        } = selection
+        else {
+            return Err(RulesError::IllegalAction(
+                "exiled-spell copy decision requires a serial cast-or-decline selection",
+            ));
+        };
+        let parent_position = self
+            .stack
+            .iter()
+            .position(|stack_object| stack_object.id == source_stack_item)
+            .ok_or(RulesError::IllegalAction(
+                "exiled-spell copy decision lost its parent triggered ability",
+            ))?;
+        let parent = self.stack[parent_position].clone();
+        let parent_matches = parent.card == source
+            && parent.source_incarnation == source_incarnation
+            && parent.ability_id.is_some()
+            && parent.targets.is_empty()
+            && matches!(
+                parent.effects.as_slice(),
+                [Effect::ExileCapturedInstantOrSorceryThenCopyExiledCards {
+                    caster: parent_caster,
+                    prior_exiled: parent_prior,
+                    ..
+                }] if *parent_caster == caster && parent_prior == prior_exiled
+            );
+        let above_parent_is_serial_copy = self.stack[parent_position + 1..].iter().all(|item| {
+            item.ability_id.is_none()
+                && item.controller == caster
+                && self
+                    .virtual_spell_copies
+                    .get(&item.card)
+                    .is_some_and(|copy| {
+                        cast_cards.contains(&copy.original)
+                            && self.zone_of(copy.original) == Some(Zone::Exile)
+                    })
+        });
+        let members = self.exiled_spell_copy_members((source, source_incarnation), prior_exiled);
+        let eligible = self.eligible_exiled_spell_copy_members(&members);
+        let options = eligible
+            .iter()
+            .filter(|member| !cast_cards.contains(&member.card))
+            .map(|member| DecisionOption::Object(member.card))
+            .collect::<Vec<_>>();
+        if decision.kind != DecisionKind::ExiledSpellCopyCast
+            || decision.visibility != DecisionVisibility::Public
+            || decision.player != caster
+            || decision.min_selections != 0
+            || decision.max_selections != u8::from(!options.is_empty())
+            || decision.options != options
+            || source_incarnation == 0
+            || self.players.get(caster.0).is_none_or(|player| player.lost)
+            || !parent_matches
+            || !above_parent_is_serial_copy
+            || cast_cards
+                .iter()
+                .enumerate()
+                .any(|(index, card)| *card == ObjectId(0) || cast_cards[index + 1..].contains(card))
+        {
+            return Err(RulesError::IllegalAction(
+                "exiled-spell copy decision escaped its serial stack provenance",
+            ));
+        }
+
+        let Some(card) = card else {
+            if !targets.is_empty() || mode.is_some() || color.is_some() {
+                return Err(RulesError::IllegalAction(
+                    "declining exiled-spell copies cannot submit targets, mode, or color",
+                ));
+            }
+            let parent = self.stack.remove(parent_position);
+            self.stack_effect_cursors.remove(&parent.id);
+            self.complete_pending_decision(decision)?;
+            let ability = parent.ability_id.ok_or(RulesError::IllegalAction(
+                "exiled-spell copy parent lost its triggered ability identity",
+            ))?;
+            self.record_event(GameEvent::AbilityResolved {
+                source,
+                source_incarnation,
+                ability,
+            });
+            self.pending_trigger_events
+                .append(&mut self.deferred_exiled_spell_copy_trigger_events);
+            self.check_state_based_actions()?;
+            self.flush_pending_land_entry_triggers()?;
+            self.flush_pending_damage_triggers();
+            self.flush_pending_life_gain_triggers();
+            self.flush_pending_dies_triggers();
+            self.flush_pending_trigger_events()?;
+            self.restore_priority_after_stack_resolution();
+            return Ok(());
+        };
+        let member = eligible
+            .iter()
+            .find(|member| member.card == card)
+            .copied()
+            .filter(|member| !cast_cards.contains(&member.card))
+            .ok_or(RulesError::IllegalAction(
+                "selected exiled spell is not an available serial copy candidate",
+            ))?;
+        self.complete_pending_decision(decision)?;
+        let copy =
+            self.push_virtual_spell_copy_from_exile(member, caster, &targets, mode, color)?;
+        self.record_event(GameEvent::SpellCopyCastWithoutPayingManaCost {
+            player: caster,
+            copy,
+            original: card,
+        });
+        let copy_incarnation = self
+            .stack
+            .last()
+            .filter(|stack_object| stack_object.card == copy)
+            .map(|stack_object| stack_object.source_incarnation)
+            .ok_or(RulesError::IllegalAction(
+                "exiled-spell copy left the stack before cast triggers were captured",
+            ))?;
+        self.queue_deferred_cast_triggers_for_exiled_spell_copy(caster, copy, copy_incarnation)?;
+        let mut next_cast_cards = cast_cards.to_vec();
+        next_cast_cards.push(card);
+        self.open_exiled_spell_copy_cast_decision(
+            source_stack_item,
+            source,
+            source_incarnation,
+            caster,
+            next_cast_cards,
+            prior_exiled.to_vec(),
+        )
+    }
+
+    /// Places a freshly cast virtual copy of an exile-zone physical card onto
+    /// the stack. The physical card remains in exile; copied values, targets,
+    /// mode, and color are all independently chosen at this cast boundary.
+    fn push_virtual_spell_copy_from_exile(
+        &mut self,
+        member: ExiledSpellCopyMember,
+        controller: PlayerId,
+        targets: &[Target],
+        chosen_modal_mode: Option<u8>,
+        chosen_color: Option<Color>,
+    ) -> Result<ObjectId, RulesError> {
+        if self.zone_of(member.card) != Some(Zone::Exile)
+            || !self.object_has_incarnation(member.card, member.exile_incarnation)
+        {
+            return Err(RulesError::IllegalAction(
+                "exiled-spell copy candidate left its exact exile incarnation",
+            ));
+        }
+        let mut definition = self.card_definition(member.card)?.clone();
+        if !definition
+            .card_types
+            .iter()
+            .any(|kind| matches!(kind, CardType::Instant | CardType::Sorcery))
+        {
+            return Err(RulesError::IllegalAction(
+                "only an exiled instant or sorcery card can become a cast spell copy",
+            ));
+        }
+        definition.effects =
+            Self::materialize_spell_modal_effects(&definition.effects, chosen_modal_mode)?;
+        let chosen_x = definition
+            .effects
+            .iter()
+            .any(Effect::requires_chosen_x)
+            .then_some(0);
+        if definition.effects.iter().any(Effect::requires_chosen_color) != chosen_color.is_some() {
+            return Err(RulesError::IllegalAction(
+                "exiled-spell copy cast has an invalid chosen-color boundary",
+            ));
+        }
+        if chosen_color.is_some_and(|color| !color.is_colored()) {
+            return Err(RulesError::IllegalAction(
+                "exiled-spell copy chose a non-card color",
+            ));
+        }
+        Self::validate_cast_effects(&definition)?;
+        self.validate_targets(controller, &definition, targets)?;
+        if let Some(x) = chosen_x {
+            self.validate_chosen_x_targets(&definition, targets, x)?;
+        }
+        self.validate_effect_capacity(&definition, controller)?;
+
+        let copy = ObjectId(self.next_object_id);
+        self.next_object_id =
+            self.next_object_id
+                .checked_add(1)
+                .ok_or(RulesError::IllegalAction(
+                    "object identifier space exhausted",
+                ))?;
+        self.virtual_spell_copies.insert(
+            copy,
+            VirtualSpellCopy {
+                original: member.card,
+                original_definition: definition.id,
+                source_incarnation: member.exile_incarnation,
+                source_colors: definition.colors.clone(),
+                controller,
+            },
+        );
+        let stack_item = self.allocate_stack_object_id();
+        self.stack.push(StackObject {
+            id: stack_item,
+            card: copy,
+            source_incarnation: member.exile_incarnation,
+            source_colors: definition.colors.clone(),
+            controller,
+            ability_id: None,
+            targets: targets.to_vec(),
+            target_incarnations: self.target_incarnations(targets),
+            effects: definition.effects,
+            chosen_x,
+            chosen_color,
+            chosen_modal_mode,
+            mana_spent: None,
+            convoke_symbols: 0,
+            generic_cost_reduction: 0,
+        });
+        self.record_event(GameEvent::SpellCopied {
+            copy,
+            original: member.card,
+            original_source_incarnation: member.exile_incarnation,
+            controller,
+            retargeted: !targets.is_empty(),
+        });
+        Ok(copy)
+    }
+
     #[allow(clippy::too_many_arguments)] // The captured trigger identity is one stale-safe continuation.
     fn resolve_triggered_ability_target_decision(
         &mut self,
@@ -13962,6 +14291,18 @@ impl Game {
                 "pending trigger event escaped its enclosing rules action",
             ));
         }
+        if !self.deferred_exiled_spell_copy_trigger_events.is_empty()
+            && !matches!(
+                self.pending_decision
+                    .as_ref()
+                    .map(|decision| &decision.continuation),
+                Some(DecisionContinuation::ExiledSpellCopyCast { .. })
+            )
+        {
+            return Err(RulesError::IllegalAction(
+                "deferred virtual cast triggers escaped their serial exiled-spell copy decision",
+            ));
+        }
         let trigger_placement_decision = matches!(
             self.pending_decision
                 .as_ref()
@@ -14080,6 +14421,7 @@ impl Game {
         self.validate_enters_battlefield_trigger_event_order()?;
         self.validate_linked_exile_state()?;
         self.validate_linked_hand_exile_state()?;
+        self.validate_exiled_spell_copy_state()?;
         self.validate_convoke_contributor_provenance()?;
         self.validate_creature_spell_entry_counter_provenance()?;
         self.validate_linked_hand_exile_event_shape()?;
@@ -14551,6 +14893,7 @@ impl Game {
                             | TriggerCondition::CastsNoncreatureSpell
                             | TriggerCondition::CastsCreatureSpell
                             | TriggerCondition::AnyPlayerCastsCreatureSpell
+                            | TriggerCondition::AnyPlayerCastsInstantOrSorcerySpell
                             | TriggerCondition::FirstNoncreatureSpellCastEachTurn
                     )
                     || ability.targets
@@ -15115,6 +15458,32 @@ impl Game {
                                     name,
                                 }]
                             ) if cast_card.0 > 0 && *cast_incarnation > 0 && !name.is_empty()
+                        )
+                    } else if trigger_condition
+                        == Some(TriggerCondition::AnyPlayerCastsInstantOrSorcerySpell)
+                    {
+                        matches!(
+                            (effects.as_slice(), stack_object.effects.as_slice()),
+                            (
+                                [Effect::ExileCastInstantOrSorceryThenCopyExiledCards],
+                                [Effect::ExileCapturedInstantOrSorceryThenCopyExiledCards {
+                                    spell,
+                                    spell_incarnation,
+                                    caster,
+                                    prior_exiled,
+                                    ..
+                                }]
+                            ) if spell.0 > 0
+                                && *spell_incarnation > 0
+                                && caster.0 < self.players.len()
+                                && prior_exiled.iter().all(|member| {
+                                    member.card.0 > 0 && member.exile_incarnation > 0
+                                })
+                                && prior_exiled.iter().enumerate().all(|(index, member)| {
+                                    !prior_exiled[index + 1..]
+                                        .iter()
+                                        .any(|other| other.card == member.card)
+                                })
                         )
                     } else if trigger_condition
                         == Some(TriggerCondition::BeginningOfAttachedCreaturesControllerUpkeep)
@@ -18083,6 +18452,8 @@ impl Game {
                 | Effect::CounterTargetSpellUnlessControllerPays { .. }
                 | Effect::CounterTargetSpellUnlessControllerDiscardsHand
                 | Effect::CopyTargetInstantOrSorcerySpell { .. }
+                | Effect::ExileCastInstantOrSorceryThenCopyExiledCards
+                | Effect::ExileCapturedInstantOrSorceryThenCopyExiledCards { .. }
                 | Effect::SacrificeCreatureOrCounterTargetSpell
                 | Effect::GrantGraveyardCastPermissionUntilEndOfTurn
                 | Effect::GrantExileCastPermissionUntilEndOfTurn { .. }
@@ -18671,6 +19042,9 @@ impl Game {
             return Ok(());
         }
         if self.suspend_top_stack_item_for_spell_copy_target_choice()? {
+            return Ok(());
+        }
+        if self.suspend_top_stack_item_for_exiled_spell_copy_cast_choice()? {
             return Ok(());
         }
         if self.suspend_top_stack_item_for_multi_library_search_choice()? {
@@ -20316,6 +20690,218 @@ impl Game {
         Ok(true)
     }
 
+    /// Resolves the first instruction of a source-scoped exiled-spell cast
+    /// trigger, then suspends the parent ability for a serial, no-priority
+    /// optional-copy decision.  A physical observed spell changes zones;
+    /// a virtual observed spell ceases to exist and is never retained as a
+    /// future template.
+    #[allow(clippy::too_many_lines)] // This suspension owns one atomic source-scoped exile-and-copy transition.
+    fn suspend_top_stack_item_for_exiled_spell_copy_cast_choice(
+        &mut self,
+    ) -> Result<bool, RulesError> {
+        if self.pending_decision.is_some() {
+            return Err(RulesError::IllegalAction(
+                "a second typed decision attempted to open during exiled-spell copy resolution",
+            ));
+        }
+        let Some(top) = self.stack.last().cloned() else {
+            return Ok(false);
+        };
+        let Effect::ExileCapturedInstantOrSorceryThenCopyExiledCards {
+            spell,
+            spell_incarnation,
+            spell_is_virtual,
+            caster,
+            prior_exiled,
+        } = (match top.effects.as_slice() {
+            [effect] => effect,
+            _ => return Ok(false),
+        })
+        else {
+            return Ok(false);
+        };
+        let ability = top.ability_id.ok_or(RulesError::IllegalAction(
+            "exiled-spell copy effect escaped onto a non-ability stack object",
+        ))?;
+        let registered = self
+            .card_definition(top.card)
+            .ok()
+            .and_then(|definition| self.triggered_abilities.get(definition.id))
+            .and_then(|abilities| abilities.get(ability));
+        if self.stack_effect_cursor(&top)? != 0
+            || !top.targets.is_empty()
+            || top.source_incarnation == 0
+            || *spell_incarnation == 0
+            || self.players.get(caster.0).is_none_or(|player| player.lost)
+            || registered.is_none_or(|binding| {
+                binding.condition != TriggerCondition::AnyPlayerCastsInstantOrSorcerySpell
+                    || binding.effects.as_slice()
+                        != [Effect::ExileCastInstantOrSorceryThenCopyExiledCards]
+            })
+        {
+            return Err(RulesError::IllegalAction(
+                "exiled-spell copy trigger has invalid source or cast provenance",
+            ));
+        }
+
+        let key = (top.card, top.source_incarnation);
+        if *spell_is_virtual {
+            let position = self
+                .stack
+                .iter()
+                .position(|candidate| {
+                    candidate.card == *spell
+                        && candidate.source_incarnation == *spell_incarnation
+                        && candidate.ability_id.is_none()
+                })
+                .ok_or(RulesError::IllegalAction(
+                    "exiled-spell trigger lost its observed virtual spell copy",
+                ))?;
+            if position >= self.stack.len() - 1 {
+                return Err(RulesError::IllegalAction(
+                    "exiled-spell trigger cannot observe itself as a spell copy",
+                ));
+            }
+            self.stack.remove(position);
+            let copy = self
+                .virtual_spell_copies
+                .remove(spell)
+                .ok_or(RulesError::IllegalAction(
+                    "exiled-spell trigger observed a virtual spell without copy provenance",
+                ))?;
+            self.record_event(GameEvent::SpellCopyExiledByTrigger {
+                copy: *spell,
+                original: copy.original,
+                source: top.card,
+            });
+        } else if let Some(position) = self.stack.iter().position(|candidate| {
+            candidate.card == *spell
+                && candidate.source_incarnation == *spell_incarnation
+                && candidate.ability_id.is_none()
+                && !self.virtual_spell_copies.contains_key(spell)
+        }) {
+            if position >= self.stack.len() - 1 {
+                return Err(RulesError::IllegalAction(
+                    "exiled-spell trigger cannot observe itself as a physical spell",
+                ));
+            }
+            self.stack.remove(position);
+            self.move_to_zone(*spell, Zone::Exile)?;
+            let exile_incarnation = self.object(*spell)?.incarnation;
+            let group =
+                self.exiled_spell_copy_groups
+                    .entry(key)
+                    .or_insert_with(|| ExiledSpellCopyGroup {
+                        source: top.card,
+                        source_incarnation: top.source_incarnation,
+                        members: Vec::new(),
+                    });
+            if group.source != top.card
+                || group.source_incarnation != top.source_incarnation
+                || group.members.iter().any(|member| member.card == *spell)
+            {
+                return Err(RulesError::IllegalAction(
+                    "exiled-spell copy group has duplicate or mismatched source provenance",
+                ));
+            }
+            group.members.push(ExiledSpellCopyMember {
+                card: *spell,
+                exile_incarnation,
+            });
+            self.record_event(GameEvent::SpellExiledByTrigger {
+                source: top.card,
+                source_incarnation: top.source_incarnation,
+                card: *spell,
+                exile_incarnation,
+            });
+        }
+        // If an intervening effect already removed a physical observed spell,
+        // its "exile it" instruction simply does nothing; the following
+        // copy instruction still sees retained templates as normal.
+        self.open_exiled_spell_copy_cast_decision(
+            top.id,
+            top.card,
+            top.source_incarnation,
+            *caster,
+            Vec::new(),
+            prior_exiled.clone(),
+        )?;
+        Ok(true)
+    }
+
+    fn exiled_spell_copy_members(
+        &self,
+        key: (ObjectId, u64),
+        fallback: &[ExiledSpellCopyMember],
+    ) -> Vec<ExiledSpellCopyMember> {
+        self.exiled_spell_copy_groups
+            .get(&key)
+            .map_or_else(|| fallback.to_vec(), |group| group.members.clone())
+    }
+
+    fn eligible_exiled_spell_copy_members(
+        &self,
+        members: &[ExiledSpellCopyMember],
+    ) -> Vec<ExiledSpellCopyMember> {
+        let mut eligible = Vec::new();
+        for member in members {
+            if member.card.0 == 0
+                || member.exile_incarnation == 0
+                || eligible
+                    .iter()
+                    .any(|known: &ExiledSpellCopyMember| known.card == member.card)
+                || self.zone_of(member.card) != Some(Zone::Exile)
+                || !self.object_has_incarnation(member.card, member.exile_incarnation)
+                || !self.card_definition(member.card).is_ok_and(|definition| {
+                    definition
+                        .card_types
+                        .iter()
+                        .any(|kind| matches!(kind, CardType::Instant | CardType::Sorcery))
+                })
+            {
+                continue;
+            }
+            eligible.push(*member);
+        }
+        eligible
+    }
+
+    fn open_exiled_spell_copy_cast_decision(
+        &mut self,
+        source_stack_item: StackObjectId,
+        source: ObjectId,
+        source_incarnation: u64,
+        caster: PlayerId,
+        cast_cards: Vec<ObjectId>,
+        prior_exiled: Vec<ExiledSpellCopyMember>,
+    ) -> Result<(), RulesError> {
+        let members = self.exiled_spell_copy_members((source, source_incarnation), &prior_exiled);
+        let options = self
+            .eligible_exiled_spell_copy_members(&members)
+            .into_iter()
+            .filter(|member| !cast_cards.contains(&member.card))
+            .map(|member| DecisionOption::Object(member.card))
+            .collect::<Vec<_>>();
+        let max = u8::from(!options.is_empty());
+        self.open_pending_decision(
+            caster,
+            DecisionVisibility::Public,
+            DecisionKind::ExiledSpellCopyCast,
+            0,
+            max,
+            options,
+            DecisionContinuation::ExiledSpellCopyCast {
+                source_stack_item,
+                source,
+                source_incarnation,
+                caster,
+                cast_cards,
+                prior_exiled,
+            },
+        )?;
+        Ok(())
+    }
+
     fn suspend_top_stack_item_for_spell_copy_target_choice(&mut self) -> Result<bool, RulesError> {
         if self.pending_decision.is_some() {
             return Err(RulesError::IllegalAction(
@@ -21462,7 +22048,7 @@ impl Game {
     /// independently tracked first cast of the current turn. Either trigger
     /// is placed above that spell before its caster receives the normal
     /// post-cast priority window.
-    fn enqueue_cast_noncreature_triggers(
+    fn queue_cast_noncreature_triggers(
         &mut self,
         caster: PlayerId,
         spell: ObjectId,
@@ -21517,7 +22103,6 @@ impl Game {
                     });
             }
         }
-        self.flush_pending_trigger_events()?;
         Ok(())
     }
 
@@ -21525,7 +22110,7 @@ impl Game {
     /// after the cast receipt and before post-cast priority. Every global
     /// observer receives the exact public cast-card provenance rather than a
     /// resolver-time lookup of a later stack or graveyard incarnation.
-    fn enqueue_cast_creature_triggers(
+    fn queue_cast_creature_triggers(
         &mut self,
         caster: PlayerId,
         spell: ObjectId,
@@ -21587,7 +22172,85 @@ impl Game {
                     });
             }
         }
-        self.flush_pending_trigger_events()
+        Ok(())
+    }
+
+    /// Queues global instant-or-sorcery cast triggers without creating a
+    /// priority boundary. Physical casts flush the complete simultaneous
+    /// trigger batch after all cast observers have queued; virtual casts made
+    /// by a resolving source-scoped trigger deliberately defer that flush
+    /// until the serial no-priority choice completes.
+    fn queue_cast_instant_or_sorcery_triggers(
+        &mut self,
+        caster: PlayerId,
+        spell: ObjectId,
+        spell_incarnation: u64,
+        spell_is_virtual: bool,
+    ) -> Result<(), RulesError> {
+        let sources = self.all_battlefield_cards();
+        for source in sources {
+            let Some(definition) = self.effective_definition_id(source)? else {
+                continue;
+            };
+            let source_controller = self.controller_of(source)?;
+            let source_incarnation = self.object(source)?.incarnation;
+            let source_colors = self.characteristics(source)?.colors;
+            let prior_exiled = self
+                .exiled_spell_copy_groups
+                .get(&(source, source_incarnation))
+                .map_or_else(Vec::new, |group| group.members.clone());
+            let triggers = self
+                .triggered_abilities
+                .get(definition)
+                .into_iter()
+                .flat_map(|abilities| abilities.values())
+                .filter(|ability| {
+                    ability.condition == TriggerCondition::AnyPlayerCastsInstantOrSorcerySpell
+                })
+                .cloned()
+                .collect::<Vec<_>>();
+            for ability in triggers {
+                self.pending_trigger_events
+                    .push(PendingTriggeredAbilityEvent {
+                        source,
+                        source_incarnation,
+                        source_colors: source_colors.clone(),
+                        controller: source_controller,
+                        ability,
+                        payload: TriggerEventPayload::CastInstantOrSorcerySpell {
+                            spell,
+                            incarnation: spell_incarnation,
+                            is_virtual: spell_is_virtual,
+                            caster,
+                            prior_exiled: prior_exiled.clone(),
+                        },
+                    });
+            }
+        }
+        Ok(())
+    }
+
+    /// Captures all normal cast triggers for one virtual instant/sorcery copy
+    /// without allowing them to escape the enclosing source-trigger
+    /// resolution. The copy really is cast for cast-history purposes, but it
+    /// has no physical `SpellCast` or zone-change receipt.
+    fn queue_deferred_cast_triggers_for_exiled_spell_copy(
+        &mut self,
+        caster: PlayerId,
+        copy: ObjectId,
+        copy_incarnation: u64,
+    ) -> Result<(), RulesError> {
+        if !self.pending_trigger_events.is_empty() {
+            return Err(RulesError::IllegalAction(
+                "virtual exiled-spell copy cast found an unflushed trigger batch",
+            ));
+        }
+        let first_noncreature = self.noncreature_spell_casters_this_turn.insert(caster);
+        self.queue_cast_noncreature_triggers(caster, copy, first_noncreature)?;
+        self.queue_cast_instant_or_sorcery_triggers(caster, copy, copy_incarnation, true)?;
+        self.deferred_exiled_spell_copy_trigger_events
+            .append(&mut self.pending_trigger_events);
+        Ok(())
     }
 
     /// Stacks every represented land-entry trigger on a live permanent. A
@@ -21800,6 +22463,7 @@ impl Game {
                 | TriggerEventPayload::EnteredPermanent { .. }
                 | TriggerEventPayload::ConvokeContributors(_)
                 | TriggerEventPayload::CastCreatureSpell { .. }
+                | TriggerEventPayload::CastInstantOrSorcerySpell { .. }
                 | TriggerEventPayload::AttachedCreature { .. }
                 | TriggerEventPayload::UpkeepPlayer(_)
                 | TriggerEventPayload::EndStepPlayer(_) => None,
@@ -21928,6 +22592,7 @@ impl Game {
         Ok(())
     }
 
+    #[allow(clippy::too_many_lines)] // Trigger payload materialization is audited as one exhaustive effect-to-payload boundary.
     fn materialize_trigger_effects(
         ability: &crate::TriggeredAbility,
         payload: &TriggerEventPayload,
@@ -22005,6 +22670,22 @@ impl Game {
                     cast_card: *card,
                     cast_incarnation: *incarnation,
                     name,
+                },
+                (
+                    Effect::ExileCastInstantOrSorceryThenCopyExiledCards,
+                    TriggerEventPayload::CastInstantOrSorcerySpell {
+                        spell,
+                        incarnation,
+                        is_virtual,
+                        caster,
+                        prior_exiled,
+                    },
+                ) => Effect::ExileCapturedInstantOrSorceryThenCopyExiledCards {
+                    spell: *spell,
+                    spell_incarnation: *incarnation,
+                    spell_is_virtual: *is_virtual,
+                    caster: *caster,
+                    prior_exiled: prior_exiled.clone(),
                 },
                 (
                     Effect::CreateTokenCopyOfAttachedCreature,
@@ -25571,6 +26252,12 @@ impl Game {
             Effect::ChooseOneOf(_) => {
                 return Err(RulesError::IllegalAction(
                     "an unmaterialized modal effect reached stack resolution",
+                ));
+            }
+            Effect::ExileCastInstantOrSorceryThenCopyExiledCards
+            | Effect::ExileCapturedInstantOrSorceryThenCopyExiledCards { .. } => {
+                return Err(RulesError::IllegalAction(
+                    "exiled-spell copy trigger bypassed its serial cast decision boundary",
                 ));
             }
             Effect::ChangeTargetOfTargetActivatedAbility => {
@@ -30035,6 +30722,7 @@ impl Game {
             .transpose()?;
         if previous_zone == Some(Zone::Exile) && zone != Zone::Exile {
             self.unlink_hand_exile_member_before_zone_departure(card, object.incarnation);
+            self.unlink_exiled_spell_copy_member_before_zone_departure(card, object.incarnation);
         }
         if left_battlefield && capture_zone_transition_observers {
             self.enqueue_another_creature_leaves_battlefield_triggers(card)?;
@@ -30863,6 +31551,30 @@ impl Game {
         }) {
             return Err(RulesError::IllegalAction(
                 "materialized creature-cast return effect escaped onto a triggered binding",
+            ));
+        }
+        let has_exiled_spell_copy_marker = ability
+            .effects
+            .contains(&Effect::ExileCastInstantOrSorceryThenCopyExiledCards);
+        if has_exiled_spell_copy_marker
+            && (ability.condition != TriggerCondition::AnyPlayerCastsInstantOrSorcerySpell
+                || ability.optional
+                || !ability.targets.is_empty()
+                || ability.effects.as_slice()
+                    != [Effect::ExileCastInstantOrSorceryThenCopyExiledCards])
+        {
+            return Err(RulesError::IllegalAction(
+                "exiled-spell copy trigger requires one mandatory target-free any-player instant-or-sorcery cast marker",
+            ));
+        }
+        if ability.effects.iter().any(|effect| {
+            matches!(
+                effect,
+                Effect::ExileCapturedInstantOrSorceryThenCopyExiledCards { .. }
+            )
+        }) {
+            return Err(RulesError::IllegalAction(
+                "materialized exiled-spell copy effect escaped onto a triggered binding",
             ));
         }
         let has_attached_creature_token_copy_marker = ability
@@ -32356,6 +33068,40 @@ impl Game {
         Ok(())
     }
 
+    /// Audits source-scoped exile templates independently of the source's
+    /// live zone. A triggered ability can outlive its source, but every live
+    /// member must still be a unique physical instant/sorcery card in its
+    /// exact retained exile incarnation. Empty groups are valid tombstones
+    /// after a template legitimately left exile.
+    fn validate_exiled_spell_copy_state(&self) -> Result<(), RulesError> {
+        for ((source, source_incarnation), group) in &self.exiled_spell_copy_groups {
+            let mut members = BTreeSet::new();
+            if source.0 == 0
+                || *source_incarnation == 0
+                || group.source != *source
+                || group.source_incarnation != *source_incarnation
+                || group.members.iter().any(|member| {
+                    member.card.0 == 0
+                        || member.exile_incarnation == 0
+                        || !members.insert(member.card)
+                        || self.zone_of(member.card) != Some(Zone::Exile)
+                        || !self.object_has_incarnation(member.card, member.exile_incarnation)
+                        || !self.card_definition(member.card).is_ok_and(|definition| {
+                            definition
+                                .card_types
+                                .iter()
+                                .any(|kind| matches!(kind, CardType::Instant | CardType::Sorcery))
+                        })
+                })
+            {
+                return Err(RulesError::IllegalAction(
+                    "exiled-spell copy group has invalid source or exact exile member provenance",
+                ));
+            }
+        }
+        Ok(())
+    }
+
     /// Every public source-hand lifecycle receipt names a nonempty, unique
     /// card set and a plausible source/controller identity. Zone and
     /// incarnation receipts remain the authoritative detailed transition
@@ -33424,6 +34170,32 @@ impl Game {
                         *card,
                     )?;
                 }
+                GameEvent::SpellExiledByTrigger {
+                    card,
+                    exile_incarnation,
+                    ..
+                } => {
+                    if *exile_incarnation == 0
+                        || !matches!(
+                            self.event_log.get(index.checked_sub(1).unwrap_or(usize::MAX)),
+                            Some(GameEvent::ObjectIncarnationAdvanced { object, incarnation })
+                                if object == card && incarnation == exile_incarnation
+                        )
+                        || !matches!(
+                            index.checked_sub(2).and_then(|prior| self.event_log.get(prior)),
+                            Some(GameEvent::CardMoved { card: moved, to: Zone::Exile }) if moved == card
+                        )
+                    {
+                        return Err(RulesError::IllegalAction(
+                            "spell-exiled trigger receipt lacks its exact physical exile transition",
+                        ));
+                    }
+                    Self::close_stack_receipt_lifecycle(
+                        &mut open_casts,
+                        &mut terminal_cards,
+                        *card,
+                    )?;
+                }
                 GameEvent::ObjectLeftGame { object, .. } => {
                     // CR 800.4a removes a departed owner's spell from the
                     // stack without treating it as a resolved or countered
@@ -33454,8 +34226,9 @@ impl Game {
     /// the physical-spell receipt scan above. They still need exactly one
     /// replay-visible terminal outcome: resolution, rules countering, or a
     /// controller leaving a multiplayer game.
+    #[allow(clippy::too_many_lines)] // One exhaustive lifecycle audit keeps every virtual-copy terminal receipt in one state machine.
     fn validate_virtual_spell_copy_event_order(&self) -> Result<(), RulesError> {
-        let mut copies = BTreeMap::<ObjectId, (ObjectId, PlayerId, bool)>::new();
+        let mut copies = BTreeMap::<ObjectId, (ObjectId, PlayerId, bool, bool)>::new();
         for event in &self.event_log {
             match event {
                 GameEvent::SpellCopied {
@@ -33474,13 +34247,13 @@ impl Game {
                     // spell was cast.
                     let virtual_original_is_live = copies
                         .get(original)
-                        .is_none_or(|(_, _, terminated)| !*terminated);
+                        .is_none_or(|(_, _, terminated, _)| !*terminated);
                     if copy.0 == 0
                         || copy == original
                         || self.player(*controller).is_err()
                         || !virtual_original_is_live
                         || copies
-                            .insert(*copy, (*original, *controller, false))
+                            .insert(*copy, (*original, *controller, false, false))
                             .is_some()
                     {
                         return Err(RulesError::IllegalAction(
@@ -33490,7 +34263,7 @@ impl Game {
                 }
                 GameEvent::SpellCopyResolved { copy, original }
                 | GameEvent::SpellCopyCounteredByRules { copy, original } => {
-                    let Some((expected_original, _, terminated)) = copies.get_mut(copy) else {
+                    let Some((expected_original, _, terminated, _)) = copies.get_mut(copy) else {
                         return Err(RulesError::IllegalAction(
                             "spell-copy terminal receipt lacks a copy receipt",
                         ));
@@ -33507,7 +34280,7 @@ impl Game {
                     original,
                     source,
                 } => {
-                    let Some((expected_original, _, terminated)) = copies.get_mut(copy) else {
+                    let Some((expected_original, _, terminated, _)) = copies.get_mut(copy) else {
                         return Err(RulesError::IllegalAction(
                             "effect-countered spell-copy receipt lacks a copy receipt",
                         ));
@@ -33524,7 +34297,7 @@ impl Game {
                     original,
                     controller,
                 } => {
-                    let Some((expected_original, expected_controller, terminated)) =
+                    let Some((expected_original, expected_controller, terminated, _)) =
                         copies.get_mut(copy)
                     else {
                         return Err(RulesError::IllegalAction(
@@ -33541,10 +34314,50 @@ impl Game {
                     }
                     *terminated = true;
                 }
+                GameEvent::SpellCopyExiledByTrigger {
+                    copy,
+                    original,
+                    source,
+                } => {
+                    let Some((expected_original, _, terminated, _)) = copies.get_mut(copy) else {
+                        return Err(RulesError::IllegalAction(
+                            "exiled spell-copy receipt lacks a copy receipt",
+                        ));
+                    };
+                    if *expected_original != *original || *source == *copy || *terminated {
+                        return Err(RulesError::IllegalAction(
+                            "exiled spell-copy receipt conflicts with copy provenance",
+                        ));
+                    }
+                    *terminated = true;
+                }
+                GameEvent::SpellCopyCastWithoutPayingManaCost {
+                    player,
+                    copy,
+                    original,
+                } => {
+                    let Some((expected_original, controller, terminated, cast_free)) =
+                        copies.get_mut(copy)
+                    else {
+                        return Err(RulesError::IllegalAction(
+                            "free-cast spell-copy receipt lacks a copy receipt",
+                        ));
+                    };
+                    if *expected_original != *original
+                        || *controller != *player
+                        || *terminated
+                        || *cast_free
+                    {
+                        return Err(RulesError::IllegalAction(
+                            "free-cast spell-copy receipt conflicts with copy provenance",
+                        ));
+                    }
+                    *cast_free = true;
+                }
                 _ => {}
             }
         }
-        for (copy, (original, controller, terminated)) in copies {
+        for (copy, (original, controller, terminated, _)) in copies {
             let live = self
                 .virtual_spell_copies
                 .get(&copy)
@@ -37129,6 +37942,72 @@ impl Game {
                 {
                     return Err(RulesError::IllegalAction(
                         "spell-copy decision violates stack or target provenance",
+                    ));
+                }
+            }
+            DecisionContinuation::ExiledSpellCopyCast {
+                source_stack_item,
+                source,
+                source_incarnation,
+                caster,
+                cast_cards,
+                prior_exiled,
+            } => {
+                let Some(parent_position) = self
+                    .stack
+                    .iter()
+                    .position(|stack_object| stack_object.id == *source_stack_item)
+                else {
+                    return Err(RulesError::IllegalAction(
+                        "exiled-spell copy decision lost its parent stack identity",
+                    ));
+                };
+                let parent = &self.stack[parent_position];
+                let members = self.exiled_spell_copy_members(
+                    (*source, *source_incarnation),
+                    prior_exiled,
+                );
+                let options = self
+                    .eligible_exiled_spell_copy_members(&members)
+                    .into_iter()
+                    .filter(|member| !cast_cards.contains(&member.card))
+                    .map(|member| DecisionOption::Object(member.card))
+                    .collect::<Vec<_>>();
+                let serial_copies_are_live = self.stack[parent_position + 1..].iter().all(|item| {
+                    item.ability_id.is_none()
+                        && item.controller == *caster
+                        && self.virtual_spell_copies.get(&item.card).is_some_and(|copy| {
+                            cast_cards.contains(&copy.original)
+                                && self.zone_of(copy.original) == Some(Zone::Exile)
+                        })
+                });
+                if decision.kind != DecisionKind::ExiledSpellCopyCast
+                    || decision.visibility != DecisionVisibility::Public
+                    || decision.player != *caster
+                    || decision.min_selections != 0
+                    || decision.max_selections != u8::from(!options.is_empty())
+                    || decision.options != options
+                    || *source_incarnation == 0
+                    || self.players.get(caster.0).is_none_or(|player| player.lost)
+                    || parent.card != *source
+                    || parent.source_incarnation != *source_incarnation
+                    || parent.ability_id.is_none()
+                    || !parent.targets.is_empty()
+                    || !matches!(
+                        parent.effects.as_slice(),
+                        [Effect::ExileCapturedInstantOrSorceryThenCopyExiledCards {
+                            caster: effect_caster,
+                            prior_exiled: effect_prior,
+                            ..
+                        }] if effect_caster == caster && effect_prior == prior_exiled
+                    )
+                    || !serial_copies_are_live
+                    || cast_cards.iter().enumerate().any(|(index, card)| {
+                        card.0 == 0 || cast_cards[index + 1..].contains(card)
+                    })
+                {
+                    return Err(RulesError::IllegalAction(
+                        "exiled-spell copy decision violates serial stack provenance",
                     ));
                 }
             }

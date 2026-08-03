@@ -90,6 +90,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 270] = [
     "RAV-NIGHTGUARD-PATROL",
     "RAV-WATCHWOLF",
     "RAV-CHORUS-OF-THE-CONCLAVE",
+    "RAV-EYE-OF-THE-STORM",
     "RAV-FOLLOWED-FOOTSTEPS",
     "RAV-GLASS-GOLEM",
     "RAV-OVERGROWN-TOMB",
@@ -6661,6 +6662,31 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
+        // Full fidelity: the source-scoped cast trigger captures each exact
+        // physical instant/sorcery exile incarnation, gives the original
+        // caster serial no-priority copy/cast decisions, and treats observed
+        // virtual copies as terminal rather than recursively retaining them.
+        CardDefinition {
+            id: "RAV-EYE-OF-THE-STORM",
+            name: "Eye of the Storm",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(5, [Color::Blue, Color::Blue]),
+            colors: colors([Color::Blue]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Enchantment]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "any-player-instant-sorcery-cast-exile-and-copy",
+                "cast-exiled-spell-copies-without-paying-mana",
+                "source-scoped-exile-incarnation-provenance",
+                "serial-no-priority-copy-cast-decisions",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![],
+        },
         basic_land("RAV-PLAINS", "Plains", BasicLandType::Plains),
         basic_land("RAV-ISLAND", "Island", BasicLandType::Island),
         basic_land("RAV-SWAMP", "Swamp", BasicLandType::Swamp),
@@ -8766,6 +8792,17 @@ pub fn rav_static_entry_restriction_bindings() -> Vec<StaticEntryRestrictionBind
 #[allow(clippy::too_many_lines)] // Keep the declarative trigger registry centralized for audit review.
 pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
     vec![
+        TriggeredAbilityBinding {
+            card_definition: "RAV-EYE-OF-THE-STORM",
+            ability: TriggeredAbility {
+                id: "any-player-instant-or-sorcery-cast-exile-and-copy",
+                condition: TriggerCondition::AnyPlayerCastsInstantOrSorcerySpell,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![Effect::ExileCastInstantOrSorceryThenCopyExiledCards],
+            },
+        },
         TriggeredAbilityBinding {
             card_definition: "RAV-FOLLOWED-FOOTSTEPS",
             ability: TriggeredAbility {

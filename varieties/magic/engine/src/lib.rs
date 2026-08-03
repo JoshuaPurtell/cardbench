@@ -32,7 +32,7 @@ pub use model::{
     DecisionVisibility, DeckEntry, DeckList, DeckRules, DeckValidationError, DelayedAction,
     DelayedActionId, DelayedActionKind, DelayedActionTiming, Duration, Effect,
     EntryCharacteristicOverride, EntryCoinFlipBinding, EntryCopyBinding, EntryCopySnapshot,
-    GameEvent, GeneralizedAbilityActivation, GeneralizedActivatedAbilityCost,
+    ExiledSpellCopyMember, GameEvent, GeneralizedAbilityActivation, GeneralizedActivatedAbilityCost,
     GraveyardCreatureCardSnapshot, GraveyardLandCardSnapshot, HandCardSnapshot, HybridManaSymbol,
     Keyword, LandEntryBinding, Layer, LegendaryPermanentBinding, LibrarySearchCardinality,
     LibrarySearchDestination, LibrarySearchRequirement, LibrarySearchSelection, LinkedExileGroup,

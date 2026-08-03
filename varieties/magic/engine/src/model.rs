@@ -461,6 +461,11 @@ pub enum TriggerCondition {
     /// the public cast-card identity so a later effect can match card names
     /// without consulting a later incarnation of that spell object.
     AnyPlayerCastsCreatureSpell,
+    /// An instant or sorcery spell was cast by any player. The payload keeps
+    /// the exact physical or virtual stack identity so a trigger can move the
+    /// observed spell out of the stack before offering source-scoped exiled
+    /// card copies to that spell's caster.
+    AnyPlayerCastsInstantOrSorcerySpell,
     /// The current controller of the permanent attached to this Aura-like
     /// source begins that player's upkeep. The attachment endpoint and its
     /// incarnation are captured before the trigger is placed on the stack.
@@ -2642,6 +2647,21 @@ pub enum Effect {
     CopyTargetInstantOrSorcerySpell {
         may_choose_new_targets: bool,
     },
+    /// Marker used only by a global instant-or-sorcery cast trigger. Trigger
+    /// materialization replaces it with the captured stack spell and the
+    /// source's prior exile membership before resolution can begin.
+    ExileCastInstantOrSorceryThenCopyExiledCards,
+    /// Stack-only form of an observed instant-or-sorcery cast trigger. It
+    /// retains the exact stack identity that must be exiled, whether that
+    /// identity is virtual, and the last known source-scoped exiled cards in
+    /// case the trigger source leaves before this ability resolves.
+    ExileCapturedInstantOrSorceryThenCopyExiledCards {
+        spell: ObjectId,
+        spell_incarnation: u64,
+        spell_is_virtual: bool,
+        caster: PlayerId,
+        prior_exiled: Vec<ExiledSpellCopyMember>,
+    },
     /// Sacrifice one creature controlled by the resolving source's controller
     /// if possible; otherwise counter one targeted noncreature spell.
     SacrificeCreatureOrCounterTargetSpell,
@@ -3028,6 +3048,8 @@ impl Effect {
             // A modal placeholder never reaches the stack: cast materializes
             // the selected bundle before target planning.
             Self::ChooseOneOf(_)
+            | Self::ExileCastInstantOrSorceryThenCopyExiledCards
+            | Self::ExileCapturedInstantOrSorceryThenCopyExiledCards { .. }
             | Self::DealDamageController { .. }
             | Self::LoseLifeController { .. }
             | Self::LoseLifeControllerForCountersOnSource { .. }
@@ -3915,6 +3937,16 @@ pub struct LinkedExileMember {
     pub role: LinkedExileMemberRole,
 }
 
+/// One exact instant-or-sorcery card retained in a source-scoped exile set
+/// that can later create a virtual spell copy. The card remains a physical
+/// exile-zone object; `exile_incarnation` prevents a later zone round trip
+/// from becoming a new eligible copy source.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ExiledSpellCopyMember {
+    pub card: ObjectId,
+    pub exile_incarnation: u64,
+}
+
 /// Typed, clonable state retained while a linked-exile return is pending.
 /// `source_incarnation` is historical provenance and is intentionally valid
 /// after the source Aura is itself exiled with the group.
@@ -4004,6 +4036,10 @@ pub enum DecisionKind {
     /// targets before the new virtual stack object exists. This is a
     /// no-priority rules decision, never a free targeting action.
     SpellCopyTargets,
+    /// The controller of a resolving source-scoped exile trigger may cast one
+    /// remaining exiled-card copy for no mana, with independent choices, or
+    /// decline the remaining copies and finish the parent ability.
+    ExiledSpellCopyCast,
     /// The controller of a target-bearing triggered ability selects every
     /// required target before that ability enters the stack. This preserves
     /// the no-priority trigger-placement boundary while giving the choice a
@@ -4128,6 +4164,17 @@ pub enum DecisionSelection {
     LibrarySearchAndCast {
         selected: Option<ObjectId>,
         targets: Vec<Target>,
+    },
+    /// One serial source-scoped exiled-card copy choice. `card: None` ends
+    /// the current parent trigger and leaves all remaining physical cards in
+    /// exile. A selected card is copied and cast without paying its mana
+    /// cost; targets, mode, and any printed color choice belong to that one
+    /// virtual stack object.
+    ExiledSpellCopyCast {
+        card: Option<ObjectId>,
+        targets: Vec<Target>,
+        mode: Option<u8>,
+        color: Option<Color>,
     },
     /// One exhaustive partition of a private top-library snapshot. `bottom`
     /// is ordered bottom-to-top, which lets the engine restore it without
@@ -4316,6 +4363,27 @@ pub enum DecisionContinuation {
         controller: PlayerId,
         original: ObjectId,
         original_source_incarnation: u64,
+    },
+    /// A source-scoped cast trigger remains on the stack while the casting
+    /// player serially chooses which retained exile-zone spell cards to copy
+    /// and cast. The parent stack id remains stable below any already-created
+    /// virtual copies; no priority can interleave until the player declines
+    /// the remaining candidates.
+    ExiledSpellCopyCast {
+        source_stack_item: StackObjectId,
+        source: ObjectId,
+        source_incarnation: u64,
+        /// The player who cast the spell that caused this trigger. This is
+        /// intentionally distinct from the controller of the source ability:
+        /// the latter owns the triggered stack object, while the caster owns
+        /// the serial optional-copy choices.
+        caster: PlayerId,
+        cast_cards: Vec<ObjectId>,
+        /// The source-scoped exile members visible at the trigger boundary.
+        /// A source leaving before resolution cannot erase that historical
+        /// fact, but each candidate is still rechecked against its exact live
+        /// exile incarnation before a virtual copy is cast.
+        prior_exiled: Vec<ExiledSpellCopyMember>,
     },
     /// A target-bearing triggered ability remains outside the stack while its
     /// controller supplies one target for each declared target occurrence.
@@ -5702,6 +5770,34 @@ pub enum GameEvent {
         copy: ObjectId,
         original: ObjectId,
         controller: PlayerId,
+    },
+    /// A source-scoped cast trigger exiled a virtual spell copy. Copies have
+    /// no card-zone object and are deliberately not retained as future copy
+    /// sources; this is a terminal receipt distinct from resolution,
+    /// countering, or player departure.
+    SpellCopyExiledByTrigger {
+        copy: ObjectId,
+        original: ObjectId,
+        source: ObjectId,
+    },
+    /// A global cast trigger moved one exact physical instant or sorcery from
+    /// the stack to exile and retained it as an eligible source-scoped copy
+    /// template. The ordinary `CardMoved(Exile)` and incarnation receipts own
+    /// the zone transition itself.
+    SpellExiledByTrigger {
+        source: ObjectId,
+        source_incarnation: u64,
+        card: ObjectId,
+        exile_incarnation: u64,
+    },
+    /// A resolving source-scoped trigger created and cast this virtual spell
+    /// copy without paying its mana cost. It is intentionally distinct from
+    /// an ordinary physical `SpellCast`: no card moved out of exile and the
+    /// virtual copy has no owner-zone membership.
+    SpellCopyCastWithoutPayingManaCost {
+        player: PlayerId,
+        copy: ObjectId,
+        original: ObjectId,
     },
     AbilityCounteredByRules {
         source: ObjectId,
