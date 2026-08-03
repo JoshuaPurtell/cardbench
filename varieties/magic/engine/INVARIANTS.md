@@ -2442,7 +2442,10 @@ Oracle Magic rules coverage.
   post-entry snapshot for self ETBs, controller-scoped entry observers, and
   one land-entry event per copied land; a copied creature–land token can
   therefore trigger itself and the original represented creature–land from
-  the same APNAP-orderable batch.
+  the same APNAP-orderable batch. A definitionless ordinary token has no
+  definition-bound self ETB, but still participates in that one entry event:
+  all represented nonartifact/Aura/land-entry observers see it, and each Land
+  token produces its own represented land-entry event.
 - Every registered legendary card definition, and every legendary token value,
   participates in CR 704.5j according to its current layer-one name. When a
   controller has two or more matching live permanents, the engine has exactly
