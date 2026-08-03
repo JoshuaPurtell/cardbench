@@ -49,8 +49,8 @@ a zone move. The fetched Aura's ordinary ETB trigger is queued only after the
 Mage trigger's terminal receipt. The opponent sees neither unselected Aura
 identities nor a private decision projection.
 
-The current catalog partition is 275 full / 6 partial / 10 catalog-only unique
-names (290 / 6 / 10 printings). The independently checked coverage-report
+The current catalog partition is 276 full / 6 partial / 9 catalog-only unique
+names (291 / 6 / 9 printings). The independently checked coverage-report
 binary emits the same partition.
 
 Molten Sentry is a full-fidelity entry whose setup-only deterministic seed
@@ -58,6 +58,14 @@ selects one entry-time layer-one power/toughness and keyword shape before ETB
 observation. Copies retain that already selected shape rather than consuming a
 new outcome. Its public scenario pins the heads result and checks the resulting
 receipt digest; no card prose, art, scan, or source payload is retained.
+
+Mindmoil is a full-fidelity controller-cast trigger entry. After either kind
+of spell is cast, the source controller privately submits an exhaustive
+bottom-to-top ordering of their exact current hand snapshot. The stack-backed
+ability moves that snapshot to the library bottom and begins the matching count
+of ordinary draws before its terminal receipt. Its trace preserves only the
+private decision metadata and identity-free commit receipt, not candidates or
+the submitted order; no card prose, art, scan, or source payload is retained.
 
 Brightflame is a full-fidelity chosen-X Radiance entry. Its reusable resolver
 snapshots the color-sharing creature batch, preserves the single submitted X

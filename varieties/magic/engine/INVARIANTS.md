@@ -1964,6 +1964,22 @@ Oracle Magic rules coverage.
   before the suspended spell or ability reaches its terminal receipt. No zone
   transition, shuffle, or unrelated priority action may interleave with the
   captured ordering boundary.
+- `PutControllerHandOnLibraryBottomThenDrawSameCount` is a one-effect,
+  target-free triggered-ability boundary for `CastsSpell`. It observes either
+  a creature or noncreature spell from its current controller exactly once and
+  carries no implicit spell target. On resolution it snapshots that
+  controller's complete hand and exposes the identities only through one
+  private `HandToLibraryBottomDraw` decision pinned to the source and source
+  incarnation. The submitted selection must be the exact, duplicate-free
+  snapshot at its fixed cardinality; stale, foreign, partial, duplicate, or
+  changed-zone answers are atomic rejections. The selected order is
+  bottom-to-top. The engine commits it through reverse ordinary library moves,
+  then begins exactly that many ordinary draws. `DecisionCompleted` precedes
+  the identity-free `HandPutOnLibraryBottomThenDrawn` receipt, followed by
+  matching library moves and at most that many hand moves (a short library
+  follows the ordinary empty-library-loss path), before the matching
+  `AbilityResolved`. No priority action, candidate identity, or selected
+  order escapes the private boundary.
 - `LookAtTopCardsPutOneInHandOneOnTopRestOnBottom` is a one-effect,
   spell-only private decision boundary. It snapshots the current top up to
   its positive requested count in top-to-bottom order, retains the exact live
