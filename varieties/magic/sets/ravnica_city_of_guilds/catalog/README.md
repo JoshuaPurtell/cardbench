@@ -49,8 +49,8 @@ a zone move. The fetched Aura's ordinary ETB trigger is queued only after the
 Mage trigger's terminal receipt. The opponent sees neither unselected Aura
 identities nor a private decision projection.
 
-The current catalog partition is 273 full / 6 partial / 12 catalog-only unique
-names (288 / 6 / 12 printings). The independently checked coverage-report
+The current catalog partition is 274 full / 6 partial / 11 catalog-only unique
+names (289 / 6 / 11 printings). The independently checked coverage-report
 binary emits the same partition.
 
 Molten Sentry is a full-fidelity entry whose setup-only deterministic seed
@@ -73,6 +73,12 @@ object incarnations, then materializes the matching Saproling token count on
 the ordinary stack. The direct Rust trace includes the captured-count receipt,
 three token receipts from three committed damage, and final invariant audit;
 it retains no card prose or source payload.
+
+Mindleech Mass is a full-fidelity direct combat-recipient trigger entry. Its
+six-damage combat trace captures the damaged player before stack resolution,
+opens only that player's private fixed three-card discard decision, and records
+the three chosen discards before the ordinary ability terminal receipt. It
+retains no card prose, art, scan, or source payload.
 
 Eye of the Storm is a source-incarnation-scoped linked-exile entry. An observed
 physical instant-or-sorcery spell first moves to exile through ordinary
