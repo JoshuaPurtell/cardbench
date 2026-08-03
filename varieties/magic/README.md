@@ -147,7 +147,10 @@ current corpus contains 187 scenarios and covers:
   (`Darkblast`); and
 - a full-fidelity target-free global creature-and-player damage batch (`Rain of
   Embers`) plus additional explicitly transmute-only compatibility slices (`Dimir
-  Machinations`, `Shred Memory`, `Clutch of the Undercity`, and `Perplex`); and
+  Machinations`, `Clutch of the Undercity`, and `Perplex`); and
+- a full-fidelity ranged public-graveyard target group (`Shred Memory`), with
+  zero-to-four distinct same-graveyard targets, partial resolution, normal
+  target-incarnation provenance, exile receipts, and Transmute; and
 - a source-bound generic reduction plus a retained noncreature-spell cast
   trigger (`Blood Funnel`), with real stack/priority, controller-submitted
   mandatory creature sacrifice, and counter-on-no-creature receipts; and

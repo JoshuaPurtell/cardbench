@@ -813,6 +813,16 @@ Oracle Magic rules coverage.
   layer-four type set for both casting and that resolution recheck, rather
   than its printed definition; a creature made into a land or artifact can be
   legally targeted and resolved by the matching typed instruction.
+- A ranged target group is one expansion-neutral stack instruction with a
+  single zero-through-maximum occurrence range. Its cast-time members must be
+  distinct `GraveyardCard` object targets from one immutable owner-indexed
+  graveyard, and each retains an ordinary target-incarnation receipt. An empty
+  group has no target and resolves normally; a nonempty group with no legal
+  member is countered by rules; otherwise each still-legal member resolves in
+  submitted order and every departed member emits its own
+  `TargetInstructionSkipped`. Mixed ranged/fixed target instructions and
+  malformed range, shape, duplicate, or cross-graveyard membership cannot
+  survive the stack invariant audit.
 - `PutTargetCreatureOnOwnersLibraryTop` accepts only a live creature target
   whose exact incarnation still matches the occurrence captured when its spell
   or triggered ability entered the stack. Its zone transition uses the ordinary
