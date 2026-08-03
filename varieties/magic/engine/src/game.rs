@@ -4257,7 +4257,11 @@ impl Game {
             ability: ability.id,
         });
         self.enqueue_creature_becomes_target_triggers(&trigger_targets)?;
-        self.flush_pending_trigger_events()?;
+        // Activation costs and the ability's stack placement form one
+        // transition.  Leave every trigger observed while paying those costs
+        // pending until the enclosing public activation boundary has run the
+        // mandatory post-cost SBA fixed point; a player who loses there must
+        // not receive a trigger on the stack first.
         self.consecutive_passes = 0;
         self.priority = player;
         Ok(())
