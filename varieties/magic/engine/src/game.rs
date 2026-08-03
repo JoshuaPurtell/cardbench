@@ -917,6 +917,12 @@ pub struct Game {
     /// and "damage can't be prevented". The map is private state-machine
     /// provenance, not an alternate live-characteristics cache.
     last_known_characteristics: BTreeMap<(ObjectId, u64), Characteristics>,
+    /// The controller paired with every frozen source incarnation. This is
+    /// private source provenance, not a layer-two control-effect cache: a
+    /// live incarnation always derives its controller from the current game
+    /// state, while a departed incarnation needs its former controller when
+    /// an old stack ability has its source deal damage.
+    last_known_controllers: BTreeMap<(ObjectId, u64), PlayerId>,
     pub stack: Vec<StackObject>,
     /// The next unresolved instruction for a stack item paused at a
     /// no-priority replacement, recipient-private discard, or target-player
@@ -1208,6 +1214,7 @@ impl Game {
             players,
             objects: BTreeMap::new(),
             last_known_characteristics: BTreeMap::new(),
+            last_known_controllers: BTreeMap::new(),
             stack: Vec::new(),
             stack_effect_cursors: BTreeMap::new(),
             target_player_mana_choice_materializations: BTreeMap::new(),
@@ -12262,6 +12269,27 @@ impl Game {
                 "last-known characteristic provenance has an invalid object incarnation",
             ));
         }
+        if self.last_known_characteristics.len() != self.last_known_controllers.len()
+            || self
+                .last_known_characteristics
+                .keys()
+                .any(|key| !self.last_known_controllers.contains_key(key))
+            || self
+                .last_known_controllers
+                .iter()
+                .any(|((card, incarnation), controller)| {
+                    *incarnation == 0
+                        || self.players.get(controller.0).is_none()
+                        || self
+                            .objects
+                            .get(card)
+                            .is_none_or(|object| *incarnation >= object.incarnation)
+                })
+        {
+            return Err(RulesError::IllegalAction(
+                "last-known source-controller provenance has an invalid object incarnation",
+            ));
+        }
         if !self.pending_trigger_events.is_empty() {
             return Err(RulesError::IllegalAction(
                 "pending trigger event escaped its enclosing rules action",
@@ -21428,10 +21456,10 @@ impl Game {
     fn target_prevents_damage_from_controlled_source(
         &self,
         source: ObjectId,
+        source_incarnation: u64,
         target: ObjectId,
     ) -> bool {
-        self.controller_of(source)
-            .ok()
+        self.damage_source_controller_for_incarnation(source, source_incarnation)
             .zip(self.controller_of(target).ok())
             .is_some_and(|(source_controller, target_controller)| {
                 source_controller == target_controller
@@ -21441,6 +21469,24 @@ impl Game {
                             .contains(&Keyword::PreventDamageFromControlledSources)
                     })
             })
+    }
+
+    /// Uses the live controller only while the damage source is still the
+    /// exact source incarnation. An old stack ability whose source left and
+    /// returned must instead use the controller frozen at that departure;
+    /// the later rules object is not its source.
+    fn damage_source_controller_for_incarnation(
+        &self,
+        source: ObjectId,
+        source_incarnation: u64,
+    ) -> Option<PlayerId> {
+        let object = self.object(source).ok()?;
+        if object.incarnation == source_incarnation {
+            return self.controller_of(source).ok();
+        }
+        self.last_known_controllers
+            .get(&(source, source_incarnation))
+            .copied()
     }
 
     /// Lists the persistent non-prevention replacements created by live
@@ -21566,7 +21612,11 @@ impl Game {
                 }
                 if prevention_allowed {
                     if self.target_prevents_damage_from_colors(permanent, source_colors)
-                        || self.target_prevents_damage_from_controlled_source(source, permanent)
+                        || self.target_prevents_damage_from_controlled_source(
+                            source,
+                            source_incarnation,
+                            permanent,
+                        )
                     {
                         let candidate =
                             DamageReplacementChoice::SourceColorPrevention { permanent };
@@ -21909,8 +21959,11 @@ impl Game {
             }
             DamageReplacementChoice::SourceColorPrevention { permanent } => {
                 if !(self.target_prevents_damage_from_colors(permanent, source_colors)
-                    || self
-                        .target_prevents_damage_from_controlled_source(pending.source, permanent))
+                    || self.target_prevents_damage_from_controlled_source(
+                        pending.source,
+                        pending.source_incarnation,
+                        permanent,
+                    ))
                 {
                     return Err(RulesError::IllegalAction(
                         "color prevention disappeared before selection",
@@ -22840,7 +22893,11 @@ impl Game {
             if self.damage_cannot_be_prevented_for_incarnation(source, source_incarnation) {
                 (0, false)
             } else if self.target_prevents_damage_from_colors(permanent, source_colors)
-                || self.target_prevents_damage_from_controlled_source(source, permanent)
+                || self.target_prevents_damage_from_controlled_source(
+                    source,
+                    source_incarnation,
+                    permanent,
+                )
             {
                 (amount, false)
             } else {
@@ -26737,21 +26794,24 @@ impl Game {
     }
 
     /// Captures one exact object incarnation before its zone identity changes.
-    /// The entry is intentionally immutable: every later zone move receives a
-    /// new incarnation, so no newer rules object can overwrite the former
-    /// source facts retained by a still-pending spell or ability.
+    /// The entries are intentionally immutable: every later zone move receives
+    /// a new incarnation, so no newer rules object can overwrite the former
+    /// source characteristics or controller retained by a still-pending spell
+    /// or ability.
     fn capture_last_known_characteristics(&mut self, card: ObjectId) -> Result<(), RulesError> {
         let incarnation = self.object(card)?.incarnation;
         let characteristics = self.characteristics(card)?;
-        if self
-            .last_known_characteristics
-            .insert((card, incarnation), characteristics)
-            .is_some()
+        let controller = self.controller_of(card)?;
+        let key = (card, incarnation);
+        if self.last_known_characteristics.contains_key(&key)
+            || self.last_known_controllers.contains_key(&key)
         {
             return Err(RulesError::IllegalAction(
-                "last-known characteristics already exist for this incarnation",
+                "last-known source provenance already exists for this incarnation",
             ));
         }
+        self.last_known_characteristics.insert(key, characteristics);
+        self.last_known_controllers.insert(key, controller);
         Ok(())
     }
 
@@ -34532,6 +34592,8 @@ impl Game {
             // controlled by the departed player is exiled below and keeps its
             // ordinary historical provenance.
             self.last_known_characteristics
+                .retain(|(card, _), _| *card != object);
+            self.last_known_controllers
                 .retain(|(card, _), _| *card != object);
             self.regeneration_shields.remove(&object);
             self.record_event(GameEvent::ObjectLeftGame {
