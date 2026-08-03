@@ -32720,6 +32720,15 @@ impl Game {
             self.apply_static_entry_restriction_from_sources(*card, &entry_sources)?;
         }
         self.capture_simultaneous_entry_triggers(&returning)?;
+        for card in &returning {
+            if self
+                .characteristics(*card)?
+                .card_types
+                .contains(&CardType::Land)
+            {
+                self.capture_land_entry_triggers(self.controller_of(*card)?)?;
+            }
+        }
         Ok(())
     }
 

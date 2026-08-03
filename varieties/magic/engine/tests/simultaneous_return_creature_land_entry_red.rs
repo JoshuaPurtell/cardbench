@@ -7,8 +7,9 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardDefinition, CardType, CastRequest, Effect, Game, GameEvent, ManaCost, PlayerId, Step,
-    TriggerCondition, TriggeredAbility, TriggeredAbilityBinding, Zone,
+    CardDefinition, CardType, CastRequest, DecisionKind, DecisionSelection, Effect, Game,
+    GameEvent, ManaCost, PlayerId, Step, TriggerCondition, TriggeredAbility,
+    TriggeredAbilityBinding, Zone,
 };
 
 const MARCH: &str = "TST-CREATURE-LAND-RETURN-WATCHER";
@@ -49,6 +50,30 @@ fn advance_to_first_main(game: &mut Game) {
     game.begin_game().expect("fixture begins game");
     while game.step != Step::PrecombatMain {
         pass_pair(game);
+    }
+}
+
+fn submit_all_trigger_orders(game: &mut Game, players: &[PlayerId]) {
+    loop {
+        let view = game
+            .view_for_player(players[0])
+            .expect("public game view is available");
+        let Some(_) = view.pending_decision else {
+            return;
+        };
+        let player = view.decision_player;
+        let decision = game
+            .view_for_player(player)
+            .expect("deciding-player view is available")
+            .pending_decision
+            .expect("decision remains available to its player");
+        assert_eq!(decision.kind, DecisionKind::TriggeredAbilityOrder);
+        game.submit_decision(
+            player,
+            decision.id,
+            DecisionSelection::TriggerOrder(decision.trigger_candidates),
+        )
+        .expect("controller orders simultaneous land-entry triggers");
     }
 }
 
@@ -128,6 +153,7 @@ fn matching_creature_land_returns_capture_each_land_entry_observation() {
     )
     .expect("creature-land spell casts");
     pass_pair(&mut game);
+    submit_all_trigger_orders(&mut game, &[caster, controller]);
 
     let land_entry_triggers = game
         .event_log
