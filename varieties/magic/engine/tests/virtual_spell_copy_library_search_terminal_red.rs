@@ -5,8 +5,8 @@ use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
     CardDefinition, CardType, CastRequest, DecisionSelection, Effect, Game, GameEvent,
-    LibrarySearchDestination, LibrarySearchRequirement, LibrarySearchSelection, ManaCost,
-    ObjectId, PlayerId, Target, Zone,
+    LibrarySearchDestination, LibrarySearchRequirement, LibrarySearchSelection, ManaCost, ObjectId,
+    PlayerId, Target, Zone,
 };
 
 const SEARCH: &str = "TST-VIRTUAL-COPY-LIBRARY-SEARCH";
