@@ -2049,6 +2049,14 @@ Oracle Magic rules coverage.
   physical source nor a lingering virtual-copy map entry. Its source is
   informational receipt provenance only; consuming or expiring the shield
   never requires the former spell object to exist.
+- Targeted and global combat-damage prevention records follow the same rule:
+  their virtual source is allowed only during resolving-copy construction and
+  becomes historical receipt provenance once the copy resolves. A targeted
+  record additionally retains the exact live creature incarnation; both
+  records have a unique positive identity and expire in the creating turn.
+  The global-prevention receipt audit accepts only a matching bound ability,
+  physical spell, or `SpellCopied` provenance whose catalog definition
+  contains that exact effect.
 - An end-of-turn effect created by a resolved instruction is independent of a
   former battlefield source. Source departure preserves it through that
   turn's cleanup; target departure still expires it immediately. In contrast,
