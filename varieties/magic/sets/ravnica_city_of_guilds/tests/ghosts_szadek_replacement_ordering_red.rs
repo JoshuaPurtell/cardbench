@@ -73,10 +73,7 @@ fn pending_choice(
         .replacement_candidates
         .iter()
         .copied()
-        .find_map(|choice| match choice {
-            ReplacementChoice::Damage(damage) if predicate(damage) => Some(choice),
-            _ => None,
-        })
+        .find(|choice| matches!(choice, ReplacementChoice::Damage(damage) if predicate(*damage)))
         .expect("the requested live replacement is offered to the affected player");
     (decision.id, choice)
 }
