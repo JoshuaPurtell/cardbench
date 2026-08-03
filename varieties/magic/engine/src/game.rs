@@ -3366,8 +3366,8 @@ impl Game {
             game.activate_bound_mana_ability_impl(player, activation, None, None)?;
             game.consecutive_passes = 0;
             game.priority = player;
-            game.flush_pending_dies_triggers()?;
             game.check_state_based_actions_impl()?;
+            game.flush_pending_dies_triggers()?;
             Ok(())
         })
     }
@@ -3391,8 +3391,8 @@ impl Game {
             )?;
             game.consecutive_passes = 0;
             game.priority = player;
-            game.flush_pending_dies_triggers()?;
             game.check_state_based_actions_impl()?;
+            game.flush_pending_dies_triggers()?;
             Ok(())
         })
     }
@@ -3417,8 +3417,8 @@ impl Game {
         self.atomic_transition(|game| {
             game.require_priority(player)?;
             game.activate_ability_impl(player, activation, None, &cost_payment)?;
-            game.flush_pending_dies_triggers()?;
             game.check_state_based_actions_impl()?;
+            game.flush_pending_dies_triggers()?;
             game.validate_invariants()
         })
     }
@@ -3446,8 +3446,8 @@ impl Game {
         self.atomic_transition(|game| {
             game.require_priority(player)?;
             game.activate_ability_impl(player, activation, Some(&selection), &cost_payment)?;
-            game.flush_pending_dies_triggers()?;
             game.check_state_based_actions_impl()?;
+            game.flush_pending_dies_triggers()?;
             game.validate_invariants()
         })
     }
@@ -3476,8 +3476,8 @@ impl Game {
                 mana_payment_selection.as_ref(),
                 &cost_payment,
             )?;
-            game.flush_pending_dies_triggers()?;
             game.check_state_based_actions_impl()?;
+            game.flush_pending_dies_triggers()?;
             game.validate_invariants()
         })
     }
