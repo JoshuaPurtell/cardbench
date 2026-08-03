@@ -91,20 +91,25 @@ fn two_attached_token_auras_can_capture_one_combat_packet_without_rollback() {
     let captures = game
         .event_log
         .iter()
-        .filter(|event| matches!(
-            event,
-            GameEvent::AttachedCombatDamageTokenCountCaptured {
-                aura,
-                creature: captured_creature,
-                player,
-                amount: 3,
-                ..
-            } if [first_aura, second_aura].contains(aura)
-                && *captured_creature == creature
-                && *player == PlayerId(1)
-        ))
+        .filter(|event| {
+            matches!(
+                event,
+                GameEvent::AttachedCombatDamageTokenCountCaptured {
+                    aura,
+                    creature: captured_creature,
+                    player,
+                    amount: 3,
+                    ..
+                } if [first_aura, second_aura].contains(aura)
+                    && *captured_creature == creature
+                    && *player == PlayerId(1)
+            )
+        })
         .count();
-    assert_eq!(captures, 2, "each Aura captures the same committed damage packet");
+    assert_eq!(
+        captures, 2,
+        "each Aura captures the same committed damage packet"
+    );
     game.validate_invariants()
         .expect("a consecutive legal Aura capture group preserves invariants");
 }

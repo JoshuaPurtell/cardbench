@@ -36636,22 +36636,67 @@ impl Game {
                             [Effect::CreateTokensForControllerEqualToCombatDamage { .. }]
                         )
                 });
+            // One committed combat packet can legally be observed by more than
+            // one Aura. The capture receipts therefore form a contiguous group
+            // after that packet, rather than every member being immediately
+            // preceded by the damage receipt itself. Keep the group tied to one
+            // exact packet and reject duplicate observations by the same Aura
+            // ability incarnation.
+            let valid_damage_group =
+                match self.event_log[..index]
+                    .iter()
+                    .enumerate()
+                    .rev()
+                    .find(|(_, preceding)| {
+                        !matches!(
+                            preceding,
+                            GameEvent::AttachedCombatDamageTokenCountCaptured { .. }
+                        )
+                    }) {
+                    Some((
+                        damage_index,
+                        GameEvent::DamageDealtToPlayer {
+                            source,
+                            player: damaged_player,
+                            amount: dealt,
+                        },
+                    )) if source == creature && damaged_player == player && dealt == amount => {
+                        let earlier_captures = &self.event_log[damage_index + 1..index];
+                        earlier_captures.iter().all(|preceding| {
+                            matches!(
+                                preceding,
+                                GameEvent::AttachedCombatDamageTokenCountCaptured {
+                                    creature: prior_creature,
+                                    player: prior_player,
+                                    amount: prior_amount,
+                                    ..
+                                } if prior_creature == creature
+                                    && prior_player == player
+                                    && prior_amount == amount
+                            )
+                        }) && !earlier_captures.iter().any(|preceding| {
+                            matches!(
+                                preceding,
+                                GameEvent::AttachedCombatDamageTokenCountCaptured {
+                                    aura: prior_aura,
+                                    aura_incarnation: prior_incarnation,
+                                    ability: prior_ability,
+                                    ..
+                                } if prior_aura == aura
+                                    && prior_incarnation == aura_incarnation
+                                    && prior_ability == ability
+                            )
+                        })
+                    }
+                    _ => false,
+                };
             if *aura_incarnation == 0
                 || *creature_incarnation == 0
                 || player.0 >= self.players.len()
                 || *amount <= 0
                 || *amount > i32::from(u8::MAX)
                 || !valid_binding
-                || !matches!(
-                    self.event_log.get(index.checked_sub(1).ok_or(RulesError::IllegalAction(
-                        "attached combat-token receipt has no preceding combat damage",
-                    ))?),
-                    Some(GameEvent::DamageDealtToPlayer {
-                        source,
-                        player: damaged_player,
-                        amount: dealt,
-                    }) if source == creature && damaged_player == player && dealt == amount
-                )
+                || !valid_damage_group
             {
                 return Err(RulesError::IllegalAction(
                     "attached combat-token receipt lacks committed damage or valid Aura trigger provenance",
