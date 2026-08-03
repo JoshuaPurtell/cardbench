@@ -192,6 +192,15 @@ Oracle Magic rules coverage.
   future turn, marked damage cannot be negative, and a card object's base
   controller always remains its owner. Only `Game::controller_of` may expose a
   different live battlefield controller.
+- Immediately before each zone transition, the engine freezes one private
+  last-known `Characteristics` record under that object's exact former
+  `(ObjectId, incarnation)`. A record must name an existing strictly older
+  incarnation and may not contain `Colorless` as a card color. Live
+  battlefield sources use their current characteristics; a departed damage
+  source instead uses that immutable former record for source-quality rules,
+  including `Deathtouch` and `DamageCannotBePrevented`. A later graveyard,
+  exile, or re-entered incarnation can therefore neither lose nor invent a
+  quality for an already pending effect's damage packet.
 - `ReturnSourceToOwnersHand` is a source-relative resolution instruction, not
   an activation cost. It moves the source only when that exact source
   incarnation is still on the battlefield; an already departed source leaves
