@@ -1219,6 +1219,14 @@ Oracle Magic rules coverage.
   records `SacrificedAsAbilityCost` immediately followed by its graveyard move
   (or token-ceases receipt), before `AbilityActivated`; a rejected selection is
   an atomic no-op with no mana debit or cost receipt.
+  When one activation cost selects two or more permanents, their
+  battlefield-to-graveyard departures are one simultaneous event for generic
+  `AnotherCreatureLeavesBattlefield`, `AnotherCreatureDies`,
+  `ControlledNontokenCreatureDies`, and `OpponentCardPutIntoGraveyard`
+  observation. Every selected observer is frozen at its exact pre-cost
+  battlefield incarnation before the first receipt; the individual ordered
+  cost moves suppress only duplicate generic observation, never their normal
+  zone/incarnation or source-specific Dies lifecycles.
 - A target-free self-regeneration activation that consumes one controlled
   creature has no target slot and never shields the sacrificed offering. Its
   source identity and incarnation are captured at activation; only that same
