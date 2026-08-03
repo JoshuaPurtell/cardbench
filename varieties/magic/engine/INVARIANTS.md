@@ -1318,17 +1318,18 @@ Oracle Magic rules coverage.
   stacked, but that `TriggeredAbilityStacked.source_incarnation` must name the
   `ObjectIncarnationAdvanced` receipt immediately following its
   `CardMoved(Battlefield)` event, never the later graveyard incarnation.
-- A resolving all-player discard effect selects at most one controller-owned
-  hand card per living player in deterministic hand order. Every
-  `CardDiscarded` receipt is immediately followed by that exact card's
-  `CardMoved { to: Graveyard }` receipt; activation discard costs remain
-  separately represented by `DiscardedAsAbilityCost`.
-- A resolving controller-creature sacrifice effect chooses a live controlled
-  creature deterministically, preferring a creature other than its source and
-  falling back to the source only when it remains a creature permanent. Its
-  `SacrificedByEffect` receipt is immediately followed by either that card's
-  graveyard move or a token's `TokenCeasedToExist` receipt; no legal absence of
-  a creature may roll back an otherwise valid trigger resolution.
+- A resolving all-player discard trigger keeps its stack object live while
+  each living player with a hand submits a private current-hand selection in
+  player order. Every `CardDiscarded` receipt is immediately followed by that
+  exact card's `CardMoved { to: Graveyard }` receipt; activation discard costs
+  remain separately represented by `DiscardedAsAbilityCost`. A mandatory
+  discard trigger has no policy decline at this boundary.
+- A resolving controller-creature sacrifice trigger with legal candidates
+  keeps its stack object live while its controller submits one public current
+  controlled-creature selection. Its `SacrificedByEffect` receipt is
+  immediately followed by either that card's graveyard move or a token's
+  `TokenCeasedToExist` receipt; the no-candidate case remains a valid
+  resolution and cannot roll back the trigger.
 - A prospective counter-placement event belongs to the target permanent's
   live `controller_of` player. Both the direct single-replacement path and
   the multi-replacement decision path therefore discover the same currently
