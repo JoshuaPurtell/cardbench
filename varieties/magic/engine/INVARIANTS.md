@@ -626,6 +626,18 @@ Oracle Magic rules coverage.
   inclusive min/max cardinality. `DecisionOpened` and `DecisionCompleted`
   form one unique, matching public receipt lifecycle per id; neither receipt
   contains hidden candidate or selection identities.
+- `DecisionKind::CleanupDiscard` is the active player's private, no-priority
+  CR 514.1a boundary when their hand exceeds the engine's default maximum of
+  seven cards. Its exact ordered hand snapshot (including object
+  incarnations), object-only options, and equal min/max excess count must
+  remain live while the stack is empty and Cleanup's repeat marker is set.
+  Only that active player may submit the current `DecisionId`; an invalid,
+  stale, foreign, duplicate, or wrong-cardinality answer is atomic. A valid
+  answer emits `DecisionCompleted`, then one `CardDiscarded` and ordinary
+  `CardMoved { to: Graveyard }` receipt per chosen card before damage removal,
+  end-of-turn expiry, state-based actions, and any exceptional CR 514.3
+  repeat. No opponent view or public decision receipt exposes the hand's
+  candidates or selection.
 - The specialized optional-trigger compatibility boundary also consumes that
   same monotonic `DecisionId` space even though its accept/decline projection
   is not a cardinality-based `PendingDecision`. Its current positive id must
