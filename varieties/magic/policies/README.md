@@ -86,9 +86,10 @@ every invariant violation, capability gap, policy rejection, or bounded
 incomplete run. A rules-valid draw is a completed game. It is the command to
 use when the goal is engine bug discovery, not merely observing policy behavior.
 
-`rav-reference-deck-matrix` runs every ordered pair of indexed public decks
-across eight deterministic seeds, preserving deck IDs and digests on each
-trace. To preserve reviewable canonical events rather than only console output,
+`rav-reference-deck-matrix` runs every ordered pair (including same-deck
+pairings) of the 15 indexed public decks across eight deterministic seeds,
+for 1,800 games, preserving deck IDs and digests on each trace. To preserve
+reviewable canonical events rather than only console output,
 run `RAV_MATRIX_OUTPUT_ROOT=artifacts/review cargo run -p
 cardbench-magic-policies --bin rav-reference-deck-matrix`. This writes one
 event log per game plus `event-log-manifest.tsv` and `matrix-summary.txt`.

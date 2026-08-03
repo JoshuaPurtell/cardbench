@@ -124,10 +124,15 @@ pub struct DeckMatchResult {
 }
 
 impl DeckMatchResult {
-    /// `true` only when a player won and no engine finding was reported.
+    /// `true` only when the game reached a rules-valid terminal state and no
+    /// engine finding was reported. A simultaneous-loss draw is terminal and
+    /// therefore clean just like a winner.
     #[must_use]
     pub fn is_clean_completion(&self) -> bool {
-        self.winner.is_some() && self.engine_findings.is_empty()
+        matches!(
+            self.termination,
+            DeckMatchTermination::Winner(_) | DeckMatchTermination::Draw
+        ) && self.engine_findings.is_empty()
     }
 }
 
@@ -137,6 +142,20 @@ pub struct DeckMatchSweepResult {
     pub id: &'static str,
     pub matches: Vec<DeckMatchResult>,
     pub engine_findings: Vec<EngineFinding>,
+}
+
+impl DeckMatchSweepResult {
+    /// The public sweep runner is fail-closed when consumed as a campaign:
+    /// every seed must terminate with a winner or rules-valid draw and no
+    /// invariant/capability finding may be present.
+    #[must_use]
+    pub fn passed(&self) -> bool {
+        self.engine_findings.is_empty()
+            && self
+                .matches
+                .iter()
+                .all(DeckMatchResult::is_clean_completion)
+    }
 }
 
 /// A fail-closed public engine probe. Unlike a convenience sweep, it rejects any
@@ -438,9 +457,6 @@ pub fn run_rav_reference_deck_matrix(
     let mut jobs = Vec::new();
     for deck_p0 in &deck_ids {
         for deck_p1 in &deck_ids {
-            if deck_p0 == deck_p1 {
-                continue;
-            }
             for &shuffle_seed in &seeds {
                 jobs.push((deck_p0.clone(), deck_p1.clone(), shuffle_seed));
             }
@@ -665,6 +681,7 @@ mod tests {
         let sweep = run_rav_full_deck_sweep([73, 74]).expect("two-seed full deck sweep");
         assert_eq!(sweep.matches.len(), 2);
         assert!(sweep.engine_findings.is_empty());
+        assert!(sweep.passed());
     }
 
     #[test]
@@ -714,14 +731,13 @@ mod tests {
             .len();
         let matrix = run_rav_reference_deck_matrix([0]).expect("one-seed reference matrix");
         assert_eq!(matrix.id, RAV_REFERENCE_DECK_MATRIX_ID);
-        assert_eq!(matrix.matches.len(), deck_count * (deck_count - 1));
+        assert_eq!(matrix.matches.len(), deck_count * deck_count);
         assert!(matrix.passed(), "{matrix:#?}");
         assert!(matrix.matches.iter().all(|match_result| {
-            match_result.deck_ids[0] != match_result.deck_ids[1]
-                && matches!(
-                    match_result.termination,
-                    DeckMatchTermination::Winner(_) | DeckMatchTermination::Draw
-                )
+            matches!(
+                match_result.termination,
+                DeckMatchTermination::Winner(_) | DeckMatchTermination::Draw
+            )
         }));
     }
 

@@ -289,7 +289,7 @@ atomicity, mana-boundary clearing, LIFO/countered stack paths, SBA fixed points,
 continuous-effect lifetime, blocked-combat history, terminal draws, and
 multiplayer survivor priority.
 
-The latest eight-seed public review generated 1,680 complete logs with zero
+The latest eight-seed public review generated 1,800 complete logs with zero
 engine/policy/capability failures. It deliberately includes real Dredge,
 transmute, token-SBA, effect-expiry, and simultaneous-loss-draw traces; exact
 counts and the review checks are recorded in

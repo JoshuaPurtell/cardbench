@@ -35,7 +35,7 @@ fn main() -> ExitCode {
                     finding.detail
                 );
             }
-            if result.engine_findings.is_empty() {
+            if result.passed() {
                 ExitCode::SUCCESS
             } else {
                 ExitCode::FAILURE
