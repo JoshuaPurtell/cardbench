@@ -2445,7 +2445,13 @@ Oracle Magic rules coverage.
   the same APNAP-orderable batch. A definitionless ordinary token has no
   definition-bound self ETB, but still participates in that one entry event:
   all represented nonartifact/Aura/land-entry observers see it, and each Land
-  token produces its own represented land-entry event.
+  token produces its own represented land-entry event. The same copied
+  layer-one definition is authoritative at every upkeep and end-step boundary:
+  a copied token queues its matching controller, any-player, or eligible
+  attachment-relative turn trigger exactly as a non-token copy source does.
+  End-step replay validation resolves copied or departed source provenance
+  before classifying the receipt, so no copied token trigger is silently
+  exempt from the event-boundary audit.
 - Every registered legendary card definition, and every legendary token value,
   participates in CR 704.5j according to its current layer-one name. When a
   controller has two or more matching live permanents, the engine has exactly
