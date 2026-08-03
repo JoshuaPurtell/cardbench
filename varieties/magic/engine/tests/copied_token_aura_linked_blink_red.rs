@@ -18,6 +18,7 @@ use cardbench_magic_engine::{
 const CREATURE: &str = "TST-COPIED-TOKEN-LINKED-BLINK-CREATURE";
 const COPY_AURA: &str = "TST-COPIED-TOKEN-LINKED-BLINK-COPY-AURA";
 const BLINK_AURA: &str = "TST-COPIED-TOKEN-LINKED-BLINK-AURA";
+const OTHER_AURA: &str = "TST-COPIED-TOKEN-LINKED-BLINK-OTHER-AURA";
 
 fn definition(
     id: &'static str,
@@ -75,6 +76,14 @@ fn linked_blink_of_a_copied_token_exiles_auras_without_an_impossible_return_grou
                     }],
                 }],
             ),
+            definition(
+                OTHER_AURA,
+                BTreeSet::from([CardType::Enchantment]),
+                vec![Effect::AttachSourceToTarget {
+                    target: TargetRequirement::ControlledCreature,
+                    changes: vec![],
+                }],
+            ),
         ],
         2,
         [],
@@ -127,6 +136,13 @@ fn linked_blink_of_a_copied_token_exiles_auras_without_an_impossible_return_grou
             }],
             granted_activated_abilities: vec![],
         },
+        AttachmentBinding {
+            card_definition: OTHER_AURA,
+            kind: AttachmentKind::Aura,
+            target: TargetRequirement::ControlledCreature,
+            changes: vec![],
+            granted_activated_abilities: vec![],
+        },
     ])
     .expect("Aura bindings register");
 
@@ -139,6 +155,9 @@ fn linked_blink_of_a_copied_token_exiles_auras_without_an_impossible_return_grou
     let blink_aura = game
         .add_card(controller, BLINK_AURA, Zone::Hand)
         .expect("linked blink Aura setup");
+    let other_aura = game
+        .add_card(controller, OTHER_AURA, Zone::Hand)
+        .expect("second attached Aura setup");
     game.enter_attachment_without_cast(copy_aura, creature)
         .expect("pregame copy Aura setup attaches");
     game.begin_game()
@@ -154,6 +173,8 @@ fn linked_blink_of_a_copied_token_exiles_auras_without_an_impossible_return_grou
         .expect("upkeep ability creates one copied token");
     game.enter_attachment_without_cast(blink_aura, token)
         .expect("linked blink Aura may enter attached to the copied token");
+    game.enter_attachment_without_cast(other_aura, token)
+        .expect("second Aura may enter attached to the copied token");
 
     game.clear_event_log();
     game.activate_ability(
@@ -180,6 +201,7 @@ fn linked_blink_of_a_copied_token_exiles_auras_without_an_impossible_return_grou
         "the copied token must cease after its battlefield departure"
     );
     assert_eq!(game.zone_of(blink_aura), Some(Zone::Exile));
+    assert_eq!(game.zone_of(other_aura), Some(Zone::Exile));
     assert!(game.event_log.iter().any(
         |event| matches!(event, GameEvent::TokenCeasedToExist { token: ceased } if *ceased == token),
     ));

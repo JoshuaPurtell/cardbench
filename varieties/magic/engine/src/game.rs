@@ -6988,7 +6988,18 @@ impl Game {
             ));
         }
 
+        // A token ceases instead of acquiring an exile incarnation.  The
+        // attached Auras still follow this instruction into exile, but their
+        // return is contingent on the primary creature card returning.  Do
+        // not form a linked group around an object that no longer exists.
+        let primary_is_token = self.object(primary)?.token.is_some();
         self.move_to_zone(primary, Zone::Exile)?;
+        if primary_is_token {
+            for aura in attached_auras {
+                self.move_to_zone(aura, Zone::Exile)?;
+            }
+            return Ok(());
+        }
         let mut members = vec![LinkedExileMember {
             object: primary,
             exile_incarnation: self.object(primary)?.incarnation,
