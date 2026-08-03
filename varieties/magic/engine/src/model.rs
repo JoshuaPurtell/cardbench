@@ -457,6 +457,10 @@ pub enum TriggerCondition {
     /// condition has no implicit spell target; any printed targets are
     /// supplied by the ordinary triggered-ability choice boundary.
     CastsCreatureSpell,
+    /// A creature spell was cast by any player. The trigger payload retains
+    /// the public cast-card identity so a later effect can match card names
+    /// without consulting a later incarnation of that spell object.
+    AnyPlayerCastsCreatureSpell,
     /// A player cast that player's first noncreature spell in the current
     /// turn. The trigger retains the exact spell as its target. Unlike
     /// `CastsNoncreatureSpell`, the triggering permanent need not share a
@@ -2676,6 +2680,21 @@ pub enum Effect {
     /// owner's hand. The selection is a target-free public-zone operation;
     /// a policy layer may replace the deterministic choice later.
     ReturnOneCreatureCardFromEachGraveyardToHand,
+    /// Marker bound to an any-player creature-cast trigger. It materializes
+    /// into the captured card-name instruction below before the trigger is
+    /// stacked and never resolves directly.
+    ReturnAllCreatureCardsMatchingCastCreatureSpellNameFromGraveyards,
+    /// Return every creature card with the captured cast creature's name from
+    /// every living player's graveyard to the battlefield simultaneously.
+    /// The name is public cast provenance, not a later free card selection.
+    ReturnAllCreatureCardsMatchingNameFromGraveyards {
+        /// Exact physical spell provenance captured as the trigger occurred.
+        cast_card: ObjectId,
+        /// Zone-change identity of that exact spell object on the stack.
+        cast_incarnation: u64,
+        /// Public name of the captured creature spell.
+        name: &'static str,
+    },
     /// Select up to three land cards from the resolving controller's graveyard
     /// before any of them move, then return those cards to that player's hand.
     /// The public-zone selection suspends the stack item until that controller
@@ -3041,6 +3060,8 @@ impl Effect {
             | Self::ModifyAllCreaturesPtUntilEndOfTurnIfManaColorSpent { .. }
             | Self::CreateToken { .. }
             | Self::ReturnOneCreatureCardFromEachGraveyardToHand
+            | Self::ReturnAllCreatureCardsMatchingCastCreatureSpellNameFromGraveyards
+            | Self::ReturnAllCreatureCardsMatchingNameFromGraveyards { .. }
             | Self::ReturnUpToThreeControllerGraveyardLandCardsToHand
             | Self::ReturnAnotherControlledPermanentSharingEnteredCardTypes
             | Self::ReturnAnotherControlledPermanentSharingCardTypes { .. }

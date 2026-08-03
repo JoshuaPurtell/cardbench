@@ -25,6 +25,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-SEARING-MEDITATION",
             "RAV-BLOCKBUSTER",
             "RAV-BLOOD-FUNNEL",
+            "RAV-BLOODBOND-MARCH",
             "RAV-PEREGRINE-MASK",
             "RAV-VOYAGER-STAFF",
             "RAV-SPECTRAL-SEARCHLIGHT",

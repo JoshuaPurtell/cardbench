@@ -839,6 +839,14 @@ enum TriggerEventPayload {
     /// for the resulting permanent's own ETB trigger and never exposes a
     /// policy choice after costs have been paid.
     ConvokeContributors(Vec<CapturedConvokeCreature>),
+    /// A physical creature spell was cast. The card and its stack incarnation
+    /// are captured at the trigger boundary, while the public card name is
+    /// materialized into the resulting target-free instruction.
+    CastCreatureSpell {
+        card: ObjectId,
+        incarnation: u64,
+        name: &'static str,
+    },
     /// The event itself identifies the trigger's sole target. This is used
     /// for the represented Blood Funnel cast trigger, where the triggering
     /// spell is not a policy-selected target.
@@ -1877,6 +1885,7 @@ impl Game {
                         | TriggerCondition::Blocks
                         | TriggerCondition::CastsNoncreatureSpell
                         | TriggerCondition::CastsCreatureSpell
+                        | TriggerCondition::AnyPlayerCastsCreatureSpell
                         | TriggerCondition::FirstNoncreatureSpellCastEachTurn
                 )
                 || binding.ability.targets
@@ -6623,6 +6632,18 @@ impl Game {
     /// target, stack, priority, or state-based-action boundary is introduced.
     #[allow(clippy::too_many_lines)] // One atomic entry boundary preserves replacement ordering without hidden state.
     fn apply_static_entry_restriction(&mut self, permanent: ObjectId) -> Result<(), RulesError> {
+        self.apply_static_entry_restriction_from_sources(permanent, &self.all_battlefield_cards())
+    }
+
+    /// Applies the already-snapshotted entry replacement sources to one
+    /// permanent.  A simultaneous entry uses the pre-event battlefield plus
+    /// the entrant itself, rather than every newly-entered permanent.
+    #[allow(clippy::too_many_lines)] // One atomic entry boundary preserves replacement ordering without hidden state.
+    fn apply_static_entry_restriction_from_sources(
+        &mut self,
+        permanent: ObjectId,
+        entry_sources: &[ObjectId],
+    ) -> Result<(), RulesError> {
         self.require_zone(permanent, Zone::Battlefield)?;
         let entrant_controller = self.controller_of(permanent)?;
         let characteristics = self.characteristics(permanent)?;
@@ -6634,8 +6655,9 @@ impl Game {
         }) {
             return Ok(());
         }
-        let mut sources = self.all_battlefield_cards();
+        let mut sources = entry_sources.to_vec();
         sources.sort_unstable();
+        sources.dedup();
         let permanent_incarnation = self.object(permanent)?.incarnation;
         let mut entered_tapped = false;
         for source in sources {
@@ -7624,7 +7646,12 @@ impl Game {
             incarnation: source_incarnation,
         });
         if definition.card_types.contains(&CardType::Creature) {
-            self.enqueue_cast_creature_triggers(player)?;
+            self.enqueue_cast_creature_triggers(
+                player,
+                request.card,
+                source_incarnation,
+                definition.name,
+            )?;
         } else {
             let is_first_noncreature_spell_this_turn =
                 self.noncreature_spell_casters_this_turn.insert(player);
@@ -13905,6 +13932,7 @@ impl Game {
                             | TriggerCondition::Blocks
                             | TriggerCondition::CastsNoncreatureSpell
                             | TriggerCondition::CastsCreatureSpell
+                            | TriggerCondition::AnyPlayerCastsCreatureSpell
                             | TriggerCondition::FirstNoncreatureSpellCastEachTurn
                     )
                     || ability.targets
@@ -14418,6 +14446,20 @@ impl Game {
                             ) if entered.0 > 0
                                 && *entered_incarnation > 0
                                 && !card_types.is_empty()
+                        )
+                    } else if trigger_condition
+                        == Some(TriggerCondition::AnyPlayerCastsCreatureSpell)
+                    {
+                        matches!(
+                            (effects.as_slice(), stack_object.effects.as_slice()),
+                            (
+                                [Effect::ReturnAllCreatureCardsMatchingCastCreatureSpellNameFromGraveyards],
+                                [Effect::ReturnAllCreatureCardsMatchingNameFromGraveyards {
+                                    cast_card,
+                                    cast_incarnation,
+                                    name,
+                                }]
+                            ) if cast_card.0 > 0 && *cast_incarnation > 0 && !name.is_empty()
                         )
                     } else if trigger_condition == Some(TriggerCondition::BeginningOfAnyUpkeep)
                     {
@@ -17302,6 +17344,8 @@ impl Game {
                 }
                 | Effect::PutTargetCreatureCardInControllerGraveyardOnOwnersLibraryTop
                 | Effect::ReturnOneCreatureCardFromEachGraveyardToHand
+                | Effect::ReturnAllCreatureCardsMatchingCastCreatureSpellNameFromGraveyards
+                | Effect::ReturnAllCreatureCardsMatchingNameFromGraveyards { .. }
                 | Effect::ReturnUpToThreeControllerGraveyardLandCardsToHand
                 | Effect::ReturnAnotherControlledPermanentSharingEnteredCardTypes
                 | Effect::ReturnAnotherControlledPermanentSharingCardTypes { .. }
@@ -20629,6 +20673,23 @@ impl Game {
         entering: ObjectId,
         entering_controller: PlayerId,
     ) -> Result<(), RulesError> {
+        self.enqueue_controlled_nonartifact_permanent_entry_triggers_from_observers(
+            entering,
+            entering_controller,
+            &self.all_battlefield_cards(),
+        )
+    }
+
+    /// Queues nonartifact-entry observer triggers from an explicit observer
+    /// snapshot.  Simultaneous entries pass the pre-event battlefield here so
+    /// newly-entered creatures cannot observe one another's simultaneous
+    /// entry, while ordinary entry retains the current battlefield behavior.
+    fn enqueue_controlled_nonartifact_permanent_entry_triggers_from_observers(
+        &mut self,
+        entering: ObjectId,
+        entering_controller: PlayerId,
+        observer_sources: &[ObjectId],
+    ) -> Result<(), RulesError> {
         if self.zone_of(entering) != Some(Zone::Battlefield)
             || self.controller_of(entering)? != entering_controller
         {
@@ -20643,9 +20704,9 @@ impl Game {
         }
         let entering_incarnation = self.object(entering)?.incarnation;
         let entering_card_types = entering_characteristics.card_types;
-        let observers = self
-            .all_battlefield_cards()
-            .into_iter()
+        let observers = observer_sources
+            .iter()
+            .copied()
             .filter_map(|source| {
                 let object = self.object(source).ok()?;
                 if object.token.is_some() || self.controller_of(source).ok()? != entering_controller
@@ -20753,24 +20814,70 @@ impl Game {
         Ok(())
     }
 
-    /// Queues every controller-scoped creature-spell cast trigger after the
-    /// cast receipt and before post-cast priority. The creature spell remains
-    /// below each resulting trigger, preserving ordinary response and
-    /// optional-resolution windows without a card-specific resolver.
-    fn enqueue_cast_creature_triggers(&mut self, caster: PlayerId) -> Result<(), RulesError> {
+    /// Queues controller-scoped and any-player creature-spell cast triggers
+    /// after the cast receipt and before post-cast priority. Every global
+    /// observer receives the exact public cast-card provenance rather than a
+    /// resolver-time lookup of a later stack or graveyard incarnation.
+    fn enqueue_cast_creature_triggers(
+        &mut self,
+        caster: PlayerId,
+        spell: ObjectId,
+        spell_incarnation: u64,
+        spell_name: &'static str,
+    ) -> Result<(), RulesError> {
         let sources = self.all_battlefield_cards();
         for source in sources {
             let Some(definition) = self.effective_definition_id(source)? else {
                 continue;
             };
             let controller = self.controller_of(source)?;
+            let source_incarnation = self.object(source)?.incarnation;
+            let source_colors = self.characteristics(source)?.colors;
             if controller == caster {
-                self.enqueue_triggers_for_source(
-                    source,
-                    definition,
-                    controller,
-                    TriggerCondition::CastsCreatureSpell,
-                );
+                let triggers = self
+                    .triggered_abilities
+                    .get(definition)
+                    .into_iter()
+                    .flat_map(|abilities| abilities.values())
+                    .filter(|ability| ability.condition == TriggerCondition::CastsCreatureSpell)
+                    .cloned()
+                    .collect::<Vec<_>>();
+                for ability in triggers {
+                    self.pending_trigger_events
+                        .push(PendingTriggeredAbilityEvent {
+                            source,
+                            source_incarnation,
+                            source_colors: source_colors.clone(),
+                            controller,
+                            ability,
+                            payload: TriggerEventPayload::None,
+                        });
+                }
+            }
+            let triggers = self
+                .triggered_abilities
+                .get(definition)
+                .into_iter()
+                .flat_map(|abilities| abilities.values())
+                .filter(|ability| {
+                    ability.condition == TriggerCondition::AnyPlayerCastsCreatureSpell
+                })
+                .cloned()
+                .collect::<Vec<_>>();
+            for ability in triggers {
+                self.pending_trigger_events
+                    .push(PendingTriggeredAbilityEvent {
+                        source,
+                        source_incarnation,
+                        source_colors: source_colors.clone(),
+                        controller,
+                        ability,
+                        payload: TriggerEventPayload::CastCreatureSpell {
+                            card: spell,
+                            incarnation: spell_incarnation,
+                            name: spell_name,
+                        },
+                    });
             }
         }
         self.flush_pending_trigger_events()
@@ -20950,6 +21057,7 @@ impl Game {
     /// must choose targets. It is also called immediately after that generic
     /// decision, so a later targetless trigger cannot jump ahead of an earlier
     /// target-bearing one while priority remains blocked.
+    #[allow(clippy::too_many_lines)] // Trigger placement keeps every provenance payload at one boundary.
     fn advance_pending_trigger_placements(&mut self) -> Result<(), RulesError> {
         if matches!(
             self.pending_decision
@@ -20984,6 +21092,7 @@ impl Game {
                 | TriggerEventPayload::CombatDamagePlayer(_)
                 | TriggerEventPayload::EnteredPermanent { .. }
                 | TriggerEventPayload::ConvokeContributors(_)
+                | TriggerEventPayload::CastCreatureSpell { .. }
                 | TriggerEventPayload::UpkeepPlayer(_)
                 | TriggerEventPayload::EndStepPlayer(_) => None,
             };
@@ -21164,6 +21273,18 @@ impl Game {
                     TriggerEventPayload::ConvokeContributors(creatures),
                 ) => Effect::AddPlusOneCountersToCapturedConvokeCreatures {
                     creatures: creatures.clone(),
+                },
+                (
+                    Effect::ReturnAllCreatureCardsMatchingCastCreatureSpellNameFromGraveyards,
+                    TriggerEventPayload::CastCreatureSpell {
+                        card,
+                        incarnation,
+                        name,
+                    },
+                ) => Effect::ReturnAllCreatureCardsMatchingNameFromGraveyards {
+                    cast_card: *card,
+                    cast_incarnation: *incarnation,
+                    name,
                 },
                 (
                     Effect::SacrificeUpkeepPlayerCreature,
@@ -27067,6 +27188,22 @@ impl Game {
                     }
                 }
             }
+            Effect::ReturnAllCreatureCardsMatchingCastCreatureSpellNameFromGraveyards => {
+                return Err(RulesError::IllegalAction(
+                    "captured creature-cast return marker escaped trigger materialization",
+                ));
+            }
+            Effect::ReturnAllCreatureCardsMatchingNameFromGraveyards {
+                cast_card,
+                cast_incarnation,
+                name,
+            } => {
+                self.return_matching_creature_cards_from_graveyards_simultaneously(
+                    *cast_card,
+                    *cast_incarnation,
+                    name,
+                )?;
+            }
             Effect::ReturnUpToThreeControllerGraveyardLandCardsToHand => {
                 // Snapshot the full selection before any move. The public
                 // compatibility slice uses the deterministic first-three
@@ -28559,6 +28696,7 @@ impl Game {
             card,
             Zone::Graveyard,
             capture_zone_transition_observers,
+            true,
         )?;
         if was_battlefield {
             let battlefield_colors = battlefield_colors.ok_or(RulesError::IllegalAction(
@@ -28814,7 +28952,94 @@ impl Game {
 
     #[allow(clippy::too_many_lines)] // Zone moves centralize the replay-visible lifecycle.
     fn move_to_zone(&mut self, card: ObjectId, zone: Zone) -> Result<(), RulesError> {
-        self.move_to_zone_with_zone_transition_observers(card, zone, true)
+        self.move_to_zone_with_zone_transition_observers(card, zone, true, true)
+    }
+
+    /// Moves a creature into the battlefield during a larger simultaneous
+    /// entry event.  The caller snapshots which replacement sources existed
+    /// before the batch, then applies those entry restrictions to every
+    /// entrant only after every card has crossed the zone boundary.  This
+    /// prevents one simultaneous entrant from incorrectly modifying another.
+    fn move_creature_to_battlefield_for_simultaneous_entry(
+        &mut self,
+        card: ObjectId,
+    ) -> Result<(), RulesError> {
+        self.move_to_zone_with_zone_transition_observers(card, Zone::Battlefield, true, false)
+    }
+
+    /// Resolves the public-zone return instruction used by a captured
+    /// creature-spell cast trigger.  All matching creature cards cross from
+    /// graveyards to the battlefield in one event: entry replacements and
+    /// entry triggers see the pre-event battlefield, never a prior card from
+    /// this same batch.
+    fn return_matching_creature_cards_from_graveyards_simultaneously(
+        &mut self,
+        cast_card: ObjectId,
+        cast_incarnation: u64,
+        name: &'static str,
+    ) -> Result<(), RulesError> {
+        if cast_card.0 == 0 || cast_incarnation == 0 || name.is_empty() {
+            return Err(RulesError::IllegalAction(
+                "simultaneous creature return requires valid captured spell provenance",
+            ));
+        }
+        let captured_spell_is_live = self.stack.iter().any(|stack_object| {
+            stack_object.card == cast_card
+                && stack_object.source_incarnation == cast_incarnation
+                && stack_object.ability_id.is_none()
+        });
+        if !captured_spell_is_live
+            || !self.object_has_incarnation(cast_card, cast_incarnation)
+            || !self.card_definition(cast_card).is_ok_and(|definition| {
+                definition.name == name && definition.card_types.contains(&CardType::Creature)
+            })
+        {
+            return Err(RulesError::IllegalAction(
+                "simultaneous creature return lost its captured creature-spell provenance",
+            ));
+        }
+        let returning = self
+            .players
+            .iter()
+            .enumerate()
+            .filter(|(_, player)| !player.lost)
+            .flat_map(|(_, player)| player.graveyard.iter().copied())
+            .filter(|card| {
+                self.card_definition(*card).is_ok_and(|definition| {
+                    definition.name == name && definition.card_types.contains(&CardType::Creature)
+                })
+            })
+            .collect::<Vec<_>>();
+        if returning.is_empty() {
+            return Ok(());
+        }
+
+        let pre_event_sources = self.all_battlefield_cards();
+        for card in &returning {
+            self.require_zone(*card, Zone::Graveyard)?;
+            self.move_creature_to_battlefield_for_simultaneous_entry(*card)?;
+        }
+        for card in &returning {
+            let mut entry_sources = pre_event_sources.clone();
+            entry_sources.push(*card);
+            self.apply_static_entry_restriction_from_sources(*card, &entry_sources)?;
+        }
+        for card in &returning {
+            let definition = self.card_definition(*card)?.id;
+            let controller = self.controller_of(*card)?;
+            self.enqueue_triggers_for_source(
+                *card,
+                definition,
+                controller,
+                TriggerCondition::EntersBattlefield,
+            );
+            self.enqueue_controlled_nonartifact_permanent_entry_triggers_from_observers(
+                *card,
+                controller,
+                &pre_event_sources,
+            )?;
+        }
+        Ok(())
     }
 
     /// Internal zone-move form used after a complete simultaneous event has
@@ -28827,6 +29052,7 @@ impl Game {
         card: ObjectId,
         zone: Zone,
         capture_zone_transition_observers: bool,
+        apply_static_entry_restriction: bool,
     ) -> Result<(), RulesError> {
         let object = self.object(card)?.clone();
         let previous_zone = self.zone_of(card);
@@ -28945,7 +29171,7 @@ impl Game {
                 incarnation: self.object(card)?.incarnation,
             });
         }
-        if zone == Zone::Battlefield {
+        if zone == Zone::Battlefield && apply_static_entry_restriction {
             self.apply_static_entry_restriction(card)?;
         }
         if zone == Zone::Graveyard && advanced_incarnation && capture_zone_transition_observers {
@@ -29648,6 +29874,29 @@ impl Game {
         {
             return Err(RulesError::IllegalAction(
                 "Convoke-contributor counters require one target-free ETB trigger effect",
+            ));
+        }
+        let has_any_player_creature_cast_return_marker = ability
+            .effects
+            .contains(&Effect::ReturnAllCreatureCardsMatchingCastCreatureSpellNameFromGraveyards);
+        if has_any_player_creature_cast_return_marker
+            && (ability.condition != TriggerCondition::AnyPlayerCastsCreatureSpell
+                || !ability.targets.is_empty()
+                || ability.effects.as_slice()
+                    != [Effect::ReturnAllCreatureCardsMatchingCastCreatureSpellNameFromGraveyards])
+        {
+            return Err(RulesError::IllegalAction(
+                "matching creature-graveyard return requires one target-free any-player creature-cast trigger",
+            ));
+        }
+        if ability.effects.iter().any(|effect| {
+            matches!(
+                effect,
+                Effect::ReturnAllCreatureCardsMatchingNameFromGraveyards { .. }
+            )
+        }) {
+            return Err(RulesError::IllegalAction(
+                "materialized creature-cast return effect escaped onto a triggered binding",
             ));
         }
         if ability.effects.iter().any(|effect| {

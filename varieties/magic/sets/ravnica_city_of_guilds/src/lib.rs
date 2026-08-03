@@ -58,6 +58,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 266] = [
     "RAV-SEARING-MEDITATION",
     "RAV-BLOCKBUSTER",
     "RAV-BLOOD-FUNNEL",
+    "RAV-BLOODBOND-MARCH",
     "RAV-PEREGRINE-MASK",
     "RAV-VOYAGER-STAFF",
     "RAV-SPECTRAL-SEARCHLIGHT",
@@ -475,6 +476,29 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 "noncreature-generic-cost-reduction",
                 "cast-sacrifice-or-counter-trigger",
                 "controller-selected-sacrifice-or-counter",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![],
+        },
+        // Full fidelity: every creature spell cast by any player captures its
+        // public card identity before the resulting trigger returns all
+        // matching creature cards from every graveyard simultaneously.
+        CardDefinition {
+            id: "RAV-BLOODBOND-MARCH",
+            name: "Bloodbond March",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(2, [Color::Black, Color::Green]),
+            colors: colors([Color::Black, Color::Green]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Enchantment]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "any-player-creature-cast-matching-graveyard-creature-return",
+                "simultaneous-graveyard-creature-battlefield-entry",
             ],
             power: None,
             toughness: None,
@@ -8605,6 +8629,19 @@ pub fn rav_static_entry_restriction_bindings() -> Vec<StaticEntryRestrictionBind
 #[allow(clippy::too_many_lines)] // Keep the declarative trigger registry centralized for audit review.
 pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
     vec![
+        TriggeredAbilityBinding {
+            card_definition: "RAV-BLOODBOND-MARCH",
+            ability: TriggeredAbility {
+                id: "any-player-creature-cast-return-matching-graveyard-creatures",
+                condition: TriggerCondition::AnyPlayerCastsCreatureSpell,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![
+                    Effect::ReturnAllCreatureCardsMatchingCastCreatureSpellNameFromGraveyards,
+                ],
+            },
+        },
         TriggeredAbilityBinding {
             card_definition: "RAV-DIMIR-CUTPURSE",
             ability: TriggeredAbility {
