@@ -23,7 +23,9 @@ target directory across worktrees and runs the engine library suite, one policy
 worker-boundary contract, one RAV catalog contract, and
 `rav-engine-audit --quick`; a warm run is normally a few seconds. Full package
 suites, parity, the default audit, and matrix binaries intentionally remain
-explicit scale-campaign commands.
+explicit scale-campaign commands. Set `FAST_CHECK_FULL_FMT=1` when the edit
+loop should include the slower full-workspace formatter instead of its
+changed-Rust-file check.
 
 `rav-engine-parity` validates the original Ravnica-block manifests and public
 deck pool, executes every shown RAV scenario twice, and compares each deterministic
