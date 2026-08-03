@@ -3064,6 +3064,17 @@ impl Game {
         player: PlayerId,
         deck: &DeckList,
     ) -> Result<(), RulesError> {
+        self.atomic_transition(|game| game.load_deck_into_library_impl(player, deck))
+    }
+
+    /// Loads one pregame deck inside the public transaction journal. Besides
+    /// catalog validation, the setup receipt itself has a bounded cardinality;
+    /// every rejection must therefore leave the fixture empty and retryable.
+    fn load_deck_into_library_impl(
+        &mut self,
+        player: PlayerId,
+        deck: &DeckList,
+    ) -> Result<(), RulesError> {
         if self.started {
             return Err(RulesError::IllegalAction(
                 "a deck may be loaded only before the game begins",
@@ -3094,11 +3105,16 @@ impl Game {
                     ))
             })
             .collect::<Result<Vec<_>, _>>()?;
-        let mut cards = 0_u16;
+        let cards = entries.iter().try_fold(0_u16, |total, (_, count)| {
+            total
+                .checked_add(u16::from(*count))
+                .ok_or(RulesError::IllegalAction(
+                    "deck card count exceeds event receipt range",
+                ))
+        })?;
         for (definition, count) in entries {
             for _ in 0..count {
                 self.add_card(player, definition, Zone::Library)?;
-                cards = cards.saturating_add(1);
             }
         }
         self.record_event(GameEvent::DeckLoaded { player, cards });
