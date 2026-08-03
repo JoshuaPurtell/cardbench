@@ -44,7 +44,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 254] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 255] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
@@ -216,6 +216,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 254] = [
     "RAV-COMPULSIVE-RESEARCH",
     "RAV-DRIFT-OF-PHANTASMS",
     "RAV-ETHEREAL-USHER",
+    "RAV-HALCYON-GLAZE",
     "RAV-GROZOTH",
     "RAV-FLIGHT-OF-FANCY",
     "RAV-FLOW-OF-IDEAS",
@@ -5952,6 +5953,29 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             ))],
             effects: vec![],
         },
+        // Full fidelity: a controlled creature-spell cast triggers an
+        // ordinary, target-free stack ability. Its source-relative layered
+        // animation keeps the Enchantment type while adding a blue 4/4
+        // Flying Illusion body only through this turn's cleanup.
+        CardDefinition {
+            id: "RAV-HALCYON-GLAZE",
+            name: "Halcyon Glaze",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(2, [Color::Blue]),
+            colors: colors([Color::Blue]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Enchantment]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "creature-spell-triggered-self-animation",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![],
+        },
         // Full fidelity: the optional entry trigger uses the ordinary stack
         // and a private policy-submitted multi-card library search. Transmute
         // likewise enters the stack before that private search, so opponents
@@ -8176,6 +8200,23 @@ pub fn rav_static_entry_restriction_bindings() -> Vec<StaticEntryRestrictionBind
 #[allow(clippy::too_many_lines)] // Keep the declarative trigger registry centralized for audit review.
 pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
     vec![
+        TriggeredAbilityBinding {
+            card_definition: "RAV-HALCYON-GLAZE",
+            ability: TriggeredAbility {
+                id: "creature-spell-animate-source-until-end-of-turn",
+                condition: TriggerCondition::CastsCreatureSpell,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![Effect::AnimateSourceIntoCreatureUntilEndOfTurn {
+                    colors: colors([Color::Blue]),
+                    creature_subtypes: BTreeSet::from([CreatureSubtype::Illusion]),
+                    power: 4,
+                    toughness: 4,
+                    keywords: vec![Keyword::Flying],
+                }],
+            },
+        },
         TriggeredAbilityBinding {
             card_definition: "RAV-CONCLAVE-PHALANX",
             ability: TriggeredAbility {

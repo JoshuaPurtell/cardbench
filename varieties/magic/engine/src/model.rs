@@ -1626,6 +1626,7 @@ pub enum CreatureSubtype {
     Faerie,
     Goblin,
     Horror,
+    Illusion,
     Knight,
     Saproling,
     Spirit,
@@ -2193,6 +2194,17 @@ pub enum Effect {
         creature_subtypes: BTreeSet<CreatureSubtype>,
         power: i16,
         toughness: i16,
+    },
+    /// Turn the resolving permanent source into a colored typed creature
+    /// through cleanup. The source must retain its exact battlefield
+    /// incarnation through resolution, so a later incarnation is never
+    /// animated merely because it reuses the same stable object id.
+    AnimateSourceIntoCreatureUntilEndOfTurn {
+        colors: BTreeSet<Color>,
+        creature_subtypes: BTreeSet<CreatureSubtype>,
+        power: i16,
+        toughness: i16,
+        keywords: Vec<Keyword>,
     },
     /// Apply a temporary layer-seven adjustment and layer-six keyword grant to
     /// one creature target. Keeping the pair in one instruction preserves one
@@ -2894,6 +2906,7 @@ impl Effect {
             | Self::ReturnSourceToOwnersHand
             | Self::MoveSourceToOwnersLibraryAndShuffle
             | Self::ModifySourcePtUntilEndOfTurn { .. }
+            | Self::AnimateSourceIntoCreatureUntilEndOfTurn { .. }
             | Self::AddSourceKeywordUntilEndOfTurn { .. }
             | Self::RemoveSourceKeywordUntilEndOfTurn { .. }
             | Self::AddSourceDamageShieldUntilEndOfTurn { .. }

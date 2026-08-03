@@ -15960,6 +15960,7 @@ impl Game {
                 | Effect::DealDamageEqualToAttackingCreatures { .. }
                 | Effect::ModifyTargetPtUntilEndOfTurn { .. }
                 | Effect::AnimateTargetLand { .. }
+                | Effect::AnimateSourceIntoCreatureUntilEndOfTurn { .. }
                 | Effect::ModifyTargetPtAndKeywordUntilEndOfTurn { .. }
                 | Effect::ModifyTargetKeywordUntilEndOfTurn { .. }
                 | Effect::PreventTargetBlockingSourceUntilEndOfTurn
@@ -24113,6 +24114,67 @@ impl Game {
                     Duration::UntilTargetLeavesBattlefield,
                 )?;
             }
+            Effect::AnimateSourceIntoCreatureUntilEndOfTurn {
+                colors,
+                creature_subtypes,
+                power,
+                toughness,
+                keywords,
+            } => {
+                if colors.is_empty()
+                    || colors.contains(&Color::Colorless)
+                    || creature_subtypes.is_empty()
+                    || *power < 0
+                    || *toughness < 0
+                {
+                    return Err(RulesError::IllegalAction(
+                        "source animation requires colors, creature subtypes, and nonnegative base P/T",
+                    ));
+                }
+                if self.zone_of(source) != Some(Zone::Battlefield)
+                    || !self.object_has_incarnation(source, source_incarnation)
+                {
+                    return Ok(());
+                }
+                let duration = Duration::EndOfTurn(self.turn);
+                self.install_continuous_effect(
+                    source,
+                    source,
+                    ContinuousChange::AddCardType(CardType::Creature),
+                    duration,
+                )?;
+                for subtype in creature_subtypes {
+                    self.install_continuous_effect(
+                        source,
+                        source,
+                        ContinuousChange::AddCreatureSubtype(*subtype),
+                        duration,
+                    )?;
+                }
+                self.install_continuous_effect(
+                    source,
+                    source,
+                    ContinuousChange::ReplaceColorsWithSet(colors.clone()),
+                    duration,
+                )?;
+                self.install_continuous_effect(
+                    source,
+                    source,
+                    ContinuousChange::SetPowerToughness {
+                        power: *power,
+                        toughness: *toughness,
+                    },
+                    duration,
+                )?;
+                for keyword in keywords {
+                    self.install_continuous_effect(
+                        source,
+                        source,
+                        ContinuousChange::AddKeyword(keyword.clone()),
+                        duration,
+                    )?;
+                }
+            }
             Effect::ModifyTargetPtAndKeywordUntilEndOfTurn {
                 power,
                 toughness,
@@ -27852,6 +27914,25 @@ impl Game {
                 {
                     return Err(RulesError::IllegalAction(
                         "land animation requires colors, creature subtypes, and nonnegative base P/T",
+                    ));
+                }
+            }
+            if let Effect::AnimateSourceIntoCreatureUntilEndOfTurn {
+                colors,
+                creature_subtypes,
+                power,
+                toughness,
+                ..
+            } = effect
+            {
+                if colors.is_empty()
+                    || colors.contains(&Color::Colorless)
+                    || creature_subtypes.is_empty()
+                    || *power < 0
+                    || *toughness < 0
+                {
+                    return Err(RulesError::IllegalAction(
+                        "source animation requires colors, creature subtypes, and nonnegative base P/T",
                     ));
                 }
             }
