@@ -25279,6 +25279,11 @@ impl Game {
                     from: *from,
                     to,
                 });
+                // CR 506.4: control-changing a combatant removes it from
+                // combat.  `remove_from_combat` preserves an old block's
+                // history (so its attacker remains blocked) while removing
+                // a changed attacker and its live blocker group.
+                self.remove_from_combat(*target);
             }
         }
         Ok(())

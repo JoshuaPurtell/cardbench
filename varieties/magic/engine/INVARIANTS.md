@@ -1709,6 +1709,12 @@ Oracle Magic rules coverage.
   evasion-qualified blocker set must be empty. Historical block records remain
   only for delayed effects and must never make the priority transition roll
   back.
+- Every layer-two controller transition records `ControllerChanged` and then
+  removes that permanent from live combat membership before the next combat
+  decision or damage batch. A changed attacker is removed with its live blocker
+  group; a changed blocker is retained only as historical block provenance, so
+  the attacker remains blocked but neither former participant assigns combat
+  damage as a consequence of the changed control.
 - `unblockable_attackers` is declaration provenance only: it is a subset of
   the uniquely declared attackers and no blocker map entry may name one of
   those attackers. A rejected block writes no `BlockersDeclared` receipt.

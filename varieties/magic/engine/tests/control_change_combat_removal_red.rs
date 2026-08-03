@@ -75,6 +75,16 @@ fn control_change_removes_a_declared_attacker_before_blockers_or_damage() {
         GameEvent::ControllerChanged { target, from, to, .. }
             if *target == attacker && *from == PlayerId(0) && *to == PlayerId(1)
     )));
+    game.pass_priority(PlayerId(0))
+        .expect("former attacker controller passes");
+    game.pass_priority(PlayerId(1))
+        .expect("combat skips blockers and damage after the attacker left combat");
+    assert_eq!(game.step, Step::EndOfCombat);
+    assert_eq!(
+        game.player(PlayerId(1)).expect("defender exists").life,
+        20,
+        "a control-changed attacker deals no combat damage"
+    );
     game.validate_invariants()
         .expect("control change leaves no stale attacker provenance");
 }
