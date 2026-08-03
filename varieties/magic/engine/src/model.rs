@@ -2574,6 +2574,13 @@ pub enum Effect {
     /// library. The target retains its exact graveyard incarnation while the
     /// stack item waits to resolve.
     PutTargetGraveyardCardOnOwnersLibraryBottom,
+    /// Exile a policy-selected group of zero through `maximum` distinct cards
+    /// from one public graveyard. Target membership is fixed while casting;
+    /// each target retains ordinary stack-incarnation provenance and resolves
+    /// independently if later targets become illegal.
+    ExileUpToTargetGraveyardCards {
+        maximum: u8,
+    },
     /// Move the resolving source controller's current library top to the
     /// bottom of that same library. This is a library reorder, not a zone
     /// transition: the selected card retains its current object incarnation.
@@ -2847,6 +2854,7 @@ impl Effect {
             | Self::ReturnSourceAttachedPermanentToHand
             | Self::LookAtTopCardsChooseForLifeOrGraveyard { .. }
             | Self::ShuffleGraveyardsIntoLibraries
+            | Self::ExileUpToTargetGraveyardCards { .. }
             | Self::PutTopCardOfControllerLibraryOnBottom
             | Self::ReturnSourceToOwnersHand
             | Self::MoveSourceToOwnersLibraryAndShuffle
@@ -2875,6 +2883,19 @@ impl Effect {
             | Self::DestroyCapturedCreature { .. }
             | Self::DestroyCapturedCombatParticipants { .. }
             | Self::ExileAttachedCreatureAndAurasUntilEndStep => None,
+        }
+    }
+
+    /// Returns the variable target-group specification for the small class of
+    /// effects whose target occurrence count is chosen during casting rather
+    /// than encoded by a fixed effect list.
+    #[must_use]
+    pub const fn variable_target_group(&self) -> Option<(TargetRequirement, u8, u8)> {
+        match self {
+            Self::ExileUpToTargetGraveyardCards { maximum } => {
+                Some((TargetRequirement::GraveyardCard, 0, *maximum))
+            }
+            _ => None,
         }
     }
 
@@ -4280,7 +4301,7 @@ pub struct StackObject {
 /// effect in a stack object. This is deliberately aligned one-for-one with
 /// `StackObject::effects`, rather than with the deduplicated set of objects
 /// named as targets: one permanent can legally occupy several target slots.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum StackEffectResolution {
     Untargeted,
     Targeted {
@@ -4292,6 +4313,12 @@ pub enum StackEffectResolution {
         first_legal: bool,
         second: Target,
         second_legal: bool,
+    },
+    /// One cast-time selected variable target group. Each member remains an
+    /// independent target occurrence for all-targets-illegal and partial
+    /// resolution semantics.
+    TargetedGroup {
+        targets: Vec<(Target, bool)>,
     },
 }
 
@@ -4320,6 +4347,16 @@ impl StackObject {
     /// Returns the target-slot count mandated by this object's effect list.
     #[must_use]
     pub fn target_count(&self) -> usize {
+        if self
+            .effects
+            .iter()
+            .any(|effect| effect.variable_target_group().is_some())
+        {
+            // Ranged target groups derive their occurrence count from the
+            // immutable cast-time target vector. Invariant validation checks
+            // the group's range, shape, uniqueness, and relation separately.
+            return self.targets.len();
+        }
         self.effects
             .iter()
             .map(|effect| effect.target_requirements().into_iter().flatten().count())
@@ -4336,52 +4373,100 @@ impl StackObject {
         &self,
         mut target_is_legal: impl FnMut(Target, TargetRequirement) -> bool,
     ) -> Result<StackResolutionPlan, StackTargetArityError> {
-        let expected = self.target_count();
-        if self.targets.len() != expected {
+        let fixed_count = self
+            .effects
+            .iter()
+            .map(|effect| effect.target_requirements().into_iter().flatten().count())
+            .sum::<usize>();
+        let variable_effects = self
+            .effects
+            .iter()
+            .filter(|effect| effect.variable_target_group().is_some())
+            .count();
+        if variable_effects == 0 && self.targets.len() != fixed_count {
             return Err(StackTargetArityError {
-                expected,
+                expected: fixed_count,
+                actual: self.targets.len(),
+            });
+        }
+        if variable_effects > 1 || self.targets.len() < fixed_count {
+            return Err(StackTargetArityError {
+                expected: fixed_count,
                 actual: self.targets.len(),
             });
         }
 
-        let mut targets = self.targets.iter().copied();
+        let mut target_index = 0;
         let mut has_target = false;
         let mut has_legal_target = false;
-        let effects = self
-            .effects
-            .iter()
-            .map(|effect| {
-                let [first_requirement, second_requirement] = effect.target_requirements();
-                match (first_requirement, second_requirement) {
-                    (None, None) => StackEffectResolution::Untargeted,
-                    (Some(requirement), None) => {
-                        has_target = true;
-                        // The exact arity check above proves this is present.
-                        let target = targets.next().expect("target occurrence is present");
+        let mut effects = Vec::with_capacity(self.effects.len());
+        for (effect_index, effect) in self.effects.iter().enumerate() {
+            if let Some((requirement, minimum, maximum)) = effect.variable_target_group() {
+                let trailing_fixed = self.effects[effect_index + 1..]
+                    .iter()
+                    .map(|trailing| trailing.target_requirements().into_iter().flatten().count())
+                    .sum::<usize>();
+                let group_len = self
+                    .targets
+                    .len()
+                    .checked_sub(target_index + trailing_fixed)
+                    .ok_or(StackTargetArityError {
+                        expected: fixed_count,
+                        actual: self.targets.len(),
+                    })?;
+                if group_len < usize::from(minimum) || group_len > usize::from(maximum) {
+                    return Err(StackTargetArityError {
+                        expected: usize::from(maximum),
+                        actual: group_len,
+                    });
+                }
+                let group = self.targets[target_index..target_index + group_len]
+                    .iter()
+                    .copied()
+                    .map(|target| {
                         let legal = target_is_legal(target, requirement);
                         has_legal_target |= legal;
-                        StackEffectResolution::Targeted { target, legal }
-                    }
-                    (Some(first_requirement), Some(second_requirement)) => {
-                        has_target = true;
-                        let first = targets.next().expect("first target occurrence is present");
-                        let second = targets.next().expect("second target occurrence is present");
-                        let first_legal = target_is_legal(first, first_requirement);
-                        let second_legal = target_is_legal(second, second_requirement);
-                        has_legal_target |= first_legal || second_legal;
-                        StackEffectResolution::TargetedPair {
-                            first,
-                            first_legal,
-                            second,
-                            second_legal,
-                        }
-                    }
-                    (None, Some(_)) => {
-                        unreachable!("an effect cannot have a second target without a first")
+                        (target, legal)
+                    })
+                    .collect::<Vec<_>>();
+                has_target |= !group.is_empty();
+                target_index += group_len;
+                effects.push(StackEffectResolution::TargetedGroup { targets: group });
+                continue;
+            }
+            let [first_requirement, second_requirement] = effect.target_requirements();
+            let resolution = match (first_requirement, second_requirement) {
+                (None, None) => StackEffectResolution::Untargeted,
+                (Some(requirement), None) => {
+                    has_target = true;
+                    // The exact arity check above proves this is present.
+                    let target = self.targets[target_index];
+                    target_index += 1;
+                    let legal = target_is_legal(target, requirement);
+                    has_legal_target |= legal;
+                    StackEffectResolution::Targeted { target, legal }
+                }
+                (Some(first_requirement), Some(second_requirement)) => {
+                    has_target = true;
+                    let first = self.targets[target_index];
+                    let second = self.targets[target_index + 1];
+                    target_index += 2;
+                    let first_legal = target_is_legal(first, first_requirement);
+                    let second_legal = target_is_legal(second, second_requirement);
+                    has_legal_target |= first_legal || second_legal;
+                    StackEffectResolution::TargetedPair {
+                        first,
+                        first_legal,
+                        second,
+                        second_legal,
                     }
                 }
-            })
-            .collect();
+                (None, Some(_)) => {
+                    unreachable!("an effect cannot have a second target without a first")
+                }
+            };
+            effects.push(resolution);
+        }
 
         if has_target && !has_legal_target {
             Ok(StackResolutionPlan::CounteredByRules)

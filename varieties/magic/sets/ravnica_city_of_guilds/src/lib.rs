@@ -44,7 +44,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 249] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 250] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
@@ -115,6 +115,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 249] = [
     "RAV-EMPTY-THE-CATACOMBS",
     "RAV-MAUSOLEUM-TURNKEY",
     "RAV-SHADOW-OF-DOUBT",
+    "RAV-SHRED-MEMORY",
     "RAV-HELLDOZER",
     "RAV-GREATER-MOSSDOG",
     "RAV-STINKWEED-IMP",
@@ -1738,8 +1739,10 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             ))],
             effects: vec![],
         },
-        // Only the hand-zone transmute activation is executable. Its printed
-        // spell effect is deliberately non-covered.
+        // Full fidelity: the instant may retain zero through four distinct
+        // card targets from one graveyard, then exiles every target that is
+        // still legal when it resolves. Its hand-zone transmute activation
+        // uses the ordinary exact-mana-value library search substrate.
         CardDefinition {
             id: "RAV-SHRED-MEMORY",
             name: "Shred Memory",
@@ -1749,14 +1752,19 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Instant]),
             is_basic_land: false,
-            supported_rules: &["transmute"],
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "exile-up-to-four-target-cards-single-graveyard",
+                "transmute",
+            ],
             power: None,
             toughness: None,
             keywords: vec![Keyword::Transmute(ManaCost::with_colors(
                 1,
                 [Color::Black, Color::Black],
             ))],
-            effects: vec![],
+            effects: vec![Effect::ExileUpToTargetGraveyardCards { maximum: 4 }],
         },
         // Full fidelity within the represented library-search substrate: the
         // spell installs one public marker for the current turn, then draws

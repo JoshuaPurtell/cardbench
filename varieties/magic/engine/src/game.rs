@@ -13103,6 +13103,46 @@ impl Game {
                     "stack target incarnation receipt contains zero identity",
                 ));
             }
+            let variable_groups = stack_object
+                .effects
+                .iter()
+                .filter_map(Effect::variable_target_group)
+                .collect::<Vec<_>>();
+            if !variable_groups.is_empty() {
+                if variable_groups.len() != 1 || stack_object.effects.len() != 1 {
+                    return Err(RulesError::IllegalAction(
+                        "stack object has unsupported mixed variable target groups",
+                    ));
+                }
+                let (requirement, minimum, maximum) = variable_groups[0];
+                if stack_object.targets.len() < usize::from(minimum)
+                    || stack_object.targets.len() > usize::from(maximum)
+                {
+                    return Err(RulesError::IllegalAction(
+                        "stack object has a variable target group outside its range",
+                    ));
+                }
+                let mut distinct = HashSet::new();
+                let mut owner = None;
+                for target in &stack_object.targets {
+                    if !Self::target_shape_matches(*target, requirement)
+                        || !distinct.insert(*target)
+                    {
+                        return Err(RulesError::IllegalTarget(*target));
+                    }
+                    let Target::Permanent(card) = target else {
+                        return Err(RulesError::IllegalTarget(*target));
+                    };
+                    let card_owner = self.object(*card)?.owner;
+                    if owner
+                        .replace(card_owner)
+                        .is_some_and(|first| first != card_owner)
+                    {
+                        return Err(RulesError::IllegalTarget(*target));
+                    }
+                }
+                continue;
+            }
             // A target may become illegal after a legal cast (for example, a
             // player can lose or a permanent can leave the battlefield), but
             // it cannot change its enum kind. Validate only immutable target
@@ -14711,6 +14751,48 @@ impl Game {
         definition: &CardDefinition,
         targets: &[Target],
     ) -> Result<(), RulesError> {
+        let variable_groups = definition
+            .effects
+            .iter()
+            .filter_map(Effect::variable_target_group)
+            .collect::<Vec<_>>();
+        if !variable_groups.is_empty() {
+            if variable_groups.len() != 1 || definition.effects.len() != 1 {
+                return Err(RulesError::IllegalAction(
+                    "variable target-group effects must be the sole spell instruction",
+                ));
+            }
+            let (requirement, minimum, maximum) = variable_groups[0];
+            if targets.len() < usize::from(minimum) || targets.len() > usize::from(maximum) {
+                return Err(RulesError::IllegalAction(
+                    "the supplied targets are outside the spell's target-group range",
+                ));
+            }
+            let mut distinct = HashSet::new();
+            let mut owner = None;
+            for target in targets {
+                if !self.target_matches_for_colors(
+                    controller,
+                    *target,
+                    requirement,
+                    &definition.colors,
+                ) || !distinct.insert(*target)
+                {
+                    return Err(RulesError::IllegalTarget(*target));
+                }
+                let Target::Permanent(card) = target else {
+                    return Err(RulesError::IllegalTarget(*target));
+                };
+                let card_owner = self.object(*card)?.owner;
+                if owner
+                    .replace(card_owner)
+                    .is_some_and(|first| first != card_owner)
+                {
+                    return Err(RulesError::IllegalTarget(*target));
+                }
+            }
+            return Ok(());
+        }
         let requirements: Vec<_> = definition
             .effects
             .iter()
@@ -14867,6 +14949,22 @@ impl Game {
         definition: &CardDefinition,
         selections: &[Target],
     ) -> Result<(Vec<Target>, Vec<Target>), RulesError> {
+        if definition
+            .effects
+            .iter()
+            .any(|effect| effect.variable_target_group().is_some())
+        {
+            if self
+                .additional_spell_costs
+                .get(definition.id)
+                .is_some_and(|costs| !costs.is_empty())
+            {
+                return Err(RulesError::IllegalAction(
+                    "variable target-group spells cannot carry additional cost selections",
+                ));
+            }
+            return Ok((selections.to_vec(), Vec::new()));
+        }
         let target_count = definition
             .effects
             .iter()
@@ -15353,6 +15451,7 @@ impl Game {
                 | Effect::ReturnOpponentCreatureToHand
                 | Effect::PutTargetCreatureOnOwnersLibraryTop
                 | Effect::PutTargetGraveyardCardOnOwnersLibraryBottom
+                | Effect::ExileUpToTargetGraveyardCards { .. }
                 | Effect::PutTopCardOfControllerLibraryOnBottom
                 | Effect::ReturnSourceToOwnersHand
                 | Effect::MoveSourceToOwnersLibraryAndShuffle
@@ -15873,6 +15972,48 @@ impl Game {
                         effect_index,
                         target,
                     });
+                }
+                StackEffectResolution::TargetedGroup { targets } => {
+                    let Some((requirement, _, _)) = effect.variable_target_group() else {
+                        return Err(RulesError::IllegalAction(
+                            "target-group resolution named a fixed-target effect",
+                        ));
+                    };
+                    for (target, initially_legal) in targets {
+                        let occurrence = target_index;
+                        target_index += 1;
+                        if initially_legal
+                            && self.stack_target_incarnation_matches(
+                                &stack_object,
+                                occurrence,
+                                target,
+                            )
+                            && self.target_matches_for_colors(
+                                stack_object.controller,
+                                target,
+                                requirement,
+                                &stack_object.source_colors,
+                            )
+                        {
+                            self.resolve_effect(
+                                stack_object.card,
+                                stack_object.source_incarnation,
+                                &stack_object.source_colors,
+                                stack_object.controller,
+                                stack_object.chosen_x,
+                                stack_object.chosen_color,
+                                stack_object.mana_spent.as_deref(),
+                                effect,
+                                Some(target),
+                            )?;
+                        } else {
+                            self.record_event(GameEvent::TargetInstructionSkipped {
+                                card: stack_object.card,
+                                effect_index,
+                                target,
+                            });
+                        }
+                    }
                 }
                 StackEffectResolution::TargetedPair {
                     first,
@@ -23587,6 +23728,14 @@ impl Game {
                     ));
                 }
                 library.insert(0, target);
+            }
+            Effect::ExileUpToTargetGraveyardCards { .. } => {
+                let target = Self::target_permanent(target)?;
+                if !self.target_matches(Target::Permanent(target), TargetRequirement::GraveyardCard)
+                {
+                    return Err(RulesError::IllegalTarget(Target::Permanent(target)));
+                }
+                self.move_to_zone(target, Zone::Exile)?;
             }
             Effect::PutTopCardOfControllerLibraryOnBottom => {
                 let library = &mut self.players[controller.0].library;
