@@ -149,9 +149,8 @@ current corpus contains 187 scenarios and covers:
   Embers`) plus additional explicitly transmute-only compatibility slices (`Dimir
   Machinations`, `Shred Memory`, `Clutch of the Undercity`, and `Perplex`); and
 - a source-bound generic reduction plus a retained noncreature-spell cast
-  trigger (`Blood Funnel`), with real stack/priority and sacrifice-or-counter
-  receipts but an explicitly bounded deterministic sacrifice selection until
-  that choice can be submitted by a policy; and
+  trigger (`Blood Funnel`), with real stack/priority, controller-submitted
+  mandatory creature sacrifice, and counter-on-no-creature receipts; and
 - full-fidelity combat-state-dependent player-or-creature damage (`Dogpile`), a
   full-fidelity controller-wide temporary Convoke modifier (`Overwhelm`), and
   full-fidelity paid-color-conditioned resolution (`Ribbons of Night`), with

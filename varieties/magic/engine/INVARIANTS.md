@@ -733,10 +733,16 @@ Oracle Magic rules coverage.
   explicit chosen-X value but before mana or Convoke payment. A
   `CastsNoncreatureSpell` trigger retains the exact triggering spell in its
   one `NoncreatureSpell` target slot, stacks above that spell after `SpellCast`,
-  and either sacrifices one creature controlled by its resolving controller
-  or emits `SpellCountered` followed by the target's ordinary terminal move.
-  Until a policy submits that sacrifice choice, stable battlefield order is an
-  explicitly bounded fixture-selection rule rather than full choice fidelity.
+  and either opens one mandatory public `TriggeredEffectObject` choice for its
+  resolving controller's current creatures or emits `SpellCountered` followed
+  by the target's ordinary terminal move when that option set is empty. The
+  pending continuation retains the exact source, ability, and underlying
+  noncreature spell; it rejects stale/missing spell provenance, an altered
+  candidate set, non-controller answer, decline, duplicate, or non-creature
+  selection atomically. The successful choice records
+  `DecisionCompleted → SacrificedByEffect → CardMoved →
+  ObjectIncarnationAdvanced → AbilityResolved` while leaving the retained
+  spell on the stack. No battlefield-order fallback is legal.
 - `FirstNoncreatureSpellCastEachTurn` separately records every player's first
   noncreature spell for the current turn; it is not a global first-spell flag
   and a countered first spell still consumes only that player's slot. The
