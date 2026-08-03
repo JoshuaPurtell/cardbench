@@ -1860,8 +1860,12 @@ Oracle Magic rules coverage.
   library and selects no more than one card satisfying its expansion-neutral
   predicate. A deterministic selector remains an explicitly bounded
   compatibility mode. A policy-submitted selector instead suspends its
-  one-effect resolving spell or activated-ability stack item with zero passes in a private
-  `PendingDecision`; only that controller sees the ordered matching candidates.
+  exact instruction cursor of a resolving spell or activated-ability stack
+  item with zero passes in a private `PendingDecision`; only that controller
+  sees the ordered matching candidates. A multi-instruction stack item keeps
+  its prefix effects committed and resumes its suffix exactly once after the
+  choice, while a terminal search emits the ordinary spell/ability lifecycle
+  once.
   Their `DecisionId`-bearing submitted object must still be in that snapshot
   and match the typed predicate (including a spell's retained chosen X).
   `None` is legal only when the search permits failure to find or has no
