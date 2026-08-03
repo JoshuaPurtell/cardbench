@@ -50,3 +50,43 @@ fn coverage_categories_partition_every_printing_and_unique_name() {
         306
     );
 }
+
+#[test]
+fn every_positive_manifest_definition_declares_full_fidelity() {
+    let definitions = cardbench_magic_rav::card_definitions();
+    let manifest = RAV_FULL_FIDELITY_DEFINITION_IDS
+        .into_iter()
+        .collect::<BTreeSet<_>>();
+    assert_eq!(
+        definitions.len(),
+        manifest.len(),
+        "definition/manifest count drift"
+    );
+
+    let mut missing_markers = Vec::new();
+    let mut stale_labels = Vec::new();
+    for id in manifest {
+        let definition = definitions
+            .iter()
+            .find(|definition| definition.id == id)
+            .unwrap_or_else(|| panic!("positive manifest names missing definition {id}"));
+        if definition.supported_rules.first().copied() != Some("full-rules-fidelity") {
+            missing_markers.push(id);
+        }
+        if definition
+            .supported_rules
+            .iter()
+            .any(|rule| rule.contains("compatibility") || rule.contains("unsupported"))
+        {
+            stale_labels.push(id);
+        }
+    }
+    assert!(
+        missing_markers.is_empty(),
+        "missing fidelity markers: {missing_markers:?}"
+    );
+    assert!(
+        stale_labels.is_empty(),
+        "stale compatibility labels: {stale_labels:?}"
+    );
+}
