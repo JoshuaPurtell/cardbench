@@ -196,7 +196,8 @@ Oracle Magic rules coverage.
   last-known `Characteristics` record under that object's exact former
   `(ObjectId, incarnation)`. A record must name an existing strictly older
   incarnation and may not contain `Colorless` as a card color. Live
-  battlefield sources use their current characteristics; a departed damage
+  battlefield sources use their current characteristics only when their exact
+  incarnation equals the resolving stack source; any departed or re-entered
   source instead uses that immutable former record for source-quality rules,
   including `Deathtouch` and `DamageCannotBePrevented`. A later graveyard,
   exile, or re-entered incarnation can therefore neither lose nor invent a
