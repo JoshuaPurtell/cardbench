@@ -2691,7 +2691,12 @@ Oracle Magic rules coverage.
   auditable event. A public continuous-effect installation is such a relevant
   change: it creates its effect receipt, then reaches the SBA fixed point
   before returning; a spell that installs an effect waits until the entire
-  spell has resolved before that same SBA check. For creature deaths selected
+  spell has resolved before that same SBA check. A physical cast likewise
+  reaches its post-cost SBA fixed point before placing any triggers observed
+  from that cast or its additional costs. Thus, if an additional cost removes
+  a static effect and creates another death, both observations enter one
+  APNAP placement batch; no earlier `TriggeredAbilityStacked` receipt may
+  preempt the required shared order decision. For creature deaths selected
   in one pass, regeneration shields are consumed first, then the remaining
   death set receives one shared last-known-information observer snapshot
   before its members take their individual graveyard/token-departure
