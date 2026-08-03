@@ -2357,6 +2357,17 @@ impl Game {
     /// shuffling, and opening-hand setup must occur before this call so the
     /// canonical log never claims the turn began before setup completed.
     pub fn begin_game(&mut self) -> Result<(), RulesError> {
+        self.atomic_transition(Self::begin_game_impl)
+    }
+
+    /// Applies the start transition inside the public transaction journal.
+    ///
+    /// Some cross-binding validation deliberately occurs here instead of in
+    /// construction, because expansion setup may register the matching Aura
+    /// attachment substrate after it supplies the trigger definition.  Keep
+    /// every live-game field change inside that same journal: an invalid
+    /// deferred binding must leave the caller able to repair setup and retry.
+    fn begin_game_impl(&mut self) -> Result<(), RulesError> {
         if self.started {
             return Err(RulesError::IllegalAction("the game has already begun"));
         }

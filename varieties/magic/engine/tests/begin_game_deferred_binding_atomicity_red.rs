@@ -3,9 +3,8 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    AttachmentBinding, AttachmentKind, CardDefinition, CardType, Effect, Game, ManaCost,
-    PlayerId, RulesError, TargetRequirement, TriggerCondition, TriggeredAbility,
-    TriggeredAbilityBinding,
+    AttachmentBinding, AttachmentKind, CardDefinition, CardType, Effect, Game, ManaCost, PlayerId,
+    RulesError, TargetRequirement, TriggerCondition, TriggeredAbility, TriggeredAbilityBinding,
 };
 
 const AURA: &str = "TST-DEFERRED-START-AURA";
