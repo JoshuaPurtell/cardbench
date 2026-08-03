@@ -2760,7 +2760,11 @@ Oracle Magic rules coverage.
   snapshot, so a selected newcomer observes every peer as required by CR
   603.6a. Land-entry observers are captured only after that group snapshot.
   This all occurs before batch-result, shuffle, terminal, and post-resolution
-  SBA receipts. For creature deaths selected
+  SBA receipts. The matching-creature graveyard-return batch follows the
+  same post-entry order and separately captures one land-entry event for each
+  returned creature–land; no represented land observer may be lost merely
+  because its entrant was selected by the creature-return instruction. For
+  creature deaths selected
   in one pass, regeneration shields are consumed first, then the remaining
   death set receives one shared last-known-information observer snapshot
   before its members take their individual graveyard/token-departure
