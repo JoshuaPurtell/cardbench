@@ -4110,6 +4110,7 @@ impl Game {
             source_colors,
             controller: player,
             ability_id: Some(ability.id),
+            ability_definition: Some(definition_id),
             targets,
             target_incarnations,
             effects,
@@ -7044,6 +7045,7 @@ impl Game {
                         source_colors,
                         controller: action.controller,
                         ability_id: Some(DELAYED_COMBAT_HISTORY_DESTRUCTION_ABILITY_ID),
+                        ability_definition: None,
                         targets: Vec::new(),
                         target_incarnations: Vec::new(),
                         effects: vec![Effect::DestroyCapturedCombatParticipants {
@@ -8371,6 +8373,7 @@ impl Game {
             source_colors: definition.colors.clone(),
             controller: player,
             ability_id: None,
+            ability_definition: None,
             targets: spell_targets,
             target_incarnations,
             effects: definition.effects,
@@ -12161,6 +12164,7 @@ impl Game {
             source_colors: definition.colors.clone(),
             controller,
             ability_id: None,
+            ability_definition: None,
             targets: targets.to_vec(),
             target_incarnations: self.target_incarnations(targets),
             effects: definition.effects,
@@ -12295,6 +12299,7 @@ impl Game {
             source_colors: original.source_colors.clone(),
             controller,
             ability_id: None,
+            ability_definition: None,
             targets: targets.to_vec(),
             target_incarnations: if retargeted {
                 self.target_incarnations(targets)
@@ -14045,6 +14050,7 @@ impl Game {
             source_colors: definition.colors.clone(),
             controller: player,
             ability_id: Some(TRANSMUTE_ABILITY_ID),
+            ability_definition: None,
             targets: Vec::new(),
             target_incarnations: Vec::new(),
             effects: vec![Effect::SearchControllerLibrary {
@@ -15993,8 +15999,39 @@ impl Game {
                 ));
             }
             if let Some(ability_id) = stack_object.ability_id {
-                let transmute =
-                    ability_id == TRANSMUTE_ABILITY_ID && definition.transmute_cost().is_some();
+                if let Some(ability_definition) = stack_object.ability_definition
+                    && !self.event_log.iter().any(|event| {
+                        matches!(
+                            event,
+                            GameEvent::AbilityActivated {
+                                source,
+                                source_incarnation,
+                                definition,
+                                ability,
+                                ..
+                            } if *source == stack_object.card
+                                && *source_incarnation == stack_object.source_incarnation
+                                && *definition == ability_definition
+                                && *ability == ability_id
+                        )
+                    })
+                {
+                    return Err(RulesError::IllegalAction(
+                        "stack activated ability definition lacks activation provenance",
+                    ));
+                }
+                // A copy effect can explicitly retain a physical source
+                // ability while changing the source's effective definition.
+                // Preserve that binding identity on the stack rather than
+                // reconstructing it from mutable layer-one characteristics.
+                let ability_definition_id =
+                    stack_object.ability_definition.unwrap_or(definition.id);
+                let ability_definition = self
+                    .catalog
+                    .get(ability_definition_id)
+                    .ok_or(RulesError::UnknownDefinition(ability_definition_id))?;
+                let transmute = ability_id == TRANSMUTE_ABILITY_ID
+                    && ability_definition.transmute_cost().is_some();
                 let delayed_combat_destruction = ability_id
                     == DELAYED_COMBAT_HISTORY_DESTRUCTION_ABILITY_ID
                     && matches!(
@@ -16003,8 +16040,8 @@ impl Game {
                     );
                 let activated = (!transmute && !delayed_combat_destruction)
                     .then(|| {
-                        self.activated_ability_for_definition(definition.id, ability_id)
-                            .map(|ability| (definition.id, ability))
+                        self.activated_ability_for_definition(ability_definition.id, ability_id)
+                            .map(|ability| (ability_definition.id, ability))
                             .or_else(|| {
                                 self.attachment_granted_ability_matching_stack(stack_object)
                             })
@@ -16024,7 +16061,7 @@ impl Game {
                                     may_fail_to_find: true,
                                 },
                                 reveal_selected: false,
-                            }] if *value == definition.mana_cost.mana_value()
+                            }] if *value == ability_definition.mana_cost.mana_value()
                         ),
                         0,
                     )
@@ -16042,7 +16079,7 @@ impl Game {
                 } else {
                     let triggered = self
                         .triggered_abilities
-                        .get(definition.id)
+                        .get(ability_definition.id)
                         .and_then(|abilities| abilities.get(ability_id));
                     let (effects, target_count, trigger_condition) = activated
                         .as_ref()
@@ -24132,6 +24169,7 @@ impl Game {
             source_colors: event.source_colors.clone(),
             controller: event.controller,
             ability_id: Some(event.ability.id),
+            ability_definition: None,
             targets,
             target_incarnations,
             effects,
@@ -30304,7 +30342,7 @@ impl Game {
                         target,
                         target_incarnation,
                         values,
-                        *ability,
+                        ability,
                     )?;
                 }
             }
@@ -31181,8 +31219,8 @@ impl Game {
             Target::Permanent(card) if self.zone_of(card) == Some(Zone::Battlefield) => {
                 self.permanent_has_protection_from_colors(card, source_colors)
             }
-            Target::Permanent(_) => false,
-            Target::Player(_)
+            Target::Permanent(_)
+            | Target::Player(_)
             | Target::Spell(_)
             | Target::ActivatedAbility(_)
             | Target::SacrificePermanent(_)

@@ -5070,6 +5070,12 @@ pub struct StackObject {
     /// `None` denotes a spell; `Some` denotes a non-mana activated ability
     /// whose source is `card` and whose printed identity is the bound id.
     pub ability_id: Option<&'static str>,
+    /// Immutable definition that supplied a non-mana activated ability when
+    /// it entered the stack. This differs from the source's later effective
+    /// definition for copy effects that expressly retain a physical-source
+    /// ability. `None` is valid for spells and legacy triggered abilities,
+    /// whose definition is recovered from their source provenance.
+    pub ability_definition: Option<&'static str>,
     pub targets: Vec<Target>,
     /// One captured object incarnation per target occurrence. `None` is used
     /// for targets without a physical card object (players and activated

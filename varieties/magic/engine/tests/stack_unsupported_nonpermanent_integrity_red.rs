@@ -68,6 +68,7 @@ fn invariant_audit_rejects_an_unsupported_instant_fabricated_onto_the_stack() {
         source_colors: BTreeSet::new(),
         controller,
         ability_id: None,
+        ability_definition: None,
         targets: Vec::<Target>::new(),
         target_incarnations: vec![],
         effects: vec![],

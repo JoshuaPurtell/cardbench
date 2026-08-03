@@ -73,6 +73,7 @@ fn failed_resolution_restores_the_final_pass_and_authoritative_stack() {
             source_colors: BTreeSet::new(),
             controller: responder,
             ability_id: None,
+            ability_definition: None,
             targets: vec![],
             target_incarnations: vec![],
             effects: vec![Effect::GainLifeController { amount: 1 }],
@@ -90,6 +91,7 @@ fn failed_resolution_restores_the_final_pass_and_authoritative_stack() {
             source_colors: BTreeSet::new(),
             controller: caster,
             ability_id: None,
+            ability_definition: None,
             targets: vec![Target::Spell(target)],
             target_incarnations: vec![],
             effects: vec![Effect::DealDamage {

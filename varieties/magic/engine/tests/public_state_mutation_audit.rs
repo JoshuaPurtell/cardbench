@@ -137,6 +137,7 @@ fn mutation_audit_rejects_zone_and_stack_corruption() {
         source_colors: BTreeSet::new(),
         controller: first,
         ability_id: None,
+        ability_definition: None,
         targets: vec![Target::Player(second)],
         target_incarnations: vec![],
         effects: vec![Effect::DealDamage {
@@ -165,6 +166,7 @@ fn mutation_audit_rejects_zone_and_stack_corruption() {
         source_colors: BTreeSet::new(),
         controller: first,
         ability_id: None,
+        ability_definition: None,
         targets: vec![Target::Player(second), Target::Player(first)],
         target_incarnations: vec![],
         effects: vec![Effect::DealDamage {
@@ -192,6 +194,7 @@ fn mutation_audit_rejects_zone_and_stack_corruption() {
         source_colors: BTreeSet::new(),
         controller: first,
         ability_id: None,
+        ability_definition: None,
         targets: vec![],
         target_incarnations: vec![],
         effects: vec![],

@@ -74,6 +74,7 @@ fn invariant_rejects_a_chosen_x_receipt_that_cannot_pay_printed_cost_plus_x() {
         source_colors: BTreeSet::from([Color::Black]),
         controller: PlayerId(0),
         ability_id: None,
+        ability_definition: None,
         targets: vec![Target::Permanent(target)],
         target_incarnations: vec![],
         effects: vec![Effect::DestroyTargetCreatureWithManaValueAtMostChosenX],

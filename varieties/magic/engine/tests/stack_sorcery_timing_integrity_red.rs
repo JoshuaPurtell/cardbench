@@ -70,6 +70,7 @@ fn invariant_audit_rejects_a_sorcery_fabricated_onto_an_opponents_turn() {
         source_colors: BTreeSet::new(),
         controller: nonactive_player,
         ability_id: None,
+        ability_definition: None,
         targets: Vec::<Target>::new(),
         target_incarnations: vec![],
         effects: vec![Effect::DealDamageController { amount: 1 }],
