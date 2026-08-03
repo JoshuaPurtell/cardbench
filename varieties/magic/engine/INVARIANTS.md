@@ -63,10 +63,12 @@ Oracle Magic rules coverage.
   copied when it was created. Its immediate original may itself be a live
   virtual instant or sorcery, but the resulting ancestry must be acyclic and
   definition-consistent; a virtual predecessor must have an earlier,
-  nonterminal `SpellCopied` receipt. Its copied definition must continue to
-  agree with its stack effects and source colors. It retains copied decisions
-  (modes, targets, X, and explicit color choices), but has no cast-payment
-  receipt: `mana_spent`, Convoke cost
+  nonterminal `SpellCopied` receipt. Its copied definition, source
+  incarnation, source colors, and controller must agree with its live stack
+  object and are retained as immutable provenance after that item is popped,
+  so damage, prevention, and replacement paths never reconstruct facts from
+  the physical original. It retains copied decisions (modes, targets, X, and
+  explicit color choices), but has no cast-payment receipt: `mana_spent`, Convoke cost
   symbols, and generic cost reductions are zero/absent. The lower physical
   original may resolve, be countered, or leave the game before the copy; that
   departure cannot invalidate a copy controlled by a surviving player or make
@@ -279,8 +281,10 @@ Oracle Magic rules coverage.
 - A permanent static source may grant
   `PreventDamageFromControlledSources` to each current creature its controller
   controls. The quality is evaluated for every prospective permanent-damage
-  packet against the damage source's current controller, so it prevents only
-  friendly-source damage and leaves an opposing controller's source unchanged.
+  packet against the damage source's exact controller provenance, so it
+  prevents only friendly-source damage and leaves an opposing controller's
+  source unchanged. A virtual copied spell uses its immutable stack
+  controller, never the physical original's controller.
   It is derived characteristic state, never a standalone mutable shield; a
   static source's departure immediately revokes the quality through the normal
   battlefield/characteristics query boundary.
