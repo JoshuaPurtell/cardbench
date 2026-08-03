@@ -29,6 +29,11 @@ CardBench-authored semantic markers for Flying plus its generic one-unit,
 chosen-color mana ability. It does not retain or reproduce card rules text,
 art, flavor, or source JSON.
 
+The Molten Sentry full-fidelity slice retains only its public RAV identity,
+collector number, mana-cost/color/type facts, and the CardBench-authored
+entry-time characteristic outcomes needed by its deterministic public scenario.
+It stores no card rules text, art, flavor, scans, or source response payload.
+
 The creature-chassis batch (Dromad Purebred, Carrion Howler, Coalhauler Swine,
 Bramble Elemental, Carven Caryatid, Boros Swiftblade, Loxodon Hierarch, and Moroii)
 retains only public RAV identity,
@@ -107,6 +112,12 @@ hash and reproduction details.
   source response, card prose, art, scans, and JSON remain uncommitted. The
   other RAV Haste candidates retain unrepresented non-keyword functionality and
   therefore remain bounded rather than being approximated.
+- The Molten Sentry entry-characteristics audit was checked on 2026-08-03
+  against its public [RAV printing record](https://scryfall.com/card/rav/136/molten-sentry).
+  It retained only public identity, collector number, mana cost, color, type,
+  and the two modeled power/toughness-plus-keyword outcomes required by the
+  deterministic entry replacement. The source response, card prose, art,
+  scans, and JSON remain uncommitted.
 - The RAV basic-land boundary audit was checked on 2026-07-30 against the
   public official Gatherer records for representative RAV printings:
   [Plains](https://gatherer.wizards.com/Pages/Card/Details.aspx?multiverseid=95108),

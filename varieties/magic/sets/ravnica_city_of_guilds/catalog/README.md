@@ -49,9 +49,15 @@ a zone move. The fetched Aura's ordinary ETB trigger is queued only after the
 Mage trigger's terminal receipt. The opponent sees neither unselected Aura
 identities nor a private decision projection.
 
-The current catalog partition is 269 full / 6 partial / 16 catalog-only unique
-names (284 / 6 / 16 printings). The independently checked coverage-report
+The current catalog partition is 270 full / 6 partial / 15 catalog-only unique
+names (285 / 6 / 15 printings). The independently checked coverage-report
 binary emits the same partition.
+
+Molten Sentry is a full-fidelity entry whose setup-only deterministic seed
+selects one entry-time layer-one power/toughness and keyword shape before ETB
+observation. Copies retain that already selected shape rather than consuming a
+new outcome. Its public scenario pins the heads result and checks the resulting
+receipt digest; no card prose, art, scan, or source payload is retained.
 
 Instill Furor is a positive-manifest typed creature Aura with no synthetic
 continuous modifier. At the attached creature controller's end step, its

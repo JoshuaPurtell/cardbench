@@ -68,18 +68,21 @@ definition; Gather Courage, Seeds of Strength, Scatter the Seeds, and Guardian
 of Vitu-Ghazi are in the latest audited tranches. All other definitions remain
 explicitly scoped compatibility slices.
 
-The current checked-in RAV catalog partitions its public inventory into 269
-full-fidelity names (284 printings), six bounded executable names, and 16
+The current checked-in RAV catalog partitions its public inventory into 270
+full-fidelity names (285 printings), six bounded executable names, and 15
 catalog-only names. The catalog contract is intentionally fail-closed: a
 catalog-only printing cannot be submitted as a blank executable card.
 
 RAV shown scenarios are fixture-driven from
 `sets/ravnica_city_of_guilds/scenarios/public/train_scenarios.toml`; each declares
 setup, actions, state assertions, event markers, and a fixed digest. The
-current corpus contains 191 scenarios and covers:
+current corpus contains 192 scenarios and covers:
 
 - casting to the stack and both-player priority passes (`Lightning Helix`);
 - colored-cost creature casting and permanent characteristics (`Watchwolf`);
+- deterministic entry-time coin selection whose chosen layer-one
+  power/toughness and keyword shape is copied as an existing result, not rolled
+  again (`Molten Sentry`);
 - a policy-declared, source-incarnation-safe optional creature-spell mana
   payment that resolves into matching entry counters and cleans up on a
   countered spell (`Chorus of the Conclave`);
