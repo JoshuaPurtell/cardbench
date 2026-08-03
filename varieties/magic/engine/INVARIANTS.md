@@ -1988,6 +1988,10 @@ Oracle Magic rules coverage.
   turn/step/priority state, and the event log exactly pregame, so expansion
   setup may register the missing binding and retry the start without a hidden
   partially-started state.
+- Every entry coin-flip binding setup batch is atomic. An unknown source,
+  invalid heads/tails characteristic override, or duplicate later binding
+  leaves no prefix entry replacement behind, so the corrected batch can be
+  registered before the game begins without changing a future entry outcome.
 - Setup-only provenance helpers, including battlefield-entry and tapped-state
   shaping, reject a live game. They cannot erase a paid tap cost or otherwise
   rewrite gameplay state without an engine action and its canonical receipt.
