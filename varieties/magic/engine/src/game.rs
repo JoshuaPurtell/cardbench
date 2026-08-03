@@ -7657,8 +7657,15 @@ impl Game {
                 },
             )?;
         }
-        self.record_event(GameEvent::SpellResolved { card: spell });
-        self.move_to_spell_terminal_zone(spell)?;
+        if let Some(copy) = self.virtual_spell_copies.remove(&spell) {
+            self.record_event(GameEvent::SpellCopyResolved {
+                copy: spell,
+                original: copy.original,
+            });
+        } else {
+            self.record_event(GameEvent::SpellResolved { card: spell });
+            self.move_to_spell_terminal_zone(spell)?;
+        }
         self.check_state_based_actions()?;
         self.flush_pending_dies_triggers();
         self.flush_pending_land_entry_triggers()?;
@@ -19257,7 +19264,7 @@ impl Game {
         let Some(top) = self.stack.last() else {
             return Ok(false);
         };
-        let (spell, controller, count, life_per_card) =
+        let (spell, source_incarnation, controller, count, life_per_card) =
             match (top.ability_id, top.effects.as_slice()) {
                 (
                     None,
@@ -19267,7 +19274,13 @@ impl Game {
                             life_per_card,
                         },
                     ],
-                ) => (top.card, top.controller, *count, *life_per_card),
+                ) => (
+                    top.card,
+                    top.source_incarnation,
+                    top.controller,
+                    *count,
+                    *life_per_card,
+                ),
                 (_, [Effect::LookAtTopCardsChooseForLifeOrGraveyard { .. }]) => {
                     return Err(RulesError::IllegalAction(
                         "private-library choice effect is unsupported on an ability",
@@ -19290,7 +19303,7 @@ impl Game {
         self.record_event(GameEvent::CardsLookedAt {
             viewer: controller,
             source: spell,
-            source_incarnation: self.object(spell)?.incarnation,
+            source_incarnation,
             count: u8::try_from(cards.len()).map_err(|_| {
                 RulesError::IllegalAction("private library inspection count exceeds event range")
             })?,
