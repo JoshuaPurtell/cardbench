@@ -1161,6 +1161,12 @@ pub struct Game {
     /// cast-time effect list for provenance auditing; this cursor resumes the
     /// suffix without replaying an already completed instruction.
     stack_effect_cursors: BTreeMap<StackObjectId, usize>,
+    /// The target-legality result sampled when a stack item first began to
+    /// resolve. A resumable in-resolution choice must retain this snapshot:
+    /// an earlier instruction may itself move a repeated target before the
+    /// later suffix resumes, but CR 608.2b does not reopen the all-targets-
+    /// illegal boundary once resolution has started.
+    stack_target_legality_snapshots: BTreeMap<StackObjectId, Vec<StackEffectResolution>>,
     /// Recipient-selected colors for a single live target-player mana
     /// instruction. The key retains the exact stack item and effect cursor;
     /// the entry exists only after the decision completes and before that
@@ -1471,6 +1477,7 @@ impl Game {
             last_known_controllers: BTreeMap::new(),
             stack: Vec::new(),
             stack_effect_cursors: BTreeMap::new(),
+            stack_target_legality_snapshots: BTreeMap::new(),
             target_player_mana_choice_materializations: BTreeMap::new(),
             continuous_effects: Vec::new(),
             active_player: PlayerId(0),
@@ -12477,6 +12484,7 @@ impl Game {
             ));
         }
         self.stack_effect_cursors.remove(&top.id);
+        self.stack_target_legality_snapshots.remove(&top.id);
         self.finish_resolved_decision_stack_item(&top)
     }
 
@@ -15049,6 +15057,23 @@ impl Game {
         }) {
             return Err(RulesError::IllegalAction(
                 "resumable stack instruction cursor escaped its matching decision",
+            ));
+        }
+        if self
+            .stack_target_legality_snapshots
+            .iter()
+            .any(|(stack_id, snapshot)| {
+                !self.stack_effect_cursors.contains_key(stack_id)
+                    || !matches!(
+                        self.stack.last(),
+                        Some(stack_object)
+                            if stack_object.id == *stack_id
+                                && snapshot.len() == stack_object.effects.len()
+                    )
+            })
+        {
+            return Err(RulesError::IllegalAction(
+                "target-legality snapshot escaped its resumable stack item",
             ));
         }
         if self.target_player_mana_choice_materializations.iter().any(
@@ -20097,7 +20122,7 @@ impl Game {
         // departure cannot affect a new object or departed player. The
         // model-owned plan preserves repeated targets as independent slots.
         let mut target_index = 0;
-        let plan = stack_object
+        let sampled_plan = stack_object
             .resolution_plan(|target, requirement| {
                 let occurrence = target_index;
                 target_index += 1;
@@ -20110,6 +20135,15 @@ impl Game {
                     )
             })
             .map_err(|_| RulesError::IllegalAction("stack object has an invalid target count"))?;
+        let plan = if next_effect_index == 0 {
+            sampled_plan
+        } else if let Some(snapshot) = self.stack_target_legality_snapshots.get(&stack_object.id) {
+            StackResolutionPlan::Resolve {
+                effects: snapshot.clone(),
+            }
+        } else {
+            sampled_plan
+        };
         if matches!(plan, StackResolutionPlan::CounteredByRules) {
             if next_effect_index != 0 {
                 return Err(RulesError::IllegalAction(
@@ -20133,6 +20167,8 @@ impl Game {
                 });
                 self.move_to_spell_terminal_zone(stack_object.card)?;
             }
+            self.stack_target_legality_snapshots
+                .remove(&stack_object.id);
             self.check_state_based_actions_impl()?;
             self.flush_pending_dies_triggers()?;
             self.restore_priority_after_stack_resolution();
@@ -20144,6 +20180,11 @@ impl Game {
         else {
             unreachable!("rules-counter plan returned above");
         };
+        // Preserve the complete effect-aligned sample until this exact stack
+        // item completes. A private decision can pause a later instruction
+        // after an earlier one moved a repeated target out of its old zone.
+        self.stack_target_legality_snapshots
+            .insert(stack_object.id, effect_resolutions.clone());
         // A two-target control exchange has an additional relationship: the
         // second creature's power cannot exceed the first creature's power.
         // It is part of target legality under CR 608.2b, so sample it before
@@ -20613,6 +20654,8 @@ impl Game {
                 source_incarnation: stack_object.source_incarnation,
                 ability,
             });
+            self.stack_target_legality_snapshots
+                .remove(&stack_object.id);
             self.check_state_based_actions_impl()?;
             self.flush_pending_land_entry_triggers()?;
             self.flush_pending_damage_triggers();
@@ -20626,6 +20669,8 @@ impl Game {
                 copy: stack_object.card,
                 original: copy.original,
             });
+            self.stack_target_legality_snapshots
+                .remove(&stack_object.id);
             self.check_state_based_actions_impl()?;
             self.flush_pending_dies_triggers()?;
             self.flush_pending_land_entry_triggers()?;
@@ -20641,6 +20686,8 @@ impl Game {
             // library draw). `ObjectLeftGame` is then the source's terminal
             // stack lifecycle receipt; do not manufacture a later resolution
             // or zone-move receipt by dereferencing the removed object.
+            self.stack_target_legality_snapshots
+                .remove(&stack_object.id);
             self.restore_priority_after_stack_resolution();
             self.record_game_end_if_needed();
             return Ok(());
@@ -20714,6 +20761,8 @@ impl Game {
         self.flush_pending_damage_triggers();
         self.flush_pending_life_gain_triggers();
         self.flush_pending_dies_triggers()?;
+        self.stack_target_legality_snapshots
+            .remove(&stack_object.id);
         self.restore_priority_after_stack_resolution();
         Ok(())
     }

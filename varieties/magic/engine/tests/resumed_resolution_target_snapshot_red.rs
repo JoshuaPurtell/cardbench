@@ -11,8 +11,8 @@ use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
     CardDefinition, CardType, CastRequest, Color, DecisionSelection, Effect, Game, GameEvent,
-    LibrarySearchDestination, LibrarySearchRequirement, LibrarySearchSelection, ManaCost,
-    PlayerId, Target, Zone,
+    LibrarySearchDestination, LibrarySearchRequirement, LibrarySearchSelection, ManaCost, PlayerId,
+    Target, Zone,
 };
 
 const SPELL: &str = "TST-RESUMED-TARGET-SNAPSHOT";
@@ -105,7 +105,11 @@ fn private_search_resume_keeps_the_initial_target_legality_snapshot() {
         .pending_decision
         .expect("middle search opens a private decision");
     assert_eq!(game.zone_of(target), Some(Zone::Exile));
-    assert_eq!(game.stack.len(), 1, "spell stays live while search is private");
+    assert_eq!(
+        game.stack.len(),
+        1,
+        "spell stays live while search is private"
+    );
 
     let result = game.submit_decision(
         controller,
@@ -124,9 +128,11 @@ fn private_search_resume_keeps_the_initial_target_legality_snapshot() {
     assert!(game.event_log.iter().any(|event| {
         matches!(event, GameEvent::TargetInstructionSkipped { card, effect_index: 2, target: Target::Permanent(id) } if *card == spell && *id == target)
     }));
-    assert!(game.event_log.iter().any(|event| {
-        matches!(event, GameEvent::SpellResolved { card } if *card == spell)
-    }));
+    assert!(
+        game.event_log
+            .iter()
+            .any(|event| { matches!(event, GameEvent::SpellResolved { card } if *card == spell) })
+    );
     game.validate_invariants()
         .expect("resumed stack resolution remains state-machine valid");
 }
