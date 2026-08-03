@@ -894,10 +894,13 @@ Oracle Magic rules coverage.
   rejected noncontroller submission is atomic and writes no policy or effect
   receipt, while a decline writes the ordinary terminal `AbilityResolved`
   receipt but never opens an effect-specific continuation. A target-bearing optional trigger first
-  completes its public target-selection boundary before it is stacked, then
-  opens the same controller-only accept/decline boundary after ordinary
-  priority passes; declining preserves the already selected target without
-  applying its instruction. A decline is consumed before any effect-specific
+  completes its public target-selection boundary before it is stacked. After
+  ordinary priority passes, its all-illegal target plan is checked before any
+  optional payment prompt: an all-illegal ability records
+  `AbilityCounteredByRules` and opens no optional decision. Otherwise it opens
+  the same controller-only accept/decline boundary; declining preserves the
+  already selected target without applying its instruction. A decline is
+  consumed before any effect-specific
   suspension: it emits the trigger's sole terminal `AbilityResolved` receipt
   without opening a hidden-zone, replacement, or other deferred decision.
   The represented one-effect all-player-
@@ -1125,8 +1128,9 @@ Oracle Magic rules coverage.
   the immutable stack effect list, so a chosen modal branch cannot be checked
   against its unmaterialized `ChooseOneOf` wrapper. In particular, every stack
   player target names a seated player, although that player may later have lost. At resolution, an all-illegal
-  target set emits `SpellCounteredByRules`; if at least one target remains
-  legal, the spell resolves and only instructions addressed to the now-illegal
+  target set emits the matching spell or ability `…CounteredByRules` receipt;
+  if at least one target remains legal, the stack item resolves and only
+  instructions addressed to the now-illegal
   target slots do nothing. The engine snapshots initial legality in a
   `StackResolutionPlan` before it begins any effect to establish the
   all-targets-illegal boundary. An initially legal slot is rechecked before its
