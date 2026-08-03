@@ -6,8 +6,8 @@ use std::collections::BTreeSet;
 use cardbench_magic_engine::{
     AbilityActivation, ActivatedAbility, ActivatedAbilityBinding, CardDefinition, CardType,
     CastRequest, Color, ContinuousChange, DamageReplacementChoice, DamageReplacementEffect,
-    DamageReplacementEffectBinding, Duration, Effect, Game, Keyword, ManaCost, PlayerId,
-    ReplacementChoice, Target, Zone,
+    DamageReplacementEffectBinding, DecisionSelection, Duration, Effect, Game, Keyword, ManaCost,
+    PlayerId, ReplacementChoice, Target, Zone,
 };
 
 const COLOR_GRANTER: &str = "TST-GLOBAL-COLOR-GRANTER";
@@ -62,6 +62,7 @@ fn pass_pair(game: &mut Game) {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // One response chain owns this full stack-color and replacement trace.
 fn global_damage_replacement_uses_the_departed_sources_stack_colors() {
     let controller = PlayerId(0);
     let opponent = PlayerId(1);
@@ -242,6 +243,32 @@ fn global_damage_replacement_uses_the_departed_sources_stack_colors() {
             )),
         "the decision must retain the departed source's activation-time red color"
     );
+    game.submit_decision(
+        opponent,
+        decision.id,
+        DecisionSelection::Replacements(vec![ReplacementChoice::Damage(
+            DamageReplacementChoice::SourceColorPrevention { permanent: target },
+        )]),
+    )
+    .expect("the affected player chooses stack-color prevention");
+    assert!(game.stack.is_empty(), "the global ability resolves once");
+    assert_eq!(game.object(target).expect("target remains").damage, 0);
+    assert!(game.event_log.windows(3).any(|events| matches!(
+        events,
+        [
+            cardbench_magic_engine::GameEvent::DamageReplacementApplied {
+                target: Target::Permanent(permanent),
+                replacement: DamageReplacementChoice::SourceColorPrevention { .. },
+                ..
+            },
+            cardbench_magic_engine::GameEvent::DamagePrevented {
+                target: Target::Permanent(prevented),
+                amount: 2,
+                ..
+            },
+            cardbench_magic_engine::GameEvent::DecisionCompleted { decision: completed, .. },
+        ] if *permanent == target && *prevented == target && *completed == decision.id
+    )));
     game.validate_invariants()
         .expect("source-color replacement decision state remains auditable");
 }

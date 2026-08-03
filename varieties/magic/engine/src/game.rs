@@ -17197,7 +17197,13 @@ impl Game {
             // The ordinary resolver owns malformed/illegal target handling.
             return Ok(false);
         }
-        let candidates = self.damage_replacement_candidates(source, target, amount, &[])?;
+        let candidates = self.damage_replacement_candidates_for_source_colors(
+            source,
+            &top.source_colors,
+            target,
+            amount,
+            &[],
+        )?;
         if candidates.len() < 2 {
             return Ok(false);
         }
@@ -17217,6 +17223,7 @@ impl Game {
             },
             top.id,
             effect_index,
+            &top.source_colors,
             false,
             Vec::new(),
         )?;
@@ -17300,8 +17307,14 @@ impl Game {
             _ => return Ok(false),
         };
         let has_concurrent_choice = packets.iter().any(|packet| {
-            self.damage_replacement_candidates(top.card, packet.target, packet.amount, &[])
-                .is_ok_and(|choices| choices.len() >= 2)
+            self.damage_replacement_candidates_for_source_colors(
+                top.card,
+                &top.source_colors,
+                packet.target,
+                packet.amount,
+                &[],
+            )
+            .is_ok_and(|choices| choices.len() >= 2)
         });
         if !has_concurrent_choice {
             return Ok(false);
@@ -17312,6 +17325,7 @@ impl Game {
             top.card,
             top.source_incarnation,
             top.controller,
+            &top.source_colors,
             packets,
         )?;
         Ok(true)
@@ -17322,11 +17336,13 @@ impl Game {
         pending: PendingDamageReplacementChoice,
         source_stack_item: StackObjectId,
         effect_index: usize,
+        source_colors: &BTreeSet<Color>,
         global_effect: bool,
         remaining_global_packets: Vec<DamageReplacementPacket>,
     ) -> Result<(), RulesError> {
-        let choices = self.damage_replacement_candidates(
+        let choices = self.damage_replacement_candidates_for_source_colors(
             pending.source,
+            source_colors,
             pending.target,
             pending.amount,
             &pending.used,
@@ -17377,6 +17393,7 @@ impl Game {
         source: ObjectId,
         source_incarnation: u64,
         controller: PlayerId,
+        source_colors: &BTreeSet<Color>,
         mut packets: Vec<DamageReplacementPacket>,
     ) -> Result<(), RulesError> {
         while !packets.is_empty() {
@@ -17394,11 +17411,14 @@ impl Game {
                 used: packet.used,
                 deferred_packets: Vec::new(),
             };
-            if let Some(pending) = self.advance_damage_replacement_pipeline(pending)? {
+            if let Some(pending) =
+                self.advance_damage_replacement_pipeline_with_source_colors(pending, source_colors)?
+            {
                 return self.open_damage_replacement_decision(
                     pending,
                     source_stack_item,
                     effect_index,
+                    source_colors,
                     true,
                     packets,
                 );
@@ -19581,15 +19601,21 @@ impl Game {
                 "damage replacement decision selected a quantity replacement identity",
             ));
         };
-        let candidates = self.damage_replacement_candidates(source, target, amount, &used)?;
+        let top = self.stack.last().cloned().ok_or(RulesError::IllegalAction(
+            "damage replacement decision escaped its stack spell",
+        ))?;
+        let candidates = self.damage_replacement_candidates_for_source_colors(
+            source,
+            &top.source_colors,
+            target,
+            amount,
+            &used,
+        )?;
         let expected_options = candidates
             .iter()
             .copied()
             .map(|choice| DecisionOption::Replacement(ReplacementChoice::Damage(choice)))
             .collect::<Vec<_>>();
-        let top = self.stack.last().ok_or(RulesError::IllegalAction(
-            "damage replacement decision escaped its stack spell",
-        ))?;
         let target_offset = Self::effect_target_offset(&top.effects, effect_index);
         let stack_shape_matches = if global_effect {
             Self::global_damage_replacement_amount(top.effects.get(effect_index)).is_some()
@@ -19599,7 +19625,7 @@ impl Game {
                 top.effects.get(effect_index),
                 Some(Effect::DealDamage { amount: stack_amount, .. }) if *stack_amount > 0
             ) && top.targets.get(target_offset) == Some(&original_target)
-                && self.stack_target_incarnation_matches(top, target_offset, original_target)
+                && self.stack_target_incarnation_matches(&top, target_offset, original_target)
         };
         if decision.kind != DecisionKind::Replacement
             || decision.visibility != DecisionVisibility::Public
@@ -19609,7 +19635,7 @@ impl Game {
             || top.card != source
             || top.source_incarnation != source_incarnation
             || top.controller != controller
-            || self.stack_effect_cursor(top)? != effect_index
+            || self.stack_effect_cursor(&top)? != effect_index
             || !stack_shape_matches
             || candidates.len() < 2
             || decision.options != expected_options
@@ -19630,8 +19656,14 @@ impl Game {
             used,
             deferred_packets,
         };
-        self.apply_damage_replacement(&mut pending, replacement)?;
-        if let Some(next) = self.advance_damage_replacement_pipeline(pending)? {
+        self.apply_damage_replacement_with_source_colors(
+            &mut pending,
+            &top.source_colors,
+            replacement,
+        )?;
+        if let Some(next) = self
+            .advance_damage_replacement_pipeline_with_source_colors(pending, &top.source_colors)?
+        {
             // A subsequent concurrent choice needs a fresh monotonic id, so
             // close the selected decision before opening the next one.
             self.complete_pending_decision(decision)?;
@@ -19639,6 +19671,7 @@ impl Game {
                 next,
                 source_stack_item,
                 effect_index,
+                &top.source_colors,
                 global_effect,
                 remaining_global_packets,
             )
@@ -19654,6 +19687,7 @@ impl Game {
                     source,
                     source_incarnation,
                     controller,
+                    &top.source_colors,
                     remaining_global_packets,
                 )
             } else {
@@ -20783,12 +20817,6 @@ impl Game {
         })
     }
 
-    fn target_prevents_damage_from_source(&self, source: ObjectId, target: ObjectId) -> bool {
-        self.characteristics(source).is_ok_and(|characteristics| {
-            self.target_prevents_damage_from_colors(target, &characteristics.colors)
-        }) || self.target_prevents_damage_from_controlled_source(source, target)
-    }
-
     fn target_prevents_damage_from_controlled_source(
         &self,
         source: ObjectId,
@@ -20871,6 +20899,28 @@ impl Game {
         amount: i32,
         used: &[DamageReplacementChoice],
     ) -> Result<Vec<DamageReplacementChoice>, RulesError> {
+        let source_colors = self.characteristics(source)?.colors;
+        self.damage_replacement_candidates_for_source_colors(
+            source,
+            &source_colors,
+            target,
+            amount,
+            used,
+        )
+    }
+
+    /// Lists every represented replacement for one prospective damage event
+    /// using the source colors that belong to this exact event. Combat and
+    /// immediate effects derive them from the current source; a resolving
+    /// stack instruction supplies its frozen `StackObject::source_colors`.
+    fn damage_replacement_candidates_for_source_colors(
+        &self,
+        source: ObjectId,
+        source_colors: &BTreeSet<Color>,
+        target: Target,
+        amount: i32,
+        used: &[DamageReplacementChoice],
+    ) -> Result<Vec<DamageReplacementChoice>, RulesError> {
         if amount <= 0 {
             return Ok(Vec::new());
         }
@@ -20904,7 +20954,9 @@ impl Game {
                     }
                 }
                 if prevention_allowed {
-                    if self.target_prevents_damage_from_source(source, permanent) {
+                    if self.target_prevents_damage_from_colors(permanent, source_colors)
+                        || self.target_prevents_damage_from_controlled_source(source, permanent)
+                    {
                         let candidate =
                             DamageReplacementChoice::SourceColorPrevention { permanent };
                         if !used.contains(&candidate) {
@@ -21040,14 +21092,25 @@ impl Game {
         }
     }
 
-    #[allow(clippy::too_many_lines)] // Each typed replacement owns a distinct state/event transition.
     fn apply_damage_replacement(
         &mut self,
         pending: &mut PendingDamageReplacementChoice,
         replacement: DamageReplacementChoice,
     ) -> Result<(), RulesError> {
-        let candidates = self.damage_replacement_candidates(
+        let source_colors = self.characteristics(pending.source)?.colors;
+        self.apply_damage_replacement_with_source_colors(pending, &source_colors, replacement)
+    }
+
+    #[allow(clippy::too_many_lines)] // Each typed replacement owns a distinct state/event transition.
+    fn apply_damage_replacement_with_source_colors(
+        &mut self,
+        pending: &mut PendingDamageReplacementChoice,
+        source_colors: &BTreeSet<Color>,
+        replacement: DamageReplacementChoice,
+    ) -> Result<(), RulesError> {
+        let candidates = self.damage_replacement_candidates_for_source_colors(
             pending.source,
+            source_colors,
             pending.target,
             pending.amount,
             &pending.used,
@@ -21233,7 +21296,10 @@ impl Game {
                 });
             }
             DamageReplacementChoice::SourceColorPrevention { permanent } => {
-                if !self.target_prevents_damage_from_source(pending.source, permanent) {
+                if !(self.target_prevents_damage_from_colors(permanent, source_colors)
+                    || self
+                        .target_prevents_damage_from_controlled_source(pending.source, permanent))
+                {
                     return Err(RulesError::IllegalAction(
                         "color prevention disappeared before selection",
                     ));
@@ -21260,9 +21326,10 @@ impl Game {
     /// ready to commit or needs another affected-player choice.  Only the
     /// latter returns `Some`; replacement receipts precede any resulting
     /// `DamageDealt*` receipt, so triggers see committed damage only.
-    fn advance_damage_replacement_pipeline(
+    fn advance_damage_replacement_pipeline_with_source_colors(
         &mut self,
         mut pending: PendingDamageReplacementChoice,
+        source_colors: &BTreeSet<Color>,
     ) -> Result<Option<PendingDamageReplacementChoice>, RulesError> {
         loop {
             if pending.amount == 0 {
@@ -21271,8 +21338,9 @@ impl Game {
                 }
                 continue;
             }
-            let candidates = self.damage_replacement_candidates(
+            let candidates = self.damage_replacement_candidates_for_source_colors(
                 pending.source,
+                source_colors,
                 pending.target,
                 pending.amount,
                 &pending.used,
@@ -21284,7 +21352,11 @@ impl Game {
                         return Ok(None);
                     }
                 }
-                [replacement] => self.apply_damage_replacement(&mut pending, *replacement)?,
+                [replacement] => self.apply_damage_replacement_with_source_colors(
+                    &mut pending,
+                    source_colors,
+                    *replacement,
+                )?,
                 _ => return Ok(Some(pending)),
             }
         }
@@ -32680,8 +32752,13 @@ impl Game {
                 let top = self.stack.last().ok_or(RulesError::IllegalAction(
                     "damage replacement decision escaped its stack spell",
                 ))?;
-                let choices =
-                    self.damage_replacement_candidates(*source, *target, *amount, used)?;
+                let choices = self.damage_replacement_candidates_for_source_colors(
+                    *source,
+                    &top.source_colors,
+                    *target,
+                    *amount,
+                    used,
+                )?;
                 let expected_options = choices
                     .iter()
                     .copied()
