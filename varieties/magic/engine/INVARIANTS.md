@@ -2069,6 +2069,11 @@ Oracle Magic rules coverage.
   LibraryReordered → SpellCopyResolved` lifecycle removes only stack/copy
   provenance. The selected order is committed atomically before the terminal
   copy receipt, and never authorizes a physical zone move for the virtual id.
+- A virtual copy's private `LibraryTopPartition` completion follows that
+  exact terminal boundary after its private hand/top/bottom movements. The
+  hidden selected identities remain absent from public receipts except for
+  ordinary revealed zone transitions; the terminal source is always
+  `SpellCopyResolved`, never `SpellResolved` or a physical card-zone move.
 - An end-of-turn effect created by a resolved instruction is independent of a
   former battlefield source. Source departure preserves it through that
   turn's cleanup; target departure still expires it immediately. In contrast,
