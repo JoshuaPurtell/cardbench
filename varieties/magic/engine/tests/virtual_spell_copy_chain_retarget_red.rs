@@ -3,8 +3,8 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardDefinition, CardType, CastRequest, DecisionKind, Effect, Game, ManaCost, ObjectId,
-    PlayerId, Target, TargetRequirement, Zone,
+    CardDefinition, CardType, CastRequest, DecisionKind, DecisionSelection, Effect, Game,
+    GameEvent, ManaCost, ObjectId, PlayerId, Target, TargetRequirement, Zone,
 };
 
 const PING: &str = "TST-VIRTUAL-COPY-RETARGET-PING";
@@ -108,15 +108,36 @@ fn virtual_spell_copy_can_open_its_own_retarget_decision() {
         .expect("caster view")
         .pending_decision;
     eprintln!(
-        "virtual-copy retarget red trace: pending={:?}; events={:?}",
+        "virtual-copy retarget decision trace: pending={:?}; events={:?}",
         pending,
         game.canonical_event_log()
     );
-    assert_eq!(
-        pending
-            .as_ref()
-            .expect("copying a target-bearing virtual spell opens a decision")
-            .kind,
-        DecisionKind::SpellCopyTargets
+    let decision = pending.expect("copying a target-bearing virtual spell opens a decision");
+    assert_eq!(decision.kind, DecisionKind::SpellCopyTargets);
+    game.submit_decision(
+        caster,
+        decision.id,
+        DecisionSelection::Targets(vec![Target::Player(caster)]),
+    )
+    .expect("the virtual spell copy accepts an explicit replacement target");
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::SpellCopied {
+            original,
+            retargeted: true,
+            ..
+        } if *original == first_copy
+    )));
+
+    resolve_top(&mut game);
+    assert_eq!(game.player(caster).expect("caster exists").life, 19);
+    resolve_top(&mut game);
+    resolve_top(&mut game);
+    assert_eq!(game.player(opponent).expect("opponent exists").life, 18);
+    eprintln!(
+        "virtual-copy retarget green trace: {:?}",
+        game.canonical_event_log()
     );
+    game.validate_invariants()
+        .expect("child-copy target decision has exact stack provenance");
 }

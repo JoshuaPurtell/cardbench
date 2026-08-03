@@ -49,6 +49,7 @@ fn resolve_top(game: &mut Game) {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // One three-player stack/loss trace must remain contiguous.
 fn child_copy_survives_immediate_virtual_predecessor_controller_departure() {
     let first_controller = PlayerId(0);
     let surviving_controller = PlayerId(1);

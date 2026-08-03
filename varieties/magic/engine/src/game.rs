@@ -18442,8 +18442,7 @@ impl Game {
             ) => (top.card, top.source_incarnation, top.controller, *original),
             _ => return Ok(false),
         };
-        if self.virtual_spell_copies.contains_key(&original)
-            || !self.stack_target_incarnation_matches(top, 0, Target::Spell(original))
+        if !self.stack_target_incarnation_matches(top, 0, Target::Spell(original))
             || !self.target_matches_for_colors(
                 controller,
                 Target::Spell(original),
