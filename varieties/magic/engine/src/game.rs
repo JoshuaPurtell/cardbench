@@ -15448,6 +15448,7 @@ impl Game {
         self.validate_any_end_step_trigger_event_order()?;
         self.validate_controller_end_step_trigger_event_order()?;
         self.validate_attached_creature_controller_end_step_trigger_event_order()?;
+        self.validate_attacks_trigger_event_order()?;
         self.validate_blocks_trigger_event_order()?;
         self.validate_enters_battlefield_trigger_event_order()?;
         self.validate_linked_exile_state()?;
@@ -25824,13 +25825,6 @@ impl Game {
     /// Target-bearing triggers are not allowed to reach the stack until that
     /// pipeline opens the same controller decision used by every condition.
     fn enqueue_attack_triggers(&mut self, source: ObjectId) -> Result<(), RulesError> {
-        // Tokens have no catalog definition and therefore cannot have a
-        // definition-bound attack trigger in this substrate. Their attack is
-        // still fully legal; simply skip the definition lookup and continue
-        // through the ordinary post-declaration priority transition.
-        if self.object(source)?.token.is_some() {
-            return Ok(());
-        }
         let definition = self.card_definition(source)?.id;
         let controller = self.controller_of(source)?;
         let source_colors = self.characteristics(source)?.colors;
@@ -25872,12 +25866,6 @@ impl Game {
             .copied()
             .collect::<Vec<_>>();
         for source in blockers {
-            // Tokens have no catalog definition and therefore cannot carry a
-            // definition-bound Blocks trigger.  Their legal block remains
-            // part of combat; it simply has no bound trigger to enqueue.
-            if self.object(source)?.token.is_some() {
-                continue;
-            }
             let definition = self.card_definition(source)?.id;
             let controller = self.controller_of(source)?;
             let source_colors = self.characteristics(source)?.colors;
@@ -25912,10 +25900,7 @@ impl Game {
     /// Dynamic source-damage life gain is materialized when the enclosing
     /// damage batch finishes, not recomputed at later ability resolution.
     fn enqueue_damage_triggers(&mut self, source: ObjectId, amount: i32) -> Result<(), RulesError> {
-        if amount <= 0
-            || self.zone_of(source) != Some(Zone::Battlefield)
-            || self.object(source)?.token.is_some()
-        {
+        if amount <= 0 || self.zone_of(source) != Some(Zone::Battlefield) {
             return Ok(());
         }
         let definition = self.card_definition(source)?.id;
@@ -25959,7 +25944,6 @@ impl Game {
         recipient: ObjectId,
     ) -> Result<(), RulesError> {
         if self.zone_of(source) != Some(Zone::Battlefield)
-            || self.object(source)?.token.is_some()
             || self.zone_of(recipient) != Some(Zone::Battlefield)
             || !self
                 .characteristics(recipient)?
@@ -26011,7 +25995,6 @@ impl Game {
     ) -> Result<(), RulesError> {
         if amount <= 0
             || self.zone_of(source) != Some(Zone::Battlefield)
-            || self.object(source)?.token.is_some()
             || self.player(recipient)?.lost
         {
             return Ok(());
@@ -26147,7 +26130,7 @@ impl Game {
         recipient: ObjectId,
         amount: i32,
     ) -> Result<(), RulesError> {
-        if amount <= 0 || self.object(recipient)?.token.is_some() {
+        if amount <= 0 {
             return Ok(());
         }
         let definition = self.card_definition(recipient)?.id;
@@ -37342,6 +37325,57 @@ impl Game {
         Ok(())
     }
 
+    /// An Attacks trigger is valid only when its own source appears as a
+    /// committed attacker in the immediately preceding attacker-declaration
+    /// boundary. This replay audit rejects a fabricated source or a trigger
+    /// queued after combat advanced. Copied token sources retain their
+    /// layer-one definition, so they use the same binding lookup as physical
+    /// cards.
+    fn validate_attacks_trigger_event_order(&self) -> Result<(), RulesError> {
+        for (stacked_index, event) in self.event_log.iter().enumerate() {
+            let GameEvent::TriggeredAbilityStacked {
+                source, ability, ..
+            } = event
+            else {
+                continue;
+            };
+            let Ok(definition) = self.card_definition(*source) else {
+                continue;
+            };
+            let is_attacks_trigger = self
+                .triggered_abilities
+                .get(definition.id)
+                .and_then(|abilities| abilities.get(ability))
+                .is_some_and(|binding| binding.condition == TriggerCondition::Attacks);
+            if !is_attacks_trigger {
+                continue;
+            }
+            let Some((declaration_index, attackers)) = self.event_log[..stacked_index]
+                .iter()
+                .enumerate()
+                .rev()
+                .find_map(|(index, prior)| match prior {
+                    GameEvent::AttackersDeclared { attackers, .. } => Some((index, attackers)),
+                    _ => None,
+                })
+            else {
+                return Err(RulesError::IllegalAction(
+                    "attacks trigger lacks a preceding attacker declaration",
+                ));
+            };
+            if self.event_log[declaration_index + 1..stacked_index]
+                .iter()
+                .any(|prior| matches!(prior, GameEvent::StepBegan { .. }))
+                || !attackers.contains(source)
+            {
+                return Err(RulesError::IllegalAction(
+                    "attacks trigger does not name a committed current-combat attacker",
+                ));
+            }
+        }
+        Ok(())
+    }
+
     /// A Blocks trigger is valid only when its own source appears as a
     /// committed blocker in the immediately preceding blocker-declaration
     /// boundary.  This replay audit rejects an attacker, another creature, or
@@ -37354,17 +37388,12 @@ impl Game {
             else {
                 continue;
             };
-            let Some(definition) = self
-                .objects
-                .get(source)
-                .and_then(|object| object.definition)
-                .or_else(|| self.departed_card_definitions.get(source).copied())
-            else {
+            let Ok(definition) = self.card_definition(*source) else {
                 continue;
             };
             let is_blocks_trigger = self
                 .triggered_abilities
-                .get(definition)
+                .get(definition.id)
                 .and_then(|abilities| abilities.get(ability))
                 .is_some_and(|binding| binding.condition == TriggerCondition::Blocks);
             if !is_blocks_trigger {
@@ -37463,17 +37492,12 @@ impl Game {
             else {
                 continue;
             };
-            let Some(definition) = self
-                .objects
-                .get(source)
-                .and_then(|object| object.definition)
-                .or_else(|| self.departed_card_definitions.get(source).copied())
-            else {
+            let Ok(definition) = self.card_definition(*source) else {
                 continue;
             };
             let is_any_upkeep = self
                 .triggered_abilities
-                .get(definition)
+                .get(definition.id)
                 .and_then(|abilities| abilities.get(ability))
                 .is_some_and(|binding| binding.condition == TriggerCondition::BeginningOfAnyUpkeep);
             if !is_any_upkeep {
