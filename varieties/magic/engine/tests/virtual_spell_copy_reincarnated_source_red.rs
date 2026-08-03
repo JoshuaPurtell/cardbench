@@ -16,6 +16,7 @@ use cardbench_magic_engine::{
 const TRANSMUTER: &str = "TST-REINCARNATED-TRANSMUTER";
 const RETURN: &str = "TST-RETURN-FROM-GRAVEYARD";
 const COPY: &str = "TST-COPY-REINCARNATED-SPELL";
+const COUNTER_UNLESS: &str = "TST-COUNTER-REINCARNATED-SPELL-UNLESS-PAYS";
 const POLICY: &str = "adversarial.reincarnated-spell-copy.v1";
 
 fn definition(id: &'static str, keywords: Vec<Keyword>, effects: Vec<Effect>) -> CardDefinition {
@@ -75,6 +76,13 @@ fn copy_resolver_uses_the_new_spell_not_the_old_transmute_ability() {
                 vec![],
                 vec![Effect::CopyTargetInstantOrSorcerySpell {
                     may_choose_new_targets: false,
+                }],
+            ),
+            definition(
+                COUNTER_UNLESS,
+                vec![],
+                vec![Effect::CounterTargetSpellUnlessControllerPays {
+                    mana_cost: ManaCost::new(1),
                 }],
             ),
         ],
@@ -213,4 +221,88 @@ fn copy_resolver_uses_the_new_spell_not_the_old_transmute_ability() {
     );
     game.validate_invariants()
         .expect("every resolved copy/spell boundary remains invariant-valid");
+}
+
+#[test]
+fn counter_unless_opens_for_the_new_spell_not_the_old_transmute_ability() {
+    let player = PlayerId(0);
+    let opponent = PlayerId(1);
+    let mut game = Game::new(
+        [
+            definition(
+                TRANSMUTER,
+                vec![Keyword::Transmute(ManaCost::new(0))],
+                vec![Effect::GainLifeController { amount: 2 }],
+            ),
+            definition(RETURN, vec![], vec![Effect::ReturnTargetCardToHand]),
+            definition(
+                COUNTER_UNLESS,
+                vec![],
+                vec![Effect::CounterTargetSpellUnlessControllerPays {
+                    mana_cost: ManaCost::new(1),
+                }],
+            ),
+        ],
+        2,
+    )
+    .expect("fixture initializes");
+    let transmuter = game
+        .add_card(player, TRANSMUTER, Zone::Hand)
+        .expect("Transmute source enters hand");
+    let recursion = game
+        .add_card(player, RETURN, Zone::Hand)
+        .expect("recursion enters hand");
+    let counter = game
+        .add_card(player, COUNTER_UNLESS, Zone::Hand)
+        .expect("counter enters hand");
+
+    game.submit_policy_move(player, POLICY, PolicyAction::Transmute { card: transmuter })
+        .expect("Transmute is activated");
+    cast(
+        &mut game,
+        player,
+        recursion,
+        vec![Target::Permanent(transmuter)],
+    );
+    pass_pair(&mut game, player, opponent);
+    cast(&mut game, player, transmuter, vec![]);
+    let spell_incarnation = game.object(transmuter).expect("spell exists").incarnation;
+    cast(&mut game, player, counter, vec![Target::Spell(transmuter)]);
+    assert_eq!(game.stack.len(), 3);
+    assert_eq!(game.stack[0].ability_id, Some("transmute"));
+    assert_eq!(game.stack[1].ability_id, None);
+    assert_eq!(game.stack[1].source_incarnation, spell_incarnation);
+
+    game.submit_policy_move(player, POLICY, PolicyAction::PassPriority)
+        .expect("counter controller passes");
+    let stack_before = game.stack.clone();
+    let events_before = game.event_log.clone();
+    let result = game.submit_policy_move(opponent, POLICY, PolicyAction::PassPriority);
+    eprintln!(
+        "reincarnated counter-unless red trace: result={result:?}; stack={:?}; events={:?}",
+        game.stack,
+        game.canonical_event_log(),
+    );
+    result.expect("the new spell's controller must receive the pay-or-decline decision");
+
+    assert_eq!(
+        game.stack, stack_before,
+        "opening the decision moves no stack object"
+    );
+    assert_eq!(game.next_policy_player(), player);
+    let view = game
+        .view_for_player(player)
+        .expect("target spell controller receives a view");
+    let decision = view.pending_decision.expect("payment decision opens");
+    assert_eq!(
+        decision.kind,
+        cardbench_magic_engine::DecisionKind::CounterUnlessPaysMana
+    );
+    assert!(
+        game.event_log[events_before.len()..]
+            .iter()
+            .any(|event| matches!(event, GameEvent::DecisionOpened { player: decider, kind: cardbench_magic_engine::DecisionKind::CounterUnlessPaysMana, .. } if *decider == player))
+    );
+    game.validate_invariants()
+        .expect("the counter-unless decision is invariant-valid");
 }
