@@ -4,8 +4,8 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardDefinition, CardType, CastRequest, Color, Effect, Game, ManaCost, PlayerId,
-    PolicyAction, Target, Zone,
+    CardDefinition, CardType, CastRequest, Color, Effect, Game, ManaCost, PlayerId, PolicyAction,
+    Target, Zone,
 };
 
 const LOOK: &str = "TST-PRIVATE-LOOK";
@@ -38,7 +38,12 @@ fn pass_pair(game: &mut Game) {
     game.pass_priority(second).expect("second player passes");
 }
 
-fn cast(game: &mut Game, controller: PlayerId, card: cardbench_magic_engine::ObjectId, targets: Vec<Target>) {
+fn cast(
+    game: &mut Game,
+    controller: PlayerId,
+    card: cardbench_magic_engine::ObjectId,
+    targets: Vec<Target>,
+) {
     game.cast_spell(
         controller,
         CastRequest {
@@ -99,6 +104,7 @@ fn stale_private_library_selection_cannot_resolve_a_returned_and_recast_spell() 
         controller,
         "private-library-choice-stale.first-empty.v1",
         PolicyAction::ChoosePrivateLibraryCards {
+            decision: first_choice.decision,
             spell: look,
             selected: vec![],
         },
@@ -120,19 +126,21 @@ fn stale_private_library_selection_cannot_resolve_a_returned_and_recast_spell() 
     let second_view = game
         .view_for_player(controller)
         .expect("controller receives second private view");
-    assert_eq!(
-        second_view
-            .private_library_choice
-            .as_ref()
-            .expect("second private choice is visible only to its controller")
-            .cards
-            .len(),
-        1
+    let second_choice = second_view
+        .private_library_choice
+        .as_ref()
+        .expect("second private choice is visible only to its controller");
+    assert_eq!(second_choice.cards.len(), 1);
+    let second_decision = second_choice.decision;
+    assert_ne!(
+        first_choice.decision, second_decision,
+        "a new suspended resolution receives a fresh decision identity"
     );
     let stale_result = game.submit_policy_move(
         controller,
         "private-library-choice-stale.replay.v1",
         PolicyAction::ChoosePrivateLibraryCards {
+            decision: first_choice.decision,
             spell: look,
             selected: vec![],
         },
@@ -147,4 +155,16 @@ fn stale_private_library_selection_cannot_resolve_a_returned_and_recast_spell() 
         stale_result.is_err(),
         "a first-incarnation private choice must not answer the returned spell's new stack incarnation"
     );
+    game.submit_policy_move(
+        controller,
+        "private-library-choice-stale.second-empty.v1",
+        PolicyAction::ChoosePrivateLibraryCards {
+            decision: second_decision,
+            spell: look,
+            selected: vec![],
+        },
+    )
+    .expect("the current private choice resolves with its own identity");
+    game.validate_invariants()
+        .expect("current private choice preserves engine invariants");
 }

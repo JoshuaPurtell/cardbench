@@ -67,6 +67,7 @@ pub trait CodePolicy {
             .as_ref()
             .expect("private-library choice proposal requires a visible choice");
         PolicyAction::ChoosePrivateLibraryCards {
+            decision: choice.decision,
             spell: choice.spell,
             selected: Vec::new(),
         }

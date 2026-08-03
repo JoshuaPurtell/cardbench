@@ -81,6 +81,7 @@ fn moonlight_bargain_uses_a_private_no_priority_resolution_choice() {
         PlayerId(0),
         "moonlight-private-choice-contract",
         PolicyAction::ChoosePrivateLibraryCards {
+            decision: choice.decision,
             spell: bargain,
             selected: vec![library[4], library[1]],
         },

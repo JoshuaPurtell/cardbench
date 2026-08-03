@@ -107,7 +107,7 @@ fn virtual_copy_can_complete_a_private_library_choice() {
         .private_library_choice
         .expect("the copied spell exposes its controller-only library choice");
     assert_eq!(choice.cards.len(), 1);
-    game.choose_private_library_cards(copy_controller, choice.spell, vec![])
+    game.choose_private_library_cards(copy_controller, choice.decision, choice.spell, vec![])
         .expect("copy controller may put the inspected card into the graveyard");
     assert_eq!(game.zone_of(hidden), Some(Zone::Graveyard));
     assert!(game.event_log.iter().any(|event| matches!(

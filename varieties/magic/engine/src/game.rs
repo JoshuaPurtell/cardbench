@@ -215,8 +215,11 @@ pub enum PolicyAction {
         dredge: Option<ObjectId>,
     },
     /// Resolves one controller-private library choice that was opened while a
-    /// spell was resolving. This is a decision boundary, not priority.
+    /// spell was resolving. `decision` must echo the fresh, controller-private
+    /// identity exposed by the corresponding game view. This is a decision
+    /// boundary, not priority.
     ChoosePrivateLibraryCards {
+        decision: DecisionId,
         spell: ObjectId,
         selected: Vec<ObjectId>,
     },
@@ -434,6 +437,8 @@ pub struct TransmuteSearchView {
 /// waits for a mandatory choice. Other players see no candidate identities.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct PrivateLibraryChoiceView {
+    /// Fresh controller-private identity for this suspended resolution.
+    pub decision: DecisionId,
     pub spell: ObjectId,
     pub cards: Vec<CardView>,
     pub life_per_card: i16,
@@ -692,6 +697,7 @@ struct CombatBlockHistory {
 /// controller submits a legal selection.
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct PendingPrivateLibraryChoice {
+    decision: DecisionId,
     spell: ObjectId,
     controller: PlayerId,
     cards: Vec<ObjectId>,
@@ -3960,6 +3966,7 @@ impl Game {
                     .map(|card| self.card_view(*card))
                     .collect::<Result<Vec<_>, _>>()
                     .map(|cards| PrivateLibraryChoiceView {
+                        decision: choice.decision,
                         spell: choice.spell,
                         cards,
                         life_per_card: choice.life_per_card,
@@ -4417,8 +4424,12 @@ impl Game {
                 self.cast_spell_with_color_choice(player, request, color)?;
             }
             PolicyAction::Draw { dredge } => self.resolve_pending_draw(player, dredge)?,
-            PolicyAction::ChoosePrivateLibraryCards { spell, selected } => {
-                self.choose_private_library_cards(player, spell, selected)?;
+            PolicyAction::ChoosePrivateLibraryCards {
+                decision,
+                spell,
+                selected,
+            } => {
+                self.choose_private_library_cards(player, decision, spell, selected)?;
             }
             PolicyAction::ChoosePrivateOpponentLibraryCardToExile {
                 source,
@@ -7676,11 +7687,12 @@ impl Game {
     pub fn choose_private_library_cards(
         &mut self,
         player: PlayerId,
+        decision: DecisionId,
         spell: ObjectId,
         selected: Vec<ObjectId>,
     ) -> Result<(), RulesError> {
         self.atomic_transition(|game| {
-            game.resolve_pending_private_library_choice(player, spell, &selected)
+            game.resolve_pending_private_library_choice(player, decision, spell, &selected)
         })
     }
 
@@ -7688,6 +7700,7 @@ impl Game {
     fn resolve_pending_private_library_choice(
         &mut self,
         player: PlayerId,
+        decision: DecisionId,
         spell: ObjectId,
         selected: &[ObjectId],
     ) -> Result<(), RulesError> {
@@ -7698,9 +7711,9 @@ impl Game {
                 .ok_or(RulesError::IllegalAction(
                     "there is no pending private library choice",
                 ))?;
-        if choice.controller != player || choice.spell != spell {
+        if choice.decision != decision || choice.controller != player || choice.spell != spell {
             return Err(RulesError::IllegalAction(
-                "only the resolving controller may submit this private library choice",
+                "private library choice does not match the pending id, controller, or spell",
             ));
         }
         let stack_object = self.stack.last().ok_or(RulesError::IllegalAction(
@@ -13186,7 +13199,9 @@ impl Game {
                 .take(usize::from(count))
                 .copied()
                 .collect::<Vec<_>>();
-            if self.pending_draw_replacement.is_some()
+            if choice.decision.0 == 0
+                || choice.decision.0 >= self.next_decision_id
+                || self.pending_draw_replacement.is_some()
                 || self.pending_decision.is_some()
                 || self.pending_private_opponent_library_exile_choice.is_some()
                 || top.card != choice.spell
@@ -19877,7 +19892,9 @@ impl Game {
                 RulesError::IllegalAction("private library inspection count exceeds event range")
             })?,
         });
+        let decision = self.allocate_decision_id()?;
         self.pending_private_library_choice = Some(PendingPrivateLibraryChoice {
+            decision,
             spell,
             controller,
             cards,
