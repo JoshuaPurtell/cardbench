@@ -2036,6 +2036,10 @@ Oracle Magic rules coverage.
   Dredge compatibility marker. A rejected Dredge source restores the pending
   marker and shared decision-id allocator, so the first real Draw decision is
   not observably renumbered by a failed setup helper.
+- A successful public Dredge is itself one complete Draw replacement: its
+  ordered mill, graveyard-to-hand move, and trigger flush complete before it
+  clears the matching mandatory marker. No invariant-valid state can retain a
+  second ordinary draw after the replacement has succeeded.
 
 ## Combat
 
