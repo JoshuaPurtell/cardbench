@@ -13122,6 +13122,13 @@ impl Game {
                         "stack object has a variable target group outside its range",
                     ));
                 }
+                if !stack_object.targets.is_empty()
+                    && stack_object.target_incarnations.len() != stack_object.targets.len()
+                {
+                    return Err(RulesError::IllegalAction(
+                        "ranged target group lacks exact target-incarnation provenance",
+                    ));
+                }
                 let mut distinct = HashSet::new();
                 let mut owner = None;
                 for target in &stack_object.targets {
@@ -15157,6 +15164,26 @@ impl Game {
         if spell_copy_effects > 0 && definition.effects.len() != 1 {
             return Err(RulesError::IllegalAction(
                 "a spell-copy instruction must be the only effect on its spell",
+            ));
+        }
+        let ranged_target_groups = definition
+            .effects
+            .iter()
+            .filter_map(Effect::variable_target_group)
+            .collect::<Vec<_>>();
+        if ranged_target_groups.len() > 1
+            || (!ranged_target_groups.is_empty() && definition.effects.len() != 1)
+        {
+            return Err(RulesError::IllegalAction(
+                "a ranged target group must be the only effect on its spell",
+            ));
+        }
+        if ranged_target_groups
+            .iter()
+            .any(|(_, minimum, maximum)| maximum < minimum || *maximum == 0)
+        {
+            return Err(RulesError::IllegalAction(
+                "a ranged target group requires a positive valid maximum",
             ));
         }
         for effect in &definition.effects {
