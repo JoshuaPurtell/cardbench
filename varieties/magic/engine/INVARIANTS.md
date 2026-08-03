@@ -1571,6 +1571,14 @@ Oracle Magic rules coverage.
   to govern legality independently. In particular, a valid response that
   steals the source must not make the response transition fail its invariant
   audit or retarget the already-activated ability.
+- Every engine-created nonmana activated stack object also retains the exact
+  definition that supplied its binding. The invariant requires a matching
+  `AbilityActivated` receipt with the same source, source incarnation,
+  definition, and ability id before consulting that immutable binding. This
+  survives an intervening layer-one copy effect: a copied permanent can retain
+  a named physical-source ability without the stack audit incorrectly looking
+  for that ability on its copied definition. Spells and trigger stack objects
+  retain `None` and use their existing source-definition provenance.
 - Every activated-ability sacrifice cost is represented by explicit, distinct
   policy-selected controlled battlefield permanents in binding order: source
   sacrifices first, then the configured number of creatures, then lands. The
