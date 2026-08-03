@@ -142,6 +142,7 @@ fn bloodletter_quill_orders_counter_draw_dynamic_loss_and_counter_cost_receipts(
                 counter_sources: vec![quill],
                 return_permanents: vec![],
                 hand_cards_to_library_top: vec![],
+                graveyard_cards_to_exile: vec![],
                 chosen_x: None,
             },
             mana_payment_selection: None,

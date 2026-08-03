@@ -665,6 +665,16 @@ struct PendingPrivateLibraryChoice {
     life_per_card: i16,
 }
 
+/// Fully preflighted selections for one generalized activated-cost payment.
+/// Keeping the two collections named prevents a graveyard exile from being
+/// confused with an ordinary counter-removal payment after the transaction
+/// begins mutating zones.
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct ValidatedGeneralizedActivationCostPayment {
+    counter_removals: Vec<(ObjectId, CounterKind, i16)>,
+    graveyard_exiles: Vec<ObjectId>,
+}
+
 /// A suspended targeted ability awaiting its controller's private choice of a
 /// card from the target opponent's current top-of-library snapshot.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -2719,6 +2729,7 @@ impl Game {
             counter_sources: vec![],
             return_permanents: vec![],
             hand_cards_to_library_top: vec![],
+            graveyard_cards_to_exile: vec![],
             chosen_x: None,
         };
         self.atomic_transition(|game| {
@@ -2747,6 +2758,7 @@ impl Game {
             counter_sources: vec![],
             return_permanents: vec![],
             hand_cards_to_library_top: vec![],
+            graveyard_cards_to_exile: vec![],
             chosen_x: None,
         };
         self.atomic_transition(|game| {
@@ -3022,7 +3034,7 @@ impl Game {
                 ));
             }
         }
-        let counter_payments = self.validate_generalized_activated_cost_payment(
+        let validated_cost_payment = self.validate_generalized_activated_cost_payment(
             player,
             activation.source,
             &generalized_cost,
@@ -3143,7 +3155,7 @@ impl Game {
                 amount: generalized_cost.life_payment,
             });
         }
-        for (card, counter, amount) in counter_payments {
+        for (card, counter, amount) in validated_cost_payment.counter_removals {
             self.record_event(GameEvent::CounterRemovedAsAbilityCost {
                 player,
                 source: activation.source,
@@ -3168,6 +3180,14 @@ impl Game {
                 card: *card,
             });
             self.move_to_zone(*card, Zone::Library)?;
+        }
+        for card in &validated_cost_payment.graveyard_exiles {
+            self.record_event(GameEvent::ExiledFromGraveyardAsAbilityCost {
+                player,
+                source: activation.source,
+                card: *card,
+            });
+            self.move_to_zone(*card, Zone::Exile)?;
         }
         if generalized_cost.detach_source_equipment {
             let binding = self.attachment_binding_for(activation.source)?.ok_or(
@@ -14979,14 +14999,17 @@ impl Game {
         payment: &AbilityCostPayment,
         sacrifice_sources: &[ObjectId],
         discarded_cards: &[ObjectId],
-    ) -> Result<Vec<(ObjectId, CounterKind, i16)>, RulesError> {
+    ) -> Result<ValidatedGeneralizedActivationCostPayment, RulesError> {
         if cost.is_empty() {
             if payment != &AbilityCostPayment::default() {
                 return Err(RulesError::IllegalAction(
                     "an ability without a generalized cost cannot receive generalized selections",
                 ));
             }
-            return Ok(vec![]);
+            return Ok(ValidatedGeneralizedActivationCostPayment {
+                counter_removals: vec![],
+                graveyard_exiles: vec![],
+            });
         }
         if cost.life_payment > 0
             && self
@@ -15124,7 +15147,36 @@ impl Game {
                 ));
             }
         }
-        Ok(counter_payments)
+        if payment.graveyard_cards_to_exile.len()
+            != usize::from(cost.exile_controller_graveyard_creature_cards)
+        {
+            return Err(RulesError::IllegalAction(
+                "activated graveyard-exile cost selection count does not match its binding",
+            ));
+        }
+        let mut graveyard_cards = BTreeSet::new();
+        for card in &payment.graveyard_cards_to_exile {
+            if !graveyard_cards.insert(*card) {
+                return Err(RulesError::IllegalAction(
+                    "an activated graveyard-exile cost cannot select the same card twice",
+                ));
+            }
+            self.require_zone(*card, Zone::Graveyard)?;
+            if self.object(*card)?.owner != player {
+                return Err(RulesError::IllegalAction(
+                    "an activated graveyard-exile cost can select only the activating player's card",
+                ));
+            }
+            if !self.card_definition(*card)?.is_creature() {
+                return Err(RulesError::IllegalAction(
+                    "an activated graveyard-exile cost requires a creature card",
+                ));
+            }
+        }
+        Ok(ValidatedGeneralizedActivationCostPayment {
+            counter_removals: counter_payments,
+            graveyard_exiles: payment.graveyard_cards_to_exile.clone(),
+        })
     }
 
     /// Calculates the mana portion of one activated ability's total cost
@@ -30684,6 +30736,7 @@ impl Game {
             let mut counter_payments = Vec::new();
             let mut return_payments = Vec::new();
             let mut hand_library_payments = Vec::new();
+            let mut graveyard_exile_payments = Vec::new();
             let mut typed_land_sacrifices = Vec::new();
             let mut detach_payments = Vec::new();
             let mut x_payments = Vec::new();
@@ -30772,6 +30825,22 @@ impl Game {
                         }
                         hand_library_payments.push(*card);
                     }
+                    GameEvent::ExiledFromGraveyardAsAbilityCost {
+                        player: receipt_player,
+                        source: receipt_source,
+                        card,
+                    } if receipt_player == player && receipt_source == source => {
+                        if !matches!(
+                            self.event_log.get(previous + 1),
+                            Some(GameEvent::CardMoved { card: moved_card, to: Zone::Exile })
+                                if moved_card == card
+                        ) {
+                            return Err(RulesError::IllegalAction(
+                                "activated graveyard-exile cost receipt lacks its immediate exile move",
+                            ));
+                        }
+                        graveyard_exile_payments.push(*card);
+                    }
                     GameEvent::SacrificedAsAbilityCost {
                         player: receipt_player,
                         source: receipt_source,
@@ -30806,6 +30875,7 @@ impl Game {
             counter_payments.reverse();
             return_payments.reverse();
             hand_library_payments.reverse();
+            graveyard_exile_payments.reverse();
             typed_land_sacrifices.reverse();
             detach_payments.reverse();
             x_payments.reverse();
@@ -30859,6 +30929,26 @@ impl Game {
             {
                 return Err(RulesError::IllegalAction(
                     "activated hand-to-library cost receipts do not match their bound cost",
+                ));
+            }
+            if graveyard_exile_payments.len()
+                != usize::from(profile.exile_controller_graveyard_creature_cards)
+                || graveyard_exile_payments
+                    .iter()
+                    .copied()
+                    .collect::<BTreeSet<_>>()
+                    .len()
+                    != graveyard_exile_payments.len()
+                || graveyard_exile_payments.iter().any(|card| {
+                    self.object(*card)
+                        .map_or(true, |object| object.owner != *player)
+                        || self
+                            .card_definition(*card)
+                            .map_or(true, |definition| !definition.is_creature())
+                })
+            {
+                return Err(RulesError::IllegalAction(
+                    "activated graveyard-exile cost receipts do not match their bound creature-card cost",
                 ));
             }
             if let Some(required_land_type) = profile.sacrifice_land_basic_type {

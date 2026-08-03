@@ -44,7 +44,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 255] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 256] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
@@ -152,6 +152,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 255] = [
     "RAV-DIMIR-MACHINATIONS",
     "RAV-PERPLEX",
     "RAV-WOODWRAITH-CORRUPTER",
+    "RAV-WOODWRAITH-STRANGLER",
     "RAV-DIMIR-INFILTRATOR",
     "RAV-LURKING-INFORMANT",
     "RAV-SANDSOWER",
@@ -5705,6 +5706,29 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
+        // Full fidelity: the controller explicitly chooses a creature card
+        // from their own graveyard and exiles it as the activation cost before
+        // the ordinary regeneration shield is created on the stack.
+        CardDefinition {
+            id: "RAV-WOODWRAITH-STRANGLER",
+            name: "Woodwraith Strangler",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(2, [Color::Black, Color::Green]),
+            colors: colors([Color::Black, Color::Green]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "exile-controller-graveyard-creature-card-regenerate-source",
+            ],
+            power: Some(3),
+            toughness: Some(2),
+            keywords: vec![],
+            effects: vec![],
+        },
         // Full fidelity: normal colored-cost casting, base characteristics,
         // Flying blocker legality, and vigilance attack declaration are all
         // represented by the shared engine.
@@ -6455,6 +6479,22 @@ pub fn rav_land_entry_bindings() -> Vec<LandEntryBinding> {
 #[allow(clippy::too_many_lines)]
 pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
     vec![
+        ActivatedAbilityBinding {
+            card_definition: "RAV-WOODWRAITH-STRANGLER",
+            ability: ActivatedAbility {
+                id: "exile-creature-card-regenerate-source",
+                mana_cost: ManaCost::new(0),
+                tap_cost: false,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![],
+                effects: vec![Effect::RegenerateSource],
+            },
+        },
         ActivatedAbilityBinding {
             card_definition: "RAV-WOODWRAITH-CORRUPTER",
             ability: ActivatedAbility {
@@ -9110,6 +9150,14 @@ pub fn rav_activated_ability_cost_modifier_bindings() -> Vec<ActivatedAbilityCos
 #[must_use]
 pub fn rav_generalized_activated_ability_cost_bindings() -> Vec<ActivatedAbilityCostBinding> {
     vec![
+        ActivatedAbilityCostBinding {
+            card_definition: "RAV-WOODWRAITH-STRANGLER",
+            ability_id: "exile-creature-card-regenerate-source",
+            cost: GeneralizedActivatedAbilityCost {
+                exile_controller_graveyard_creature_cards: 1,
+                ..GeneralizedActivatedAbilityCost::default()
+            },
+        },
         ActivatedAbilityCostBinding {
             card_definition: "RAV-CARRION-HOWLER",
             ability_id: "pay-life-pump-plus-two-minus-one",

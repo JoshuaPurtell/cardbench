@@ -679,6 +679,11 @@ pub struct GeneralizedActivatedAbilityCost {
     /// listed order, making the final selection the top card when a future
     /// card needs more than one.
     pub put_hand_cards_on_library_top: u8,
+    /// Number of creature cards the activating player must select from their
+    /// own graveyard and exile as an activation cost. The selected objects
+    /// remain explicit policy input because graveyards are public zones and a
+    /// cost may not silently choose one by insertion order.
+    pub exile_controller_graveyard_creature_cards: u8,
     /// When present, every ordinary land sacrifice selected for this ability
     /// must currently have this exact basic-land type. The selected objects
     /// remain the normal `AbilityActivation.sacrifice_sources` input, so this
@@ -699,6 +704,7 @@ impl GeneralizedActivatedAbilityCost {
             && self.return_controlled_permanents == 0
             && !self.detach_source_equipment
             && self.put_hand_cards_on_library_top == 0
+            && self.exile_controller_graveyard_creature_cards == 0
             && self.sacrifice_land_basic_type.is_none()
             && !self.has_x_cost
     }
@@ -725,6 +731,9 @@ pub struct AbilityCostPayment {
     /// Owned cards put from hand onto the owner's library top as an atomic
     /// activation cost, in bottom-to-top order.
     pub hand_cards_to_library_top: Vec<ObjectId>,
+    /// Owned creature cards exiled from the activating player's graveyard as
+    /// an atomic activation cost.
+    pub graveyard_cards_to_exile: Vec<ObjectId>,
     pub chosen_x: Option<u8>,
 }
 
@@ -5232,6 +5241,14 @@ pub enum GameEvent {
     /// as an activation cost. The ordinary library zone-change receipt
     /// immediately follows.
     HandCardPutOnLibraryTopAsAbilityCost {
+        player: PlayerId,
+        source: ObjectId,
+        card: ObjectId,
+    },
+    /// A selected creature card moved from its owner's graveyard to exile as
+    /// an explicit activated-ability cost. The matching zone transition
+    /// immediately follows this provenance receipt.
+    ExiledFromGraveyardAsAbilityCost {
         player: PlayerId,
         source: ObjectId,
         card: ObjectId,
