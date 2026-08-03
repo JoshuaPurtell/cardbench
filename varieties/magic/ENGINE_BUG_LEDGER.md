@@ -1033,9 +1033,10 @@ fixed turn, event, token, and multiplayer-transition defects above; the new
 tests make those transitions fail closed rather than merely documenting them.
 The draw-replacement ABI is additionally exercised through a real three-player
 policy submission: its canonical trace contains `Dredged` followed by a
-`PolicyMoveSubmitted { kind: Draw }` receipt. The open public-field boundary
-remains a deliberate limitation of the fixture-oriented API, not a waived
-invariant failure.
+`PolicyMoveSubmitted { kind: Draw }` receipt. Public fields remain a deliberate
+fixture-oriented surface, but the live state seal and reset-boundary guard now
+reject receipt-free edits rather than allowing them to be laundered as scenario
+setup.
 
 ## Transition-hardening evidence
 
@@ -1046,10 +1047,10 @@ specifically exercises visible-stack countering, response LIFO order,
 all-targets-illegal rules counters, mandatory replacement decisions,
 three-player elimination handoff, and combat elimination. The engine suite
 contains 53 tests, including a 64-seed stateful policy campaign; all pass after
-the fixes above. The public field API remains intentionally
-fixture-oriented, so a shape-valid externally fabricated state remains the
-open provenance boundary rather than a claim that every state arose through a
-legal transition.
+the fixes above. The public field API remains intentionally fixture-oriented,
+but live shape-valid edits are rejected by the state seal before a runner can
+accept them as legal transitions; setup mutation remains intentionally
+receipt-free.
 
 The fresh post-hardening replay is retained at
 `artifacts/rav-reference-deck-matrix/round7-transition-hardening/` (ignored
