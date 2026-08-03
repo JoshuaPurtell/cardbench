@@ -569,6 +569,20 @@ Oracle Magic rules coverage.
   emits no payment receipt and counters only the captured lower spell. Neither
   path permits an automatic payment, an automatic decline, a self-target, an
   ability-stack target, or a target at or above the counterspell.
+- `DecisionKind::CounterUnlessDiscardsHand` retains the same exact top
+  counterspell and lower *physical spell* source/target incarnations, but has
+  no hidden candidate list: only the lower spell's living controller may
+  explicitly choose `discard: true` or `discard: false` through the public
+  no-priority boundary. The legal true branch snapshots that controller's
+  complete current hand after stale stack validation (an empty hand is a
+  legal zero-card branch), records `CounterUnlessDiscardHandChosen` directly
+  before the matching `DecisionCompleted`, then emits each ordinary
+  `CardDiscarded`/graveyard move before the counterspell's terminal receipt.
+  The false branch emits the same choice/completion pair then counters only
+  the captured lower physical spell. No automatic discard, automatic counter,
+  foreign controller, ability-stack target, self-target, reordered stack
+  target, malformed selection, or failed card move may mutate stack, hand,
+  decision, or public receipts.
 - `DecisionKind::TargetPlayerManaColor` retains one exact current instruction
   of a live stack item, including its immutable `effect_index` and target
   occurrence. The decision belongs to that captured recipient rather than the

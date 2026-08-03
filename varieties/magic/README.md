@@ -146,7 +146,9 @@ current corpus contains 187 scenarios and covers:
   creature destruction plus stack-backed Transmute (`Brainspoil`), and a
   targeted temporary modifier plus dredge (`Darkblast`); and
 - a full-fidelity target-free global creature-and-player damage batch (`Rain of
-  Embers`) plus Perplex's explicitly transmute-only compatibility slice; and
+  Embers`) plus a policy-owned counter-or-discard-complete-hand stack decision
+  (`Perplex`), including legal empty-hand acceptance and auditable public
+  discard receipts; and
 - a full-fidelity private top-three target-library reorder plus stack-backed
   Transmute (`Dimir Machinations`), with policy-submitted exhaustive
   top/bottom ordering and identity-free decision receipts; and
