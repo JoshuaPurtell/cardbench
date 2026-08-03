@@ -2100,6 +2100,11 @@ Oracle Magic rules coverage.
   Each applied replacement is recorded in order, and the stack-only source
   emits only `SpellCopyResolved` after the complete prospective event is
   committed; no virtual identity may enter a physical terminal zone.
+- A virtual copy of an activated ability applies its submitted retarget to
+  the captured lower ability before committing that ability's effect. The
+  target-change receipt and all resulting zone/other effects precede exactly
+  one `SpellCopyResolved`; the virtual copy cannot remain live or emit a
+  physical terminal-zone move.
 - A virtual copy's public `PublicGraveyardLandReturn` completion commits only
   the selected live physical land cards in their captured incarnations before
   emitting `SpellCopyResolved`; the stack-only source never emits
