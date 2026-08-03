@@ -12,6 +12,12 @@ Oracle Magic rules coverage.
   seat `n`, and both active player and priority holder name existing, living
   seats while the game continues. A fixture cannot add, remove, or reorder a
   seat after game construction.
+- The deterministic shuffle seed is fixture-construction state. It can be set
+  only before `begin_game`; after that boundary, every library permutation
+  comes only from a legal rules instruction and its corresponding
+  `LibraryShuffled` receipt. A rejected live seed write is atomic and writes
+  no receipt, so an external caller cannot silently choose a future search or
+  shuffle outcome.
 - A cast first places every represented cast trigger using APNAP. If that
   placement opens a mandatory trigger-order or trigger-target decision, the
   decision player remains the priority holder until the no-priority decision
