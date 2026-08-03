@@ -1,12 +1,50 @@
-//! Red regression for the source-only Necromantic Thirst Aura chassis.
+//! Red-to-green contract for Necromantic Thirst's attached combat trigger.
 
 use cardbench_magic_engine::{
-    CardType, CastRequest, Color, Effect, Game, ManaCost, PlayerId, Target, Zone,
+    CardType, Game, GameEvent, ManaCost, PlayerId, PolicyAction, Step, Target, TargetRequirement,
+    TriggerCondition, Zone,
 };
-use cardbench_magic_rav::card_definitions;
+use cardbench_magic_rav::{
+    card_definitions, rav_activated_ability_bindings, rav_additional_spell_cost_bindings,
+    rav_attachment_bindings, rav_attachment_triggered_ability_bindings,
+    rav_basic_land_type_bindings, rav_mana_ability_bindings, rav_triggered_ability_bindings,
+    RAV_FULL_FIDELITY_DEFINITION_IDS,
+};
+
+fn rav_game() -> Game {
+    let mut triggers = rav_triggered_ability_bindings();
+    triggers.extend(rav_attachment_triggered_ability_bindings());
+    let mut game = Game::new_with_all_bindings_and_triggers(
+        card_definitions(),
+        2,
+        rav_mana_ability_bindings(),
+        rav_basic_land_type_bindings(),
+        rav_additional_spell_cost_bindings(),
+        rav_activated_ability_bindings(),
+        triggers,
+    )
+    .expect("RAV game builds");
+    game.register_attachment_bindings(rav_attachment_bindings())
+        .expect("RAV attachment bindings register");
+    game
+}
+
+fn pass_pair(game: &mut Game) {
+    let first = game.priority;
+    game.pass_priority(first).expect("first player passes");
+    let second = game.priority;
+    game.pass_priority(second).expect("second player passes");
+}
+
+fn advance_to_declare_attackers(game: &mut Game) {
+    game.begin_game().expect("fixture starts game");
+    while game.step != Step::DeclareAttackers {
+        pass_pair(game);
+    }
+}
 
 #[test]
-fn necromantic_thirst_has_its_exact_static_aura_chassis_without_unimplemented_trigger_claims() {
+fn necromantic_thirst_is_manifested_with_its_public_graveyard_combat_trigger() {
     let definition = card_definitions()
         .into_iter()
         .find(|definition| definition.id == "RAV-NECROMANTIC-THIRST")
@@ -15,62 +53,106 @@ fn necromantic_thirst_has_its_exact_static_aura_chassis_without_unimplemented_tr
     assert_eq!(definition.name, "Necromantic Thirst");
     assert_eq!(
         definition.mana_cost,
-        ManaCost::with_colors(2, [Color::Black, Color::Black])
+        ManaCost::with_colors(
+            2,
+            [
+                cardbench_magic_engine::Color::Black,
+                cardbench_magic_engine::Color::Black
+            ]
+        )
     );
-    assert_eq!(definition.colors, [Color::Black].into_iter().collect());
     assert_eq!(
         definition.card_types,
         [CardType::Enchantment].into_iter().collect()
     );
-    assert_eq!(
-        definition.effects,
-        [Effect::AttachSourceAndModifyTargetPt {
-            power: 0,
-            toughness: 0,
-        }]
-    );
+    assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&definition.id));
     assert_eq!(
         definition.supported_rules,
         [
-            "aura-static-attachment-only",
-            "combat-damage-trigger-not-implemented"
+            "full-rules-fidelity",
+            "aura-attach-and-static-pt",
+            "attached-combat-damage-public-graveyard-creature-return",
         ]
     );
+
+    let trigger = rav_attachment_triggered_ability_bindings()
+        .into_iter()
+        .find(|binding| binding.card_definition == definition.id)
+        .expect("attached combat trigger binding exists");
+    assert_eq!(
+        trigger.ability.condition,
+        TriggerCondition::AttachedCreatureDealsCombatDamageToPlayer
+    );
+    assert!(!trigger.ability.optional);
+    assert_eq!(
+        trigger.ability.targets,
+        [TargetRequirement::CreatureCardInGraveyard]
+    );
+    assert_eq!(trigger.ability.effects.len(), 1);
 }
 
 #[test]
-fn necromantic_thirst_attaches_without_fabricating_its_unported_combat_trigger() {
-    let mut game = Game::new(card_definitions(), 2).expect("RAV fixture builds");
+fn necromantic_thirst_stacks_a_targeted_public_graveyard_return_after_its_creature_hits_a_player() {
+    let controller = PlayerId(0);
+    let opponent = PlayerId(1);
+    let mut game = rav_game();
+    let creature = game
+        .put_on_battlefield(controller, "RAV-GOLIATH-SPIDER")
+        .expect("attached creature setup");
     let thirst = game
-        .add_card(PlayerId(0), "RAV-NECROMANTIC-THIRST", Zone::Hand)
+        .add_card(controller, "RAV-NECROMANTIC-THIRST", Zone::Hand)
         .expect("Aura setup");
-    let target = game
-        .add_card(PlayerId(0), "RAV-GOLIATH-SPIDER", Zone::Battlefield)
-        .expect("target setup");
-    game.grant_mana(PlayerId(0), Color::Black, 6)
-        .expect("Aura mana");
+    game.enter_attachment_without_cast(thirst, creature)
+        .expect("Aura attaches during setup");
+    let returned = game
+        .add_card(opponent, "RAV-WATCHWOLF", Zone::Graveyard)
+        .expect("public creature-card target setup");
+    game.set_entered_turn_for_setup(creature, 0)
+        .expect("creature can attack");
 
-    game.cast_spell(
-        PlayerId(0),
-        CastRequest {
-            card: thirst,
-            targets: vec![Target::Permanent(target)],
-            convoke: vec![],
-            payment_mana_abilities: vec![],
+    advance_to_declare_attackers(&mut game);
+    game.declare_attackers(controller, &[creature])
+        .expect("attached creature attacks");
+    pass_pair(&mut game);
+    game.declare_blockers(opponent, &[])
+        .expect("opponent declares no blockers");
+    pass_pair(&mut game);
+
+    let choice = game
+        .view_for_player(controller)
+        .expect("controller view")
+        .triggered_ability_target_choice
+        .expect("combat trigger exposes a public graveyard target choice");
+    assert_eq!(
+        choice.ability,
+        "attached-combat-damage-return-creature-card-to-owner-hand"
+    );
+    assert!(choice
+        .target_options
+        .first()
+        .is_some_and(|targets| targets.contains(&Target::Permanent(returned))));
+    game.submit_policy_move(
+        controller,
+        "test.necromantic-thirst-public-graveyard-target.v1",
+        PolicyAction::ChooseTriggeredAbilityTargets {
+            decision: choice.decision,
+            source: thirst,
+            ability: "attached-combat-damage-return-creature-card-to-owner-hand",
+            targets: vec![Target::Permanent(returned)],
         },
     )
-    .expect("Aura casts");
-    game.pass_priority(PlayerId(0)).expect("caster passes");
-    game.pass_priority(PlayerId(1)).expect("Aura resolves");
+    .expect("controller selects the public creature card");
+    pass_pair(&mut game);
 
-    assert_eq!(game.zone_of(thirst), Some(Zone::Battlefield));
-    assert_eq!(
-        game.object(thirst).expect("Aura remains live").attached_to,
-        Some(target)
-    );
-    let characteristics = game.characteristics(target).expect("target remains live");
-    assert_eq!(characteristics.power, Some(7));
-    assert_eq!(characteristics.toughness, Some(6));
+    assert_eq!(game.zone_of(returned), Some(Zone::Hand));
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::TriggeredAbilityStacked { source, controller: trigger_controller, ability, .. }
+            if *source == thirst
+                && *trigger_controller == controller
+                && *ability == "attached-combat-damage-return-creature-card-to-owner-hand"
+    )));
+    println!("necromantic_thirst_trace={:#?}", game.canonical_event_log());
     game.validate_invariants()
-        .expect("zero-modifier Aura attachment remains invariant-safe");
+        .expect("attached combat graveyard-return trace preserves invariants");
 }
