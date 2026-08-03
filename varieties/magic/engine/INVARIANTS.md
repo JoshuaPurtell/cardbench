@@ -1850,6 +1850,12 @@ Oracle Magic rules coverage.
   legal unassigned blocker. It is active only while that controller retains a
   battlefield source with the restriction keyword; a non-Saproling creature
   is never rejected by this rule.
+- A must-block availability scan evaluates the same current blocker legality
+  as a submitted assignment: it considers every battlefield creature derived
+  to be controlled by the defending player, rather than their owner-indexed
+  battlefield vector, and excludes every creature barred by that attacker's
+  current landwalk. It never forces an impossible block merely because a
+  matching basic land is controlled or an owner no longer controls their card.
 - The next seated defending player is fixed when attackers are declared; only
   that player declares blockers. Each blocker is a unique untapped creature
   they control; every assigned attacker was declared; and each attacker may

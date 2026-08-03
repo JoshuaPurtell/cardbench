@@ -6798,14 +6798,17 @@ impl Game {
             if blocker_unblockable_attackers.contains(attacker) {
                 continue;
             }
-            let has_legal_blocker = self.players[player.0].battlefield.iter().any(|candidate| {
-                if blockers.contains(candidate) {
+            let has_legal_blocker = self.all_battlefield_cards().into_iter().any(|candidate| {
+                if blockers.contains(&candidate) {
                     return false;
                 }
-                let Ok(object) = self.object(*candidate) else {
+                if self.controller_of(candidate) != Ok(player) {
+                    return false;
+                }
+                let Ok(object) = self.object(candidate) else {
                     return false;
                 };
-                let Ok(characteristics) = self.characteristics(*candidate) else {
+                let Ok(characteristics) = self.characteristics(candidate) else {
                     return false;
                 };
                 if object.tapped
@@ -6842,10 +6845,20 @@ impl Game {
                 {
                     return false;
                 }
-                if self.target_cannot_block_attacker(*candidate, *attacker) {
+                if blocker_landwalk_attackers
+                    .get(attacker)
+                    .is_some_and(|land_types| {
+                        land_types.iter().any(|land_type| {
+                            self.player_controls_basic_land_type(player, *land_type)
+                        })
+                    })
+                {
                     return false;
                 }
-                if self.protection_prevents_block(*candidate, *attacker) {
+                if self.target_cannot_block_attacker(candidate, *attacker) {
+                    return false;
+                }
+                if self.protection_prevents_block(candidate, *attacker) {
                     return false;
                 }
                 true
