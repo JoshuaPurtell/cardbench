@@ -128,6 +128,7 @@ fn golgari_thug_death_trigger_is_ability_complete() {
         PlayerId(0),
         "test.golgari-thug-target.v1",
         PolicyAction::ChooseTriggeredAbilityTargets {
+            decision: choice.decision,
             source: thug,
             ability: "dies-target-creature-card-owner-library-top",
             targets: vec![Target::Permanent(target)],

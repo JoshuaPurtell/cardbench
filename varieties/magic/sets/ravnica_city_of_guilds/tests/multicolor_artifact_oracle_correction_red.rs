@@ -189,6 +189,12 @@ fn grifters_blade_flashes_in_then_its_entry_trigger_attaches_when_a_target_exist
         PlayerId(1),
         "test.grifters-blade-entry-attachment.v1",
         PolicyAction::ChooseTriggeredAbilityTargets {
+            decision: game
+                .view_for_player(PlayerId(1))
+                .expect("controller view")
+                .triggered_ability_target_choice
+                .expect("entry target choice")
+                .decision,
             source: blade,
             ability: "etb-attach-to-controlled-creature",
             targets: vec![Target::Permanent(creature)],

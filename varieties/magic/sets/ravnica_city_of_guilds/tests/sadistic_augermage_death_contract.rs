@@ -93,6 +93,7 @@ fn another_creature_dying_stacks_then_resolves_all_player_discards() {
         PlayerId(0),
         "test.augermage-discard-p0.v1",
         PolicyAction::ChooseTriggeredAbilityEffectObject {
+            decision: controller_choice.decision,
             source: augermage,
             ability: "another-creature-dies-each-player-discards",
             selected: Some(p0_discard),
@@ -109,6 +110,7 @@ fn another_creature_dying_stacks_then_resolves_all_player_discards() {
         PlayerId(1),
         "test.augermage-discard-p1.v1",
         PolicyAction::ChooseTriggeredAbilityEffectObject {
+            decision: opponent_choice.decision,
             source: augermage,
             ability: "another-creature-dies-each-player-discards",
             selected: Some(p1_discard),

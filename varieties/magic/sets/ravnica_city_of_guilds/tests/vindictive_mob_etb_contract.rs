@@ -107,6 +107,7 @@ fn mob_trigger_sacrifices_another_controlled_creature_before_itself() {
         PlayerId(0),
         "test.vindictive-mob-sacrifice.v1",
         PolicyAction::ChooseTriggeredAbilityEffectObject {
+            decision: choice.decision,
             source: mob,
             ability: "etb-sacrifice-controller-creature",
             selected: Some(sacrifice),

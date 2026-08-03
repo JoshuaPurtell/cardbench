@@ -285,8 +285,10 @@ pub enum PolicyAction {
     },
     /// Selects the one public object required by a suspended trigger effect.
     /// A `None` selection is legal only when the projected candidate list is
-    /// empty (for example, a player with no hand cards to discard).
+    /// empty (for example, a player with no hand cards to discard). `decision`
+    /// must echo the generic prompt projected through the compatibility view.
     ChooseTriggeredAbilityEffectObject {
+        decision: DecisionId,
         source: ObjectId,
         ability: &'static str,
         selected: Option<ObjectId>,
@@ -542,6 +544,9 @@ pub struct OptionalTriggeredAbilityChoiceView {
 /// a trigger is resolving. Only the chooser receives the candidate identities.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TriggeredAbilityEffectObjectChoiceView {
+    /// Exact generic decision represented by this compatibility projection.
+    /// Policies must echo it when submitting the legacy effect-object action.
+    pub decision: DecisionId,
     pub source: ObjectId,
     pub ability: &'static str,
     pub candidates: Vec<CardView>,
@@ -4345,7 +4350,7 @@ impl Game {
             .and_then(|decision| match &decision.continuation {
                 DecisionContinuation::TriggeredEffectObject {
                     source, ability, ..
-                } => Some((*source, *ability)),
+                } => Some((decision.id, *source, *ability)),
                 DecisionContinuation::LibrarySearch { .. }
                 | DecisionContinuation::LibrarySearchAndCast { .. }
                 | DecisionContinuation::LibrarySearchAuraAttachedToSource { .. }
@@ -4375,13 +4380,14 @@ impl Game {
                 | DecisionContinuation::PermanentEntryCopySource { .. }
                 | DecisionContinuation::PermanentEntryCopyAuraAttachment { .. } => None,
             })
-            .map(|(source, ability)| {
+            .map(|(decision, source, ability)| {
                 self.decision_candidate_cards(
                     self.pending_decision
                         .as_ref()
                         .expect("decision continuation came from pending state"),
                 )
                 .map(|candidates| TriggeredAbilityEffectObjectChoiceView {
+                    decision,
                     source,
                     ability,
                     candidates,
@@ -4643,11 +4649,14 @@ impl Game {
                 self.choose_triggered_ability_targets(player, decision, source, ability, targets)?;
             }
             PolicyAction::ChooseTriggeredAbilityEffectObject {
+                decision,
                 source,
                 ability,
                 selected,
             } => {
-                self.choose_triggered_ability_effect_object(player, source, ability, selected)?;
+                self.choose_triggered_ability_effect_object(
+                    player, decision, source, ability, selected,
+                )?;
             }
             PolicyAction::ChooseDamageReplacement {
                 decision,
@@ -22084,6 +22093,7 @@ impl Game {
     fn choose_triggered_ability_effect_object(
         &mut self,
         player: PlayerId,
+        decision_id: DecisionId,
         source: ObjectId,
         ability: &'static str,
         selected: Option<ObjectId>,
@@ -22098,10 +22108,12 @@ impl Game {
                     source: pending_source,
                     ability: pending_ability,
                     ..
-                } if pending_source == source && pending_ability == ability
+                } if decision.id == decision_id
+                    && pending_source == source
+                    && pending_ability == ability
             ) {
                 return Err(RulesError::IllegalAction(
-                    "trigger effect-object compatibility action does not match the pending decision",
+                    "trigger effect-object action does not match the pending decision id or identity",
                 ));
             }
             game.resolve_pending_decision(

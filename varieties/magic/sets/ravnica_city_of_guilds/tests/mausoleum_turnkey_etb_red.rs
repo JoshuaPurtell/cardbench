@@ -98,6 +98,7 @@ fn mausoleum_turnkey_stacks_and_resolves_when_another_creature_remains() {
         PlayerId(0),
         "test.mausoleum-turnkey-target.v1",
         PolicyAction::ChooseTriggeredAbilityTargets {
+            decision: target_choice.decision,
             source: turnkey,
             ability: "conditional-graveyard-return",
             targets: vec![Target::Permanent(other)],
@@ -189,6 +190,12 @@ fn mausoleum_turnkey_controller_may_decline_the_selected_return() {
         PlayerId(0),
         "test.mausoleum-turnkey-decline-target.v1",
         PolicyAction::ChooseTriggeredAbilityTargets {
+            decision: game
+                .view_for_player(PlayerId(0))
+                .expect("controller view")
+                .triggered_ability_target_choice
+                .expect("ETB target choice")
+                .decision,
             source: turnkey,
             ability: "conditional-graveyard-return",
             targets: vec![Target::Permanent(target)],

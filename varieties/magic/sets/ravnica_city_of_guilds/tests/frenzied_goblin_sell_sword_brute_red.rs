@@ -63,6 +63,12 @@ fn frenzied_goblin_attack_trigger_pays_red_and_restricts_a_blocker() {
         PlayerId(0),
         "test.frenzied-target.v1",
         PolicyAction::ChooseTriggeredAbilityTargets {
+            decision: game
+                .view_for_player(PlayerId(0))
+                .expect("controller view")
+                .triggered_ability_target_choice
+                .expect("attack trigger target choice")
+                .decision,
             source: goblin,
             ability: "attack-cannot-block",
             targets: vec![Target::Permanent(blocker)],
@@ -141,6 +147,12 @@ fn frenzied_goblin_target_remains_able_to_attack() {
         PlayerId(0),
         "test.frenzied-target.v1",
         PolicyAction::ChooseTriggeredAbilityTargets {
+            decision: game
+                .view_for_player(PlayerId(0))
+                .expect("controller view")
+                .triggered_ability_target_choice
+                .expect("attack trigger target choice")
+                .decision,
             source: goblin,
             ability: "attack-cannot-block",
             targets: vec![Target::Permanent(blocker)],

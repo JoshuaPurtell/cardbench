@@ -88,6 +88,7 @@ fn cast_dismisser_and_choose_target(
         PlayerId(0),
         "test.vedalken-dismisser-target.v1",
         PolicyAction::ChooseTriggeredAbilityTargets {
+            decision: controller_choice.decision,
             source: dismisser,
             ability: "etb-target-creature-owner-library-top",
             targets: vec![Target::Permanent(target)],

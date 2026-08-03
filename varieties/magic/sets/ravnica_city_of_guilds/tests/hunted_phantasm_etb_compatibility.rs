@@ -135,6 +135,12 @@ fn hunted_phantasm_controller_selects_the_second_opponent_for_exact_goblins() {
         PlayerId(1),
         "test.hunted-phantasm-unauthorized-target.v1",
         PolicyAction::ChooseTriggeredAbilityTargets {
+            decision: game
+                .view_for_player(PlayerId(1))
+                .expect("opponent view")
+                .pending_decision
+                .expect("public target decision")
+                .id,
             source: phantasm,
             ability: "etb-opponent-goblins",
             targets: vec![Target::Player(PlayerId(2))],
@@ -151,6 +157,12 @@ fn hunted_phantasm_controller_selects_the_second_opponent_for_exact_goblins() {
         PlayerId(0),
         "test.hunted-phantasm-target.v1",
         PolicyAction::ChooseTriggeredAbilityTargets {
+            decision: game
+                .view_for_player(PlayerId(0))
+                .expect("controller view")
+                .triggered_ability_target_choice
+                .expect("ETB target choice")
+                .decision,
             source: phantasm,
             ability: "etb-opponent-goblins",
             targets: vec![Target::Player(PlayerId(2))],

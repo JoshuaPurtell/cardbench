@@ -93,6 +93,7 @@ fn choose_bounce_target(game: &mut Game, source: cardbench_magic_engine::ObjectI
         PlayerId(0),
         "test.guild-bounce-land-target.v1",
         PolicyAction::ChooseTriggeredAbilityTargets {
+            decision: choice.decision,
             source,
             ability: "return-controlled-land",
             targets: vec![target],

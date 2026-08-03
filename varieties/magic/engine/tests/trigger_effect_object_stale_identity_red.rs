@@ -37,13 +37,18 @@ fn pass_pair(game: &mut Game) {
     game.pass_priority(second).expect("second pass");
 }
 
-fn select_empty_discard(game: &mut Game, player: PlayerId, source: cardbench_magic_engine::ObjectId) {
+fn select_empty_discard(
+    game: &mut Game,
+    player: PlayerId,
+    choice: &cardbench_magic_engine::TriggeredAbilityEffectObjectChoiceView,
+) {
     game.submit_policy_move(
         player,
         "stale-trigger-effect-object-red",
         PolicyAction::ChooseTriggeredAbilityEffectObject {
-            source,
-            ability: ABILITY,
+            decision: choice.decision,
+            source: choice.source,
+            ability: choice.ability,
             selected: None,
         },
     )
@@ -143,6 +148,7 @@ fn stale_trigger_effect_object_action_cannot_answer_a_later_identical_trigger() 
     assert_eq!(first.ability, ABILITY);
     assert!(first.candidates.is_empty());
     let stale_action = PolicyAction::ChooseTriggeredAbilityEffectObject {
+        decision: first.decision,
         source: first.source,
         ability: first.ability,
         selected: None,
@@ -153,7 +159,12 @@ fn stale_trigger_effect_object_action_cannot_answer_a_later_identical_trigger() 
         stale_action.clone(),
     )
     .expect("first controller empty-hand choice is accepted");
-    select_empty_discard(&mut game, opponent, source);
+    let opponent_first = game
+        .view_for_player(opponent)
+        .expect("opponent view")
+        .triggered_ability_effect_object_choice
+        .expect("opponent receives the second empty-hand choice");
+    select_empty_discard(&mut game, opponent, &opponent_first);
     pass_pair(&mut game);
 
     advance_to_next_upkeep(&mut game, controller);
@@ -166,19 +177,10 @@ fn stale_trigger_effect_object_action_cannot_answer_a_later_identical_trigger() 
     assert_eq!(first.source, second.source);
     assert_eq!(first.ability, second.ability);
     assert!(second.candidates.is_empty());
-    assert!(
-        game.view_for_player(controller)
-            .expect("controller view")
-            .pending_decision
-            .is_some(),
-        "the later compatibility projection is backed by a generic decision"
-    );
+    assert_ne!(first.decision, second.decision);
 
-    let stale_result = game.submit_policy_move(
-        controller,
-        "stale-trigger-effect-object-red",
-        stale_action,
-    );
+    let stale_result =
+        game.submit_policy_move(controller, "stale-trigger-effect-object-red", stale_action);
     eprintln!(
         "stale trigger effect-object trace: first={first:?}; second={second:?}; \\
          stale_result={stale_result:?}; events={:?}",
@@ -188,6 +190,15 @@ fn stale_trigger_effect_object_action_cannot_answer_a_later_identical_trigger() 
         stale_result.is_err(),
         "an action from an earlier identical trigger must not answer the later one"
     );
+    assert_eq!(
+        game.view_for_player(controller)
+            .expect("controller view")
+            .triggered_ability_effect_object_choice
+            .expect("stale rejection preserves the later choice")
+            .decision,
+        second.decision
+    );
+    select_empty_discard(&mut game, controller, &second);
     game.validate_invariants()
         .expect("rejected stale effect-object action preserves a valid trigger state");
 }

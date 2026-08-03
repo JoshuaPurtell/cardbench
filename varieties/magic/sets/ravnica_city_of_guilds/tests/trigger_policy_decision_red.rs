@@ -81,6 +81,7 @@ fn frenzied_goblin_does_not_auto_select_a_trigger_target() {
         PlayerId(0),
         "test.choose-trigger-target.v1",
         PolicyAction::ChooseTriggeredAbilityTargets {
+            decision: choice.decision,
             source: goblin,
             ability: "attack-cannot-block",
             targets: vec![Target::Permanent(second)],
