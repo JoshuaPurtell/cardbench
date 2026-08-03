@@ -2696,7 +2696,12 @@ Oracle Magic rules coverage.
   from that cast or its additional costs. Thus, if an additional cost removes
   a static effect and creates another death, both observations enter one
   APNAP placement batch; no earlier `TriggeredAbilityStacked` receipt may
-  preempt the required shared order decision. For creature deaths selected
+  preempt the required shared order decision. A public land play captures its
+  own ETB and all land-entry observations while their live source incarnations
+  still exist, then reaches that same post-entry SBA boundary. If an entry
+  life payment ends the game, that boundary discards the captured events; it
+  must record the legal land-entry and player-departure lifecycle without
+  dereferencing a departed source or rolling the land play back. For creature deaths selected
   in one pass, regeneration shields are consumed first, then the remaining
   death set receives one shared last-known-information observer snapshot
   before its members take their individual graveyard/token-departure
