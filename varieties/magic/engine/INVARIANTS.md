@@ -2710,7 +2710,10 @@ Oracle Magic rules coverage.
   permanent that enters only after a no-priority private resolution decision
   follows the same capture-before-SBA rule, including land-entry observers;
   its historical battlefield incarnation must survive a resulting SBA death
-  rather than being recreated from the new graveyard object. For creature deaths selected
+  rather than being recreated from the new graveyard object. The deterministic
+  library-search compatibility path shares that exact capture pipeline for
+  `Battlefield` and `BattlefieldTapped` results; it may not silently skip a
+  selected permanent's self or controller-scoped entry observation. For creature deaths selected
   in one pass, regeneration shields are consumed first, then the remaining
   death set receives one shared last-known-information observer snapshot
   before its members take their individual graveyard/token-departure
