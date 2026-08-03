@@ -23,6 +23,10 @@ Oracle Magic rules coverage.
   or later invariant failure restores the complete pre-call configuration.
   In particular, a rejected batch cannot make a subsequent valid retry fail
   due to a hidden prefix binding.
+- A `ReplacementEffectBinding` registration batch has the same transactional
+  boundary for token/counter quantity replacements. A rejected batch cannot
+  retain a multiplier that a later valid registration then observes as a
+  duplicate.
 - A cast first places every represented cast trigger using APNAP. If that
   placement opens a mandatory trigger-order or trigger-target decision, the
   decision player remains the priority holder until the no-priority decision
