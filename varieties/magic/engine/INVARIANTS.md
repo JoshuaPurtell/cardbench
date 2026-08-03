@@ -212,6 +212,14 @@ Oracle Magic rules coverage.
   remove it from combat instead of moving it. Shields never prevent a
   zero-toughness action or a sacrifice and clear when their target leaves the
   battlefield.
+- A target-free controller-team regeneration instruction snapshots only the
+  resolving controller's live battlefield creatures at its own resolution
+  boundary. It creates exactly one source-identified shield and
+  `RegenerationShieldCreated` receipt for each snapshot member, never for an
+  opposing creature or a later entrant. Its retained source may already be in
+  a graveyard after paying a self-sacrifice activation cost; source departure
+  does not erase an already-created shield, while the ordinary live-target
+  shield invariant still governs each replacement endpoint.
 - A targeted damage-prevention shield is private replacement state with a
   positive remaining amount, a seated player or live creature target, a
   current-turn expiry, and a retained source identity. Creation is a stack

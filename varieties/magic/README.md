@@ -151,6 +151,9 @@ current corpus contains 187 scenarios and covers:
 - a source-bound generic reduction plus a retained noncreature-spell cast
   trigger (`Blood Funnel`), with real stack/priority, controller-submitted
   mandatory creature sacrifice, and counter-on-no-creature receipts; and
+- a full-fidelity entry life-gain trigger plus source-sacrifice, controller-team
+  regeneration shields (`Loxodon Hierarch`), including the independent
+  destroy/lethal-damage replacement lifecycle; and
 - full-fidelity combat-state-dependent player-or-creature damage (`Dogpile`), a
   full-fidelity controller-wide temporary Convoke modifier (`Overwhelm`), and
   full-fidelity paid-color-conditioned resolution (`Ribbons of Night`), with
