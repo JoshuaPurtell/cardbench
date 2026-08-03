@@ -3054,12 +3054,12 @@ Oracle Magic rules coverage.
   `SpellCastFromPermission`. A noninstant may bypass ordinary sorcery timing
   only while its live spell stack object carries that permission's explicit
   timing exception.
-- This substrate is deliberately bounded: virtual copies can resolve and
-  retain or retarget the original represented targets, but copies of virtual
-  copies and general copy-modification/replacement choices are not yet
-  represented. New permission effects currently grant a card from exile;
-  graveyard and other alternate-casting sources require their own typed
-  effects rather than an implicit zone mutation.
+- This substrate is deliberately bounded: virtual copies can resolve, retain
+  or retarget represented targets, and chain from another virtual copy while
+  preserving an acyclic ancestry record. General copy-modification/replacement
+  choices are not yet represented. New permission effects currently grant a
+  card from exile; graveyard and other alternate-casting sources require their
+  own typed effects rather than an implicit zone mutation.
 
 ## Deck construction
 
