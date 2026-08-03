@@ -32819,6 +32819,7 @@ impl Game {
         self.move_to_graveyard_or_remove_token_with_zone_transition_observers(card, false)
     }
 
+    #[allow(clippy::too_many_lines)] // Token cessation and physical graveyard moves share one ordered departure boundary.
     fn move_to_graveyard_or_remove_token_with_zone_transition_observers(
         &mut self,
         card: ObjectId,
@@ -32851,6 +32852,32 @@ impl Game {
                     self.enqueue_another_creature_leaves_battlefield_triggers(card)?;
                     self.enqueue_another_creature_dies_triggers(card)?;
                     self.enqueue_controlled_nontoken_creature_dies_triggers(card)?;
+                }
+                // A copied token still has the copied card's own Dies
+                // ability. Tokens do not make an ordinary graveyard zone
+                // move, so retain the exact source provenance before removing
+                // this object and queue the ability from that last-known
+                // battlefield incarnation.
+                if let Some(definition) = self.effective_definition_id(card)? {
+                    let has_dies_trigger = self
+                        .triggered_abilities
+                        .get(definition)
+                        .into_iter()
+                        .flat_map(|abilities| abilities.values())
+                        .any(|ability| ability.condition == TriggerCondition::Dies);
+                    if has_dies_trigger {
+                        let controller = self.controller_of(card)?;
+                        let colors = self.characteristics(card)?.colors;
+                        self.capture_last_known_characteristics(card)?;
+                        self.departed_card_definitions.insert(card, definition);
+                        self.enqueue_dies_triggers(
+                            card,
+                            token_incarnation,
+                            &colors,
+                            definition,
+                            controller,
+                        );
+                    }
                 }
                 // Tokens cease to exist instead of taking an ordinary zone
                 // move, but their live combat membership still ends at the
@@ -33070,7 +33097,7 @@ impl Game {
     /// records, and a still-live exact ability keeps only the source facts it
     /// needs to finish resolving.
     fn prune_unreferenced_departed_source_provenance(&mut self) {
-        let retained = self
+        let mut retained = self
             .stack
             .iter()
             .filter_map(|stack_object| {
@@ -33079,6 +33106,17 @@ impl Game {
                 .then_some((stack_object.card, stack_object.source_incarnation))
             })
             .collect::<BTreeSet<_>>();
+        // A mandatory SBA pass can run after a token ceased to exist and
+        // before its observed trigger is stacked. Keep this exact temporary
+        // source provenance through that queue-to-stack handoff; the
+        // following flush either transfers it to the live ability or leaves
+        // no retained reference for the next prune pass.
+        retained.extend(
+            self.pending_trigger_events
+                .iter()
+                .filter(|event| !self.objects.contains_key(&event.source))
+                .map(|event| (event.source, event.source_incarnation)),
+        );
         self.last_known_characteristics
             .retain(|key, _| self.objects.contains_key(&key.0) || retained.contains(key));
         self.last_known_controllers
