@@ -12912,11 +12912,11 @@ impl Game {
             ability,
         });
         self.check_state_based_actions()?;
-        self.flush_pending_dies_triggers();
+        self.flush_pending_dies_triggers()?;
         self.flush_pending_land_entry_triggers()?;
         self.flush_pending_damage_triggers();
         self.flush_pending_life_gain_triggers();
-        self.flush_pending_dies_triggers();
+        self.flush_pending_dies_triggers()?;
         self.restore_priority_after_stack_resolution();
         self.record_game_end_if_needed();
         Ok(())
