@@ -64,7 +64,10 @@ fn mindleech_mass_requires_exact_combat_player_discard_definition() {
         definition.mana_cost,
         ManaCost::with_colors(5, [Color::Blue, Color::Black])
     );
-    assert_eq!(definition.colors, BTreeSet::from([Color::Blue, Color::Black]));
+    assert_eq!(
+        definition.colors,
+        BTreeSet::from([Color::Blue, Color::Black])
+    );
     assert_eq!(definition.card_types, BTreeSet::from([CardType::Creature]));
     assert_eq!((definition.power, definition.toughness), (Some(6), Some(6)));
     assert_eq!(definition.keywords, vec![Keyword::Trample]);

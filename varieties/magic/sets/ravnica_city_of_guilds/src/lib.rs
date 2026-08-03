@@ -46,7 +46,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 273] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 274] = [
     "RAV-CHAR",
     "RAV-AGRUS-KOS-WOJEK-VETERAN",
     "RAV-INSTILL-FUROR",
@@ -160,6 +160,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 273] = [
     "RAV-GOLGARI-GUILDMAGE",
     "RAV-DIMIR-GUILDMAGE",
     "RAV-DIMIR-CUTPURSE",
+    "RAV-MINDLEECH-MASS",
     "RAV-DIMIR-HOUSE-GUARD",
     "RAV-DIMIR-MACHINATIONS",
     "RAV-PERPLEX",
@@ -5010,6 +5011,31 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
+        // Full fidelity: a positive combat-damage receipt to a player queues
+        // a source-owned trigger. Its exact combat recipient privately selects
+        // three current hand cards, and the ability resolves only after that
+        // fixed-count decision completes.
+        CardDefinition {
+            id: "RAV-MINDLEECH-MASS",
+            name: "Mindleech Mass",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(5, [Color::Blue, Color::Black]),
+            colors: colors([Color::Blue, Color::Black]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "trample",
+                "combat-player-trigger-recipient-private-three-card-discard",
+            ],
+            power: Some(6),
+            toughness: Some(6),
+            keywords: vec![Keyword::Trample],
+            effects: vec![],
+        },
         // Full fidelity: a player-targeted stack activation pays generic two
         // and taps this hybrid creature, then suspends for the controller's
         // private, explicit may-choice over the exact current top card of the
@@ -8895,6 +8921,17 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                     Effect::DiscardCombatDamagePlayer { count: 1 },
                     Effect::DrawController,
                 ],
+            },
+        },
+        TriggeredAbilityBinding {
+            card_definition: "RAV-MINDLEECH-MASS",
+            ability: TriggeredAbility {
+                id: "combat-player-recipient-private-three-card-discard",
+                condition: TriggerCondition::DealsCombatDamageToPlayer,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![Effect::DiscardCombatDamagePlayer { count: 3 }],
             },
         },
         TriggeredAbilityBinding {
