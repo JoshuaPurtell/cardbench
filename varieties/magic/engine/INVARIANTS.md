@@ -2762,7 +2762,11 @@ Oracle Magic rules coverage.
   records its ordinary `CardMoved` and `ObjectIncarnationAdvanced` receipts,
   then exactly one matching `SpellExiledByTrigger` receipt. An observed virtual
   copy instead has one `SpellCopyExiledByTrigger` terminal receipt and can
-  never become a retained template or create a physical zone entry.
+  never become a retained template or create a physical zone entry. If a
+  prior response has already countered or otherwise ended that exact virtual
+  copy, its observing trigger's impossible exile instruction is a no-op: it
+  emits no duplicate copy-terminal receipt and may still offer retained
+  physical templates normally.
 - The parent triggered ability remains live beneath each serial
   `ExiledSpellCopyCast` decision. Each accepted card selection creates one
   fresh virtual copy with its own target/mode/color choices and a zero X value;
