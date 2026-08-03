@@ -1769,6 +1769,13 @@ impl Game {
         &mut self,
         bindings: impl IntoIterator<Item = ReplacementEffectBinding>,
     ) -> Result<(), RulesError> {
+        self.atomic_transition(|game| game.register_replacement_effect_bindings_impl(bindings))
+    }
+
+    fn register_replacement_effect_bindings_impl(
+        &mut self,
+        bindings: impl IntoIterator<Item = ReplacementEffectBinding>,
+    ) -> Result<(), RulesError> {
         if self.started {
             return Err(RulesError::IllegalAction(
                 "replacement-effect bindings cannot be changed after the game starts",
