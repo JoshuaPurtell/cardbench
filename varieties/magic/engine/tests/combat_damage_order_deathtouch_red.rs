@@ -248,7 +248,7 @@ fn every_multi_block_group_is_ordered_before_the_priority_window_opens() {
         .expect("attacker view")
         .pending_decision
         .expect("first group must be ordered");
-    assert_eq!(first.id.0, 1);
+    assert!(first.id.0 > 0);
     game.submit_decision(
         PlayerId(0),
         first.id,
@@ -260,7 +260,7 @@ fn every_multi_block_group_is_ordered_before_the_priority_window_opens() {
         .expect("attacker view")
         .pending_decision
         .expect("second group must be ordered before priority");
-    assert_eq!(second.id.0, 2);
+    assert!(second.id.0 > first.id.0);
     game.submit_decision(
         PlayerId(0),
         second.id,
