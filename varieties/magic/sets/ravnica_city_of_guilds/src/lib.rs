@@ -4837,10 +4837,10 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
-        // Full fidelity for the exercised deterministic trigger path: another
-        // creature dying stacks the source-identified all-player discard
-        // ability. The effect's card selections are visible through explicit
-        // discard and zone-change receipts.
+        // Full fidelity: another creature dying stacks the source-identified
+        // controller-owned may trigger. Its accept/decline decision is public
+        // only to that controller; accepting preserves the separate private
+        // hand-card choices for each affected player.
         CardDefinition {
             id: "RAV-SADISTIC-AUGERMAGE",
             name: "Sadistic Augermage",
@@ -4855,6 +4855,7 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 "colored-cost-casting",
                 "base-characteristics",
                 "another-creature-dies-each-player-discards",
+                "policy-submitted-may-trigger-choice",
             ],
             power: Some(3),
             toughness: Some(1),
@@ -9154,7 +9155,7 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                 id: "another-creature-dies-each-player-discards",
                 condition: TriggerCondition::AnotherCreatureDies,
                 mana_cost: ManaCost::new(0),
-                optional: false,
+                optional: true,
                 targets: vec![],
                 effects: vec![Effect::DiscardOneCardEachPlayer],
             },

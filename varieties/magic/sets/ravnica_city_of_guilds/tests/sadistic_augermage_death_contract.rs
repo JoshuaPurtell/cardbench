@@ -1,6 +1,8 @@
 //! Stack and event-log contract for Sadistic Augermage's death trigger.
 
-use cardbench_magic_engine::{Game, GameEvent, PlayerId, PolicyAction, Step, Zone};
+use cardbench_magic_engine::{
+    Game, GameEvent, PlayerId, PolicyAction, PolicyMoveKind, Step, Zone,
+};
 use cardbench_magic_rav::{
     card_definitions, rav_activated_ability_bindings, rav_additional_spell_cost_bindings,
     rav_basic_land_type_bindings, rav_mana_ability_bindings, rav_triggered_ability_bindings,
@@ -47,6 +49,32 @@ fn another_creature_dying_stacks_then_resolves_all_player_discards() {
     assert_eq!(game.stack.len(), 1, "death trigger is queued");
     game.pass_priority(PlayerId(0)).expect("active passes");
     game.pass_priority(PlayerId(1)).expect("opponent passes");
+    let may_choice = game
+        .view_for_player(PlayerId(0))
+        .expect("Augermage controller view")
+        .optional_triggered_ability_choice
+        .expect("controller may accept or decline the trigger");
+    assert_eq!(may_choice.source, augermage);
+    assert_eq!(may_choice.ability, "another-creature-dies-each-player-discards");
+    assert!(may_choice.can_pay);
+    assert!(
+        game.view_for_player(PlayerId(1))
+            .expect("opponent view")
+            .optional_triggered_ability_choice
+            .is_none(),
+        "the affected opponent cannot decide the controller's may trigger"
+    );
+    game.submit_policy_move(
+        PlayerId(0),
+        "test.augermage-accept.v1",
+        PolicyAction::ResolveOptionalTriggeredAbility {
+            source: augermage,
+            ability: "another-creature-dies-each-player-discards",
+            pay: true,
+            target: None,
+        },
+    )
+    .expect("controller accepts the discard trigger");
     let controller_choice = game
         .view_for_player(PlayerId(0))
         .expect("Augermage controller view")
@@ -96,6 +124,16 @@ fn another_creature_dying_stacks_then_resolves_all_player_discards() {
             matches!(event, GameEvent::CardDiscarded { player: event_player, card: event_card } if *event_player == player && *event_card == card)
         }));
     }
+    assert!(game.event_log.iter().any(|event| {
+        matches!(
+            event,
+            GameEvent::PolicyMoveSubmitted {
+                player,
+                kind: PolicyMoveKind::ResolveOptionalTriggeredAbility,
+                ..
+            } if *player == PlayerId(0)
+        )
+    }));
     assert!(game.event_log.iter().any(|event| {
         matches!(
             event,

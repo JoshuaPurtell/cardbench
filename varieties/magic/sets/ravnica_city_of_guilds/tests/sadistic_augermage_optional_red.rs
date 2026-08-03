@@ -1,6 +1,8 @@
 //! Red discovery contract for Sadistic Augermage's optional dies trigger.
 
-use cardbench_magic_engine::{Game, GameEvent, PlayerId, PolicyAction, Zone};
+use cardbench_magic_engine::{
+    Game, GameEvent, PlayerId, PolicyAction, PolicyMoveKind, Zone,
+};
 use cardbench_magic_rav::{
     card_definitions, rav_activated_ability_bindings, rav_additional_spell_cost_bindings,
     rav_basic_land_type_bindings, rav_mana_ability_bindings, rav_triggered_ability_bindings,
@@ -60,6 +62,27 @@ fn sadistic_augermage_controller_can_decline_the_dies_trigger() {
         "only the trigger controller may accept or decline"
     );
 
+    let events_before_wrong_player = game.event_log.len();
+    let wrong_player = game.submit_policy_move(
+        PlayerId(1),
+        "test.sadistic-augermage-decline-wrong-player.v1",
+        PolicyAction::ResolveOptionalTriggeredAbility {
+            source: augermage,
+            ability: "another-creature-dies-each-player-discards",
+            pay: false,
+            target: None,
+        },
+    );
+    assert!(wrong_player.is_err(), "only the trigger controller may decline");
+    assert_eq!(game.event_log.len(), events_before_wrong_player);
+    assert!(
+        game.view_for_player(PlayerId(0))
+            .expect("controller view after rejected opponent action")
+            .optional_triggered_ability_choice
+            .is_some(),
+        "a rejected outsider action cannot consume the pending may choice"
+    );
+
     game.submit_policy_move(
         PlayerId(0),
         "test.sadistic-augermage-decline.v1",
@@ -90,6 +113,14 @@ fn sadistic_augermage_controller_can_decline_the_dies_trigger() {
         event,
         GameEvent::AbilityResolved { source, ability, .. }
             if *source == augermage && *ability == "another-creature-dies-each-player-discards"
+    )));
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::PolicyMoveSubmitted {
+            player,
+            kind: PolicyMoveKind::ResolveOptionalTriggeredAbility,
+            ..
+        } if *player == PlayerId(0)
     )));
     game.validate_invariants()
         .expect("declined trigger preserves the state machine");

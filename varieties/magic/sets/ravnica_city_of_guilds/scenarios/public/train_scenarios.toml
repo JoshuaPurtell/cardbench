@@ -9349,7 +9349,7 @@ digest = "fnv1a64:9366feebbf6d7203"
 id = "rav_sadistic_augermage_death_discard"
 seed = 0
 triggers = true
-description = "When another creature dies, Sadistic Augermage stacks an all-player discard ability with explicit discard and graveyard receipts."
+description = "When another creature dies, Sadistic Augermage offers its controller a public may-trigger choice; accepting it opens each affected player's private discard choice with explicit discard and graveyard receipts."
 
 [[scenario.card]]
 label = "augermage"
@@ -9396,6 +9396,13 @@ kind = "pass"
 player = 1
 
 [[scenario.action]]
+kind = "resolve_optional_trigger"
+player = 0
+card = "augermage"
+ability = "another-creature-dies-each-player-discards"
+pay = true
+
+[[scenario.action]]
 kind = "choose_trigger_effect_object"
 player = 0
 card = "augermage"
@@ -9413,8 +9420,8 @@ found = "p1_discard"
 zones = ["augermage:battlefield", "p0_discard:graveyard", "p0_keep:hand", "p1_discard:graveyard", "victim:graveyard"]
 stack_size = 0
 priority = 0
-event_markers = ["StateBasedAction", "TriggeredAbilityStacked", "CardDiscarded", "AbilityResolved"]
-digest = "fnv1a64:f0c05f8297b9f0d2"
+event_markers = ["StateBasedAction", "TriggeredAbilityStacked", "PolicyMoveSubmitted", "CardDiscarded", "AbilityResolved"]
+digest = "fnv1a64:e052440f7a68645c"
 
 [[scenario]]
 id = "rav_dimir_house_guard_fear_and_transmute_compatibility"
