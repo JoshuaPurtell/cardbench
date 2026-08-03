@@ -4699,6 +4699,16 @@ impl Game {
     /// is live.  Scenario runners must reset before opening the measured
     /// continuation, never in its middle.
     pub fn clear_event_log(&mut self) {
+        // Once the live seal exists, this helper is only a receipt-quiescent
+        // measurement boundary. Do not let it refresh either seal after a
+        // caller has edited public state or the public event log directly;
+        // that would launder a receipt-free mutation as an authorized reset.
+        if self.state_integrity.is_some()
+            && (self.state_integrity != Some(self.public_state_integrity_digest())
+                || self.event_log != self.event_log_integrity)
+        {
+            return;
+        }
         if self.event_log_reset_would_erase_live_provenance() {
             return;
         }
