@@ -685,6 +685,34 @@ mod tests {
     }
 
     #[test]
+    fn matrix_cross_deck_match_must_not_reject_after_player_departure() {
+        let result = run_rav_deck_matchup(
+            DeckMatchConfig::default(),
+            "rav_boros_helix",
+            "rav_dimir_transmute_helix",
+        )
+        .expect("cross-deck matchup setup");
+        println!("termination={:?}", result.termination);
+        println!(
+            "tail={:?}",
+            result
+                .event_log
+                .iter()
+                .rev()
+                .take(24)
+                .collect::<Vec<_>>()
+        );
+        assert!(
+            matches!(
+                result.termination,
+                DeckMatchTermination::Winner(_) | DeckMatchTermination::Draw
+            ),
+            "cross-deck match rejected: {:?}",
+            result.termination
+        );
+    }
+
+    #[test]
     fn added_char_and_siege_decks_complete_a_real_shuffled_match() {
         let first = run_rav_deck_matchup(
             DeckMatchConfig::default(),
