@@ -2953,6 +2953,11 @@ impl Game {
                 "a creature without base power and toughness requires an entry replacement",
             ));
         }
+        if zone == Zone::Library && self.players[owner.0].library.len() >= usize::from(u16::MAX) {
+            return Err(RulesError::IllegalAction(
+                "setup card count exceeds event receipt range",
+            ));
+        }
         let id = ObjectId(self.next_object_id);
         self.next_object_id += 1;
         self.objects.insert(
@@ -3126,8 +3131,7 @@ impl Game {
             }
         }
         self.record_event(GameEvent::DeckLoaded { player, cards });
-        self.shuffle_library(player);
-        self.record_event(GameEvent::LibraryShuffled { player, cards });
+        self.shuffle_library_and_record(player)?;
         self.validate_invariants()
     }
 
@@ -12177,9 +12181,7 @@ impl Game {
             found: selected,
             destination,
         });
-        self.shuffle_library(player);
-        let cards = u16::try_from(self.players[player.0].library.len()).unwrap_or(u16::MAX);
-        self.record_event(GameEvent::LibraryShuffled { player, cards });
+        self.shuffle_library_and_record(player)?;
 
         if let Some(ability) = ability
             && ability == TRANSMUTE_ABILITY_ID
@@ -12431,13 +12433,7 @@ impl Game {
                 None,
             )?;
         }
-        self.shuffle_library(decision.player);
-        let cards =
-            u16::try_from(self.players[decision.player.0].library.len()).unwrap_or(u16::MAX);
-        self.record_event(GameEvent::LibraryShuffled {
-            player: decision.player,
-            cards,
-        });
+        self.shuffle_library_and_record(decision.player)?;
         self.record_event(GameEvent::AbilityResolved {
             source,
             source_incarnation,
@@ -12712,9 +12708,7 @@ impl Game {
             found: selected.to_vec(),
             destination,
         });
-        self.shuffle_library(player);
-        let cards = u16::try_from(self.players[player.0].library.len()).unwrap_or(u16::MAX);
-        self.record_event(GameEvent::LibraryShuffled { player, cards });
+        self.shuffle_library_and_record(player)?;
 
         if destination == LibrarySearchDestination::LibraryTop && !selected.is_empty() {
             for card in selected.iter().rev() {
@@ -13605,9 +13599,7 @@ impl Game {
             });
             self.move_to_zone(found, Zone::Hand)?;
         }
-        self.shuffle_library(player);
-        let cards = u16::try_from(self.players[player.0].library.len()).unwrap_or(u16::MAX);
-        self.record_event(GameEvent::LibraryShuffled { player, cards });
+        self.shuffle_library_and_record(player)?;
         self.record_event(GameEvent::Transmuted {
             player,
             discarded: card,
@@ -13695,9 +13687,7 @@ impl Game {
             found,
             destination,
         });
-        self.shuffle_library(player);
-        let cards = u16::try_from(self.players[player.0].library.len()).unwrap_or(u16::MAX);
-        self.record_event(GameEvent::LibraryShuffled { player, cards });
+        self.shuffle_library_and_record(player)?;
         Ok(())
     }
 
@@ -13790,12 +13780,7 @@ impl Game {
             found,
             destination: LibrarySearchDestination::Battlefield,
         });
-        self.shuffle_library(controller);
-        let cards = u16::try_from(self.players[controller.0].library.len()).unwrap_or(u16::MAX);
-        self.record_event(GameEvent::LibraryShuffled {
-            player: controller,
-            cards,
-        });
+        self.shuffle_library_and_record(controller)?;
         Ok(())
     }
 
@@ -15030,6 +15015,11 @@ impl Game {
         for (seat, player) in self.players.iter().enumerate() {
             if player.id != PlayerId(seat) {
                 return Err(RulesError::IllegalAction("player id does not match seat"));
+            }
+            if player.library.len() > usize::from(u16::MAX) {
+                return Err(RulesError::IllegalAction(
+                    "library card count exceeds event receipt range",
+                ));
             }
             if player.lands_played > 1 {
                 return Err(RulesError::IllegalAction(
@@ -27514,13 +27504,7 @@ impl Game {
                     found: None,
                     destination: LibrarySearchDestination::CastWithoutPayingManaCost,
                 });
-                self.shuffle_library(controller);
-                let cards = u16::try_from(self.players[controller.0].library.len())
-                    .unwrap_or(u16::MAX);
-                self.record_event(GameEvent::LibraryShuffled {
-                    player: controller,
-                    cards,
-                });
+                self.shuffle_library_and_record(controller)?;
             }
             Effect::SearchControllerLibraryForCompatibleAuraAttachedToSource { selection } => {
                 self.resolve_controller_library_aura_attachment_search(
@@ -29091,13 +29075,7 @@ impl Game {
                     for card in cards {
                         self.move_to_zone(card, Zone::Library)?;
                     }
-                    let count =
-                        u16::try_from(self.players[player_index].library.len()).unwrap_or(u16::MAX);
-                    self.shuffle_library(player);
-                    self.record_event(GameEvent::LibraryShuffled {
-                        player,
-                        cards: count,
-                    });
+                    self.shuffle_library_and_record(player)?;
                 }
             }
             Effect::ReturnControlledCreatureToHand => {
@@ -29222,13 +29200,7 @@ impl Game {
                 {
                     let owner = self.object(source)?.owner;
                     self.move_to_zone(source, Zone::Library)?;
-                    self.shuffle_library(owner);
-                    let cards =
-                        u16::try_from(self.players[owner.0].library.len()).unwrap_or(u16::MAX);
-                    self.record_event(GameEvent::LibraryShuffled {
-                        player: owner,
-                        cards,
-                    });
+                    self.shuffle_library_and_record(owner)?;
                 }
             }
         }
@@ -30251,6 +30223,18 @@ impl Game {
         self.shuffle_seed = self.shuffle_seed.wrapping_add(1);
     }
 
+    /// Shuffles one owner-indexed library and records its exact post-shuffle
+    /// cardinality.  The canonical receipt deliberately has a bounded `u16`
+    /// field; never hide an out-of-range live library behind saturation.
+    fn shuffle_library_and_record(&mut self, player: PlayerId) -> Result<(), RulesError> {
+        let cards = u16::try_from(self.player(player)?.library.len()).map_err(|_| {
+            RulesError::IllegalAction("library card count exceeds event receipt range")
+        })?;
+        self.shuffle_library(player);
+        self.record_event(GameEvent::LibraryShuffled { player, cards });
+        Ok(())
+    }
+
     /// Removes a permanent from the live combat membership while retaining a
     /// legal block's exact declaration history. A departed blocker keeps its
     /// attacker blocked; a departed attacker removes its live blocker group.
@@ -31065,6 +31049,14 @@ impl Game {
     ) -> Result<(), RulesError> {
         let object = self.object(card)?.clone();
         let previous_zone = self.zone_of(card);
+        if zone == Zone::Library
+            && previous_zone != Some(Zone::Library)
+            && self.player(object.owner)?.library.len() >= usize::from(u16::MAX)
+        {
+            return Err(RulesError::IllegalAction(
+                "library card count exceeds event receipt range",
+            ));
+        }
         let graveyard_to_hand = previous_zone == Some(Zone::Graveyard) && zone == Zone::Hand;
         let graveyard_to_hand_trigger_source = graveyard_to_hand
             .then(|| {
