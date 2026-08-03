@@ -2124,6 +2124,11 @@ Oracle Magic rules coverage.
   and any forced follow-up replacements. After authoritative prevention and
   damage receipts commit, the source emits exactly one `SpellCopyResolved`;
   it cannot emit `SpellResolved` or move the virtual source to a physical zone.
+- A counter-unless decision binds its lower spell by the exact live lower
+  stack item's source incarnation, not by a physical-zone lookup. The same
+  public pay-or-counter and discard-your-hand boundaries must work for
+  physical spells and stack-only virtual copies, with no fabricated card
+  identity entering a decision or terminal receipt.
 - A virtual copy of an activated ability applies its submitted retarget to
   the captured lower ability before committing that ability's effect. The
   target-change receipt and all resulting zone/other effects precede exactly

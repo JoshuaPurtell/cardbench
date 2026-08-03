@@ -18220,7 +18220,10 @@ impl Game {
         if target.ability_id.is_some() {
             return Err(RulesError::IllegalTarget(Target::Spell(*target_spell)));
         }
-        let target_incarnation = self.object(*target_spell)?.incarnation;
+        // A virtual spell copy is stack-only. The lower stack item's captured
+        // incarnation is the authoritative identity for either a physical
+        // spell or that copy; no physical object lookup is permitted here.
+        let target_incarnation = target.source_incarnation;
         self.open_pending_decision(
             target.controller,
             DecisionVisibility::Public,
@@ -18278,7 +18281,9 @@ impl Game {
         if target.ability_id.is_some() {
             return Err(RulesError::IllegalTarget(Target::Spell(*target_spell)));
         }
-        let target_incarnation = self.object(*target_spell)?.incarnation;
+        // See the payment counterpart above: a target spell may be a virtual
+        // copy and therefore has only stack provenance.
+        let target_incarnation = target.source_incarnation;
         self.open_pending_decision(
             target.controller,
             DecisionVisibility::Public,
@@ -35282,9 +35287,7 @@ impl Game {
                     || target.is_none_or(|candidate| {
                         candidate.controller != decision.player
                             || candidate.ability_id.is_some()
-                            || self
-                                .object(*target_spell)
-                                .map_or(true, |object| object.incarnation != *target_incarnation)
+                            || candidate.source_incarnation != *target_incarnation
                     })
                     || target_position >= source_position
                 {
@@ -35328,9 +35331,7 @@ impl Game {
                     || target.is_none_or(|candidate| {
                         candidate.controller != decision.player
                             || candidate.ability_id.is_some()
-                            || self
-                                .object(*target_spell)
-                                .map_or(true, |object| object.incarnation != *target_incarnation)
+                            || candidate.source_incarnation != *target_incarnation
                     })
                     || target_position >= source_position
                 {
