@@ -2032,6 +2032,10 @@ Oracle Magic rules coverage.
   that deliberately reaches a pending Draw step before `begin_game` likewise
   consumes that marker when it resolves its ordinary draw, rather than leaving
   a stale mandatory decision to block the next priority window.
+- The entire public direct-draw transition is atomic, including its pregame
+  Dredge compatibility marker. A rejected Dredge source restores the pending
+  marker and shared decision-id allocator, so the first real Draw decision is
+  not observably renumbered by a failed setup helper.
 
 ## Combat
 
