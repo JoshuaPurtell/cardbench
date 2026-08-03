@@ -1824,6 +1824,18 @@ Oracle Magic rules coverage.
   the first ordered blocker so damage is never silently dropped.
   Alternative combat restrictions and other unsupported combat rules must be
   reported as capability gaps rather than approximated.
+- Every represented combat-damage packet, whether its current recipient is a
+  defending player or a blocked creature, enters the same stackless
+  prospective-event state machine before commitment. A concurrent choice
+  retains the source's exact live incarnation, current target/incarnation,
+  duplicate-free replacement history, any partial-redirection packets, and
+  every remaining permanent and player assignment in deterministic combat
+  order. The recipient's affected player alone owns the public replacement
+  decision; no `DamageDealt*`, `DamagePrevented`, or `DamageRedirected` receipt
+  may commit before that decision. When a selected redirect changes the
+  recipient, the new packet recomputes its affected player and replacement
+  candidates; a positive committed creature packet alone queues the matching
+  `DealsCombatDamageToCreature` trigger provenance.
 - `trampling_attackers` is declaration provenance only: it is a subset of the
   uniquely declared attackers and cannot exist before their declaration. At
   combat damage, Trample is evaluated from the attacker's live characteristics,
