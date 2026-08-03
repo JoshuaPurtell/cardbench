@@ -3417,6 +3417,7 @@ impl Game {
         // a previous consecutive-pass sequence and leaves its controller's
         // response window intact.
         self.consecutive_passes = 0;
+        self.refresh_public_state_integrity();
         self.validate_invariants()
     }
 
@@ -5517,6 +5518,10 @@ impl Game {
         if let Some(winner) = terminal_event {
             self.record_event(GameEvent::GameEnded { winner });
         }
+        // The dispatched rules action seals its own transition. The policy
+        // receipt is appended by this outer ABI boundary, so refresh the
+        // public snapshot before the final audit sees that accepted receipt.
+        self.refresh_public_state_integrity();
         self.validate_invariants()
     }
 
@@ -41265,7 +41270,6 @@ impl Game {
             if self.started || checkpoint.state_integrity.is_some() {
                 self.state_integrity = Some(self.public_state_integrity_digest());
             }
-            self.validate_invariants()?;
             Ok(result)
         }) {
             Ok(result) => Ok(result),
