@@ -87,6 +87,7 @@ fn definitions() -> Vec<CardDefinition> {
             effects: vec![Effect::CreateToken {
                 token: TokenSpec {
                     name: "Ephemeral 0/0",
+                    is_legendary: false,
                     colors: colors([Color::Green]),
                     card_types: types([CardType::Creature]),
                     creature_subtypes: BTreeSet::new(),

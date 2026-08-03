@@ -47,6 +47,7 @@ fn create_and_pump_definition() -> CardDefinition {
             Effect::CreateToken {
                 token: TokenSpec {
                     name: "doomed token",
+                    is_legendary: false,
                     colors: BTreeSet::new(),
                     card_types: BTreeSet::from([CardType::Creature]),
                     creature_subtypes: BTreeSet::new(),

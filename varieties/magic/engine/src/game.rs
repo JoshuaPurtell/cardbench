@@ -2027,6 +2027,9 @@ impl Game {
                     binding.change,
                     ContinuousChange::ControlledCreatureCountPowerToughness
                         | ContinuousChange::OtherControlledCreaturesModifyPowerToughness { .. }
+                        | ContinuousChange::OtherControlledCreaturesOfColorModifyPowerToughness {
+                            ..
+                        }
                         | ContinuousChange::OtherControlledCreaturesAddKeyword(_)
                         | ContinuousChange::ControlledCreaturesAddKeyword(_)
                         | ContinuousChange::ControlledCreaturesAddKeywordIfSourceEnchanted(_)
@@ -4674,6 +4677,7 @@ impl Game {
             }
             ContinuousChange::ControlledCreatureCountPowerToughness
             | ContinuousChange::OtherControlledCreaturesModifyPowerToughness { .. }
+            | ContinuousChange::OtherControlledCreaturesOfColorModifyPowerToughness { .. }
             | ContinuousChange::OtherControlledCreaturesAddKeyword(_)
             | ContinuousChange::ControlledCreaturesAddKeyword(_)
             | ContinuousChange::ControlledCreaturesAddKeywordIfSourceEnchanted(_)
@@ -4688,6 +4692,7 @@ impl Game {
         Ok(())
     }
 
+    #[allow(clippy::too_many_lines)] // One exhaustive static layer dispatcher keeps unsupported variants fail-closed.
     fn apply_static_continuous_change(
         &self,
         source: ObjectId,
@@ -4726,6 +4731,18 @@ impl Game {
                     .map(|current| current + i32::from(*toughness));
                 Ok(())
             }
+            ContinuousChange::OtherControlledCreaturesOfColorModifyPowerToughness {
+                color,
+                power,
+                toughness,
+            } => self.apply_static_other_controlled_creature_color_modifier(
+                source,
+                card,
+                characteristics,
+                *color,
+                *power,
+                *toughness,
+            ),
             ContinuousChange::OtherControlledCreaturesAddKeyword(keyword) => {
                 if source == card
                     || self.controller_of(source)? != self.controller_of(card)?
@@ -4793,6 +4810,34 @@ impl Game {
                 "unsupported static continuous change",
             )),
         }
+    }
+
+    /// Applies one controller-relative color anthem at layer seven. Each
+    /// binding is evaluated independently, so a multicolored creature can
+    /// receive multiple distinct static modifiers from the same source.
+    fn apply_static_other_controlled_creature_color_modifier(
+        &self,
+        source: ObjectId,
+        card: ObjectId,
+        characteristics: &mut Characteristics,
+        color: Color,
+        power: i16,
+        toughness: i16,
+    ) -> Result<(), RulesError> {
+        if source == card
+            || self.controller_of(source)? != self.controller_of(card)?
+            || !characteristics.card_types.contains(&CardType::Creature)
+            || !characteristics.colors.contains(&color)
+        {
+            return Ok(());
+        }
+        characteristics.power = characteristics
+            .power
+            .map(|current| current + i32::from(power));
+        characteristics.toughness = characteristics
+            .toughness
+            .map(|current| current + i32::from(toughness));
+        Ok(())
     }
 
     fn source_has_live_aura_attachment(&self, source: ObjectId) -> Result<bool, RulesError> {
@@ -5091,6 +5136,9 @@ impl Game {
             change,
             ContinuousChange::ControlledCreatureCountPowerToughness
                 | ContinuousChange::OtherControlledCreaturesModifyPowerToughness { .. }
+                | ContinuousChange::OtherControlledCreaturesOfColorModifyPowerToughness {
+                    ..
+                }
                 | ContinuousChange::OtherControlledCreaturesAddKeyword(_)
                 | ContinuousChange::ControlledCreaturesAddKeyword(_)
                 | ContinuousChange::ControlledCreaturesAddKeywordIfSourceEnchanted(_)
@@ -13961,6 +14009,9 @@ impl Game {
                         change,
                         ContinuousChange::ControlledCreatureCountPowerToughness
                             | ContinuousChange::OtherControlledCreaturesModifyPowerToughness { .. }
+                            | ContinuousChange::OtherControlledCreaturesOfColorModifyPowerToughness {
+                                ..
+                            }
                             | ContinuousChange::OtherControlledCreaturesAddKeyword(_)
                             | ContinuousChange::ControlledCreaturesAddKeyword(_)
                             | ContinuousChange::ControlledCreaturesAddKeywordIfSourceEnchanted(_)
@@ -14187,6 +14238,9 @@ impl Game {
                 effect.change,
                 ContinuousChange::ControlledCreatureCountPowerToughness
                     | ContinuousChange::OtherControlledCreaturesModifyPowerToughness { .. }
+                    | ContinuousChange::OtherControlledCreaturesOfColorModifyPowerToughness {
+                        ..
+                    }
                     | ContinuousChange::OtherControlledCreaturesAddKeyword(_)
                     | ContinuousChange::ControlledCreaturesAddKeyword(_)
                     | ContinuousChange::ControlledCreaturesAddKeywordIfSourceEnchanted(_)

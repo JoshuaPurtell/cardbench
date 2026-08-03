@@ -121,6 +121,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-PERPLEX",
             "RAV-WOODWRAITH-CORRUPTER",
             "RAV-WOODWRAITH-STRANGLER",
+            "RAV-TOLSIMIR-WOLFBLOOD",
             "RAV-DIMIR-INFILTRATOR",
             "RAV-LURKING-INFORMANT",
             "RAV-SANDSOWER",

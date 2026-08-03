@@ -1639,11 +1639,16 @@ pub enum CreatureSubtype {
     Knight,
     Saproling,
     Spirit,
+    Wolf,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TokenSpec {
     pub name: &'static str,
+    /// Whether the token has the Legendary supertype. This remains part of
+    /// its copiable values even though the legend-rule state-based action is
+    /// represented separately from token creation.
+    pub is_legendary: bool,
     pub colors: BTreeSet<Color>,
     pub card_types: BTreeSet<CardType>,
     /// Creature subtypes are mechanically distinct from a token's display
@@ -1660,6 +1665,7 @@ impl TokenSpec {
     pub fn saproling() -> Self {
         Self {
             name: "Saproling",
+            is_legendary: false,
             colors: BTreeSet::from([Color::Green]),
             card_types: BTreeSet::from([CardType::Creature]),
             creature_subtypes: BTreeSet::from([CreatureSubtype::Saproling]),
@@ -1673,6 +1679,7 @@ impl TokenSpec {
     pub fn horror() -> Self {
         Self {
             name: "Horror",
+            is_legendary: false,
             colors: BTreeSet::from([Color::Black]),
             card_types: BTreeSet::from([CardType::Creature]),
             creature_subtypes: BTreeSet::from([CreatureSubtype::Horror]),
@@ -1686,6 +1693,7 @@ impl TokenSpec {
     pub fn knight() -> Self {
         Self {
             name: "Knight",
+            is_legendary: false,
             colors: BTreeSet::from([Color::White]),
             card_types: BTreeSet::from([CardType::Creature]),
             creature_subtypes: BTreeSet::from([CreatureSubtype::Knight]),
@@ -1699,6 +1707,7 @@ impl TokenSpec {
     pub fn green_centaur() -> Self {
         Self {
             name: "Centaur",
+            is_legendary: false,
             colors: BTreeSet::from([Color::Green]),
             card_types: BTreeSet::from([CardType::Creature]),
             creature_subtypes: BTreeSet::from([CreatureSubtype::Centaur]),
@@ -1712,6 +1721,7 @@ impl TokenSpec {
     pub fn hunted_centaur() -> Self {
         Self {
             name: "Centaur",
+            is_legendary: false,
             colors: BTreeSet::from([Color::Green]),
             card_types: BTreeSet::from([CardType::Creature]),
             creature_subtypes: BTreeSet::from([CreatureSubtype::Centaur]),
@@ -1725,6 +1735,7 @@ impl TokenSpec {
     pub fn blue_faerie() -> Self {
         Self {
             name: "Faerie",
+            is_legendary: false,
             colors: BTreeSet::from([Color::Blue]),
             card_types: BTreeSet::from([CardType::Creature]),
             creature_subtypes: BTreeSet::from([CreatureSubtype::Faerie]),
@@ -1738,6 +1749,7 @@ impl TokenSpec {
     pub fn white_spirit() -> Self {
         Self {
             name: "Spirit",
+            is_legendary: false,
             colors: BTreeSet::from([Color::White]),
             card_types: BTreeSet::from([CardType::Creature]),
             creature_subtypes: BTreeSet::from([CreatureSubtype::Spirit]),
@@ -1747,10 +1759,28 @@ impl TokenSpec {
         }
     }
 
+    /// Tolsimir Wolfblood's named legendary Wolf token. The name and
+    /// supertype are intentionally data rather than a card-specific effect
+    /// so copied-token and future legend-rule work preserve this identity.
+    #[must_use]
+    pub fn voja() -> Self {
+        Self {
+            name: "Voja",
+            is_legendary: true,
+            colors: BTreeSet::from([Color::Green, Color::White]),
+            card_types: BTreeSet::from([CardType::Creature]),
+            creature_subtypes: BTreeSet::from([CreatureSubtype::Wolf]),
+            keywords: vec![],
+            power: 2,
+            toughness: 2,
+        }
+    }
+
     #[must_use]
     pub fn red_goblin() -> Self {
         Self {
             name: "Goblin",
+            is_legendary: false,
             colors: BTreeSet::from([Color::Red]),
             card_types: BTreeSet::from([CardType::Creature]),
             creature_subtypes: BTreeSet::from([CreatureSubtype::Goblin]),
@@ -3365,6 +3395,15 @@ pub enum ContinuousChange {
         power: i16,
         toughness: i16,
     },
+    /// A battlefield-only static layer-seven effect that modifies every
+    /// other controlled creature containing one exact current color. Each
+    /// binding is independently applied, so a multicolored creature receives
+    /// every applicable anthem exactly once.
+    OtherControlledCreaturesOfColorModifyPowerToughness {
+        color: Color,
+        power: i16,
+        toughness: i16,
+    },
     /// A battlefield-only static layer-six effect that grants one keyword to
     /// every other creature controlled by the source's controller.
     OtherControlledCreaturesAddKeyword(Keyword),
@@ -3416,6 +3455,7 @@ impl ContinuousChange {
             | Self::ModifyPowerToughnessForEachOtherCreatureControlledByTarget { .. }
             | Self::ControlledCreatureCountPowerToughness
             | Self::OtherControlledCreaturesModifyPowerToughness { .. }
+            | Self::OtherControlledCreaturesOfColorModifyPowerToughness { .. }
             | Self::ControlledCreaturesSharingTopLibraryCreatureCardColorsModifyPowerToughness {
                 ..
             } => Layer::PowerToughness,

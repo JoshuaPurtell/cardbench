@@ -91,6 +91,7 @@ fn invariant_rejects_a_creature_subtype_on_a_noncreature_token() {
     let invalid_id = "TST-INVALID-TOKEN-SUBTYPE";
     let invalid_token = TokenSpec {
         name: "Invalid type-line probe",
+        is_legendary: false,
         colors: BTreeSet::new(),
         card_types: BTreeSet::from([CardType::Artifact]),
         creature_subtypes: BTreeSet::from([CreatureSubtype::Saproling]),

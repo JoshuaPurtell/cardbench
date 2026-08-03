@@ -44,7 +44,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 256] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 257] = [
     "RAV-CHAR",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
@@ -153,6 +153,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 256] = [
     "RAV-PERPLEX",
     "RAV-WOODWRAITH-CORRUPTER",
     "RAV-WOODWRAITH-STRANGLER",
+    "RAV-TOLSIMIR-WOLFBLOOD",
     "RAV-DIMIR-INFILTRATOR",
     "RAV-LURKING-INFORMANT",
     "RAV-SANDSOWER",
@@ -5729,6 +5730,31 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             keywords: vec![],
             effects: vec![],
         },
+        // Full fidelity: each static anthem observes a creature's current
+        // colors, excludes Tolsimir itself, and the stack ability creates
+        // the named legendary green/white Wolf token through generic token
+        // data rather than a card-specific battlefield shortcut.
+        CardDefinition {
+            id: "RAV-TOLSIMIR-WOLFBLOOD",
+            name: "Tolsimir Wolfblood",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(4, [Color::Green, Color::White]),
+            colors: colors([Color::Green, Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "other-green-and-white-creatures-get-plus-one-plus-one",
+                "tap-create-named-legendary-green-white-wolf-token",
+            ],
+            power: Some(3),
+            toughness: Some(4),
+            keywords: vec![],
+            effects: vec![],
+        },
         // Full fidelity: normal colored-cost casting, base characteristics,
         // Flying blocker legality, and vigilance attack declaration are all
         // represented by the shared engine.
@@ -6519,6 +6545,25 @@ pub fn rav_activated_ability_bindings() -> Vec<ActivatedAbilityBinding> {
                     ]),
                     power: 4,
                     toughness: 4,
+                }],
+            },
+        },
+        ActivatedAbilityBinding {
+            card_definition: "RAV-TOLSIMIR-WOLFBLOOD",
+            ability: ActivatedAbility {
+                id: "tap-create-voja",
+                mana_cost: ManaCost::new(0),
+                tap_cost: true,
+                sorcery_speed: false,
+                additional_tap_creatures: 0,
+                sacrifice_source: false,
+                sacrifice_creatures: 0,
+                sacrifice_lands: 0,
+                discard_cards: 0,
+                targets: vec![],
+                effects: vec![Effect::CreateToken {
+                    token: TokenSpec::voja(),
+                    count: 1,
                 }],
             },
         },
@@ -8182,6 +8227,22 @@ pub fn rav_static_continuous_effect_bindings() -> Vec<StaticContinuousEffectBind
             change: cardbench_magic_engine::ContinuousChange::ControlledCreaturesAddKeyword(
                 Keyword::PreventDamageFromControlledSources,
             ),
+        },
+        StaticContinuousEffectBinding {
+            card_definition: "RAV-TOLSIMIR-WOLFBLOOD",
+            change: ContinuousChange::OtherControlledCreaturesOfColorModifyPowerToughness {
+                color: Color::Green,
+                power: 1,
+                toughness: 1,
+            },
+        },
+        StaticContinuousEffectBinding {
+            card_definition: "RAV-TOLSIMIR-WOLFBLOOD",
+            change: ContinuousChange::OtherControlledCreaturesOfColorModifyPowerToughness {
+                color: Color::White,
+                power: 1,
+                toughness: 1,
+            },
         },
     ]
 }
