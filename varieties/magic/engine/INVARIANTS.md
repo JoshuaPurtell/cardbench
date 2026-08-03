@@ -965,7 +965,10 @@ Oracle Magic rules coverage.
   strictly positive amount, and is registered before the game starts. It
   contributes only while a source with that definition is live on the casting
   player's battlefield, changes generic symbols only, and is applied after an
-  explicit chosen-X value but before mana or Convoke payment. A
+  explicit chosen-X value but before mana or Convoke payment. Its setup
+  registration batch is atomic: an unknown, invalid, or duplicate later
+  member cannot retain an earlier reducer that changes a corrected retry's
+  legality. A
   `CastsNoncreatureSpell` trigger retains the exact triggering spell in its
   one `NoncreatureSpell` target slot, stacks above that spell after `SpellCast`,
   and either opens one mandatory public `TriggeredEffectObject` choice for its
