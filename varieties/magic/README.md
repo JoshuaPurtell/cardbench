@@ -68,8 +68,8 @@ definition; Gather Courage, Seeds of Strength, Scatter the Seeds, and Guardian
 of Vitu-Ghazi are in the latest audited tranches. All other definitions remain
 explicitly scoped compatibility slices.
 
-The current checked-in RAV catalog partitions its public inventory into 282
-full-fidelity names (297 printings), six bounded executable names, and 3
+The current checked-in RAV catalog partitions its public inventory into 283
+full-fidelity names (298 printings), six bounded executable names, and 2
 catalog-only names. The catalog contract is intentionally fail-closed: a
 catalog-only printing cannot be submitted as a blank executable card.
 
@@ -186,6 +186,9 @@ current corpus contains 192 scenarios and covers:
 - a full-fidelity private top-three target-library reorder plus stack-backed
   Transmute (`Dimir Machinations`), with policy-submitted exhaustive
   top/bottom ordering and identity-free decision receipts; and
+- a full-fidelity public named-card target-library traversal (`Tunnel Vision`),
+  with a typed catalog-name decision, ordered reveal receipts, mill-only-before
+  the first matching card, and the required target-library shuffle; and
 - a full-fidelity ranged public-graveyard target group (`Shred Memory`), with
   zero-to-four distinct same-graveyard targets, partial resolution, normal
   target-incarnation provenance, exile receipts, and Transmute; and

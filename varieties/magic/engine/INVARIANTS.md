@@ -763,6 +763,17 @@ Oracle Magic rules coverage.
   `DecisionId` in addition to the source identity before it dispatches to the
   generic continuation. A stale action after a search spell leaves a zone and
   is recast must leave the newer pending decision and stack spell untouched.
+- A named-card target-library traversal is a public, exact-one generic decision
+  whose `CardName` candidates are the represented catalog names, not a
+  projection of the target's hidden library. Its continuation retains one
+  exact stack spell, source incarnation, controller, and still-legal target.
+  On completion it records `CardNameChosen`, reveals current target-library
+  cards top-down through the first matching name, moves only the revealed
+  prefix before that match to the target graveyard, and then records the
+  required target `LibraryShuffled` receipt. With no match, every card is
+  revealed, none is moved, and the same shuffle still occurs. A stale,
+  malformed, or unavailable name leaves the suspended spell, library, zones,
+  and event log unchanged.
 - `TriggeredAbilityTargetChoiceView` is likewise only a projection of a live
   `TriggeredAbilityTargets` generic decision. Its
   `ChooseTriggeredAbilityTargets` compatibility action must echo that exact
