@@ -2497,6 +2497,15 @@ Oracle Magic rules coverage.
   it has no `Dies` binding. Consequently a damage trigger observed before a
   lethal SBA pass is placed and resolved from historical source facts after
   `TokenCeasedToExist`, never reconstructed from a fabricated zone object.
+- A token that leaves the battlefield for a non-graveyard destination (for
+  example through bounce, exile, or a library-return instruction) ceases
+  immediately instead of gaining an ordinary zone identity. Its event path is
+  `TokenCeasedToExist` (and optional `PermanentCopyExpired`), never
+  `CardMoved` or `ObjectIncarnationAdvanced` for that token. It remains a
+  leaves-the-battlefield event for other eligible observers, but it is not a
+  death and cannot queue the departing token's own `Dies` binding. The event
+  audit rejects any later zone or incarnation receipt for a ceased token id in
+  the same canonical log epoch.
 - Every registered legendary card definition, and every legendary token value,
   participates in CR 704.5j according to its current layer-one name. When a
   controller has two or more matching live permanents, the engine has exactly
