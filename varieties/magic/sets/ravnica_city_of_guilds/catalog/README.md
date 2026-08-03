@@ -804,6 +804,20 @@ vigilance. Public scenarios retain canonical declarations for Flying blocked by
 Reach, Flying blocked by Flying, an untapped Flying/Vigilance attacker, and a
 same-turn Flying/Haste attack after the creature resolves.
 
+The attached-zone-aware audit promotes Necromantic Thirst, Strands of Undeath,
+and Firemane Angel into `RAV_FULL_FIDELITY_DEFINITION_IDS`. Necromantic Thirst
+uses an attached-creature combat event, a controller-owned public graveyard
+target choice, and an explicit optional-resolution decision before returning
+the selected creature card to its owner. Strands of Undeath combines the
+ordinary Aura attachment lifecycle with a target-player entry trigger, the
+recipient's private discard choice, and a live attachment-granted regeneration
+activation. Firemane Angel demonstrates both normal battlefield and
+owner-graveyard upkeep sources, plus a source-incarnation-bound graveyard
+activation that returns the same card to the battlefield. The focused Rust
+contracts retain only CardBench-authored game operations, decision boundaries,
+and receipts; they contain no external card-rules prose or other source
+payload.
+
 The TSV's structure and the Rust parser are CardBench-authored MIT-licensed code and
 data structure. Magic set names and card names are used solely as nominative
 interoperability identifiers and remain their owners' marks.
