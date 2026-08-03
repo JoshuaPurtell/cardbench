@@ -88,11 +88,8 @@ fn virtual_copy_of_copy_spell_can_complete_its_retarget_decision() {
         .expect("physical ping casts");
     game.pass_priority(caster)
         .expect("caster passes to opponent");
-    game.cast_spell(
-        opponent,
-        request(retarget_copy, vec![Target::Spell(ping)]),
-    )
-    .expect("opponent casts retargeting copy effect");
+    game.cast_spell(opponent, request(retarget_copy, vec![Target::Spell(ping)]))
+        .expect("opponent casts retargeting copy effect");
     game.pass_priority(opponent)
         .expect("opponent passes to caster");
     game.cast_spell(
