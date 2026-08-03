@@ -49,8 +49,8 @@ a zone move. The fetched Aura's ordinary ETB trigger is queued only after the
 Mage trigger's terminal receipt. The opponent sees neither unselected Aura
 identities nor a private decision projection.
 
-The current catalog partition is 283 full / 6 partial / 2 catalog-only unique
-names (298 / 6 / 2 printings). The independently checked coverage-report
+The current catalog partition is 285 full / 6 partial / 1 catalog-only unique
+names (300 / 6 / 1 printings). The independently checked coverage-report
 binary emits the same partition.
 
 Tunnel Vision is a full-fidelity named-card target-library traversal. Its
