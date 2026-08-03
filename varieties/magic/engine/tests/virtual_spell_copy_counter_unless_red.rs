@@ -4,8 +4,8 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardDefinition, CardType, CastRequest, Color, DecisionKind, Effect, Game, GameEvent, ManaCost,
-    ObjectId, PlayerId, Target, TargetRequirement, Zone,
+    CardDefinition, CardType, CastRequest, Color, DecisionKind, DecisionSelection, Effect, Game,
+    GameEvent, ManaCost, ManaPaymentSelection, ObjectId, PlayerId, Target, TargetRequirement, Zone,
 };
 
 const PING: &str = "TST-VIRTUAL-COUNTER-UNLESS-PING";
@@ -46,8 +46,7 @@ fn resolve_top(game: &mut Game) -> Result<(), cardbench_magic_engine::RulesError
     game.pass_priority(second)
 }
 
-#[test]
-fn counter_unless_pays_opens_its_choice_for_a_virtual_copy_controller() {
+fn game_with_counter_unless_at_virtual_copy() -> (Game, ObjectId, ObjectId, PlayerId) {
     let caster = PlayerId(0);
     let copy_controller = PlayerId(1);
     let mut game = Game::new(
@@ -114,6 +113,13 @@ fn counter_unless_pays_opens_its_choice_for_a_virtual_copy_controller() {
         result.is_ok(),
         "counter-unless must use the virtual target's stack incarnation rather than UnknownCard"
     );
+    (game, counter, virtual_copy, copy_controller)
+}
+
+#[test]
+fn counter_unless_pays_opens_its_choice_for_a_virtual_copy_controller() {
+    let (game, _counter, _virtual_copy, copy_controller) =
+        game_with_counter_unless_at_virtual_copy();
     let decision = game
         .view_for_player(copy_controller)
         .expect("virtual copy controller view")
@@ -124,4 +130,41 @@ fn counter_unless_pays_opens_its_choice_for_a_virtual_copy_controller() {
     assert_eq!(decision.max_selections, 0);
     game.validate_invariants()
         .expect("virtual target counter-unless decision is auditable");
+}
+
+#[test]
+fn counter_unless_decline_counters_a_virtual_copy_without_zone_move() {
+    let (mut game, counter, virtual_copy, copy_controller) =
+        game_with_counter_unless_at_virtual_copy();
+    let decision = game
+        .view_for_player(copy_controller)
+        .expect("virtual copy controller view")
+        .pending_decision
+        .expect("virtual copy controller receives counter-unless choice");
+    let result = game.submit_decision(
+        copy_controller,
+        decision.id,
+        DecisionSelection::CounterUnlessPaysMana {
+            pay: false,
+            mana_abilities: vec![],
+            mana_selection: ManaPaymentSelection::default(),
+        },
+    );
+    eprintln!(
+        "virtual counter-unless terminal red trace: result={result:?}; events={:?}",
+        game.canonical_event_log()
+    );
+    assert!(
+        result.is_ok(),
+        "declining payment must counter the virtual copy through its stack provenance"
+    );
+    assert_eq!(game.zone_of(virtual_copy), None, "copy remains zoneless");
+    assert_eq!(game.zone_of(counter), Some(Zone::Graveyard));
+    assert!(game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::SpellCopyCountered { copy, source, .. }
+            if *copy == virtual_copy && *source == counter
+    )));
+    game.validate_invariants()
+        .expect("counter-unless virtual-copy terminal lifecycle remains auditable");
 }

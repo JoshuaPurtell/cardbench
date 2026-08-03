@@ -2129,6 +2129,10 @@ Oracle Magic rules coverage.
   public pay-or-counter and discard-your-hand boundaries must work for
   physical spells and stack-only virtual copies, with no fabricated card
   identity entering a decision or terminal receipt.
+- If the counter-unless controller declines payment for a virtual target,
+  continuation reuses that captured stack identity and records exactly one
+  `SpellCopyCountered` terminal receipt. It cannot re-read a physical zone or
+  move the stack-only copy to a card zone.
 - A virtual copy of an activated ability applies its submitted retarget to
   the captured lower ability before committing that ability's effect. The
   target-change receipt and all resulting zone/other effects precede exactly
