@@ -61,6 +61,11 @@ Oracle Magic rules coverage.
   same loss transition before APNAP placement. Such a trigger cannot produce
   a `TriggeredAbilityStacked` receipt or a new decision after the game has
   ended; pre-existing stack provenance remains frozen only for replay audit.
+- Trigger-order replay validators must resolve a triggered source's immutable
+  card definition from the live object or its retained `departed_card_definitions`
+  provenance. A source can leave the game during its own resolving ETB draw;
+  auditing an unrelated trigger class must not dereference that departed
+  object or roll back the otherwise valid terminal transition.
 - On a player-loss transition, objects owned by that player leave this game
   and emit `ObjectLeftGame`; a non-owned object under that player's control is
   exiled to its owner. A stack-only virtual spell copy controlled by that
