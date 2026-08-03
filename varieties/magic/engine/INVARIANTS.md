@@ -2469,7 +2469,11 @@ Oracle Magic rules coverage.
   stack item's source incarnation, not by a physical-zone lookup. The same
   public pay-or-counter and discard-your-hand boundaries must work for
   physical spells and stack-only virtual copies, with no fabricated card
-  identity entering a decision or terminal receipt.
+  identity entering a decision or terminal receipt. If a response has already
+  removed that lower spell before either decision opens, no choice is exposed:
+  the common all-targets-illegal plan records the counter-unless spell's
+  ordinary rules-counter terminal lifecycle instead of returning an error or
+  leaving it stranded on the stack.
 - If the counter-unless controller declines payment for a virtual target,
   continuation reuses that captured stack identity and records exactly one
   `SpellCopyCountered` terminal receipt. It cannot re-read a physical zone or
