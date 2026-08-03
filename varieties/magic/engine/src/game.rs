@@ -12244,7 +12244,6 @@ impl Game {
 
         self.complete_pending_decision(decision)?;
 
-        let mut entered_permanent = None;
         if let Some(card) = selected {
             if reveal_selected || ability == Some(TRANSMUTE_ABILITY_ID) {
                 self.record_event(GameEvent::CardRevealed {
@@ -12263,13 +12262,25 @@ impl Game {
                             .ok_or(RulesError::UnknownCard(card))?
                             .tapped = true;
                     }
-                    let object = self.object(card)?;
+                    let controller = self.object(card)?.controller;
                     let definition =
                         self.effective_definition_id(card)?
                             .ok_or(RulesError::IllegalAction(
                                 "a token cannot be selected from a library",
                             ))?;
-                    entered_permanent = Some((card, definition, object.controller));
+                    // This entry happens inside the resolving spell. Capture
+                    // its observers now, but do not place them until the
+                    // spell has completed its terminal lifecycle and SBA
+                    // fixed point. Immediate placement would put an ETB
+                    // above this still-resolving search on the stack.
+                    self.capture_enter_triggers(card, definition, controller, &[])?;
+                    if self
+                        .characteristics(card)?
+                        .card_types
+                        .contains(&CardType::Land)
+                    {
+                        self.capture_land_entry_triggers(controller)?;
+                    }
                 }
                 LibrarySearchDestination::Hand => self.move_to_zone(card, Zone::Hand)?,
                 LibrarySearchDestination::LibraryTop => {
@@ -12300,14 +12311,6 @@ impl Game {
                 discarded: source,
                 found: selected,
             });
-        }
-        if let Some((card, definition, controller)) = entered_permanent
-            && self.zone_of(card) == Some(Zone::Battlefield)
-        {
-            self.enqueue_enter_triggers(card, definition, controller, &[])?;
-            if self.card_definition(card)?.is_land() {
-                self.queue_land_entry_trigger_batch(controller)?;
-            }
         }
         let next_effect_index = effect_index
             .checked_add(1)
@@ -12696,7 +12699,6 @@ impl Game {
         ))?;
         self.complete_pending_decision(decision)?;
 
-        let mut entered_permanents = Vec::new();
         for card in selected {
             if reveal_selected {
                 self.record_event(GameEvent::CardRevealed {
@@ -12715,13 +12717,24 @@ impl Game {
                             .ok_or(RulesError::UnknownCard(*card))?
                             .tapped = true;
                     }
-                    let object = self.object(*card)?;
+                    let controller = self.object(*card)?.controller;
                     let definition =
                         self.effective_definition_id(*card)?
                             .ok_or(RulesError::IllegalAction(
                                 "a token cannot be selected from a library",
                             ))?;
-                    entered_permanents.push((*card, definition, object.controller));
+                    // Capture while the permanent is still live. The spell
+                    // has already left the stack only after the complete
+                    // selected batch and its terminal lifecycle, so trigger
+                    // placement remains below any resulting SBA work.
+                    self.capture_enter_triggers(*card, definition, controller, &[])?;
+                    if self
+                        .characteristics(*card)?
+                        .card_types
+                        .contains(&CardType::Land)
+                    {
+                        self.capture_land_entry_triggers(controller)?;
+                    }
                 }
                 LibrarySearchDestination::Hand => self.move_to_zone(*card, Zone::Hand)?,
                 LibrarySearchDestination::LibraryTop => {}
@@ -12751,14 +12764,6 @@ impl Game {
         }
         self.check_state_based_actions_impl()?;
         self.flush_pending_dies_triggers()?;
-        for (card, definition, controller) in entered_permanents {
-            if self.zone_of(card) == Some(Zone::Battlefield) {
-                self.enqueue_enter_triggers(card, definition, controller, &[])?;
-                if self.card_definition(card)?.is_land() {
-                    self.queue_land_entry_trigger_batch(controller)?;
-                }
-            }
-        }
         self.flush_pending_land_entry_triggers()?;
         self.flush_pending_damage_triggers();
         self.flush_pending_life_gain_triggers();
