@@ -62,10 +62,12 @@ Oracle Magic rules coverage.
   identity for receipt provenance, and the immutable catalog definition it
   copied when it was created. Its original is never another virtual copy and
   its copied definition must continue to agree with its stack effects and
-  source colors. The lower physical original may resolve, be countered, or
-  leave the game before the copy; that departure cannot invalidate a copy
-  controlled by a surviving player or make the copy read a later incarnation
-  of the original card.
+  source colors. It retains copied decisions (modes, targets, X, and explicit
+  color choices), but has no cast-payment receipt: `mana_spent`, Convoke cost
+  symbols, and generic cost reductions are zero/absent. The lower physical
+  original may resolve, be countered, or leave the game before the copy; that
+  departure cannot invalidate a copy controlled by a surviving player or make
+  the copy read a later incarnation of the original card.
 - Every object exists in exactly one player zone or exactly once as the card of
   a stack object. An object cannot be in two zones, or on both the stack and in
   a zone.
