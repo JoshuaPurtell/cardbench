@@ -4747,6 +4747,13 @@ impl Game {
     /// parallel integrity seal, so it is included here only to make the
     /// public snapshot complete.
     fn public_state_integrity_digest(&self) -> u64 {
+        // Receipt history is sealed separately by `event_log_integrity` and
+        // compared structurally by `validate_invariants`. Including the full
+        // growing log here made every transition reformat all prior events,
+        // turning long policy games and matrix campaigns into an O(n²) cost.
+        // The state seal therefore covers only mutable public game state;
+        // event-log provenance remains fail-closed through the exact parallel
+        // ledger comparison.
         let snapshot = format!(
             "{:?}",
             (
@@ -4757,7 +4764,6 @@ impl Game {
                 self.priority,
                 self.step,
                 self.turn,
-                &self.event_log,
             )
         );
         snapshot.bytes().fold(0xcbf2_9ce4_8422_2325, |hash, byte| {
@@ -5524,9 +5530,13 @@ impl Game {
         }
         // The dispatched rules action seals its own transition. The policy
         // receipt is appended by this outer ABI boundary, so refresh the
-        // public snapshot before the final audit sees that accepted receipt.
+        // public snapshot before the cheap receipt audit sees that accepted
+        // receipt. The dispatched rules action already ran the complete
+        // invariant suite inside its atomic transition; repeating that
+        // event-history scan here made every policy move pay the full O(log)
+        // audit a second time.
         self.refresh_public_state_integrity();
-        self.validate_invariants()
+        self.validate_policy_receipt_invariants()
     }
 
     #[allow(clippy::too_many_lines)] // One pure layer derivation is easier to audit in order.
@@ -5809,6 +5819,52 @@ impl Game {
                     "a static continuous change cannot be a timestamped effect",
                 ));
             }
+        }
+        Ok(())
+    }
+
+    /// Audits only the mutations performed by the outer policy ABI boundary.
+    /// Every dispatched rules action is fully invariant-audited by its own
+    /// transaction; this receipt layer appends at most two events and refreshes
+    /// the sealed public-state digest. Re-running every historical event-order
+    /// validator here made long policy campaigns quadratic in log length.
+    fn validate_policy_receipt_invariants(&self) -> Result<(), RulesError> {
+        if self.event_log != self.event_log_integrity {
+            return Err(RulesError::IllegalAction(
+                "canonical event log was mutated outside an engine transition",
+            ));
+        }
+        if let Some(expected) = self.state_integrity
+            && expected != self.public_state_integrity_digest()
+        {
+            return Err(RulesError::IllegalAction(
+                "public game state was mutated outside an engine transition",
+            ));
+        }
+        let Some(last) = self.event_log.last() else {
+            return Err(RulesError::IllegalAction(
+                "accepted policy move did not record a receipt",
+            ));
+        };
+        if !matches!(
+            last,
+            GameEvent::PolicyMoveSubmitted { .. } | GameEvent::GameEnded { .. }
+        ) {
+            return Err(RulesError::IllegalAction(
+                "accepted policy move receipt is out of canonical order",
+            ));
+        }
+        if self.terminal_event_emitted != self.is_game_over() {
+            return Err(RulesError::IllegalAction(
+                "terminal game state and GameEnded lifecycle record disagree",
+            ));
+        }
+        if self.terminal_event_emitted
+            && !matches!(last, GameEvent::GameEnded { winner } if *winner == self.winner())
+        {
+            return Err(RulesError::IllegalAction(
+                "terminal policy receipt does not end with the matching GameEnded event",
+            ));
         }
         Ok(())
     }

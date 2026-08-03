@@ -324,17 +324,11 @@ pub fn run_rav_deck_matchup(
             };
         }
         accepted_policy_moves += 1;
-        if let Err(error) = game.validate_invariants() {
-            engine_findings.push(invariant_finding(
-                config.shuffle_seed,
-                Some(player),
-                &format!("after accepted {action_kind:?} from `{policy_id}`"),
-                &error,
-            ));
-            break DeckMatchTermination::InvariantViolation {
-                detail: format!("after accepted {action_kind:?} from `{policy_id}`: {error}"),
-            };
-        }
+        // The dispatched action's atomic transaction runs the complete
+        // invariant suite before submit_policy_move appends its policy
+        // receipt. The outer receipt boundary performs its own cheap sealed
+        // state/event audit; repeating the full event-history scan here made
+        // long policy campaigns unnecessarily quadratic.
         if let Some(code) = reports_weakness {
             break DeckMatchTermination::PolicyReportedWeakness {
                 player,
