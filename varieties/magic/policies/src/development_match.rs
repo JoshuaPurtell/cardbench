@@ -146,7 +146,9 @@ fn submit_policy_move<P: CodePolicy>(
     player: PlayerId,
 ) -> Result<(), String> {
     let view = game.view_for_player(player).map_err(rules_error)?;
-    let action = if view.draw_replacement_pending {
+    let action = if let Some(action) = policy.propose_pending_decision(&view) {
+        action
+    } else if view.draw_replacement_pending {
         policy.propose_draw_replacement(&view)
     } else if view.private_library_choice.is_some() {
         policy.propose_private_library_choice(&view)

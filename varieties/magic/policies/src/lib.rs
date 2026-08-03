@@ -43,12 +43,34 @@ pub use selesnya_convoke::SelesnyaConvokePolicy;
 pub use selesnya_radiance_tokens::SelesnyaRadianceTokensPolicy;
 pub use selesnya_siege::SelesnyaSiegePolicy;
 
-use cardbench_magic_engine::{GameView, PolicyAction};
+use cardbench_magic_engine::{DecisionKind, DecisionSelection, GameView, PolicyAction};
 
 /// Submission ABI for `cardbench/magic/code_policy` development runs.
 pub trait CodePolicy {
     fn id(&self) -> &'static str;
     fn propose_move(&mut self, view: &GameView) -> PolicyAction;
+
+    /// Completes generic mandatory decisions that are not priority actions.
+    /// The default currently covers Cleanup's exact excess-card discard; other
+    /// typed decisions continue through their dedicated policy hooks or remain
+    /// explicit capability boundaries.
+    fn propose_pending_decision(&mut self, view: &GameView) -> Option<PolicyAction> {
+        let decision = view.pending_decision.as_ref()?;
+        match decision.kind {
+            DecisionKind::CleanupDiscard => Some(PolicyAction::SubmitDecision {
+                decision: decision.id,
+                selection: DecisionSelection::Objects(
+                    decision
+                        .candidates
+                        .iter()
+                        .take(usize::from(decision.max_selections))
+                        .map(|card| card.id)
+                        .collect(),
+                ),
+            }),
+            _ => None,
+        }
+    }
 
     /// Chooses a draw replacement when the engine exposes that mandatory
     /// decision. Policies that do not use replacement effects take the normal
