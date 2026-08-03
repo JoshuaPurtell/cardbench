@@ -88,6 +88,7 @@ fn dies_trigger_preserves_its_declared_player_target_on_the_stack() {
         PlayerId(0),
         "test.dies-target.v1",
         PolicyAction::ChooseTriggeredAbilityTargets {
+            decision: choice.decision,
             source,
             ability: "dies-target-player",
             targets: vec![Target::Player(PlayerId(1))],

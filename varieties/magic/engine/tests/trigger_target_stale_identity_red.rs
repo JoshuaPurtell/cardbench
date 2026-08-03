@@ -130,6 +130,7 @@ fn stale_trigger_target_action_cannot_answer_a_later_identical_upkeep_trigger() 
         .expect("first upkeep trigger requires a target");
     assert_eq!(first.source, source);
     let stale_action = PolicyAction::ChooseTriggeredAbilityTargets {
+        decision: first.decision,
         source: first.source,
         ability: first.ability,
         targets: vec![Target::Player(opponent)],
@@ -148,15 +149,10 @@ fn stale_trigger_target_action_cannot_answer_a_later_identical_upkeep_trigger() 
     assert_eq!(first.source, second.source);
     assert_eq!(first.ability, second.ability);
     assert_eq!(first.target_options, second.target_options);
-    assert!(
-        game.view_for_player(controller)
-            .expect("controller view")
-            .pending_decision
-            .is_some(),
-        "the later compatibility projection is backed by a generic decision"
-    );
+    assert_ne!(first.decision, second.decision);
 
-    let stale_result = game.submit_policy_move(controller, "stale-trigger-target-red", stale_action);
+    let stale_result =
+        game.submit_policy_move(controller, "stale-trigger-target-red", stale_action);
     eprintln!(
         "stale trigger-target trace: first={first:?}; second={second:?}; \\
          stale_result={stale_result:?}; events={:?}",
@@ -166,6 +162,25 @@ fn stale_trigger_target_action_cannot_answer_a_later_identical_upkeep_trigger() 
         stale_result.is_err(),
         "a target action from an earlier identical trigger must not answer the later trigger"
     );
+    assert_eq!(
+        game.view_for_player(controller)
+            .expect("controller view")
+            .triggered_ability_target_choice
+            .expect("stale rejection preserves the later choice")
+            .decision,
+        second.decision
+    );
+    game.submit_policy_move(
+        controller,
+        "stale-trigger-target-red",
+        PolicyAction::ChooseTriggeredAbilityTargets {
+            decision: second.decision,
+            source: second.source,
+            ability: second.ability,
+            targets: vec![Target::Player(opponent)],
+        },
+    )
+    .expect("the current decision identity targets the later trigger");
     game.validate_invariants()
         .expect("rejected stale target action preserves a valid trigger state");
 }

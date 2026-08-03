@@ -275,8 +275,10 @@ pub enum PolicyAction {
         selected: Option<ObjectId>,
     },
     /// Supplies the ordered targets for the next triggered ability waiting to
-    /// be put onto the stack. This is a no-priority rules decision.
+    /// be put onto the stack. This is a no-priority rules decision; `decision`
+    /// must echo the generic prompt projected through the compatibility view.
     ChooseTriggeredAbilityTargets {
+        decision: DecisionId,
         source: ObjectId,
         ability: &'static str,
         targets: Vec<Target>,
@@ -514,6 +516,9 @@ pub struct LibrarySearchChoiceView {
 /// Public legal target options for one trigger waiting to enter the stack.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TriggeredAbilityTargetChoiceView {
+    /// Exact generic decision represented by this compatibility projection.
+    /// Policies must echo it when submitting the legacy target action.
+    pub decision: DecisionId,
     pub source: ObjectId,
     pub ability: &'static str,
     /// One ordered option set for each target occurrence.
@@ -4255,6 +4260,7 @@ impl Game {
                     ability,
                     ..
                 } => Some(TriggeredAbilityTargetChoiceView {
+                    decision: decision.id,
                     source: *source,
                     ability: ability.id,
                     target_options: ability
@@ -4620,11 +4626,12 @@ impl Game {
                 self.choose_library_search_card(player, decision, source, selected)?;
             }
             PolicyAction::ChooseTriggeredAbilityTargets {
+                decision,
                 source,
                 ability,
                 targets,
             } => {
-                self.choose_triggered_ability_targets(player, source, ability, targets)?;
+                self.choose_triggered_ability_targets(player, decision, source, ability, targets)?;
             }
             PolicyAction::ChooseTriggeredAbilityEffectObject {
                 source,
@@ -21465,6 +21472,7 @@ impl Game {
     fn choose_triggered_ability_targets(
         &mut self,
         player: PlayerId,
+        decision_id: DecisionId,
         source: ObjectId,
         ability_id: &'static str,
         targets: Vec<Target>,
@@ -21484,9 +21492,13 @@ impl Game {
             .ok_or(RulesError::IllegalAction(
                 "no triggered ability is awaiting targets",
             ))?;
-        if controller != player || source != pending_source || ability_id != pending_ability {
+        if decision != decision_id
+            || controller != player
+            || source != pending_source
+            || ability_id != pending_ability
+        {
             return Err(RulesError::IllegalAction(
-                "submitted trigger identity does not match the pending choice",
+                "trigger-target action does not match the pending decision id or identity",
             ));
         }
         self.submit_decision(player, decision, DecisionSelection::Targets(targets))
