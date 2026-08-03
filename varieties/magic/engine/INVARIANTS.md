@@ -1383,6 +1383,15 @@ Oracle Magic rules coverage.
   then do not duplicate those generic observer events. Source-specific Dies
   triggers and normal zone/incarnation receipts remain separate ordinary
   lifecycles.
+  A color-specific attacking-creature modifier is valid only as a target-free
+  `Attacks` trigger whose complete effect bundle consists of nonzero modifiers
+  for ordinary card colors. On resolution, it samples the exact current
+  declared-attacker set, filters each candidate by live creature type and
+  color, and creates one independent layer-seven end-of-turn effect per
+  matching color. A same-colored nonattacker, departed attacker, or later
+  re-entry cannot become a recipient; every installed effect retains exact
+  target-incarnation provenance and expires through cleanup with its ordinary
+  receipt.
   A `LifeGained` trigger is captured only from a source controlled by the
   player named by the positive `LifeGained` receipt while that source is on
   the battlefield, then stacked only after the enclosing

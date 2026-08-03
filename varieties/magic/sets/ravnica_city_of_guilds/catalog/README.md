@@ -49,9 +49,17 @@ a zone move. The fetched Aura's ordinary ETB trigger is queued only after the
 Mage trigger's terminal receipt. The opponent sees neither unselected Aura
 identities nor a private decision projection.
 
-The current catalog partition is 258 full / 6 partial / 27 catalog-only unique
-names (273 / 6 / 27 printings). The independently checked coverage-report
+The current catalog partition is 259 full / 6 partial / 26 catalog-only unique
+names (274 / 6 / 26 printings). The independently checked coverage-report
 binary emits the same partition.
+
+Agrus Kos, Wojek Veteran is a full-fidelity combat-trigger entry. Its public
+scenario keeps the normal post-attackers priority window visible, then records
+the six independent layer-seven changes for its red/white attacker set before
+the trigger's terminal receipt. The separate direct contract also advances to
+cleanup and verifies all six matching expiration receipts. This description is
+CardBench-authored behavior; the catalog continues to retain no upstream card
+rules text or art.
 
 Grozoth is a positive-manifest entry. Its target-free optional entry trigger
 first exposes the controller's explicit accept/decline decision after the
