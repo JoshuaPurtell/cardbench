@@ -2095,6 +2095,11 @@ Oracle Magic rules coverage.
   physical card before recording its batch-search and shuffle receipts. Its
   stack-only source then emits only `SpellCopyResolved`; it cannot emit
   `SpellResolved` or create a physical terminal-zone move.
+- A virtual copied quantity-replacement decision commits the selected
+  replacement before materializing the resulting token or counter quantity.
+  Each applied replacement is recorded in order, and the stack-only source
+  emits only `SpellCopyResolved` after the complete prospective event is
+  committed; no virtual identity may enter a physical terminal zone.
 - A virtual copy's public `PublicGraveyardLandReturn` completion commits only
   the selected live physical land cards in their captured incarnations before
   emitting `SpellCopyResolved`; the stack-only source never emits
