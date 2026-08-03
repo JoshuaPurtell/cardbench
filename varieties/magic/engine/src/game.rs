@@ -26141,7 +26141,11 @@ impl Game {
     /// Target-bearing triggers are not allowed to reach the stack until that
     /// pipeline opens the same controller decision used by every condition.
     fn enqueue_attack_triggers(&mut self, source: ObjectId) -> Result<(), RulesError> {
-        let definition = self.card_definition(source)?.id;
+        let Some(definition) = self.effective_definition_id(source)? else {
+            // A definitionless token is still a legal creature attacker; it
+            // simply has no card-bound attack trigger to enqueue.
+            return Ok(());
+        };
         let controller = self.controller_of(source)?;
         let source_colors = self.characteristics(source)?.colors;
         let triggers = self
@@ -26182,7 +26186,11 @@ impl Game {
             .copied()
             .collect::<Vec<_>>();
         for source in blockers {
-            let definition = self.card_definition(source)?.id;
+            let Some(definition) = self.effective_definition_id(source)? else {
+                // Do not make one definitionless token suppress a later
+                // copied/physical blocker's independent trigger.
+                continue;
+            };
             let controller = self.controller_of(source)?;
             let source_colors = self.characteristics(source)?.colors;
             let source_incarnation = self.object(source)?.incarnation;
@@ -26219,7 +26227,9 @@ impl Game {
         if amount <= 0 || self.zone_of(source) != Some(Zone::Battlefield) {
             return Ok(());
         }
-        let definition = self.card_definition(source)?.id;
+        let Some(definition) = self.effective_definition_id(source)? else {
+            return Ok(());
+        };
         let controller = self.controller_of(source)?;
         let source_colors = self.characteristics(source)?.colors;
         let triggers = self
@@ -26268,7 +26278,9 @@ impl Game {
         {
             return Ok(());
         }
-        let definition = self.card_definition(source)?.id;
+        let Some(definition) = self.effective_definition_id(source)? else {
+            return Ok(());
+        };
         let controller = self.controller_of(source)?;
         let source_incarnation = self.object(source)?.incarnation;
         let source_colors = self.characteristics(source)?.colors;
@@ -26315,13 +26327,12 @@ impl Game {
         {
             return Ok(());
         }
-        let definition = self.card_definition(source)?.id;
+        let definition = self.effective_definition_id(source)?;
         let controller = self.controller_of(source)?;
         let source_incarnation = self.object(source)?.incarnation;
         let source_colors = self.characteristics(source)?.colors;
-        let triggers = self
-            .triggered_abilities
-            .get(definition)
+        let triggers = definition
+            .and_then(|definition| self.triggered_abilities.get(definition))
             .into_iter()
             .flat_map(|abilities| abilities.values())
             .filter(|ability| ability.condition == TriggerCondition::DealsCombatDamageToPlayer)
@@ -26449,7 +26460,9 @@ impl Game {
         if amount <= 0 {
             return Ok(());
         }
-        let definition = self.card_definition(recipient)?.id;
+        let Some(definition) = self.effective_definition_id(recipient)? else {
+            return Ok(());
+        };
         let controller = self.controller_of(recipient)?;
         let source_colors = self.characteristics(recipient)?.colors;
         let triggers = self
