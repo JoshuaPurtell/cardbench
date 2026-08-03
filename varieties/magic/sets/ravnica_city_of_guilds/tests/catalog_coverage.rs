@@ -78,9 +78,9 @@ fn executable_slice_size_is_explicit_and_does_not_masquerade_as_set_coverage() {
     // compatibility slices. The full-fidelity Clinging Darkness and
     // Moldervine Cloak entries use the bounded static-modifier Aura substrate;
     // regeneration remains independently capability-gated.
-    assert_eq!(executable_printings, 288);
-    assert_eq!(executable_names.len(), 273);
-    assert_eq!(catalog_only_names.len(), 18);
+    assert_eq!(executable_printings, 289);
+    assert_eq!(executable_names.len(), 274);
+    assert_eq!(catalog_only_names.len(), 17);
     assert!(executable_names.is_disjoint(&catalog_only_names));
 }
 
