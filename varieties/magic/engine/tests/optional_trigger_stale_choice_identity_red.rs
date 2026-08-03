@@ -38,7 +38,11 @@ fn pass_pair(game: &mut Game) {
     game.pass_priority(second).expect("second priority pass");
 }
 
-fn activate_life_gain(game: &mut Game, controller: PlayerId, source: cardbench_magic_engine::ObjectId) {
+fn activate_life_gain(
+    game: &mut Game,
+    controller: PlayerId,
+    source: cardbench_magic_engine::ObjectId,
+) {
     game.activate_ability(
         controller,
         AbilityActivation {
