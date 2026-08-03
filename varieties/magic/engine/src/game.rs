@@ -2129,6 +2129,15 @@ impl Game {
         &mut self,
         bindings: impl IntoIterator<Item = StaticAttackRestrictionBinding>,
     ) -> Result<(), RulesError> {
+        self.atomic_transition(|game| game.register_static_attack_restrictions_impl(bindings))
+    }
+
+    /// Applies one setup batch inside the public transaction journal so an
+    /// invalid later member cannot retain an earlier combat-rule prefix.
+    fn register_static_attack_restrictions_impl(
+        &mut self,
+        bindings: impl IntoIterator<Item = StaticAttackRestrictionBinding>,
+    ) -> Result<(), RulesError> {
         if self.started {
             return Err(RulesError::IllegalAction(
                 "static attack restrictions cannot be changed after the game starts",
