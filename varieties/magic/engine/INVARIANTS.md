@@ -2644,6 +2644,22 @@ Oracle Magic rules coverage.
   continuation can complete only while the copying spell is still on top of
   the stack with the same original-source provenance. A stale decision, an
   altered source, a partial retarget, or an illegal target rejects atomically.
+- A source-scoped exiled-spell-copy group is keyed by the permanent's exact
+  `(ObjectId, incarnation)` and retains only physical instant-or-sorcery cards
+  at their exact current `Exile` incarnation. An observed physical spell first
+  records its ordinary `CardMoved` and `ObjectIncarnationAdvanced` receipts,
+  then exactly one matching `SpellExiledByTrigger` receipt. An observed virtual
+  copy instead has one `SpellCopyExiledByTrigger` terminal receipt and can
+  never become a retained template or create a physical zone entry.
+- The parent triggered ability remains live beneath each serial
+  `ExiledSpellCopyCast` decision. Each accepted card selection creates one
+  fresh virtual copy with its own target/mode/color choices and a zero X value;
+  a selected physical card cannot recur within that parent resolution. There
+  is no priority window between those selections or after a selected free cast.
+  Cast triggers made by the virtual copy are deferred until the parent records
+  `AbilityResolved`; only then can ordinary trigger ordering and priority
+  resume. A card leaving its retained exile incarnation is unlinked before it
+  can be offered by a later decision.
 - Effect-created cast permissions are exact-card, exact-incarnation grants.
   They record player, source provenance, source zone, payment mode, timing
   exception, and current-turn expiry. A permission is removed when used, at

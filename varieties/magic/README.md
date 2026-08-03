@@ -90,6 +90,10 @@ current corpus contains 192 scenarios and covers:
   before simultaneously returning all matching creature cards from public
   graveyards, without cross-applying simultaneous entry replacements
   (`Bloodbond March`);
+- a source-incarnation-scoped global instant-or-sorcery cast trigger that
+  exiles the observed physical spell, offers the original caster serial public
+  free-cast choices from its retained cards, and terminates observed virtual
+  copies without retaining them (`Eye of the Storm`);
 - full-fidelity Flying plus a tap-for-one-of-five-colors mana ability, including
   summoning-sickness rejection, explicit choice during cast payment, and
   ordered nonstack receipts (`Birds of Paradise`);

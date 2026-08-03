@@ -59,6 +59,15 @@ observation. Copies retain that already selected shape rather than consuming a
 new outcome. Its public scenario pins the heads result and checks the resulting
 receipt digest; no card prose, art, scan, or source payload is retained.
 
+Eye of the Storm is a source-incarnation-scoped linked-exile entry. An observed
+physical instant-or-sorcery spell first moves to exile through ordinary
+zone/incarnation receipts, then becomes an eligible exact-exile template. The
+caster receives serial public no-cost copy-cast choices with independent
+targets, mode, and color; there is no priority window during that sequence.
+Observed virtual copies terminate without a zone move and are never retained as
+future templates. The bounded free-cast surface sets X to zero; cards that need
+alternative or additional cost choices require their own typed decision work.
+
 Instill Furor is a positive-manifest typed creature Aura with no synthetic
 continuous modifier. At the attached creature controller's end step, its
 source-relative trigger reads the exact creature incarnation that was declared
@@ -68,9 +77,6 @@ attacked branch remains attached; a cross-controller contract proves the Aura
 does not queue at its owner's end step when another player controls the
 attachment. Attachment departure, reattachment, and zone re-entry remain
 ordinary exact-incarnation no-op boundaries.
-names (278 / 6 / 22 printings). The independently checked coverage-report
-binary emits the same partition.
-
 Psychic Drain is a positive-manifest chosen-X entry. Its spell retains the
 policy-submitted X and target-player identity through the normal response
 window, moves up to X current library cards through ordinary graveyard receipts,
