@@ -702,7 +702,11 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             mana_colors: BTreeSet::new(),
             card_types: types([CardType::Creature]),
             is_basic_land: false,
-            supported_rules: &["colored-cost-casting", "dynamic-controlled-creature-count"],
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "dynamic-controlled-creature-count",
+            ],
             power: Some(0),
             toughness: Some(0),
             keywords: vec![],
