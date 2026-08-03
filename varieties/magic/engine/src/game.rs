@@ -7165,21 +7165,34 @@ impl Game {
                 if !self.member_is_still_in_linked_exile(aura) {
                     continue;
                 }
-                self.move_to_zone(aura.object, Zone::Battlefield)?;
-                returned.push(aura.object);
                 if let Some(binding) = self
                     .attachment_binding_for(aura.object)?
                     .filter(|binding| binding.kind == AttachmentKind::Aura)
                 {
                     let controller = self.controller_of(aura.object)?;
-                    if self.target_matches_for_source(
+                    // CR 303.4i: this instruction attempts to put the Aura
+                    // onto the battlefield *attached* to the newly returned
+                    // primary. If that fresh incarnation is no longer a
+                    // legal enchant target, it remains in its current zone
+                    // rather than entering unattached for an SBA cleanup.
+                    if !self.target_matches_for_source(
                         controller,
                         aura.object,
                         Target::Permanent(primary),
                         binding.target,
                     ) {
-                        self.attach_with_binding(aura.object, primary, &binding, false)?;
+                        continue;
                     }
+                    self.move_to_zone(aura.object, Zone::Battlefield)?;
+                    self.attach_with_binding(aura.object, primary, &binding, false)?;
+                    returned.push(aura.object);
+                } else {
+                    // A historical group can retain a physical member whose
+                    // current base definition is no longer Aura-like after a
+                    // zone-change reset. That permanent still follows the
+                    // instruction, but it has no attachment condition.
+                    self.move_to_zone(aura.object, Zone::Battlefield)?;
+                    returned.push(aura.object);
                 }
             }
         }
