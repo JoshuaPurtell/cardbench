@@ -461,6 +461,10 @@ pub enum TriggerCondition {
     /// the public cast-card identity so a later effect can match card names
     /// without consulting a later incarnation of that spell object.
     AnyPlayerCastsCreatureSpell,
+    /// The current controller of the permanent attached to this Aura-like
+    /// source begins that player's upkeep. The attachment endpoint and its
+    /// incarnation are captured before the trigger is placed on the stack.
+    BeginningOfAttachedCreaturesControllerUpkeep,
     /// A player cast that player's first noncreature spell in the current
     /// turn. The trigger retains the exact spell as its target. Unlike
     /// `CastsNoncreatureSpell`, the triggering permanent need not share a
@@ -2695,6 +2699,17 @@ pub enum Effect {
         /// Public name of the captured creature spell.
         name: &'static str,
     },
+    /// Marker bound to an upkeep trigger from an Aura-like source. It
+    /// materializes into the exact attached creature captured at the upkeep
+    /// boundary before the trigger becomes a stack object.
+    CreateTokenCopyOfAttachedCreature,
+    /// Create one token using the layer-one copiable values of the captured
+    /// creature permanent. The exact battlefield incarnation prevents an
+    /// old attachment endpoint from being copied after it changes zones.
+    CreateTokenCopyOfPermanent {
+        creature: ObjectId,
+        creature_incarnation: u64,
+    },
     /// Select up to three land cards from the resolving controller's graveyard
     /// before any of them move, then return those cards to that player's hand.
     /// The public-zone selection suspends the stack item until that controller
@@ -3062,6 +3077,8 @@ impl Effect {
             | Self::ReturnOneCreatureCardFromEachGraveyardToHand
             | Self::ReturnAllCreatureCardsMatchingCastCreatureSpellNameFromGraveyards
             | Self::ReturnAllCreatureCardsMatchingNameFromGraveyards { .. }
+            | Self::CreateTokenCopyOfAttachedCreature
+            | Self::CreateTokenCopyOfPermanent { .. }
             | Self::ReturnUpToThreeControllerGraveyardLandCardsToHand
             | Self::ReturnAnotherControlledPermanentSharingEnteredCardTypes
             | Self::ReturnAnotherControlledPermanentSharingCardTypes { .. }
@@ -3735,6 +3752,16 @@ pub struct StaticAttackRestrictionBinding {
     pub restriction: StaticAttackRestriction,
 }
 
+/// Immutable expansion metadata for one permanent whose printed copiable
+/// values carry the Legendary supertype. The binding stays separate from
+/// [`CardDefinition`] so existing compact expansion definitions remain
+/// source-compatible, while a layer-one copy inherits the source's legendary
+/// identity rather than borrowing the physical card's identity.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct LegendaryPermanentBinding {
+    pub card_definition: &'static str,
+}
+
 /// A battlefield-only replacement-style rule that changes how eligible
 /// permanents enter. It is applied during the ordinary zone transition rather
 /// than becoming a delayed trigger or a post-entry continuous effect.
@@ -4003,6 +4030,11 @@ pub enum DecisionKind {
     /// enters. The Aura has not yet reached the battlefield, so no orphaned
     /// attachment can leak through a state-based-action boundary.
     PermanentEntryCopyAuraAttachment,
+    /// One controller must retain exactly one permanent from a same-name
+    /// legendary group at the state-based-action boundary. This is a
+    /// no-priority choice: every other member goes to its owner's graveyard
+    /// together before a player can act.
+    LegendRule,
 }
 
 /// One public member of an APNAP simultaneous-trigger ordering group.
@@ -4469,6 +4501,14 @@ pub enum DecisionContinuation {
         controller: PlayerId,
         copy: EntryCopySnapshot,
         attachment_definition: &'static str,
+    },
+    /// Captures one exact same-controller, same-name legendary group at the
+    /// state-based-action boundary. Object incarnations make a stale answer
+    /// unable to preserve a later object that happened to reuse a stable id.
+    LegendRule {
+        controller: PlayerId,
+        name: &'static str,
+        permanents: Vec<(ObjectId, u64)>,
     },
 }
 

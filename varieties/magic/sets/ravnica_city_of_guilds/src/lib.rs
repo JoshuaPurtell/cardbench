@@ -30,11 +30,11 @@ use cardbench_magic_engine::{
     ConvokeContribution, ConvokePayment, CostReductionBinding, CounterKind, CreatureSubtype,
     DamageReplacementEffect, DamageReplacementEffectBinding, DeckEntry, DeckList, DeckRules,
     Effect, EntryCopyBinding, Game, GeneralizedActivatedAbilityCost, HybridManaSymbol, Keyword,
-    LandEntryBinding, LibrarySearchCardinality, LibrarySearchDestination, LibrarySearchRequirement,
-    LibrarySearchSelection, ManaAbilityBinding, ManaAbilityCostBinding, ManaAbilityOutput,
-    ManaBundle, ManaCost, PlayerId, ReplacementEffect, ReplacementEffectBinding, RulesError,
-    SharedKeywordFamily, StaticAttackRestriction, StaticAttackRestrictionBinding,
-    StaticContinuousEffectBinding, StaticCreatureSpellCostModifier,
+    LandEntryBinding, LegendaryPermanentBinding, LibrarySearchCardinality,
+    LibrarySearchDestination, LibrarySearchRequirement, LibrarySearchSelection, ManaAbilityBinding,
+    ManaAbilityCostBinding, ManaAbilityOutput, ManaBundle, ManaCost, PlayerId, ReplacementEffect,
+    ReplacementEffectBinding, RulesError, SharedKeywordFamily, StaticAttackRestriction,
+    StaticAttackRestrictionBinding, StaticContinuousEffectBinding, StaticCreatureSpellCostModifier,
     StaticCreatureSpellCostModifierBinding, StaticEntryRestriction, StaticEntryRestrictionBinding,
     StaticLibraryTopRevealBinding, Target, TargetRequirement, TokenSpec, TriggerCondition,
     TriggeredAbility, TriggeredAbilityBinding, Zone,
@@ -89,6 +89,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 268] = [
     "RAV-NIGHTGUARD-PATROL",
     "RAV-WATCHWOLF",
     "RAV-CHORUS-OF-THE-CONCLAVE",
+    "RAV-FOLLOWED-FOOTSTEPS",
     "RAV-GLASS-GOLEM",
     "RAV-OVERGROWN-TOMB",
     "RAV-SACRED-FOUNDRY",
@@ -3201,6 +3202,34 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             toughness: Some(8),
             keywords: vec![Keyword::Landwalk(BasicLandType::Forest)],
             effects: vec![],
+        },
+        // Full fidelity: the Aura establishes one ordinary creature
+        // attachment, then its attached-creature controller's upkeep captures
+        // that exact creature incarnation and creates a token copy from
+        // immutable layer-one copiable values.
+        CardDefinition {
+            id: "RAV-FOLLOWED-FOOTSTEPS",
+            name: "Followed Footsteps",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(3, [Color::Blue, Color::Blue]),
+            colors: colors([Color::Blue]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Enchantment]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "aura-enchant-creature",
+                "controller-upkeep-attached-creature-token-copy",
+                "layer-one-token-copy-provenance",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![Effect::AttachSourceToTarget {
+                target: TargetRequirement::Creature,
+                changes: vec![],
+            }],
         },
         // Full printed behavior: every positive damage receipt to this
         // permanent queues one fixed life-gain trigger for its controller.
@@ -8484,6 +8513,13 @@ pub fn rav_attachment_bindings() -> Vec<AttachmentBinding> {
             granted_activated_abilities: vec![],
         },
         AttachmentBinding {
+            card_definition: "RAV-FOLLOWED-FOOTSTEPS",
+            kind: AttachmentKind::Aura,
+            target: TargetRequirement::Creature,
+            changes: vec![],
+            granted_activated_abilities: vec![],
+        },
+        AttachmentBinding {
             card_definition: "RAV-GALVANIC-ARC",
             kind: AttachmentKind::Aura,
             target: TargetRequirement::Creature,
@@ -8524,6 +8560,28 @@ pub fn rav_entry_copy_bindings() -> Vec<EntryCopyBinding> {
         card_definition: "RAV-COPY-ENCHANTMENT",
         copyable_type: CardType::Enchantment,
     }]
+}
+
+/// Legendary-supertype metadata for executable RAV permanents. This registry
+/// intentionally tracks layer-one definition values so Followed Footsteps and
+/// other copy effects preserve the legend rule without naming card identities
+/// in the core engine.
+#[must_use]
+pub fn rav_legendary_permanent_bindings() -> Vec<LegendaryPermanentBinding> {
+    vec![
+        LegendaryPermanentBinding {
+            card_definition: "RAV-AGRUS-KOS-WOJEK-VETERAN",
+        },
+        LegendaryPermanentBinding {
+            card_definition: "RAV-RAZIA-BOROS-ARCHANGEL",
+        },
+        LegendaryPermanentBinding {
+            card_definition: "RAV-SZADEK",
+        },
+        LegendaryPermanentBinding {
+            card_definition: "RAV-TOLSIMIR-WOLFBLOOD",
+        },
+    ]
 }
 
 /// Battlefield-only static characteristic bindings supplied by the RAV set.
@@ -8664,6 +8722,17 @@ pub fn rav_static_entry_restriction_bindings() -> Vec<StaticEntryRestrictionBind
 #[allow(clippy::too_many_lines)] // Keep the declarative trigger registry centralized for audit review.
 pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
     vec![
+        TriggeredAbilityBinding {
+            card_definition: "RAV-FOLLOWED-FOOTSTEPS",
+            ability: TriggeredAbility {
+                id: "attached-creature-controller-upkeep-token-copy",
+                condition: TriggerCondition::BeginningOfAttachedCreaturesControllerUpkeep,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![Effect::CreateTokenCopyOfAttachedCreature],
+            },
+        },
         TriggeredAbilityBinding {
             card_definition: "RAV-BLOODBOND-MARCH",
             ability: TriggeredAbility {
@@ -10384,6 +10453,7 @@ fn fresh_game() -> Result<Game, RulesError> {
     )?;
     game.register_attachment_bindings(rav_attachment_bindings())?;
     game.register_entry_copy_bindings(rav_entry_copy_bindings())?;
+    game.register_legendary_permanent_bindings(rav_legendary_permanent_bindings())?;
     game.register_static_entry_restriction_bindings(rav_static_entry_restriction_bindings())?;
     game.register_mana_ability_cost_bindings(rav_mana_ability_cost_bindings())?;
     game.register_cost_reduction_bindings(rav_cost_reduction_bindings())?;

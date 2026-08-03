@@ -56,6 +56,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-NIGHTGUARD-PATROL",
             "RAV-WATCHWOLF",
             "RAV-CHORUS-OF-THE-CONCLAVE",
+            "RAV-FOLLOWED-FOOTSTEPS",
             "RAV-GLASS-GOLEM",
             "RAV-OVERGROWN-TOMB",
             "RAV-SACRED-FOUNDRY",

@@ -20,9 +20,9 @@ use crate::{
     DelayedActionTiming, Duration, Effect, EntryCopyBinding, EntryCopySnapshot, GameEvent,
     GeneralizedAbilityActivation, GeneralizedActivatedAbilityCost, GraveyardCreatureCardSnapshot,
     GraveyardLandCardSnapshot, HandCardSnapshot, Keyword, LandEntryBinding, Layer,
-    LibrarySearchCardinality, LibrarySearchDestination, LibrarySearchRequirement,
-    LibrarySearchSelection, LinkedExileGroup, LinkedExileGroupId, LinkedExileMember,
-    LinkedExileMemberRole, ManaAbilityActivation, ManaAbilityBinding,
+    LegendaryPermanentBinding, LibrarySearchCardinality, LibrarySearchDestination,
+    LibrarySearchRequirement, LibrarySearchSelection, LinkedExileGroup, LinkedExileGroupId,
+    LinkedExileMember, LinkedExileMemberRole, ManaAbilityActivation, ManaAbilityBinding,
     ManaAbilityBundleChoiceActivation, ManaAbilityCostBinding, ManaAbilityOutput, ManaBundle,
     ManaCost, ManaPaymentSelection, ObjectId, PendingDecision, PlayerId, PlayerState,
     PolicyMoveKind, QuantityReplacementResolution, ReplacementChoice, ReplacementEffect,
@@ -852,11 +852,21 @@ enum TriggerEventPayload {
         incarnation: u64,
         name: &'static str,
     },
+    /// An Aura-like source observed the beginning of the upkeep belonging to
+    /// the controller of this exact attached creature incarnation.
+    AttachedCreature {
+        creature: ObjectId,
+        incarnation: u64,
+    },
     /// The event itself identifies the trigger's sole target. This is used
     /// for the represented Blood Funnel cast trigger, where the triggering
     /// spell is not a policy-selected target.
     ExactTargets(Vec<Target>),
 }
+
+/// One same-name Legendary permanent group awaiting its controller's
+/// state-based-action retention choice.
+type LegendRuleGroup = (PlayerId, &'static str, Vec<(ObjectId, u64)>);
 
 /// One captured rules event awaiting APNAP-safe trigger placement.  Every
 /// represented trigger condition flows through this same payload so deferred
@@ -1009,6 +1019,7 @@ pub struct Game {
     static_entry_restrictions: BTreeMap<&'static str, Vec<StaticEntryRestriction>>,
     static_continuous_effects: BTreeMap<&'static str, Vec<ContinuousChange>>,
     static_library_top_reveals: BTreeMap<&'static str, StaticLibraryTopRevealScope>,
+    legendary_permanents: BTreeSet<&'static str>,
     cost_reductions: BTreeMap<&'static str, CostReductionBinding>,
     activated_ability_cost_modifiers: BTreeMap<&'static str, Vec<ActivatedAbilityCostModifier>>,
     generalized_activated_ability_costs:
@@ -1350,6 +1361,7 @@ impl Game {
             static_entry_restrictions: BTreeMap::new(),
             static_continuous_effects: BTreeMap::new(),
             static_library_top_reveals: BTreeMap::new(),
+            legendary_permanents: BTreeSet::new(),
             cost_reductions: BTreeMap::new(),
             activated_ability_cost_modifiers: BTreeMap::new(),
             generalized_activated_ability_costs: BTreeMap::new(),
@@ -1583,6 +1595,40 @@ impl Game {
         }
         if let Err(error) = self.validate_invariants() {
             self.attachment_bindings = previous_bindings;
+            return Err(error);
+        }
+        Ok(())
+    }
+
+    /// Registers immutable Legendary-supertype metadata before the game
+    /// begins. The registry applies to layer-one card-definition values, so
+    /// a token or permanent copy inherits its source's legendary identity.
+    pub fn register_legendary_permanent_bindings(
+        &mut self,
+        bindings: impl IntoIterator<Item = LegendaryPermanentBinding>,
+    ) -> Result<(), RulesError> {
+        if self.started {
+            return Err(RulesError::IllegalAction(
+                "legendary permanent bindings cannot be changed after the game starts",
+            ));
+        }
+        let previous = self.legendary_permanents.clone();
+        for binding in bindings {
+            let definition = self
+                .catalog
+                .get(binding.card_definition)
+                .ok_or(RulesError::UnknownDefinition(binding.card_definition))?;
+            if !definition.is_permanent()
+                || !self.legendary_permanents.insert(binding.card_definition)
+            {
+                self.legendary_permanents = previous;
+                return Err(RulesError::IllegalAction(
+                    "legendary permanent binding requires a unique permanent definition",
+                ));
+            }
+        }
+        if let Err(error) = self.validate_invariants() {
+            self.legendary_permanents = previous;
             return Err(error);
         }
         Ok(())
@@ -1889,6 +1935,7 @@ impl Game {
                         | TriggerCondition::BeginningOfUpkeep
                         | TriggerCondition::BeginningOfOpponentsUpkeep
                         | TriggerCondition::BeginningOfAnyUpkeep
+                        | TriggerCondition::BeginningOfAttachedCreaturesControllerUpkeep
                         | TriggerCondition::BeginningOfAnyEndStep
                         | TriggerCondition::BeginningOfAttachedCreaturesControllerEndStep
                         | TriggerCondition::LifeGained
@@ -2511,6 +2558,104 @@ impl Game {
     /// for ownership and zone bookkeeping.
     fn effective_definition_id(&self, card: ObjectId) -> Result<Option<&'static str>, RulesError> {
         Ok(self.object(card)?.effective_definition())
+    }
+
+    /// Returns the current copiable name of a legendary permanent. A token
+    /// uses its own token values; a layer-one card copy deliberately uses the
+    /// copied definition rather than the physical card's printed identity.
+    fn legendary_permanent_name(&self, card: ObjectId) -> Result<Option<&'static str>, RulesError> {
+        if self.zone_of(card) != Some(Zone::Battlefield) {
+            return Ok(None);
+        }
+        // The legend rule has no reason to derive copy values for an ordinary
+        // permanent. Besides keeping the SBA scan proportional to the small
+        // registered legend set, this guard keeps it independent of unrelated
+        // characteristic/copy machinery during every rules checkpoint. A
+        // copied card definition is exposed by `effective_definition`; a
+        // token-value copy deliberately falls through to the token branch.
+        let object = self.object(card)?;
+        let copied_or_printed_definition = object.effective_definition();
+        let legendary_token = object
+            .copied_permanent
+            .as_ref()
+            .and_then(|copy| match &copy.values {
+                CopiableValues::Token(token) => Some(token),
+                CopiableValues::CardDefinition(_) => None,
+            })
+            .or(object.token.as_ref())
+            .filter(|token| token.is_legendary);
+        if !copied_or_printed_definition
+            .is_some_and(|definition| self.legendary_permanents.contains(definition))
+            && legendary_token.is_none()
+        {
+            return Ok(None);
+        }
+        match self.copiable_values(card)? {
+            CopiableValues::CardDefinition(definition) => {
+                if !self.legendary_permanents.contains(definition) {
+                    return Ok(None);
+                }
+                Ok(Some(
+                    self.catalog
+                        .get(definition)
+                        .ok_or(RulesError::UnknownDefinition(definition))?
+                        .name,
+                ))
+            }
+            CopiableValues::Token(token) => Ok(token.is_legendary.then_some(token.name)),
+        }
+    }
+
+    /// Returns the first illegal legendary group in stable controller/name/
+    /// object order. The engine must stop at one group because each affected
+    /// controller owns a real no-priority choice of the permanent to retain.
+    fn first_legend_rule_group(&self) -> Result<Option<LegendRuleGroup>, RulesError> {
+        let mut groups = BTreeMap::<(PlayerId, &'static str), Vec<(ObjectId, u64)>>::new();
+        for card in self.all_battlefield_cards() {
+            let Some(name) = self.legendary_permanent_name(card)? else {
+                continue;
+            };
+            let controller = self.controller_of(card)?;
+            groups
+                .entry((controller, name))
+                .or_default()
+                .push((card, self.object(card)?.incarnation));
+        }
+        Ok(groups
+            .into_iter()
+            .find_map(|((controller, name), permanents)| {
+                (permanents.len() > 1).then_some((controller, name, permanents))
+            }))
+    }
+
+    fn open_legend_rule_decision(
+        &mut self,
+        controller: PlayerId,
+        name: &'static str,
+        permanents: Vec<(ObjectId, u64)>,
+    ) -> Result<(), RulesError> {
+        if permanents.len() < 2 {
+            return Err(RulesError::IllegalAction(
+                "legend rule requires at least two same-name legendary permanents",
+            ));
+        }
+        self.open_pending_decision(
+            controller,
+            DecisionVisibility::Public,
+            DecisionKind::LegendRule,
+            1,
+            1,
+            permanents
+                .iter()
+                .map(|(card, _)| DecisionOption::Object(*card))
+                .collect(),
+            DecisionContinuation::LegendRule {
+                controller,
+                name,
+                permanents,
+            },
+        )?;
+        Ok(())
     }
 
     /// Returns the layer-one characteristics another permanent would copy
@@ -4257,7 +4402,8 @@ impl Game {
                 }
                 | DecisionContinuation::RetargetActivatedAbility { .. }
                 | DecisionContinuation::PermanentEntryCopySource { .. }
-                | DecisionContinuation::PermanentEntryCopyAuraAttachment { .. } => None,
+                | DecisionContinuation::PermanentEntryCopyAuraAttachment { .. }
+                | DecisionContinuation::LegendRule { .. } => None,
             })
             .map(|(decision, source, destination, may_fail_to_find)| {
                 self.decision_candidate_cards(
@@ -4332,7 +4478,8 @@ impl Game {
                 }
                 | DecisionContinuation::RetargetActivatedAbility { .. }
                 | DecisionContinuation::PermanentEntryCopySource { .. }
-                | DecisionContinuation::PermanentEntryCopyAuraAttachment { .. } => None,
+                | DecisionContinuation::PermanentEntryCopyAuraAttachment { .. }
+                | DecisionContinuation::LegendRule { .. } => None,
             });
         let optional_triggered_ability_choice = self
             .pending_optional_trigger_choice
@@ -4394,7 +4541,8 @@ impl Game {
                 }
                 | DecisionContinuation::RetargetActivatedAbility { .. }
                 | DecisionContinuation::PermanentEntryCopySource { .. }
-                | DecisionContinuation::PermanentEntryCopyAuraAttachment { .. } => None,
+                | DecisionContinuation::PermanentEntryCopyAuraAttachment { .. }
+                | DecisionContinuation::LegendRule { .. } => None,
             })
             .map(|(decision, source, ability)| {
                 self.decision_candidate_cards(
@@ -4488,7 +4636,8 @@ impl Game {
                 }
                 | DecisionContinuation::RetargetActivatedAbility { .. }
                 | DecisionContinuation::PermanentEntryCopySource { .. }
-                | DecisionContinuation::PermanentEntryCopyAuraAttachment { .. } => None,
+                | DecisionContinuation::PermanentEntryCopyAuraAttachment { .. }
+                | DecisionContinuation::LegendRule { .. } => None,
             });
         let mut opponent_life = Vec::new();
         let mut opponent_battlefield = Vec::new();
@@ -5876,6 +6025,34 @@ impl Game {
         Ok(self
             .attachment_binding_for(card)?
             .is_some_and(|binding| binding.kind == AttachmentKind::Aura))
+    }
+
+    /// Returns the exact live creature currently attached to an Aura-like
+    /// source.  The endpoint incarnation is part of the answer: an Aura that
+    /// survived a target's zone change cannot observe the later object.
+    fn current_attached_creature(
+        &self,
+        source: ObjectId,
+    ) -> Result<Option<(ObjectId, u64)>, RulesError> {
+        if self.zone_of(source) != Some(Zone::Battlefield) || !self.is_aura_like(source)? {
+            return Ok(None);
+        }
+        let object = self.object(source)?;
+        let (Some(creature), Some(incarnation)) =
+            (object.attached_to, object.attached_to_incarnation)
+        else {
+            return Ok(None);
+        };
+        if self.zone_of(creature) != Some(Zone::Battlefield)
+            || !self.object_has_incarnation(creature, incarnation)
+            || !self
+                .characteristics(creature)?
+                .card_types
+                .contains(&CardType::Creature)
+        {
+            return Ok(None);
+        }
+        Ok(Some((creature, incarnation)))
     }
 
     /// Resolves a source-relative Aura instruction against the endpoint that
@@ -8804,7 +8981,101 @@ impl Game {
                     selected.into_iter().next(),
                 )
             }
+            DecisionContinuation::LegendRule {
+                controller,
+                name,
+                permanents,
+            } => {
+                let selected = Self::validate_object_decision_selection(&decision, selection)?;
+                let retained = selected.first().copied().ok_or(RulesError::IllegalAction(
+                    "legend rule decision lacks its retained permanent",
+                ))?;
+                self.resolve_legend_rule_decision(
+                    &decision,
+                    controller,
+                    name,
+                    &permanents,
+                    retained,
+                )
+            }
         }
+    }
+
+    /// Resolves the CR 704.5j no-priority selection. Every non-retained
+    /// member moves in one simultaneous state-based action, preserving
+    /// last-known battlefield state for ordinary dies and graveyard observers.
+    fn resolve_legend_rule_decision(
+        &mut self,
+        decision: &PendingDecision,
+        controller: PlayerId,
+        name: &'static str,
+        permanents: &[(ObjectId, u64)],
+        retained: ObjectId,
+    ) -> Result<(), RulesError> {
+        let expected = self.first_legend_rule_group()?;
+        let Some((expected_controller, expected_name, expected_permanents)) = expected else {
+            return Err(RulesError::IllegalAction(
+                "legend rule decision no longer has an illegal legendary group",
+            ));
+        };
+        let expected_options = expected_permanents
+            .iter()
+            .map(|(card, _)| DecisionOption::Object(*card))
+            .collect::<Vec<_>>();
+        if decision.kind != DecisionKind::LegendRule
+            || decision.visibility != DecisionVisibility::Public
+            || decision.player != controller
+            || decision.min_selections != 1
+            || decision.max_selections != 1
+            || expected_controller != controller
+            || expected_name != name
+            || expected_permanents != permanents
+            || decision.options != expected_options
+            || !expected_options.contains(&DecisionOption::Object(retained))
+        {
+            return Err(RulesError::IllegalAction(
+                "legend rule decision no longer matches its captured legendary group",
+            ));
+        }
+        self.complete_pending_decision(decision)?;
+        let departing = permanents
+            .iter()
+            .filter_map(|(card, _)| (*card != retained).then_some(*card))
+            .collect::<Vec<_>>();
+        self.enqueue_simultaneous_graveyard_entry_and_creature_departure_triggers(
+            departing.iter().copied(),
+        )?;
+        for card in departing {
+            self.record_event(GameEvent::StateBasedAction {
+                card,
+                reason: "legend rule",
+            });
+            self.move_to_graveyard_or_remove_token_after_simultaneous_graveyard_trigger_capture(
+                card,
+            )?;
+        }
+        self.check_state_based_actions()?;
+        if self.pending_decision.is_some() {
+            return Ok(());
+        }
+        self.priority = self.priority_after_resolution();
+        self.flush_pending_dies_triggers();
+        self.flush_pending_land_entry_triggers()?;
+        self.flush_pending_damage_triggers();
+        self.flush_pending_life_gain_triggers();
+        self.flush_pending_dies_triggers();
+        if self.step == Step::Untap
+            && self.pending_decision.is_none()
+            && self.stack.is_empty()
+            && self.pending_optional_trigger_choice.is_none()
+        {
+            self.advance_step()?;
+        } else if self.step == Step::Cleanup && self.stack.is_empty() {
+            // CR 514.3: an SBA during Cleanup creates the exceptional
+            // priority window even when no trigger was produced.
+            self.cleanup_repeat_required = true;
+        }
+        Ok(())
     }
 
     /// Commits the explicit may-choice after a controller privately inspected
@@ -13182,6 +13453,12 @@ impl Game {
             }
             changed |= self.apply_creature_death_state_based_actions()?;
             if !changed {
+                if self.pending_decision.is_none()
+                    && let Some((controller, name, permanents)) = self.first_legend_rule_group()?
+                {
+                    self.open_legend_rule_decision(controller, name, permanents)?;
+                    return Ok(());
+                }
                 self.prune_unreferenced_departed_source_provenance();
                 // A terminal SBA boundary ends the game before any newly
                 // observed triggers are put onto the stack.  Existing stack
@@ -13950,6 +14227,7 @@ impl Game {
                             | TriggerCondition::BeginningOfUpkeep
                             | TriggerCondition::BeginningOfOpponentsUpkeep
                             | TriggerCondition::BeginningOfAnyUpkeep
+                            | TriggerCondition::BeginningOfAttachedCreaturesControllerUpkeep
                             | TriggerCondition::BeginningOfAnyEndStep
                             | TriggerCondition::BeginningOfAttachedCreaturesControllerEndStep
                             | TriggerCondition::LifeGained
@@ -14495,6 +14773,19 @@ impl Game {
                                     name,
                                 }]
                             ) if cast_card.0 > 0 && *cast_incarnation > 0 && !name.is_empty()
+                        )
+                    } else if trigger_condition
+                        == Some(TriggerCondition::BeginningOfAttachedCreaturesControllerUpkeep)
+                    {
+                        matches!(
+                            (effects.as_slice(), stack_object.effects.as_slice()),
+                            (
+                                [Effect::CreateTokenCopyOfAttachedCreature],
+                                [Effect::CreateTokenCopyOfPermanent {
+                                    creature,
+                                    creature_incarnation,
+                                }]
+                            ) if creature.0 > 0 && *creature_incarnation > 0
                         )
                     } else if trigger_condition == Some(TriggerCondition::BeginningOfAnyUpkeep)
                     {
@@ -15120,6 +15411,23 @@ impl Game {
                     "static library-reveal binding has invalid source definition",
                 ));
             }
+        }
+        if self.legendary_permanents.iter().any(|definition_id| {
+            self.catalog
+                .get(definition_id)
+                .is_none_or(|definition| !definition.is_permanent())
+        }) {
+            return Err(RulesError::IllegalAction(
+                "legendary permanent binding has an invalid source definition",
+            ));
+        }
+        if self.started
+            && self.pending_decision.is_none()
+            && self.first_legend_rule_group()?.is_some()
+        {
+            return Err(RulesError::IllegalAction(
+                "an illegal legendary group escaped its state-based action boundary",
+            ));
         }
         for (definition_id, binding) in &self.attachment_bindings {
             let definition = self
@@ -17381,6 +17689,8 @@ impl Game {
                 | Effect::ReturnOneCreatureCardFromEachGraveyardToHand
                 | Effect::ReturnAllCreatureCardsMatchingCastCreatureSpellNameFromGraveyards
                 | Effect::ReturnAllCreatureCardsMatchingNameFromGraveyards { .. }
+                | Effect::CreateTokenCopyOfAttachedCreature
+                | Effect::CreateTokenCopyOfPermanent { .. }
                 | Effect::ReturnUpToThreeControllerGraveyardLandCardsToHand
                 | Effect::ReturnAnotherControlledPermanentSharingEnteredCardTypes
                 | Effect::ReturnAnotherControlledPermanentSharingCardTypes { .. }
@@ -21128,6 +21438,7 @@ impl Game {
                 | TriggerEventPayload::EnteredPermanent { .. }
                 | TriggerEventPayload::ConvokeContributors(_)
                 | TriggerEventPayload::CastCreatureSpell { .. }
+                | TriggerEventPayload::AttachedCreature { .. }
                 | TriggerEventPayload::UpkeepPlayer(_)
                 | TriggerEventPayload::EndStepPlayer(_) => None,
             };
@@ -21322,6 +21633,16 @@ impl Game {
                     name,
                 },
                 (
+                    Effect::CreateTokenCopyOfAttachedCreature,
+                    TriggerEventPayload::AttachedCreature {
+                        creature,
+                        incarnation,
+                    },
+                ) => Effect::CreateTokenCopyOfPermanent {
+                    creature: *creature,
+                    creature_incarnation: *incarnation,
+                },
+                (
                     Effect::SacrificeUpkeepPlayerCreature,
                     TriggerEventPayload::UpkeepPlayer(player),
                 ) => Effect::SacrificeCapturedPlayerCreature { player: *player },
@@ -21377,19 +21698,18 @@ impl Game {
         let active_player = self.active_player;
         let sources = self.all_battlefield_cards().into_iter().collect::<Vec<_>>();
         for source in sources {
-            let (source_controller, source_is_token, source_incarnation, source_colors) = {
+            let (source_controller, source_incarnation, source_colors) = {
                 let object = self.object(source)?;
                 (
                     self.controller_of(source)?,
-                    object.token.is_some(),
                     object.incarnation,
                     self.characteristics(source)?.colors,
                 )
             };
-            if source_is_token {
+            let Some(definition) = self.effective_definition_id(source)? else {
                 continue;
-            }
-            let definition = self.card_definition(source)?.id;
+            };
+            let attached_creature = self.current_attached_creature(source)?;
             let triggers = self
                 .triggered_abilities
                 .get(definition)
@@ -21405,10 +21725,29 @@ impl Game {
                         TriggerCondition::BeginningOfOpponentsUpkeep
                             if source_controller != active_player
                     ) || matches!(ability.condition, TriggerCondition::BeginningOfAnyUpkeep)
+                        || (ability.condition
+                            == TriggerCondition::BeginningOfAttachedCreaturesControllerUpkeep
+                            && attached_creature.is_some_and(|(creature, _)| {
+                                self.controller_of(creature) == Ok(active_player)
+                            }))
                 })
                 .cloned()
                 .collect::<Vec<_>>();
             for ability in triggers {
+                let payload = if ability.condition
+                    == TriggerCondition::BeginningOfAttachedCreaturesControllerUpkeep
+                {
+                    let (creature, incarnation) =
+                        attached_creature.ok_or(RulesError::IllegalAction(
+                            "attached-creature upkeep trigger lost its live endpoint",
+                        ))?;
+                    TriggerEventPayload::AttachedCreature {
+                        creature,
+                        incarnation,
+                    }
+                } else {
+                    TriggerEventPayload::UpkeepPlayer(active_player)
+                };
                 self.pending_trigger_events
                     .push(PendingTriggeredAbilityEvent {
                         source,
@@ -21416,7 +21755,7 @@ impl Game {
                         source_colors: source_colors.clone(),
                         controller: source_controller,
                         ability,
-                        payload: TriggerEventPayload::UpkeepPlayer(active_player),
+                        payload,
                     });
             }
         }
@@ -27242,6 +27581,21 @@ impl Game {
                     name,
                 )?;
             }
+            Effect::CreateTokenCopyOfAttachedCreature => {
+                return Err(RulesError::IllegalAction(
+                    "attached-creature token-copy marker escaped trigger materialization",
+                ));
+            }
+            Effect::CreateTokenCopyOfPermanent {
+                creature,
+                creature_incarnation,
+            } => {
+                let _ = self.create_token_copies_of_permanent(
+                    controller,
+                    *creature,
+                    *creature_incarnation,
+                )?;
+            }
             Effect::ReturnUpToThreeControllerGraveyardLandCardsToHand => {
                 // Snapshot the full selection before any move. The public
                 // compatibility slice uses the deterministic first-three
@@ -28153,6 +28507,8 @@ impl Game {
         }
         if (self.step == Step::Untap
             || (self.step == Step::Cleanup && !self.cleanup_repeat_required))
+            && self.pending_decision.is_none()
+            && self.pending_optional_trigger_choice.is_none()
             && !self.is_game_over()
         {
             // CR 117.3a and 514.3: neither normal Untap nor this slice's
@@ -28631,6 +28987,22 @@ impl Game {
         controller: PlayerId,
         token: TokenSpec,
     ) -> Result<ObjectId, RulesError> {
+        let id = self.create_token_with_copied_values(controller, token, None)?;
+        self.enqueue_controlled_nonartifact_permanent_entry_triggers(id, controller)?;
+        Ok(id)
+    }
+
+    /// Creates one token with its layer-one values already installed. Normal
+    /// token creation passes no copy snapshot; token-copy effects pass a
+    /// captured immutable source so entry restrictions and observer triggers
+    /// inspect the copied permanent's actual values from the first instant it
+    /// exists on the battlefield.
+    fn create_token_with_copied_values(
+        &mut self,
+        controller: PlayerId,
+        token: TokenSpec,
+        copied_permanent: Option<CopiedPermanent>,
+    ) -> Result<ObjectId, RulesError> {
         self.player(controller)?;
         Self::validate_token_spec(&token)?;
         let id = ObjectId(self.next_object_id);
@@ -28653,13 +29025,106 @@ impl Game {
                 entered_turn: self.turn,
                 controller_changed_turn: self.turn,
                 token: Some(token),
-                copied_permanent: None,
+                copied_permanent,
             },
         );
         self.place_in_zone(controller, id, Zone::Battlefield)?;
         self.apply_static_entry_restriction(id)?;
-        self.enqueue_controlled_nonartifact_permanent_entry_triggers(id, controller)?;
         Ok(id)
+    }
+
+    /// Converts immutable copiable values into the token object's permanent
+    /// representation. A copied card definition remains separately retained
+    /// in `CopiedPermanent`, so this token specification is only the token's
+    /// intrinsic fallback and never a substitute for definition-bound rules.
+    fn token_spec_for_copied_values(
+        &self,
+        values: &CopiableValues,
+    ) -> Result<TokenSpec, RulesError> {
+        match values {
+            CopiableValues::Token(token) => Ok(token.clone()),
+            CopiableValues::CardDefinition(definition_id) => {
+                let definition = self
+                    .catalog
+                    .get(definition_id)
+                    .ok_or(RulesError::UnknownDefinition(definition_id))?;
+                Ok(TokenSpec {
+                    name: definition.name,
+                    is_legendary: false,
+                    colors: definition.colors.clone(),
+                    card_types: definition.card_types.clone(),
+                    creature_subtypes: BTreeSet::new(),
+                    keywords: definition.keywords.clone(),
+                    power: definition.power.unwrap_or_default(),
+                    toughness: definition.toughness.unwrap_or_default(),
+                })
+            }
+        }
+    }
+
+    /// Creates one or more token copies of one exact live creature
+    /// incarnation. Quantity replacement is applied once to the one-token
+    /// creation event, then each resulting token receives the same immutable
+    /// layer-one snapshot and ordinary token entry lifecycle.
+    fn create_token_copies_of_permanent(
+        &mut self,
+        controller: PlayerId,
+        source: ObjectId,
+        source_incarnation: u64,
+    ) -> Result<Vec<ObjectId>, RulesError> {
+        if source_incarnation == 0
+            || self.zone_of(source) != Some(Zone::Battlefield)
+            || !self.object_has_incarnation(source, source_incarnation)
+            || !self
+                .characteristics(source)?
+                .card_types
+                .contains(&CardType::Creature)
+        {
+            return Ok(Vec::new());
+        }
+        let values = self.copiable_values(source)?;
+        let token = self.token_spec_for_copied_values(&values)?;
+        let replacement_count =
+            self.replace_event_quantity(controller, ReplacementEventKind::TokenCreation, 1)?;
+        let count = u8::try_from(replacement_count).map_err(|_| {
+            RulesError::IllegalAction("copied token quantity exceeds supported range")
+        })?;
+        let mut created = Vec::with_capacity(usize::from(count));
+        for _ in 0..count {
+            let timestamp = self.next_timestamp;
+            self.next_timestamp =
+                self.next_timestamp
+                    .checked_add(1)
+                    .ok_or(RulesError::IllegalAction(
+                        "copied token timestamp counter overflowed",
+                    ))?;
+            let copy = CopiedPermanent {
+                values: values.clone(),
+                source,
+                source_incarnation,
+                timestamp,
+            };
+            let token_id =
+                self.create_token_with_copied_values(controller, token.clone(), Some(copy))?;
+            self.record_event(GameEvent::TokenCreated {
+                player: controller,
+                token: token_id,
+            });
+            self.record_event(GameEvent::PermanentCopied {
+                source,
+                source_incarnation,
+                target: token_id,
+                target_incarnation: self.object(token_id)?.incarnation,
+                timestamp,
+            });
+            if let Some(definition) = self.effective_definition_id(token_id)? {
+                self.capture_enter_triggers(token_id, definition, controller, &[])?;
+            } else {
+                self.enqueue_controlled_nonartifact_permanent_entry_triggers(token_id, controller)?;
+            }
+            created.push(token_id);
+        }
+        Ok(created)
     }
 
     fn move_to_graveyard_or_remove_token(&mut self, card: ObjectId) -> Result<(), RulesError> {
@@ -29935,6 +30400,27 @@ impl Game {
         }) {
             return Err(RulesError::IllegalAction(
                 "materialized creature-cast return effect escaped onto a triggered binding",
+            ));
+        }
+        let has_attached_creature_token_copy_marker = ability
+            .effects
+            .contains(&Effect::CreateTokenCopyOfAttachedCreature);
+        if has_attached_creature_token_copy_marker
+            && (ability.condition != TriggerCondition::BeginningOfAttachedCreaturesControllerUpkeep
+                || !ability.targets.is_empty()
+                || ability.effects.as_slice() != [Effect::CreateTokenCopyOfAttachedCreature])
+        {
+            return Err(RulesError::IllegalAction(
+                "attached-creature token copy requires one target-free attached-controller upkeep trigger",
+            ));
+        }
+        if ability
+            .effects
+            .iter()
+            .any(|effect| matches!(effect, Effect::CreateTokenCopyOfPermanent { .. }))
+        {
+            return Err(RulesError::IllegalAction(
+                "materialized attached-creature token copy escaped onto a triggered binding",
             ));
         }
         if ability.effects.iter().any(|effect| {
@@ -37139,6 +37625,30 @@ impl Game {
                 {
                     return Err(RulesError::IllegalAction(
                         "counter-unless discard decision violates stack or hand provenance",
+                    ));
+                }
+            }
+            DecisionContinuation::LegendRule {
+                controller,
+                name,
+                permanents,
+            } => {
+                let expected = self.first_legend_rule_group()?;
+                let expected_options = permanents
+                    .iter()
+                    .map(|(card, _)| DecisionOption::Object(*card))
+                    .collect::<Vec<_>>();
+                if decision.kind != DecisionKind::LegendRule
+                    || decision.visibility != DecisionVisibility::Public
+                    || decision.player != *controller
+                    || decision.min_selections != 1
+                    || decision.max_selections != 1
+                    || decision.options != expected_options
+                    || expected
+                        != Some((*controller, *name, permanents.clone()))
+                {
+                    return Err(RulesError::IllegalAction(
+                        "legend rule decision violates its captured group provenance",
                     ));
                 }
             }
