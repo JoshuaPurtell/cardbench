@@ -4756,8 +4756,8 @@ impl Game {
                 &self.event_log,
             )
         );
-        snapshot.bytes().fold(0xcbf29ce484222325, |hash, byte| {
-            (hash ^ u64::from(byte)).wrapping_mul(0x100000001b3)
+        snapshot.bytes().fold(0xcbf2_9ce4_8422_2325, |hash, byte| {
+            (hash ^ u64::from(byte)).wrapping_mul(0x0100_0000_01b3)
         })
     }
 
