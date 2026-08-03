@@ -15056,11 +15056,6 @@ impl Game {
                 || self.zone_of(prevention.creature) != Some(Zone::Battlefield)
                 || !self
                     .object_has_incarnation(prevention.creature, prevention.creature_incarnation)
-                || !self
-                    .characteristics(prevention.creature)
-                    .is_ok_and(|characteristics| {
-                        characteristics.card_types.contains(&CardType::Creature)
-                    })
             {
                 return Err(RulesError::IllegalAction(
                     "combat damage prevention has invalid identity, target, or lifetime",

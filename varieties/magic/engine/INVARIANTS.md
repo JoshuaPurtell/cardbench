@@ -317,11 +317,13 @@ Oracle Magic rules coverage.
   a shared mutable batch record.
 - A source-side combat-damage prevention record has a unique positive id, a
   current-turn expiry, a retained creating-source identity, and one exact live
-  battlefield creature incarnation. It is created only while its target still
-  satisfies the typed attacking-or-blocking target requirement, emits
+  battlefield permanent incarnation. It is created only while its target still
+  satisfies the typed attacking-or-blocking creature requirement, emits
   `CombatDamagePreventionCreated`, prevents every positive combat packet from
-  that exact creature through `CombatDamagePrevented`, and cannot follow a
-  leave-and-return incarnation. Its effect is independent of a later source
+  that exact creature while it remains a combat source through
+  `CombatDamagePrevented`, and cannot follow a leave-and-return incarnation.
+  A later card-type change on that same permanent does not erase the
+  already-resolved record. Its effect is independent of a later source
   departure, which retains historical source identity without a live-object
   dereference. Cleanup or target departure removes it with
   `CombatDamagePreventionExpired`. `DamageCannotBePrevented` bypasses this
