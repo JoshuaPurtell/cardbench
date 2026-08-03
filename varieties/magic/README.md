@@ -251,8 +251,8 @@ by a longer policy run must surface through `EngineWeaknessRevealed`.
 fixtures into libraries, deterministically shuffles, draws seven-card opening
 hands, plays land/mana/stack/combat actions through `Game::submit_policy_move`,
 and validates invariants after setup and every accepted move. The default seed
-has a pinned public regression result: Selesnya wins on turn 30 after 759
-accepted moves, life `[-2, 10]`, digest `fnv1a64:1335e960a109682d`.
+has a pinned public regression result: Selesnya wins on turn 38 after 1,025
+accepted moves, life `[0, 6]`, digest `fnv1a64:7260cbfa01cc5c9e`.
 
 `rav-deck-sweep` repeats the same full match for seeds `11`, `73`, `127`, and
 `521`, and prints only genuine engine findings in its summary. Findings are
