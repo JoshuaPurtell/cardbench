@@ -16,7 +16,8 @@ use cardbench_magic_engine::{
 
 use crate::{
     ScenarioResult, card_definitions, event_digest, rav_activated_ability_bindings,
-    rav_additional_spell_cost_bindings, rav_basic_land_type_bindings, rav_cost_reduction_bindings,
+    rav_additional_spell_cost_bindings, rav_attachment_triggered_ability_bindings,
+    rav_basic_land_type_bindings, rav_cost_reduction_bindings,
     rav_damage_replacement_effect_bindings, rav_entry_coin_flip_bindings,
     rav_generalized_activated_ability_cost_bindings, rav_mana_ability_bindings,
     rav_replacement_effect_bindings, rav_static_attack_restriction_bindings,
@@ -393,6 +394,8 @@ fn set_expected_field(
 #[allow(clippy::too_many_lines)] // One fixture execution keeps all bindings and assertions auditable.
 fn execute_scenario(specification: &ScenarioSpec) -> Result<ScenarioResult, String> {
     let mut game = if specification.triggers {
+        let mut triggered_bindings = rav_triggered_ability_bindings();
+        triggered_bindings.extend(rav_attachment_triggered_ability_bindings());
         Game::new_with_all_bindings_triggers_static_continuous_effects_and_land_entries(
             card_definitions(),
             2,
@@ -400,7 +403,7 @@ fn execute_scenario(specification: &ScenarioSpec) -> Result<ScenarioResult, Stri
             rav_basic_land_type_bindings(),
             rav_additional_spell_cost_bindings(),
             rav_activated_ability_bindings(),
-            rav_triggered_ability_bindings(),
+            triggered_bindings,
             rav_static_continuous_effect_bindings(),
             crate::rav_land_entry_bindings(),
         )

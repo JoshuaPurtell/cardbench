@@ -8,11 +8,14 @@ use cardbench_magic_engine::{
 };
 use cardbench_magic_rav::{
     RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, rav_activated_ability_bindings,
-    rav_additional_spell_cost_bindings, rav_attachment_bindings, rav_basic_land_type_bindings,
+    rav_additional_spell_cost_bindings, rav_attachment_bindings,
+    rav_attachment_triggered_ability_bindings, rav_basic_land_type_bindings,
     rav_mana_ability_bindings, rav_triggered_ability_bindings,
 };
 
 fn instill_game() -> Game {
+    let mut triggered = rav_triggered_ability_bindings();
+    triggered.extend(rav_attachment_triggered_ability_bindings());
     let mut game = Game::new_with_all_bindings_and_triggers(
         card_definitions(),
         2,
@@ -20,7 +23,7 @@ fn instill_game() -> Game {
         rav_basic_land_type_bindings(),
         rav_additional_spell_cost_bindings(),
         rav_activated_ability_bindings(),
-        rav_triggered_ability_bindings(),
+        triggered,
     )
     .expect("RAV Instill Furor fixture builds");
     game.register_attachment_bindings(rav_attachment_bindings())

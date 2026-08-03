@@ -221,7 +221,7 @@ fn rav_basic_land_cast_payment_scenario_has_ordered_intrinsic_receipts() {
         .into_iter()
         .find(|result| result.id == "rav_basic_land_cast_payment")
         .expect("typed basic-land cast-payment scenario exists");
-    assert_eq!(scenario.digest, "fnv1a64:092e92750db81bd3");
+    assert_eq!(scenario.digest, "fnv1a64:c85756aa061171ba");
     assert_eq!(
         scenario.event_log[..7],
         [

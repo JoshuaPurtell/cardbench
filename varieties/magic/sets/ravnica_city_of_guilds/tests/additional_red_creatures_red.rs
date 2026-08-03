@@ -6,7 +6,7 @@ use cardbench_magic_engine::{
 };
 use cardbench_magic_rav::{RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions};
 use cardbench_magic_rav::{
-    rav_activated_ability_bindings, rav_additional_spell_cost_bindings,
+    rav_activated_ability_bindings, rav_additional_spell_cost_bindings, rav_attachment_bindings,
     rav_basic_land_type_bindings, rav_mana_ability_bindings, rav_triggered_ability_bindings,
 };
 
@@ -53,7 +53,7 @@ fn razia_requires_flying_vigilance_and_haste() {
 }
 
 fn fixture_game() -> Game {
-    Game::new_with_all_bindings_and_triggers(
+    let mut game = Game::new_with_all_bindings_and_triggers(
         card_definitions(),
         2,
         rav_mana_ability_bindings(),
@@ -62,7 +62,10 @@ fn fixture_game() -> Game {
         rav_activated_ability_bindings(),
         rav_triggered_ability_bindings(),
     )
-    .expect("RAV game builds")
+    .expect("RAV game builds");
+    game.register_attachment_bindings(rav_attachment_bindings())
+        .expect("RAV attachment bindings register");
+    game
 }
 
 fn advance_to_first_main(game: &mut Game) {

@@ -320,7 +320,7 @@ fn public_birds_scenarios_cover_turn_progression_and_flying_cast_payment() {
         .find(|result| result.id == "rav_birds_of_paradise_bound_mana_ability")
         .expect("Birds of Paradise public scenario");
 
-    assert_eq!(scenario.digest, "fnv1a64:7115881e15dd0d84");
+    assert_eq!(scenario.digest, "fnv1a64:5a8ec7b022db5023");
     assert!(scenario.event_log.iter().any(|event| {
         event.contains("StepBegan { turn: 2, active_player: PlayerId(1), step: Upkeep }")
     }));

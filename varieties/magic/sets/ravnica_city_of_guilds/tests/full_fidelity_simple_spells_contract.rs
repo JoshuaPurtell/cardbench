@@ -161,6 +161,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-SUNHOME-ENFORCER",
             "RAV-ORDRUUN-COMMANDO",
             "RAV-INDENTURED-OAF",
+            "RAV-MOLTEN-SENTRY",
             "RAV-EXCRUCIATOR",
             "RAV-LOXODON-HIERARCH",
             "RAV-PHYTOHYDRA",

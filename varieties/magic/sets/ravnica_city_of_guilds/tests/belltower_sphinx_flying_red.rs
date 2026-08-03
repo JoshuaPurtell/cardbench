@@ -1,7 +1,4 @@
-//! Red coverage probe for Belltower Sphinx's shared Flying rule.
-//!
-//! The printed damage-triggered behavior remains intentionally outside this
-//! bounded slice; this asks only for the static evasion keyword.
+//! Compatibility contract retained after Belltower Sphinx's full promotion.
 
 use std::collections::BTreeSet;
 
@@ -24,7 +21,13 @@ fn belltower_sphinx_exposes_its_supported_flying_compatibility_slice() {
     assert!(sphinx.effects.is_empty());
     assert_eq!(
         sphinx.supported_rules,
-        ["colored-cost-casting", "base-characteristics", "flying"],
-        "the damage-triggered behavior remains intentionally bounded"
+        [
+            "full-rules-fidelity",
+            "colored-cost-casting",
+            "base-characteristics",
+            "flying",
+            "damage-received-source-controller-mill-that-many",
+        ],
+        "the promoted damage-triggered behavior remains explicit"
     );
 }

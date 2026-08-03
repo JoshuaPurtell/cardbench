@@ -19,7 +19,7 @@ fn shown_index_includes_the_stoneshaker_public_scenario() {
         .len();
 
     assert_eq!(
-        executable_count, 189,
+        executable_count, 192,
         "Stoneshaker remains in the shown corpus"
     );
     assert_eq!(

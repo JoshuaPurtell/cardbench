@@ -9701,18 +9701,27 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                 effects: vec![Effect::SacrificeControllerCreature],
             },
         },
-        TriggeredAbilityBinding {
-            card_definition: "RAV-INSTILL-FUROR",
-            ability: TriggeredAbility {
-                id: "attached-creature-controller-end-step-sacrifice-unless-attacked",
-                condition: TriggerCondition::BeginningOfAttachedCreaturesControllerEndStep,
-                mana_cost: ManaCost::new(0),
-                optional: false,
-                targets: vec![],
-                effects: vec![Effect::SacrificeAttachedCreatureUnlessItAttackedThisTurn],
-            },
-        },
     ]
+}
+
+/// Attachment-relative RAV triggers are registered separately because their
+/// typed Aura bindings must be installed in the same setup transaction. This
+/// keeps synthetic fixtures that exercise unrelated triggers from claiming a
+/// complete attachment registry while still making the Instill Furor line
+/// explicit for full-fidelity games.
+#[must_use]
+pub fn rav_attachment_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
+    vec![TriggeredAbilityBinding {
+        card_definition: "RAV-INSTILL-FUROR",
+        ability: TriggeredAbility {
+            id: "attached-creature-controller-end-step-sacrifice-unless-attacked",
+            condition: TriggerCondition::BeginningOfAttachedCreaturesControllerEndStep,
+            mana_cost: ManaCost::new(0),
+            optional: false,
+            targets: vec![],
+            effects: vec![Effect::SacrificeAttachedCreatureUnlessItAttackedThisTurn],
+        },
+    }]
 }
 
 /// Typed basic-land type lines for the five RAV basic-land definitions.
@@ -10725,7 +10734,7 @@ mod tests {
         let first = run_all_scenarios().expect("first scenario execution");
         let second = run_all_scenarios().expect("second scenario execution");
         assert_eq!(first, second);
-        assert_eq!(first.len(), 189);
+        assert_eq!(first.len(), 192);
         assert!(first.iter().all(|result| !result.digest.is_empty()));
         verify_reference_event_logs().expect("public RAV logs should match fixed baselines");
     }
