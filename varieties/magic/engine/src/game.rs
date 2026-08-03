@@ -8939,7 +8939,7 @@ impl Game {
                 }]
             || top.targets.as_slice() != [Target::Spell(target_spell)]
             || target.controller != player
-            || self.object(target_spell)?.incarnation != target_incarnation
+            || target.source_incarnation != target_incarnation
             || self
                 .stack
                 .iter()
@@ -9036,7 +9036,7 @@ impl Game {
             || top.targets.as_slice() != [Target::Spell(target_spell)]
             || target.controller != player
             || target.ability_id.is_some()
-            || self.object(target_spell)?.incarnation != target_incarnation
+            || target.source_incarnation != target_incarnation
             || self
                 .stack
                 .iter()
