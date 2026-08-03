@@ -5,9 +5,9 @@ use cardbench_magic_engine::{
     TriggerCondition, Zone,
 };
 use cardbench_magic_rav::{
-    card_definitions, rav_activated_ability_bindings, rav_additional_spell_cost_bindings,
-    rav_basic_land_type_bindings, rav_mana_ability_bindings, rav_triggered_ability_bindings,
-    RAV_FULL_FIDELITY_DEFINITION_IDS,
+    RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, rav_activated_ability_bindings,
+    rav_additional_spell_cost_bindings, rav_basic_land_type_bindings, rav_mana_ability_bindings,
+    rav_triggered_ability_bindings,
 };
 
 fn rav_game() -> Game {
