@@ -162,4 +162,36 @@ fn cleanup_sba_trigger_opens_priority_before_the_next_turn() {
     // The first player, not the next turn's player, has the opportunity to
     // act before the pending trigger resolves.
     assert_eq!(game.next_policy_player(), first);
+
+    for player in [first, second] {
+        game.pass_priority(player)
+            .expect("the cleanup trigger resolves after both players pass");
+    }
+    assert!(game.stack.is_empty());
+    assert_eq!(game.step, Step::Cleanup);
+    assert_eq!(game.priority, first);
+
+    for player in [first, second] {
+        game.pass_priority(player)
+            .expect("the exceptional cleanup window closes");
+    }
+    assert_eq!(game.turn, 2);
+    assert_eq!(game.step, Step::Upkeep);
+    assert_eq!(game.priority, second);
+    assert_eq!(
+        game.event_log
+            .iter()
+            .filter(|event| matches!(
+                event,
+                GameEvent::StepBegan {
+                    step: Step::Cleanup,
+                    ..
+                }
+            ))
+            .count(),
+        2,
+        "the trigger window must be followed by one repeated Cleanup"
+    );
+    game.validate_invariants()
+        .expect("repeated cleanup returns to the ordinary turn machine");
 }

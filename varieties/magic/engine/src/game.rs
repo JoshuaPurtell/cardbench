@@ -955,6 +955,11 @@ pub struct Game {
     /// are established, which starts turn one at Untap then Upkeep.
     started: bool,
     terminal_event_emitted: bool,
+    /// CR 514.3 exceptional Cleanup provenance. A trigger or decision created
+    /// while Cleanup's state-based actions are checked grants priority; after
+    /// that work empties the stack, Cleanup must run once more rather than
+    /// proceeding directly to the next turn.
+    cleanup_repeat_required: bool,
     combat: Option<CombatState>,
     /// The player currently choosing a replacement for a draw. This prevents
     /// dredge from becoming a free graveyard action and makes that compulsory
@@ -1220,6 +1225,7 @@ impl Game {
             shuffle_seed: 0,
             started: false,
             terminal_event_emitted: false,
+            cleanup_repeat_required: false,
             combat: None,
             pending_draw_replacement: None,
             pending_empty_library_draw_losses: BTreeSet::new(),
@@ -12141,6 +12147,11 @@ impl Game {
                 "a continuing game assigned the active turn to an eliminated player",
             ));
         }
+        if self.cleanup_repeat_required && self.step != Step::Cleanup {
+            return Err(RulesError::IllegalAction(
+                "cleanup-repeat provenance escaped the cleanup step",
+            ));
+        }
         if self.event_log != self.event_log_integrity {
             return Err(RulesError::IllegalAction(
                 "canonical event log was mutated outside an engine transition",
@@ -12315,7 +12326,11 @@ impl Game {
         self.validate_damage_amount_replacement_events()?;
         self.validate_combat_damage_mill_counter_replacement_events()?;
         self.validate_global_combat_damage_prevention_event_order()?;
-        if self.started && !self.is_game_over() && !self.step.grants_priority() {
+        if self.started
+            && !self.is_game_over()
+            && !self.step.grants_priority()
+            && !(self.step == Step::Cleanup && self.cleanup_repeat_required)
+        {
             return Err(RulesError::IllegalAction(
                 "an automatic turn step remained stable with player priority",
             ));
@@ -25121,6 +25136,14 @@ impl Game {
         for player in &mut self.players {
             player.mana_pool.clear();
         }
+        if self.step == Step::Cleanup && self.cleanup_repeat_required {
+            // CR 514.3: after a Cleanup-generated trigger has given players
+            // priority and all resulting stack work is complete, repeat
+            // Cleanup instead of beginning the next player's turn.
+            self.cleanup_repeat_required = false;
+            self.priority = self.priority_after_resolution();
+            return self.start_step();
+        }
         let skip_combat = matches!(self.step, Step::DeclareAttackers | Step::DeclareBlockers)
             && self.combat.as_ref().is_some_and(|combat| {
                 combat.attackers_declared
@@ -25322,6 +25345,14 @@ impl Game {
                     });
                 }
                 self.check_state_based_actions()?;
+                // Cleanup normally has no priority.  Its exceptional CR
+                // 514.3 path starts when state-based actions create a stack
+                // object or a trigger-placement decision; retain this fact
+                // so the later empty-stack pass repeats Cleanup.
+                self.cleanup_repeat_required = !self.is_game_over()
+                    && (!self.stack.is_empty()
+                        || self.pending_decision.is_some()
+                        || self.pending_optional_trigger_choice.is_some());
             }
             _ => {}
         }
@@ -25331,7 +25362,10 @@ impl Game {
             // priority-bearing Upkeep state.
             self.check_state_based_actions()?;
         }
-        if (self.step == Step::Untap || self.step == Step::Cleanup) && !self.is_game_over() {
+        if (self.step == Step::Untap
+            || (self.step == Step::Cleanup && !self.cleanup_repeat_required))
+            && !self.is_game_over()
+        {
             // CR 117.3a and 514.3: neither normal Untap nor this slice's
             // ordinary Cleanup gives priority. Advance immediately.
             self.advance_step()?;
@@ -31668,7 +31702,9 @@ impl Game {
     fn require_priority(&self, player: PlayerId) -> Result<(), RulesError> {
         self.player(player)?;
         self.require_game_in_progress()?;
-        if !self.step.grants_priority() {
+        if !self.step.grants_priority()
+            && !(self.step == Step::Cleanup && self.cleanup_repeat_required)
+        {
             return Err(RulesError::IllegalAction(
                 "no player receives priority during this automatic step",
             ));
