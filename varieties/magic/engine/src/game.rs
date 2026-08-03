@@ -2178,6 +2178,17 @@ impl Game {
         &mut self,
         bindings: impl IntoIterator<Item = StaticCreatureSpellCostModifierBinding>,
     ) -> Result<(), RulesError> {
+        self.atomic_transition(|game| {
+            game.register_static_creature_spell_cost_modifiers_impl(bindings)
+        })
+    }
+
+    /// Applies one setup batch inside the public transaction journal so an
+    /// invalid later member cannot retain an earlier spell-cost prefix.
+    fn register_static_creature_spell_cost_modifiers_impl(
+        &mut self,
+        bindings: impl IntoIterator<Item = StaticCreatureSpellCostModifierBinding>,
+    ) -> Result<(), RulesError> {
         if self.started {
             return Err(RulesError::IllegalAction(
                 "static creature-spell cost modifiers cannot change after the game starts",
@@ -2211,6 +2222,17 @@ impl Game {
     /// game starts. Each source is evaluated at a later ordinary battlefield
     /// entry, so normal source departure revokes it without a cleanup effect.
     pub fn register_static_entry_restriction_bindings(
+        &mut self,
+        bindings: impl IntoIterator<Item = StaticEntryRestrictionBinding>,
+    ) -> Result<(), RulesError> {
+        self.atomic_transition(|game| {
+            game.register_static_entry_restriction_bindings_impl(bindings)
+        })
+    }
+
+    /// Applies one setup batch inside the public transaction journal so an
+    /// invalid later member cannot retain an earlier entry-rule prefix.
+    fn register_static_entry_restriction_bindings_impl(
         &mut self,
         bindings: impl IntoIterator<Item = StaticEntryRestrictionBinding>,
     ) -> Result<(), RulesError> {
@@ -2394,6 +2416,17 @@ impl Game {
     /// shuffle, zone move, copy, or source departure cannot strand hidden-card
     /// information in mutable game state.
     pub fn register_static_library_top_reveal_bindings(
+        &mut self,
+        bindings: impl IntoIterator<Item = StaticLibraryTopRevealBinding>,
+    ) -> Result<(), RulesError> {
+        self.atomic_transition(|game| {
+            game.register_static_library_top_reveal_bindings_impl(bindings)
+        })
+    }
+
+    /// Applies one setup batch inside the public transaction journal so an
+    /// invalid later member cannot retain an earlier visibility prefix.
+    fn register_static_library_top_reveal_bindings_impl(
         &mut self,
         bindings: impl IntoIterator<Item = StaticLibraryTopRevealBinding>,
     ) -> Result<(), RulesError> {
