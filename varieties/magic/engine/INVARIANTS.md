@@ -2488,7 +2488,9 @@ Oracle Magic rules coverage.
   static change cannot be inserted into the timestamped continuous-effect
   list.
 - Static attack-restriction bindings are likewise immutable expansion data and
-  can be registered only before game start. Each names a permanent definition,
+  can be registered only before game start; their complete registration batch
+  is atomic, so a duplicate or invalid later member cannot retain an earlier
+  hidden combat restriction. Each names a permanent definition,
   remains active only while a matching source is on the battlefield under the
   defending player's control, and is checked before a nonempty attacker
   declaration mutates any tapped state, combat provenance, or event log. A
