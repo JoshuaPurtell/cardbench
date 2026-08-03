@@ -2641,6 +2641,11 @@ Oracle Magic rules coverage.
   trigger would be created, it is not placed on the stack and the Equipment
   remains a legal unattached permanent. It must never attach through a
   card-name exception or to an opponent's creature merely because one exists.
+- A source-bound compatible-Aura library search attaches the selected Aura
+  before capturing its normal entry batch. That batch includes the Aura's own
+  ETB plus every applicable controlled Aura/nonartifact observer, and remains
+  queued through the resolving search ability's terminal receipt and SBA
+  checkpoint; a self-only Aura trigger path is invalid.
 - The bounded linked-exile resolver intentionally stores no closures. Its
   typed group and delayed-action records remain invariant-valid while a sole
   target creature, or that creature plus its linked Auras, is suspended in
