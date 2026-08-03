@@ -662,6 +662,13 @@ Oracle Magic rules coverage.
   trigger instances from one persistent source cannot share an answer. A
   stale action leaves the later target choice, suspended trigger, and event
   sequence unchanged.
+- `TriggeredAbilityEffectObjectChoiceView` is only a projection of a live
+  `TriggeredEffectObject` generic decision. Its
+  `ChooseTriggeredAbilityEffectObject` compatibility action must echo that
+  exact `DecisionId` as well as source/ability identity. In particular, an
+  empty selection from one multi-player discard trigger cannot complete the
+  same source's later empty-hand choice or advance its next chooser. A stale
+  action preserves the later choice, continuation, and event sequence.
 - `DecisionKind::PublicGraveyardCreatureReturn` retains one exact target-free
   spell stack object while its affected living players choose serially from
   their own public graveyards. Only a player with one or more current creature
