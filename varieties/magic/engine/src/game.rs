@@ -3133,25 +3133,30 @@ impl Game {
                 .ok_or(RulesError::UnknownCard(activation.source))?
                 .tapped = true;
         }
-        if ability.sacrifice_source {
-            self.record_event(GameEvent::SacrificedAsAbilityCost {
-                player,
-                source: activation.source,
-                permanent: activation.source,
-            });
-            self.move_to_graveyard_or_remove_token(activation.source)?;
+        // A cost such as "sacrifice two creatures" is one simultaneous
+        // battlefield-to-graveyard event.  Capture generic departure and
+        // graveyard observers while every selected permanent is still live;
+        // otherwise an early sacrificed observer cannot see a later member
+        // of the same cost through last-known information.
+        let simultaneous_sacrifice_cost = activation.sacrifice_sources.len() > 1;
+        if simultaneous_sacrifice_cost {
+            self.enqueue_simultaneous_graveyard_entry_and_creature_departure_triggers(
+                activation.sacrifice_sources.iter().copied(),
+            )?;
         }
-        for permanent in activation
-            .sacrifice_sources
-            .iter()
-            .skip(usize::from(ability.sacrifice_source))
-        {
+        for permanent in &activation.sacrifice_sources {
             self.record_event(GameEvent::SacrificedAsAbilityCost {
                 player,
                 source: activation.source,
                 permanent: *permanent,
             });
-            self.move_to_graveyard_or_remove_token(*permanent)?;
+            if simultaneous_sacrifice_cost {
+                self.move_to_graveyard_or_remove_token_after_simultaneous_graveyard_trigger_capture(
+                    *permanent,
+                )?;
+            } else {
+                self.move_to_graveyard_or_remove_token(*permanent)?;
+            }
         }
         for permanent in &activation.additional_tap_creatures {
             self.objects
