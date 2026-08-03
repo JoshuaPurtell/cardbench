@@ -359,6 +359,15 @@ Oracle Magic rules coverage.
   never receives one, and a colorless target selects only itself. Each receipt
   is governed by the ordinary target-side shield lifecycle above, rather than
   a shared mutable batch record.
+- A chosen-X Radiance damage-and-life instruction snapshots that same target
+  plus shared-color creature set before any damage packet commits. Its
+  aggregate is the sum of only its bounded batch's positive committed
+  `DamageDealtToPermanent` or redirected `DamageDealtToPlayer` receipts after
+  replacement and prevention; the declared X and prevented prospective
+  packets cannot inflate it. A positive aggregate emits
+  `DamageBatchLifeGained` with the exact source incarnation immediately before
+  an equal `LifeGained` receipt for the resolving controller. A zero aggregate
+  emits neither receipt nor a synthetic life trigger.
 - A source-side combat-damage prevention record has a unique positive id, a
   current-turn expiry, a retained creating-source identity, and one exact live
   battlefield permanent incarnation. It is created only while its target still

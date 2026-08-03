@@ -49,8 +49,8 @@ a zone move. The fetched Aura's ordinary ETB trigger is queued only after the
 Mage trigger's terminal receipt. The opponent sees neither unselected Aura
 identities nor a private decision projection.
 
-The current catalog partition is 271 full / 6 partial / 14 catalog-only unique
-names (286 / 6 / 14 printings). The independently checked coverage-report
+The current catalog partition is 272 full / 6 partial / 13 catalog-only unique
+names (287 / 6 / 13 printings). The independently checked coverage-report
 binary emits the same partition.
 
 Molten Sentry is a full-fidelity entry whose setup-only deterministic seed
@@ -58,6 +58,14 @@ selects one entry-time layer-one power/toughness and keyword shape before ETB
 observation. Copies retain that already selected shape rather than consuming a
 new outcome. Its public scenario pins the heads result and checks the resulting
 receipt digest; no card prose, art, scan, or source payload is retained.
+
+Brightflame is a full-fidelity chosen-X Radiance entry. Its reusable resolver
+snapshots the color-sharing creature batch, preserves the single submitted X
+through ordinary payment and stack resolution, and records life only from
+damage receipts that actually committed after prevention or replacement. Its
+direct Rust trace pairs the aggregate receipt with ordinary life gain and
+exercises a same-color prevention replacement; it retains no card prose or
+source payload.
 
 Eye of the Storm is a source-incarnation-scoped linked-exile entry. An observed
 physical instant-or-sorcery spell first moves to exile through ordinary
