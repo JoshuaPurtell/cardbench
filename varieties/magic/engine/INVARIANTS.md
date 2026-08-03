@@ -1704,7 +1704,10 @@ Oracle Magic rules coverage.
   positive generic amount, one unique declarative modifier per source
   definition, and is fixed before the game starts. The initial RAV-sufficient
   boundary admits only modifiers scoped to nonmana activated abilities; a mana
-  ability is never taxed. Every live source applies once to any player's
+  ability is never taxed. Its pregame registration batch is atomic, so an
+  invalid or duplicate later member cannot silently retain an earlier modifier
+  that alters a corrected activation-cost configuration. Every live source
+  applies once to any player's
   eligible activation, so multiple sources stack in stable object-id order and
   ordinary source departure immediately removes its contribution. The typed
   cost context retains acting player, activating source/incarnation, ability,
