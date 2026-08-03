@@ -1279,8 +1279,9 @@ Oracle Magic rules coverage.
   immediately before the battlefield-to-graveyard transition; token and
   opposing-creature deaths queue no such event. Dies triggers retain the historical source object after a graveyard move and
   materialize every declared target slot before stacking; a legal selected
-  target cannot be dropped or replaced by an empty target vector. One
-  simultaneous creature-death SBA batch freezes every represented
+  target cannot be dropped or replaced by an empty target vector. Every
+  represented simultaneous creature-death batch, including an SBA sweep or
+  one destroy-all instruction, freezes every represented
   `AnotherCreatureLeavesBattlefield`, `AnotherCreatureDies`, and
   `ControlledNontokenCreatureDies` observer before any member changes zones.
   This includes an otherwise dying observer's own last-known battlefield
@@ -2000,6 +2001,14 @@ Oracle Magic rules coverage.
   before its members take their individual graveyard/token-departure
   transitions. No member's departure may suppress another member's generic
   death or leaves-the-battlefield trigger from that same SBA event.
+- A represented simultaneous destruction instruction deduplicates its
+  selected battlefield recipients, consumes each eligible regeneration shield
+  before committing a death, and uses the same shared creature-departure
+  observer snapshot for every remaining recipient. Its individual
+  `CardDestroyed`, zone, and incarnation receipts are still ordered, but they
+  cannot make an earlier dying source invisible to a later same-instruction
+  departure. This applies to the non-token creature, mana-value creature and
+  nonland, and represented Radiance enchantment destruction batches.
 - Radiance selection is evaluated at resolution from the legal creature target:
   it includes that target and every battlefield creature sharing at least one
   of its colors, regardless of controller. Each effect declares whether it
