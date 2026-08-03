@@ -46,7 +46,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 277] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 278] = [
     "RAV-CHAR",
     "RAV-AGRUS-KOS-WOJEK-VETERAN",
     "RAV-INSTILL-FUROR",
@@ -213,6 +213,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 277] = [
     "RAV-HUNTED-TROLL",
     "RAV-KEENING-BANSHEE",
     "RAV-RAZIA-BOROS-ARCHANGEL",
+    "RAV-RAZIAS-PURIFICATION",
     "RAV-HAMMERFIST-GIANT",
     "RAV-INCITE-HYSTERIA",
     "RAV-SCREECHING-GRIFFIN",
@@ -3561,6 +3562,33 @@ pub fn card_definitions() -> Vec<CardDefinition> {
             toughness: Some(3),
             keywords: vec![Keyword::Flying, Keyword::Vigilance, Keyword::Haste],
             effects: vec![],
+        },
+        // Full fidelity: resolving the target-free sorcery suspends for each
+        // living player's public selection of up to three controlled
+        // permanents, then sacrifices every unselected permanent as one batch
+        // before the spell reaches its terminal zone.
+        CardDefinition {
+            id: "RAV-RAZIAS-PURIFICATION",
+            name: "Razia's Purification",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(4, [Color::Red, Color::White]),
+            colors: colors([Color::Red, Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Sorcery]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "each-player-preserves-up-to-three-controlled-permanents",
+                "simultaneous-sacrifice-of-unpreserved-permanents",
+                "public-policy-submitted-permanent-selection",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![
+                Effect::EachPlayerPreservesUpToThreeControlledPermanentsThenSacrificesRest,
+            ],
         },
         // Full fidelity: the tap ability snapshots every non-Flying creature
         // and deals four damage to each through the normal damage/SBA batch.

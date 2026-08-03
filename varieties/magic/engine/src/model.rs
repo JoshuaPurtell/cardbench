@@ -1938,6 +1938,11 @@ pub enum Effect {
     /// decision boundary. Every resulting discard and zone move remains an
     /// explicit event-log receipt.
     DiscardOneCardEachPlayer,
+    /// Each living player preserves up to three currently controlled
+    /// permanents, then sacrifices every other permanent they control. Every
+    /// selection is public and serial, but no player receives priority before
+    /// the complete sacrifice batch resolves.
+    EachPlayerPreservesUpToThreeControlledPermanentsThenSacrificesRest,
     /// Discard up to the requested number of cards from a target player's
     /// hand. When that player has a choice, resolution suspends at a private,
     /// recipient-owned decision boundary whose exact hand snapshot is
@@ -3135,6 +3140,7 @@ impl Effect {
             | Self::LoseLifeControllerForCountersOnSource { .. }
             | Self::LoseLifeEachOpponentEqualToControlledCreatures
             | Self::DiscardOneCardEachPlayer
+            | Self::EachPlayerPreservesUpToThreeControlledPermanentsThenSacrificesRest
             | Self::DiscardCombatDamagePlayer { .. }
             | Self::DiscardCapturedPlayer { .. }
             | Self::SacrificeControllerCreature
@@ -4216,6 +4222,11 @@ pub enum DecisionKind {
     /// their own land cards from their public graveyard. The one response is
     /// held against the exact stack item and each selected card incarnation.
     PublicGraveyardLandReturn,
+    /// Each affected player preserves up to three of their currently
+    /// controlled public permanents while one target-free spell remains on
+    /// the stack. Every unselected permanent is sacrificed only after all
+    /// affected players have submitted their selections.
+    PreserveControlledPermanents,
     /// The controller of a resolving effect selects one different legal
     /// replacement target for an exact single-target activated stack item.
     RetargetActivatedAbility,
@@ -4717,6 +4728,17 @@ pub enum DecisionContinuation {
         remaining_players: Vec<PlayerId>,
         selected: Vec<GraveyardCreatureCardSnapshot>,
     },
+    /// A target-free spell waits for each living player to preserve up to
+    /// three currently controlled permanents. Selections remain exact public
+    /// snapshots until the resulting simultaneous sacrifice batch resolves.
+    PreserveUpToThreeControlledPermanentsThenSacrificeRest {
+        source_stack_item: StackObjectId,
+        source: ObjectId,
+        source_incarnation: u64,
+        controller: PlayerId,
+        remaining_players: Vec<PlayerId>,
+        preserved: Vec<PreservedPermanentSnapshot>,
+    },
     /// A target-free spell waits for its controller to select zero through
     /// three land cards from their public graveyard. The selected identities
     /// retain their exact incarnations, so a stale response cannot move a
@@ -4797,6 +4819,16 @@ pub struct HandCardSnapshot {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct BattlefieldCreatureSnapshot {
     pub creature: ObjectId,
+    pub incarnation: u64,
+}
+
+/// One permanent a player preserved while a target-free spell was suspended.
+/// Both the controller and the exact incarnation are retained so a stale
+/// policy response cannot spare a later object sharing its stable id.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct PreservedPermanentSnapshot {
+    pub player: PlayerId,
+    pub permanent: ObjectId,
     pub incarnation: u64,
 }
 

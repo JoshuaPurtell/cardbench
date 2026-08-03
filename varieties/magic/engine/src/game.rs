@@ -26,14 +26,14 @@ use crate::{
     LinkedExileMember, LinkedExileMemberRole, ManaAbilityActivation, ManaAbilityBinding,
     ManaAbilityBundleChoiceActivation, ManaAbilityCostBinding, ManaAbilityOutput, ManaBundle,
     ManaCost, ManaPaymentSelection, ObjectId, PendingDecision, PlayerId, PlayerState,
-    PolicyMoveKind, QuantityReplacementResolution, ReplacementChoice, ReplacementEffect,
-    ReplacementEffectBinding, ReplacementEventKind, ResolutionPaymentManaAbility,
-    StackEffectResolution, StackObject, StackObjectId, StackResolutionPlan,
-    StaticAttackRestriction, StaticAttackRestrictionBinding, StaticContinuousEffectBinding,
-    StaticCreatureSpellCostModifier, StaticCreatureSpellCostModifierBinding,
-    StaticEntryRestriction, StaticEntryRestrictionBinding, StaticLibraryTopRevealBinding,
-    StaticLibraryTopRevealScope, Step, TRANSMUTE_ABILITY_ID, Target, TargetRequirement, TokenSpec,
-    TriggerCondition, TriggerOrderEntry, TriggeredAbilityBinding,
+    PolicyMoveKind, PreservedPermanentSnapshot, QuantityReplacementResolution, ReplacementChoice,
+    ReplacementEffect, ReplacementEffectBinding, ReplacementEventKind,
+    ResolutionPaymentManaAbility, StackEffectResolution, StackObject, StackObjectId,
+    StackResolutionPlan, StaticAttackRestriction, StaticAttackRestrictionBinding,
+    StaticContinuousEffectBinding, StaticCreatureSpellCostModifier,
+    StaticCreatureSpellCostModifierBinding, StaticEntryRestriction, StaticEntryRestrictionBinding,
+    StaticLibraryTopRevealBinding, StaticLibraryTopRevealScope, Step, TRANSMUTE_ABILITY_ID, Target,
+    TargetRequirement, TokenSpec, TriggerCondition, TriggerOrderEntry, TriggeredAbilityBinding,
     TriggeredEffectObjectDecisionKind, Zone,
 };
 
@@ -4664,6 +4664,9 @@ impl Game {
                 | DecisionContinuation::TargetPlayerManaColor { .. }
                 | DecisionContinuation::TargetPlayerLibraryTopMayGraveyard { .. }
                 | DecisionContinuation::ReturnOneCreatureCardFromEachGraveyardToHand { .. }
+                | DecisionContinuation::PreserveUpToThreeControlledPermanentsThenSacrificeRest {
+                    ..
+                }
                 | DecisionContinuation::ReturnUpToThreeControllerGraveyardLandCardsToHand {
                     ..
                 }
@@ -4743,6 +4746,9 @@ impl Game {
                 | DecisionContinuation::TargetPlayerManaColor { .. }
                 | DecisionContinuation::TargetPlayerLibraryTopMayGraveyard { .. }
                 | DecisionContinuation::ReturnOneCreatureCardFromEachGraveyardToHand { .. }
+                | DecisionContinuation::PreserveUpToThreeControlledPermanentsThenSacrificeRest {
+                    ..
+                }
                 | DecisionContinuation::ReturnUpToThreeControllerGraveyardLandCardsToHand {
                     ..
                 }
@@ -4809,6 +4815,9 @@ impl Game {
                 | DecisionContinuation::TargetPlayerManaColor { .. }
                 | DecisionContinuation::TargetPlayerLibraryTopMayGraveyard { .. }
                 | DecisionContinuation::ReturnOneCreatureCardFromEachGraveyardToHand { .. }
+                | DecisionContinuation::PreserveUpToThreeControlledPermanentsThenSacrificeRest {
+                    ..
+                }
                 | DecisionContinuation::ReturnUpToThreeControllerGraveyardLandCardsToHand {
                     ..
                 }
@@ -4907,6 +4916,9 @@ impl Game {
                 | DecisionContinuation::TargetPlayerManaColor { .. }
                 | DecisionContinuation::TargetPlayerLibraryTopMayGraveyard { .. }
                 | DecisionContinuation::ReturnOneCreatureCardFromEachGraveyardToHand { .. }
+                | DecisionContinuation::PreserveUpToThreeControlledPermanentsThenSacrificeRest {
+                    ..
+                }
                 | DecisionContinuation::ReturnUpToThreeControllerGraveyardLandCardsToHand {
                     ..
                 }
@@ -9392,6 +9404,26 @@ impl Game {
                     remaining_players,
                     selected,
                     selected_now.into_iter().next(),
+                )
+            }
+            DecisionContinuation::PreserveUpToThreeControlledPermanentsThenSacrificeRest {
+                source_stack_item,
+                source,
+                source_incarnation,
+                controller,
+                remaining_players,
+                preserved,
+            } => {
+                let selected_now = Self::validate_object_decision_selection(&decision, selection)?;
+                self.resolve_preserve_controlled_permanents_decision(
+                    &decision,
+                    source_stack_item,
+                    source,
+                    source_incarnation,
+                    controller,
+                    remaining_players,
+                    preserved,
+                    selected_now,
                 )
             }
             DecisionContinuation::ReturnUpToThreeControllerGraveyardLandCardsToHand {
@@ -18800,6 +18832,7 @@ impl Game {
                 | Effect::AddPlusOneCountersToCapturedConvokeCreatures { .. }
                 | Effect::LoseLifeEachOpponentEqualToControlledCreatures
                 | Effect::DiscardOneCardEachPlayer
+                | Effect::EachPlayerPreservesUpToThreeControlledPermanentsThenSacrificesRest
                 | Effect::DiscardTargetPlayer { .. }
                 | Effect::DiscardCombatDamagePlayer { .. }
                 | Effect::DiscardCapturedPlayer { .. }
@@ -19567,6 +19600,9 @@ impl Game {
             return Ok(());
         }
         if self.suspend_top_stack_item_for_public_graveyard_creature_return_choice()? {
+            return Ok(());
+        }
+        if self.suspend_top_stack_item_for_preserve_controlled_permanents_choice()? {
             return Ok(());
         }
         if self.suspend_top_stack_item_for_public_graveyard_land_return_choice()? {
@@ -21601,6 +21637,285 @@ impl Game {
             },
         )?;
         Ok(true)
+    }
+
+    /// Lists the current public permanent choices controlled by one living
+    /// player. The decision continuation retains exact incarnations because
+    /// object ids alone would permit a stale response to spare a later object.
+    fn controlled_permanent_candidates(
+        &self,
+        player: PlayerId,
+    ) -> Result<Vec<ObjectId>, RulesError> {
+        if self.player(player)?.lost {
+            return Ok(Vec::new());
+        }
+        Ok(self
+            .all_battlefield_cards()
+            .into_iter()
+            .filter(|permanent| self.controller_of(*permanent) == Ok(player))
+            .collect())
+    }
+
+    /// Suspends a target-free spell while each living player preserves the
+    /// zero through three controlled permanents. The selections are serial
+    /// public decisions, but no card moves or priority windows occur before
+    /// every affected player has supplied their full selection.
+    fn suspend_top_stack_item_for_preserve_controlled_permanents_choice(
+        &mut self,
+    ) -> Result<bool, RulesError> {
+        if self.pending_decision.is_some()
+            || self.pending_private_library_choice.is_some()
+            || self.pending_private_opponent_library_exile_choice.is_some()
+        {
+            return Err(RulesError::IllegalAction(
+                "a permanent-preservation choice attempted to overlap another decision",
+            ));
+        }
+        let Some(top) = self.stack.last().cloned() else {
+            return Ok(false);
+        };
+        if top.ability_id.is_some()
+            || !top.targets.is_empty()
+            || top.effects.as_slice()
+                != [Effect::EachPlayerPreservesUpToThreeControlledPermanentsThenSacrificesRest]
+        {
+            return Ok(false);
+        }
+        let remaining_players = (0..self.players.len())
+            .map(|offset| PlayerId((self.active_player.0 + offset) % self.players.len()))
+            .filter(|player| !self.players[player.0].lost)
+            .collect::<Vec<_>>();
+        self.open_next_preserve_controlled_permanents_decision(
+            top.id,
+            top.card,
+            top.source_incarnation,
+            top.controller,
+            remaining_players,
+            Vec::new(),
+        )
+    }
+
+    /// Opens the next affected player's exact public preservation decision.
+    /// A player with no controlled permanents is skipped because that player
+    /// has no choice and will contribute no sacrifice to the final batch.
+    #[allow(clippy::too_many_arguments)] // Every field is required to resume the exact stack item.
+    fn open_next_preserve_controlled_permanents_decision(
+        &mut self,
+        source_stack_item: StackObjectId,
+        source: ObjectId,
+        source_incarnation: u64,
+        controller: PlayerId,
+        mut remaining_players: Vec<PlayerId>,
+        preserved: Vec<PreservedPermanentSnapshot>,
+    ) -> Result<bool, RulesError> {
+        while let Some(player) = remaining_players.first().copied() {
+            let candidates = self.controlled_permanent_candidates(player)?;
+            if candidates.is_empty() {
+                remaining_players.remove(0);
+                continue;
+            }
+            let max_selections = u8::try_from(candidates.len().min(3)).expect("three fits in u8");
+            self.open_pending_decision(
+                player,
+                DecisionVisibility::Public,
+                DecisionKind::PreserveControlledPermanents,
+                0,
+                max_selections,
+                candidates.into_iter().map(DecisionOption::Object).collect(),
+                DecisionContinuation::PreserveUpToThreeControlledPermanentsThenSacrificeRest {
+                    source_stack_item,
+                    source,
+                    source_incarnation,
+                    controller,
+                    remaining_players,
+                    preserved,
+                },
+            )?;
+            return Ok(true);
+        }
+        Ok(false)
+    }
+
+    /// Stores one player's exact preservation selection, then either opens the
+    /// next player's decision or commits the complete sacrifice batch.
+    #[allow(clippy::too_many_arguments)] // The continuation owns full public selection provenance.
+    fn resolve_preserve_controlled_permanents_decision(
+        &mut self,
+        decision: &PendingDecision,
+        source_stack_item: StackObjectId,
+        source: ObjectId,
+        source_incarnation: u64,
+        controller: PlayerId,
+        mut remaining_players: Vec<PlayerId>,
+        mut preserved: Vec<PreservedPermanentSnapshot>,
+        selected_now: Vec<ObjectId>,
+    ) -> Result<(), RulesError> {
+        let player = decision.player;
+        if remaining_players.first() != Some(&player) {
+            return Err(RulesError::IllegalAction(
+                "permanent-preservation choice player is not next in the resolving spell",
+            ));
+        }
+        let candidates = self.controlled_permanent_candidates(player)?;
+        let expected_options = candidates
+            .iter()
+            .copied()
+            .map(DecisionOption::Object)
+            .collect::<Vec<_>>();
+        let max_selections = u8::try_from(candidates.len().min(3)).expect("three fits in u8");
+        if decision.kind != DecisionKind::PreserveControlledPermanents
+            || decision.visibility != DecisionVisibility::Public
+            || decision.options != expected_options
+            || decision.min_selections != 0
+            || decision.max_selections != max_selections
+            || selected_now.len() > usize::from(max_selections)
+            || selected_now
+                .iter()
+                .any(|permanent| !candidates.contains(permanent))
+            || preserved.iter().any(|snapshot| snapshot.player == player)
+        {
+            return Err(RulesError::IllegalAction(
+                "permanent-preservation choice no longer matches its player or candidates",
+            ));
+        }
+        for permanent in selected_now {
+            preserved.push(PreservedPermanentSnapshot {
+                player,
+                permanent,
+                incarnation: self.object(permanent)?.incarnation,
+            });
+        }
+        remaining_players.remove(0);
+        self.complete_pending_decision(decision)?;
+        if self.open_next_preserve_controlled_permanents_decision(
+            source_stack_item,
+            source,
+            source_incarnation,
+            controller,
+            remaining_players,
+            preserved.clone(),
+        )? {
+            return Ok(());
+        }
+        self.finish_preserve_controlled_permanents_spell(
+            source_stack_item,
+            source,
+            source_incarnation,
+            controller,
+            &preserved,
+        )
+    }
+
+    /// Commits the all-player preservation selection as one sacrifice batch,
+    /// before the resolving spell reaches its ordinary terminal zone.
+    fn finish_preserve_controlled_permanents_spell(
+        &mut self,
+        source_stack_item: StackObjectId,
+        source: ObjectId,
+        source_incarnation: u64,
+        controller: PlayerId,
+        preserved: &[PreservedPermanentSnapshot],
+    ) -> Result<(), RulesError> {
+        let top = self.stack.last().ok_or(RulesError::IllegalAction(
+            "permanent-preservation choice escaped its stack spell",
+        ))?;
+        if top.id != source_stack_item
+            || top.card != source
+            || top.source_incarnation != source_incarnation
+            || top.controller != controller
+            || top.ability_id.is_some()
+            || !top.targets.is_empty()
+            || top.effects.as_slice()
+                != [Effect::EachPlayerPreservesUpToThreeControlledPermanentsThenSacrificesRest]
+        {
+            return Err(RulesError::IllegalAction(
+                "permanent-preservation stack provenance changed before resolution",
+            ));
+        }
+        for player in self
+            .players
+            .iter()
+            .filter(|player| !player.lost)
+            .map(|player| player.id)
+        {
+            let candidates = self.controlled_permanent_candidates(player)?;
+            let selected = preserved
+                .iter()
+                .filter(|snapshot| snapshot.player == player)
+                .collect::<Vec<_>>();
+            if selected.len() > candidates.len().min(3)
+                || selected.iter().enumerate().any(|(index, snapshot)| {
+                    snapshot.incarnation == 0
+                        || !candidates.contains(&snapshot.permanent)
+                        || self
+                            .object(snapshot.permanent)
+                            .map_or(true, |object| object.incarnation != snapshot.incarnation)
+                        || selected[index + 1..]
+                            .iter()
+                            .any(|other| other.permanent == snapshot.permanent)
+                })
+            {
+                return Err(RulesError::IllegalAction(
+                    "preserved permanents no longer match the suspended spell",
+                ));
+            }
+        }
+        let preserved_identities = preserved
+            .iter()
+            .map(|snapshot| (snapshot.permanent, snapshot.incarnation))
+            .collect::<BTreeSet<_>>();
+        let battlefield_permanents = self
+            .all_battlefield_cards()
+            .into_iter()
+            .map(|permanent| {
+                Ok((
+                    self.controller_of(permanent)?,
+                    permanent,
+                    self.object(permanent)?.incarnation,
+                ))
+            })
+            .collect::<Result<Vec<_>, RulesError>>()?;
+        let sacrifices = battlefield_permanents
+            .into_iter()
+            .filter(|(player, permanent, incarnation)| {
+                !self.players[player.0].lost
+                    && !preserved_identities.contains(&(*permanent, *incarnation))
+            })
+            .map(|(player, permanent, _)| (player, permanent))
+            .collect::<Vec<_>>();
+        let stack_object = self.stack.pop().ok_or(RulesError::IllegalAction(
+            "permanent-preservation spell disappeared before resolution",
+        ))?;
+        if stack_object.id != source_stack_item {
+            return Err(RulesError::IllegalAction(
+                "permanent-preservation stack identity changed before resolution",
+            ));
+        }
+        for (player, permanent) in sacrifices {
+            self.record_event(GameEvent::SacrificedByEffect {
+                source,
+                player,
+                permanent,
+            });
+            self.move_to_graveyard_or_remove_token(permanent)?;
+        }
+        if let Some(copy) = self.virtual_spell_copies.remove(&source) {
+            self.record_event(GameEvent::SpellCopyResolved {
+                copy: source,
+                original: copy.original,
+            });
+        } else {
+            self.record_event(GameEvent::SpellResolved { card: source });
+            self.move_to_spell_terminal_zone(source)?;
+        }
+        self.check_state_based_actions_impl()?;
+        self.flush_pending_dies_triggers()?;
+        self.flush_pending_land_entry_triggers()?;
+        self.flush_pending_damage_triggers();
+        self.flush_pending_life_gain_triggers();
+        self.flush_pending_dies_triggers()?;
+        self.priority = self.priority_after_resolution();
+        Ok(())
     }
 
     /// Suspends this target-free public-zone spell until every affected player
@@ -27257,6 +27572,21 @@ impl Game {
                         self.record_event(GameEvent::CardDiscarded { player, card });
                         self.move_to_zone(card, Zone::Graveyard)?;
                     }
+                }
+            }
+            Effect::EachPlayerPreservesUpToThreeControlledPermanentsThenSacrificesRest => {
+                if self
+                    .players
+                    .iter()
+                    .filter(|player| !player.lost)
+                    .any(|player| {
+                        self.controlled_permanent_candidates(player.id)
+                            .is_ok_and(|candidates| !candidates.is_empty())
+                    })
+                {
+                    return Err(RulesError::IllegalAction(
+                        "controlled-permanent preservation effect bypassed its public choice boundary",
+                    ));
                 }
             }
             Effect::DiscardTargetPlayer { count } => {
@@ -40208,9 +40538,15 @@ impl Game {
                 let remaining_are_ordered_living =
                     remaining_players.iter().enumerate().all(|(index, player)| {
                         self.players.get(player.0).is_some_and(|state| !state.lost)
-                            && remaining_players[index + 1..]
-                                .iter()
-                                .all(|other| other.0 > player.0)
+                            && remaining_players[index + 1..].iter().all(|other| {
+                                let player_order =
+                                    (player.0 + self.players.len() - self.active_player.0)
+                                        % self.players.len();
+                                let other_order =
+                                    (other.0 + self.players.len() - self.active_player.0)
+                                        % self.players.len();
+                                other_order > player_order
+                            })
                     });
                 let selected_are_valid = selected.iter().enumerate().all(|(index, snapshot)| {
                     snapshot.incarnation > 0
@@ -40249,6 +40585,86 @@ impl Game {
                 {
                     return Err(RulesError::IllegalAction(
                         "public graveyard decision violates its stack and selection provenance",
+                    ));
+                }
+            }
+            DecisionContinuation::PreserveUpToThreeControlledPermanentsThenSacrificeRest {
+                source_stack_item,
+                source,
+                source_incarnation,
+                controller,
+                remaining_players,
+                preserved,
+            } => {
+                let top = self.stack.last().ok_or(RulesError::IllegalAction(
+                    "permanent-preservation choice escaped its stack spell",
+                ))?;
+                let candidates = self.controlled_permanent_candidates(decision.player)?;
+                let expected_options = candidates
+                    .iter()
+                    .copied()
+                    .map(DecisionOption::Object)
+                    .collect::<Vec<_>>();
+                let max_selections =
+                    u8::try_from(candidates.len().min(3)).expect("three fits in u8");
+                let remaining_are_ordered_living =
+                    remaining_players.iter().enumerate().all(|(index, player)| {
+                        self.players.get(player.0).is_some_and(|state| !state.lost)
+                            && remaining_players[index + 1..].iter().all(|other| {
+                                let player_order =
+                                    (player.0 + self.players.len() - self.active_player.0)
+                                        % self.players.len();
+                                let other_order =
+                                    (other.0 + self.players.len() - self.active_player.0)
+                                        % self.players.len();
+                                other_order > player_order
+                            })
+                    });
+                let preserved_are_valid = self
+                    .players
+                    .iter()
+                    .filter(|player| !player.lost)
+                    .all(|player| {
+                        let candidates = self
+                            .controlled_permanent_candidates(player.id)
+                            .unwrap_or_default();
+                        let selected = preserved
+                            .iter()
+                            .filter(|snapshot| snapshot.player == player.id)
+                            .collect::<Vec<_>>();
+                        let is_pending_player = remaining_players.contains(&player.id);
+                        (is_pending_player && selected.is_empty()
+                            || !is_pending_player && selected.len() <= candidates.len().min(3))
+                            && selected.iter().enumerate().all(|(index, snapshot)| {
+                                snapshot.incarnation > 0
+                                    && candidates.contains(&snapshot.permanent)
+                                    && self.object(snapshot.permanent).is_ok_and(|object| {
+                                        object.incarnation == snapshot.incarnation
+                                    })
+                                    && selected[index + 1..]
+                                        .iter()
+                                        .all(|other| other.permanent != snapshot.permanent)
+                            })
+                    });
+                if decision.kind != DecisionKind::PreserveControlledPermanents
+                    || decision.visibility != DecisionVisibility::Public
+                    || remaining_players.first() != Some(&decision.player)
+                    || !remaining_are_ordered_living
+                    || !preserved_are_valid
+                    || top.id != *source_stack_item
+                    || top.card != *source
+                    || top.source_incarnation != *source_incarnation
+                    || top.controller != *controller
+                    || top.ability_id.is_some()
+                    || !top.targets.is_empty()
+                    || top.effects.as_slice()
+                        != [Effect::EachPlayerPreservesUpToThreeControlledPermanentsThenSacrificesRest]
+                    || decision.options != expected_options
+                    || decision.min_selections != 0
+                    || decision.max_selections != max_selections
+                {
+                    return Err(RulesError::IllegalAction(
+                        "permanent-preservation decision violates its stack and selection provenance",
                     ));
                 }
             }
