@@ -44,8 +44,9 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 258] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 259] = [
     "RAV-CHAR",
+    "RAV-AGRUS-KOS-WOJEK-VETERAN",
     "RAV-GALVANIC-ARC",
     "RAV-FLAME-FUSILLADE",
     "RAV-LIGHTNING-HELIX",
@@ -356,6 +357,30 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 },
                 Effect::DealDamageController { amount: 2 },
             ],
+        },
+        // Full fidelity: the ordinary attack trigger reaches the stack before
+        // it snapshots only declared attackers. Each current color receives
+        // its independent temporary layer-seven modifier, so a red/white
+        // attacker gets both while a same-colored nonattacker gets neither.
+        CardDefinition {
+            id: "RAV-AGRUS-KOS-WOJEK-VETERAN",
+            name: "Agrus Kos, Wojek Veteran",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(3, [Color::Red, Color::White]),
+            colors: colors([Color::Red, Color::White]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Creature]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "base-characteristics",
+                "attack-triggered-color-specific-combat-modifiers",
+            ],
+            power: Some(3),
+            toughness: Some(3),
+            keywords: vec![],
+            effects: vec![],
         },
         // Full fidelity: the Aura itself has no persistent characteristic
         // change, but its live attachment grants the enchanted creature a
@@ -9070,6 +9095,28 @@ pub fn rav_triggered_ability_bindings() -> Vec<TriggeredAbilityBinding> {
                 effects: vec![Effect::ModifyTargetKeywordUntilEndOfTurn {
                     keyword: Keyword::CannotBlock,
                 }],
+            },
+        },
+        TriggeredAbilityBinding {
+            card_definition: "RAV-AGRUS-KOS-WOJEK-VETERAN",
+            ability: TriggeredAbility {
+                id: "attack-color-specific-combat-modifiers",
+                condition: TriggerCondition::Attacks,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![
+                    Effect::ModifyAttackingCreaturesOfColorUntilEndOfTurn {
+                        color: Color::Red,
+                        power: 2,
+                        toughness: 0,
+                    },
+                    Effect::ModifyAttackingCreaturesOfColorUntilEndOfTurn {
+                        color: Color::White,
+                        power: 0,
+                        toughness: 2,
+                    },
+                ],
             },
         },
         TriggeredAbilityBinding {

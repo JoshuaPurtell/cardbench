@@ -13289,3 +13289,105 @@ priority = 0
 event_markers = ["ManaAbilityActivated", "ManaAdded", "SpellCast", "CardDestroyed", "SpellResolved"]
 event_absent = ["ContinuousEffectCreated"]
 digest = "fnv1a64:916d6eb428b6564e"
+
+[[scenario]]
+id = "rav_agrus_kos_attack_color_modifiers"
+seed = 191
+description = "Agrus Kos's attack trigger resolves on the stack, independently modifies each matching attacker color, and excludes an otherwise identical nonattacker."
+triggers = true
+
+[[scenario.card]]
+label = "agrus"
+owner = 0
+definition = "RAV-AGRUS-KOS-WOJEK-VETERAN"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.card]]
+label = "red_white"
+owner = 0
+definition = "RAV-BOROS-RECRUIT"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.card]]
+label = "red"
+owner = 0
+definition = "RAV-GOBLIN-FIRE-FIEND"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.card]]
+label = "white"
+owner = 0
+definition = "RAV-WATCHWOLF"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.card]]
+label = "nonattacking_red"
+owner = 0
+definition = "RAV-GOBLIN-FIRE-FIEND"
+zone = "battlefield"
+entered_turn = 0
+
+[[scenario.action]]
+kind = "begin_game"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[[scenario.action]]
+kind = "declare_attackers"
+player = 0
+attackers = ["agrus", "red_white", "red", "white"]
+
+[[scenario.action]]
+kind = "pass"
+player = 0
+
+[[scenario.action]]
+kind = "pass"
+player = 1
+
+[scenario.expected]
+life = [20, 20]
+zones = ["agrus:battlefield", "red_white:battlefield", "red:battlefield", "white:battlefield", "nonattacking_red:battlefield"]
+powers = ["agrus:5", "red_white:3", "red:3", "white:3", "nonattacking_red:1"]
+toughnesses = ["agrus:5", "red_white:3", "red:1", "white:5", "nonattacking_red:1"]
+tapped = ["agrus:true", "red_white:true", "red:true", "white:true", "nonattacking_red:false"]
+stack_size = 0
+priority = 0
+event_markers = ["AttackersDeclared", "TriggeredAbilityStacked", "ContinuousEffectCreated", "AbilityResolved"]
+event_absent = ["SpellCast"]
+digest = "fnv1a64:29b052fe6ec09e66"

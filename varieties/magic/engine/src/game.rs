@@ -16098,6 +16098,19 @@ impl Game {
             {
                 Self::validate_activated_ability_definition(ability)?;
             }
+            if let Effect::ModifyAttackingCreaturesOfColorUntilEndOfTurn {
+                color,
+                power,
+                toughness,
+            } = effect
+            {
+                if *color == Color::Colorless || (*power == 0 && *toughness == 0) {
+                    return Err(RulesError::IllegalAction(
+                        "attacking-color combat modifier requires a colored nonzero change",
+                    ));
+                }
+                continue;
+            }
             if matches!(
                 effect,
                 Effect::DestroyCombatDamagedCreature
@@ -16334,6 +16347,7 @@ impl Game {
                 | Effect::ReturnSourceToOwnersHand
                 | Effect::MoveSourceToOwnersLibraryAndShuffle
                 | Effect::ModifyControllerCreaturesPtUntilEndOfTurn { .. }
+                | Effect::ModifyAttackingCreaturesOfColorUntilEndOfTurn { .. }
                 | Effect::RadianceUntapAndModifyUntilEndOfTurn { .. }
                 | Effect::RadianceModifyPtUntilEndOfTurn { .. }
                 | Effect::RadianceAddKeywordUntilEndOfTurn { .. }
@@ -25010,6 +25024,43 @@ impl Game {
                     )?;
                 }
             }
+            Effect::ModifyAttackingCreaturesOfColorUntilEndOfTurn {
+                color,
+                power,
+                toughness,
+            } => {
+                // Combat membership is declaration provenance. The effect
+                // samples only those objects that were legal attackers in the
+                // current combat, then filters their live characteristics at
+                // resolution. A same-colored nonattacker can never become a
+                // recipient merely because it remains on the battlefield.
+                let attackers = self
+                    .combat
+                    .as_ref()
+                    .map_or_else(Vec::new, |combat| combat.attackers.clone());
+                let recipients = attackers
+                    .into_iter()
+                    .filter(|candidate| self.zone_of(*candidate) == Some(Zone::Battlefield))
+                    .filter(|candidate| {
+                        self.characteristics(*candidate)
+                            .is_ok_and(|characteristics| {
+                                characteristics.card_types.contains(&CardType::Creature)
+                                    && characteristics.colors.contains(color)
+                            })
+                    })
+                    .collect::<Vec<_>>();
+                for creature in recipients {
+                    self.install_continuous_effect(
+                        source,
+                        creature,
+                        ContinuousChange::ModifyPowerToughness {
+                            power: *power,
+                            toughness: *toughness,
+                        },
+                        Duration::EndOfTurn(self.turn),
+                    )?;
+                }
+            }
             Effect::AddKeywordToControllerCreaturesUntilEndOfTurn { keyword } => {
                 let creatures = self
                     .all_battlefield_cards()
@@ -28081,6 +28132,26 @@ impl Game {
         {
             return Err(RulesError::IllegalAction(
                 "combat-damage provenance destruction has the wrong trigger condition",
+            ));
+        }
+        let has_attacking_color_modifier = ability.effects.iter().any(|effect| {
+            matches!(
+                effect,
+                Effect::ModifyAttackingCreaturesOfColorUntilEndOfTurn { .. }
+            )
+        });
+        if has_attacking_color_modifier
+            && (ability.condition != TriggerCondition::Attacks
+                || !ability.targets.is_empty()
+                || !ability.effects.iter().all(|effect| {
+                    matches!(
+                        effect,
+                        Effect::ModifyAttackingCreaturesOfColorUntilEndOfTurn { .. }
+                    )
+                }))
+        {
+            return Err(RulesError::IllegalAction(
+                "attacking-color combat modifiers require one target-free attack trigger",
             ));
         }
         let has_convoke_marker = ability

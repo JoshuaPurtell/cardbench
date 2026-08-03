@@ -2398,6 +2398,16 @@ pub enum Effect {
         power: i16,
         toughness: i16,
     },
+    /// Apply one temporary layer-seven modifier to every creature that was
+    /// declared as an attacker in the current combat and whose current colors
+    /// contain the named color. The recipient set is sampled while this
+    /// instruction resolves; a nonattacking creature with the same color is
+    /// never eligible.
+    ModifyAttackingCreaturesOfColorUntilEndOfTurn {
+        color: Color,
+        power: i16,
+        toughness: i16,
+    },
     AddKeywordToControllerCreaturesUntilEndOfTurn {
         keyword: Keyword,
     },
@@ -2959,6 +2969,7 @@ impl Effect {
             | Self::RegenerateControllerCreatures
             | Self::UntapSource
             | Self::ModifyControllerCreaturesPtUntilEndOfTurn { .. }
+            | Self::ModifyAttackingCreaturesOfColorUntilEndOfTurn { .. }
             | Self::AddKeywordToControllerCreaturesUntilEndOfTurn { .. }
             | Self::GrantActivatedAbilityToControllerCreaturesUntilEndOfTurn { .. }
             | Self::ShareControllerCreatureKeywordsUntilEndOfTurn { .. }
