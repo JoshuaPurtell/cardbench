@@ -763,6 +763,14 @@ Oracle Magic rules coverage.
   `DecisionId` in addition to the source identity before it dispatches to the
   generic continuation. A stale action after a search spell leaves a zone and
   is recast must leave the newer pending decision and stack spell untouched.
+- A current-turn combat-declaration authority has positive source/incarnation
+  provenance, one living controller, and an expiry equal to the current turn.
+  It changes only who submits the no-priority attacker and blocker declarations:
+  active-player creatures remain the only attackers, defending-player creatures
+  remain the only blockers, and all normal declaration restrictions and combat
+  provenance checks still apply. Cleanup records authority expiry before the
+  next turn; multiplayer attack assignment remains bounded by the engine's
+  single-defender combat model.
 - A named-card target-library traversal is a public, exact-one generic decision
   whose `CardName` candidates are the represented catalog names, not a
   projection of the target's hidden library. Its continuation retains one

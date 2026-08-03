@@ -49,8 +49,8 @@ a zone move. The fetched Aura's ordinary ETB trigger is queued only after the
 Mage trigger's terminal receipt. The opponent sees neither unselected Aura
 identities nor a private decision projection.
 
-The current catalog partition is 285 full / 6 partial / 1 catalog-only unique
-names (300 / 6 / 1 printings). The independently checked coverage-report
+The current catalog partition is 285 full / 6 partial / 0 catalog-only unique
+names (300 / 6 / 0 printings). The independently checked coverage-report
 binary emits the same partition.
 
 Tunnel Vision is a full-fidelity named-card target-library traversal. Its
@@ -61,6 +61,13 @@ revealed before a match move to that target's graveyard; the match remains on
 top immediately before the target library shuffles. An absent name reveals the
 whole library, mills nothing, and still shuffles. Candidate names never depend
 on the target's hidden library membership.
+
+Master Warcraft is a full-fidelity current-turn combat authority. Its resolving
+controller makes the turn-based attacker and blocker declarations, but only
+active-player creatures can attack and only defending-player creatures can
+block. Ordinary tapping, haste, evasion, restriction, and must-block checks
+remain in force; cleanup records authority expiry. Multiplayer attack
+assignment remains bounded by the engine's single-defender combat model.
 
 Molten Sentry is a full-fidelity entry whose setup-only deterministic seed
 selects one entry-time layer-one power/toughness and keyword shape before ETB

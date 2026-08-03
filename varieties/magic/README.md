@@ -69,8 +69,8 @@ of Vitu-Ghazi are in the latest audited tranches. All other definitions remain
 explicitly scoped compatibility slices.
 
 The current checked-in RAV catalog partitions its public inventory into 285
-full-fidelity names (300 printings), six bounded executable names, and 1
-catalog-only name. The catalog contract is intentionally fail-closed: a
+full-fidelity names (300 printings), six bounded executable names, and 0
+catalog-only names. The catalog contract is intentionally fail-closed: a
 catalog-only printing cannot be submitted as a blank executable card.
 
 RAV shown scenarios are fixture-driven from
