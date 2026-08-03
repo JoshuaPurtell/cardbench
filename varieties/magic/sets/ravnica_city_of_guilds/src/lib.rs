@@ -45,7 +45,7 @@ pub const SET_CODE: &str = "RAV";
 /// The deliberately small subset of RAV definitions for which every printed
 /// functional rule is represented by the engine and covered by public tests.
 /// All definitions absent from this list remain bounded compatibility slices.
-pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 267] = [
+pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 268] = [
     "RAV-CHAR",
     "RAV-AGRUS-KOS-WOJEK-VETERAN",
     "RAV-INSTILL-FUROR",
@@ -188,6 +188,7 @@ pub const RAV_FULL_FIDELITY_DEFINITION_IDS: [&str; 267] = [
     "RAV-THUNDERSONG-TRUMPETER",
     "RAV-SABERTOOTH-ALLEY-CAT",
     "RAV-FLAME-KIN-ZEALOT",
+    "RAV-FLASH-CONSCRIPTION",
     "RAV-SUNHOME-ENFORCER",
     "RAV-ORDRUUN-COMMANDO",
     "RAV-INDENTURED-OAF",
@@ -3533,6 +3534,40 @@ pub fn card_definitions() -> Vec<CardDefinition> {
                 target: TargetRequirement::Creature,
                 changes: vec![],
             }],
+        },
+        // Full fidelity: temporarily take control of one creature, untap it,
+        // and grant Haste through the current turn. The engine's ordered
+        // target slots retain the one printed creature as each instruction's
+        // explicit target, so legality is rechecked independently at
+        // resolution for every part of the effect.
+        CardDefinition {
+            id: "RAV-FLASH-CONSCRIPTION",
+            name: "Flash Conscription",
+            set_code: SET_CODE,
+            mana_cost: ManaCost::with_colors(3, [Color::Red]),
+            colors: colors([Color::Red]),
+            mana_colors: BTreeSet::new(),
+            card_types: types([CardType::Instant]),
+            is_basic_land: false,
+            supported_rules: &[
+                "full-rules-fidelity",
+                "colored-cost-casting",
+                "gain-control-until-eot",
+                "untap-target-permanent",
+                "grant-haste-until-eot",
+            ],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![
+                Effect::GainControlTargetUntilEndOfTurn,
+                Effect::UntapTargetPermanent,
+                Effect::ModifyTargetPtAndKeywordUntilEndOfTurn {
+                    power: 0,
+                    toughness: 0,
+                    keyword: Keyword::Haste,
+                },
+            ],
         },
         // Full fidelity: the one-mana Radiance haste grant uses the shared
         // target-color selection and layer-6 keyword effect.
