@@ -8,9 +8,9 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    AttachmentBinding, AttachmentKind, CardDefinition, CardType, DecisionKind, Effect, Game,
-    GameEvent, ManaCost, PlayerId, TargetRequirement, TriggerCondition, TriggeredAbility,
-    TriggeredAbilityBinding, Zone,
+    AttachmentBinding, AttachmentKind, CardDefinition, CardType, DecisionKind, DecisionSelection,
+    Effect, Game, GameEvent, ManaCost, PlayerId, TargetRequirement, TriggerCondition,
+    TriggeredAbility, TriggeredAbilityBinding, Zone,
 };
 
 const CREATURE_LAND: &str = "TST-COPIED-CREATURE-LAND";
@@ -149,6 +149,22 @@ fn copied_creature_land_token_captures_its_land_entry_trigger() {
             entry.source == creature_land && entry.ability == "copied-creature-land-entry"
         }),
         "the original creature-land must observe the same copied land-entry event"
+    );
+    game.submit_decision(
+        controller,
+        order.id,
+        DecisionSelection::TriggerOrder(order.trigger_candidates.clone()),
+    )
+    .expect("both ordered creature-land entry triggers stack successfully");
+    assert!(
+        game.event_log.iter().any(|event| {
+            matches!(
+                event,
+                GameEvent::TriggeredAbilityStacked { source, ability, .. }
+                    if *source == token && *ability == "copied-creature-land-entry"
+            )
+        }),
+        "the copied token's trigger must reach the stack without physical-definition lookup"
     );
     game.validate_invariants()
         .expect("copied creature-land token entry remains auditable");
