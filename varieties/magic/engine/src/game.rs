@@ -11647,12 +11647,14 @@ impl Game {
         // sampled while every member is still a live battlefield permanent;
         // doing this one zone move at a time loses the first dying source
         // before it can observe the later simultaneous departure through LKI.
-        self.enqueue_simultaneous_creature_death_observer_triggers(
+        self.enqueue_simultaneous_graveyard_entry_and_creature_departure_triggers(
             dying_creatures.iter().map(|(card, _)| *card),
         )?;
         for (card, reason) in dying_creatures {
             self.record_event(GameEvent::StateBasedAction { card, reason });
-            self.move_to_graveyard_or_remove_token_after_simultaneous_death_trigger_capture(card)?;
+            self.move_to_graveyard_or_remove_token_after_simultaneous_graveyard_trigger_capture(
+                card,
+            )?;
         }
         Ok(true)
     }
@@ -19697,20 +19699,31 @@ impl Game {
         Ok(())
     }
 
-    /// Captures the represented creature-departure observers for one complete
-    /// simultaneous death event. All cards in this iterator are still on the
-    /// battlefield when this runs, so every source can contribute last-known
-    /// information for every simultaneous death. The ensuing individual zone
-    /// moves deliberately suppress their ordinary observer capture to avoid
-    /// duplicating this one shared event.
-    fn enqueue_simultaneous_creature_death_observer_triggers(
+    /// Captures every represented generic observer for one complete
+    /// simultaneous graveyard-entry/death event. All supplied permanents are
+    /// still on the battlefield when this runs, so every source can
+    /// contribute last-known information for every same-event departure. The
+    /// ensuing individual zone moves deliberately suppress their ordinary
+    /// generic observer capture to avoid duplicating this shared event.
+    fn enqueue_simultaneous_graveyard_entry_and_creature_departure_triggers(
         &mut self,
-        dying_creatures: impl IntoIterator<Item = ObjectId>,
+        departing_permanents: impl IntoIterator<Item = ObjectId>,
     ) -> Result<(), RulesError> {
-        for dying_creature in dying_creatures {
-            self.enqueue_another_creature_leaves_battlefield_triggers(dying_creature)?;
-            self.enqueue_another_creature_dies_triggers(dying_creature)?;
-            self.enqueue_controlled_nontoken_creature_dies_triggers(dying_creature)?;
+        let departing_permanents = departing_permanents.into_iter().collect::<Vec<_>>();
+        let graveyard_observer_sources = self.all_battlefield_cards();
+        for departing_permanent in &departing_permanents {
+            self.enqueue_another_creature_leaves_battlefield_triggers(*departing_permanent)?;
+            self.enqueue_another_creature_dies_triggers(*departing_permanent)?;
+            self.enqueue_controlled_nontoken_creature_dies_triggers(*departing_permanent)?;
+        }
+        for departing_permanent in departing_permanents {
+            if self.object(departing_permanent)?.token.is_some() {
+                continue;
+            }
+            self.enqueue_opponent_graveyard_triggers_from_sources(
+                self.object(departing_permanent)?.owner,
+                &graveyard_observer_sources,
+            );
         }
         Ok(())
     }
@@ -19794,9 +19807,22 @@ impl Game {
     /// non-token move to a graveyard, including discards, mills, countered
     /// spells, sacrifice costs, and destruction.
     fn enqueue_opponent_graveyard_triggers(&mut self, graveyard_owner: PlayerId) {
-        let sources = self
-            .all_battlefield_cards()
-            .into_iter()
+        let sources = self.all_battlefield_cards();
+        self.enqueue_opponent_graveyard_triggers_from_sources(graveyard_owner, &sources);
+    }
+
+    /// Captures opponent-graveyard triggers from one explicit live source
+    /// snapshot. A simultaneous graveyard-entry event passes the complete
+    /// pre-event battlefield set here so a source that departs in that same
+    /// event does not disappear before another recipient moves.
+    fn enqueue_opponent_graveyard_triggers_from_sources(
+        &mut self,
+        graveyard_owner: PlayerId,
+        sources: &[ObjectId],
+    ) {
+        let sources = sources
+            .iter()
+            .copied()
             .filter_map(|source| {
                 let object = self.object(source).ok()?;
                 if object.token.is_some() {
@@ -24663,10 +24689,14 @@ impl Game {
             }
             selected.push(card);
         }
-        self.enqueue_simultaneous_creature_death_observer_triggers(selected.iter().copied())?;
+        self.enqueue_simultaneous_graveyard_entry_and_creature_departure_triggers(
+            selected.iter().copied(),
+        )?;
         for card in selected {
             self.record_event(GameEvent::CardDestroyed { source, card });
-            self.move_to_graveyard_or_remove_token_after_simultaneous_death_trigger_capture(card)?;
+            self.move_to_graveyard_or_remove_token_after_simultaneous_graveyard_trigger_capture(
+                card,
+            )?;
         }
         Ok(())
     }
@@ -24757,32 +24787,32 @@ impl Game {
     }
 
     fn move_to_graveyard_or_remove_token(&mut self, card: ObjectId) -> Result<(), RulesError> {
-        self.move_to_graveyard_or_remove_token_with_departure_observers(card, true)
+        self.move_to_graveyard_or_remove_token_with_zone_transition_observers(card, true)
     }
 
     /// Performs an ordinary individual graveyard transition after a
-    /// simultaneous death event has already sampled every creature-departure
-    /// observer. The exact zone, object-incarnation, dies-source, and
-    /// graveyard-entry lifecycles remain ordinary; only duplicate generic
-    /// observer capture is suppressed.
-    fn move_to_graveyard_or_remove_token_after_simultaneous_death_trigger_capture(
+    /// simultaneous event has already sampled generic creature-departure and
+    /// opponent-graveyard observers. The exact zone, object-incarnation, and
+    /// source-specific Dies lifecycles remain ordinary; only duplicate generic
+    /// zone-transition observation is suppressed.
+    fn move_to_graveyard_or_remove_token_after_simultaneous_graveyard_trigger_capture(
         &mut self,
         card: ObjectId,
     ) -> Result<(), RulesError> {
-        self.move_to_graveyard_or_remove_token_with_departure_observers(card, false)
+        self.move_to_graveyard_or_remove_token_with_zone_transition_observers(card, false)
     }
 
-    fn move_to_graveyard_or_remove_token_with_departure_observers(
+    fn move_to_graveyard_or_remove_token_with_zone_transition_observers(
         &mut self,
         card: ObjectId,
-        capture_departure_observers: bool,
+        capture_zone_transition_observers: bool,
     ) -> Result<(), RulesError> {
         if self.object(card)?.token.is_some() {
             let was_battlefield = self.zone_of(card) == Some(Zone::Battlefield);
             let expired_copy = self.object(card)?.copied_permanent.clone();
             let token_incarnation = self.object(card)?.incarnation;
             if was_battlefield {
-                if capture_departure_observers {
+                if capture_zone_transition_observers {
                     self.enqueue_another_creature_leaves_battlefield_triggers(card)?;
                     self.enqueue_another_creature_dies_triggers(card)?;
                     self.enqueue_controlled_nontoken_creature_dies_triggers(card)?;
@@ -24820,14 +24850,14 @@ impl Game {
             })
             .transpose()?;
         let definition = self.card_definition(card)?.id;
-        if was_battlefield && capture_departure_observers {
+        if was_battlefield && capture_zone_transition_observers {
             self.enqueue_another_creature_dies_triggers(card)?;
             self.enqueue_controlled_nontoken_creature_dies_triggers(card)?;
         }
-        self.move_to_zone_with_departure_observers(
+        self.move_to_zone_with_zone_transition_observers(
             card,
             Zone::Graveyard,
-            capture_departure_observers,
+            capture_zone_transition_observers,
         )?;
         if was_battlefield {
             let battlefield_colors = battlefield_colors.ok_or(RulesError::IllegalAction(
@@ -25016,18 +25046,19 @@ impl Game {
 
     #[allow(clippy::too_many_lines)] // Zone moves centralize the replay-visible lifecycle.
     fn move_to_zone(&mut self, card: ObjectId, zone: Zone) -> Result<(), RulesError> {
-        self.move_to_zone_with_departure_observers(card, zone, true)
+        self.move_to_zone_with_zone_transition_observers(card, zone, true)
     }
 
-    /// Internal zone-move form used after a complete SBA death event has
-    /// captured its observers.  Every caller outside that exact batch retains
-    /// ordinary leaves-the-battlefield observation.
+    /// Internal zone-move form used after a complete simultaneous event has
+    /// captured its generic zone-transition observers. Every caller outside
+    /// that exact batch retains ordinary leaves-the-battlefield and
+    /// opponent-graveyard observation.
     #[allow(clippy::too_many_lines)] // Zone moves centralize the replay-visible lifecycle.
-    fn move_to_zone_with_departure_observers(
+    fn move_to_zone_with_zone_transition_observers(
         &mut self,
         card: ObjectId,
         zone: Zone,
-        capture_departure_observers: bool,
+        capture_zone_transition_observers: bool,
     ) -> Result<(), RulesError> {
         let object = self.object(card)?.clone();
         let previous_zone = self.zone_of(card);
@@ -25052,7 +25083,7 @@ impl Game {
         if previous_zone == Some(Zone::Exile) && zone != Zone::Exile {
             self.unlink_hand_exile_member_before_zone_departure(card, object.incarnation);
         }
-        if left_battlefield && capture_departure_observers {
+        if left_battlefield && capture_zone_transition_observers {
             self.enqueue_another_creature_leaves_battlefield_triggers(card)?;
         }
         if left_battlefield {
@@ -25148,7 +25179,7 @@ impl Game {
         if zone == Zone::Battlefield {
             self.apply_static_entry_restriction(card)?;
         }
-        if zone == Zone::Graveyard && advanced_incarnation {
+        if zone == Zone::Graveyard && advanced_incarnation && capture_zone_transition_observers {
             self.enqueue_opponent_graveyard_triggers(destination_owner);
         }
         if let Some((definition, colors, graveyard_incarnation, owner)) =
