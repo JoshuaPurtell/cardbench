@@ -21360,11 +21360,11 @@ impl Game {
         self.deal_damage_to_permanent_from_colors(source, &source_colors, permanent, amount)
     }
 
-    /// Commits one combat-damage assignment and, only when positive damage
-    /// actually reached that exact recipient, captures the recipient for
-    /// source-bound combat-damage triggers.  Prevention and redirection can
-    /// remove or transform the event, so the receipt rather than the proposed
-    /// assignment is the authoritative trigger boundary.
+    /// Commits one combat-damage assignment and captures every final creature
+    /// recipient named by its positive damage receipts for source-bound
+    /// combat-damage triggers. Prevention can remove the event and
+    /// redirection can transform it, so the committed receipt rather than the
+    /// proposed assignment is the authoritative trigger boundary.
     fn deal_combat_damage_to_permanent(
         &mut self,
         source: ObjectId,
@@ -21382,18 +21382,19 @@ impl Game {
         }
         let event_start = self.event_log.len();
         self.deal_damage_to_permanent(source, permanent, amount)?;
-        let dealt = self.event_log[event_start..].iter().any(|event| {
-            matches!(
-                event,
+        let recipients = self.event_log[event_start..]
+            .iter()
+            .filter_map(|event| match event {
                 GameEvent::DamageDealtToPermanent {
                     source: event_source,
-                    permanent: event_permanent,
+                    permanent: recipient,
                     amount: event_amount,
-                } if *event_source == source && *event_permanent == permanent && *event_amount > 0
-            )
-        });
-        if dealt {
-            self.enqueue_combat_damage_to_creature_triggers(source, permanent)?;
+                } if *event_source == source && *event_amount > 0 => Some(*recipient),
+                _ => None,
+            })
+            .collect::<Vec<_>>();
+        for recipient in recipients {
+            self.enqueue_combat_damage_to_creature_triggers(source, recipient)?;
         }
         Ok(())
     }
