@@ -34524,6 +34524,15 @@ impl Game {
             self.stack
                 .retain(|stack_object| stack_object.card != object);
             self.objects.remove(&object);
+            // CR 800.4a removes this object from the game rather than moving
+            // it to a zone with a fresh incarnation. Its former
+            // characteristics can no longer be read by any live game object,
+            // so retire every private LKI record keyed to this deleted id.
+            // Do this only for actual leave-game deletion: a non-owned object
+            // controlled by the departed player is exiled below and keeps its
+            // ordinary historical provenance.
+            self.last_known_characteristics
+                .retain(|(card, _), _| *card != object);
             self.regeneration_shields.remove(&object);
             self.record_event(GameEvent::ObjectLeftGame {
                 object,

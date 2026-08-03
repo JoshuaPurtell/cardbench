@@ -46,8 +46,12 @@ fn player_departure_removes_last_known_characteristics_of_owned_cards() {
     .expect("spell casts");
     game.pass_priority(PlayerId(0)).expect("caster passes");
     let result = game.pass_priority(PlayerId(1));
-    eprintln!("owner departure LKI red result={result:?}; events={:?}", game.canonical_event_log());
+    eprintln!(
+        "owner departure LKI red result={result:?}; events={:?}",
+        game.canonical_event_log()
+    );
     result.expect("player loss must remove all private LKI for their removed objects");
     assert!(game.players[PlayerId(0).0].lost);
-    game.validate_invariants().expect("departure leaves no orphan LKI");
+    game.validate_invariants()
+        .expect("departure leaves no orphan LKI");
 }
