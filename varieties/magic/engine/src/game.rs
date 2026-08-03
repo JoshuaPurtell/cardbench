@@ -14758,6 +14758,15 @@ impl Game {
         card: ObjectId,
         found: Option<ObjectId>,
     ) -> Result<(), RulesError> {
+        self.atomic_transition(|game| game.transmute_impl(player, card, found))
+    }
+
+    fn transmute_impl(
+        &mut self,
+        player: PlayerId,
+        card: ObjectId,
+        found: Option<ObjectId>,
+    ) -> Result<(), RulesError> {
         self.require_priority(player)?;
         if player != self.active_player || !self.step.is_main() || !self.stack.is_empty() {
             return Err(RulesError::IllegalAction(
