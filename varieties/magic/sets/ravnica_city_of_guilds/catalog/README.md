@@ -49,8 +49,8 @@ a zone move. The fetched Aura's ordinary ETB trigger is queued only after the
 Mage trigger's terminal receipt. The opponent sees neither unselected Aura
 identities nor a private decision projection.
 
-The current catalog partition is 277 full / 6 partial / 8 catalog-only unique
-names (292 / 6 / 8 printings). The independently checked coverage-report
+The current catalog partition is 278 full / 6 partial / 7 catalog-only unique
+names (293 / 6 / 7 printings). The independently checked coverage-report
 binary emits the same partition.
 
 Molten Sentry is a full-fidelity entry whose setup-only deterministic seed
@@ -91,6 +91,17 @@ captures an exact damaging-creature incarnation, sacrifices it, requires a
 different controlled-creature attachment endpoint, untaps controlled
 creatures, and schedules one additional combat phase. Its direct Rust trace
 checks the mandatory public choice, lifecycle receipts, and final invariants.
+
+The 2026-08-03 completeness audit for Razia's Purification consulted the
+public RAV printing record [#224](https://scryfall.com/card/rav/224/razias-purification)
+and the public [Comprehensive Rules index](https://magic.wizards.com/en/rules).
+It retained no upstream card prose, scans, art, or JSON. The full-fidelity
+definition uses CardBench-authored semantics: its target-free resolving spell
+collects each living player's public zero-through-three retention decision in
+active-player order, then performs one no-priority sacrifice batch for the
+unselected permanent identities. Its direct Rust trace proves that no permanent
+moves before all choices are complete, a player may retain none, terminal
+receipts are ordered, and invariants hold.
 
 Mindleech Mass is a full-fidelity direct combat-recipient trigger entry. Its
 six-damage combat trace captures the damaged player before stack resolution,
