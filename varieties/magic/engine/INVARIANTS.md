@@ -2030,6 +2030,15 @@ Oracle Magic rules coverage.
   battlefield endpoint; an end-of-turn effect belongs to the current turn
   only and may retain its historical source after a spell has left the stack.
   In either duration, it cannot apply to a target that has left and returned.
+- The sole source-object exception is an explicitly marked virtual spell copy:
+  it may be created only while that copy resolves, only with the current-turn
+  `EndOfTurn` duration, and only against the target's exact live battlefield
+  incarnation. The frozen virtual source must have no physical object or
+  retained live-copy record once resolution finishes. It cannot create a
+  source-relative controller change, attachment-controller redirection, or
+  activated-ability grant, because those effects need a live source. Cleanup
+  expires the remaining source-independent effect normally and records its
+  ordinary lifecycle receipt.
 - An end-of-turn effect created by a resolved instruction is independent of a
   former battlefield source. Source departure preserves it through that
   turn's cleanup; target departure still expires it immediately. In contrast,
