@@ -12859,6 +12859,12 @@ impl Game {
         ))?;
         self.complete_pending_decision(decision)?;
 
+        let mut battlefield_entrants = Vec::new();
+        let pre_event_sources = matches!(
+            destination,
+            LibrarySearchDestination::Battlefield | LibrarySearchDestination::BattlefieldTapped
+        )
+        .then(|| self.all_battlefield_cards());
         for card in selected {
             if reveal_selected {
                 self.record_event(GameEvent::CardRevealed {
@@ -12870,31 +12876,18 @@ impl Game {
             match destination {
                 LibrarySearchDestination::Battlefield
                 | LibrarySearchDestination::BattlefieldTapped => {
-                    self.move_to_zone(*card, Zone::Battlefield)?;
+                    // A multi-card search moves every selected permanent in
+                    // one event. Delay entry replacements and trigger
+                    // observation until the full group is on the battlefield
+                    // so newcomers observe their peers under CR 603.6a.
+                    self.move_to_battlefield_for_simultaneous_entry(*card)?;
                     if destination == LibrarySearchDestination::BattlefieldTapped {
                         self.objects
                             .get_mut(card)
                             .ok_or(RulesError::UnknownCard(*card))?
                             .tapped = true;
                     }
-                    let controller = self.object(*card)?.controller;
-                    let definition =
-                        self.effective_definition_id(*card)?
-                            .ok_or(RulesError::IllegalAction(
-                                "a token cannot be selected from a library",
-                            ))?;
-                    // Capture while the permanent is still live. The spell
-                    // has already left the stack only after the complete
-                    // selected batch and its terminal lifecycle, so trigger
-                    // placement remains below any resulting SBA work.
-                    self.capture_enter_triggers(*card, definition, controller, &[])?;
-                    if self
-                        .characteristics(*card)?
-                        .card_types
-                        .contains(&CardType::Land)
-                    {
-                        self.capture_land_entry_triggers(controller)?;
-                    }
+                    battlefield_entrants.push(*card);
                 }
                 LibrarySearchDestination::Hand => self.move_to_zone(*card, Zone::Hand)?,
                 LibrarySearchDestination::LibraryTop => {}
@@ -12904,6 +12897,12 @@ impl Game {
                     ));
                 }
             }
+        }
+        if let Some(pre_event_sources) = pre_event_sources {
+            self.complete_simultaneous_library_search_permanent_entries(
+                &battlefield_entrants,
+                &pre_event_sources,
+            )?;
         }
         self.complete_multi_library_search(player, source, selected, destination, reveal_selected)?;
 
@@ -14257,6 +14256,34 @@ impl Game {
         Ok(())
     }
 
+    /// Completes the common entry boundary for a multi-card library search.
+    /// Every selected permanent has already crossed into the battlefield;
+    /// replacements therefore use only the pre-event sources plus the
+    /// entrant itself, while triggered abilities use the one post-event
+    /// battlefield snapshot required by CR 603.6a.
+    fn complete_simultaneous_library_search_permanent_entries(
+        &mut self,
+        entrants: &[ObjectId],
+        pre_event_sources: &[ObjectId],
+    ) -> Result<(), RulesError> {
+        for entrant in entrants {
+            let mut entry_sources = pre_event_sources.to_vec();
+            entry_sources.push(*entrant);
+            self.apply_static_entry_restriction_from_sources(*entrant, &entry_sources)?;
+        }
+        self.capture_simultaneous_entry_triggers(entrants)?;
+        for entrant in entrants {
+            if self
+                .characteristics(*entrant)?
+                .card_types
+                .contains(&CardType::Land)
+            {
+                self.capture_land_entry_triggers(self.controller_of(*entrant)?)?;
+            }
+        }
+        Ok(())
+    }
+
     /// Resolves one source-bound Aura search. The searched Aura must satisfy
     /// its typed attachment binding against the resolving source's exact live
     /// incarnation. A failed or prevented search still records the ordinary
@@ -14389,6 +14416,12 @@ impl Game {
                 "library-top search must reveal every selected card before ordering it publicly",
             ));
         }
+        let mut battlefield_entrants = Vec::new();
+        let pre_event_sources = matches!(
+            destination,
+            LibrarySearchDestination::Battlefield | LibrarySearchDestination::BattlefieldTapped
+        )
+        .then(|| self.all_battlefield_cards());
         for card in &selected {
             if reveal_selected {
                 self.record_event(GameEvent::CardRevealed {
@@ -14400,18 +14433,14 @@ impl Game {
             match destination {
                 LibrarySearchDestination::Battlefield
                 | LibrarySearchDestination::BattlefieldTapped => {
-                    self.move_to_zone(*card, Zone::Battlefield)?;
+                    self.move_to_battlefield_for_simultaneous_entry(*card)?;
                     if destination == LibrarySearchDestination::BattlefieldTapped {
                         self.objects
                             .get_mut(card)
                             .ok_or(RulesError::UnknownCard(*card))?
                             .tapped = true;
                     }
-                    // The deterministic compatibility resolver shares the
-                    // normal selected-permanent entry capture path. The
-                    // enclosing spell remains responsible for its terminal
-                    // lifecycle and post-resolution SBA/trigger flush.
-                    self.capture_library_search_permanent_entry(*card)?;
+                    battlefield_entrants.push(*card);
                 }
                 LibrarySearchDestination::Hand => self.move_to_zone(*card, Zone::Hand)?,
                 LibrarySearchDestination::LibraryTop => {}
@@ -14421,6 +14450,12 @@ impl Game {
                     ));
                 }
             }
+        }
+        if let Some(pre_event_sources) = pre_event_sources {
+            self.complete_simultaneous_library_search_permanent_entries(
+                &battlefield_entrants,
+                &pre_event_sources,
+            )?;
         }
         self.complete_multi_library_search(player, source, &selected, destination, reveal_selected)
     }
@@ -32615,12 +32650,12 @@ impl Game {
         self.move_to_zone_with_zone_transition_observers(card, zone, true, true)
     }
 
-    /// Moves a creature into the battlefield during a larger simultaneous
+    /// Moves one permanent into the battlefield during a larger simultaneous
     /// entry event.  The caller snapshots which replacement sources existed
     /// before the batch, then applies those entry restrictions to every
     /// entrant only after every card has crossed the zone boundary.  This
     /// prevents one simultaneous entrant from incorrectly modifying another.
-    fn move_creature_to_battlefield_for_simultaneous_entry(
+    fn move_to_battlefield_for_simultaneous_entry(
         &mut self,
         card: ObjectId,
     ) -> Result<(), RulesError> {
@@ -32677,7 +32712,7 @@ impl Game {
         let pre_event_sources = self.all_battlefield_cards();
         for card in &returning {
             self.require_zone(*card, Zone::Graveyard)?;
-            self.move_creature_to_battlefield_for_simultaneous_entry(*card)?;
+            self.move_to_battlefield_for_simultaneous_entry(*card)?;
         }
         for card in &returning {
             let mut entry_sources = pre_event_sources.clone();
