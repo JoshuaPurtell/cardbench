@@ -10,14 +10,18 @@
 //! finding.
 
 use cardbench_magic_engine::{Game, GameEvent, PlayerId, PolicyAction, PolicyMoveKind, RulesError};
-use cardbench_magic_rav::{DeckFixture, card_definitions, event_digest, load_reference_decks};
+use cardbench_magic_rav::{
+    DeckFixture, RAV_CATALOG_COVERAGE_DECK_COUNT, RAV_MAIN_SET_EXPECTED_PRINTING_COUNT,
+    RAV_MAIN_SET_EXPECTED_UNIQUE_NAME_COUNT, event_digest, load_catalog_coverage_decks,
+    load_reference_decks, new_rav_game,
+};
 
 use crate::{
     BorosCharControlPolicy, BorosConvokeBurnPolicy, BorosRadianceAssaultPolicy, BorosTempoPolicy,
-    BorosTokenRallyPolicy, CodePolicy, DimirTransmuteAttritionPolicy, DimirTransmuteConvokePolicy,
-    DimirTransmuteHelixPolicy, GolgariAttritionPolicy, GolgariDredgeGrindPolicy,
-    GolgariWurmPressPolicy, RadianceConvokeAssaultPolicy, SelesnyaConvokePolicy,
-    SelesnyaRadianceTokensPolicy, SelesnyaSiegePolicy,
+    BorosTokenRallyPolicy, CatalogPolicyProfile, CodePolicy, DimirTransmuteAttritionPolicy,
+    DimirTransmuteConvokePolicy, DimirTransmuteHelixPolicy, GolgariAttritionPolicy,
+    GolgariDredgeGrindPolicy, GolgariWurmPressPolicy, RadianceConvokeAssaultPolicy,
+    RavCatalogPolicy, SelesnyaConvokePolicy, SelesnyaRadianceTokensPolicy, SelesnyaSiegePolicy,
 };
 
 /// Stable identifier for the public two-deck development match.
@@ -168,6 +172,29 @@ pub struct EngineTournamentResult {
     pub failures: Vec<EngineTournamentFailure>,
 }
 
+/// Fail-closed result for running every generated catalog band against a
+/// stable interactive reference opponent. Each match retains its canonical
+/// event log and digest through [`DeckMatchResult`].
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CatalogGauntletResult {
+    pub deck_count: usize,
+    pub policy_profile_count: usize,
+    pub covered_definition_count: usize,
+    pub covered_printing_count: usize,
+    pub tournament: EngineTournamentResult,
+}
+
+impl CatalogGauntletResult {
+    #[must_use]
+    pub fn passed(&self) -> bool {
+        self.deck_count == RAV_CATALOG_COVERAGE_DECK_COUNT
+            && self.policy_profile_count == 6
+            && self.covered_definition_count == RAV_MAIN_SET_EXPECTED_UNIQUE_NAME_COUNT
+            && self.covered_printing_count == RAV_MAIN_SET_EXPECTED_PRINTING_COUNT
+            && self.tournament.passed()
+    }
+}
+
 impl EngineTournamentResult {
     #[must_use]
     pub fn passed(&self) -> bool {
@@ -213,11 +240,12 @@ pub fn run_rav_deck_matchup(
         return Err("full-deck match limits must both be nonzero".to_owned());
     }
 
-    let decks = load_reference_decks().map_err(|error| error.to_string())?;
+    let mut decks = load_reference_decks().map_err(|error| error.to_string())?;
+    decks.extend(load_catalog_coverage_decks().map_err(|error| error.to_string())?);
     let deck_p0 = expected_deck(&decks, deck_p0_id)?;
     let deck_p1 = expected_deck(&decks, deck_p1_id)?;
     let deck_ids = [deck_p0.id.clone(), deck_p1.id.clone()];
-    let mut game = Game::new(card_definitions(), 2).map_err(rules_error)?;
+    let mut game = new_rav_game(2).map_err(rules_error)?;
     game.set_shuffle_seed(config.shuffle_seed)
         .map_err(rules_error)?;
     game.load_deck_into_library(PlayerId(0), &deck_p0.deck)
@@ -285,6 +313,8 @@ pub fn run_rav_deck_matchup(
         let policy_id = policy.id().to_owned();
         let action = if let Some(action) = policy.propose_pending_decision(&view) {
             action
+        } else if view.optional_triggered_ability_choice.is_some() {
+            policy.propose_optional_triggered_ability(&view)
         } else if view.draw_replacement_pending {
             policy.propose_draw_replacement(&view)
         } else if view.private_library_choice.is_some() {
@@ -403,6 +433,30 @@ fn policy_for(player: PlayerId, id: &str) -> Result<Box<dyn CodePolicy>, String>
             Ok(Box::new(SelesnyaRadianceTokensPolicy::new(player)))
         }
         "rav.selesnya-siege.v1" => Ok(Box::new(SelesnyaSiegePolicy::new(player))),
+        "rav.catalog-pressure.v1" => Ok(Box::new(RavCatalogPolicy::new(
+            player,
+            CatalogPolicyProfile::Pressure,
+        ))),
+        "rav.catalog-curve.v1" => Ok(Box::new(RavCatalogPolicy::new(
+            player,
+            CatalogPolicyProfile::Curve,
+        ))),
+        "rav.catalog-control.v1" => Ok(Box::new(RavCatalogPolicy::new(
+            player,
+            CatalogPolicyProfile::Control,
+        ))),
+        "rav.catalog-graveyard.v1" => Ok(Box::new(RavCatalogPolicy::new(
+            player,
+            CatalogPolicyProfile::Graveyard,
+        ))),
+        "rav.catalog-top-end.v1" => Ok(Box::new(RavCatalogPolicy::new(
+            player,
+            CatalogPolicyProfile::TopEnd,
+        ))),
+        "rav.catalog-patient.v1" => Ok(Box::new(RavCatalogPolicy::new(
+            player,
+            CatalogPolicyProfile::Patient,
+        ))),
         _ => Err(format!("public deck specifies unknown Rust policy `{id}`")),
     }
 }
@@ -451,6 +505,85 @@ pub fn run_rav_engine_tournament(
         sweep.matches,
         sweep.engine_findings,
     ))
+}
+
+/// Runs every exact-sixty catalog band through a deterministic full game.
+///
+/// The fixed Boros control opponent supplies stack interaction and a terminal
+/// clock without adding creatures that could make an intentionally generic
+/// blocker policy approximate complex evasion. Every submitted action still
+/// goes through `Game::submit_policy_move`; replay verification rejects event
+/// or digest drift before a result is admitted.
+pub fn run_rav_catalog_gauntlet(
+    seeds: impl IntoIterator<Item = u64>,
+) -> Result<CatalogGauntletResult, String> {
+    let seeds = seeds.into_iter().collect::<Vec<_>>();
+    if seeds.is_empty() {
+        return Err("catalog gauntlet requires at least one shuffle seed".to_owned());
+    }
+    let decks = load_catalog_coverage_decks().map_err(|error| error.to_string())?;
+    let policy_profile_count = decks
+        .iter()
+        .map(|deck| deck.policy.as_str())
+        .collect::<std::collections::BTreeSet<_>>()
+        .len();
+    let mut jobs = Vec::new();
+    for deck in &decks {
+        for &shuffle_seed in &seeds {
+            jobs.push((deck.id.clone(), shuffle_seed));
+        }
+    }
+    let mut ordered_results = vec![None; jobs.len()];
+    let worker_limit = reference_matrix_worker_limit(
+        jobs.len(),
+        std::thread::available_parallelism()
+            .ok()
+            .map(std::num::NonZeroUsize::get),
+    );
+    for batch_start in (0..jobs.len()).step_by(worker_limit) {
+        let batch_end = (batch_start + worker_limit).min(jobs.len());
+        std::thread::scope(|scope| {
+            let handles = jobs[batch_start..batch_end]
+                .iter()
+                .cloned()
+                .enumerate()
+                .map(|(batch_index, (deck_id, shuffle_seed))| {
+                    let index = batch_start + batch_index;
+                    scope.spawn(move || {
+                        let result = run_rav_deck_matchup_verified(
+                            DeckMatchConfig {
+                                shuffle_seed,
+                                ..DeckMatchConfig::default()
+                            },
+                            &deck_id,
+                            "rav_boros_char_control",
+                        );
+                        (index, result)
+                    })
+                })
+                .collect::<Vec<_>>();
+            for handle in handles {
+                let (index, result) = handle.join().expect("catalog worker must not panic");
+                ordered_results[index] = Some(result);
+            }
+        });
+    }
+    let mut matches = Vec::with_capacity(ordered_results.len());
+    let mut findings = Vec::new();
+    for result in ordered_results {
+        let result = result
+            .expect("every catalog job writes one ordered slot")
+            .map_err(|error| format!("catalog gauntlet matchup failed: {error}"))?;
+        findings.extend(result.engine_findings.iter().cloned());
+        matches.push(result);
+    }
+    Ok(CatalogGauntletResult {
+        deck_count: decks.len(),
+        policy_profile_count,
+        covered_definition_count: RAV_MAIN_SET_EXPECTED_UNIQUE_NAME_COUNT,
+        covered_printing_count: RAV_MAIN_SET_EXPECTED_PRINTING_COUNT,
+        tournament: fail_closed_tournament("rav_catalog_all_card_gauntlet", matches, findings),
+    })
 }
 
 /// Runs every ordered pair of public reference decks across each supplied
@@ -756,6 +889,22 @@ mod tests {
                 "Char versus Siege trace is missing `{marker}`"
             );
         }
+    }
+
+    #[test]
+    fn catalog_opponent_completes_private_discard_decisions() {
+        let result = run_rav_deck_matchup(
+            DeckMatchConfig::default(),
+            "rav_catalog_band_17",
+            "rav_boros_char_control",
+        )
+        .expect("catalog band 17 versus Char Control setup");
+        assert!(
+            result.is_clean_completion(),
+            "catalog private-discard regression failed: termination={:?}, tail={:?}",
+            result.termination,
+            result.event_log.iter().rev().take(24).collect::<Vec<_>>()
+        );
     }
 
     #[test]

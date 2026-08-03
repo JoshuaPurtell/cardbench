@@ -1,0 +1,109 @@
+#!/bin/sh
+# Run deterministic, bounded slices of the Magic test inventory.
+set -eu
+
+ROOT=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+TARGET_DIR=${CARGO_TARGET_DIR:-${TMPDIR:-/tmp}/cardbench-magic-target}
+export CARGO_TARGET_DIR="$TARGET_DIR"
+
+usage() {
+  cat <<'EOF'
+usage:
+  ./scripts/check-batch.sh list
+  ./scripts/check-batch.sh core
+  ./scripts/check-batch.sh policies
+  ./scripts/check-batch.sh rav SHARD[/TOTAL] [test|clippy]
+  ./scripts/check-batch.sh engine SHARD[/TOTAL] [test|clippy]
+
+Examples:
+  ./scripts/check-batch.sh rav 1/48
+  ./scripts/check-batch.sh rav 2/48 clippy
+  ./scripts/check-batch.sh engine 1/32
+
+Test targets are sorted by name and assigned round-robin, so every shard is
+stable across machines. Defaults are 48 RAV shards and 32 engine shards.
+EOF
+}
+
+run_shard() {
+  package=$1
+  test_dir=$2
+  shard_spec=$3
+  default_total=$4
+  action=$5
+
+  case "$shard_spec" in
+    */*)
+      shard=${shard_spec%/*}
+      total=${shard_spec#*/}
+      ;;
+    *)
+      shard=$shard_spec
+      total=$default_total
+      ;;
+  esac
+  case "$shard" in ''|*[!0-9]*) usage; exit 2 ;; esac
+  case "$total" in ''|*[!0-9]*|0) usage; exit 2 ;; esac
+  if [ "$shard" -lt 1 ] || [ "$shard" -gt "$total" ]; then
+    printf >&2 'shard must be in the inclusive range 1..%s\n' "$total"
+    exit 2
+  fi
+  case "$action" in
+    test) set -- cargo test --quiet -p "$package" ;;
+    clippy) set -- cargo clippy --quiet -p "$package" ;;
+    *) usage; exit 2 ;;
+  esac
+
+  index=0
+  selected=0
+  for path in $(find "$test_dir" -maxdepth 1 -type f -name '*.rs' | LC_ALL=C sort); do
+    index=$((index + 1))
+    if [ $(((index - 1) % total + 1)) -eq "$shard" ]; then
+      target=$(basename "$path" .rs)
+      set -- "$@" --test "$target"
+      selected=$((selected + 1))
+    fi
+  done
+  if [ "$selected" -eq 0 ]; then
+    printf >&2 'shard %s/%s selects no test targets\n' "$shard" "$total"
+    exit 2
+  fi
+
+  printf 'batch package=%s action=%s shard=%s/%s targets=%s\n' \
+    "$package" "$action" "$shard" "$total" "$selected"
+  cd "$ROOT"
+  if [ "$action" = clippy ]; then
+    "$@" -- -D warnings
+  else
+    "$@"
+  fi
+}
+
+command=${1:-list}
+case "$command" in
+  list)
+    printf '%s\n' \
+      '1. core       formatting + engine lib + policy boundary + coverage + quick audit' \
+      '2. policies   all policy library tests (scale campaigns remain explicit)' \
+      '3. rav        deterministic slice of RAV integration-test targets' \
+      '4. engine     deterministic slice of engine integration-test targets' \
+      '5. exhaustive workspace tests/clippy (release-only; not run by this script)'
+    ;;
+  core)
+    cd "$ROOT"
+    ./scripts/core-check.sh
+    ;;
+  policies)
+    cd "$ROOT"
+    cargo test --quiet -p cardbench-magic-policies --lib
+    ;;
+  rav)
+    run_shard cardbench-magic-rav \
+      "$ROOT/sets/ravnica_city_of_guilds/tests" "${2:-1/48}" 48 "${3:-test}"
+    ;;
+  engine)
+    run_shard cardbench-magic-engine \
+      "$ROOT/engine/tests" "${2:-1/32}" 32 "${3:-test}"
+    ;;
+  *) usage; exit 2 ;;
+esac

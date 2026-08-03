@@ -7,6 +7,7 @@ mod boros_convoke_burn;
 mod boros_radiance_assault;
 mod boros_tempo;
 mod boros_token_rally;
+mod catalog_gauntlet;
 mod deck_match;
 mod development_match;
 mod dimir_transmute_attrition;
@@ -26,10 +27,12 @@ pub use boros_convoke_burn::BorosConvokeBurnPolicy;
 pub use boros_radiance_assault::BorosRadianceAssaultPolicy;
 pub use boros_tempo::BorosTempoPolicy;
 pub use boros_token_rally::BorosTokenRallyPolicy;
+pub use catalog_gauntlet::{CatalogPolicyProfile, RavCatalogPolicy};
 pub use deck_match::{
-    DeckMatchConfig, DeckMatchResult, DeckMatchSweepResult, DeckMatchTermination, EngineFinding,
-    EngineFindingKind, EngineTournamentFailure, EngineTournamentResult, RAV_DECK_MATCH_ID,
-    RAV_REFERENCE_DECK_MATRIX_ID, run_rav_deck_matchup, run_rav_engine_tournament,
+    CatalogGauntletResult, DeckMatchConfig, DeckMatchResult, DeckMatchSweepResult,
+    DeckMatchTermination, EngineFinding, EngineFindingKind, EngineTournamentFailure,
+    EngineTournamentResult, RAV_DECK_MATCH_ID, RAV_REFERENCE_DECK_MATRIX_ID,
+    run_rav_catalog_gauntlet, run_rav_deck_matchup, run_rav_engine_tournament,
     run_rav_full_deck_match, run_rav_full_deck_sweep, run_rav_reference_deck_matrix,
 };
 pub use development_match::{PolicyMatchResult, run_rav_reference_match};
@@ -49,7 +52,7 @@ pub use trigger_campaign::{
     run_rav_trigger_probe,
 };
 
-use cardbench_magic_engine::{DecisionKind, DecisionSelection, GameView, PolicyAction};
+use cardbench_magic_engine::{GameView, PolicyAction};
 
 /// Submission ABI for `cardbench/magic/code_policy` development runs.
 pub trait CodePolicy {
@@ -57,24 +60,27 @@ pub trait CodePolicy {
     fn propose_move(&mut self, view: &GameView) -> PolicyAction;
 
     /// Completes generic mandatory decisions that are not priority actions.
-    /// The default currently covers Cleanup's exact excess-card discard; other
-    /// typed decisions continue through their dedicated policy hooks or remain
-    /// explicit capability boundaries.
+    /// The conservative default covers every generic decision kind currently
+    /// exposed by the public engine view.
     fn propose_pending_decision(&mut self, view: &GameView) -> Option<PolicyAction> {
-        let decision = view.pending_decision.as_ref()?;
-        match decision.kind {
-            DecisionKind::CleanupDiscard => Some(PolicyAction::SubmitDecision {
-                decision: decision.id,
-                selection: DecisionSelection::Objects(
-                    decision
-                        .candidates
-                        .iter()
-                        .take(usize::from(decision.max_selections))
-                        .map(|card| card.id)
-                        .collect(),
-                ),
-            }),
-            _ => None,
+        catalog_gauntlet::conservative_pending_decision(view)
+    }
+
+    /// Completes an optional triggered ability without letting an older policy
+    /// accidentally submit a priority action while the choice is open. The
+    /// conservative shared behavior declines payment and targeting; strategy
+    /// policies can override it when accepting the trigger is part of the plan.
+    fn propose_optional_triggered_ability(&mut self, view: &GameView) -> PolicyAction {
+        let choice = view
+            .optional_triggered_ability_choice
+            .as_ref()
+            .expect("optional-trigger proposal requires a visible choice");
+        PolicyAction::ResolveOptionalTriggeredAbility {
+            decision: choice.decision,
+            source: choice.source,
+            ability: choice.ability,
+            pay: false,
+            target: None,
         }
     }
 

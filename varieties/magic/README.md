@@ -15,6 +15,7 @@ cargo run -p cardbench-magic-policies --bin rav-deck-match
 cargo run -p cardbench-magic-policies --bin rav-deck-sweep
 cargo run -p cardbench-magic-policies --bin rav-engine-tournament
 cargo run -p cardbench-magic-policies --bin rav-reference-deck-matrix
+cargo run -p cardbench-magic-policies --bin rav_card_gauntlet
 cargo run -p cardbench-magic-policies --bin rav-engine-audit
 ```
 
@@ -35,6 +36,25 @@ gate: it starts hundreds of separate integration-test binaries (and policy
 campaign tests), so a cold run can take several minutes even when every test
 body is sub-second. The bounded gate preserves the high-signal engine and
 event-log checks without paying that process-startup cost on every edit.
+
+For ordered integration work, `scripts/check-batch.sh` divides the standalone
+test targets into deterministic, name-sorted shards. The default RAV shard is
+roughly ten of the 481 targets; the default engine shard is roughly nine of the
+280 targets. Run `./scripts/check-batch.sh list` for the sequence, then use for
+example `./scripts/check-batch.sh rav 1/48` or
+`./scripts/check-batch.sh engine 1/32`. Append `clippy` to check only that same
+slice. Shard assignment is stable, so a failure can be rerun with the exact
+same command. Full workspace tests and all-target Clippy remain deliberate
+release gates rather than edit-loop requirements.
+
+`rav_card_gauntlet` adds 24 legal exact-sixty decks and six deterministic Rust
+policy profiles. Across the deck corpus, every one of the 291 executable card
+identities—and therefore all 306 catalog printing records—is included. Each
+deck plays a complete game against an interactive reference opponent and then
+replays from fresh state; rejected moves, invariant or capability findings,
+ceilings, missing terminal results, event-log drift, and digest drift fail the
+command. This is a deck-inclusion guarantee, not a claim that one seed draws,
+casts, or activates every included card.
 
 `rav-engine-parity` validates the original Ravnica-block manifests and public
 deck pool, executes every shown RAV scenario twice, and compares each deterministic

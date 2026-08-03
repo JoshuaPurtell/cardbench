@@ -368,6 +368,106 @@ pub struct DeckFixture {
     pub deck: DeckList,
 }
 
+/// Stable number of five-color, exact-sixty-card catalog gauntlet decks.
+pub const RAV_CATALOG_COVERAGE_DECK_COUNT: usize = 24;
+
+const CATALOG_POLICY_IDS: [&str; 6] = [
+    "rav.catalog-pressure.v1",
+    "rav.catalog-curve.v1",
+    "rav.catalog-control.v1",
+    "rav.catalog-graveyard.v1",
+    "rav.catalog-top-end.v1",
+    "rav.catalog-patient.v1",
+];
+
+/// Builds the public all-card gauntlet decks.
+///
+/// Every nonbasic executable RAV identity appears in exactly one twelve-name
+/// band at three copies. Each band is completed to sixty cards with an even
+/// five-basic-land manabase. The result is a collection of legal, reproducible
+/// five-color development decks with ordinary spell/land proportions, rather
+/// than hundreds of one-card fixture games. The five basic identities appear
+/// in every deck; together the corpus covers all 291 executable identities and
+/// therefore every one of the 306 printing records in the catalog.
+pub fn load_catalog_coverage_decks() -> Result<Vec<DeckFixture>, ManifestValidationError> {
+    let basic_ids = [
+        "RAV-PLAINS",
+        "RAV-ISLAND",
+        "RAV-SWAMP",
+        "RAV-MOUNTAIN",
+        "RAV-FOREST",
+    ];
+    let basic_set = basic_ids.into_iter().collect::<BTreeSet<_>>();
+    let mut seen = BTreeSet::new();
+    let nonbasic_ids = rav_main_set_catalog()
+        .into_iter()
+        .filter_map(|card| match card.semantic_status {
+            CardSemanticStatus::ExecutableCompatibilitySlice { definition_id }
+                if !basic_set.contains(definition_id) && seen.insert(definition_id) =>
+            {
+                Some(definition_id)
+            }
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    let catalog = rav_catalog();
+    let mut decks = Vec::new();
+    for (index, band) in nonbasic_ids.chunks(12).enumerate() {
+        let mut mainboard = band
+            .iter()
+            .map(|card| DeckEntry {
+                card: (*card).to_owned(),
+                count: 3,
+            })
+            .collect::<Vec<_>>();
+        let spell_cards = u8::try_from(band.len() * 3).map_err(|_| {
+            ManifestValidationError("catalog band card count exceeds deck range".to_owned())
+        })?;
+        let land_cards = 60_u8.checked_sub(spell_cards).ok_or_else(|| {
+            ManifestValidationError("catalog band exceeds sixty cards".to_owned())
+        })?;
+        let per_basic = land_cards / 5;
+        let remainder = land_cards % 5;
+        mainboard.extend(
+            basic_ids
+                .iter()
+                .enumerate()
+                .map(|(basic_index, card)| DeckEntry {
+                    card: (*card).to_owned(),
+                    count: per_basic + u8::from(basic_index < usize::from(remainder)),
+                }),
+        );
+        let deck = DeckList {
+            mainboard,
+            sideboard: vec![],
+        };
+        deck.validate(
+            &catalog,
+            DeckRules {
+                minimum_mainboard_size: 60,
+                maximum_copies: 4,
+                maximum_sideboard_size: 15,
+            },
+        )
+        .map_err(|error| {
+            ManifestValidationError(format!("catalog coverage deck {}: {error}", index + 1))
+        })?;
+        decks.push(DeckFixture {
+            id: format!("rav_catalog_band_{:02}", index + 1),
+            name: format!("RAV Catalog Band {:02}", index + 1),
+            policy: CATALOG_POLICY_IDS[index % CATALOG_POLICY_IDS.len()].to_owned(),
+            deck,
+        });
+    }
+    if decks.len() != RAV_CATALOG_COVERAGE_DECK_COUNT {
+        return Err(ManifestValidationError(format!(
+            "catalog coverage expected {RAV_CATALOG_COVERAGE_DECK_COUNT} decks, found {}",
+            decks.len()
+        )));
+    }
+    Ok(decks)
+}
+
 #[must_use]
 #[allow(clippy::too_many_lines)] // Declarative card fixture catalog is intentionally kept together.
 pub fn card_definitions() -> Vec<CardDefinition> {
@@ -11274,15 +11374,25 @@ fn last_gasp_state_based_action() -> Result<(Game, String), RulesError> {
     ))
 }
 
-fn fresh_game() -> Result<Game, RulesError> {
-    let mut game = Game::new_with_all_bindings_and_static_continuous_effects(
+/// Constructs a RAV game with every executable expansion binding installed.
+///
+/// Policy campaigns must use this boundary instead of pairing
+/// [`card_definitions`] with `Game::new`: definitions alone do not install the
+/// set's triggers, attachments, activated abilities, replacements, or land
+/// entry behavior.
+pub fn new_rav_game(player_count: usize) -> Result<Game, RulesError> {
+    let mut triggers = rav_triggered_ability_bindings();
+    triggers.extend(rav_attachment_triggered_ability_bindings());
+    let mut game = Game::new_with_all_bindings_triggers_static_continuous_effects_and_land_entries(
         card_definitions(),
-        2,
+        player_count,
         rav_mana_ability_bindings(),
         rav_basic_land_type_bindings(),
         rav_additional_spell_cost_bindings(),
         rav_activated_ability_bindings(),
+        triggers,
         rav_static_continuous_effect_bindings(),
+        rav_land_entry_bindings(),
     )?;
     game.register_static_library_top_reveal_bindings(rav_static_library_top_reveal_bindings())?;
     game.register_static_attack_restrictions(rav_static_attack_restriction_bindings())?;
@@ -11303,7 +11413,13 @@ fn fresh_game() -> Result<Game, RulesError> {
         rav_generalized_activated_ability_cost_bindings(),
     )?;
     game.register_damage_replacement_effect_bindings(rav_damage_replacement_effect_bindings())?;
+    game.register_replacement_effect_bindings(rav_replacement_effect_bindings())?;
+    game.validate_invariants()?;
     Ok(game)
+}
+
+fn fresh_game() -> Result<Game, RulesError> {
+    new_rav_game(2)
 }
 
 fn basic_land(id: &'static str, name: &'static str, land_type: BasicLandType) -> CardDefinition {
