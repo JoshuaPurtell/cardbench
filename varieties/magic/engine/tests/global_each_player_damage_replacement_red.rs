@@ -39,6 +39,7 @@ fn pass_pair(game: &mut Game) {
 }
 
 #[test]
+#[allow(clippy::too_many_lines)] // One test owns the complete affected-player choice and resumption trace.
 fn each_player_damage_pauses_for_the_shielded_players_replacement_order() {
     let caster = PlayerId(0);
     let affected = PlayerId(1);
