@@ -39,7 +39,7 @@ pub fn run_rav_reference_match() -> Result<PolicyMatchResult, String> {
         return Err("reference policy match requires the two named RAV deck fixtures".to_owned());
     }
     let mut game = Game::new(card_definitions(), 2).map_err(rules_error)?;
-    game.set_shuffle_seed(73);
+    game.set_shuffle_seed(73).map_err(rules_error)?;
     game.add_card(PlayerId(0), "RAV-LIGHTNING-HELIX", Zone::Hand)
         .map_err(rules_error)?;
     game.add_card(PlayerId(1), "RAV-SCATTER-THE-SEEDS", Zone::Hand)

@@ -328,7 +328,7 @@ fn fixture(seed: u64) -> Fixture {
     let second = PlayerId(1);
     let third = PlayerId(2);
     let mut game = Game::new(definitions(), 3).expect("three-player fixture initializes");
-    game.set_shuffle_seed(seed);
+    game.set_shuffle_seed(seed).expect("setup seed is accepted");
 
     // Enough public library cards support every regular draw in the long trace.
     for player in [first, second, third] {

@@ -438,7 +438,8 @@ fn token_creation_sba_and_disappearance_are_complete_and_chronological() {
 fn transmute_logs_the_required_reveal_and_shuffle_between_search_and_completion() {
     let first = PlayerId(0);
     let mut game = game();
-    game.set_shuffle_seed(0x5EED);
+    game.set_shuffle_seed(0x5EED)
+        .expect("setup seed is accepted");
     let discarded = game
         .add_card(first, TRANSMUTER, Zone::Hand)
         .expect("transmute card enters hand");

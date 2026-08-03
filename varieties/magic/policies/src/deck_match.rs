@@ -199,7 +199,8 @@ pub fn run_rav_deck_matchup(
     let deck_p1 = expected_deck(&decks, deck_p1_id)?;
     let deck_ids = [deck_p0.id.clone(), deck_p1.id.clone()];
     let mut game = Game::new(card_definitions(), 2).map_err(rules_error)?;
-    game.set_shuffle_seed(config.shuffle_seed);
+    game.set_shuffle_seed(config.shuffle_seed)
+        .map_err(rules_error)?;
     game.load_deck_into_library(PlayerId(0), &deck_p0.deck)
         .map_err(rules_error)?;
     game.load_deck_into_library(PlayerId(1), &deck_p1.deck)

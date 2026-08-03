@@ -439,7 +439,8 @@ fn execute_scenario(specification: &ScenarioSpec) -> Result<ScenarioResult, Stri
         .map_err(rules_error)?;
     game.register_damage_replacement_effect_bindings(rav_damage_replacement_effect_bindings())
         .map_err(rules_error)?;
-    game.set_shuffle_seed(specification.seed);
+    game.set_shuffle_seed(specification.seed)
+        .map_err(rules_error)?;
     let mut labels = BTreeMap::new();
     for setup in &specification.cards {
         let player = checked_player(setup.owner)?;

@@ -4,7 +4,8 @@
 use std::collections::BTreeSet;
 
 use cardbench_magic_engine::{
-    CardDefinition, CardType, Color, Game, GameEvent, Keyword, ManaCost, PlayerId, Step, Zone,
+    CardDefinition, CardType, Color, Game, GameEvent, Keyword, ManaCost, PlayerId, RulesError,
+    Step, Zone,
 };
 
 const TRANSMUTER: &str = "SHUFFLE-SEED-TRANSMUTER";
@@ -121,7 +122,8 @@ fn advance_until(game: &mut Game, turn: u32, step: Step) {
 fn prepared_game() -> (Game, cardbench_magic_engine::ObjectId) {
     let first = PlayerId(0);
     let mut game = Game::new(definitions(), 2).expect("fixture initializes");
-    game.set_shuffle_seed(0xA11CE);
+    game.set_shuffle_seed(0xA11CE)
+        .expect("fixture seed is configured during setup");
     game.add_card(first, TRANSMUTER, Zone::Hand)
         .expect("transmuter enters hand during setup");
     let found = game
@@ -184,7 +186,11 @@ fn live_shuffle_seed_write_cannot_change_a_future_rules_shuffle_without_a_transi
     let (mut injected, injected_found) = prepared_game();
 
     let receipts_before = injected.event_log.len();
-    injected.set_shuffle_seed(0xDEAD_BEEF);
+    let injection_result = injected.set_shuffle_seed(0xDEAD_BEEF);
+    assert!(matches!(
+        injection_result,
+        Err(RulesError::IllegalAction("shuffle seed is setup-only"))
+    ));
     assert_eq!(
         injected.event_log.len(),
         receipts_before,

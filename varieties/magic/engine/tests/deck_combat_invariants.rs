@@ -134,7 +134,8 @@ fn advance_to(game: &mut Game, turn: u32, step: Step) {
 fn deck_opening_hand_policy_mana_and_invariants_use_only_public_api() {
     let player = PlayerId(0);
     let mut game = Game::new(definitions(), 2).expect("game initializes");
-    game.set_shuffle_seed(0xD3C5);
+    game.set_shuffle_seed(0xD3C5)
+        .expect("setup seed is accepted");
     game.load_deck_into_library(player, &land_deck())
         .expect("known deck loads into an empty library");
     assert_invariants(&game);

@@ -12964,8 +12964,18 @@ impl Game {
         }
     }
 
-    pub fn set_shuffle_seed(&mut self, seed: u64) {
+    /// Sets the deterministic shuffle source while a fixture is being built.
+    ///
+    /// A started game may shuffle only through a rules transition that records
+    /// the matching [`GameEvent::LibraryShuffled`] receipt. Letting an external
+    /// caller replace this seed mid-game would silently control that future
+    /// rules shuffle, so this remains a setup-only operation.
+    pub fn set_shuffle_seed(&mut self, seed: u64) -> Result<(), RulesError> {
+        if self.started {
+            return Err(RulesError::IllegalAction("shuffle seed is setup-only"));
+        }
         self.shuffle_seed = seed;
+        Ok(())
     }
 
     /// Consumes one player's pending loss conditions at the SBA boundary.

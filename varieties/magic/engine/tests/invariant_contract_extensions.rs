@@ -664,8 +664,12 @@ fn deck_loading_shuffle_and_opening_hand_are_deterministic_and_zone_complete() {
     let list = deck(&[(PLAINS, 3), (ISLAND, 3), (MOUNTAIN, 3)]);
     let mut first = game(2);
     let mut second = game(2);
-    first.set_shuffle_seed(0x00C0_FFEE);
-    second.set_shuffle_seed(0x00C0_FFEE);
+    first
+        .set_shuffle_seed(0x00C0_FFEE)
+        .expect("first setup seed is accepted");
+    second
+        .set_shuffle_seed(0x00C0_FFEE)
+        .expect("second setup seed is accepted");
     first
         .load_deck_into_library(player, &list)
         .expect("first deck loads");
