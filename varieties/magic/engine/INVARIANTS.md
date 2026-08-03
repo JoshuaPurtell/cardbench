@@ -2087,6 +2087,10 @@ Oracle Magic rules coverage.
   decision, create a child virtual copy with the selected target provenance,
   then emit its own `SpellCopyResolved`; parent and child each have one
   independent terminal lifecycle and neither may move a physical spell zone.
+- A virtual copied policy-submitted library search retains controller-only
+  hidden candidate visibility. It commits the selected physical card, records
+  exact search/shuffle receipts, then emits `SpellCopyResolved`; neither
+  `SpellResolved` nor a physical terminal-zone move may name the source.
 - A virtual copy's public `PublicGraveyardLandReturn` completion commits only
   the selected live physical land cards in their captured incarnations before
   emitting `SpellCopyResolved`; the stack-only source never emits
