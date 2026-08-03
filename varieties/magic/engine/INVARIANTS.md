@@ -2064,6 +2064,11 @@ Oracle Magic rules coverage.
   completes, the virtual stack item emits `SpellCopyResolved` and is removed
   from copy provenance without a fabricated `SpellResolved` or card-zone
   movement.
+- The same terminal rule applies to a virtual copy's public
+  `LibraryReorder` decision: its complete `DecisionCompleted →
+  LibraryReordered → SpellCopyResolved` lifecycle removes only stack/copy
+  provenance. The selected order is committed atomically before the terminal
+  copy receipt, and never authorizes a physical zone move for the virtual id.
 - An end-of-turn effect created by a resolved instruction is independent of a
   former battlefield source. Source departure preserves it through that
   turn's cleanup; target departure still expires it immediately. In contrast,
