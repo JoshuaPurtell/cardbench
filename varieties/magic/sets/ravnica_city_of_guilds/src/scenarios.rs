@@ -828,10 +828,16 @@ fn execute_action(
                     .map(|target| parse_target(target, labels))
                     .collect::<Result<Vec<_>, _>>()?
             };
+            let decision = game
+                .view_for_player(player)
+                .map_err(rules_error)?
+                .pending_decision
+                .ok_or_else(|| "no triggered-target decision is pending".to_owned())?;
             game.submit_policy_move(
                 player,
                 "rav-scenario.choose-trigger-targets.v1",
                 cardbench_magic_engine::PolicyAction::ChooseTriggeredAbilityTargets {
+                    decision: decision.id,
                     source,
                     ability: ability_id,
                     targets,
