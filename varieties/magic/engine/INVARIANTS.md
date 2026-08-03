@@ -622,8 +622,9 @@ Oracle Magic rules coverage.
   is permitted only on a permanent source and uses the same checked
   effect/target shape as every other trigger. Every represented land entry
   first makes the land live, reaches its ordinary state-based-action boundary,
-  queues that land's own ETB triggers, then scans every live non-token
-  permanent. The first condition observes every entry; the second only stacks
+  queues that land's own ETB triggers, then scans every live permanent with
+  an effective represented definition, including a token copying a card. The
+  first condition observes every entry; the second only stacks
   for a source controlled by that entering land's controller. An entry that
   occurs while another spell or ability resolves retains its entering
   controller in a deferred batch until that enclosing stack object has emitted
@@ -1125,7 +1126,10 @@ Oracle Magic rules coverage.
   target that leaves and re-enters is illegal for the original stack object.
   The same object may
   occupy multiple slots when the source has multiple independent target
-  occurrences. Tokens and lands cannot occupy the stack. A target may later
+  occurrences. A token or land cannot occupy the stack as a spell, but either
+  may be the source of an activated or triggered ability. A copied token's
+  effective layer-one definition, rather than a physical printed definition,
+  remains authoritative for that ability's binding and replay validation. A target may later
   become illegal, but it cannot be absent, fabricated, or change enum kind
   after cast time. `Target::Spell` additionally retains and validates the
   immutable card definition after CR 800.4a removes that object from the live
@@ -2433,7 +2437,12 @@ Oracle Magic rules coverage.
   characteristics, definition-bound triggers, and immutable static metadata.
   A controller-upkeep attachment trigger captures the exact attached creature
   and incarnation before it enters the stack; a later attachment move or zone
-  round trip cannot redirect the token copy to a newer object.
+  round trip cannot redirect the token copy to a newer object. When one copy
+  effect creates one or more tokens, the full token batch shares one
+  post-entry snapshot for self ETBs, controller-scoped entry observers, and
+  one land-entry event per copied land; a copied creature–land token can
+  therefore trigger itself and the original represented creature–land from
+  the same APNAP-orderable batch.
 - Every registered legendary card definition, and every legendary token value,
   participates in CR 704.5j according to its current layer-one name. When a
   controller has two or more matching live permanents, the engine has exactly
