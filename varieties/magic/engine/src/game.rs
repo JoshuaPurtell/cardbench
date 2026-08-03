@@ -39,6 +39,8 @@ use crate::{
 type SourceCounterMaterialization = (CounterKind, i16);
 type MaterializedActivatedEffects = (Vec<Effect>, Vec<SourceCounterMaterialization>);
 
+const DEFAULT_MAX_HAND_SIZE: usize = 7;
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct PendingCreatureSpellEntryCounters {
     source: ObjectId,
@@ -4403,7 +4405,8 @@ impl Game {
                 | DecisionContinuation::RetargetActivatedAbility { .. }
                 | DecisionContinuation::PermanentEntryCopySource { .. }
                 | DecisionContinuation::PermanentEntryCopyAuraAttachment { .. }
-                | DecisionContinuation::LegendRule { .. } => None,
+                | DecisionContinuation::LegendRule { .. }
+                | DecisionContinuation::CleanupDiscard { .. } => None,
             })
             .map(|(decision, source, destination, may_fail_to_find)| {
                 self.decision_candidate_cards(
@@ -4479,7 +4482,8 @@ impl Game {
                 | DecisionContinuation::RetargetActivatedAbility { .. }
                 | DecisionContinuation::PermanentEntryCopySource { .. }
                 | DecisionContinuation::PermanentEntryCopyAuraAttachment { .. }
-                | DecisionContinuation::LegendRule { .. } => None,
+                | DecisionContinuation::LegendRule { .. }
+                | DecisionContinuation::CleanupDiscard { .. } => None,
             });
         let optional_triggered_ability_choice = self
             .pending_optional_trigger_choice
@@ -4542,7 +4546,8 @@ impl Game {
                 | DecisionContinuation::RetargetActivatedAbility { .. }
                 | DecisionContinuation::PermanentEntryCopySource { .. }
                 | DecisionContinuation::PermanentEntryCopyAuraAttachment { .. }
-                | DecisionContinuation::LegendRule { .. } => None,
+                | DecisionContinuation::LegendRule { .. }
+                | DecisionContinuation::CleanupDiscard { .. } => None,
             })
             .map(|(decision, source, ability)| {
                 self.decision_candidate_cards(
@@ -4637,7 +4642,8 @@ impl Game {
                 | DecisionContinuation::RetargetActivatedAbility { .. }
                 | DecisionContinuation::PermanentEntryCopySource { .. }
                 | DecisionContinuation::PermanentEntryCopyAuraAttachment { .. }
-                | DecisionContinuation::LegendRule { .. } => None,
+                | DecisionContinuation::LegendRule { .. }
+                | DecisionContinuation::CleanupDiscard { .. } => None,
             });
         let mut opponent_life = Vec::new();
         let mut opponent_battlefield = Vec::new();
@@ -8998,6 +9004,18 @@ impl Game {
                     retained,
                 )
             }
+            DecisionContinuation::CleanupDiscard {
+                player: cleanup_player,
+                hand_snapshot,
+            } => {
+                let selected = Self::validate_object_decision_selection(&decision, selection)?;
+                self.resolve_cleanup_discard_decision(
+                    &decision,
+                    cleanup_player,
+                    &hand_snapshot,
+                    &selected,
+                )
+            }
         }
     }
 
@@ -9074,6 +9092,57 @@ impl Game {
             // CR 514.3: an SBA during Cleanup creates the exceptional
             // priority window even when no trigger was produced.
             self.cleanup_repeat_required = true;
+        }
+        Ok(())
+    }
+
+    /// Commits the exact selected private hand cards for Cleanup's default
+    /// maximum-hand-size action, then resumes the same Cleanup pass without
+    /// giving either player priority.  Snapshot revalidation prevents a stale
+    /// `DecisionId` response from discarding a later incarnation of a card
+    /// that happened to return to the hand.
+    fn resolve_cleanup_discard_decision(
+        &mut self,
+        decision: &PendingDecision,
+        cleanup_player: PlayerId,
+        hand_snapshot: &[HandCardSnapshot],
+        selected: &[ObjectId],
+    ) -> Result<(), RulesError> {
+        if cleanup_player != decision.player
+            || cleanup_player != self.active_player
+            || self.step != Step::Cleanup
+            || !self.cleanup_repeat_required
+        {
+            return Err(RulesError::IllegalAction(
+                "cleanup discard escaped its active cleanup boundary",
+            ));
+        }
+        let current_hand = self.recipient_hand_snapshot(cleanup_player)?;
+        if current_hand != hand_snapshot {
+            return Err(RulesError::IllegalAction(
+                "cleanup hand changed before the discard decision resolved",
+            ));
+        }
+        if selected.len() != hand_snapshot.len().saturating_sub(DEFAULT_MAX_HAND_SIZE)
+            || selected
+                .iter()
+                .any(|card| !hand_snapshot.iter().any(|snapshot| snapshot.card == *card))
+        {
+            return Err(RulesError::IllegalAction(
+                "cleanup discard selection does not match the excess hand size",
+            ));
+        }
+        self.complete_pending_decision(decision)?;
+        for card in selected {
+            self.record_event(GameEvent::CardDiscarded {
+                player: cleanup_player,
+                card: *card,
+            });
+            self.move_to_zone(*card, Zone::Graveyard)?;
+        }
+        self.resolve_cleanup_turn_based_actions()?;
+        if !self.cleanup_repeat_required && !self.is_game_over() {
+            self.advance_step()?;
         }
         Ok(())
     }
@@ -28387,115 +28456,10 @@ impl Game {
                 self.combat = None;
             }
             Step::Cleanup => {
-                let expired_permissions = self
-                    .graveyard_cast_permissions
-                    .iter()
-                    .filter_map(|(card, permission)| {
-                        (permission.expires_turn == self.turn).then_some(*card)
-                    })
-                    .collect::<Vec<_>>();
-                for card in expired_permissions {
-                    self.graveyard_cast_permissions.remove(&card);
-                    self.record_event(GameEvent::GraveyardCastPermissionExpired { card });
+                if self.open_cleanup_discard_decision()? {
+                    return Ok(());
                 }
-                let expired_effect_permissions = self
-                    .effect_created_cast_permissions
-                    .iter()
-                    .filter_map(|(card, permission)| {
-                        (permission.expires_turn == self.turn).then_some((*card, permission.zone))
-                    })
-                    .collect::<Vec<_>>();
-                for (card, zone) in expired_effect_permissions {
-                    self.effect_created_cast_permissions.remove(&card);
-                    self.record_event(GameEvent::CastPermissionExpired {
-                        card,
-                        from: match zone {
-                            CastPermissionZone::Graveyard => Zone::Graveyard,
-                            CastPermissionZone::Exile => Zone::Exile,
-                            CastPermissionZone::Library => Zone::Library,
-                        },
-                    });
-                }
-                for card in self.all_battlefield_cards() {
-                    self.objects
-                        .get_mut(&card)
-                        .ok_or(RulesError::UnknownCard(card))?
-                        .damage = 0;
-                    self.objects
-                        .get_mut(&card)
-                        .ok_or(RulesError::UnknownCard(card))?
-                        .deathtouch_damage = false;
-                }
-                let expired = self
-                    .continuous_effects
-                    .iter()
-                    .filter(|effect| effect.duration == Duration::EndOfTurn(self.turn))
-                    .cloned()
-                    .collect::<Vec<_>>();
-                let control_before = self.control_targets_before_expiration(&expired)?;
-                self.continuous_effects
-                    .retain(|effect| effect.duration != Duration::EndOfTurn(self.turn));
-                self.damage_redirections
-                    .retain(|redirect| redirect.expires_turn != self.turn);
-                let expired_combat_preventions = self
-                    .combat_damage_preventions
-                    .iter()
-                    .filter(|prevention| prevention.expires_turn == self.turn)
-                    .cloned()
-                    .collect::<Vec<_>>();
-                self.combat_damage_preventions
-                    .retain(|prevention| prevention.expires_turn != self.turn);
-                let expired_global_combat_preventions = self
-                    .global_combat_damage_preventions
-                    .iter()
-                    .filter(|prevention| prevention.expires_turn == self.turn)
-                    .cloned()
-                    .collect::<Vec<_>>();
-                self.global_combat_damage_preventions
-                    .retain(|prevention| prevention.expires_turn != self.turn);
-                let expired_shields = self
-                    .damage_prevention_shields
-                    .iter()
-                    .filter(|shield| shield.expires_turn == self.turn)
-                    .cloned()
-                    .collect::<Vec<_>>();
-                self.damage_prevention_shields
-                    .retain(|shield| shield.expires_turn != self.turn);
-                for effect in expired {
-                    self.remove_damage_shield_for_effect(&effect);
-                    self.record_event(GameEvent::ContinuousEffectExpired {
-                        source: effect.source,
-                        target: effect.target,
-                        layer: effect.change.layer(),
-                    });
-                }
-                self.record_control_reversions(&control_before)?;
-                for prevention in expired_combat_preventions {
-                    self.record_event(GameEvent::CombatDamagePreventionExpired {
-                        source: prevention.source,
-                        creature: prevention.creature,
-                    });
-                }
-                for prevention in expired_global_combat_preventions {
-                    self.record_event(GameEvent::GlobalCombatDamagePreventionExpired {
-                        source: prevention.source,
-                    });
-                }
-                for shield in expired_shields {
-                    self.record_event(GameEvent::DamageShieldExpired {
-                        source: shield.source,
-                        target: shield.target,
-                    });
-                }
-                self.check_state_based_actions()?;
-                // Cleanup normally has no priority.  Its exceptional CR
-                // 514.3 path starts when state-based actions create a stack
-                // object or a trigger-placement decision; retain this fact
-                // so the later empty-stack pass repeats Cleanup.
-                self.cleanup_repeat_required = !self.is_game_over()
-                    && (!self.stack.is_empty()
-                        || self.pending_decision.is_some()
-                        || self.pending_optional_trigger_choice.is_some());
+                self.resolve_cleanup_turn_based_actions()?;
             }
             _ => {}
         }
@@ -28515,6 +28479,167 @@ impl Game {
             // ordinary Cleanup gives priority. Advance immediately.
             self.advance_step()?;
         }
+        Ok(())
+    }
+
+    /// Opens Cleanup's CR 514.1a private hand-size discard decision before
+    /// damage removal and end-of-turn expiration. The decision is a
+    /// turn-based action, so it gives no priority and the same Cleanup pass
+    /// resumes once the selected cards are discarded.
+    fn open_cleanup_discard_decision(&mut self) -> Result<bool, RulesError> {
+        let player = self.active_player;
+        let hand_snapshot = self.recipient_hand_snapshot(player)?;
+        let excess = hand_snapshot.len().saturating_sub(DEFAULT_MAX_HAND_SIZE);
+        if excess == 0 {
+            return Ok(false);
+        }
+        let count = u8::try_from(excess).map_err(|_| {
+            RulesError::IllegalAction("cleanup discard count exceeds the decision range")
+        })?;
+        let decision = self.allocate_decision_id()?;
+        self.pending_decision = Some(PendingDecision {
+            id: decision,
+            player,
+            visibility: DecisionVisibility::Private,
+            kind: DecisionKind::CleanupDiscard,
+            min_selections: count,
+            max_selections: count,
+            options: hand_snapshot
+                .iter()
+                .map(|snapshot| DecisionOption::Object(snapshot.card))
+                .collect(),
+            continuation: DecisionContinuation::CleanupDiscard {
+                player,
+                hand_snapshot,
+            },
+        });
+        self.record_event(GameEvent::DecisionOpened {
+            decision,
+            player,
+            kind: DecisionKind::CleanupDiscard,
+            visibility: DecisionVisibility::Private,
+            min_selections: count,
+            max_selections: count,
+        });
+        self.cleanup_repeat_required = true;
+        self.consecutive_passes = 0;
+        self.priority = player;
+        Ok(true)
+    }
+
+    /// Applies Cleanup's post-discard turn-based work. It is shared by an
+    /// ordinary under-limit Cleanup and the resumed path after a private
+    /// hand-size decision, so an over-limit hand cannot skip expiration,
+    /// state-based actions, or CR 514.3's exceptional repeat.
+    #[allow(clippy::too_many_lines)] // The ordered Cleanup receipt lifecycle is one atomic rules action.
+    fn resolve_cleanup_turn_based_actions(&mut self) -> Result<(), RulesError> {
+        let expired_permissions = self
+            .graveyard_cast_permissions
+            .iter()
+            .filter_map(|(card, permission)| {
+                (permission.expires_turn == self.turn).then_some(*card)
+            })
+            .collect::<Vec<_>>();
+        for card in expired_permissions {
+            self.graveyard_cast_permissions.remove(&card);
+            self.record_event(GameEvent::GraveyardCastPermissionExpired { card });
+        }
+        let expired_effect_permissions = self
+            .effect_created_cast_permissions
+            .iter()
+            .filter_map(|(card, permission)| {
+                (permission.expires_turn == self.turn).then_some((*card, permission.zone))
+            })
+            .collect::<Vec<_>>();
+        for (card, zone) in expired_effect_permissions {
+            self.effect_created_cast_permissions.remove(&card);
+            self.record_event(GameEvent::CastPermissionExpired {
+                card,
+                from: match zone {
+                    CastPermissionZone::Graveyard => Zone::Graveyard,
+                    CastPermissionZone::Exile => Zone::Exile,
+                    CastPermissionZone::Library => Zone::Library,
+                },
+            });
+        }
+        for card in self.all_battlefield_cards() {
+            self.objects
+                .get_mut(&card)
+                .ok_or(RulesError::UnknownCard(card))?
+                .damage = 0;
+            self.objects
+                .get_mut(&card)
+                .ok_or(RulesError::UnknownCard(card))?
+                .deathtouch_damage = false;
+        }
+        let expired = self
+            .continuous_effects
+            .iter()
+            .filter(|effect| effect.duration == Duration::EndOfTurn(self.turn))
+            .cloned()
+            .collect::<Vec<_>>();
+        let control_before = self.control_targets_before_expiration(&expired)?;
+        self.continuous_effects
+            .retain(|effect| effect.duration != Duration::EndOfTurn(self.turn));
+        self.damage_redirections
+            .retain(|redirect| redirect.expires_turn != self.turn);
+        let expired_combat_preventions = self
+            .combat_damage_preventions
+            .iter()
+            .filter(|prevention| prevention.expires_turn == self.turn)
+            .cloned()
+            .collect::<Vec<_>>();
+        self.combat_damage_preventions
+            .retain(|prevention| prevention.expires_turn != self.turn);
+        let expired_global_combat_preventions = self
+            .global_combat_damage_preventions
+            .iter()
+            .filter(|prevention| prevention.expires_turn == self.turn)
+            .cloned()
+            .collect::<Vec<_>>();
+        self.global_combat_damage_preventions
+            .retain(|prevention| prevention.expires_turn != self.turn);
+        let expired_shields = self
+            .damage_prevention_shields
+            .iter()
+            .filter(|shield| shield.expires_turn == self.turn)
+            .cloned()
+            .collect::<Vec<_>>();
+        self.damage_prevention_shields
+            .retain(|shield| shield.expires_turn != self.turn);
+        for effect in expired {
+            self.remove_damage_shield_for_effect(&effect);
+            self.record_event(GameEvent::ContinuousEffectExpired {
+                source: effect.source,
+                target: effect.target,
+                layer: effect.change.layer(),
+            });
+        }
+        self.record_control_reversions(&control_before)?;
+        for prevention in expired_combat_preventions {
+            self.record_event(GameEvent::CombatDamagePreventionExpired {
+                source: prevention.source,
+                creature: prevention.creature,
+            });
+        }
+        for prevention in expired_global_combat_preventions {
+            self.record_event(GameEvent::GlobalCombatDamagePreventionExpired {
+                source: prevention.source,
+            });
+        }
+        for shield in expired_shields {
+            self.record_event(GameEvent::DamageShieldExpired {
+                source: shield.source,
+                target: shield.target,
+            });
+        }
+        self.check_state_based_actions()?;
+        // Cleanup normally has no priority. Its exceptional CR 514.3 path
+        // starts only when this completed Cleanup pass creates stack work.
+        self.cleanup_repeat_required = !self.is_game_over()
+            && (!self.stack.is_empty()
+                || self.pending_decision.is_some()
+                || self.pending_optional_trigger_choice.is_some());
         Ok(())
     }
 
@@ -37533,6 +37658,37 @@ impl Game {
                 {
                     return Err(RulesError::IllegalAction(
                         "entry-copy Aura decision violates stack or attachment provenance",
+                    ));
+                }
+            }
+            DecisionContinuation::CleanupDiscard {
+                player,
+                hand_snapshot,
+            } => {
+                let current_hand = self.recipient_hand_snapshot(*player)?;
+                let expected_options = hand_snapshot
+                    .iter()
+                    .map(|snapshot| DecisionOption::Object(snapshot.card))
+                    .collect::<Vec<_>>();
+                let excess = hand_snapshot.len().saturating_sub(DEFAULT_MAX_HAND_SIZE);
+                let expected_count = u8::try_from(excess).map_err(|_| {
+                    RulesError::IllegalAction("cleanup discard selection exceeds engine range")
+                })?;
+                if decision.kind != DecisionKind::CleanupDiscard
+                    || decision.visibility != DecisionVisibility::Private
+                    || decision.player != *player
+                    || *player != self.active_player
+                    || self.step != Step::Cleanup
+                    || !self.cleanup_repeat_required
+                    || !self.stack.is_empty()
+                    || current_hand != *hand_snapshot
+                    || excess == 0
+                    || decision.min_selections != expected_count
+                    || decision.max_selections != expected_count
+                    || decision.options != expected_options
+                {
+                    return Err(RulesError::IllegalAction(
+                        "cleanup discard decision violates active-hand provenance",
                     ));
                 }
             }

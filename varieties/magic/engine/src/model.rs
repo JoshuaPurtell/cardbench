@@ -4035,6 +4035,10 @@ pub enum DecisionKind {
     /// no-priority choice: every other member goes to its owner's graveyard
     /// together before a player can act.
     LegendRule,
+    /// At Cleanup, the active player privately selects exactly the excess
+    /// cards from their hand for the default maximum-hand-size discard.
+    /// This is a no-priority turn-based action, not a resolving spell effect.
+    CleanupDiscard,
 }
 
 /// One public member of an APNAP simultaneous-trigger ordering group.
@@ -4509,6 +4513,13 @@ pub enum DecisionContinuation {
         controller: PlayerId,
         name: &'static str,
         permanents: Vec<(ObjectId, u64)>,
+    },
+    /// Resumes the active player's Cleanup hand-size action. The complete
+    /// hand snapshot retains exact incarnations so a stale answer cannot
+    /// discard a later hand object with the same stable id.
+    CleanupDiscard {
+        player: PlayerId,
+        hand_snapshot: Vec<HandCardSnapshot>,
     },
 }
 
