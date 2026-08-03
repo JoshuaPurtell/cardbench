@@ -17476,17 +17476,20 @@ impl Game {
                     if !target_type_matches {
                         return Err(RulesError::IllegalTarget(*target));
                     }
-                    if self
-                        .stack
-                        .iter()
-                        .position(|candidate| {
-                            candidate.card == *card && candidate.ability_id.is_none()
-                        })
-                        .is_some_and(|target_index| target_index >= stack_index)
-                    {
+                    let live_spell_target = self.stack.iter().position(|candidate| {
+                        candidate.card == *card && candidate.ability_id.is_none()
+                    });
+                    if live_spell_target.is_some_and(|target_index| target_index >= stack_index) {
                         return Err(RulesError::IllegalAction(
                             "a stack spell target must be lower than its source",
                         ));
+                    }
+                    if live_spell_target.is_none()
+                        && self.stack[..stack_index].iter().any(|candidate| {
+                            candidate.card == *card && candidate.ability_id.is_some()
+                        })
+                    {
+                        return Err(RulesError::IllegalTarget(*target));
                     }
                 }
                 if let Target::ActivatedAbility(target_stack_item) = target {
@@ -32333,21 +32336,19 @@ impl Game {
                     })
             }
             (Target::Spell(card), TargetRequirement::InstantOrSorcerySpell) => {
-                self.stack
-                    .iter()
-                    .any(|stack_object| stack_object.card == card)
-                    && self.card_definition(card).is_ok_and(|definition| {
-                        definition.card_types.contains(&CardType::Instant)
-                            || definition.card_types.contains(&CardType::Sorcery)
-                    })
+                self.stack.iter().any(|stack_object| {
+                    stack_object.card == card && stack_object.ability_id.is_none()
+                }) && self.card_definition(card).is_ok_and(|definition| {
+                    definition.card_types.contains(&CardType::Instant)
+                        || definition.card_types.contains(&CardType::Sorcery)
+                })
             }
             (Target::Spell(card), TargetRequirement::NoncreatureSpell) => {
-                self.stack
-                    .iter()
-                    .any(|stack_object| stack_object.card == card)
-                    && self.card_definition(card).is_ok_and(|definition| {
-                        !definition.card_types.contains(&CardType::Creature)
-                    })
+                self.stack.iter().any(|stack_object| {
+                    stack_object.card == card && stack_object.ability_id.is_none()
+                }) && self
+                    .card_definition(card)
+                    .is_ok_and(|definition| !definition.card_types.contains(&CardType::Creature))
             }
             (Target::Spell(card), TargetRequirement::Spell) => self
                 .stack
