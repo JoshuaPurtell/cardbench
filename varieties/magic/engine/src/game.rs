@@ -4097,6 +4097,16 @@ impl Game {
                 self.enqueue_controller_sacrifice_color_triggers(*permanent, player)?;
             }
         }
+        // A token source that pays its own sacrifice cost can cease before
+        // the activation reaches the stack. Preserve the copied definition
+        // and exact LKI now, while the permanent is still live, so the later
+        // ability stack object has the same historical provenance as a
+        // physical sacrificed source.
+        if source.token.is_some() && activation.sacrifice_sources.contains(&activation.source) {
+            self.capture_last_known_characteristics(activation.source)?;
+            self.departed_card_definitions
+                .insert(activation.source, definition_id);
+        }
         for permanent in &activation.sacrifice_sources {
             self.record_event(GameEvent::SacrificedAsAbilityCost {
                 player,
@@ -32868,7 +32878,17 @@ impl Game {
                     if has_dies_trigger {
                         let controller = self.controller_of(card)?;
                         let colors = self.characteristics(card)?.colors;
-                        self.capture_last_known_characteristics(card)?;
+                        // A self-sacrifice activation may already have frozen
+                        // this exact token incarnation before the cost removed
+                        // it. Reuse that source snapshot so one departure can
+                        // support both the activated ability and its Dies
+                        // trigger without duplicating LKI provenance.
+                        if !self
+                            .last_known_characteristics
+                            .contains_key(&(card, token_incarnation))
+                        {
+                            self.capture_last_known_characteristics(card)?;
+                        }
                         self.departed_card_definitions.insert(card, definition);
                         self.enqueue_dies_triggers(
                             card,
@@ -39745,6 +39765,22 @@ impl Game {
             let mut index = activation_index;
             while let Some(previous) = index.checked_sub(1) {
                 match self.event_log.get(previous) {
+                    Some(GameEvent::PermanentCopyExpired { target, .. }) => {
+                        // A copied token's mandatory copy-expiration receipt
+                        // follows its token-cessation receipt before the
+                        // activation marker. It is structural provenance, not
+                        // a second cost, so step over it only when it remains
+                        // adjacent to that same token departure.
+                        if !matches!(
+                            previous
+                                .checked_sub(1)
+                                .and_then(|receipt| self.event_log.get(receipt)),
+                            Some(GameEvent::TokenCeasedToExist { token }) if token == target
+                        ) {
+                            break;
+                        }
+                        index = previous;
+                    }
                     Some(GameEvent::CreatureCardPutIntoGraveyardFromBattlefieldThisTurn {
                         card,
                         incarnation,
