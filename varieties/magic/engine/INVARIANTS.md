@@ -2706,7 +2706,11 @@ Oracle Magic rules coverage.
   while it is live but must not place the event until the original spell's
   terminal lifecycle and post-resolution SBA checkpoint. Thus an ETB cannot
   preempt the resolving search on the stack, and a short-lived entrant retains
-  its historical battlefield source through the resulting SBA death. For creature deaths selected
+  its historical battlefield source through the resulting SBA death. A
+  permanent that enters only after a no-priority private resolution decision
+  follows the same capture-before-SBA rule, including land-entry observers;
+  its historical battlefield incarnation must survive a resulting SBA death
+  rather than being recreated from the new graveyard object. For creature deaths selected
   in one pass, regeneration shields are consumed first, then the remaining
   death set receives one shared last-known-information observer snapshot
   before its members take their individual graveyard/token-departure
