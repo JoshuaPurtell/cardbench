@@ -8845,7 +8845,12 @@ impl Game {
             ));
         }
         self.draw_card_from_spell_effect(controller)?;
-        if self.objects.contains_key(&resolved.card) {
+        if let Some(copy) = self.virtual_spell_copies.remove(&resolved.card) {
+            self.record_event(GameEvent::SpellCopyResolved {
+                copy: resolved.card,
+                original: copy.original,
+            });
+        } else {
             self.record_event(GameEvent::SpellResolved {
                 card: resolved.card,
             });

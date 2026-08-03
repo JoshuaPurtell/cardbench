@@ -131,8 +131,11 @@ fn virtual_copy_can_complete_activated_ability_retarget_decision() {
     let activated = game.stack.last().expect("ability stacked").id;
     game.pass_priority(copy_controller)
         .expect("ability controller passes to reroute caster");
-    game.cast_spell(caster, request(reroute, vec![Target::ActivatedAbility(activated)]))
-        .expect("physical retarget spell casts");
+    game.cast_spell(
+        caster,
+        request(reroute, vec![Target::ActivatedAbility(activated)]),
+    )
+    .expect("physical retarget spell casts");
     game.pass_priority(caster)
         .expect("caster passes to copy controller");
     game.cast_spell(copy_controller, request(copy, vec![Target::Spell(reroute)]))
