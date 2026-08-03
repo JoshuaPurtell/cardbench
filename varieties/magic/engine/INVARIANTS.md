@@ -1702,6 +1702,10 @@ Oracle Magic rules coverage.
   stacked, but that `TriggeredAbilityStacked.source_incarnation` must name the
   `ObjectIncarnationAdvanced` receipt immediately following its
   `CardMoved(Battlefield)` event, never the later graveyard incarnation.
+  The conditional graveyard-to-battlefield creature-return instruction shares
+  this capture-before-counter-and-SBA boundary; it cannot treat a returned
+  creature as a bare zone move or reconstruct its trigger from a later
+  graveyard incarnation.
 - A resolving all-player discard trigger keeps its stack object live while
   each living player with a hand submits a private current-hand selection in
   player order. Every `CardDiscarded` receipt is immediately followed by that
