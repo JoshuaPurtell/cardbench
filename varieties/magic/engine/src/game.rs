@@ -8889,6 +8889,7 @@ impl Game {
         match decision.continuation.clone() {
             DecisionContinuation::LibrarySearch {
                 source,
+                effect_index,
                 requirement,
                 destination,
                 may_fail_to_find,
@@ -8901,6 +8902,7 @@ impl Game {
                     destination,
                     may_fail_to_find,
                     selected.into_iter().next(),
+                    effect_index,
                 )
             }
             DecisionContinuation::LibrarySearchAndCast {
@@ -12044,7 +12046,7 @@ impl Game {
         Ok(copy)
     }
 
-    #[allow(clippy::too_many_lines)] // The suspended selection and terminal stack lifecycle are one transaction.
+    #[allow(clippy::too_many_lines, clippy::too_many_arguments)] // The suspended selection and terminal stack lifecycle are one transaction.
     fn resolve_library_search_decision(
         &mut self,
         decision: &PendingDecision,
@@ -12053,26 +12055,26 @@ impl Game {
         destination: LibrarySearchDestination,
         may_fail_to_find: bool,
         selected: Option<ObjectId>,
+        effect_index: usize,
     ) -> Result<(), RulesError> {
         let player = decision.player;
-        let (ability, chosen_x, source_incarnation, reveal_selected) = {
-            let top = self.stack.last().ok_or(RulesError::IllegalAction(
+        let (top, ability, chosen_x, reveal_selected) = {
+            let top = self.stack.last().cloned().ok_or(RulesError::IllegalAction(
                 "library search choice has no live stack item",
             ))?;
-            let reveal_selected = match top.effects.as_slice() {
-                [
-                    Effect::SearchControllerLibrary {
-                        requirement: stack_requirement,
-                        destination: stack_destination,
-                        selection:
-                            LibrarySearchSelection::PolicySubmitted {
-                                may_fail_to_find: stack_may_fail,
-                            },
-                        reveal_selected: stack_reveal_selected,
-                    },
-                ] if stack_requirement == requirement
+            let reveal_selected = match top.effects.get(effect_index) {
+                Some(Effect::SearchControllerLibrary {
+                    requirement: stack_requirement,
+                    destination: stack_destination,
+                    selection:
+                        LibrarySearchSelection::PolicySubmitted {
+                            may_fail_to_find: stack_may_fail,
+                        },
+                    reveal_selected: stack_reveal_selected,
+                }) if stack_requirement == requirement
                     && *stack_destination == destination
-                    && *stack_may_fail == may_fail_to_find =>
+                    && *stack_may_fail == may_fail_to_find
+                    && self.stack_effect_cursor(&top)? == effect_index =>
                 {
                     *stack_reveal_selected
                 }
@@ -12087,12 +12089,7 @@ impl Game {
                     "library search choice no longer matches the live stack item",
                 ));
             }
-            (
-                top.ability_id,
-                top.chosen_x,
-                top.source_incarnation,
-                reveal_selected,
-            )
+            (top.clone(), top.ability_id, top.chosen_x, reveal_selected)
         };
         let expected_cards = self.library_search_candidates(player, requirement, chosen_x)?;
         if decision.options
@@ -12121,9 +12118,6 @@ impl Game {
             }
         }
 
-        self.stack.pop().ok_or(RulesError::IllegalAction(
-            "library search stack item disappeared before resolution",
-        ))?;
         self.complete_pending_decision(decision)?;
 
         let mut entered_permanent = None;
@@ -12176,30 +12170,15 @@ impl Game {
         let cards = u16::try_from(self.players[player.0].library.len()).unwrap_or(u16::MAX);
         self.record_event(GameEvent::LibraryShuffled { player, cards });
 
-        if let Some(ability) = ability {
-            if ability == TRANSMUTE_ABILITY_ID {
-                self.record_event(GameEvent::Transmuted {
-                    player,
-                    discarded: source,
-                    found: selected,
-                });
-            }
-            self.record_event(GameEvent::AbilityResolved {
-                source,
-                source_incarnation,
-                ability,
+        if let Some(ability) = ability
+            && ability == TRANSMUTE_ABILITY_ID
+        {
+            self.record_event(GameEvent::Transmuted {
+                player,
+                discarded: source,
+                found: selected,
             });
-        } else if let Some(copy) = self.virtual_spell_copies.remove(&source) {
-            self.record_event(GameEvent::SpellCopyResolved {
-                copy: source,
-                original: copy.original,
-            });
-        } else {
-            self.record_event(GameEvent::SpellResolved { card: source });
-            self.move_to_spell_terminal_zone(source)?;
         }
-        self.check_state_based_actions()?;
-        self.flush_pending_dies_triggers();
         if let Some((card, definition, controller)) = entered_permanent
             && self.zone_of(card) == Some(Zone::Battlefield)
         {
@@ -12208,12 +12187,25 @@ impl Game {
                 self.queue_land_entry_trigger_batch(controller)?;
             }
         }
-        self.flush_pending_land_entry_triggers()?;
-        self.flush_pending_damage_triggers();
-        self.flush_pending_life_gain_triggers();
-        self.flush_pending_dies_triggers();
-        self.priority = self.priority_after_resolution();
-        Ok(())
+        let next_effect_index = effect_index
+            .checked_add(1)
+            .ok_or(RulesError::IllegalAction(
+                "stack instruction cursor overflowed",
+            ))?;
+        if next_effect_index < top.effects.len() {
+            self.stack_effect_cursors.insert(top.id, next_effect_index);
+            return self.resolve_top_of_stack();
+        }
+        let popped = self.stack.pop().ok_or(RulesError::IllegalAction(
+            "library search stack item disappeared before terminal resolution",
+        ))?;
+        if popped.id != top.id {
+            return Err(RulesError::IllegalAction(
+                "library search stack identity changed before terminal resolution",
+            ));
+        }
+        self.stack_effect_cursors.remove(&top.id);
+        self.finish_resolved_decision_stack_item(&top)
     }
 
     /// Commits the private optional choice for a source-bound Aura search.
@@ -14443,6 +14435,7 @@ impl Game {
                                     effect_index,
                                     ..
                                 }
+                                | DecisionContinuation::LibrarySearch { effect_index, .. }
                                 | DecisionContinuation::TargetPlayerManaColor {
                                     effect_index,
                                     ..
@@ -18135,24 +18128,11 @@ impl Game {
                 "a private target-library reorder spell must contain exactly one effect",
             ));
         }
-        let policy_submitted_library_searches = definition
-            .effects
-            .iter()
-            .filter(|effect| {
-                matches!(
-                    effect,
-                    Effect::SearchControllerLibrary {
-                        selection: LibrarySearchSelection::PolicySubmitted { .. },
-                        ..
-                    }
-                )
-            })
-            .count();
-        if policy_submitted_library_searches > 0 && definition.effects.len() != 1 {
-            return Err(RulesError::IllegalAction(
-                "a policy-submitted library search spell must contain exactly one effect",
-            ));
-        }
+        // A policy-submitted single-card search may be one instruction in a
+        // larger spell. Resolution records its exact effect cursor and
+        // resumes the remaining suffix after the private choice completes.
+        // Multiple policy searches in one spell remain legal as sequential
+        // boundaries; each cursor is independently revalidated.
         let policy_submitted_multi_library_searches = definition
             .effects
             .iter()
@@ -19351,6 +19331,14 @@ impl Game {
                 continue;
             }
             if effect_index > next_effect_index
+                && self.suspend_resolving_stack_instruction_for_library_search_choice(
+                    &stack_object,
+                    effect_index,
+                )?
+            {
+                return Ok(());
+            }
+            if effect_index > next_effect_index
                 && self.suspend_resolving_stack_instruction_for_quantity_replacement(
                     &stack_object,
                     effect_index,
@@ -19967,6 +19955,39 @@ impl Game {
         if restored.id != stack_object.id {
             return Err(RulesError::IllegalAction(
                 "resumable damage replacement instruction stack identity changed",
+            ));
+        }
+        Ok(false)
+    }
+
+    /// Reinstates an in-progress stack object while a policy-submitted
+    /// controller-library search at its current instruction opens a private
+    /// decision. Earlier instructions have already committed; the exact
+    /// cursor is retained so the selected card can resume the remaining
+    /// suffix without replaying the prefix or terminating the spell early.
+    fn suspend_resolving_stack_instruction_for_library_search_choice(
+        &mut self,
+        stack_object: &StackObject,
+        effect_index: usize,
+    ) -> Result<bool, RulesError> {
+        if effect_index == 0 || effect_index >= stack_object.effects.len() {
+            return Err(RulesError::IllegalAction(
+                "resumable library-search instruction cursor is outside a stack suffix",
+            ));
+        }
+        self.stack.push(stack_object.clone());
+        self.stack_effect_cursors
+            .insert(stack_object.id, effect_index);
+        if self.suspend_top_stack_item_for_library_search_choice()? {
+            return Ok(true);
+        }
+        let restored = self.stack.pop().ok_or(RulesError::IllegalAction(
+            "resumable library-search instruction stack item disappeared",
+        ))?;
+        self.stack_effect_cursors.remove(&stack_object.id);
+        if restored.id != stack_object.id {
+            return Err(RulesError::IllegalAction(
+                "resumable library-search instruction stack identity changed",
             ));
         }
         Ok(false)
@@ -21123,16 +21144,15 @@ impl Game {
         let Some(top) = self.stack.last() else {
             return Ok(false);
         };
+        let effect_index = self.stack_effect_cursor(top)?;
         let (source, controller, requirement, destination, may_fail_to_find, chosen_x) =
-            match top.effects.as_slice() {
-                [
-                    Effect::SearchControllerLibrary {
-                        requirement,
-                        destination,
-                        selection: LibrarySearchSelection::PolicySubmitted { may_fail_to_find },
-                        ..
-                    },
-                ] => (
+            match top.effects.get(effect_index) {
+                Some(Effect::SearchControllerLibrary {
+                    requirement,
+                    destination,
+                    selection: LibrarySearchSelection::PolicySubmitted { may_fail_to_find },
+                    ..
+                }) => (
                     top.card,
                     top.controller,
                     requirement.clone(),
@@ -21163,6 +21183,7 @@ impl Game {
             options,
             DecisionContinuation::LibrarySearch {
                 source,
+                effect_index,
                 requirement,
                 destination,
                 may_fail_to_find,
@@ -37793,6 +37814,7 @@ impl Game {
         match &decision.continuation {
             DecisionContinuation::LibrarySearch {
                 source,
+                effect_index,
                 requirement,
                 destination,
                 may_fail_to_find,
@@ -37800,16 +37822,18 @@ impl Game {
                 let top = self.stack.last().ok_or(RulesError::IllegalAction(
                     "library-search decision escaped its stack item",
                 ))?;
+                let current_effect_index = self.stack_effect_cursor(top)?;
                 let matches_stack = matches!(
-                    top.effects.as_slice(),
-                    [Effect::SearchControllerLibrary {
+                    top.effects.get(*effect_index),
+                    Some(Effect::SearchControllerLibrary {
                         requirement: stack_requirement,
                         destination: stack_destination,
                         selection: LibrarySearchSelection::PolicySubmitted {
                             may_fail_to_find: stack_may_fail,
                         },
                         ..
-                    }] if stack_requirement == requirement
+                    }) if current_effect_index == *effect_index
+                        && stack_requirement == requirement
                         && stack_destination == destination
                         && stack_may_fail == may_fail_to_find
                 );

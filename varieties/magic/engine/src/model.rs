@@ -4305,6 +4305,10 @@ pub enum QuantityReplacementResolution {
 pub enum DecisionContinuation {
     LibrarySearch {
         source: ObjectId,
+        /// Exact instruction cursor at which the private search suspended.
+        /// This permits a multi-effect spell to resume its suffix without
+        /// reopening or terminating the enclosing stack object.
+        effect_index: usize,
         requirement: LibrarySearchRequirement,
         destination: LibrarySearchDestination,
         may_fail_to_find: bool,
