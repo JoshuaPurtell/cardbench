@@ -1249,8 +1249,12 @@ Oracle Magic rules coverage.
   A pending draw replacement is instead a mandatory active-player decision in
   the Draw step: it is not priority, it must resolve before any priority
   action (including a spell, mana ability, pass, or weakness report), and its
-  submitted `PolicyAction::Draw` receipt follows the resulting draw or dredge
-  events.
+  submitted `PolicyAction::Draw` echoes the active player's fresh monotonic
+  `DecisionId`; it cannot reuse an earlier draw step's answer. The id is
+  controller-private, paired one-to-one with the live marker, positive, and
+  already allocated. A stale, foreign, or malformed draw action leaves the
+  marker, library, hand, and event log unchanged. A successful receipt follows
+  the resulting draw or dredge events.
 - `GameView` never exposes an opponent's hand or ordinary hidden library, nor
   does it expose a departed player as an opponent life-total or battlefield
   target. A live registered static top-library reveal source is the narrow
@@ -1269,9 +1273,9 @@ Oracle Magic rules coverage.
   provenance/count metadata only, while a later public zone move or explicit
   reveal is the first receipt that can name a hidden card.
 - While a draw replacement is pending, `GameView` projects only the deciding
-  player's legal owned-graveyard dredge candidates. A policy can take the
-  normal draw or choose one of those candidates; it cannot name a hidden or
-  unpayable replacement.
+  player's fresh decision identity and legal owned-graveyard dredge candidates.
+  A policy can take the normal draw or choose one of those candidates; it
+  cannot name a hidden or unpayable replacement.
 - A legal non-pass action resets the pass sequence. Once every seated player
   still in the game has passed in sequence, the top stack object resolves; if
   the stack is empty, the game advances exactly one step. Stack resolution is
@@ -1872,9 +1876,10 @@ Oracle Magic rules coverage.
   rather than a cross-zone no-op.
 - Turn numbers are never zero, and the consecutive-pass counter is always
   below the number of surviving players outside its atomic resolution/step
-  transition. A draw-replacement marker can exist only for the active player
-  at the Draw-step decision boundary; it cannot outlive that boundary or point
-  at an eliminated player.
+  transition. A draw-replacement marker and its paired positive
+  already-allocated decision id can exist only for the active player at the
+  Draw-step decision boundary; neither can outlive that boundary, point at an
+  eliminated player, or exist without the other.
 - Once the game has ended, gameplay actions, public draw replacements, public
   continuous-effect installation, and the setup-to-live `begin_game`
   transition are rejected atomically, without changing state or emitting
