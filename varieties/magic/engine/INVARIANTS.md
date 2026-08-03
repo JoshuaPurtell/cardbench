@@ -1279,7 +1279,15 @@ Oracle Magic rules coverage.
   immediately before the battlefield-to-graveyard transition; token and
   opposing-creature deaths queue no such event. Dies triggers retain the historical source object after a graveyard move and
   materialize every declared target slot before stacking; a legal selected
-  target cannot be dropped or replaced by an empty target vector.
+  target cannot be dropped or replaced by an empty target vector. One
+  simultaneous creature-death SBA batch freezes every represented
+  `AnotherCreatureLeavesBattlefield`, `AnotherCreatureDies`, and
+  `ControlledNontokenCreatureDies` observer before any member changes zones.
+  This includes an otherwise dying observer's own last-known battlefield
+  incarnation, live controller, and colors; ordinary individual zone moves
+  then do not duplicate those generic observer events. Source-specific Dies
+  triggers and normal zone/incarnation receipts remain separate ordinary
+  lifecycles.
   A `LifeGained` trigger is captured only from a source controlled by the
   player named by the positive `LifeGained` receipt while that source is on
   the battlefield, then stacked only after the enclosing
@@ -1982,7 +1990,12 @@ Oracle Magic rules coverage.
   auditable event. A public continuous-effect installation is such a relevant
   change: it creates its effect receipt, then reaches the SBA fixed point
   before returning; a spell that installs an effect waits until the entire
-  spell has resolved before that same SBA check.
+  spell has resolved before that same SBA check. For creature deaths selected
+  in one pass, regeneration shields are consumed first, then the remaining
+  death set receives one shared last-known-information observer snapshot
+  before its members take their individual graveyard/token-departure
+  transitions. No member's departure may suppress another member's generic
+  death or leaves-the-battlefield trigger from that same SBA event.
 - Radiance selection is evaluated at resolution from the legal creature target:
   it includes that target and every battlefield creature sharing at least one
   of its colors, regardless of controller. Each effect declares whether it
