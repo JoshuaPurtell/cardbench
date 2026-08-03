@@ -178,6 +178,17 @@ Oracle Magic rules coverage.
   it must never follow a stable object ID into a later incarnation. Returning
   a live attached permanent uses the ordinary owner-hand zone transition,
   after which SBA performs the now-unattached Aura's normal graveyard cleanup.
+- An attachment-relative end-step trigger is valid only for a registered
+  creature Aura with a target-free, source-relative effect. It is placed only
+  after the attached creature's controller begins their own end step, even
+  when that controller differs from the Aura's controller. The queued ability
+  retains the Aura's exact source incarnation while using the attached
+  creature's controller as its controller. Its attack condition is keyed by
+  the exact creature battlefield incarnation declared as an attacker this
+  turn; a zone change, reattachment, or source departure therefore cannot
+  satisfy the condition with a reused object ID. A new Untap step clears this
+  turn history. The public trace is `StepBegan(End) →
+  TriggeredAbilityStacked → SacrificedByEffect → CardMoved → AbilityResolved`.
 - A non-token object has exactly one catalog definition; a token has exactly
   one token specification and exists only on the battlefield. An object cannot
   be both, and no nonpermanent card can occupy the battlefield.
@@ -813,6 +824,13 @@ Oracle Magic rules coverage.
   fabricated zero-option decision. The stack-shape and step-boundary audits
   reject an unmaterialized template, an out-of-range captured seat, or an
   any-end-step receipt without its immediately preceding end-step boundary.
+- A `BeginningOfAttachedCreaturesControllerEndStep` trigger uses the same
+  end-step boundary but queues only while its exact typed Aura attachment is
+  live and the attached creature's current controller is active. The source
+  Aura remains immutable receipt provenance; the attached creature's
+  controller owns the stack object. Its target-free attached-creature effect
+  rechecks both endpoint incarnations at resolution and becomes a no-op if
+  either endpoint is gone or detached.
 - A `ControlledAuraEntersBattlefield` observer queues only when a live
   Aura-like permanent enters under that observer's current controller. The
   ordinary trigger stack item retains the live observer source/incarnation and

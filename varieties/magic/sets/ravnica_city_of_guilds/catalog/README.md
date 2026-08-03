@@ -50,6 +50,18 @@ Mage trigger's terminal receipt. The opponent sees neither unselected Aura
 identities nor a private decision projection.
 
 The current catalog partition is 264 full / 6 partial / 21 catalog-only unique
+names (279 / 6 / 21 printings). The independently checked coverage-report
+binary emits the same partition.
+
+Instill Furor is a positive-manifest typed creature Aura with no synthetic
+continuous modifier. At the attached creature controller's end step, its
+source-relative trigger reads the exact creature incarnation that was declared
+as an attacker during that turn. The public scenario proves an unattacked
+attachment is sacrificed with the Aura through ordinary SBA cleanup, while the
+attacked branch remains attached; a cross-controller contract proves the Aura
+does not queue at its owner's end step when another player controls the
+attachment. Attachment departure, reattachment, and zone re-entry remain
+ordinary exact-incarnation no-op boundaries.
 names (278 / 6 / 22 printings). The independently checked coverage-report
 binary emits the same partition.
 
