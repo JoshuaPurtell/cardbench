@@ -1135,7 +1135,11 @@ Oracle Magic rules coverage.
   `StackResolutionPlan` before it begins any effect to establish the
   all-targets-illegal boundary. An initially legal slot is rechecked before its
   own instruction, so an earlier instruction that removes a repeated target
-  cannot make the complete resolution fail. Each skipped instruction emits its own
+  cannot make the complete resolution fail. If a later instruction suspends
+  the same resolving stack item for a no-priority decision, that initial
+  effect-aligned plan remains attached to the exact nonzero cursor until the
+  item reaches one terminal stack lifecycle; resumption must never rerun the
+  all-targets-illegal boundary against effects already begun. Each skipped instruction emits its own
   `TargetInstructionSkipped { effect_index, target }` diagnostic receipt. A
   resolving counter effect emits the distinct `SpellCountered` receipt. Land,
   controlled-land, and artifact requirements read the target's current
@@ -1288,7 +1292,10 @@ Oracle Magic rules coverage.
   `QuantityReplacement` or `TargetPlayerPrivateDiscard` continuation. It
   executes the already-resolved prefix exactly once, holds priority closed
   while the current replacement or recipient-private discard is chosen, and
-  resumes only the unresolved suffix. A targeted-discard continuation binds
+  resumes only the unresolved suffix. Any initial target-legality snapshot
+  sharing that stack identity must have exactly one effect-aligned entry per
+  immutable effect, cannot outlive the cursor or top stack item, and is
+  cleared with the item's terminal receipt. A targeted-discard continuation binds
   its cursor to the corresponding target occurrence. An event-captured
   combat-player discard instead binds that cursor to the exact positive final
   `DamageDealtToPlayer` recipient, never a target occurrence. Either form
