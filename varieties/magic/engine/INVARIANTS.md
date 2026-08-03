@@ -372,9 +372,12 @@ Oracle Magic rules coverage.
   prefix/damage/suffix spell cannot fall through to deterministic direct
   damage. The submitted identity must still be live, is applied once, and
   applicability is recomputed. The stack spell remains live while this
-  decision is pending. The legacy `ChooseDamageReplacement` action is only a
-  checked compatibility shim over that exact current `DecisionId`; new
-  policies use `SubmitDecision`. Its public `DamageReplacementApplied` receipt
+  decision is pending. `DamageReplacementChoiceView` projects that exact
+  current `DecisionId`, and the legacy `ChooseDamageReplacement` action must
+  echo it as well as the packet's source/incarnation/target identity; an old
+  answer cannot consume a later identical packet from the same resolving
+  spell. New policies may instead use `SubmitDecision`. Its public
+  `DamageReplacementApplied` receipt
   precedes the authoritative `DamagePrevented`, `DamageRedirected`, or
   committed `DamageDealt*` receipt, and only committed positive damage queues
   damage triggers. The generic decision closes after that causal damage batch,
