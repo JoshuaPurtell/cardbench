@@ -49,8 +49,8 @@ a zone move. The fetched Aura's ordinary ETB trigger is queued only after the
 Mage trigger's terminal receipt. The opponent sees neither unselected Aura
 identities nor a private decision projection.
 
-The current catalog partition is 276 full / 6 partial / 9 catalog-only unique
-names (291 / 6 / 9 printings). The independently checked coverage-report
+The current catalog partition is 277 full / 6 partial / 8 catalog-only unique
+names (292 / 6 / 8 printings). The independently checked coverage-report
 binary emits the same partition.
 
 Molten Sentry is a full-fidelity entry whose setup-only deterministic seed
@@ -81,6 +81,16 @@ object incarnations, then materializes the matching Saproling token count on
 the ordinary stack. The direct Rust trace includes the captured-count receipt,
 three token receipts from three committed damage, and final invariant audit;
 it retains no card prose or source payload.
+
+The 2026-08-03 completeness audit for Breath of Fury consulted the public RAV
+printing record [#116](https://scryfall.com/card/rav/116/breath-of-fury) and
+the public [Comprehensive Rules index](https://magic.wizards.com/en/rules).
+It retained no upstream card prose, scans, art, or JSON. The full-fidelity
+definition uses CardBench-authored semantics: its Aura-relative combat trigger
+captures an exact damaging-creature incarnation, sacrifices it, requires a
+different controlled-creature attachment endpoint, untaps controlled
+creatures, and schedules one additional combat phase. Its direct Rust trace
+checks the mandatory public choice, lifecycle receipts, and final invariants.
 
 Mindleech Mass is a full-fidelity direct combat-recipient trigger entry. Its
 six-damage combat trace captures the damaged player before stack resolution,

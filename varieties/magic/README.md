@@ -68,8 +68,8 @@ definition; Gather Courage, Seeds of Strength, Scatter the Seeds, and Guardian
 of Vitu-Ghazi are in the latest audited tranches. All other definitions remain
 explicitly scoped compatibility slices.
 
-The current checked-in RAV catalog partitions its public inventory into 275
-full-fidelity names (290 printings), six bounded executable names, and 10
+The current checked-in RAV catalog partitions its public inventory into 277
+full-fidelity names (292 printings), six bounded executable names, and 8
 catalog-only names. The catalog contract is intentionally fail-closed: a
 catalog-only printing cannot be submitted as a blank executable card.
 
@@ -90,6 +90,10 @@ current corpus contains 192 scenarios and covers:
   before simultaneously returning all matching creature cards from public
   graveyards, without cross-applying simultaneous entry replacements
   (`Bloodbond March`);
+- an Aura-relative combat lifecycle that captures the exact damaging creature,
+  sacrifices it, requires reattachment to a different controlled creature,
+  untaps the controller's creatures, and inserts an additional combat phase
+  (`Breath of Fury`);
 - a source-incarnation-scoped global instant-or-sorcery cast trigger that
   exiles the observed physical spell, offers the original caster serial public
   free-cast choices from its retained cards, and terminates observed virtual
