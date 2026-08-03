@@ -33,7 +33,11 @@ struct PolicyMatrixProbe {
 }
 
 fn main() -> ExitCode {
+    let quick = std::env::args()
+        .skip(1)
+        .any(|argument| argument == "--quick");
     println!("schema_version=cardbench.magic.engine-audit.v1");
+    println!("audit_mode={}", if quick { "quick" } else { "campaign" });
     println!("audit_progress=public-api-probes state=started");
     flush_stdout();
     let mut findings = [
@@ -55,12 +59,16 @@ fn main() -> ExitCode {
     .collect::<Vec<_>>();
     println!("audit_progress=public-api-probes state=completed");
     flush_stdout();
-    let policy_matrix_seed_count = configured_policy_matrix_seed_count();
-    let policy_matrix = probe_policy_matchup_matrix(policy_matrix_seed_count);
-    findings.extend(policy_matrix.findings);
-    println!("policy_matrix_deck_count={}", policy_matrix.deck_count);
-    println!("policy_matrix_seed_count={policy_matrix_seed_count}");
-    println!("policy_matrix_match_count={}", policy_matrix.match_count);
+    if quick {
+        println!("policy_matrix=skipped reason=quick-mode");
+    } else {
+        let policy_matrix_seed_count = configured_policy_matrix_seed_count();
+        let policy_matrix = probe_policy_matchup_matrix(policy_matrix_seed_count);
+        findings.extend(policy_matrix.findings);
+        println!("policy_matrix_deck_count={}", policy_matrix.deck_count);
+        println!("policy_matrix_seed_count={policy_matrix_seed_count}");
+        println!("policy_matrix_match_count={}", policy_matrix.match_count);
+    }
     let trigger_probe = run_rav_trigger_probe();
     match trigger_probe {
         Ok(result) if result.passed() => {
