@@ -6828,6 +6828,7 @@ impl Game {
         let mut returned = Vec::new();
         let returned_primary = if self.member_is_still_in_linked_exile(primary) {
             self.move_to_zone(primary.object, Zone::Battlefield)?;
+            self.capture_linked_exile_return_entry(primary.object)?;
             returned.push(primary.object);
             Some(primary.object)
         } else {
@@ -6863,8 +6864,24 @@ impl Game {
                     }
                 }
             }
+            self.capture_linked_exile_return_entry(aura.object)?;
         }
         Ok(returned)
+    }
+
+    /// Records each non-token member's normal entry observations while its
+    /// delayed linked-exile return incarnation is still on the battlefield.
+    /// The end-step action owns the later shared SBA/trigger-placement
+    /// boundary, so an immediately fragile return keeps LKI without exposing
+    /// a trigger between group members.
+    fn capture_linked_exile_return_entry(&mut self, card: ObjectId) -> Result<(), RulesError> {
+        let definition = self
+            .effective_definition_id(card)?
+            .ok_or(RulesError::IllegalAction(
+                "a token cannot return from linked exile",
+            ))?;
+        let controller = self.controller_of(card)?;
+        self.capture_enter_triggers(card, definition, controller, &[])
     }
 
     fn consume_due_delayed_actions(&mut self) -> Result<(), RulesError> {
@@ -6960,6 +6977,7 @@ impl Game {
             }
         }
         self.check_state_based_actions_impl()?;
+        self.flush_pending_trigger_events()?;
         Ok(())
     }
 
