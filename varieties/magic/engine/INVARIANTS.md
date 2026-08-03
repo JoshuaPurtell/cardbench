@@ -812,6 +812,26 @@ Oracle Magic rules coverage.
   subsequently leaves; its targetless optional decision remains the captured
   controller's, and an accepted draw resolves before the underlying creature
   spell.
+- `AnyPlayerCastsCreatureSpell` is deliberately distinct from the
+  controller-scoped condition. After any physical creature spell's
+  `SpellCast` receipt, every live bound observer may capture the exact cast
+  card, its positive stack incarnation, and its public name before priority
+  returns. A matching-graveyard return trigger materializes only from that
+  payload into one target-free effect that retains all three facts. The
+  resolver requires the captured physical creature spell to remain below the
+  trigger with the same incarnation and definition/name; a later zone
+  incarnation or arbitrary same-named card cannot supply provenance. Binding
+  and live-stack audits reject targets, an unmaterialized marker, a
+  materialized binding effect, or zero/empty captured provenance.
+- A simultaneous matching creature-card return snapshots every living
+  owner-indexed graveyard before any return moves, moves the complete matching
+  set to the battlefield, then applies each entrant's entry replacements from
+  the pre-event battlefield plus that entrant alone. Own ETB triggers are
+  captured for every entrant, while controlled-nonartifact entry observers
+  are sampled only from the same pre-event battlefield. Thus two creatures
+  entering in the same event cannot make one another enter tapped, receive a
+  replacement-only counter, or observe each other's entry; their ordinary
+  SBAs and trigger placement occur only after the complete batch commits.
 - An `BeginningOfAnyUpkeep` trigger is stacked only after that upkeep's own
   `StepBegan` receipt and before its first priority window. Its active player
   is captured into a materialized `SacrificeCapturedPlayerCreature` stack
