@@ -2473,6 +2473,13 @@ Oracle Magic rules coverage.
   ability's terminal receipt only. A provenance pruner may remove them once
   neither a pending trigger nor a live departed-source ability names that
   exact token incarnation.
+- If a copied token pays its own sacrifice activation, its copied definition
+  and LKI are frozen before the cost's `TokenCeasedToExist` / optional
+  `PermanentCopyExpired` receipts. The exact activation may then occupy the
+  stack with that departed source, and sacrifice-cost replay consumes the
+  token-cessation pair as one cost transition rather than mistaking the copy
+  expiration record for an unrelated event. If the same departure also queues
+  a `Dies` trigger, both stack objects share one exact source snapshot.
 - Every registered legendary card definition, and every legendary token value,
   participates in CR 704.5j according to its current layer-one name. When a
   controller has two or more matching live permanents, the engine has exactly
