@@ -114,3 +114,31 @@ fn flash_conscription_changes_control_untaps_and_grants_haste() {
     game.validate_invariants()
         .expect("Flash Conscription trace is invariant-valid");
 }
+
+#[test]
+fn flash_conscription_uses_one_target_occurrence_for_its_ordered_bundle() {
+    let mut game = flash_game();
+    let spell = game
+        .add_card(PlayerId(0), "RAV-FLASH-CONSCRIPTION", Zone::Hand)
+        .expect("Flash Conscription enters hand");
+    let target = game
+        .put_on_battlefield(PlayerId(1), "RAV-WATCHWOLF")
+        .expect("target creature enters battlefield");
+    game.set_tapped_for_setup(target, true)
+        .expect("target creature is tapped for setup");
+    game.grant_mana(PlayerId(0), Color::Red, 4)
+        .expect("spell mana is available");
+
+    game.cast_spell(
+        PlayerId(0),
+        CastRequest {
+            card: spell,
+            // One printed target must be retained and independently rechecked
+            // for each part of the ordered target-effect bundle.
+            targets: vec![Target::Permanent(target)],
+            convoke: vec![],
+            payment_mana_abilities: vec![],
+        },
+    )
+    .expect("one printed target casts the complete Flash Conscription bundle");
+}
