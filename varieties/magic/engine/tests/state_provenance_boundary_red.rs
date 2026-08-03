@@ -8,7 +8,6 @@
 use cardbench_magic_engine::{CardDefinition, Game, PlayerId};
 
 #[test]
-#[ignore = "known bounded API provenance gap; requires breaking state-encapsulation migration"]
 fn invariant_audit_rejects_shape_valid_external_life_transition() {
     let player = PlayerId(0);
     let mut game = Game::new(Vec::<CardDefinition>::new(), 2).expect("fixture game initializes");

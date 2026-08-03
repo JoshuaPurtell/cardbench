@@ -134,7 +134,8 @@ fn departing_virtual_delayed_action_cannot_stack_after_player_loss() {
         .expect("counter removes physical original");
     resolve_top(&mut game).expect("physical original is countered");
 
-    game.players[departing_copy_controller.0].life = 0;
+    game.set_fixture_player_life(departing_copy_controller, 0)
+        .expect("fixture marks departing copy controller at zero life");
     game.check_state_based_actions()
         .expect("one player leaves while two survivors remain");
     assert!(

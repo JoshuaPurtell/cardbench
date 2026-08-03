@@ -60,7 +60,8 @@ fn terminal_owner_departure_discards_pending_leave_triggers_before_game_end() {
         .expect("departing player has a creature");
 
     game.begin_game().expect("game starts");
-    game.players[departing_owner.0].life = 0;
+    game.set_fixture_player_life(departing_owner, 0)
+        .expect("fixture marks departing owner at zero life");
     game.check_state_based_actions()
         .expect("terminal player loss reaches its state boundary");
 

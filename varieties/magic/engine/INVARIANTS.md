@@ -61,6 +61,13 @@ Oracle Magic rules coverage.
   emits exactly one `GameEnded { winner }` record (where `winner` is `None`
   for a draw). In a continuing multiplayer game, an eliminated player is
   skipped by turn order and may not hold priority or submit an action.
+- Once `begin_game` succeeds, the engine seals the public live-state surface
+  (`players`, `stack`, `continuous_effects`, turn/priority fields, and the
+  readable event log) after every successful transition. `validate_invariants`
+  rejects a shape-valid receipt-free external edit with
+  `public game state was mutated outside an engine transition`; explicit
+  fixture setup must use the named setup primitives, while real gameplay must
+  use a rules action that emits its canonical receipt.
 - `GameEnded` is the final canonical receipt. If an effect causes a terminal
   loss while a spell or ability is resolving, the resolver first records that
   stack object's final lifecycle receipt (`AbilityResolved` or the applicable

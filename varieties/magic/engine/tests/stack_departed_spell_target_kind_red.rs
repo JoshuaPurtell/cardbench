@@ -157,7 +157,8 @@ fn invariant_accepts_a_formerly_legal_departed_instant_target() {
     )
     .expect("counterspell legally targets the lower instant");
 
-    game.players[caster.0].life = 0;
+    game.set_fixture_player_life(caster, 0)
+        .expect("fixture marks caster at zero life");
     game.check_state_based_actions()
         .expect("owner departure removes the lower spell atomically");
 

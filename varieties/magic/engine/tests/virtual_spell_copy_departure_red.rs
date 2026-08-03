@@ -106,7 +106,8 @@ fn player_loss_removes_their_virtual_spell_copy_from_a_continuing_game() {
     // This is the same externally visible state that follows lethal damage
     // before the next priority window. Player 2 remains, so the game itself
     // must continue after player 0 leaves.
-    game.players[departing.0].life = 0;
+    game.set_fixture_player_life(departing, 0)
+        .expect("fixture marks departing player at zero life");
     game.check_state_based_actions()
         .expect("player-loss SBA processing completes");
 

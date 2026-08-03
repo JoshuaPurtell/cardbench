@@ -91,7 +91,8 @@ fn token_controlled_by_departing_player_reverts_to_owner_before_cleanup() {
     )
     .expect("surviving source gives the departing player control of the token");
 
-    game.players[departing_controller.0].life = 0;
+    game.set_fixture_player_life(departing_controller, 0)
+        .expect("fixture marks departing controller at zero life");
     game.check_state_based_actions()
         .expect("player-loss SBA itself should complete");
 

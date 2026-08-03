@@ -61,7 +61,8 @@ fn surviving_observer_triggers_when_another_creatures_owner_leaves_the_game() {
         .expect("departing owner controls a creature");
 
     game.begin_game().expect("game starts");
-    game.players[departing_owner.0].life = 0;
+    game.set_fixture_player_life(departing_owner, 0)
+        .expect("fixture marks departing owner at zero life");
     game.check_state_based_actions()
         .expect("owner departure reaches the SBA fixed point");
 

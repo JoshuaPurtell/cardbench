@@ -485,7 +485,8 @@ fn losing_multiplayer_player_removes_owned_objects_and_records_each_exit() {
     // This setup represents the state immediately before the next priority
     // window after lethal damage.  The public SBA entry point must process the
     // player loss and the immediate multiplayer leave-game cleanup together.
-    game.players[eliminated.0].life = 0;
+    game.set_fixture_player_life(eliminated, 0)
+        .expect("fixture marks player at zero life");
     game.check_state_based_actions()
         .expect("zero life marks the player as lost and cleans up owned objects");
 

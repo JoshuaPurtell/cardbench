@@ -16,7 +16,8 @@ fn continuing_multiplayer_view_omits_eliminated_opponents() {
 
     // Fixture setup creates a state-based-action boundary with two surviving
     // seats. The loss transition itself remains engine-owned and auditable.
-    game.players[eliminated.0].life = 0;
+    game.set_fixture_player_life(eliminated, 0)
+        .expect("fixture marks player at zero life");
     game.check_state_based_actions()
         .expect("zero life eliminates only that seat");
     assert!(

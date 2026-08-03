@@ -1222,6 +1222,12 @@ pub struct Game {
     // Kept private so the public, replay-facing event log can still be read
     // directly while the invariant audit detects an out-of-transition edit.
     event_log_integrity: Vec<GameEvent>,
+    /// Digest of the public live-state surface at the end of the last
+    /// successful engine transition.  The fixture surface remains public for
+    /// pre-game construction, but once a game starts an external edit to
+    /// players, stack, continuous effects, or turn state must not look like a
+    /// rules transition with no receipt.
+    state_integrity: Option<u64>,
     seated_player_count: usize,
     next_object_id: u64,
     next_stack_object_id: u64,
@@ -1529,6 +1535,7 @@ impl Game {
             turn: 1,
             event_log: Vec::new(),
             event_log_integrity: Vec::new(),
+            state_integrity: None,
             seated_player_count: player_count,
             next_object_id: 1,
             next_stack_object_id: 1,
@@ -3258,6 +3265,24 @@ impl Game {
         Ok(())
     }
 
+    /// Explicit fixture seam for constructing a post-loss multiplayer state.
+    ///
+    /// This is intentionally distinct from a rules action: it emits no life
+    /// receipt and is suitable only for scenario setup immediately before an
+    /// explicit SBA check.  Direct field mutation remains rejected by the
+    /// live-state integrity seal; callers that need a real life transition
+    /// must use damage or a life-changing effect instead.
+    pub fn set_fixture_player_life(
+        &mut self,
+        player: PlayerId,
+        life: i64,
+    ) -> Result<(), RulesError> {
+        self.player(player)?;
+        self.players[player.0].life = life;
+        self.refresh_public_state_integrity();
+        Ok(())
+    }
+
     /// Expands one public deck list into a player's library and shuffles it with
     /// the configured deterministic seed. A caller validates format legality
     /// before loading; the engine enforces only catalog and zone ownership here.
@@ -4674,6 +4699,7 @@ impl Game {
         }
         self.event_log.clear();
         self.event_log_integrity.clear();
+        self.refresh_public_state_integrity();
     }
 
     /// Returns whether truncating the public receipt history would make a
@@ -4707,6 +4733,37 @@ impl Game {
     fn record_event(&mut self, event: GameEvent) {
         self.event_log_integrity.push(event.clone());
         self.event_log.push(event);
+    }
+
+    /// Computes a stable, process-local digest of every public state field
+    /// which can affect rules behavior.  This deliberately excludes the
+    /// private catalog/binding registries and uses their validated engine
+    /// transitions as the only mutation path.  The event log has its own
+    /// parallel integrity seal, so it is included here only to make the
+    /// public snapshot complete.
+    fn public_state_integrity_digest(&self) -> u64 {
+        let snapshot = format!(
+            "{:?}",
+            (
+                &self.players,
+                &self.stack,
+                &self.continuous_effects,
+                self.active_player,
+                self.priority,
+                self.step,
+                self.turn,
+                &self.event_log,
+            )
+        );
+        snapshot.bytes().fold(0xcbf29ce484222325, |hash, byte| {
+            (hash ^ u64::from(byte)).wrapping_mul(0x100000001b3)
+        })
+    }
+
+    fn refresh_public_state_integrity(&mut self) {
+        if self.state_integrity.is_some() {
+            self.state_integrity = Some(self.public_state_integrity_digest());
+        }
     }
 
     /// Allocates one stack-only identity. A card object may create several
@@ -15478,6 +15535,13 @@ impl Game {
         if self.event_log != self.event_log_integrity {
             return Err(RulesError::IllegalAction(
                 "canonical event log was mutated outside an engine transition",
+            ));
+        }
+        if let Some(expected) = self.state_integrity
+            && expected != self.public_state_integrity_digest()
+        {
+            return Err(RulesError::IllegalAction(
+                "public game state was mutated outside an engine transition",
             ));
         }
         // Attack history is keyed by an exact battlefield incarnation. A
@@ -41184,7 +41248,23 @@ impl Game {
         apply: impl FnOnce(&mut Self) -> Result<T, RulesError>,
     ) -> Result<T, RulesError> {
         let checkpoint = self.clone();
+        if let Some(expected) = self.state_integrity
+            && expected != self.public_state_integrity_digest()
+        {
+            return Err(RulesError::IllegalAction(
+                "public game state was mutated outside an engine transition",
+            ));
+        }
+        // Internal transition helpers call `validate_invariants` while they
+        // are still assembling their receipt sequence. Suspend the external
+        // snapshot check until the operation has committed, then seal the
+        // complete post-transition state below.
+        self.state_integrity = None;
         match apply(self).and_then(|result| {
+            self.validate_invariants()?;
+            if self.started || checkpoint.state_integrity.is_some() {
+                self.state_integrity = Some(self.public_state_integrity_digest());
+            }
             self.validate_invariants()?;
             Ok(result)
         }) {

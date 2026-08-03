@@ -37,7 +37,8 @@ fn rejected_terminal_effect_installation_is_event_and_state_atomic() {
     let target = game
         .put_on_battlefield(survivor, BODY)
         .expect("target enters battlefield");
-    game.players[eliminated.0].life = 0;
+    game.set_fixture_player_life(eliminated, 0)
+        .expect("fixture marks player at zero life");
     game.check_state_based_actions()
         .expect("fixture reaches terminal loss through the public SBA seam");
     let effects_before = game.continuous_effects.clone();
