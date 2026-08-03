@@ -19,12 +19,11 @@ use crate::{
     DecisionVisibility, DeckList, DelayedAction, DelayedActionId, DelayedActionKind,
     DelayedActionTiming, Duration, Effect, EntryCharacteristicOverride, EntryCoinFlipBinding,
     EntryCopyBinding, EntryCopySnapshot, ExiledSpellCopyMember, GameEvent,
-    GeneralizedAbilityActivation,
-    GeneralizedActivatedAbilityCost, GraveyardCreatureCardSnapshot, GraveyardLandCardSnapshot,
-    HandCardSnapshot, Keyword, LandEntryBinding, Layer, LegendaryPermanentBinding,
-    LibrarySearchCardinality, LibrarySearchDestination, LibrarySearchRequirement,
-    LibrarySearchSelection, LinkedExileGroup, LinkedExileGroupId, LinkedExileMember,
-    LinkedExileMemberRole, ManaAbilityActivation, ManaAbilityBinding,
+    GeneralizedAbilityActivation, GeneralizedActivatedAbilityCost, GraveyardCreatureCardSnapshot,
+    GraveyardLandCardSnapshot, HandCardSnapshot, Keyword, LandEntryBinding, Layer,
+    LegendaryPermanentBinding, LibrarySearchCardinality, LibrarySearchDestination,
+    LibrarySearchRequirement, LibrarySearchSelection, LinkedExileGroup, LinkedExileGroupId,
+    LinkedExileMember, LinkedExileMemberRole, ManaAbilityActivation, ManaAbilityBinding,
     ManaAbilityBundleChoiceActivation, ManaAbilityCostBinding, ManaAbilityOutput, ManaBundle,
     ManaCost, ManaPaymentSelection, ObjectId, PendingDecision, PlayerId, PlayerState,
     PolicyMoveKind, QuantityReplacementResolution, ReplacementChoice, ReplacementEffect,
@@ -1819,6 +1818,17 @@ impl Game {
         &mut self,
         bindings: impl IntoIterator<Item = ActivatedAbilityCostBinding>,
     ) -> Result<(), RulesError> {
+        self.atomic_transition(|game| {
+            game.register_generalized_activated_ability_cost_bindings_impl(bindings)
+        })
+    }
+
+    /// Applies one setup batch inside the public transaction journal so an
+    /// invalid later member cannot retain an earlier generalized-cost prefix.
+    fn register_generalized_activated_ability_cost_bindings_impl(
+        &mut self,
+        bindings: impl IntoIterator<Item = ActivatedAbilityCostBinding>,
+    ) -> Result<(), RulesError> {
         if self.started {
             return Err(RulesError::IllegalAction(
                 "generalized activated-cost bindings cannot be changed after the game starts",
@@ -2351,6 +2361,15 @@ impl Game {
     /// abilities before play begins. Output selection remains on the ordinary
     /// mana-ability request; this registry owns only physical cost provenance.
     pub fn register_mana_ability_cost_bindings(
+        &mut self,
+        bindings: impl IntoIterator<Item = ManaAbilityCostBinding>,
+    ) -> Result<(), RulesError> {
+        self.atomic_transition(|game| game.register_mana_ability_cost_bindings_impl(bindings))
+    }
+
+    /// Applies one setup batch inside the public transaction journal so an
+    /// invalid later member cannot retain an earlier mana-cost prefix.
+    fn register_mana_ability_cost_bindings_impl(
         &mut self,
         bindings: impl IntoIterator<Item = ManaAbilityCostBinding>,
     ) -> Result<(), RulesError> {
