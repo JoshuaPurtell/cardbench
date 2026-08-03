@@ -13350,6 +13350,13 @@ impl Game {
     }
 
     pub fn dredge(&mut self, player: PlayerId, card: ObjectId) -> Result<(), RulesError> {
+        self.atomic_transition(|game| game.dredge_impl(player, card))
+    }
+
+    /// Applies the complete Dredge replacement. A public direct invocation is
+    /// still the same mandatory Draw-step replacement as the policy path, so
+    /// it must consume the marker rather than expose a second ordinary draw.
+    fn dredge_impl(&mut self, player: PlayerId, card: ObjectId) -> Result<(), RulesError> {
         self.require_game_in_progress()?;
         if self.pending_draw_replacement != Some(player) {
             return Err(RulesError::IllegalAction(
@@ -13389,6 +13396,7 @@ impl Game {
         // A source-bound graveyard-to-hand trigger must stack only after this
         // canonical receipt, never between its component zone moves.
         self.flush_pending_trigger_events()?;
+        self.clear_pending_draw_replacement();
         Ok(())
     }
 

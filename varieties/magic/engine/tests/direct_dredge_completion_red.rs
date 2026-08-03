@@ -96,7 +96,9 @@ fn direct_dredge_consumes_its_pending_draw_before_the_next_action() {
         .expect("the public Dredge replacement succeeds");
     game.validate_invariants()
         .expect("a successful public transition must remain audit-valid");
-    let view = game.view_for_player(player).expect("draw view remains available");
+    let view = game
+        .view_for_player(player)
+        .expect("draw view remains available");
     assert!(
         !view.draw_replacement_pending,
         "Dredge consumed the card movement but left a second draw available: hand={:?}; library={:?}; events={:?}",
