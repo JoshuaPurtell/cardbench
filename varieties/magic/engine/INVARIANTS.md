@@ -2619,7 +2619,12 @@ Oracle Magic rules coverage.
 - Aura spells and no-cast Aura entry share the same typed target, protection,
   controller-relative restriction, endpoint-incarnation, linked-effect, and
   receipt rules. A no-cast entry validates before moving the Aura, so an
-  illegal target leaves both zones and the event log unchanged. Equipment
+  illegal target leaves both zones and the event log unchanged. In a started
+  game, a legal no-cast entry captures the Aura's own and controller-scoped
+  entry observations only after attachment has established its endpoint but
+  before its post-entry SBA checkpoint, then places them through the shared
+  trigger pipeline. Its pregame fixture form deliberately creates no trigger
+  provenance. Equipment
   attachment is stack-backed through an ordinary activated ability; source
   departure expires every linked effect, while target departure or changed
   legality produces an unattached Equipment and an `AttachmentDetached`
