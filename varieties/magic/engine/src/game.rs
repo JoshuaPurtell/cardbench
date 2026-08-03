@@ -3083,7 +3083,23 @@ impl Game {
             }
             game.move_to_zone(attachment, Zone::Battlefield)?;
             game.attach_with_binding(attachment, target, &binding, false)?;
+            // This public primitive is also used for rules-created Aura
+            // entries. Once a game is live, its normal entry observations
+            // must be captured while the Aura has its new battlefield
+            // incarnation, then wait through the shared SBA checkpoint.
+            if game.started {
+                let definition =
+                    game.effective_definition_id(attachment)?
+                        .ok_or(RulesError::IllegalAction(
+                            "an entering attachment lacks an effective definition",
+                        ))?;
+                let controller = game.controller_of(attachment)?;
+                game.capture_enter_triggers(attachment, definition, controller, &[])?;
+            }
             game.check_state_based_actions_impl()?;
+            if game.started {
+                game.flush_pending_trigger_events()?;
+            }
             Ok(())
         })
     }
