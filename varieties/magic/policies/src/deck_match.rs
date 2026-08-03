@@ -695,12 +695,7 @@ mod tests {
         println!("termination={:?}", result.termination);
         println!(
             "tail={:?}",
-            result
-                .event_log
-                .iter()
-                .rev()
-                .take(24)
-                .collect::<Vec<_>>()
+            result.event_log.iter().rev().take(24).collect::<Vec<_>>()
         );
         assert!(
             matches!(
