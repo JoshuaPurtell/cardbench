@@ -1727,6 +1727,17 @@ impl Game {
         &mut self,
         bindings: impl IntoIterator<Item = ActivatedAbilityCostModifierBinding>,
     ) -> Result<(), RulesError> {
+        self.atomic_transition(|game| {
+            game.register_activated_ability_cost_modifier_bindings_impl(bindings)
+        })
+    }
+
+    /// Applies one setup batch inside the public transaction journal so an
+    /// invalid later member cannot retain an earlier modifier prefix.
+    fn register_activated_ability_cost_modifier_bindings_impl(
+        &mut self,
+        bindings: impl IntoIterator<Item = ActivatedAbilityCostModifierBinding>,
+    ) -> Result<(), RulesError> {
         if self.started {
             return Err(RulesError::IllegalAction(
                 "activated-cost modifier bindings cannot be changed after the game starts",
