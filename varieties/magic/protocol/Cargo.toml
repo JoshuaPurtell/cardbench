@@ -1,0 +1,20 @@
+[package]
+name = "cardbench-magic-protocol"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Versioned, owned, transport-neutral game protocol for the CardBench Magic variety"
+
+[lints]
+workspace = true
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+
+[dev-dependencies]
+serde_json = "1.0"
+
+[lib]
+name = "cardbench_magic_protocol"
+path = "src/lib.rs"
