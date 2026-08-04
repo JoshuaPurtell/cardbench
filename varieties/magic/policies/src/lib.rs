@@ -2,6 +2,8 @@
 
 #![forbid(unsafe_code)]
 
+mod archetype;
+mod archetypes;
 mod boros_char_control;
 mod boros_convoke_burn;
 mod boros_radiance_assault;
@@ -16,24 +18,31 @@ mod dimir_transmute_helix;
 mod golgari_attrition;
 mod golgari_dredge_grind;
 mod golgari_wurm_press;
+mod ladder;
+mod matchup;
+pub mod planner;
 mod radiance_convoke_assault;
 mod selesnya_convoke;
 mod selesnya_radiance_tokens;
 mod selesnya_siege;
 mod trigger_campaign;
 
+pub use archetype::Archetype;
+pub use archetypes::{PolicyVersion, seat_policy};
 pub use boros_char_control::BorosCharControlPolicy;
 pub use boros_convoke_burn::BorosConvokeBurnPolicy;
 pub use boros_radiance_assault::BorosRadianceAssaultPolicy;
 pub use boros_tempo::BorosTempoPolicy;
 pub use boros_token_rally::BorosTokenRallyPolicy;
+pub(crate) use catalog_gauntlet::conservative_pending_decision;
 pub use catalog_gauntlet::{CatalogPolicyProfile, RavCatalogPolicy};
 pub use deck_match::{
     CatalogGauntletResult, DeckMatchConfig, DeckMatchResult, DeckMatchSweepResult,
     DeckMatchTermination, EngineFinding, EngineFindingKind, EngineTournamentFailure,
-    EngineTournamentResult, RAV_DECK_MATCH_ID, RAV_REFERENCE_DECK_MATRIX_ID,
+    EngineTournamentResult, RAV_DECK_MATCH_ID, RAV_REFERENCE_DECK_MATRIX_ID, run_deck_matchup_with,
     run_rav_catalog_gauntlet, run_rav_deck_matchup, run_rav_engine_tournament,
     run_rav_full_deck_match, run_rav_full_deck_sweep, run_rav_reference_deck_matrix,
+    run_versioned_matchup, shared_card_index,
 };
 pub use development_match::{PolicyMatchResult, run_rav_reference_match};
 pub use dimir_transmute_attrition::DimirTransmuteAttritionPolicy;
@@ -42,6 +51,11 @@ pub use dimir_transmute_helix::DimirTransmuteHelixPolicy;
 pub use golgari_attrition::GolgariAttritionPolicy;
 pub use golgari_dredge_grind::GolgariDredgeGrindPolicy;
 pub use golgari_wurm_press::GolgariWurmPressPolicy;
+pub use ladder::{DeckVerdict, LadderStep, run_ladder, run_step};
+pub use matchup::{
+    Diagnostics, GameRecord, Interval, Matchup, Matrix, measure_matchup, measure_matrix,
+};
+pub use planner::{Aggression, Board, CardIndex, Weights};
 pub use radiance_convoke_assault::RadianceConvokeAssaultPolicy;
 pub use selesnya_convoke::SelesnyaConvokePolicy;
 pub use selesnya_radiance_tokens::SelesnyaRadianceTokensPolicy;

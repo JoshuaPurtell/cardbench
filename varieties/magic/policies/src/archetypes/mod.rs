@@ -1,0 +1,124 @@
+//! Versioned archetype policies.
+//!
+//! Every version is kept, never edited in place. That is the whole measurement
+//! apparatus: "v2 is stronger than v1" is only meaningful if v1 is still
+//! runnable, and a policy improved in place destroys the baseline it would be
+//! compared against.
+//!
+//! Each version pilots *any* deck, driven by [`crate::Archetype`] weights, so a
+//! version's strength is measured across a range of decks rather than on the
+//! one deck it was tuned against. A change that helps Boros aggro and hurts
+//! Golgari midrange is not an improvement, and only a multi-deck ladder can
+//! see that.
+
+use crate::CodePolicy;
+use crate::archetype::Archetype;
+use crate::planner::CardIndex;
+use cardbench_magic_engine::PlayerId;
+use std::sync::Arc;
+
+pub mod v1;
+pub mod v2;
+pub mod v3;
+
+/// One generation of the archetype policy.
+///
+/// Ordered oldest to newest so a ladder can walk successive pairs.
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub enum PolicyVersion {
+    /// Shared planners: mana payment, one-ply combat, target scoring.
+    V1,
+    /// Adds a global attack/block assignment instead of judging each attacker
+    /// against a hypothetically free blocker.
+    V2,
+    /// Adds activated abilities, Convoke, and instant-speed discipline.
+    V3,
+}
+
+impl PolicyVersion {
+    pub const ALL: [Self; 3] = [Self::V1, Self::V2, Self::V3];
+
+    /// The newest version. Campaigns that do not care about history use this.
+    #[must_use]
+    pub const fn latest() -> Self {
+        Self::V3
+    }
+
+    #[must_use]
+    pub const fn id(self) -> &'static str {
+        match self {
+            Self::V1 => "v1",
+            Self::V2 => "v2",
+            Self::V3 => "v3",
+        }
+    }
+
+    #[must_use]
+    pub fn parse(value: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|version| version.id() == value)
+    }
+
+    /// The version immediately before this one, for ladder comparisons.
+    #[must_use]
+    pub const fn previous(self) -> Option<Self> {
+        match self {
+            Self::V1 => None,
+            Self::V2 => Some(Self::V1),
+            Self::V3 => Some(Self::V2),
+        }
+    }
+}
+
+impl std::fmt::Display for PolicyVersion {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(self.id())
+    }
+}
+
+/// Builds the pilot for one seat at one version.
+#[must_use]
+pub fn seat_policy(
+    version: PolicyVersion,
+    player: PlayerId,
+    archetype: Archetype,
+    index: Arc<CardIndex>,
+) -> Box<dyn CodePolicy> {
+    match version {
+        PolicyVersion::V1 => Box::new(v1::ArchetypePolicyV1::new(player, archetype, index)),
+        PolicyVersion::V2 => Box::new(v2::ArchetypePolicyV2::new(player, archetype, index)),
+        PolicyVersion::V3 => Box::new(v3::ArchetypePolicyV3::new(player, archetype, index)),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn every_version_round_trips_and_chains() {
+        for version in PolicyVersion::ALL {
+            assert_eq!(PolicyVersion::parse(version.id()), Some(version));
+        }
+        assert_eq!(PolicyVersion::V1.previous(), None);
+        assert_eq!(PolicyVersion::V3.previous(), Some(PolicyVersion::V2));
+        assert_eq!(PolicyVersion::latest(), PolicyVersion::V3);
+    }
+
+    /// Each version must present a distinct policy id, or campaign receipts
+    /// cannot attribute a move to the generation that made it.
+    #[test]
+    fn every_version_has_a_distinct_policy_id_per_archetype() {
+        let index = crate::deck_match::shared_card_index();
+        let mut seen = std::collections::BTreeSet::new();
+        for version in PolicyVersion::ALL {
+            for archetype in Archetype::ALL {
+                let policy = seat_policy(version, PlayerId(0), archetype, index.clone());
+                assert!(
+                    seen.insert(policy.id()),
+                    "{version} {archetype} reuses policy id {}",
+                    policy.id()
+                );
+            }
+        }
+    }
+}
