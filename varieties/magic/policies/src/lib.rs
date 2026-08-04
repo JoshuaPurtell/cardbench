@@ -22,6 +22,7 @@ mod ladder;
 mod matchup;
 pub mod planner;
 mod radiance_convoke_assault;
+mod ratings;
 mod selesnya_convoke;
 mod selesnya_radiance_tokens;
 mod selesnya_siege;
@@ -58,6 +59,9 @@ pub use matchup::{
 };
 pub use planner::{Aggression, Board, CardIndex, Weights};
 pub use radiance_convoke_assault::RadianceConvokeAssaultPolicy;
+pub use ratings::{
+    DEFAULT_RATING, ELO_K_FACTOR, EloLedger, EloMatchRecord, RatingStanding, expected_score,
+};
 pub use selesnya_convoke::SelesnyaConvokePolicy;
 pub use selesnya_radiance_tokens::SelesnyaRadianceTokensPolicy;
 pub use selesnya_siege::SelesnyaSiegePolicy;
@@ -70,7 +74,7 @@ pub use trigger_campaign::{
 use cardbench_magic_engine::{GameView, PolicyAction};
 
 /// Submission ABI for `cardbench/magic/code_policy` development runs.
-pub trait CodePolicy {
+pub trait CodePolicy: Send {
     fn id(&self) -> &'static str;
     fn propose_move(&mut self, view: &GameView) -> PolicyAction;
 

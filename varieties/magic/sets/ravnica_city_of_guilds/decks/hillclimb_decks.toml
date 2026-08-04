@@ -1,0 +1,37 @@
+schema_version = "cardbench.magic.deck-index.v1"
+set = "RAV"
+format = "ravnica-block"
+visibility = "candidate"
+
+# Candidates are deliberately separate from constructed_decks.toml. A failed
+# deck mutation must not rewrite the four policy-ladder controls.
+
+[[deck]]
+id = "rav_boros_burn_hc_hawk"
+archetype = "burn"
+path = "rav_boros_burn_hc_slashers.toml"
+
+[[deck]]
+id = "rav_boros_burn_hc_curve"
+archetype = "burn"
+path = "rav_boros_burn_hc_curve.toml"
+
+[[deck]]
+id = "rav_boros_aggro_hc_hawk"
+archetype = "aggro"
+path = "rav_boros_aggro_hc_guildmage.toml"
+
+[[deck]]
+id = "rav_golgari_midrange_hc_removal"
+archetype = "midrange"
+path = "rav_golgari_midrange_hc_removal.toml"
+
+[[deck]]
+id = "rav_selesnya_midrange_hc_curve"
+archetype = "midrange"
+path = "rav_selesnya_midrange_hc_curve.toml"
+
+[[deck]]
+id = "rav_selesnya_midrange_hc_armorer"
+archetype = "midrange"
+path = "rav_selesnya_midrange_hc_armorer.toml"

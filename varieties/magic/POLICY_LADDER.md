@@ -80,6 +80,7 @@ Every generation pilots *any* deck; the archetype supplies weights, not code.
 | `v5` | Activated abilities (tap- and mana-cost only). | Nine of thirty-eight distinct cards carry a stack-using activated ability and no earlier generation activated any. Measured at no change: the opportunity is much smaller in play than in the card list. Sacrifice-cost abilities are reported unsupported rather than silently skipped. |
 | `v6` | Instant timing: hold interaction for a window worth something. | v1-v5 cast an instant at the first priority window that could pay for it, which on your own turn is the *upkeep* — before your own draw step, with nothing to respond to. Measured across eight traced games: 141 of 143 spells cast on the caster's own turn, 18 in upkeep or draw, and none at an opponent's end step or in any combat step. |
 | `v7` | Split that timing by what the spell does. | v6 held everything and measured 65.8% on burn against ~48-50% on the other three decks. Reach loses nothing by waiting; removal held to the end step has already conceded the creature one attack. So removal answers the board on my turn and only reach is held. |
+| `v8` | Attack planning against valued defence, plus live ability-suppression awareness. | The attack planner now predicts the defender's valued blocking model rather than the old material-only model. The typed `GameView` also tells the policy when battlefield non-mana abilities are currently suppressed, so v8 does not propose illegal activations. |
 
 ### Shared scale
 
@@ -111,6 +112,8 @@ It is the number to trust, and it is not always the flattering one.
 | v6 vs v5 | 48.3% | 50.0% | 46.7% | **65.8%** | 52.7% [48.2, 57.1] | 52.7% [48.2, 57.1] | not established |
 | v7 vs v6 | 56.7% | 50.0% | 52.5% | 50.4% | 52.4% [47.9, 56.8] | 52.4% [47.9, 56.8] | not established |
 | **v7 vs v5** | 51.7% | 50.0% | 50.0% | **66.7%** | **54.6% [50.1, 59.0]** | **54.6% [50.1, 59.0]** | **improvement** |
+| v8 vs v7 | 50.0% | 56.7% | 50.0% | 44.8% | 50.4% [41.6, 59.2] | 50.4% [41.6, 59.2] | not established |
+| **v8 vs v5** | 51.7% | 60.8% | 49.2% | **67.5%** | **57.3% [52.8, 61.6]** | **57.3% [52.8, 61.6]** | **improvement** |
 
 v5 vs v4 onward were measured at 60 seed pairs (120 games per cell); the earlier
 rungs used 120 pairs (240 per cell).
@@ -124,6 +127,41 @@ two generations is invisible to a ladder that only walks successive pairs.
 It is a *marginal* pass — the lower bound is 50.1% — and the honest reading is
 that it should be confirmed at 120 pairs before being leaned on. Almost all of
 it is burn: 66.7% [57.8, 74.5] there against 50-52% everywhere else.
+
+The v8 result is stronger against the earlier timing baseline: 57.3% [52.8,
+61.6] over 480 clean games against v5, with no significant per-deck regression.
+The direct v8-v7 sample is 50.4% [41.6, 59.2], so v8 should be read as a
+cumulative lead over v5, not as an established one-rung win over v7.
+
+The policy ladder also accepts `--elo policy-elo.tsv`. It records clean paired
+seeds on separate `policy/<deck>` axes, keeping policy quality separate from
+the deck matchup. Policy standings start at 1500 and update both policy
+generations; repeated seeds are deduplicated. Use the ladder's Wilson intervals,
+clean verdict, and per-deck regression checks for promotion decisions.
+
+### Deck hill-climb lane
+
+Deck experiments live in `decks/hillclimb_decks.toml`; the four constructed
+controls are unchanged and remain the only decks used by the policy ladder and
+the normal archetype matrix. Run the exploratory lane with:
+
+```sh
+cargo run --release --quiet -p cardbench-magic-policies --bin rav-deck-hillclimb -- 20
+```
+
+The runner reports the rate against each control, a pooled Wilson interval, and
+the share of decisive games ending in 8-25 turns. The best current lead is
+`rav_selesnya_midrange_hc_curve` (Courier Hawk in place of Selesnya Evangel):
+66.7% [62.3, 70.7] over 480 games against the controls, including 78.3% against
+Boros aggro and 77.5% against Boros burn. Its frozen-parent matchup is only
+58.3% [49.4, 66.8], with a 54.1-turn mean, so it is a strength lead rather
+than a promoted control deck until the long Selesnya mirror is addressed.
+
+For a persistent hill-climb leaderboard, add `--elo deck-elo.tsv`. The command
+appends only clean paired seeds to a replayable TSV, anchors the four controls
+at 1500, and prints the resulting standings. The same seed cannot be counted
+twice. Elo orders candidates; the Wilson interval and productive-game checks
+still decide whether a candidate is worth promoting.
 
 Reading these honestly:
 

@@ -95,6 +95,7 @@ case "$command" in
       '5. ladder     policy generation N vs N-1 across every constructed deck' \
       '6. matrix     constructed-deck matchup matrix with confidence intervals' \
       '6b. stats     per-deck campaign statistics: what the pilots actually did' \
+      '6c. arena     agent-seat crate tests plus the decision-triage probe' \
       '7. rav        deterministic slice of RAV integration-test targets' \
       '8. engine     deterministic slice of engine integration-test targets' \
       '9. exhaustive workspace tests/clippy (release-only; not run by this script)'
@@ -123,6 +124,23 @@ case "$command" in
     case "${2:-test}" in
       test) cargo test --quiet -p cardbench-magic-session ;;
       clippy) cargo clippy --quiet -p cardbench-magic-session --all-targets -- -D warnings ;;
+      *) usage; exit 2 ;;
+    esac
+    ;;
+  arena)
+    # The agent-seat container. The unit and integration tests need no network
+    # and no key: a seat that can only be exercised against a paid endpoint is
+    # a seat nobody runs. The probe then re-measures the open-decision share
+    # that the whole triage design rests on, so it must be re-run whenever the
+    # menu changes what it enumerates.
+    cd "$ROOT"
+    case "${2:-test}" in
+      test) cargo test --quiet -p cardbench-magic-arena ;;
+      clippy) cargo clippy --quiet -p cardbench-magic-arena --all-targets -- -D warnings ;;
+      probe)
+        cargo run --release --quiet -p cardbench-magic-arena --bin rav-arena \
+          -- probe "${3:-3}"
+        ;;
       *) usage; exit 2 ;;
     esac
     ;;

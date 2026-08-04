@@ -486,6 +486,9 @@ pub struct CardView {
     /// depends on the pair, so this is a necessary condition, not a sufficient
     /// one.
     pub can_block: bool,
+    /// Whether this permanent's definition-bound nonmana activated abilities
+    /// are currently suppressed by a live continuous effect.
+    pub nonmana_activated_abilities_suppressed: bool,
 }
 
 /// Public identity and target provenance for one activated ability currently
@@ -44039,6 +44042,8 @@ impl Game {
             summoning_sick,
             can_attack,
             can_block,
+            nonmana_activated_abilities_suppressed: on_battlefield
+                && self.nonmana_activated_abilities_suppressed(card),
         })
     }
 
@@ -44063,6 +44068,7 @@ impl Game {
                 summoning_sick: false,
                 can_attack: false,
                 can_block: false,
+                nonmana_activated_abilities_suppressed: false,
             });
         }
         self.card_view(stack_object.card)

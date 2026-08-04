@@ -11050,6 +11050,14 @@ pub fn load_constructed_decks() -> Result<Vec<DeckFixture>, ManifestValidationEr
     load_deck_index("decks/constructed_decks.toml")
 }
 
+/// Loads deck candidates kept outside the frozen constructed-deck control
+/// group. The policy ladder and public matrix intentionally do not see these;
+/// the hill-climb runner compares them against the controls with the same
+/// paired-seed match harness.
+pub fn load_hillclimb_decks() -> Result<Vec<DeckFixture>, ManifestValidationError> {
+    load_deck_index("decks/hillclimb_decks.toml")
+}
+
 fn load_deck_index(relative: &str) -> Result<Vec<DeckFixture>, ManifestValidationError> {
     let index_path = set_root().join(relative);
     let index = fs::read_to_string(&index_path)

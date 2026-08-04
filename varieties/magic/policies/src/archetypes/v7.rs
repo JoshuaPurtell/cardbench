@@ -43,7 +43,7 @@ use crate::CodePolicy;
 use crate::archetype::Archetype;
 use crate::planner::{
     Board, CardIndex, ManaTap, Role, ability, board::CardFacts, cast_value, mana,
-    plan_attack_assigned, plan_blocks_valued, targets_for, threat,
+    plan_attack_assigned, plan_attack_assigned_valued, plan_blocks_valued, targets_for, threat,
 };
 use cardbench_magic_engine::{
     CastRequest, DecisionKind, DecisionSelection, GameView, ObjectId, PlayerId, PolicyAction, Step,
@@ -58,6 +58,7 @@ pub struct ArchetypePolicyV7 {
     archetype: Archetype,
     index: Arc<CardIndex>,
     id: &'static str,
+    valued_attack_model: bool,
 }
 
 impl ArchetypePolicyV7 {
@@ -71,6 +72,7 @@ impl ArchetypePolicyV7 {
             player,
             archetype,
             index,
+            valued_attack_model: false,
             id: match archetype {
                 Archetype::Aggro => "rav.archetype-aggro.v7",
                 Archetype::Midrange => "rav.archetype-midrange.v7",
@@ -78,6 +80,21 @@ impl ArchetypePolicyV7 {
                 Archetype::Control => "rav.archetype-control.v7",
             },
         }
+    }
+
+    /// Builds the v8 policy mode while keeping the v7 constructor and its
+    /// historical behaviour unchanged.
+    #[must_use]
+    pub fn new_valued(player: PlayerId, archetype: Archetype, index: Arc<CardIndex>) -> Self {
+        let mut policy = Self::new(player, archetype, index);
+        policy.valued_attack_model = true;
+        policy.id = match archetype {
+            Archetype::Aggro => "rav.archetype-aggro.v8",
+            Archetype::Midrange => "rav.archetype-midrange.v8",
+            Archetype::Burn => "rav.archetype-burn.v8",
+            Archetype::Control => "rav.archetype-control.v8",
+        };
+        policy
     }
 
     fn weights(&self) -> threat::Weights {
@@ -326,6 +343,10 @@ impl ArchetypePolicyV7 {
     /// removal at random; the end step is one step later and strictly better
     /// informed. Giving `Board` the stack's contents would make a real response
     /// rule possible, and is the obvious next thing this generation wants.
+    // Deliberately still a method. v6's version reads `self`, and keeping the
+    // two signatures identical is what makes the diff between the generations
+    // legible as the one behavioural change it is.
+    #[allow(clippy::unused_self)]
     fn window_is_right(&self, board: &Board, facts: &CardFacts, targets: &[Target]) -> bool {
         if wins_now(board, facts, targets) {
             return true;
@@ -497,6 +518,7 @@ fn project_land(board: &Board, land: ObjectId, colors: &[cardbench_magic_engine:
         source: Some(crate::planner::SourceKind::BasicTyped(colors.to_vec())),
         role: Role::Land,
         abilities: Vec::new(),
+        nonmana_activated_abilities_suppressed: false,
         controller_is_opponent: false,
     });
     projected
@@ -560,7 +582,11 @@ impl CodePolicy for ArchetypePolicyV7 {
         // options, and the engine will not advance without them.
         match view.step {
             Step::DeclareAttackers if board.is_my_turn && !view.attackers_declared => {
-                let plan = plan_attack_assigned(&board, &weights, self.archetype.aggression());
+                let plan = if self.valued_attack_model {
+                    plan_attack_assigned_valued(&board, &weights, self.archetype.aggression())
+                } else {
+                    plan_attack_assigned(&board, &weights, self.archetype.aggression())
+                };
                 return PolicyAction::DeclareAttackers {
                     attackers: plan.attackers,
                 };
@@ -602,7 +628,11 @@ impl CodePolicy for ArchetypePolicyV7 {
         // Abilities and spells compete for the same mana, so they are scored
         // on one scale and the better line wins. Checking abilities first
         // would spend mana on a ping that a creature wanted.
-        let activation = ability::best_activation(&board, &weights);
+        let activation = if self.valued_attack_model {
+            ability::best_activation_respecting_suppression(&board, &weights)
+        } else {
+            ability::best_activation(&board, &weights)
+        };
         let best_cast = self.spell_to_cast(&board);
         let cast_value_now = best_cast.as_ref().map(|(value, _, _)| *value);
         if let Some(activation) = activation
@@ -703,6 +733,7 @@ mod tests {
             source: None,
             role: Role::Creature,
             abilities: Vec::new(),
+            nonmana_activated_abilities_suppressed: false,
             controller_is_opponent: opposing,
         }
     }

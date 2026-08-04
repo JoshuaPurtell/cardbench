@@ -3,6 +3,7 @@
 //! ```text
 //! rav-policy-ladder [SEED_PAIRS]                      every successive pair
 //! rav-policy-ladder [SEED_PAIRS] CHALLENGER INCUMBENT one named pair
+//! rav-policy-ladder [SEED_PAIRS] ... --elo PATH       append policy results
 //! ```
 //!
 //! `SEED_PAIRS` defaults to 25, i.e. 50 games per deck per rung. Both seats
@@ -16,9 +17,11 @@
 //! across two generations.
 
 use cardbench_magic_policies::{
-    Archetype, DeckMatchConfig, LadderStep, PolicyVersion, run_ladder, run_step,
+    Archetype, DeckMatchConfig, EloLedger, LadderStep, PolicyVersion, run_ladder, run_step,
 };
 use cardbench_magic_rav::load_constructed_decks;
+use std::collections::BTreeSet;
+use std::path::PathBuf;
 
 fn percent(value: f64) -> String {
     format!("{:.1}", value * 100.0)
@@ -43,18 +46,52 @@ fn named_pair() -> Option<(PolicyVersion, PolicyVersion)> {
     let parse = |name: &str| {
         PolicyVersion::parse(name).unwrap_or_else(|| {
             let known: Vec<&str> = PolicyVersion::ALL.iter().map(|entry| entry.id()).collect();
-            eprintln!("unknown policy version `{name}`; known: {}", known.join(" "));
+            eprintln!(
+                "unknown policy version `{name}`; known: {}",
+                known.join(" ")
+            );
             std::process::exit(2);
         })
     };
     Some((parse(challenger), parse(incumbent)))
 }
 
+fn elo_path() -> Result<Option<PathBuf>, String> {
+    let arguments: Vec<String> = std::env::args().skip(1).collect();
+    let mut path = None;
+    let mut index = 0;
+    while index < arguments.len() {
+        let argument = &arguments[index];
+        if argument == "--elo" {
+            index += 1;
+            let value = arguments
+                .get(index)
+                .ok_or_else(|| "--elo requires a ledger path".to_owned())?;
+            path = Some(PathBuf::from(value));
+        } else if let Some(value) = argument.strip_prefix("--elo=") {
+            if value.is_empty() {
+                return Err("--elo requires a ledger path".to_owned());
+            }
+            path = Some(PathBuf::from(value));
+        }
+        index += 1;
+    }
+    Ok(path)
+}
+
+#[allow(clippy::too_many_lines)] // Keep CLI setup, measurement, and ledger output together.
 fn main() {
     let pairs: u32 = std::env::args()
         .nth(1)
         .and_then(|value| value.parse().ok())
         .unwrap_or(25);
+    let elo_path = match elo_path() {
+        Ok(path) => path,
+        Err(error) => {
+            eprintln!("{error}");
+            std::process::exit(2);
+        }
+    };
 
     let decks: Vec<(String, Archetype)> = match load_constructed_decks() {
         Ok(decks) => decks
@@ -76,6 +113,17 @@ fn main() {
         decks.len()
     );
 
+    let mut elo = match elo_path.as_deref() {
+        Some(path) => match EloLedger::load(path) {
+            Ok(ledger) => Some(ledger),
+            Err(error) => {
+                eprintln!("failed to load Elo ledger: {error}");
+                std::process::exit(1);
+            }
+        },
+        None => None,
+    };
+
     let named = named_pair();
     let config = DeckMatchConfig::default();
     let steps = match named {
@@ -93,10 +141,48 @@ fn main() {
     };
 
     let mut invalid = 0;
+    let mut elo_updates = 0;
+    let mut elo_axes = BTreeSet::new();
     for step in &steps {
         report(step);
+        if let Some(ledger) = elo.as_mut() {
+            for record in &step.elo_records {
+                elo_axes.insert(record.axis.clone());
+                match ledger.record_match(record.clone()) {
+                    Ok(true) => elo_updates += 1,
+                    Ok(false) => {}
+                    Err(error) => {
+                        eprintln!("failed to record policy Elo result: {error}");
+                        invalid += 1;
+                    }
+                }
+            }
+        }
         if !step.is_valid() {
             invalid += 1;
+        }
+    }
+
+    if let (Some(path), Some(ledger)) = (elo_path.as_deref(), elo.as_ref()) {
+        if let Err(error) = ledger.save(path) {
+            eprintln!("failed to save Elo ledger: {error}");
+            invalid += 1;
+        } else {
+            println!(
+                "elo_ledger={} axis=policy added_pairs={} stored_pairs={}",
+                path.display(),
+                elo_updates,
+                ledger.record_count()
+            );
+            for axis in elo_axes {
+                println!("elo_standings axis={axis}");
+                for standing in ledger.standings(&axis) {
+                    println!(
+                        "elo id={} rating={:.1} paired_matches={} anchored={}",
+                        standing.id, standing.rating, standing.matches, standing.anchored
+                    );
+                }
+            }
         }
     }
     println!("\ninvalid_rungs={invalid}");

@@ -1,16 +1,20 @@
 [workspace]
 resolver = "2"
 members = [
+  "arena",
   "engine",
   "policies",
   "protocol",
+  "server",
   "session",
   "sets/ravnica_city_of_guilds",
 ]
 default-members = [
+  "arena",
   "engine",
   "policies",
   "protocol",
+  "server",
   "session",
   "sets/ravnica_city_of_guilds",
 ]

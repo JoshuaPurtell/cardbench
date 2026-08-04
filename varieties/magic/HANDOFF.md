@@ -53,9 +53,10 @@ external dependencies** and must keep them; `serde` lives only in `protocol` and
 | --- | --- |
 | `cardbench-magic-engine` | Rules. Knows nothing of transport, policy, or sessions. |
 | `cardbench-magic-rav` | Ravnica card definitions, bindings, decks. |
-| `cardbench-magic-policies` | Shared planners, archetype policies v1–v7, campaign runners. |
+| `cardbench-magic-policies` | Shared planners, archetype policies v1–v8, campaign runners. |
 | `cardbench-magic-protocol` | Versioned owned transport schema. **No engine dependency, deliberately.** |
 | `cardbench-magic-session` | Engine→protocol projection, transcripts, critique, campaign statistics. |
+| `cardbench-magic-arena` | Seats LLM agents alongside code policies. See `ARENA.md`. |
 
 ```sh
 cd varieties/magic
@@ -65,8 +66,17 @@ cd varieties/magic
 ./scripts/check-batch.sh stats 30           # what pilots actually did, per deck
 
 rav-policy-ladder 60                        # every successive rung
-rav-policy-ladder 60 v7 v5                  # one named pair  <- new
+rav-policy-ladder 60 v8 v5                  # one named pair  <- cumulative pass
+rav-policy-ladder 60 v8 v5 --elo policy-elo.tsv # policy progress by deck
+rav-deck-hillclimb 20                       # candidate decks vs four controls
+rav-deck-hillclimb 20 --elo deck-elo.tsv    # append clean pairs, print standings
+rav-ratings deck-elo.tsv                    # inspect a ledger without replaying
 rav-match-review DECK_A DECK_B SEED --jsonl out.jsonl
+
+rav-arena probe 3                           # how many decisions are decisions
+rav-arena code-vs-code   3 v7 v5            # the ladder's question, arena shape
+rav-arena react-vs-code  3 --model M        # a model against a policy
+rav-arena react-vs-react 3 --model M        # a model against itself
 ```
 
 ### Policy generations
@@ -83,10 +93,13 @@ archetype supplies weights, not code.
 | v6 vs v5 — instant timing | 52.7% [48.2, 57.1] | not established |
 | v7 vs v6 — timing split by target | 52.4% [47.9, 56.8] | not established |
 | **v7 vs v5 — both timing changes** | **54.6% [50.1, 59.0]** | **improvement** |
+| v8 vs v7 — valued-defence attack model | 50.4% [41.6, 59.2] | not established |
+| **v8 vs v5 — timing + valued defence** | **57.3% [52.8, 61.6]** | **improvement** |
 
-Two formal passes in the project's history: v4, and now v7-over-v5. The second
-is marginal (lower bound 50.1%) and should be confirmed at 120 pairs. Nearly all
-of it is the burn deck at 66.7% [57.8, 74.5].
+Three formal passes in the project's history: v4, v7-over-v5, and now
+v8-over-v5. The latest pass is 480 clean games, with no significant per-deck
+regression. The v8-over-v7 rung itself is not established; the valued attack
+change is useful as part of the cumulative family, not as a standalone claim.
 
 ---
 
@@ -148,7 +161,7 @@ v6 holds instants for a window worth something. v7 splits that by target: reach
 loses nothing by waiting, while removal held to the end step has already conceded
 the creature one attack. Together, +4.6 points.
 
-### Found, not yet exploited: the attack planner models the wrong opponent
+### Exploited in v8: the attack planner models the wrong opponent
 
 `simulate_defence` prices a block as pure material — attacker's value if it dies
 minus blocker's if it does. That is the **v1** blocking model. v3 replaced it in
@@ -156,28 +169,36 @@ the *real* defender precisely because it is wrong: a 2/4 in front of a 3/3 kills
 nothing and loses nothing, scores zero, and declines, so three damage goes
 through every turn.
 
-Since v3, then, the attack planner has been predicting a defender the codebase
+Since v3, then, the attack planner had been predicting a defender the codebase
 itself stopped using — expecting free damage from attackers a valued defender
-will in fact block. `simulate_defence_valued` now exists alongside it and is used
-by the new damage projection, but **no generation uses it for attack planning
-yet.** That is v8, it is a handful of lines, and it is the strongest lead I know
-of. It is also exactly the kind of change the seat split was built to judge,
-because it changes what the attacking seat does.
+will in fact block. `simulate_defence_valued` is now the v8 attack model. At 60
+seed pairs, v8 versus v5 measured 57.3% [52.8, 61.6], clean, with no significant
+per-deck regression. The direct v8-v7 sample was 50.4% [41.6, 59.2] at 15
+pairs, so the attack change is not being claimed as an isolated win.
+
+The campaign also exposed a policy/view boundary: an Aura can suppress a
+permanent's nonmana activated abilities, but the old `GameView` did not expose
+that live fact. v8 now reads a typed suppression field and declines those
+activations; v1-v7 retain their frozen chooser. Lower-curve deck candidates
+now measure with zero rejected proposals.
 
 ### Still open, ranked
 
-1. **v8: attack planning against the valued defender.** Above.
-2. **Re-measure v2/v3/v5 with the seat split.** Cheap; may reclassify three
+1. **Confirm v8's watchability and the cumulative pass on a fresh seed range.**
+   Its strength result is established; its direct predecessor rung is not.
+2. **Deck axis: promote only candidates that improve strength without making
+   mirrors stall.** The separate `rav-deck-hillclimb` lane reports win rate,
+   rejected moves, and the 8–25-turn productive fraction.
+3. **Re-measure v2/v3/v5 with the seat split.** Cheap; may reclassify three
    "no change" verdicts.
-3. **Turn-level mana allocation.** `spell_to_cast` greedily takes the single
+4. **Turn-level mana allocation.** `spell_to_cast` greedily takes the single
    best spell per priority window, so with four mana it takes the best four-drop
    even when two two-drops are strictly better. Rough measurement put land-mana
    utilisation at 38% for aggro and 41% for Selesnya — heavily caveated (an
    empty hand makes unused mana correct), which is why the metric should be
    built properly first: `SeatStats.mana_produced` promises a comparison against
    spend that is never computed.
-4. **Confirm v7 over v5 at 120 pairs.** The pass is marginal.
-5. **Give `Board` the stack's contents.** v6/v7 deliberately do not respond to
+5. **Give `Board` more stack contents.** v6-v8 deliberately do not respond to
    anything, because `Board` exposes only `stack_depth` and acting on depth
    alone spends removal at random. A real response rule needs to see what is on
    the stack.
@@ -186,16 +207,24 @@ because it changes what the attacking seat does.
 
 ### Productive gameplay, as its own axis
 
-Strength and watchability are not the same number, and only one of them is
-currently measured. The Selesnya mirror runs **43.8 mean turns**, and the
-Selesnya ladder cell 50.3. Those games are not being decided by judgement; they
-are two pilots unable to convert. Aggro-vs-burn at 13.7 turns is much closer to
-the interesting region.
+Strength and watchability are not the same number. The deck hill-climb now
+reports an 8–25-turn productive fraction alongside win rate. The best current
+strength candidate, `rav_selesnya_midrange_hc_curve`, beat its frozen parent
+58.3% [49.4, 66.8] over 120 games and beat the four-control pool 66.7%
+[62.3, 70.7] over 480, but its Selesnya mirror averaged 54.1 turns. It is a
+strength lead, not a promoted productive deck.
 
-Nothing gates on this yet. A turn-count band — call it 8 to 25 — reported
-alongside win rate would make it visible, and a policy change that improves win
-rate while pushing the Selesnya mirror to turn 60 should not read as unqualified
-progress.
+### Elo progress ledger
+
+`rav-deck-hillclimb --elo PATH` maintains a dependency-free, replayable TSV
+ledger. Each clean paired seed is one Elo match: 2-0 scores 1.0, 1-1 scores
+0.5, and 0-2 scores 0.0. The four constructed controls are fixed 1500-rated
+anchors, so adding candidates does not move the reference frame. Re-running the
+same candidate and seed range is safe: axis, pair, and seed are deduplicated.
+
+The printed standings are a search and progress signal, not a promotion gate.
+Wilson intervals, rejected-move counts, per-deck regressions, and productive
+turns remain the evidence used to promote a deck.
 
 ---
 
@@ -214,7 +243,9 @@ baseline every ladder number was measured against. Add the corrected function
 alongside it and let the new generation opt in.
 
 **Do not change the four constructed decks,** and freeze a generation once
-measured. Same reason.
+measured. Same reason. Deck candidates belong in
+`decks/hillclimb_decks.toml`; the normal ladder and matrix continue to use the
+four controls in `constructed_decks.toml`.
 
 **A rejected policy move is never data.** It means the game ended by an engine
 refusal rather than by play. The ladder reports contaminated cells separately.
@@ -249,7 +280,7 @@ deck. An agent-backed policy slots in at exactly that point.
 Three things to know before trusting a number that comes out of it:
 
 - **Score against a named baseline**, not the newest thing: `rav-policy-ladder N
-  <candidate> v7`. What "latest" means changes.
+  <candidate> v8` (or the cumulative `v8 v5`). What "latest" means changes.
 - **Read the seat split, not only the pooled rate.** A candidate that is 50.0%
   paired may be a large effect in both directions.
 - **A candidate that produces refused proposals has not been measured.** Those

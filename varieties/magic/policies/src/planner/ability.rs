@@ -207,8 +207,32 @@ fn tap_opportunity_cost(
 /// Deterministic: ties break on source object id, then ability id.
 #[must_use]
 pub fn best_activation(board: &Board, weights: &Weights) -> Option<Activation> {
+    best_activation_with_suppression(board, weights, false)
+}
+
+/// Chooses an activation while respecting the engine's live suppression fact.
+///
+/// This is a new entry point for v8. Older generations remain wired to
+/// [`best_activation`] so their frozen measurements do not acquire a hidden
+/// dependency on a newer view field.
+#[must_use]
+pub fn best_activation_respecting_suppression(
+    board: &Board,
+    weights: &Weights,
+) -> Option<Activation> {
+    best_activation_with_suppression(board, weights, true)
+}
+
+fn best_activation_with_suppression(
+    board: &Board,
+    weights: &Weights,
+    respect_suppression: bool,
+) -> Option<Activation> {
     let mut best: Option<Activation> = None;
     for permanent in &board.mine {
+        if respect_suppression && permanent.nonmana_activated_abilities_suppressed {
+            continue;
+        }
         for ability in &permanent.abilities {
             if !timing_allows(board, permanent, ability) {
                 continue;

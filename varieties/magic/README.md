@@ -13,11 +13,50 @@ cargo run -p cardbench-magic-rav --bin rav-engine-parity
 cargo run -p cardbench-magic-policies --bin rav-policy-match
 cargo run -p cardbench-magic-policies --bin rav-deck-match
 cargo run -p cardbench-magic-policies --bin rav-deck-sweep
+cargo run -p cardbench-magic-policies --bin rav-deck-hillclimb -- 20
+cargo run -p cardbench-magic-policies --bin rav-deck-hillclimb -- 20 --elo deck-elo.tsv
+cargo run -p cardbench-magic-policies --bin rav-policy-ladder -- 20 v8 v5 --elo policy-elo.tsv
+cargo run -p cardbench-magic-policies --bin rav-ratings -- deck-elo.tsv
 cargo run -p cardbench-magic-policies --bin rav-engine-tournament
 cargo run -p cardbench-magic-policies --bin rav-reference-deck-matrix
 cargo run -p cardbench-magic-policies --bin rav_card_gauntlet
 cargo run -p cardbench-magic-policies --bin rav-engine-audit
 ```
+
+### Local playable board
+
+The local board is a thin Vite client over the real Rust engine. It seats a
+human on player 0, runs a selectable policy generation on player 1 (v7 by
+default), and stops the server loop at each human priority or combat
+declaration. The browser does not own rules state: every action is submitted
+through `Game::submit_policy_move`.
+
+In one terminal:
+
+```bash
+cd varieties/magic
+cargo run -p cardbench-magic-server --bin rav-magic-server
+```
+
+In another:
+
+```bash
+cd varieties/magic/ui
+npm install
+npm run dev
+```
+
+Open `http://localhost:5173`. The VLM view keeps the board high-contrast and
+card-like; `Copy observation JSON` copies the same public state served by
+`GET /api/matches/:id`, which is useful for screenshot-plus-structured-state
+evaluation. The server also exposes `GET /api/decks` and a WebSocket at
+`/ws` for local automation.
+
+The first human surface covers land play, including both Sacred Foundry entry
+choices (tapped or untapped for two life), explicit basic/dual-land mana,
+ordinary casts with public target choices, normal draws, and empty or selected
+combat declarations. Specialized private library or multi-stage decisions are
+left as an explicit pending boundary instead of being silently guessed.
 
 For the normal edit loop, run `scripts/core-check.sh`. It reuses one Cargo
 target directory across worktrees and runs the engine library suite, one policy

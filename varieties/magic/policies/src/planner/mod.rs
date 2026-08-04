@@ -20,8 +20,8 @@ pub mod threat;
 pub use ability::{Activation, best_activation};
 pub use board::{AbilityFacts, Board, CardFacts, CardIndex, Permanent, Role, SourceKind};
 pub use combat::{
-    Aggression, AttackPlan, Block, can_block, plan_attack, plan_attack_assigned, plan_blocks,
-    plan_blocks_valued, planned_damage,
+    Aggression, AttackPlan, Block, can_block, plan_attack, plan_attack_assigned,
+    plan_attack_assigned_valued, plan_blocks, plan_blocks_valued, planned_damage,
 };
 pub use mana::{ManaPlan, ManaTap, can_pay, plan, potential};
 pub use target::{cast_value, targets_for};

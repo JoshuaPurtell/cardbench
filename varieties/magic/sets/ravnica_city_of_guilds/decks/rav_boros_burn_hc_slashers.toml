@@ -1,0 +1,47 @@
+schema_version = "cardbench.magic.deck.v1"
+id = "rav_boros_burn_hc_hawk"
+name = "RAV Boros Burn — Hawk candidate"
+set = "RAV"
+format = "ravnica-block"
+archetype = "burn"
+source = "Hill-climb candidate: replace the four-mana Ordruun package with a cheap evasive threat."
+
+[[mainboard]]
+card = "RAV-MOUNTAIN"
+count = 13
+[[mainboard]]
+card = "RAV-PLAINS"
+count = 5
+[[mainboard]]
+card = "RAV-SACRED-FOUNDRY"
+count = 4
+[[mainboard]]
+card = "RAV-BOROS-GARRISON"
+count = 2
+[[mainboard]]
+card = "RAV-CHAR"
+count = 4
+[[mainboard]]
+card = "RAV-LIGHTNING-HELIX"
+count = 4
+[[mainboard]]
+card = "RAV-SPARKMAGE-APPRENTICE"
+count = 4
+[[mainboard]]
+card = "RAV-VIASHINO-FANGTAIL"
+count = 4
+[[mainboard]]
+card = "RAV-FRENZIED-GOBLIN"
+count = 4
+[[mainboard]]
+card = "RAV-SKYKNIGHT-LEGIONNAIRE"
+count = 4
+[[mainboard]]
+card = "RAV-BOROS-SWIFTBLADE"
+count = 4
+[[mainboard]]
+card = "RAV-GOBLIN-SPELUNKERS"
+count = 4
+[[mainboard]]
+card = "RAV-COURIER-HAWK"
+count = 4

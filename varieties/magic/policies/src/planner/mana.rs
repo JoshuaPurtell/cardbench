@@ -337,6 +337,7 @@ mod tests {
             source: Some(SourceKind::BasicTyped(colors.to_vec())),
             role: Role::Land,
             abilities: Vec::new(),
+            nonmana_activated_abilities_suppressed: false,
             controller_is_opponent: false,
         }
     }

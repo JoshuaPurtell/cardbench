@@ -24,6 +24,7 @@ pub mod v4;
 pub mod v5;
 pub mod v6;
 pub mod v7;
+pub mod v8;
 
 /// One generation of the archetype policy.
 ///
@@ -48,10 +49,12 @@ pub enum PolicyVersion {
     /// Splits instant timing by what the spell does: removal answers the board
     /// on my turn, reach is still held for the end step or for lethal.
     V7,
+    /// Plans attacks against the valued defender used by the real blocker.
+    V8,
 }
 
 impl PolicyVersion {
-    pub const ALL: [Self; 7] = [
+    pub const ALL: [Self; 8] = [
         Self::V1,
         Self::V2,
         Self::V3,
@@ -59,12 +62,13 @@ impl PolicyVersion {
         Self::V5,
         Self::V6,
         Self::V7,
+        Self::V8,
     ];
 
     /// The newest version. Campaigns that do not care about history use this.
     #[must_use]
     pub const fn latest() -> Self {
-        Self::V7
+        Self::V8
     }
 
     #[must_use]
@@ -77,6 +81,7 @@ impl PolicyVersion {
             Self::V5 => "v5",
             Self::V6 => "v6",
             Self::V7 => "v7",
+            Self::V8 => "v8",
         }
     }
 
@@ -96,6 +101,7 @@ impl PolicyVersion {
             Self::V5 => Some(Self::V4),
             Self::V6 => Some(Self::V5),
             Self::V7 => Some(Self::V6),
+            Self::V8 => Some(Self::V7),
         }
     }
 }
@@ -122,6 +128,7 @@ pub fn seat_policy(
         PolicyVersion::V5 => Box::new(v5::ArchetypePolicyV5::new(player, archetype, index)),
         PolicyVersion::V6 => Box::new(v6::ArchetypePolicyV6::new(player, archetype, index)),
         PolicyVersion::V7 => Box::new(v7::ArchetypePolicyV7::new(player, archetype, index)),
+        PolicyVersion::V8 => Box::new(v8::new(player, archetype, index)),
     }
 }
 
@@ -136,7 +143,8 @@ mod tests {
         }
         assert_eq!(PolicyVersion::V1.previous(), None);
         assert_eq!(PolicyVersion::V3.previous(), Some(PolicyVersion::V2));
-        assert_eq!(PolicyVersion::latest(), PolicyVersion::V7);
+        assert_eq!(PolicyVersion::latest(), PolicyVersion::V8);
+        assert_eq!(PolicyVersion::V8.previous(), Some(PolicyVersion::V7));
         assert_eq!(PolicyVersion::V7.previous(), Some(PolicyVersion::V6));
         assert_eq!(PolicyVersion::V6.previous(), Some(PolicyVersion::V5));
         assert_eq!(PolicyVersion::V4.previous(), Some(PolicyVersion::V3));

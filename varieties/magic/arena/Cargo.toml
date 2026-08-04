@@ -1,0 +1,25 @@
+[package]
+name = "cardbench-magic-arena"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Head-to-head container seating code policies and LLM ReAct agents on the same Magic decks"
+
+[lints]
+workspace = true
+
+[dependencies]
+cardbench-magic-engine = { path = "../engine" }
+cardbench-magic-policies = { path = "../policies" }
+cardbench-magic-rav = { path = "../sets/ravnica_city_of_guilds" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[lib]
+name = "cardbench_magic_arena"
+path = "src/lib.rs"
+
+[[bin]]
+name = "rav-arena"
+path = "src/bin/rav_arena.rs"

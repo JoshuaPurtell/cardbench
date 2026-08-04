@@ -510,6 +510,7 @@ fn project_land(board: &Board, land: ObjectId, colors: &[cardbench_magic_engine:
         source: Some(crate::planner::SourceKind::BasicTyped(colors.to_vec())),
         role: Role::Land,
         abilities: Vec::new(),
+        nonmana_activated_abilities_suppressed: false,
         controller_is_opponent: false,
     });
     projected
@@ -716,6 +717,7 @@ mod tests {
             source: None,
             role: Role::Creature,
             abilities: Vec::new(),
+            nonmana_activated_abilities_suppressed: false,
             controller_is_opponent: opposing,
         }
     }

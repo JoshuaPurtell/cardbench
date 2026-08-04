@@ -420,6 +420,7 @@ mod tests {
             source: None,
             role: Role::Creature,
             abilities: Vec::new(),
+            nonmana_activated_abilities_suppressed: false,
             controller_is_opponent: false,
         }
     }
@@ -702,6 +703,29 @@ mod tests {
                 blocker: ObjectId(1)
             }],
             "a free block that stops three damage is worth making"
+        );
+    }
+
+    /// v8 must predict the valued block that v3 made the real defender take;
+    /// the frozen attack model incorrectly sees three free damage here.
+    #[test]
+    fn v8_attack_planner_respects_a_valued_wall() {
+        let board = board(
+            vec![creature(1, 3, 3, &[])],
+            vec![creature(2, 2, 4, &[])],
+            20,
+            20,
+        );
+        assert_eq!(
+            plan_attack_assigned(&board, &Weights::balanced(), Aggression::Measured).attackers,
+            vec![ObjectId(1)],
+            "the v7 model treats the wall as declining"
+        );
+        assert!(
+            plan_attack_assigned_valued(&board, &Weights::balanced(), Aggression::Measured)
+                .attackers
+                .is_empty(),
+            "v8 must account for the damage-prevention value of the wall"
         );
     }
 
@@ -991,7 +1015,34 @@ fn score_attack(
     weights: &Weights,
     defender_life: i64,
 ) -> f32 {
-    let blocks = simulate_defence(attackers, blockers, weights, defender_life);
+    score_attack_with_defence(attackers, blockers, weights, defender_life, false)
+}
+
+/// Scores an attack against the defence model used by the real blocker
+/// planner. This is deliberately separate from [`score_attack`]: generations
+/// v1-v7 are frozen measurements and changing their simulated opponent would
+/// silently rewrite every historical rung.
+fn score_attack_valued(
+    attackers: &[&Permanent],
+    blockers: &[&Permanent],
+    weights: &Weights,
+    defender_life: i64,
+) -> f32 {
+    score_attack_with_defence(attackers, blockers, weights, defender_life, true)
+}
+
+fn score_attack_with_defence(
+    attackers: &[&Permanent],
+    blockers: &[&Permanent],
+    weights: &Weights,
+    defender_life: i64,
+    valued_defence: bool,
+) -> f32 {
+    let blocks = if valued_defence {
+        simulate_defence_valued(attackers, blockers, weights, defender_life)
+    } else {
+        simulate_defence(attackers, blockers, weights, defender_life)
+    };
     let mut assignment = vec![None; attackers.len()];
     for block in &blocks {
         assignment[block.attacker] = Some(block.blocker);
@@ -1042,6 +1093,33 @@ pub fn plan_attack_assigned(
     weights: &Weights,
     aggression: Aggression,
 ) -> AttackPlan {
+    plan_attack_assigned_with_defence(board, weights, aggression, false)
+}
+
+/// Generation 8 attack planning: predict the valued defender introduced in
+/// v3, rather than the material-only defender used by the frozen generations.
+///
+/// The distinction matters for a wall such as a 2/4 facing a 3/3. The real
+/// defender blocks to prevent three damage even when neither creature dies;
+/// an attacker that planned against the old material-only model treated that
+/// block as free damage. This function is a new entry point so old rungs stay
+/// reproducible.
+#[must_use]
+pub fn plan_attack_assigned_valued(
+    board: &Board,
+    weights: &Weights,
+    aggression: Aggression,
+) -> AttackPlan {
+    plan_attack_assigned_with_defence(board, weights, aggression, true)
+}
+
+#[allow(clippy::too_many_lines)] // One ordered selection routine reads better than three helpers.
+fn plan_attack_assigned_with_defence(
+    board: &Board,
+    weights: &Weights,
+    aggression: Aggression,
+    valued_defence: bool,
+) -> AttackPlan {
     let Some(opponent) = board.primary_opponent() else {
         return AttackPlan::default();
     };
@@ -1057,10 +1135,15 @@ pub fn plan_attack_assigned(
         .their_creatures()
         .filter(|permanent| !permanent.tapped)
         .collect();
+    let attack_score = if valued_defence {
+        score_attack_valued
+    } else {
+        score_attack
+    };
 
     // Lethal first: an attack that wins needs no other justification.
     let all: Vec<&Permanent> = candidates.clone();
-    if score_attack(&all, &blockers, weights, opponent.life).is_infinite() {
+    if attack_score(&all, &blockers, weights, opponent.life).is_infinite() {
         return AttackPlan {
             attackers: all.iter().map(|permanent| permanent.object).collect(),
             is_lethal: true,
@@ -1109,7 +1192,7 @@ pub fn plan_attack_assigned(
         if set.is_empty() {
             return 0.0;
         }
-        let mut score = score_attack(set, &blockers, weights, opponent.life);
+        let mut score = attack_score(set, &blockers, weights, opponent.life);
         if score.is_infinite() {
             return score;
         }

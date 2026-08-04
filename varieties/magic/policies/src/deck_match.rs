@@ -13,9 +13,9 @@ use cardbench_magic_engine::{Game, GameEvent, PlayerId, PolicyAction, PolicyMove
 use cardbench_magic_rav::{
     DeckFixture, RAV_CATALOG_COVERAGE_DECK_COUNT, RAV_MAIN_SET_EXPECTED_PRINTING_COUNT,
     RAV_MAIN_SET_EXPECTED_UNIQUE_NAME_COUNT, card_definitions, event_digest,
-    load_catalog_coverage_decks, load_constructed_decks, load_reference_decks, new_rav_game,
-    rav_activated_ability_bindings, rav_additional_spell_cost_bindings, rav_land_entry_bindings,
-    rav_mana_ability_bindings,
+    load_catalog_coverage_decks, load_constructed_decks, load_hillclimb_decks,
+    load_reference_decks, new_rav_game, rav_activated_ability_bindings,
+    rav_additional_spell_cost_bindings, rav_land_entry_bindings, rav_mana_ability_bindings,
 };
 use std::collections::BTreeMap;
 use std::sync::{Arc, OnceLock};
@@ -512,6 +512,7 @@ fn all_deck_fixtures() -> Result<Vec<DeckFixture>, String> {
     let mut decks = load_reference_decks().map_err(|error| error.to_string())?;
     decks.extend(load_catalog_coverage_decks().map_err(|error| error.to_string())?);
     decks.extend(load_constructed_decks().map_err(|error| error.to_string())?);
+    decks.extend(load_hillclimb_decks().map_err(|error| error.to_string())?);
     Ok(decks)
 }
 

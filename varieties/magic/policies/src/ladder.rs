@@ -33,6 +33,7 @@ use crate::archetype::Archetype;
 use crate::archetypes::PolicyVersion;
 use crate::deck_match::{run_versioned_matchup, shared_card_index};
 use crate::matchup::{Edge, Interval};
+use crate::ratings::EloMatchRecord;
 use crate::{DeckMatchConfig, DeckMatchTermination, EngineFinding};
 use cardbench_magic_engine::PlayerId;
 
@@ -123,6 +124,10 @@ pub struct LadderStep {
     /// into a policy result. Reporting both makes the distinction visible
     /// instead of forcing a choice between a contaminated number and no number.
     pub clean: Interval,
+    /// Clean paired-seed policy results, retained for the optional Elo ledger.
+    /// The axis includes the deck id so policy strength is not mixed with deck
+    /// matchup strength.
+    pub elo_records: Vec<EloMatchRecord>,
 }
 
 impl LadderStep {
@@ -221,6 +226,7 @@ impl LadderStep {
 /// # Errors
 ///
 /// Propagates any setup failure from the match runner.
+#[allow(clippy::too_many_lines)] // The paired-seat loop is the readable measurement audit trail.
 pub fn run_step(
     challenger: PolicyVersion,
     incumbent: PolicyVersion,
@@ -232,6 +238,7 @@ pub fn run_step(
     let mut per_deck = Vec::new();
     let mut pooled_wins = 0;
     let mut pooled_games = 0;
+    let mut elo_records = Vec::new();
 
     for (deck, archetype) in decks {
         let mut wins = 0;
@@ -246,6 +253,8 @@ pub fn run_step(
         let mut findings = Vec::new();
 
         for seed in 0..u64::from(seeds) {
+            let mut pair_score_half = 0_u8;
+            let mut pair_is_clean = true;
             // Seat 0 is on the play. Swap which version sits there so the play
             // advantage cancels out of the comparison.
             for challenger_seat in 0_usize..2 {
@@ -271,6 +280,11 @@ pub fn run_step(
                     .attempted_policy_moves
                     .saturating_sub(result.accepted_policy_moves);
                 findings.extend(result.engine_findings.iter().cloned());
+                if result.attempted_policy_moves != result.accepted_policy_moves
+                    || !result.engine_findings.is_empty()
+                {
+                    pair_is_clean = false;
+                }
                 match result.termination {
                     DeckMatchTermination::Winner(PlayerId(seat)) => {
                         decided += 1;
@@ -278,10 +292,25 @@ pub fn run_step(
                         wins += challenger_won;
                         seat_decided[challenger_seat] += 1;
                         seat_wins[challenger_seat] += challenger_won;
+                        if seat == challenger_seat {
+                            pair_score_half += 2;
+                        }
                     }
-                    DeckMatchTermination::Draw => {}
-                    _ => truncated += 1,
+                    DeckMatchTermination::Draw => pair_score_half += 1,
+                    _ => {
+                        pair_is_clean = false;
+                        truncated += 1;
+                    }
                 }
+            }
+            if pair_is_clean {
+                elo_records.push(EloMatchRecord::new(
+                    format!("policy/{deck}"),
+                    challenger.id(),
+                    incumbent.id(),
+                    seed,
+                    pair_score_half,
+                )?);
             }
         }
 
@@ -317,6 +346,7 @@ pub fn run_step(
         per_deck,
         overall: Interval::wilson(pooled_wins, pooled_games),
         clean: Interval::wilson(clean_wins, clean_games),
+        elo_records,
     })
 }
 
@@ -431,6 +461,7 @@ mod tests {
             per_deck,
             overall: Interval::wilson(wins, total),
             clean: Interval::wilson(wins, total),
+            elo_records: Vec::new(),
         }
     }
 

@@ -52,3 +52,11 @@ path = "src/bin/rav_archetype_matrix.rs"
 [[bin]]
 name = "rav-policy-ladder"
 path = "src/bin/rav_policy_ladder.rs"
+
+[[bin]]
+name = "rav-deck-hillclimb"
+path = "src/bin/rav_deck_hillclimb.rs"
+
+[[bin]]
+name = "rav-ratings"
+path = "src/bin/rav_ratings.rs"

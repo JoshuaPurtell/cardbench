@@ -502,6 +502,10 @@ pub struct Permanent {
     pub role: Role,
     /// Activated abilities available from this permanent.
     pub abilities: Vec<AbilityFacts>,
+    /// Live continuous effects can suppress definition-bound nonmana
+    /// activations. This is separate from [`AbilityFacts::unsupported`],
+    /// which describes a cost the planner cannot pay.
+    pub nonmana_activated_abilities_suppressed: bool,
     /// Whether this permanent belongs to someone other than the viewer.
     /// Carried on the permanent so an evaluator never needs the whole board
     /// just to know which side a creature is on.
@@ -598,6 +602,7 @@ impl Board {
                 abilities: facts
                     .map(|facts| facts.abilities.clone())
                     .unwrap_or_default(),
+                nonmana_activated_abilities_suppressed: card.nonmana_activated_abilities_suppressed,
             }
         };
 

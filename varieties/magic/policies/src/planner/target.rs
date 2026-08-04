@@ -222,6 +222,7 @@ pub fn cast_value(board: &Board, facts: &CardFacts, weights: &Weights) -> Option
                 source: None,
                 role: facts.role,
                 abilities: Vec::new(),
+                nonmana_activated_abilities_suppressed: false,
                 controller_is_opponent: false,
             };
             creature_value(&body, weights)
