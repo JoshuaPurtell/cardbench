@@ -33,7 +33,7 @@ cardbench-magic-engine   cardbench-magic-protocol
 | `cardbench-magic-rav` | A | yes | none | One expansion's card definitions and fixtures. |
 | `cardbench-magic-policies` | — | yes | none | Reference policies and campaign runners. Migrates to layer C's controller interface in M2. |
 | `cardbench-magic-protocol` | B | **yes (this milestone)** | `serde` | Owned, versioned transport schema. |
-| `cardbench-magic-session` | C | no (M4) | engine + protocol | Owns one `Game`, one controller per seat, projection, and submission. |
+| `cardbench-magic-session` | C | **partial** | engine + protocol + policies | Projection and reviewable transcripts have landed. Controllers, submission, and the orchestration loop remain M4. |
 
 ### 1.1 The edge that is deliberately absent
 
@@ -66,6 +66,26 @@ Consequences, all intended:
 dependencies** and keep them. `serde` is confined to `protocol` (and, later,
 `session`). Adding a dependency to a layer-A crate is a contract change, not a
 routine edit.
+
+### 1.2b Transcripts (landed)
+
+The session crate's first responsibility is live: projecting the engine's typed
+`GameEvent` log into structured, serde-serialisable records, plus a JSONL
+transcript, a per-turn timeline, and an automated critique pass.
+
+The design is adapted from the Pokémon variety, which derives serde directly on
+its `GameEvent`. Magic cannot copy that — the engine, policies, and expansion
+crates are dependency-free by contract — so the adaptation is a projection
+rather than a derive. That keeps the boundary and lets the transcript schema
+version independently of the engine's internal vocabulary.
+
+Deliberately **not** adopted: Pokémon's full mid-game `GameStateSnapshot`,
+which serialises the entire game including RNG state. Serialising the internal
+`Game` is forbidden by the non-negotiable invariants, and the same capability —
+forking a match at a chosen point — is reachable by replaying a deterministic
+`(seed, decks, pilots)` triple with a different pilot swapped in. Slower, and
+strictly safer: nothing can resume from a state the rules engine could not have
+produced.
 
 ### 1.3 What the session crate will and will not do (M4)
 

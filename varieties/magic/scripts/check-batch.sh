@@ -13,6 +13,7 @@ usage:
   ./scripts/check-batch.sh core
   ./scripts/check-batch.sh policies
   ./scripts/check-batch.sh protocol [test|clippy]
+  ./scripts/check-batch.sh session [test|clippy]
   ./scripts/check-batch.sh ladder [SEED_PAIRS]
   ./scripts/check-batch.sh matrix [SEED_PAIRS]
   ./scripts/check-batch.sh rav SHARD[/TOTAL] [test|clippy]
@@ -89,11 +90,12 @@ case "$command" in
       '1. core       formatting + engine lib + policy boundary + coverage + quick audit' \
       '2. policies   all policy library tests (scale campaigns remain explicit)' \
       '3. protocol   transport schema, staleness, and redaction contract tests' \
-      '4. ladder     policy generation N vs N-1 across every constructed deck' \
-      '5. matrix     constructed-deck matchup matrix with confidence intervals' \
-      '6. rav        deterministic slice of RAV integration-test targets' \
-      '7. engine     deterministic slice of engine integration-test targets' \
-      '8. exhaustive workspace tests/clippy (release-only; not run by this script)'
+      '4. session    engine-to-protocol projection and transcript fidelity tests' \
+      '5. ladder     policy generation N vs N-1 across every constructed deck' \
+      '6. matrix     constructed-deck matchup matrix with confidence intervals' \
+      '7. rav        deterministic slice of RAV integration-test targets' \
+      '8. engine     deterministic slice of engine integration-test targets' \
+      '9. exhaustive workspace tests/clippy (release-only; not run by this script)'
     ;;
   core)
     cd "$ROOT"
@@ -110,6 +112,15 @@ case "$command" in
     case "${2:-test}" in
       test) cargo test --quiet -p cardbench-magic-protocol ;;
       clippy) cargo clippy --quiet -p cardbench-magic-protocol --all-targets -- -D warnings ;;
+      *) usage; exit 2 ;;
+    esac
+    ;;
+  session)
+    # Transcript projection and fidelity. Small and unsharded, like protocol.
+    cd "$ROOT"
+    case "${2:-test}" in
+      test) cargo test --quiet -p cardbench-magic-session ;;
+      clippy) cargo clippy --quiet -p cardbench-magic-session --all-targets -- -D warnings ;;
       *) usage; exit 2 ;;
     esac
     ;;

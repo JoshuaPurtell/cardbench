@@ -39,10 +39,11 @@ pub use catalog_gauntlet::{CatalogPolicyProfile, RavCatalogPolicy};
 pub use deck_match::{
     CatalogGauntletResult, DeckMatchConfig, DeckMatchResult, DeckMatchSweepResult,
     DeckMatchTermination, EngineFinding, EngineFindingKind, EngineTournamentFailure,
-    EngineTournamentResult, RAV_DECK_MATCH_ID, RAV_REFERENCE_DECK_MATRIX_ID, run_deck_matchup_with,
-    run_rav_catalog_gauntlet, run_rav_deck_matchup, run_rav_engine_tournament,
-    run_rav_full_deck_match, run_rav_full_deck_sweep, run_rav_reference_deck_matrix,
-    run_versioned_matchup, shared_card_index,
+    EngineTournamentResult, RAV_DECK_MATCH_ID, RAV_REFERENCE_DECK_MATRIX_ID,
+    run_deck_matchup_capturing, run_deck_matchup_with, run_rav_catalog_gauntlet,
+    run_rav_deck_matchup, run_rav_engine_tournament, run_rav_full_deck_match,
+    run_rav_full_deck_sweep, run_rav_reference_deck_matrix, run_versioned_matchup,
+    shared_card_index,
 };
 pub use development_match::{PolicyMatchResult, run_rav_reference_match};
 pub use dimir_transmute_attrition::DimirTransmuteAttritionPolicy;

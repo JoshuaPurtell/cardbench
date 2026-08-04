@@ -255,13 +255,33 @@ pub fn run_rav_deck_matchup(
 ///
 /// Returns an error when the configuration is degenerate, a deck id is unknown,
 /// or game setup fails.
-#[allow(clippy::too_many_lines)] // One ordered match loop stays more reviewable than a split one.
 pub fn run_deck_matchup_with(
     config: DeckMatchConfig,
     deck_p0_id: &str,
     deck_p1_id: &str,
     pilots: [Box<dyn CodePolicy>; 2],
 ) -> Result<DeckMatchResult, String> {
+    run_deck_matchup_capturing(config, deck_p0_id, deck_p1_id, pilots).map(|(result, _)| result)
+}
+
+/// Runs one full-deck match and also returns the typed engine event log.
+///
+/// The ordinary runner keeps only canonical strings, which is all a campaign
+/// needs and is cheaper across thousands of games. A reviewer needs the typed
+/// events so a transcript can carry queryable fields rather than text a
+/// consumer has to parse back.
+///
+/// # Errors
+///
+/// Returns an error when the configuration is degenerate, a deck id is unknown,
+/// or game setup fails.
+#[allow(clippy::too_many_lines)] // One ordered match loop stays more reviewable than a split one.
+pub fn run_deck_matchup_capturing(
+    config: DeckMatchConfig,
+    deck_p0_id: &str,
+    deck_p1_id: &str,
+    pilots: [Box<dyn CodePolicy>; 2],
+) -> Result<(DeckMatchResult, Vec<GameEvent>), String> {
     if config.opening_hand_size == 0 {
         return Err("full-deck match requires a nonzero opening hand size".to_owned());
     }
@@ -297,7 +317,7 @@ pub fn run_deck_matchup_with(
             "after deck setup",
             &error,
         ));
-        return Ok(result_from_game(
+        return Ok(captured(
             &game,
             deck_ids,
             config,
@@ -397,7 +417,7 @@ pub fn run_deck_matchup_with(
         &game.event_log,
         config.shuffle_seed,
     ));
-    Ok(result_from_game(
+    Ok(captured(
         &game,
         deck_ids,
         config,
@@ -830,6 +850,29 @@ fn fail_closed_tournament(
         matches,
         failures,
     }
+}
+
+/// Pairs the ordinary result with the typed event log, so the capturing entry
+/// point and the plain one cannot drift apart.
+fn captured(
+    game: &Game,
+    deck_ids: [String; 2],
+    config: DeckMatchConfig,
+    termination: DeckMatchTermination,
+    attempted_policy_moves: u32,
+    accepted_policy_moves: u32,
+    engine_findings: Vec<EngineFinding>,
+) -> (DeckMatchResult, Vec<GameEvent>) {
+    let result = result_from_game(
+        game,
+        deck_ids,
+        config,
+        termination,
+        attempted_policy_moves,
+        accepted_policy_moves,
+        engine_findings,
+    );
+    (result, game.event_log.clone())
 }
 
 fn result_from_game(

@@ -4,12 +4,14 @@ members = [
   "engine",
   "policies",
   "protocol",
+  "session",
   "sets/ravnica_city_of_guilds",
 ]
 default-members = [
   "engine",
   "policies",
   "protocol",
+  "session",
   "sets/ravnica_city_of_guilds",
 ]
 

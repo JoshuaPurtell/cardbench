@@ -147,6 +147,24 @@ Two mechanisms plausibly contribute, and this work has not separated them:
 Until it is separated, no claim is made that this reflects Magic rather than
 this policy family. It is the clearest open question the harness has surfaced.
 
+## Reviewing a single match
+
+```sh
+cargo run --release -p cardbench-magic-session --bin rav-match-review -- \
+  rav_boros_aggro rav_selesnya_midrange 3 --jsonl match.jsonl
+```
+
+Prints a per-turn timeline (mana produced, spells cast, lands played,
+attackers declared, damage by seat) and a critique, and optionally writes a
+JSONL transcript whose events carry typed fields — no regex needed to ask
+"how much damage did seat 1 take".
+
+The critique flags suspicions, not verdicts: engine-refused proposals,
+non-terminal stops, stalled development, mana produced and unspent, a seat that
+never attacked, a match with no blocks. It found its first real result
+immediately — the Selesnya pilot declares no attacker at all across a 13-turn
+game it loses.
+
 ## Running it
 
 ```sh

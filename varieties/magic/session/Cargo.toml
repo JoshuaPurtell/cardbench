@@ -1,0 +1,26 @@
+[package]
+name = "cardbench-magic-session"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Engine-to-protocol projection and reviewable match transcripts for the CardBench Magic variety"
+
+[lints]
+workspace = true
+
+[dependencies]
+cardbench-magic-engine = { path = "../engine" }
+cardbench-magic-policies = { path = "../policies" }
+cardbench-magic-protocol = { path = "../protocol" }
+cardbench-magic-rav = { path = "../sets/ravnica_city_of_guilds" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+[lib]
+name = "cardbench_magic_session"
+path = "src/lib.rs"
+
+[[bin]]
+name = "rav-match-review"
+path = "src/bin/rav_match_review.rs"

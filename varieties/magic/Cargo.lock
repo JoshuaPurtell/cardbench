@@ -30,6 +30,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "cardbench-magic-session"
+version = "0.1.0"
+dependencies = [
+ "cardbench-magic-engine",
+ "cardbench-magic-policies",
+ "cardbench-magic-protocol",
+ "cardbench-magic-rav",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
