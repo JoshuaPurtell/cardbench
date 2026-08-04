@@ -223,6 +223,33 @@ What this says that no win rate does:
 - **Midrange out-resources aggro roughly two to one** in mana produced, which
   frames the aggro deficit as much as a deck question as a policy one.
 
+### The v6 hypothesis these numbers produced, and why it failed
+
+The obvious read of the table above is that aggro and burn lose *because* they
+never block, and that the cause is aggro's `own_life` weight of 0.08 making
+almost every block score negative. A v6 was built that floored the life weight
+used for blocking at 0.30, leaving the spending weight alone.
+
+It measured 50.0% on all four decks, n=478 — behaviourally identical to v5 — and
+the arithmetic says why. The floor changes the *magnitude* of a block's score
+but flips no decision at any realistic board state:
+
+| blocker | attacker | my life | v5 gain | v6 gain | decision |
+| --- | --- | --- | --- | --- | --- |
+| 2/1 | 3/3 | 20 | -2.86 | -2.07 | decline, both |
+| 1/1 | 5/5 | 20 | -1.32 | -0.00 | decline, both |
+| 2/5 | 3/3 | 20 | +0.29 | +1.08 | block, both |
+| 2/1 | 2/2 | 20 | +0.64 | +1.17 | block, both |
+
+So the correlation is real and the causation runs the other way: aggro blocks
+rarely because its creatures are *small*, and a 2/1 trading itself to stop three
+damage at twenty life is correctly declined. Small creatures both block badly
+and lose to midrange; the blocking figure is a symptom, not the disease.
+
+v6 was reverted rather than kept. Unlike v5, which left reusable machinery, it
+was a constant that provably changed no decision, and a rung that cannot differ
+still costs eight minutes on every ladder run.
+
 The registry these numbers depend on was itself wrong on first attempt: object
 identities were resolved at end of match, and CR 800.4a had already removed
 every card owned by the loser, so half the seats reported drawing nothing.
