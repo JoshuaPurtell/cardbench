@@ -1,14 +1,53 @@
-//! Measures each policy generation against the one before it.
+//! Measures policy generations against each other.
 //!
-//! Usage: `rav-policy-ladder [SEED_PAIRS]` (default 25, i.e. 50 games per deck
-//! per rung). Both seats play the same deck list, so the only asymmetry is the
-//! pilot.
+//! ```text
+//! rav-policy-ladder [SEED_PAIRS]                      every successive pair
+//! rav-policy-ladder [SEED_PAIRS] CHALLENGER INCUMBENT one named pair
+//! ```
+//!
+//! `SEED_PAIRS` defaults to 25, i.e. 50 games per deck per rung. Both seats
+//! play the same deck list, so the only asymmetry is the pilot.
+//!
+//! The named form exists because "is this new policy better than the one we
+//! ship" is a different question from "did each rung beat the one before it".
+//! A policy written against this harness -- by a person or by a model -- needs
+//! to be scored against a chosen baseline, not only against its immediate
+//! predecessor, and successive rungs cannot answer that once a change is split
+//! across two generations.
 
-use cardbench_magic_policies::{Archetype, DeckMatchConfig, LadderStep, run_ladder};
+use cardbench_magic_policies::{
+    Archetype, DeckMatchConfig, LadderStep, PolicyVersion, run_ladder, run_step,
+};
 use cardbench_magic_rav::load_constructed_decks;
 
 fn percent(value: f64) -> String {
     format!("{:.1}", value * 100.0)
+}
+
+/// A signed difference in win-rate points, always with its sign shown so the
+/// direction is unambiguous in a log.
+fn points(value: f64) -> String {
+    format!("{:+.1}", value * 100.0)
+}
+
+/// The explicit challenger and incumbent, when both were named.
+///
+/// Exits rather than falling back to the full ladder when a name is
+/// unrecognised: silently measuring something other than what was asked for is
+/// how a result gets attributed to the wrong policy.
+fn named_pair() -> Option<(PolicyVersion, PolicyVersion)> {
+    let arguments: Vec<String> = std::env::args().skip(2).take(2).collect();
+    let [challenger, incumbent] = arguments.as_slice() else {
+        return None;
+    };
+    let parse = |name: &str| {
+        PolicyVersion::parse(name).unwrap_or_else(|| {
+            let known: Vec<&str> = PolicyVersion::ALL.iter().map(|entry| entry.id()).collect();
+            eprintln!("unknown policy version `{name}`; known: {}", known.join(" "));
+            std::process::exit(2);
+        })
+    };
+    Some((parse(challenger), parse(incumbent)))
 }
 
 fn main() {
@@ -37,7 +76,15 @@ fn main() {
         decks.len()
     );
 
-    let steps = match run_ladder(&decks, pairs, &DeckMatchConfig::default()) {
+    let named = named_pair();
+    let config = DeckMatchConfig::default();
+    let steps = match named {
+        Some((challenger, incumbent)) => {
+            run_step(challenger, incumbent, &decks, pairs, &config).map(|step| vec![step])
+        }
+        None => run_ladder(&decks, pairs, &config),
+    };
+    let steps = match steps {
         Ok(steps) => steps,
         Err(error) => {
             eprintln!("ladder failed: {error}");
@@ -78,6 +125,20 @@ fn report(step: &LadderStep) {
             verdict.rejected_moves,
             verdict.truncated,
         );
+        // The paired rate above cancels anything seat-dependent. This is the
+        // half it cancels, reported so a 50% rung cannot silently mean "the
+        // change moved play but the pairing subtracted it out".
+        let asymmetry = verdict.seat_asymmetry();
+        println!(
+            "  seats deck={} on_play={}% on_draw={}% asymmetry={}pt ci=[{},{}] established={}",
+            verdict.deck,
+            percent(verdict.win_rate_on_the_play.point),
+            percent(verdict.win_rate_on_the_draw.point),
+            points(asymmetry.point),
+            points(asymmetry.low),
+            points(asymmetry.high),
+            asymmetry.is_established(),
+        );
     }
     println!(
         "overall challenger={} incumbent={} rate={}% ci=[{},{}] n={} improvement={}",
@@ -99,6 +160,25 @@ fn report(step: &LadderStep) {
         step.clean.samples,
         step.is_clean_improvement(),
     );
+    let asymmetry = step.seat_asymmetry();
+    println!(
+        "asymmetry challenger={} incumbent={} pooled={}pt ci=[{},{}] established={}",
+        step.challenger,
+        step.incumbent,
+        points(asymmetry.point),
+        points(asymmetry.low),
+        points(asymmetry.high),
+        asymmetry.is_established(),
+    );
+    for verdict in step.seat_asymmetric() {
+        println!(
+            "seat-asymmetric deck={} on_play={}% on_draw={}% (paired rate {}% hides this)",
+            verdict.deck,
+            percent(verdict.win_rate_on_the_play.point),
+            percent(verdict.win_rate_on_the_draw.point),
+            percent(verdict.win_rate.point),
+        );
+    }
     for verdict in step.contaminated() {
         println!(
             "contaminated deck={} rejected={} of {} games (see ENGINE_BUG_LEDGER.md)",

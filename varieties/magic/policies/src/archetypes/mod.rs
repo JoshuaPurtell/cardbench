@@ -22,6 +22,8 @@ pub mod v2;
 pub mod v3;
 pub mod v4;
 pub mod v5;
+pub mod v6;
+pub mod v7;
 
 /// One generation of the archetype policy.
 ///
@@ -40,15 +42,29 @@ pub enum PolicyVersion {
     V4,
     /// Adds activated abilities: pingers, token engines, and tappers.
     V5,
+    /// Adds instant timing: hold interaction for the window where it is worth
+    /// the most instead of casting it in your own upkeep.
+    V6,
+    /// Splits instant timing by what the spell does: removal answers the board
+    /// on my turn, reach is still held for the end step or for lethal.
+    V7,
 }
 
 impl PolicyVersion {
-    pub const ALL: [Self; 5] = [Self::V1, Self::V2, Self::V3, Self::V4, Self::V5];
+    pub const ALL: [Self; 7] = [
+        Self::V1,
+        Self::V2,
+        Self::V3,
+        Self::V4,
+        Self::V5,
+        Self::V6,
+        Self::V7,
+    ];
 
     /// The newest version. Campaigns that do not care about history use this.
     #[must_use]
     pub const fn latest() -> Self {
-        Self::V5
+        Self::V7
     }
 
     #[must_use]
@@ -59,6 +75,8 @@ impl PolicyVersion {
             Self::V3 => "v3",
             Self::V4 => "v4",
             Self::V5 => "v5",
+            Self::V6 => "v6",
+            Self::V7 => "v7",
         }
     }
 
@@ -76,6 +94,8 @@ impl PolicyVersion {
             Self::V3 => Some(Self::V2),
             Self::V4 => Some(Self::V3),
             Self::V5 => Some(Self::V4),
+            Self::V6 => Some(Self::V5),
+            Self::V7 => Some(Self::V6),
         }
     }
 }
@@ -100,6 +120,8 @@ pub fn seat_policy(
         PolicyVersion::V3 => Box::new(v3::ArchetypePolicyV3::new(player, archetype, index)),
         PolicyVersion::V4 => Box::new(v4::ArchetypePolicyV4::new(player, archetype, index)),
         PolicyVersion::V5 => Box::new(v5::ArchetypePolicyV5::new(player, archetype, index)),
+        PolicyVersion::V6 => Box::new(v6::ArchetypePolicyV6::new(player, archetype, index)),
+        PolicyVersion::V7 => Box::new(v7::ArchetypePolicyV7::new(player, archetype, index)),
     }
 }
 
@@ -114,7 +136,9 @@ mod tests {
         }
         assert_eq!(PolicyVersion::V1.previous(), None);
         assert_eq!(PolicyVersion::V3.previous(), Some(PolicyVersion::V2));
-        assert_eq!(PolicyVersion::latest(), PolicyVersion::V5);
+        assert_eq!(PolicyVersion::latest(), PolicyVersion::V7);
+        assert_eq!(PolicyVersion::V7.previous(), Some(PolicyVersion::V6));
+        assert_eq!(PolicyVersion::V6.previous(), Some(PolicyVersion::V5));
         assert_eq!(PolicyVersion::V4.previous(), Some(PolicyVersion::V3));
     }
 

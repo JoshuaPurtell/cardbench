@@ -160,6 +160,32 @@ impl Interval {
     }
 }
 
+/// A signed difference between two win rates, in win-rate points, with a 95%
+/// interval.
+///
+/// This type exists because a bare point estimate for the play advantage was
+/// read as a finding for a whole development cycle. At sixty games per mirror
+/// the aggro mirror measured a sixty-point play *disadvantage*; at a hundred
+/// and eighty it measured nine, and two of the four mirrors changed sign. The
+/// win rates all carried Wilson intervals; the difference derived from them
+/// carried none, so nothing stopped the noise being written down as a result.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Edge {
+    /// The difference, in win-rate points. Positive favours the first side.
+    pub point: f64,
+    pub low: f64,
+    pub high: f64,
+    pub samples: u32,
+}
+
+impl Edge {
+    /// Whether the interval excludes zero, i.e. the difference is real.
+    #[must_use]
+    pub fn is_established(&self) -> bool {
+        self.samples > 0 && (self.low > 0.0 || self.high < 0.0)
+    }
+}
+
 /// Diagnostics that explain *why* a matchup went the way it did.
 ///
 /// Without these a hillclimb can only see that a change helped or hurt, never
@@ -192,6 +218,14 @@ pub struct Matchup {
     pub on_the_play: Interval,
     /// Deck A's win rate in the games where it was on the draw.
     pub on_the_draw: Interval,
+    /// The win rate of the seat on the play, whichever deck occupied it.
+    ///
+    /// This, not the difference of the two rates above, is the estimator for
+    /// the play advantage. Seats swap on every seed, so pooling by *seat*
+    /// rather than by deck is what makes the two halves comparable, and it is
+    /// a single proportion, so it takes an ordinary Wilson interval instead of
+    /// an unstated difference of two of them.
+    pub seat_on_the_play: Interval,
     pub diagnostics: Diagnostics,
     pub games: Vec<GameRecord>,
     pub engine_findings: Vec<EngineFinding>,
@@ -205,9 +239,30 @@ impl Matchup {
     }
 
     /// The play advantage this matchup measured, in win-rate points.
+    ///
+    /// Prefer [`Self::play_edge`], which carries the interval. This is the
+    /// bare point estimate and means nothing on its own.
     #[must_use]
     pub fn play_advantage(&self) -> f64 {
-        self.on_the_play.point - self.on_the_draw.point
+        self.play_edge().point
+    }
+
+    /// The play advantage with a 95% interval.
+    ///
+    /// The seat-on-the-play win rate `p` and the edge in points are the same
+    /// measurement: the seat on the draw wins the complement, so the edge is
+    /// `p - (1 - p) = 2p - 1`. That is monotone in `p`, so the Wilson bounds
+    /// map straight through and the interval is exact rather than an
+    /// approximation of a difference of two dependent proportions.
+    #[must_use]
+    pub fn play_edge(&self) -> Edge {
+        let edge = |value: f64| value.mul_add(2.0, -1.0);
+        Edge {
+            point: edge(self.seat_on_the_play.point),
+            low: edge(self.seat_on_the_play.low),
+            high: edge(self.seat_on_the_play.high),
+            samples: self.seat_on_the_play.samples,
+        }
     }
 
     /// A mirror must land on 50%. Anything else is a seat bias or a
@@ -263,6 +318,7 @@ fn summarize(deck_a: &str, deck_b: &str, games: Vec<GameRecord>) -> Matchup {
     let mut play_decided = 0;
     let mut draw_wins = 0;
     let mut draw_decided = 0;
+    let mut seat_zero_wins = 0;
     let mut diagnostics = Diagnostics::default();
     let mut turns_total = 0_u64;
     let mut winner_life = 0_i64;
@@ -298,6 +354,7 @@ fn summarize(deck_a: &str, deck_b: &str, games: Vec<GameRecord>) -> Matchup {
         if let Some(seat) = game.winner_seat {
             winner_life += game.life[seat];
             loser_life += game.life[1 - seat];
+            seat_zero_wins += u32::from(seat == 0);
         }
     }
 
@@ -314,6 +371,7 @@ fn summarize(deck_a: &str, deck_b: &str, games: Vec<GameRecord>) -> Matchup {
         overall: Interval::wilson(wins, decided),
         on_the_play: Interval::wilson(play_wins, play_decided),
         on_the_draw: Interval::wilson(draw_wins, draw_decided),
+        seat_on_the_play: Interval::wilson(seat_zero_wins, decided),
         diagnostics,
         games,
         engine_findings,

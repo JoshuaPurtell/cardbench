@@ -13,11 +13,26 @@
 //!   the play advantage and the shuffle both cancel.
 //! * **Wilson intervals.** A ladder step is only a real gain when its interval
 //!   excludes 50%.
+//!
+//! # What the paired rate cannot see
+//!
+//! Swapping the versions across seats is what makes the paired rate
+//! attributable, and it is also a blind spot. An improvement that depends on
+//! *which seat you sit in* -- attacking first into an untapped board, holding
+//! interaction against an opponent who has already committed -- appears once as
+//! a challenger win and once as a challenger loss on the same seed, and cancels
+//! exactly. Such a change measures 50.0% and is indistinguishable from a no-op.
+//!
+//! So every verdict also reports the challenger's rate split by seat. The games
+//! are already being played; discarding the split threw away the only evidence
+//! that separates "this change did nothing" from "this change did something the
+//! pairing hides". A rung that reads 50% paired but has a separated seat split
+//! changed real behaviour and needs a different measurement, not a shrug.
 
 use crate::archetype::Archetype;
 use crate::archetypes::PolicyVersion;
 use crate::deck_match::{run_versioned_matchup, shared_card_index};
-use crate::matchup::Interval;
+use crate::matchup::{Edge, Interval};
 use crate::{DeckMatchConfig, DeckMatchTermination, EngineFinding};
 use cardbench_magic_engine::PlayerId;
 
@@ -29,6 +44,11 @@ pub struct DeckVerdict {
     /// The challenger's win rate piloting this deck against the incumbent
     /// piloting the same deck.
     pub win_rate: Interval,
+    /// The challenger's win rate in the games where it sat on the play, and on
+    /// the draw. `win_rate` is the pooled pair; these two are what the pooling
+    /// cancels.
+    pub win_rate_on_the_play: Interval,
+    pub win_rate_on_the_draw: Interval,
     pub games: u32,
     pub mean_turns: f64,
     /// Engine-refused proposals. Any nonzero value invalidates the cell: those
@@ -36,6 +56,55 @@ pub struct DeckVerdict {
     pub rejected_moves: u32,
     pub truncated: u32,
     pub engine_findings: Vec<EngineFinding>,
+}
+
+impl DeckVerdict {
+    /// How much better the challenger does on the play than on the draw, in
+    /// win-rate points, with a 95% interval.
+    ///
+    /// Zero is the null the pairing assumes. A separated interval means the
+    /// change is seat-dependent, so the pooled `win_rate` is averaging two
+    /// different effects and understates both.
+    #[must_use]
+    pub fn seat_asymmetry(&self) -> Edge {
+        difference(self.win_rate_on_the_play, self.win_rate_on_the_draw)
+    }
+
+    /// Whether this cell changed seat-dependent behaviour that the pooled rate
+    /// cannot report.
+    #[must_use]
+    pub fn is_seat_asymmetric(&self) -> bool {
+        self.seat_asymmetry().is_established()
+    }
+}
+
+/// The difference between two independent proportions, with a 95% interval.
+///
+/// Unlike [`Matchup::play_edge`], the two halves here are separate games rather
+/// than complementary seats of the same game, so the difference does not reduce
+/// to one proportion and the variances add. The normal approximation is
+/// adequate at ladder sample sizes and is used with its own bounds clamped to
+/// the reachable range.
+fn difference(left: Interval, right: Interval) -> Edge {
+    if left.samples == 0 || right.samples == 0 {
+        return Edge {
+            point: 0.0,
+            low: -2.0,
+            high: 2.0,
+            samples: 0,
+        };
+    }
+    let z = 1.959_963_984_540_054_f64;
+    let variance =
+        |interval: &Interval| interval.point * (1.0 - interval.point) / f64::from(interval.samples);
+    let spread = z * (variance(&left) + variance(&right)).sqrt();
+    let point = left.point - right.point;
+    Edge {
+        point,
+        low: (point - spread).max(-1.0),
+        high: (point + spread).min(1.0),
+        samples: left.samples + right.samples,
+    }
 }
 
 /// One rung: challenger against incumbent across every deck.
@@ -119,6 +188,32 @@ impl LadderStep {
             .map(|verdict| verdict.rejected_moves)
             .sum()
     }
+
+    /// The challenger's seat asymmetry pooled across every deck.
+    #[must_use]
+    pub fn seat_asymmetry(&self) -> Edge {
+        let pool = |select: fn(&DeckVerdict) -> &Interval| {
+            let wins = self.per_deck.iter().map(|deck| select(deck).wins).sum();
+            let samples = self.per_deck.iter().map(|deck| select(deck).samples).sum();
+            Interval::wilson(wins, samples)
+        };
+        difference(
+            pool(|deck| &deck.win_rate_on_the_play),
+            pool(|deck| &deck.win_rate_on_the_draw),
+        )
+    }
+
+    /// Decks where the change moved seat-dependent behaviour.
+    ///
+    /// These are the cells where a 50% paired rate is uninformative rather than
+    /// negative: something changed, and the pairing subtracted it out.
+    #[must_use]
+    pub fn seat_asymmetric(&self) -> Vec<&DeckVerdict> {
+        self.per_deck
+            .iter()
+            .filter(|verdict| verdict.is_seat_asymmetric())
+            .collect()
+    }
 }
 
 /// Runs one version pair over every supplied deck.
@@ -141,6 +236,9 @@ pub fn run_step(
     for (deck, archetype) in decks {
         let mut wins = 0;
         let mut decided = 0;
+        // Indexed by the seat the challenger occupied: 0 on the play.
+        let mut seat_wins = [0_u32; 2];
+        let mut seat_decided = [0_u32; 2];
         let mut rejected = 0;
         let mut truncated = 0;
         let mut turns = 0_u64;
@@ -176,7 +274,10 @@ pub fn run_step(
                 match result.termination {
                     DeckMatchTermination::Winner(PlayerId(seat)) => {
                         decided += 1;
-                        wins += u32::from(seat == challenger_seat);
+                        let challenger_won = u32::from(seat == challenger_seat);
+                        wins += challenger_won;
+                        seat_decided[challenger_seat] += 1;
+                        seat_wins[challenger_seat] += challenger_won;
                     }
                     DeckMatchTermination::Draw => {}
                     _ => truncated += 1,
@@ -190,6 +291,8 @@ pub fn run_step(
             deck: deck.clone(),
             archetype: *archetype,
             win_rate: Interval::wilson(wins, decided),
+            win_rate_on_the_play: Interval::wilson(seat_wins[0], seat_decided[0]),
+            win_rate_on_the_draw: Interval::wilson(seat_wins[1], seat_decided[1]),
             games,
             mean_turns: turns_mean(turns, games),
             rejected_moves: rejected,
@@ -249,16 +352,76 @@ mod tests {
     use super::*;
 
     fn verdict(deck: &str, wins: u32, total: u32) -> DeckVerdict {
+        // Split evenly across seats, which is the null the pairing assumes.
+        seated_verdict(
+            deck,
+            wins / 2,
+            total / 2,
+            wins - wins / 2,
+            total - total / 2,
+        )
+    }
+
+    fn seated_verdict(
+        deck: &str,
+        play_wins: u32,
+        play_total: u32,
+        draw_wins: u32,
+        draw_total: u32,
+    ) -> DeckVerdict {
         DeckVerdict {
             deck: deck.to_owned(),
             archetype: Archetype::Aggro,
-            win_rate: Interval::wilson(wins, total),
-            games: total,
+            win_rate: Interval::wilson(play_wins + draw_wins, play_total + draw_total),
+            win_rate_on_the_play: Interval::wilson(play_wins, play_total),
+            win_rate_on_the_draw: Interval::wilson(draw_wins, draw_total),
+            games: play_total + draw_total,
             mean_turns: 15.0,
             rejected_moves: 0,
             truncated: 0,
             engine_findings: Vec::new(),
         }
+    }
+
+    /// The blind spot this reporting exists to close: a change that wins
+    /// heavily on the play and loses just as heavily on the draw pools to
+    /// exactly 50% and is indistinguishable from a no-op.
+    #[test]
+    fn a_seat_dependent_change_pools_to_no_change_and_is_reported_anyway() {
+        let verdict = seated_verdict("a", 700, 1_000, 300, 1_000);
+        assert!(
+            (verdict.win_rate.point - 0.5).abs() < 1e-9,
+            "the pairing must cancel it exactly, which is the problem"
+        );
+        assert!(
+            !verdict.win_rate.excludes(0.5),
+            "the paired rate reports no change"
+        );
+        let asymmetry = verdict.seat_asymmetry();
+        assert!((asymmetry.point - 0.4).abs() < 1e-9);
+        assert!(
+            asymmetry.is_established(),
+            "but the seat split resolves a 40-point effect"
+        );
+        assert!(verdict.is_seat_asymmetric());
+    }
+
+    /// The null case must stay null, or every rung reads as seat-asymmetric.
+    #[test]
+    fn an_evenly_split_change_reports_no_seat_asymmetry() {
+        let verdict = verdict("a", 1_000, 2_000);
+        assert!(!verdict.is_seat_asymmetric());
+        assert!(!verdict.seat_asymmetry().is_established());
+    }
+
+    /// A small sample must not be able to claim a seat effect either.
+    #[test]
+    fn a_small_seat_split_claims_nothing() {
+        let verdict = seated_verdict("a", 7, 12, 5, 12);
+        assert!(
+            !verdict.is_seat_asymmetric(),
+            "24 games cannot resolve a 17-point seat split"
+        );
     }
 
     fn step(per_deck: Vec<DeckVerdict>, wins: u32, total: u32) -> LadderStep {

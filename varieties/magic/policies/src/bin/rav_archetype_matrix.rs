@@ -72,8 +72,12 @@ fn main() {
 fn report(matrix: &Matrix) {
     println!("\n# pairwise (row deck's win rate against column deck, 95% Wilson)");
     for matchup in &matrix.matchups {
+        // The play edge carries its interval. Reported bare, it read as a
+        // 60-point effect at 60 games and 9 points at 180, and changed sign on
+        // three of four mirrors in between.
+        let edge = matchup.play_edge();
         println!(
-            "matchup a={} b={} overall={}% ci=[{},{}] n={} on_play={}% on_draw={}% play_edge={:+.1}pt",
+            "matchup a={} b={} overall={}% ci=[{},{}] n={} on_play={}% on_draw={}% play_edge={:+.1}pt ci=[{:+.1},{:+.1}] established={}",
             matchup.deck_a,
             matchup.deck_b,
             percent(matchup.overall.point),
@@ -82,7 +86,10 @@ fn report(matrix: &Matrix) {
             matchup.overall.samples,
             percent(matchup.on_the_play.point),
             percent(matchup.on_the_draw.point),
-            matchup.play_advantage() * 100.0,
+            edge.point * 100.0,
+            edge.low * 100.0,
+            edge.high * 100.0,
+            edge.is_established(),
         );
     }
 

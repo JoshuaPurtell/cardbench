@@ -234,6 +234,57 @@ pub fn plan_attack(board: &Board, weights: &Weights, aggression: Aggression) -> 
     }
 }
 
+/// Damage the recommended attack lands against the defence the defender would
+/// actually mount.
+///
+/// Exists so a caller can ask what a board change is worth in damage rather
+/// than guessing. Removing a blocker, for instance, is only worth spending a
+/// card on when the attack that follows is actually bigger.
+///
+/// Deliberately the *valued* defence rather than the worst case. Under the
+/// worst-case model every untapped creature absorbs one attacker whatever the
+/// exchange costs, so any blocker removal appears to buy its attacker's full
+/// power -- a 1/1 in front of a 4/4 would look like four damage saved, when in
+/// fact the defender declines that block and takes the four either way. That
+/// model is the right pessimism for *deciding* to attack and the wrong one for
+/// pricing a removal spell.
+#[must_use]
+pub fn planned_damage(board: &Board, weights: &Weights, aggression: Aggression) -> i32 {
+    let plan = plan_attack_assigned(board, weights, aggression);
+    if plan.attackers.is_empty() {
+        return 0;
+    }
+    let attackers: Vec<&Permanent> = board
+        .mine
+        .iter()
+        .filter(|permanent| plan.attackers.contains(&permanent.object))
+        .collect();
+    let blockers: Vec<&Permanent> = board
+        .their_creatures()
+        .filter(|permanent| !permanent.tapped)
+        .collect();
+    let life = board
+        .primary_opponent()
+        .map_or(20, |opponent| opponent.life);
+    let blocks = simulate_defence_valued(&attackers, &blockers, weights, life);
+    let mut blocked = vec![None; attackers.len()];
+    for block in &blocks {
+        blocked[block.attacker] = Some(block.blocker);
+    }
+    attackers
+        .iter()
+        .enumerate()
+        .map(|(index, attacker)| match blocked[index] {
+            None => i32::from(attacker.power.max(0)),
+            // A blocked attacker still connects for its trample excess.
+            Some(slot) if attacker.has(&Keyword::Trample) => {
+                i32::from((attacker.power - blockers[slot].toughness).max(0))
+            }
+            Some(_) => 0,
+        })
+        .sum()
+}
+
 /// How much a defender dislikes one exchange. Lower is better for the defender.
 fn block_preference(exchange: Exchange) -> f32 {
     f32::from(u8::from(exchange.blocker_dies)) - f32::from(u8::from(exchange.attacker_dies))
@@ -756,6 +807,90 @@ mod tests {
 struct SimBlock {
     attacker: usize,
     blocker: usize,
+}
+
+/// Simulates a defender that blocks the way [`plan_blocks_valued`] does.
+///
+/// [`simulate_defence`] prices a block purely as material -- the attacker's
+/// value if it dies, minus the blocker's if it does. That is the v1 blocking
+/// model, and v3 replaced it in the *real* defender precisely because it is
+/// wrong: a 2/4 in front of a 3/3 kills nothing and loses nothing, so material
+/// scores the block at zero and declines it, and three damage goes through
+/// every turn.
+///
+/// The consequence is that since v3 the attack planner has predicted its
+/// opponent with a model the codebase itself stopped using. It expects free
+/// damage from attackers a valued defender will in fact block. This is the same
+/// simulation with damage prevented counted, so the attacker and the defender
+/// share one theory of what a block is worth.
+///
+/// Kept as a separate function rather than a fix in place: every measured
+/// generation calls the old one, and editing it would silently rewrite the
+/// baseline that every ladder number was measured against.
+fn simulate_defence_valued(
+    attackers: &[&Permanent],
+    blockers: &[&Permanent],
+    weights: &Weights,
+    defender_life: i64,
+) -> Vec<SimBlock> {
+    let incoming: i32 = attackers
+        .iter()
+        .map(|attacker| i32::from(attacker.power.max(0)))
+        .sum();
+    let facing_lethal = i64::from(incoming) >= defender_life;
+
+    let mut pairs: Vec<(f32, usize, usize)> = Vec::new();
+    for (blocker_index, blocker) in blockers.iter().enumerate() {
+        for (attacker_index, attacker) in attackers.iter().enumerate() {
+            if !can_block(blocker, attacker) {
+                continue;
+            }
+            let result = exchange(attacker, blocker);
+            let their_loss = if result.attacker_dies {
+                creature_value(attacker, weights)
+            } else {
+                0.0
+            };
+            let my_loss = if result.blocker_dies {
+                creature_value(blocker, weights)
+            } else {
+                0.0
+            };
+            // Trample still gets the excess through, so only the absorbed part
+            // counts as prevented. Identical to the real defender's arithmetic.
+            let stopped = if attacker.has(&Keyword::Trample) {
+                i32::from(blocker.toughness.max(0)).min(i32::from(attacker.power.max(0)))
+            } else {
+                i32::from(attacker.power.max(0))
+            };
+            let mut gain =
+                their_loss - my_loss + damage_value(stopped, defender_life, weights.own_life);
+            if facing_lethal {
+                gain += f32::from(attacker.power.max(0)) * 10.0;
+            }
+            pairs.push((gain, attacker_index, blocker_index));
+        }
+    }
+    pairs.sort_by(|left, right| {
+        right
+            .0
+            .total_cmp(&left.0)
+            .then(left.1.cmp(&right.1))
+            .then(left.2.cmp(&right.2))
+    });
+
+    let mut used_attacker = vec![false; attackers.len()];
+    let mut used_blocker = vec![false; blockers.len()];
+    let mut blocks = Vec::new();
+    for (gain, attacker, blocker) in pairs {
+        if used_attacker[attacker] || used_blocker[blocker] || gain <= 0.0 {
+            continue;
+        }
+        used_attacker[attacker] = true;
+        used_blocker[blocker] = true;
+        blocks.push(SimBlock { attacker, blocker });
+    }
+    blocks
 }
 
 /// Simulates how a rational defender blocks one attack.
