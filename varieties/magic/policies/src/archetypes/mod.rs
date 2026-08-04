@@ -21,6 +21,7 @@ pub mod v1;
 pub mod v2;
 pub mod v3;
 pub mod v4;
+pub mod v5;
 
 /// One generation of the archetype policy.
 ///
@@ -37,15 +38,17 @@ pub enum PolicyVersion {
     V3,
     /// Adds land sequencing driven by what a land makes castable this turn.
     V4,
+    /// Adds activated abilities: pingers, token engines, and tappers.
+    V5,
 }
 
 impl PolicyVersion {
-    pub const ALL: [Self; 4] = [Self::V1, Self::V2, Self::V3, Self::V4];
+    pub const ALL: [Self; 5] = [Self::V1, Self::V2, Self::V3, Self::V4, Self::V5];
 
     /// The newest version. Campaigns that do not care about history use this.
     #[must_use]
     pub const fn latest() -> Self {
-        Self::V4
+        Self::V5
     }
 
     #[must_use]
@@ -55,6 +58,7 @@ impl PolicyVersion {
             Self::V2 => "v2",
             Self::V3 => "v3",
             Self::V4 => "v4",
+            Self::V5 => "v5",
         }
     }
 
@@ -71,6 +75,7 @@ impl PolicyVersion {
             Self::V2 => Some(Self::V1),
             Self::V3 => Some(Self::V2),
             Self::V4 => Some(Self::V3),
+            Self::V5 => Some(Self::V4),
         }
     }
 }
@@ -94,6 +99,7 @@ pub fn seat_policy(
         PolicyVersion::V2 => Box::new(v2::ArchetypePolicyV2::new(player, archetype, index)),
         PolicyVersion::V3 => Box::new(v3::ArchetypePolicyV3::new(player, archetype, index)),
         PolicyVersion::V4 => Box::new(v4::ArchetypePolicyV4::new(player, archetype, index)),
+        PolicyVersion::V5 => Box::new(v5::ArchetypePolicyV5::new(player, archetype, index)),
     }
 }
 
@@ -108,7 +114,7 @@ mod tests {
         }
         assert_eq!(PolicyVersion::V1.previous(), None);
         assert_eq!(PolicyVersion::V3.previous(), Some(PolicyVersion::V2));
-        assert_eq!(PolicyVersion::latest(), PolicyVersion::V4);
+        assert_eq!(PolicyVersion::latest(), PolicyVersion::V5);
         assert_eq!(PolicyVersion::V4.previous(), Some(PolicyVersion::V3));
     }
 

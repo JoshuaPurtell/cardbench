@@ -10,13 +10,15 @@
 //! everything else reads only that. Nothing here submits an action; the policy
 //! decides, using these answers.
 
+pub mod ability;
 pub mod board;
 pub mod combat;
 pub mod mana;
 pub mod target;
 pub mod threat;
 
-pub use board::{Board, CardFacts, CardIndex, Permanent, Role, SourceKind};
+pub use ability::{Activation, best_activation};
+pub use board::{AbilityFacts, Board, CardFacts, CardIndex, Permanent, Role, SourceKind};
 pub use combat::{
     Aggression, AttackPlan, Block, can_block, plan_attack, plan_attack_assigned, plan_blocks,
     plan_blocks_valued,

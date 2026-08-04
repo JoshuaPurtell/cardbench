@@ -14,7 +14,8 @@ use cardbench_magic_rav::{
     DeckFixture, RAV_CATALOG_COVERAGE_DECK_COUNT, RAV_MAIN_SET_EXPECTED_PRINTING_COUNT,
     RAV_MAIN_SET_EXPECTED_UNIQUE_NAME_COUNT, card_definitions, event_digest,
     load_catalog_coverage_decks, load_constructed_decks, load_reference_decks, new_rav_game,
-    rav_additional_spell_cost_bindings, rav_land_entry_bindings, rav_mana_ability_bindings,
+    rav_activated_ability_bindings, rav_additional_spell_cost_bindings, rav_land_entry_bindings,
+    rav_mana_ability_bindings,
 };
 use std::sync::{Arc, OnceLock};
 
@@ -479,12 +480,18 @@ pub fn shared_card_index() -> Arc<crate::CardIndex> {
                 .filter(|binding| binding.enters_tapped)
                 .map(|binding| binding.card_definition)
                 .collect();
+            let activated: Vec<(&'static str, cardbench_magic_engine::ActivatedAbility)> =
+                rav_activated_ability_bindings()
+                    .into_iter()
+                    .map(|binding| (binding.card_definition, binding.ability))
+                    .collect();
             Arc::new(crate::CardIndex::build(
                 &definitions,
                 &mana,
                 &additional,
                 &entry,
                 &tapped,
+                &activated,
             ))
         })
         .clone()

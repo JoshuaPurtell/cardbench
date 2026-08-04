@@ -221,6 +221,7 @@ pub fn cast_value(board: &Board, facts: &CardFacts, weights: &Weights) -> Option
                 keywords: facts.keywords.clone(),
                 source: None,
                 role: facts.role,
+                abilities: Vec::new(),
                 controller_is_opponent: false,
             };
             creature_value(&body, weights)

@@ -336,6 +336,7 @@ mod tests {
             keywords: Vec::new(),
             source: Some(SourceKind::BasicTyped(colors.to_vec())),
             role: Role::Land,
+            abilities: Vec::new(),
             controller_is_opponent: false,
         }
     }

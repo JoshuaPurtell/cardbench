@@ -17,8 +17,8 @@
 //! search this work is meant to remove.
 
 use cardbench_magic_engine::{
-    ActivatedManaAbility, CardDefinition, CardType, CardView, Color, GameView, Keyword,
-    ManaAbilityOutput, ManaCost, ObjectId, PlayerId, Step, TargetRequirement,
+    ActivatedAbility, ActivatedManaAbility, CardDefinition, CardType, CardView, Color, GameView,
+    Keyword, ManaAbilityOutput, ManaCost, ObjectId, PlayerId, Step, TargetRequirement,
 };
 use std::collections::BTreeMap;
 
@@ -85,6 +85,34 @@ impl SourceKind {
     }
 }
 
+/// One stack-using activated ability a policy could pay for.
+///
+/// Costs the planner cannot pay are recorded with `unsupported` rather than
+/// omitted, so a coverage report can say what is being left on the table
+/// instead of the gap being invisible.
+// Independent cost and effect facts read straight off the binding, mirroring
+// CardFacts. Grouping them would add a name without adding meaning.
+#[allow(clippy::struct_excessive_bools)]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AbilityFacts {
+    pub id: &'static str,
+    pub mana_cost: ManaCost,
+    pub tap_cost: bool,
+    pub sorcery_speed: bool,
+    pub targets: Vec<TargetRequirement>,
+    /// Damage this ability deals to a single chosen target.
+    pub damage: u8,
+    /// Life this ability drains from a target.
+    pub life_loss: u8,
+    /// Creature tokens it creates.
+    pub tokens: u8,
+    /// A keyword it imposes on the target, such as `CannotAttackOrBlock`.
+    pub imposes_restriction: bool,
+    /// True when a cost exists that this planner cannot pay: sacrifice,
+    /// discard, or extra creature taps.
+    pub unsupported: bool,
+}
+
 /// Everything the planners need to know about one card definition.
 // The booleans here are independent card facts, not a state machine. Grouping
 // them would only add a name between the planner and the answer it needs.
@@ -119,6 +147,8 @@ pub struct CardFacts {
     /// Whether this land arrives tapped and therefore produces nothing on the
     /// turn it is played.
     pub enters_tapped: bool,
+    /// Stack-using activated abilities bound to this definition.
+    pub abilities: Vec<AbilityFacts>,
     /// True when the card cannot be cast by this planner. Recorded rather than
     /// silently skipped so deck validation can refuse to build with it.
     pub unsupported: bool,
@@ -150,12 +180,20 @@ impl CardIndex {
         additional_costs: &[&'static str],
         entry_life_payments: &[(&'static str, u8)],
         enters_tapped: &[&'static str],
+        activated: &[(&'static str, ActivatedAbility)],
     ) -> Self {
         let bound: BTreeMap<&'static str, &ActivatedManaAbility> = mana_bindings
             .iter()
             .map(|(id, ability)| (*id, ability))
             .collect();
         let entry: BTreeMap<&'static str, u8> = entry_life_payments.iter().copied().collect();
+        let mut abilities: BTreeMap<&'static str, Vec<AbilityFacts>> = BTreeMap::new();
+        for (definition, ability) in activated {
+            abilities
+                .entry(definition)
+                .or_default()
+                .push(ability_facts(ability));
+        }
         let facts = definitions
             .iter()
             .map(|definition| {
@@ -167,6 +205,7 @@ impl CardIndex {
                         additional_costs.contains(&definition.id),
                         entry.get(definition.id).copied(),
                         enters_tapped.contains(&definition.id),
+                        abilities.get(definition.id).cloned().unwrap_or_default(),
                     ),
                 )
             })
@@ -191,6 +230,7 @@ impl CardIndex {
         has_additional_cost: bool,
         entry_life_payment: Option<u8>,
         enters_tapped: bool,
+        abilities: Vec<AbilityFacts>,
     ) -> CardFacts {
         let is_land = definition.card_types.contains(&CardType::Land);
         let is_creature = definition.card_types.contains(&CardType::Creature);
@@ -241,6 +281,7 @@ impl CardIndex {
             // a cost it cannot pay, is marked rather than quietly skipped.
             entry_life_payment,
             enters_tapped,
+            abilities,
             // An additional cost this planner cannot pay -- sacrificing a
             // creature, for instance -- makes the card uncastable here. Flagged
             // rather than skipped so deck validation refuses to build with it
@@ -371,6 +412,51 @@ pub const fn requirement_hits_creature(requirement: TargetRequirement) -> bool {
     )
 }
 
+/// Reads one activated ability into the facts a planner needs.
+fn ability_facts(ability: &ActivatedAbility) -> AbilityFacts {
+    let mut damage = 0_u8;
+    let mut life_loss = 0_u8;
+    let mut tokens = 0_u8;
+    let mut imposes_restriction = false;
+    for effect in &ability.effects {
+        let rendered = format!("{effect:?}");
+        if rendered.starts_with("DealDamage")
+            && let Some(amount) = scalar_field(&rendered, "amount")
+        {
+            damage = damage.saturating_add(amount);
+        }
+        if rendered.starts_with("LoseLifeTarget")
+            && let Some(amount) = scalar_field(&rendered, "amount")
+        {
+            life_loss = life_loss.saturating_add(amount);
+        }
+        if rendered.starts_with("CreateToken") {
+            tokens = tokens.saturating_add(scalar_field(&rendered, "count").unwrap_or(1));
+        }
+        if rendered.contains("CannotAttackOrBlock") || rendered.contains("CannotBlock") {
+            imposes_restriction = true;
+        }
+    }
+    AbilityFacts {
+        id: ability.id,
+        mana_cost: ability.mana_cost.clone(),
+        tap_cost: ability.tap_cost,
+        sorcery_speed: ability.sorcery_speed,
+        targets: ability.targets.clone(),
+        damage,
+        life_loss,
+        tokens,
+        imposes_restriction,
+        // Sacrifice, discard, and extra-tap costs need explicit payment
+        // selections this planner does not build. Recorded, not hidden.
+        unsupported: ability.sacrifice_source
+            || ability.sacrifice_creatures > 0
+            || ability.sacrifice_lands > 0
+            || ability.discard_cards > 0
+            || ability.additional_tap_creatures > 0,
+    }
+}
+
 /// Whether an attachment effect hurts the permanent it lands on.
 ///
 /// Detected from the rendered continuous changes: a negative power or
@@ -414,6 +500,8 @@ pub struct Permanent {
     pub keywords: Vec<Keyword>,
     pub source: Option<SourceKind>,
     pub role: Role,
+    /// Activated abilities available from this permanent.
+    pub abilities: Vec<AbilityFacts>,
     /// Whether this permanent belongs to someone other than the viewer.
     /// Carried on the permanent so an evaluator never needs the whole board
     /// just to know which side a creature is on.
@@ -507,6 +595,9 @@ impl Board {
                     ))
                 },
                 role: facts.map_or(Role::Other, |facts| facts.role),
+                abilities: facts
+                    .map(|facts| facts.abilities.clone())
+                    .unwrap_or_default(),
             }
         };
 

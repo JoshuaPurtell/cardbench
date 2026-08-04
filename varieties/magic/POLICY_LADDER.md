@@ -56,6 +56,7 @@ Every generation pilots *any* deck; the archetype supplies weights, not code.
 | `v2` | Whole-set attack planning. | v1 judged each attacker against a hypothetically free best blocker. That is wrong whenever attackers outnumber blockers: only as many attackers as there are blockers can be blocked, so a creature that looks bad alone is often free damage in a crowd. |
 | `v3` | Valued blocking. | v1 and v2 scored a block purely as material. A 2/5 blocking a 3/3 kills nothing and loses nothing, so the delta is zero and the block is declined — the wall watches three damage go through every turn. Both midrange decks run 2/5 bodies. |
 | `v4` | Land sequencing by what a land unlocks. | v1–v3 ranked lands by colour coverage, which prefers exactly the wrong land: a karoo makes two colours and sorts to the top, but enters tapped *and* bounces a land. Scoring a land by the best spell it makes castable this turn subsumes the problem rather than special-casing it. |
+| `v5` | Activated abilities (tap- and mana-cost only). | Nine of thirty-eight distinct cards carry a stack-using activated ability and no earlier generation activated any. Measured at no change: the opportunity is much smaller in play than in the card list. Sacrifice-cost abilities are reported unsupported rather than silently skipped. |
 
 ### Shared scale
 
@@ -83,6 +84,10 @@ It is the number to trust, and it is not always the flattering one.
 | v2 vs v1 | 49.6% | 56.0% | 51.2% | 50.8% | 51.9% [48.7, 55.0] | 50.6% [46.9, 54.2] | no change |
 | v3 vs v2 | 50.4% | 60.0% | 52.9% | 49.6% | 53.2% [50.0, 56.3] | 51.0% [47.3, 54.6] | not established |
 | v4 vs v3 | 57.1% | 60.8% | 57.5% | 60.0% | 58.7% [55.5, 61.9] | **58.2% [54.6, 61.7]** | **improvement** |
+| v5 vs v4 | 47.5% | 50.0% | 50.0% | 48.7% | 49.1% [44.6, 53.5] | 49.1% [44.6, 53.5] | no change |
+
+v5 vs v4 was measured at 60 seed pairs (120 games per cell); the earlier rungs
+used 120 pairs (240 per cell).
 
 Reading these honestly:
 
@@ -102,6 +107,26 @@ Reading these honestly:
   50%, positive on all four decks, no regressions. Land sequencing — the
   cheapest of the three changes — is worth more than both combat changes
   together.
+
+- **v5 changed nothing measurable, and the reason is the interesting part.**
+  Activated abilities looked like the largest remaining gap: 9 of the 38
+  distinct cards across the four decks carry one, and no earlier generation
+  ever activated any. The planner works, but the opportunity is far smaller
+  than the card count implies. Three of the nine cost a sacrifice and are out
+  of scope by design. Of the rest, Loxodon Hierarch is correctly skipped,
+  Selesnya Sagittars is a 2/5 that is almost always tapped or summoning sick
+  when the window opens, Ordruun Commando's damage shield has no value function
+  yet and scores zero, and Viashino Fangtail — a five-mana 3/3 in a burn deck —
+  rarely reaches play at all. Across a whole match the planner finds nothing
+  worth doing.
+
+  Worth recording how this was nearly mis-reported: an initial check counted
+  "43 ability activations" and concluded v5 was working. That count came from
+  `grep -c AbilityActivated`, which also matches `ManaAbilityActivated` and
+  `BoundManaAbilityActivated`. The true count of real activations is zero, and
+  the giveaway was that the ladder returned byte-identical numbers across a
+  behavioural change — v5 was literally v4. Substring matching on event kinds
+  is now something the transcript's typed `kind` field makes unnecessary.
 
 The contamination is not incidental to v4: better mana development lengthens
 the Selesnya mirror from 26 to 46 mean turns, and the open defect
@@ -184,12 +209,12 @@ times slower.
   seconds.
 - **No mulligans.** Every game keeps its opening seven, which flattens the
   difference between decks with different curve sensitivity.
-- **No activated abilities.** No generation activates a non-mana ability, so a
-  repeatable damage source such as Viashino Fangtail is played as a vanilla
-  body. This is the largest single gap remaining.
+- **Activated abilities are only half covered.** v5 handles tap- and mana-cost
+  abilities; the three sacrifice-cost ones in these decks are reported
+  unsupported. Ordruun Commando's damage shield reaches the scorer but has no
+  value function, so it always scores zero.
 - **No Convoke.** Cards whose cost the planner cannot reduce are simply not
   cast when their printed cost is unpayable.
-- **One open engine defect** touches this measurement:
-  `battlefield-attachment-illegal-target-invariant-false-positive` in
-  `ENGINE_BUG_LEDGER.md` produces a handful of rejected moves in long Selesnya
-  midrange games. It is reported per cell rather than silently absorbed.
+- **No open engine defects.** `departed-player-orphans-survivor-aura` was the
+  last one touching this measurement and is fixed; the full ladder now reports
+  `invalid_rungs=0` with zero refused proposals in every cell.

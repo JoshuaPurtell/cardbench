@@ -368,6 +368,7 @@ mod tests {
             keywords: keywords.to_vec(),
             source: None,
             role: Role::Creature,
+            abilities: Vec::new(),
             controller_is_opponent: false,
         }
     }
@@ -839,7 +840,7 @@ const LIFE_TOTAL_VALUE: f32 = 24.0;
 ///
 /// Proportional to the fraction of their remaining life removed, so the same
 /// three points matter far more at six life than at twenty.
-fn damage_value(damage: i32, life: i64, weight: f32) -> f32 {
+pub(crate) fn damage_value(damage: i32, life: i64, weight: f32) -> f32 {
     if damage <= 0 {
         return 0.0;
     }

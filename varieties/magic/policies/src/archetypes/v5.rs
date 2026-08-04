@@ -1,14 +1,14 @@
-//! Generation 4 of the archetype policy.
+//! Generation 5 of the archetype policy.
 //!
-//! Carries v2's whole-set attack planning and v3's valued blocking, and adds
-//! land sequencing chosen by what it lets me actually cast.
+//! Carries v2's whole-set attack planning, v3's valued blocking, and v4's land
+//! sequencing, and adds activated abilities.
 //!
-//! v1 through v3 ranked lands by colour coverage, which prefers exactly the
-//! wrong land: a karoo makes two colours, so it sorts to the top, but it enters
-//! tapped *and* bounces a land, costing a full turn of mana. Choosing the land
-//! that maximises what is castable this turn subsumes the problem instead of
-//! special-casing it -- a tapped land contributes nothing to this turn's plan
-//! and therefore only wins when nothing else does.
+//! Nine of the thirty-eight distinct cards across the constructed decks carry
+//! a stack-using activated ability, and no generation before this one ever
+//! activated any of them: a repeatable damage source was a vanilla body, a
+//! token engine made no tokens, a tapper tapped nothing. Six of the nine cost
+//! only mana or a tap and are handled here; the three whose cost is a
+//! sacrifice are reported unsupported rather than silently skipped.
 //!
 //! Frozen once measured. Later generations are new files; this one stays
 //! runnable so every later claim of improvement has a baseline.
@@ -26,8 +26,8 @@
 use crate::CodePolicy;
 use crate::archetype::Archetype;
 use crate::planner::{
-    Board, CardIndex, ManaTap, Role, board::CardFacts, cast_value, mana, plan_attack_assigned,
-    plan_blocks_valued, targets_for, threat,
+    Board, CardIndex, ManaTap, Role, ability, board::CardFacts, cast_value, mana,
+    plan_attack_assigned, plan_blocks_valued, targets_for, threat,
 };
 use cardbench_magic_engine::{
     CastRequest, DecisionKind, DecisionSelection, GameView, ObjectId, PlayerId, PolicyAction, Step,
@@ -37,14 +37,14 @@ use std::sync::Arc;
 
 /// A deck-agnostic policy driven by archetype weights.
 #[derive(Clone, Debug)]
-pub struct ArchetypePolicyV4 {
+pub struct ArchetypePolicyV5 {
     player: PlayerId,
     archetype: Archetype,
     index: Arc<CardIndex>,
     id: &'static str,
 }
 
-impl ArchetypePolicyV4 {
+impl ArchetypePolicyV5 {
     /// Builds a policy for one seat.
     ///
     /// The index is shared because building it per policy per game is a
@@ -56,10 +56,10 @@ impl ArchetypePolicyV4 {
             archetype,
             index,
             id: match archetype {
-                Archetype::Aggro => "rav.archetype-aggro.v4",
-                Archetype::Midrange => "rav.archetype-midrange.v4",
-                Archetype::Burn => "rav.archetype-burn.v4",
-                Archetype::Control => "rav.archetype-control.v4",
+                Archetype::Aggro => "rav.archetype-aggro.v5",
+                Archetype::Midrange => "rav.archetype-midrange.v5",
+                Archetype::Burn => "rav.archetype-burn.v5",
+                Archetype::Control => "rav.archetype-control.v5",
             },
         }
     }
@@ -209,7 +209,7 @@ impl ArchetypePolicyV4 {
     }
 
     /// The best spell to cast now, with its payment and targets already solved.
-    fn spell_to_cast(&self, board: &Board) -> Option<(ObjectId, CastRequest, Vec<ManaTap>)> {
+    fn spell_to_cast(&self, board: &Board) -> Option<(f32, CastRequest, Vec<ManaTap>)> {
         let weights = self.weights();
         let mut best: Option<(f32, ObjectId, CastRequest, Vec<ManaTap>)> = None;
 
@@ -269,7 +269,7 @@ impl ArchetypePolicyV4 {
                 ));
             }
         }
-        best.map(|(_, object, request, taps)| (object, request, taps))
+        best.map(|(value, _, request, taps)| (value, request, taps))
     }
 
     /// A burn archetype points reach at the face unless a creature is an
@@ -396,7 +396,7 @@ fn target_rank(target: Target, board: &Board, weights: &threat::Weights) -> f32 
     }
 }
 
-impl CodePolicy for ArchetypePolicyV4 {
+impl CodePolicy for ArchetypePolicyV5 {
     fn id(&self) -> &'static str {
         self.id
     }
@@ -451,7 +451,31 @@ impl CodePolicy for ArchetypePolicyV4 {
             return self.play_land(&board, land);
         }
 
-        if let Some((_, request, taps)) = self.spell_to_cast(&board) {
+        // Abilities and spells compete for the same mana, so they are scored
+        // on one scale and the better line wins. Checking abilities first
+        // would spend mana on a ping that a creature wanted.
+        let activation = ability::best_activation(&board, &weights);
+        let best_cast = self.spell_to_cast(&board);
+        let cast_value_now = best_cast.as_ref().map(|(value, _, _)| *value);
+        if let Some(activation) = activation
+            && ability::beats_casting(&activation, cast_value_now)
+        {
+            if let Some(tap) = activation.taps.first() {
+                return Self::activation(tap);
+            }
+            return PolicyAction::ActivateAbility {
+                activation: cardbench_magic_engine::AbilityActivation {
+                    source: activation.source,
+                    ability_id: activation.ability,
+                    sacrifice_sources: Vec::new(),
+                    additional_tap_creatures: Vec::new(),
+                    discard_cards: Vec::new(),
+                    targets: activation.targets,
+                },
+            };
+        }
+
+        if let Some((_, request, taps)) = best_cast {
             // Float the mana the plan calls for, one activation per move, then
             // cast. Mana abilities do not use the stack, so this stays inside
             // one priority window.
