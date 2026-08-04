@@ -97,8 +97,7 @@ impl Archetype {
     pub const fn aggression(self) -> Aggression {
         match self {
             Self::Aggro => Aggression::Pressing,
-            Self::Midrange | Self::Burn => Aggression::Measured,
-            Self::Control => Aggression::Measured,
+            Self::Midrange | Self::Burn | Self::Control => Aggression::Measured,
         }
     }
 

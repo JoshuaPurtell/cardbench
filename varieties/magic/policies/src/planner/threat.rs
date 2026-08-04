@@ -75,26 +75,26 @@ pub fn creature_value(permanent: &Permanent, weights: &Weights) -> f32 {
     if is_evasive(permanent) {
         value += power * weights.evasion;
     }
-    if permanent.has(Keyword::DoubleStrike) {
+    if permanent.has(&Keyword::DoubleStrike) {
         value += power * weights.power;
-    } else if permanent.has(Keyword::FirstStrike) {
+    } else if permanent.has(&Keyword::FirstStrike) {
         value += weights.power * 0.5;
     }
-    if permanent.has(Keyword::Vigilance) {
+    if permanent.has(&Keyword::Vigilance) {
         value += weights.toughness * 0.5;
     }
-    if permanent.has(Keyword::Defender) {
+    if permanent.has(&Keyword::Defender) {
         // A wall cannot pressure anything; its toughness is its whole job.
         value = toughness * weights.toughness;
     }
-    if permanent.has(Keyword::CannotAttackOrBlock) {
+    if permanent.has(&Keyword::CannotAttackOrBlock) {
         // Already neutralised. Valuing it normally makes a removal spell keep
         // choosing the same creature: an aura that only restricts leaves power
         // and toughness untouched, so the target stays "best" and the whole
         // playset piles onto one permanent.
         return 0.0;
     }
-    if permanent.has(Keyword::CannotBlock) && permanent.controller_is_opponent {
+    if permanent.has(&Keyword::CannotBlock) && permanent.controller_is_opponent {
         // An opposing creature that cannot block is only a clock, never a
         // roadblock.
         value *= 0.7;
@@ -130,7 +130,8 @@ pub fn evaluate(board: &Board, weights: &Weights) -> f32 {
         .sum();
     let hand =
         f32::from(u16::try_from(board.hand.len()).unwrap_or(u16::MAX)) * weights.card_in_hand;
-    let mana = super::mana::potential(board) as f32 * weights.mana;
+    let mana =
+        f32::from(u16::try_from(super::mana::potential(board)).unwrap_or(u16::MAX)) * weights.mana;
     mine - theirs + life * weights.own_life + opponents + hand + mana
 }
 
@@ -140,7 +141,7 @@ pub fn my_clock(board: &Board) -> i32 {
     board
         .mine
         .iter()
-        .filter(|permanent| permanent.is_creature && !permanent.has(Keyword::Defender))
+        .filter(|permanent| permanent.is_creature && !permanent.has(&Keyword::Defender))
         .map(|permanent| i32::from(permanent.power.max(0)))
         .sum()
 }
@@ -150,7 +151,7 @@ pub fn my_clock(board: &Board) -> i32 {
 pub fn their_clock(board: &Board) -> i32 {
     board
         .their_creatures()
-        .filter(|permanent| !permanent.has(Keyword::Defender))
+        .filter(|permanent| !permanent.has(&Keyword::Defender))
         .map(|permanent| i32::from(permanent.power.max(0)))
         .sum()
 }

@@ -46,6 +46,14 @@ pub struct LadderStep {
     pub per_deck: Vec<DeckVerdict>,
     /// Pooled win rate across every deck.
     pub overall: Interval,
+    /// Pooled win rate across only the decks whose cells produced a clean
+    /// measurement.
+    ///
+    /// A cell polluted by engine-refused proposals did not end its games by
+    /// play, so folding it into one aggregate quietly mixes a rules problem
+    /// into a policy result. Reporting both makes the distinction visible
+    /// instead of forcing a choice between a contaminated number and no number.
+    pub clean: Interval,
 }
 
 impl LadderStep {
@@ -60,6 +68,31 @@ impl LadderStep {
             && self.overall.point > 0.5
             && self.overall.excludes(0.5)
             && self.regressions().is_empty()
+    }
+
+    /// Whether the challenger is an improvement on the cells that measured
+    /// cleanly.
+    ///
+    /// Weaker than [`Self::is_improvement`] and never a substitute for it: a
+    /// contaminated cell is still unmeasured, and a change could in principle
+    /// be responsible for the contamination. It exists so a known, documented
+    /// engine defect in one deck does not make every other deck's evidence
+    /// unreportable.
+    #[must_use]
+    pub fn is_clean_improvement(&self) -> bool {
+        self.clean.samples > 0
+            && self.clean.point > 0.5
+            && self.clean.excludes(0.5)
+            && self.regressions().is_empty()
+    }
+
+    /// Decks whose cells were polluted by engine-refused proposals.
+    #[must_use]
+    pub fn contaminated(&self) -> Vec<&DeckVerdict> {
+        self.per_deck
+            .iter()
+            .filter(|verdict| verdict.rejected_moves > 0 || !verdict.engine_findings.is_empty())
+            .collect()
     }
 
     /// Decks where the challenger is significantly worse.
@@ -126,7 +159,7 @@ pub fn run_step(
                 let result = run_versioned_matchup(
                     DeckMatchConfig {
                         shuffle_seed: seed,
-                        ..config.clone()
+                        ..*config
                     },
                     deck,
                     deck,
@@ -158,18 +191,29 @@ pub fn run_step(
             archetype: *archetype,
             win_rate: Interval::wilson(wins, decided),
             games,
-            mean_turns: turns as f64 / f64::from(games.max(1)),
+            mean_turns: turns_mean(turns, games),
             rejected_moves: rejected,
             truncated,
             engine_findings: findings,
         });
     }
 
+    let clean_wins: u32 = per_deck
+        .iter()
+        .filter(|verdict| verdict.rejected_moves == 0 && verdict.engine_findings.is_empty())
+        .map(|verdict| verdict.win_rate.wins)
+        .sum();
+    let clean_games: u32 = per_deck
+        .iter()
+        .filter(|verdict| verdict.rejected_moves == 0 && verdict.engine_findings.is_empty())
+        .map(|verdict| verdict.win_rate.samples)
+        .sum();
     Ok(LadderStep {
         challenger,
         incumbent,
         per_deck,
         overall: Interval::wilson(pooled_wins, pooled_games),
+        clean: Interval::wilson(clean_wins, clean_games),
     })
 }
 
@@ -191,6 +235,13 @@ pub fn run_ladder(
         steps.push(run_step(challenger, incumbent, decks, seeds, config)?);
     }
     Ok(steps)
+}
+
+/// Mean turns, computed without a lossy `u64 as f64` on the accumulator.
+fn turns_mean(total: u64, games: u32) -> f64 {
+    let games = f64::from(games.max(1));
+    let total = u32::try_from(total).map_or(f64::from(u32::MAX), f64::from);
+    total / games
 }
 
 #[cfg(test)]
@@ -216,6 +267,7 @@ mod tests {
             incumbent: PolicyVersion::V1,
             per_deck,
             overall: Interval::wilson(wins, total),
+            clean: Interval::wilson(wins, total),
         }
     }
 

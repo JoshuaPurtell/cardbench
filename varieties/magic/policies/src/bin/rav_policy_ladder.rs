@@ -89,6 +89,22 @@ fn report(step: &LadderStep) {
         step.overall.samples,
         step.is_improvement(),
     );
+    println!(
+        "clean challenger={} incumbent={} rate={}% ci=[{},{}] n={} improvement={}",
+        step.challenger,
+        step.incumbent,
+        percent(step.clean.point),
+        percent(step.clean.low),
+        percent(step.clean.high),
+        step.clean.samples,
+        step.is_clean_improvement(),
+    );
+    for verdict in step.contaminated() {
+        println!(
+            "contaminated deck={} rejected={} of {} games (see ENGINE_BUG_LEDGER.md)",
+            verdict.deck, verdict.rejected_moves, verdict.games
+        );
+    }
     for regression in step.regressions() {
         println!(
             "regression deck={} rate={}%",

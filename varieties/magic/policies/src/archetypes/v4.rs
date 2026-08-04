@@ -1,11 +1,14 @@
-//! Generation 3 of the archetype policy.
+//! Generation 4 of the archetype policy.
 //!
-//! Carries v2's whole-set attack planning and adds valued blocking.
+//! Carries v2's whole-set attack planning and v3's valued blocking, and adds
+//! land sequencing chosen by what it lets me actually cast.
 //!
-//! v1 and v2 scored a block purely as material. That makes a wall worthless: a
-//! 2/5 blocking a 3/3 kills nothing and loses nothing, so the material delta is
-//! zero and the block is declined -- the wall watches three damage go through
-//! every turn. Both midrange decks in the constructed set run 2/5 bodies.
+//! v1 through v3 ranked lands by colour coverage, which prefers exactly the
+//! wrong land: a karoo makes two colours, so it sorts to the top, but it enters
+//! tapped *and* bounces a land, costing a full turn of mana. Choosing the land
+//! that maximises what is castable this turn subsumes the problem instead of
+//! special-casing it -- a tapped land contributes nothing to this turn's plan
+//! and therefore only wins when nothing else does.
 //!
 //! Frozen once measured. Later generations are new files; this one stays
 //! runnable so every later claim of improvement has a baseline.
@@ -34,14 +37,14 @@ use std::sync::Arc;
 
 /// A deck-agnostic policy driven by archetype weights.
 #[derive(Clone, Debug)]
-pub struct ArchetypePolicyV3 {
+pub struct ArchetypePolicyV4 {
     player: PlayerId,
     archetype: Archetype,
     index: Arc<CardIndex>,
     id: &'static str,
 }
 
-impl ArchetypePolicyV3 {
+impl ArchetypePolicyV4 {
     /// Builds a policy for one seat.
     ///
     /// The index is shared because building it per policy per game is a
@@ -53,10 +56,10 @@ impl ArchetypePolicyV3 {
             archetype,
             index,
             id: match archetype {
-                Archetype::Aggro => "rav.archetype-aggro.v3",
-                Archetype::Midrange => "rav.archetype-midrange.v3",
-                Archetype::Burn => "rav.archetype-burn.v3",
-                Archetype::Control => "rav.archetype-control.v3",
+                Archetype::Aggro => "rav.archetype-aggro.v4",
+                Archetype::Midrange => "rav.archetype-midrange.v4",
+                Archetype::Burn => "rav.archetype-burn.v4",
+                Archetype::Control => "rav.archetype-control.v4",
             },
         }
     }
@@ -97,10 +100,15 @@ impl ArchetypePolicyV3 {
 
     /// Chooses which land to play this turn.
     ///
-    /// Prefers a land that adds a colour the hand needs but the board cannot
-    /// yet produce; that single rule removes most colour screw.
-    #[allow(clippy::unused_self)] // Later generations use `self`; the signature stays stable across the family.
+    /// Ranked by what the land actually buys: the value of the best spell it
+    /// makes castable *this* turn, then the colour gaps it closes for the rest
+    /// of the hand. A land that enters tapped contributes nothing to the first
+    /// term, which is what stops a karoo -- two colours and therefore the top
+    /// of a coverage ranking -- from being played on turn two and bouncing a
+    /// land for the privilege.
+    #[allow(clippy::cast_possible_truncation)] // Bounded, rounded fixed-point ranking key.
     fn land_to_play(&self, board: &Board) -> Option<ObjectId> {
+        let weights = self.weights();
         let mut produced: [bool; 6] = [false; 6];
         for permanent in &board.mine {
             if let Some(source) = &permanent.source {
@@ -116,35 +124,56 @@ impl ArchetypePolicyV3 {
             }
         }
 
-        board
-            .hand
-            .iter()
-            .filter(|card| card.facts.is_land)
-            .max_by_key(|card| {
-                let colors = card
-                    .facts
-                    .source
-                    .as_ref()
-                    .map(crate::planner::SourceKind::colors)
-                    .unwrap_or_default();
-                // Rank: fixes a colour I need and lack, then total need served,
-                // then how many colours it makes. Object id breaks ties so the
-                // choice is deterministic.
-                let fixes_gap = colors
+        let mut best: Option<(i64, u32, u32, u64, ObjectId)> = None;
+        for card in board.hand.iter().filter(|card| card.facts.is_land) {
+            let colors = card
+                .facts
+                .source
+                .as_ref()
+                .map(crate::planner::SourceKind::colors)
+                .unwrap_or_default();
+
+            // What this land unlocks this turn. A tapped land unlocks nothing,
+            // and a karoo also hands back a land, so its immediate value is
+            // negative rather than merely zero.
+            let immediate = if card.facts.enters_tapped {
+                -1_i64
+            } else {
+                let projected = project_land(board, card.object, &colors);
+                best_castable_value(&projected, &weights)
+                    // Fixed point so the ranking key is exactly ordered. The
+                    // value range here is single digits, so the conversion is
+                    // exact in practice and clamped regardless.
+                    .map_or(0, |value| (f64::from(value) * 100.0).round() as i64)
+            };
+
+            let fixes_gap = u32::from(
+                colors
                     .iter()
-                    .any(|color| needed[color.index()] > 0 && !produced[color.index()]);
-                let need_served: u32 = colors
-                    .iter()
-                    .map(|color| needed[color.index()])
-                    .sum::<u32>();
-                (
-                    u8::from(fixes_gap),
-                    need_served,
-                    u32::try_from(colors.len()).unwrap_or(0),
-                    std::cmp::Reverse(card.object.0),
-                )
-            })
-            .map(|card| card.object)
+                    .any(|color| needed[color.index()] > 0 && !produced[color.index()]),
+            );
+            let need_served: u32 = colors.iter().map(|color| needed[color.index()]).sum();
+            let key = (
+                immediate,
+                fixes_gap,
+                need_served,
+                u64::try_from(colors.len()).unwrap_or(0),
+                card.object,
+            );
+            if best.as_ref().is_none_or(|current| {
+                (key.0, key.1, key.2, key.3, std::cmp::Reverse(key.4))
+                    > (
+                        current.0,
+                        current.1,
+                        current.2,
+                        current.3,
+                        std::cmp::Reverse(current.4),
+                    )
+            }) {
+                best = Some(key);
+            }
+        }
+        best.map(|(_, _, _, _, object)| object)
     }
 
     /// Plays one land, answering its entry choice when it has one.
@@ -298,6 +327,44 @@ fn is_sorcery_window(board: &Board) -> bool {
         && matches!(board.step, Step::PrecombatMain | Step::PostcombatMain)
 }
 
+/// A copy of the board with one extra untapped land already in play.
+///
+/// Used to ask "what would this land let me cast?" without mutating anything.
+fn project_land(board: &Board, land: ObjectId, colors: &[cardbench_magic_engine::Color]) -> Board {
+    let mut projected = board.clone();
+    projected.hand.retain(|card| card.object != land);
+    projected.mine.push(crate::planner::Permanent {
+        object: land,
+        controller: board.me,
+        definition: None,
+        tapped: false,
+        can_attack: false,
+        can_block: false,
+        summoning_sick: false,
+        is_creature: false,
+        is_land: true,
+        power: 0,
+        toughness: 0,
+        keywords: Vec::new(),
+        source: Some(crate::planner::SourceKind::BasicTyped(colors.to_vec())),
+        role: Role::Land,
+        controller_is_opponent: false,
+    });
+    projected
+}
+
+/// The value of the best spell castable on a projected board.
+fn best_castable_value(board: &Board, weights: &threat::Weights) -> Option<f32> {
+    board
+        .hand
+        .iter()
+        .filter(|card| !card.facts.is_land && !card.facts.unsupported)
+        .filter(|card| mana::plan(board, &card.facts.cost).is_some())
+        .filter_map(|card| cast_value(board, &card.facts, weights))
+        .filter(|value| *value > 0.0)
+        .max_by(f32::total_cmp)
+}
+
 fn pick_targets(
     decision: &cardbench_magic_engine::PendingDecisionView,
     board: &Board,
@@ -328,7 +395,7 @@ fn target_rank(target: Target, board: &Board, weights: &threat::Weights) -> f32 
     }
 }
 
-impl CodePolicy for ArchetypePolicyV3 {
+impl CodePolicy for ArchetypePolicyV4 {
     fn id(&self) -> &'static str {
         self.id
     }

@@ -69,7 +69,7 @@ fn add(pool: &mut Pool, color: Color, amount: u8) {
     pool[color.index()] = pool[color.index()].saturating_add(amount);
 }
 
-fn total(pool: &Pool) -> u32 {
+fn total(pool: Pool) -> u32 {
     pool.iter().map(|amount| u32::from(*amount)).sum()
 }
 
@@ -230,7 +230,7 @@ pub fn plan(board: &Board, cost: &ManaCost) -> Option<ManaPlan> {
     if demand.is_empty() {
         return Some(ManaPlan {
             taps: Vec::new(),
-            waste: u8::try_from(total(&leftover)).unwrap_or(u8::MAX),
+            waste: u8::try_from(total(leftover)).unwrap_or(u8::MAX),
         });
     }
     let mut taps = Vec::new();
@@ -254,7 +254,7 @@ pub fn potential(board: &Board) -> u32 {
         .iter()
         .map(|source| u32::from(source.kind.quantity()))
         .sum::<u32>()
-        + total(&board.floating)
+        + total(board.floating)
 }
 
 /// Depth-first assignment of sources to unmet symbols.
@@ -271,7 +271,7 @@ fn search(
     taps: &mut Vec<ManaTap>,
 ) -> Option<u8> {
     if demand.is_empty() {
-        return Some(u8::try_from(total(&floating)).unwrap_or(u8::MAX));
+        return Some(u8::try_from(total(floating)).unwrap_or(u8::MAX));
     }
     if taps.len() >= MAX_TAPS {
         return None;

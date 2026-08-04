@@ -20,7 +20,7 @@ pub struct ScoredTarget {
 
 /// Whether a permanent can legally be chosen as a target at all.
 fn targetable(permanent: &Permanent) -> bool {
-    !permanent.has(Keyword::Shroud)
+    !permanent.has(&Keyword::Shroud)
 }
 
 /// Whether `permanent` satisfies `requirement`.
@@ -42,13 +42,16 @@ fn matches_requirement(
         .any(|attacker| attacker.object == permanent.object);
     match requirement {
         TargetRequirement::Any | TargetRequirement::Permanent => true,
-        TargetRequirement::Creature | TargetRequirement::DistinctCreature => permanent.is_creature,
-        TargetRequirement::ArtifactOrCreature => permanent.is_creature,
+        // Every requirement that admits an ordinary battlefield creature and
+        // nothing this planner can distinguish further.
+        TargetRequirement::Creature
+        | TargetRequirement::DistinctCreature
+        | TargetRequirement::ArtifactOrCreature
+        | TargetRequirement::PlayerOrCreature => permanent.is_creature,
         TargetRequirement::FlyingCreature => {
-            permanent.is_creature && permanent.has(Keyword::Flying)
+            permanent.is_creature && permanent.has(&Keyword::Flying)
         }
         TargetRequirement::AttackingOrBlockingCreature => permanent.is_creature && attacking,
-        TargetRequirement::PlayerOrCreature => permanent.is_creature,
         TargetRequirement::Land => permanent.is_land,
         TargetRequirement::ControlledLand => permanent.is_land && permanent.controller == board.me,
         TargetRequirement::ControlledCreature => {

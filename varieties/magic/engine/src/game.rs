@@ -453,6 +453,10 @@ impl PolicyAction {
 /// A deterministic policy-facing view. It excludes hidden cards in the
 /// opponent's hand and library, apart from explicit public-reveal effects.
 #[derive(Clone, Debug, Eq, PartialEq)]
+// Six independent booleans describe one permanent's live declaration state.
+// Bundling them into a sub-struct would only move the same facts behind an
+// extra name and force every reader through it.
+#[allow(clippy::struct_excessive_bools)]
 pub struct CardView {
     pub id: ObjectId,
     pub definition: Option<&'static str>,
@@ -6845,7 +6849,7 @@ impl Game {
         let Some(definition) = self.departed_card_definitions.get(&card).copied() else {
             return Err(RulesError::UnknownCard(card));
         };
-        Ok(self.attachment_binding_for_definition(definition)?)
+        self.attachment_binding_for_definition(definition)
     }
 
     /// The attachment binding a definition carries, independent of any live

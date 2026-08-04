@@ -86,6 +86,9 @@ impl SourceKind {
 }
 
 /// Everything the planners need to know about one card definition.
+// The booleans here are independent card facts, not a state machine. Grouping
+// them would only add a name between the planner and the answer it needs.
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Clone, Debug)]
 pub struct CardFacts {
     pub id: &'static str,
@@ -113,6 +116,9 @@ pub struct CardFacts {
     /// the land has no such choice; the engine rejects an ordinary land play
     /// for a land that does, so this is legality-relevant, not just strategy.
     pub entry_life_payment: Option<u8>,
+    /// Whether this land arrives tapped and therefore produces nothing on the
+    /// turn it is played.
+    pub enters_tapped: bool,
     /// True when the card cannot be cast by this planner. Recorded rather than
     /// silently skipped so deck validation can refuse to build with it.
     pub unsupported: bool,
@@ -143,6 +149,7 @@ impl CardIndex {
         mana_bindings: &[(&'static str, ActivatedManaAbility)],
         additional_costs: &[&'static str],
         entry_life_payments: &[(&'static str, u8)],
+        enters_tapped: &[&'static str],
     ) -> Self {
         let bound: BTreeMap<&'static str, &ActivatedManaAbility> = mana_bindings
             .iter()
@@ -159,6 +166,7 @@ impl CardIndex {
                         bound.get(definition.id).copied(),
                         additional_costs.contains(&definition.id),
                         entry.get(definition.id).copied(),
+                        enters_tapped.contains(&definition.id),
                     ),
                 )
             })
@@ -182,6 +190,7 @@ impl CardIndex {
         bound: Option<&ActivatedManaAbility>,
         has_additional_cost: bool,
         entry_life_payment: Option<u8>,
+        enters_tapped: bool,
     ) -> CardFacts {
         let is_land = definition.card_types.contains(&CardType::Land);
         let is_creature = definition.card_types.contains(&CardType::Creature);
@@ -231,6 +240,7 @@ impl CardIndex {
             // A bound ability whose activation this planner cannot express, or
             // a cost it cannot pay, is marked rather than quietly skipped.
             entry_life_payment,
+            enters_tapped,
             // An additional cost this planner cannot pay -- sacrificing a
             // creature, for instance -- makes the card uncastable here. Flagged
             // rather than skipped so deck validation refuses to build with it
@@ -262,10 +272,7 @@ impl CardIndex {
                 }),
                 ManaAbilityOutput::Bundle(bundle) => Some(SourceKind::BoundBundle {
                     ability: ability.id,
-                    bundle: bundle
-                        .iter()
-                        .map(|(color, amount)| (color, amount))
-                        .collect(),
+                    bundle: bundle.iter().collect(),
                 }),
                 // A paid bundle costs mana to activate. Planning that needs a
                 // second payment solve nested inside the first; it is out of
@@ -387,6 +394,8 @@ fn scalar_field(rendered: &str, field: &str) -> Option<u8> {
 }
 
 /// One permanent on the battlefield, with the facts a planner needs inline.
+// Independent live facts, mirroring the engine's own card view. See CardFacts.
+#[allow(clippy::struct_excessive_bools)]
 #[derive(Clone, Debug)]
 pub struct Permanent {
     pub object: ObjectId,
@@ -413,8 +422,8 @@ pub struct Permanent {
 
 impl Permanent {
     #[must_use]
-    pub fn has(&self, keyword: Keyword) -> bool {
-        self.keywords.contains(&keyword)
+    pub fn has(&self, keyword: &Keyword) -> bool {
+        self.keywords.contains(keyword)
     }
 
     /// A creature that can profitably be left back to block, i.e. one whose
@@ -503,7 +512,7 @@ impl Board {
 
         let mut floating = [0_u8; 6];
         for color in Color::MANA_ALL {
-            floating[color.index()] = u8::try_from(view.mana_pool.amount(color)).unwrap_or(u8::MAX);
+            floating[color.index()] = view.mana_pool.amount(color);
         }
 
         Self {
@@ -560,13 +569,11 @@ impl Board {
     }
 
     /// My creatures, excluding lands and noncreature permanents.
-    #[must_use]
     pub fn my_creatures(&self) -> impl Iterator<Item = &Permanent> {
         self.mine.iter().filter(|permanent| permanent.is_creature)
     }
 
     /// Every opponent creature, still attributable to its controller.
-    #[must_use]
     pub fn their_creatures(&self) -> impl Iterator<Item = &Permanent> {
         self.theirs.iter().filter(|permanent| permanent.is_creature)
     }

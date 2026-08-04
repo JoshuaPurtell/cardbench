@@ -13,6 +13,8 @@ usage:
   ./scripts/check-batch.sh core
   ./scripts/check-batch.sh policies
   ./scripts/check-batch.sh protocol [test|clippy]
+  ./scripts/check-batch.sh ladder [SEED_PAIRS]
+  ./scripts/check-batch.sh matrix [SEED_PAIRS]
   ./scripts/check-batch.sh rav SHARD[/TOTAL] [test|clippy]
   ./scripts/check-batch.sh engine SHARD[/TOTAL] [test|clippy]
 
@@ -87,9 +89,11 @@ case "$command" in
       '1. core       formatting + engine lib + policy boundary + coverage + quick audit' \
       '2. policies   all policy library tests (scale campaigns remain explicit)' \
       '3. protocol   transport schema, staleness, and redaction contract tests' \
-      '4. rav        deterministic slice of RAV integration-test targets' \
-      '5. engine     deterministic slice of engine integration-test targets' \
-      '6. exhaustive workspace tests/clippy (release-only; not run by this script)'
+      '4. ladder     policy generation N vs N-1 across every constructed deck' \
+      '5. matrix     constructed-deck matchup matrix with confidence intervals' \
+      '6. rav        deterministic slice of RAV integration-test targets' \
+      '7. engine     deterministic slice of engine integration-test targets' \
+      '8. exhaustive workspace tests/clippy (release-only; not run by this script)'
     ;;
   core)
     cd "$ROOT"
@@ -108,6 +112,19 @@ case "$command" in
       clippy) cargo clippy --quiet -p cardbench-magic-protocol --all-targets -- -D warnings ;;
       *) usage; exit 2 ;;
     esac
+    ;;
+  ladder)
+    # Both seats play the same deck and differ only in policy generation, so a
+    # win rate is attributable to the policy change and nothing else. Release
+    # profile: a debug build makes this campaign roughly ten times slower.
+    cd "$ROOT"
+    cargo run --release --quiet -p cardbench-magic-policies --bin rav-policy-ladder \
+      -- "${2:-25}"
+    ;;
+  matrix)
+    cd "$ROOT"
+    cargo run --release --quiet -p cardbench-magic-policies --bin rav-archetype-matrix \
+      -- "${2:-25}"
     ;;
   rav)
     run_shard cardbench-magic-rav \

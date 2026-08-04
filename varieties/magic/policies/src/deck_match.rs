@@ -255,6 +255,7 @@ pub fn run_rav_deck_matchup(
 ///
 /// Returns an error when the configuration is degenerate, a deck id is unknown,
 /// or game setup fails.
+#[allow(clippy::too_many_lines)] // One ordered match loop stays more reviewable than a split one.
 pub fn run_deck_matchup_with(
     config: DeckMatchConfig,
     deck_p0_id: &str,
@@ -453,11 +454,17 @@ pub fn shared_card_index() -> Arc<crate::CardIndex> {
                         .map(|life| (binding.card_definition, life))
                 })
                 .collect();
+            let tapped: Vec<&'static str> = rav_land_entry_bindings()
+                .into_iter()
+                .filter(|binding| binding.enters_tapped)
+                .map(|binding| binding.card_definition)
+                .collect();
             Arc::new(crate::CardIndex::build(
                 &definitions,
                 &mana,
                 &additional,
                 &entry,
+                &tapped,
             ))
         })
         .clone()

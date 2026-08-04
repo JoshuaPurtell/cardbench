@@ -45,14 +45,19 @@ pub fn can_block(blocker: &Permanent, attacker: &Permanent) -> bool {
     }
     for keyword in &attacker.keywords {
         match keyword {
-            Keyword::Unblockable => return false,
             Keyword::Flying => {
-                if !blocker.has(Keyword::Flying) && !blocker.has(Keyword::Reach) {
+                if !blocker.has(&Keyword::Flying) && !blocker.has(&Keyword::Reach) {
                     return false;
                 }
             }
-            Keyword::Fear | Keyword::BlackEvasion => return false,
-            Keyword::Landwalk(_) | Keyword::Mountainwalk => return false,
+            // Evasion this planner cannot satisfy from the view. Treating the
+            // pair as unblockable is the safe direction: it never counts on a
+            // block the engine would refuse.
+            Keyword::Unblockable
+            | Keyword::Fear
+            | Keyword::BlackEvasion
+            | Keyword::Landwalk(_)
+            | Keyword::Mountainwalk => return false,
             _ => {}
         }
     }
@@ -72,10 +77,11 @@ pub struct Exchange {
 /// the entire point of the calculation.
 #[must_use]
 pub fn exchange(attacker: &Permanent, blocker: &Permanent) -> Exchange {
-    let attacker_first = attacker.has(Keyword::FirstStrike) || attacker.has(Keyword::DoubleStrike);
-    let blocker_first = blocker.has(Keyword::FirstStrike) || blocker.has(Keyword::DoubleStrike);
-    let attacker_deathtouch = attacker.has(Keyword::Deathtouch);
-    let blocker_deathtouch = blocker.has(Keyword::Deathtouch);
+    let attacker_first =
+        attacker.has(&Keyword::FirstStrike) || attacker.has(&Keyword::DoubleStrike);
+    let blocker_first = blocker.has(&Keyword::FirstStrike) || blocker.has(&Keyword::DoubleStrike);
+    let attacker_deathtouch = attacker.has(&Keyword::Deathtouch);
+    let blocker_deathtouch = blocker.has(&Keyword::Deathtouch);
 
     let kills = |power: i16, deathtouch: bool, toughness: i16| {
         (deathtouch && power > 0) || power >= toughness
@@ -177,7 +183,7 @@ pub fn plan_attack(board: &Board, weights: &Weights, aggression: Aggression) -> 
             .map(|blocker| (exchange(attacker, blocker), *blocker))
             .min_by(|(left, _), (right, _)| {
                 // The defender picks the block that is worst for me.
-                block_preference(left).total_cmp(&block_preference(right))
+                block_preference(*left).total_cmp(&block_preference(*right))
             });
 
         let attack_is_good = match best_block {
@@ -207,7 +213,7 @@ pub fn plan_attack(board: &Board, weights: &Weights, aggression: Aggression) -> 
         // Hold back a creature that is needed on defence, unless it is evasive
         // (its damage is hard to stop) or we are already racing.
         let needed_at_home =
-            keep_blockers && !is_evasive(attacker) && !attacker.has(Keyword::Vigilance);
+            keep_blockers && !is_evasive(attacker) && !attacker.has(&Keyword::Vigilance);
         if attack_is_good && (!needed_at_home || aggression == Aggression::AllIn) {
             attackers.push(attacker.object);
         }
@@ -229,7 +235,7 @@ pub fn plan_attack(board: &Board, weights: &Weights, aggression: Aggression) -> 
 }
 
 /// How much a defender dislikes one exchange. Lower is better for the defender.
-fn block_preference(exchange: &Exchange) -> f32 {
+fn block_preference(exchange: Exchange) -> f32 {
     f32::from(u8::from(exchange.blocker_dies)) - f32::from(u8::from(exchange.attacker_dies))
 }
 
@@ -244,7 +250,7 @@ fn worst_case_damage(attackers: &[&Permanent], blockers: &[&Permanent]) -> i32 {
     for index in order {
         let attacker = attackers[index];
         // Trample still connects for the excess, so it is never fully absorbed.
-        if attacker.has(Keyword::Trample) {
+        if attacker.has(&Keyword::Trample) {
             continue;
         }
         if let Some(slot) = blockers
@@ -612,8 +618,8 @@ mod tests {
     /// blocks that lose material.
     #[test]
     fn the_simulated_defence_chump_blocks_against_lethal() {
-        let attackers = vec![creature(1, 5, 5, &[])];
-        let blockers = vec![creature(9, 0, 1, &[])];
+        let attackers = [creature(1, 5, 5, &[])];
+        let blockers = [creature(9, 0, 1, &[])];
         let attacker_refs: Vec<&Permanent> = attackers.iter().collect();
         let blocker_refs: Vec<&Permanent> = blockers.iter().collect();
         let safe = simulate_defence(&attacker_refs, &blocker_refs, &Weights::balanced(), 20);
@@ -838,7 +844,8 @@ fn damage_value(damage: i32, life: i64, weight: f32) -> f32 {
         return 0.0;
     }
     let remaining = f32::from(i16::try_from(life.max(1)).unwrap_or(i16::MAX));
-    damage as f32 / remaining * LIFE_TOTAL_VALUE * weight
+    let dealt = f32::from(i16::try_from(damage).unwrap_or(i16::MAX));
+    dealt / remaining * LIFE_TOTAL_VALUE * weight
 }
 
 /// What one attack set is worth, net of the defence it invites.
@@ -849,16 +856,16 @@ fn score_attack(
     defender_life: i64,
 ) -> f32 {
     let blocks = simulate_defence(attackers, blockers, weights, defender_life);
-    let mut blocked = vec![None; attackers.len()];
+    let mut assignment = vec![None; attackers.len()];
     for block in &blocks {
-        blocked[block.attacker] = Some(block.blocker);
+        assignment[block.attacker] = Some(block.blocker);
     }
 
     let mut damage = 0_i32;
     let mut my_loss = 0.0_f32;
     let mut their_loss = 0.0_f32;
     for (index, attacker) in attackers.iter().enumerate() {
-        match blocked[index] {
+        match assignment[index] {
             None => damage += i32::from(attacker.power.max(0)),
             Some(blocker_index) => {
                 let blocker = blockers[blocker_index];
@@ -869,7 +876,7 @@ fn score_attack(
                 if result.blocker_dies {
                     their_loss += creature_value(blocker, weights);
                 }
-                if attacker.has(Keyword::Trample) {
+                if attacker.has(&Keyword::Trample) {
                     damage += i32::from((attacker.power - blocker.toughness).max(0));
                 }
             }
@@ -893,6 +900,7 @@ fn score_attack(
 /// This version scores whole attack sets against a simulated defence and grows
 /// the set greedily while the score improves.
 #[must_use]
+#[allow(clippy::too_many_lines)] // One ordered selection routine reads better than three helpers.
 pub fn plan_attack_assigned(
     board: &Board,
     weights: &Weights,
@@ -928,7 +936,7 @@ pub fn plan_attack_assigned(
     // that then gets through on the crack back -- no more, and no less.
     let their_attackers: Vec<&Permanent> = board
         .their_creatures()
-        .filter(|permanent| !permanent.has(Keyword::Defender) && permanent.power > 0)
+        .filter(|permanent| !permanent.has(&Keyword::Defender) && permanent.power > 0)
         .collect();
     let defensive_cost = |set: &[&Permanent]| -> f32 {
         if aggression == Aggression::AllIn || their_attackers.is_empty() {
@@ -940,7 +948,7 @@ pub fn plan_attack_assigned(
             .my_creatures()
             .filter(|permanent| !permanent.tapped)
             .filter(|permanent| {
-                permanent.has(Keyword::Vigilance)
+                permanent.has(&Keyword::Vigilance)
                     || !set.iter().any(|entry| entry.object == permanent.object)
             })
             .collect();
@@ -1094,7 +1102,7 @@ pub fn plan_blocks_valued(board: &Board, weights: &Weights) -> Vec<Block> {
             };
             // Trample still gets the excess through, so only the absorbed part
             // counts as prevented.
-            let stopped = if attacker.has(Keyword::Trample) {
+            let stopped = if attacker.has(&Keyword::Trample) {
                 i32::from(blocker.toughness.max(0)).min(i32::from(attacker.power.max(0)))
             } else {
                 i32::from(attacker.power.max(0))

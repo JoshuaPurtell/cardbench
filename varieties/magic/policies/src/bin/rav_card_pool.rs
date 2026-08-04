@@ -38,7 +38,8 @@ fn cost_string(cost: &ManaCost) -> String {
 }
 
 fn mana_value(cost: &ManaCost) -> u32 {
-    u32::from(cost.generic) + cost.colored.len() as u32 + cost.hybrid.len() as u32
+    let symbols = u32::try_from(cost.colored.len() + cost.hybrid.len()).unwrap_or(u32::MAX);
+    u32::from(cost.generic) + symbols
 }
 
 fn type_string(definition: &CardDefinition) -> String {
@@ -86,7 +87,7 @@ fn main() {
             .map(|effect| {
                 let rendered = format!("{effect:?}");
                 rendered
-                    .split_once(|c: char| c == ' ' || c == '{' || c == '(')
+                    .split_once([' ', '{', '('])
                     .map_or(rendered.clone(), |(head, _)| head.to_owned())
             })
             .collect();

@@ -92,6 +92,7 @@ impl ArchetypePolicyV1 {
     ///
     /// Prefers a land that adds a colour the hand needs but the board cannot
     /// yet produce; that single rule removes most colour screw.
+    #[allow(clippy::unused_self)] // Later generations use `self`; the signature stays stable across the family.
     fn land_to_play(&self, board: &Board) -> Option<ObjectId> {
         let mut produced: [bool; 6] = [false; 6];
         for permanent in &board.mine {

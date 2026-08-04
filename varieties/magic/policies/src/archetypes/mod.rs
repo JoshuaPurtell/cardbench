@@ -20,6 +20,7 @@ use std::sync::Arc;
 pub mod v1;
 pub mod v2;
 pub mod v3;
+pub mod v4;
 
 /// One generation of the archetype policy.
 ///
@@ -28,20 +29,23 @@ pub mod v3;
 pub enum PolicyVersion {
     /// Shared planners: mana payment, one-ply combat, target scoring.
     V1,
-    /// Adds a global attack/block assignment instead of judging each attacker
-    /// against a hypothetically free blocker.
+    /// Adds whole-set attack planning instead of judging each attacker against
+    /// a hypothetically free blocker.
     V2,
-    /// Adds activated abilities, Convoke, and instant-speed discipline.
+    /// Adds valued blocking: a block is worth the damage it stops, not only
+    /// the material it trades.
     V3,
+    /// Adds land sequencing driven by what a land makes castable this turn.
+    V4,
 }
 
 impl PolicyVersion {
-    pub const ALL: [Self; 3] = [Self::V1, Self::V2, Self::V3];
+    pub const ALL: [Self; 4] = [Self::V1, Self::V2, Self::V3, Self::V4];
 
     /// The newest version. Campaigns that do not care about history use this.
     #[must_use]
     pub const fn latest() -> Self {
-        Self::V3
+        Self::V4
     }
 
     #[must_use]
@@ -50,6 +54,7 @@ impl PolicyVersion {
             Self::V1 => "v1",
             Self::V2 => "v2",
             Self::V3 => "v3",
+            Self::V4 => "v4",
         }
     }
 
@@ -65,6 +70,7 @@ impl PolicyVersion {
             Self::V1 => None,
             Self::V2 => Some(Self::V1),
             Self::V3 => Some(Self::V2),
+            Self::V4 => Some(Self::V3),
         }
     }
 }
@@ -87,6 +93,7 @@ pub fn seat_policy(
         PolicyVersion::V1 => Box::new(v1::ArchetypePolicyV1::new(player, archetype, index)),
         PolicyVersion::V2 => Box::new(v2::ArchetypePolicyV2::new(player, archetype, index)),
         PolicyVersion::V3 => Box::new(v3::ArchetypePolicyV3::new(player, archetype, index)),
+        PolicyVersion::V4 => Box::new(v4::ArchetypePolicyV4::new(player, archetype, index)),
     }
 }
 
@@ -101,7 +108,8 @@ mod tests {
         }
         assert_eq!(PolicyVersion::V1.previous(), None);
         assert_eq!(PolicyVersion::V3.previous(), Some(PolicyVersion::V2));
-        assert_eq!(PolicyVersion::latest(), PolicyVersion::V3);
+        assert_eq!(PolicyVersion::latest(), PolicyVersion::V4);
+        assert_eq!(PolicyVersion::V4.previous(), Some(PolicyVersion::V3));
     }
 
     /// Each version must present a distinct policy id, or campaign receipts

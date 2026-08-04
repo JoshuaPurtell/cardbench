@@ -191,8 +191,7 @@ fn a_departed_players_aura_receipt_does_not_reject_a_later_legal_action() {
     assert!(
         rejection.is_none(),
         "resolving a lethal spell must not be rejected by the attachment \
-         invariant after CR 800.4a removes the departed player's aura: {:?}",
-        rejection
+         invariant after CR 800.4a removes the departed player's aura: {rejection:?}"
     );
     assert!(
         game.players[doomed.0].lost,

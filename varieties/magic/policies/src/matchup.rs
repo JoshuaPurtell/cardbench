@@ -104,6 +104,10 @@ pub struct Interval {
     pub point: f64,
     pub low: f64,
     pub high: f64,
+    /// Successes. Kept alongside the rate so a caller can re-pool intervals
+    /// exactly; recovering it by multiplying the rate back out and rounding
+    /// loses information and invites a lossy float-to-integer cast.
+    pub wins: u32,
     pub samples: u32,
 }
 
@@ -116,6 +120,7 @@ impl Interval {
                 point: 0.0,
                 low: 0.0,
                 high: 1.0,
+                wins: 0,
                 samples: 0,
             };
         }
@@ -129,6 +134,7 @@ impl Interval {
             point: p,
             low: ((centre - spread) / denominator).clamp(0.0, 1.0),
             high: ((centre + spread) / denominator).clamp(0.0, 1.0),
+            wins,
             samples: total,
         }
     }
@@ -239,7 +245,7 @@ pub fn measure_matchup(
             let result = run_rav_deck_matchup(
                 DeckMatchConfig {
                     shuffle_seed: seed,
-                    ..config.clone()
+                    ..*config
                 },
                 first,
                 second,
@@ -296,11 +302,11 @@ fn summarize(deck_a: &str, deck_b: &str, games: Vec<GameRecord>) -> Matchup {
     }
 
     let n = f64::from(diagnostics.games.max(1));
-    diagnostics.mean_turns = turns_total as f64 / n;
-    diagnostics.mean_accepted_moves = moves_total as f64 / n;
+    diagnostics.mean_turns = narrow_u64(turns_total) / n;
+    diagnostics.mean_accepted_moves = narrow_u64(moves_total) / n;
     let d = f64::from(decided.max(1));
-    diagnostics.mean_winner_life = winner_life as f64 / d;
-    diagnostics.mean_loser_life = loser_life as f64 / d;
+    diagnostics.mean_winner_life = narrow_i64(winner_life) / d;
+    diagnostics.mean_loser_life = narrow_i64(loser_life) / d;
 
     Matchup {
         deck_a: deck_a.to_owned(),
@@ -312,6 +318,26 @@ fn summarize(deck_a: &str, deck_b: &str, games: Vec<GameRecord>) -> Matchup {
         games,
         engine_findings,
     }
+}
+
+/// Widens an accumulator to `f64` without a lossy direct cast. Campaign totals
+/// are far below 2^32, so the saturation branch is unreachable in practice and
+/// present only so the conversion is total.
+fn narrow_u64(value: u64) -> f64 {
+    u32::try_from(value).map_or(f64::from(u32::MAX), f64::from)
+}
+
+fn narrow_i64(value: i64) -> f64 {
+    i32::try_from(value).map_or_else(
+        |_| {
+            if value.is_negative() {
+                f64::from(i32::MIN)
+            } else {
+                f64::from(i32::MAX)
+            }
+        },
+        f64::from,
+    )
 }
 
 /// A full round-robin including mirrors.
@@ -342,7 +368,7 @@ impl Matrix {
                 continue;
             }
             let decided = matchup.overall.samples;
-            let a_won = (matchup.overall.point * f64::from(decided)).round() as u32;
+            let a_won = matchup.overall.wins;
             let entry = wins.entry(matchup.deck_a.as_str()).or_default();
             entry.0 += a_won;
             entry.1 += decided;
