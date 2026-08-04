@@ -12,6 +12,7 @@ usage:
   ./scripts/check-batch.sh list
   ./scripts/check-batch.sh core
   ./scripts/check-batch.sh policies
+  ./scripts/check-batch.sh protocol [test|clippy]
   ./scripts/check-batch.sh rav SHARD[/TOTAL] [test|clippy]
   ./scripts/check-batch.sh engine SHARD[/TOTAL] [test|clippy]
 
@@ -85,9 +86,10 @@ case "$command" in
     printf '%s\n' \
       '1. core       formatting + engine lib + policy boundary + coverage + quick audit' \
       '2. policies   all policy library tests (scale campaigns remain explicit)' \
-      '3. rav        deterministic slice of RAV integration-test targets' \
-      '4. engine     deterministic slice of engine integration-test targets' \
-      '5. exhaustive workspace tests/clippy (release-only; not run by this script)'
+      '3. protocol   transport schema, staleness, and redaction contract tests' \
+      '4. rav        deterministic slice of RAV integration-test targets' \
+      '5. engine     deterministic slice of engine integration-test targets' \
+      '6. exhaustive workspace tests/clippy (release-only; not run by this script)'
     ;;
   core)
     cd "$ROOT"
@@ -96,6 +98,16 @@ case "$command" in
   policies)
     cd "$ROOT"
     cargo test --quiet -p cardbench-magic-policies --lib
+    ;;
+  protocol)
+    # The protocol crate is small and has no engine dependency, so it runs
+    # whole rather than sharded.
+    cd "$ROOT"
+    case "${2:-test}" in
+      test) cargo test --quiet -p cardbench-magic-protocol ;;
+      clippy) cargo clippy --quiet -p cardbench-magic-protocol --all-targets -- -D warnings ;;
+      *) usage; exit 2 ;;
+    esac
     ;;
   rav)
     run_shard cardbench-magic-rav \
