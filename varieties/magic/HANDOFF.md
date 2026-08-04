@@ -1,168 +1,262 @@
 # Magic variety — engineer handoff
 
-Written 2026-08-04. Branch `dev`, worktree clean.
+Updated 2026-08-04. Branch `dev`, worktree clean, nothing pushed.
 
-Read this, then `ARCHITECTURE_CONTRACT.md` for boundaries and
-`POLICY_LADDER.md` for how policy strength is measured. `ENGINE_BUG_LEDGER.md`
-is the defect record and has no OPEN entries.
+Read this, then `POLICY_LADDER.md` for how policy strength is measured,
+`ARCHITECTURE_CONTRACT.md` for crate boundaries, and `ENGINE_BUG_LEDGER.md` for
+the defect record.
 
 ---
 
-## 1. What exists now
+## 1. What this is for
+
+**The goal is a family of Magic policies strong enough that games between them
+are productive gameplay, on Ravnica: City of Guilds constructed 60-card decks.**
+
+Two words carry weight.
+
+**Strong** — not "legal". A policy that passes priority correctly and never
+blocks produces games that tell you nothing. The policies exist to be a *bar*:
+something a new policy can be measured against, and something an opponent can be
+asked to beat.
+
+**Productive** — the games have to be worth watching. A game that ends on turn 4
+to an unanswered curve, or grinds to turn 50 because neither side can convert a
+board, exercises the rules engine without exercising judgement. The interesting
+region is games decided by decisions: what to trade, when to spend an answer,
+whether to race. Turn count is the cheapest proxy and it is on the dashboard.
+
+This makes two things downstream possible, and they are the point:
+
+1. **Ask a model to write a better policy.** Everything a candidate needs is a
+   fixed contract: implement `CodePolicy`, add a `PolicyVersion`, and score it
+   with `rav-policy-ladder N <candidate> <baseline>`. Same decks, paired seeds,
+   Wilson intervals, per-deck regressions, contamination reported separately.
+   The bar is not opinion, and it is not the author's.
+2. **Have a model play against the policies.** The same `CodePolicy` seat takes
+   an external agent, so the ladder becomes a benchmark rather than a
+   development tool. That is why the policies must be strong: a weak baseline
+   measures nothing about whatever is beating it.
+
+Both depend on the harness being honest about what it can and cannot see, which
+is most of what §3 is about.
+
+---
+
+## 2. What exists now
 
 Six crates. `engine`, `policies`, and `sets/ravnica_city_of_guilds` have **zero
 external dependencies** and must keep them; `serde` lives only in `protocol` and
-`session`. That rule is load-bearing, not stylistic — see §4.
+`session`. That rule is load-bearing — see §5.
 
 | Crate | Role |
 | --- | --- |
 | `cardbench-magic-engine` | Rules. Knows nothing of transport, policy, or sessions. |
 | `cardbench-magic-rav` | Ravnica card definitions, bindings, decks. |
-| `cardbench-magic-policies` | Shared planners, archetype policies v1–v5, campaign runners. |
+| `cardbench-magic-policies` | Shared planners, archetype policies v1–v7, campaign runners. |
 | `cardbench-magic-protocol` | Versioned owned transport schema. **No engine dependency, deliberately.** |
 | `cardbench-magic-session` | Engine→protocol projection, transcripts, critique, campaign statistics. |
 
-### Tooling
-
 ```sh
 cd varieties/magic
-./scripts/check-batch.sh list          # every gate
-./scripts/core-check.sh                # ~5-15s, the edit-loop gate
-./scripts/check-batch.sh ladder 120    # policy generation N vs N-1
-./scripts/check-batch.sh matrix 60     # deck matchup structure
-./scripts/check-batch.sh stats 30      # what pilots actually did, per deck
+./scripts/core-check.sh                     # ~6s, the edit-loop gate
+./scripts/check-batch.sh list               # every gate
+./scripts/check-batch.sh matrix 60          # deck matchup structure
+./scripts/check-batch.sh stats 30           # what pilots actually did, per deck
 
-cargo run --release -p cardbench-magic-session --bin rav-match-review -- \
-  rav_boros_aggro rav_selesnya_midrange 3 --jsonl match.jsonl
-cargo run --release -p cardbench-magic-policies --bin rav-card-pool
+rav-policy-ladder 60                        # every successive rung
+rav-policy-ladder 60 v7 v5                  # one named pair  <- new
+rav-match-review DECK_A DECK_B SEED --jsonl out.jsonl
 ```
 
----
+### Policy generations
 
-## 2. Where the work stands
-
-**Policy generations.** Each is a frozen file under
-`policies/src/archetypes/`. All pilot any deck; the archetype supplies weights,
-not code.
+Each is a frozen file under `policies/src/archetypes/`. All pilot any deck; the
+archetype supplies weights, not code.
 
 | Rung | Clean win rate | Verdict |
 | --- | --- | --- |
 | v2 vs v1 — whole-set attack planning | 50.6% [46.9, 54.2] | no change |
 | v3 vs v2 — valued blocking | 51.0% [47.3, 54.6] | not established |
-| v4 vs v3 — land sequencing | **58.2% [54.6, 61.7]** | **the only real gain** |
+| v4 vs v3 — land sequencing | **58.2% [54.6, 61.7]** | improvement |
 | v5 vs v4 — activated abilities | 49.1% [44.6, 53.5] | no change |
+| v6 vs v5 — instant timing | 52.7% [48.2, 57.1] | not established |
+| v7 vs v6 — timing split by target | 52.4% [47.9, 56.8] | not established |
+| **v7 vs v5 — both timing changes** | **54.6% [50.1, 59.0]** | **improvement** |
 
-**Deck matchups** under v5, every mirror calibrating at exactly 50.0%:
-Selesnya midrange 65.3%, Golgari 58.9%, Boros aggro 44.2%, Boros burn 31.7%.
-
-**Engine defects found and fixed** this stretch, each red-green with separate
-commits: a departed player's aura breaking the historical-receipt audit; missing
-live declaration facts on `CardView`; and a survivor's aura orphaned by CR
-800.4a departure. The last one was the important one — it was refusing 51 of 240
-games in one ladder cell, and fixing it took the whole ladder to
-`invalid_rungs=0` for the first time.
+Two formal passes in the project's history: v4, and now v7-over-v5. The second
+is marginal (lower bound 50.1%) and should be confirmed at 120 pairs. Nearly all
+of it is the burn deck at 66.7% [57.8, 74.5].
 
 ---
 
-## 3. What I would do next, in order
+## 3. The two measurement repairs, and why they matter more than the rungs
 
-### a. Nothing in the current card pool is a big policy win
+### The ladder could not see seat-dependent play
 
-This is the main thing to absorb before spending effort. Four hypotheses were
-tested and three failed, each for a different reason:
+`run_step` plays each seed twice with the generations swapped across seats. That
+is what makes a rate attributable — and it cancels anything seat-dependent
+*exactly*. A change that wins on the play and loses on the draw pools to 50.0%
+and is indistinguishable from a no-op.
 
-- **Mana development** looked broken over six games. Over 1,000+ turns it was
-  variance in the *opposite* direction.
-- **Activated abilities** looked like the largest gap: 9 of 38 distinct cards
-  carry one. Worth exactly nothing — three cost a sacrifice, the rest sit on
-  creatures that rarely reach the board. `abils` is 0.00 across 300 games.
-- **Aggro never blocking** looked like a weight miscalibration. The arithmetic
-  shows the weight flips no decision; aggro blocks rarely because its creatures
-  are small, which is correct play.
+Every verdict now also reports the challenger's rate by seat, with an interval
+on the difference. No extra games; the split was already being computed and
+discarded.
 
-Only v4's land sequencing moved the needle. My honest read: the shared planners
-now play this pool close to the ceiling that one-ply reasoning allows, and the
-next real gain needs either **lookahead** or **a bigger card pool** (Guildpact
-adds Izzet, Orzhov, Gruul and far more ability-dense cards).
+It fired on the first rung it was pointed at. v7 vs v6, Boros burn:
 
-### b. The unexplained result worth chasing
+```
+rate=50.4% ci=[41.6,59.2] n=119
+seats on_play=68.3% on_draw=32.2% asymmetry=+36.1pt ci=[+19.4,+52.9] established=true
+```
 
-**Every mirror shows a negative play advantage** — the seat on the play wins
-34–50% where real Magic predicts ~53%. Two candidate mechanisms, unseparated:
-the skipped first draw in long games (CR 103.8a, correctly implemented), and
-one-ply policies favouring the reactive seat. Separating them would say
-something real about either the engine or the whole policy family. It is the
-most interesting open question here.
+Read the pooled number and the change did nothing. It did a great deal, in
+opposite directions by seat. **Three of the four earlier rungs were verdicted
+"no change" by an instrument with this blind spot.** Re-running v2, v3 and v5
+with the split is cheap and is the first thing I would do.
 
-### c. Cheap, concrete, unblocked
+### The play advantage was noise, and is retracted
 
-- **Parallelise the ladder.** The matrix runner is threaded; the ladder is not.
-  A 120-pair ladder is ~8 minutes that should be under one.
-- **Convoke.** 15 cards in the set have it; the planner cannot reduce a cost, so
-  Siege Wurm and friends are simply never cast.
-- **Sacrifice-cost abilities.** The three v5 skips need explicit payment
-  selection through `ActivateAbilityWithGeneralizedCosts`.
-- **Mulligans.** No generation mulligans; every game keeps its seven.
+`POLICY_LADDER.md` called the negative play advantage "the clearest open
+question the harness has surfaced". At 60 games per mirror it reproduces and
+looks enormous — the aggro mirror measured **-60.0pt**. At 180 games per mirror
+three of four cells change sign and the mean lands near +4pt, which is roughly
+what Magic predicts.
 
-### d. Milestones 2–5 of the original handoff
+`play_edge` was the only statistic in the harness reported without an error bar.
+It now carries one, and within a mirror it reduces exactly to `2p - 1` on the
+seat-on-the-play rate, so the bound is exact rather than an approximation of a
+difference of dependent proportions.
 
-M1 (protocol and contracts) is done. M4's projection half has landed in
-`session`. Still open: the policy v2 ABI over `ActionRequest`, controllers, the
-orchestration loop, and multiplayer. Nothing above depends on them.
+The lesson generalises the one already in §5 of the old handoff: **a number
+without an error bar is not a result, including one derived from two numbers
+that had them.**
 
 ---
 
-## 4. Things that will bite you
+## 4. Where policy strength actually is
+
+### Measured, fixed: instants were cast at the worst legal moment
+
+Across eight traced games, 141 of 143 spells were cast on the caster's own turn,
+18 of those in the **upkeep or draw step** — before the caster had even drawn —
+and not one at an opponent's end step or in any combat step. Every piece of
+instant-speed interaction these decks own (Putrefy, Char, Lightning Helix) was
+spent with nothing to respond to and no information gained.
+
+v6 holds instants for a window worth something. v7 splits that by target: reach
+loses nothing by waiting, while removal held to the end step has already conceded
+the creature one attack. Together, +4.6 points.
+
+### Found, not yet exploited: the attack planner models the wrong opponent
+
+`simulate_defence` prices a block as pure material — attacker's value if it dies
+minus blocker's if it does. That is the **v1** blocking model. v3 replaced it in
+the *real* defender precisely because it is wrong: a 2/4 in front of a 3/3 kills
+nothing and loses nothing, scores zero, and declines, so three damage goes
+through every turn.
+
+Since v3, then, the attack planner has been predicting a defender the codebase
+itself stopped using — expecting free damage from attackers a valued defender
+will in fact block. `simulate_defence_valued` now exists alongside it and is used
+by the new damage projection, but **no generation uses it for attack planning
+yet.** That is v8, it is a handful of lines, and it is the strongest lead I know
+of. It is also exactly the kind of change the seat split was built to judge,
+because it changes what the attacking seat does.
+
+### Still open, ranked
+
+1. **v8: attack planning against the valued defender.** Above.
+2. **Re-measure v2/v3/v5 with the seat split.** Cheap; may reclassify three
+   "no change" verdicts.
+3. **Turn-level mana allocation.** `spell_to_cast` greedily takes the single
+   best spell per priority window, so with four mana it takes the best four-drop
+   even when two two-drops are strictly better. Rough measurement put land-mana
+   utilisation at 38% for aggro and 41% for Selesnya — heavily caveated (an
+   empty hand makes unused mana correct), which is why the metric should be
+   built properly first: `SeatStats.mana_produced` promises a comparison against
+   spend that is never computed.
+4. **Confirm v7 over v5 at 120 pairs.** The pass is marginal.
+5. **Give `Board` the stack's contents.** v6/v7 deliberately do not respond to
+   anything, because `Board` exposes only `stack_depth` and acting on depth
+   alone spends removal at random. A real response rule needs to see what is on
+   the stack.
+6. **Parallelise the ladder.** The matrix runner is threaded; this one is not. A
+   60-pair named-pair run is several minutes.
+
+### Productive gameplay, as its own axis
+
+Strength and watchability are not the same number, and only one of them is
+currently measured. The Selesnya mirror runs **43.8 mean turns**, and the
+Selesnya ladder cell 50.3. Those games are not being decided by judgement; they
+are two pilots unable to convert. Aggro-vs-burn at 13.7 turns is much closer to
+the interesting region.
+
+Nothing gates on this yet. A turn-count band — call it 8 to 25 — reported
+alongside win rate would make it visible, and a policy change that improves win
+rate while pushing the Selesnya mirror to turn 60 should not read as unqualified
+progress.
+
+---
+
+## 5. Things that will bite you
 
 **Do not add serde to `engine`, `policies`, or `rav`.** The zero-dependency
-posture is why `protocol` has no engine dependency, which is in turn what makes
+posture is why `protocol` has no engine dependency, which is what makes
 "transport cannot grow a second rules implementation" a compiler guarantee
 rather than a code-review promise. Project, don't derive — `session/src/project.rs`
 is the pattern.
 
-**Do not change the four constructed decks.** Every ladder number is against
-them. Deck changes are a separate axis and invalidate the baseline.
+**Do not edit a shared planner in place if a frozen generation calls it.** This
+is the trap that nearly caught the defence-model fix: `simulate_defence` is
+called by every measured generation, so correcting it would silently rewrite the
+baseline every ladder number was measured against. Add the corrected function
+alongside it and let the new generation opt in.
 
-**Freeze a generation once measured.** Editing v4 in place destroys the baseline
-v5 is compared against. New generation, new file.
+**Do not change the four constructed decks,** and freeze a generation once
+measured. Same reason.
 
 **A rejected policy move is never data.** It means the game ended by an engine
-refusal rather than by play. The ladder reports contaminated cells separately
-and `is_improvement()` demands every cell be clean.
+refusal rather than by play. The ladder reports contaminated cells separately.
+Note the scope: the *ladder* is clean at `invalid_rungs=0`, but the deck matrix
+still reports `rejected_policy_moves=16, failure_count=1` at 90 pairs,
+concentrated in the two Selesnya non-mirror cells. "No open defects" is a claim
+about the mirror lane only.
 
-**Watch out for substring matching on event kinds.** I reported "43 ability
-activations, v5 works" from `grep -c AbilityActivated`, which also matches
-`ManaAbilityActivated`. The true count was zero. The transcript carries a typed
-`kind` field precisely so nobody needs substring matching — use it. The tell was
-the ladder returning byte-identical numbers across a supposed behaviour change.
+**Watch out for substring matching on typed data.** "43 ability activations" once
+came from `grep -c AbilityActivated`, which also matches `ManaAbilityActivated`;
+the true count was zero. The same pattern is still live in production:
+`board.rs:role_for` classifies cards with `format!("{effect:?}")` and
+`names.contains("Destroy")`. One enum rename and a card silently becomes
+`Role::Other`.
 
 **Object identities must be captured at setup, not at the end.** CR 800.4a
 removes a departing player's objects, so an end-of-match scan silently loses
-every card the loser owned — half the seats in every decisive game. This is
-already fixed and a fidelity test guards it, but the same trap applies anywhere
-you resolve an id after a game ends.
+every card the loser owned.
 
 **Mean-of-ratios is not ratio-of-means.** Creature conversion read 0.36 when the
-true figure was 0.95, because seats with a zero denominator contributed zeros.
+true figure was 0.95.
 
 ---
 
-## 5. Measurement discipline that earned its keep
+## 6. If you are wiring up an external agent
 
-Three checks caught real errors and are worth preserving:
+The seat contract is `CodePolicy`: `propose_move(&GameView) -> PolicyAction` and
+`propose_pending_decision`. `seat_policy()` in `archetypes/mod.rs` is where a
+version becomes a seat, and `run_versioned_matchup` seats two of them on the same
+deck. An agent-backed policy slots in at exactly that point.
 
-1. **Mirror calibration.** A deck against itself must be exactly 50%. The first
-   run reported 100% and exposed a real attribution bug — in a mirror both deck
-   ids are the same string, so wins must be attributed by *seat*.
-2. **Identical numbers are a red flag, not a result.** Twice, a byte-identical
-   ladder meant the change was a no-op, not that it was neutral.
-3. **Wilson intervals, per-deck.** At 100 games a 55% rate cannot be told from
-   50%. Per-deck reporting is what made v3's single-deck effect visible where an
-   aggregate would have read as noise — and equally what stopped v6 being
-   claimed on a correlation.
+Three things to know before trusting a number that comes out of it:
 
-The general lesson, stated plainly because it cost the most time: **static card
-counts and single games both generated confident, wrong leads.** Only
-`check-batch.sh stats` over hundreds of games produced a hypothesis worth
-testing, and even that one turned out to have its causation backwards. Count
-first.
+- **Score against a named baseline**, not the newest thing: `rav-policy-ladder N
+  <candidate> v7`. What "latest" means changes.
+- **Read the seat split, not only the pooled rate.** A candidate that is 50.0%
+  paired may be a large effect in both directions.
+- **A candidate that produces refused proposals has not been measured.** Those
+  games ended by an engine refusal rather than by play, and the ladder reports
+  them separately for exactly that reason.
+
+The card pool is larger than the current decks suggest — 291 implemented cards
+against the 38 distinct cards the four constructed decks use, plus 15 more
+constructed decks already written and sitting on the legacy per-deck-policy lane.
+Widening the field is a deck-axis question and does not block any of §4.

@@ -42,6 +42,27 @@ never averaged in as losses.
 50.0% on every deck with zero rejections. That is the null result the harness
 must produce before any non-null result from it means anything.
 
+**Seat split, because the pairing has a blind spot.** Swapping the generations
+across seats is what makes a rate attributable, and it cancels anything
+seat-dependent *exactly*. A change that wins on the play and loses on the draw
+pools to 50.0% and is indistinguishable from a no-op. So each verdict also
+reports the challenger's rate on the play and on the draw, with an interval on
+the difference. This costs no extra games — the split was being computed and
+thrown away.
+
+It is not hypothetical. v7 against v6 piloting Boros burn:
+
+```
+rung  ... deck=rav_boros_burn rate=50.4% ci=[41.6,59.2] n=119
+  seats  on_play=68.3% on_draw=32.2% asymmetry=+36.1pt ci=[+19.4,+52.9] established=true
+```
+
+The pooled rate says the change did nothing. It changed a great deal, in
+opposite directions by seat, and under the old reporting that would have been
+written down as another no-op. Three of the four earlier rungs were verdicted
+"no change"; how much of that was this effect is not known, and re-running them
+with the split is cheap.
+
 ## Generations
 
 Each generation is a separate file under `policies/src/archetypes/`, frozen
@@ -57,6 +78,8 @@ Every generation pilots *any* deck; the archetype supplies weights, not code.
 | `v3` | Valued blocking. | v1 and v2 scored a block purely as material. A 2/5 blocking a 3/3 kills nothing and loses nothing, so the delta is zero and the block is declined — the wall watches three damage go through every turn. Both midrange decks run 2/5 bodies. |
 | `v4` | Land sequencing by what a land unlocks. | v1–v3 ranked lands by colour coverage, which prefers exactly the wrong land: a karoo makes two colours and sorts to the top, but enters tapped *and* bounces a land. Scoring a land by the best spell it makes castable this turn subsumes the problem rather than special-casing it. |
 | `v5` | Activated abilities (tap- and mana-cost only). | Nine of thirty-eight distinct cards carry a stack-using activated ability and no earlier generation activated any. Measured at no change: the opportunity is much smaller in play than in the card list. Sacrifice-cost abilities are reported unsupported rather than silently skipped. |
+| `v6` | Instant timing: hold interaction for a window worth something. | v1-v5 cast an instant at the first priority window that could pay for it, which on your own turn is the *upkeep* — before your own draw step, with nothing to respond to. Measured across eight traced games: 141 of 143 spells cast on the caster's own turn, 18 in upkeep or draw, and none at an opponent's end step or in any combat step. |
+| `v7` | Split that timing by what the spell does. | v6 held everything and measured 65.8% on burn against ~48-50% on the other three decks. Reach loses nothing by waiting; removal held to the end step has already conceded the creature one attack. So removal answers the board on my turn and only reach is held. |
 
 ### Shared scale
 
@@ -85,9 +108,22 @@ It is the number to trust, and it is not always the flattering one.
 | v3 vs v2 | 50.4% | 60.0% | 52.9% | 49.6% | 53.2% [50.0, 56.3] | 51.0% [47.3, 54.6] | not established |
 | v4 vs v3 | 57.1% | 60.8% | 57.5% | 60.0% | 58.7% [55.5, 61.9] | **58.2% [54.6, 61.7]** | **improvement** |
 | v5 vs v4 | 47.5% | 50.0% | 50.0% | 48.7% | 49.1% [44.6, 53.5] | 49.1% [44.6, 53.5] | no change |
+| v6 vs v5 | 48.3% | 50.0% | 46.7% | **65.8%** | 52.7% [48.2, 57.1] | 52.7% [48.2, 57.1] | not established |
+| v7 vs v6 | 56.7% | 50.0% | 52.5% | 50.4% | 52.4% [47.9, 56.8] | 52.4% [47.9, 56.8] | not established |
+| **v7 vs v5** | 51.7% | 50.0% | 50.0% | **66.7%** | **54.6% [50.1, 59.0]** | **54.6% [50.1, 59.0]** | **improvement** |
 
-v5 vs v4 was measured at 60 seed pairs (120 games per cell); the earlier rungs
-used 120 pairs (240 per cell).
+v5 vs v4 onward were measured at 60 seed pairs (120 games per cell); the earlier
+rungs used 120 pairs (240 per cell).
+
+The last row is why `rav-policy-ladder` now takes an explicit pair. Neither
+timing rung clears the bar against its immediate predecessor, and the two
+together do: v7 against v5 is 54.6% with the interval excluding 50%, positive or
+level on all four decks, no regressions, `invalid_rungs=0`. A change split across
+two generations is invisible to a ladder that only walks successive pairs.
+
+It is a *marginal* pass — the lower bound is 50.1% — and the honest reading is
+that it should be confirmed at 120 pairs before being leaned on. Almost all of
+it is burn: 66.7% [57.8, 74.5] there against 50-52% everywhere else.
 
 Reading these honestly:
 
@@ -153,24 +189,37 @@ hierarchy with one inversion at the top rather than a clean
 rock-paper-scissors, which is unsurprising given how thin the pool's burn is —
 the set contains two burn spells that can be aimed at a player.
 
-### An unexplained result worth flagging
+### The "negative play advantage", retracted
 
-Every mirror shows a **negative play advantage**: the player on the play wins
-34-50% rather than the ~53% real Magic would predict. In a mirror the two
-figures sum to 100% by construction, so Selesnya's 34.0% on the play is a
-32-point swing toward the drawing seat.
+This document previously reported a negative play advantage in every mirror —
+the seat on the play winning 34-50% where real Magic predicts ~53% — and called
+it the clearest open question the harness had surfaced. It was noise, and the
+retraction is worth keeping because of how it happened.
 
-Two mechanisms plausibly contribute, and this work has not separated them:
+At 60 games per mirror the effect reproduces and looks enormous: the Boros aggro
+mirror measured **-60.0pt**, i.e. 20.0% on the play. At 180 games per mirror:
 
-1. The engine correctly implements CR 103.8a — the starting player skips their
-   first draw — and these games run long enough (13 to 44 turns) that a card
-   is worth more than a turn of tempo.
-2. Every generation so far is one-ply and reactive. The seat acting second sees
-   a developed board before committing, which a deeper policy would exploit
-   less asymmetrically.
+| mirror | play edge @ n=60 | @ n=180 |
+| --- | --- | --- |
+| boros_aggro | -60.0pt | -8.9pt |
+| golgari_midrange | +0.0pt | -8.9pt |
+| boros_burn | -31.0pt | **+14.6pt** |
+| selesnya_midrange | -20.0pt | **+17.8pt** |
 
-Until it is separated, no claim is made that this reflects Magic rather than
-this policy family. It is the clearest open question the harness has surfaced.
+Three of four cells changed sign and the mean landed near +4pt, which is about
+what Magic predicts. Nothing here was ever significant.
+
+The cause is narrow. `play_edge` was the only statistic in the harness reported
+as a bare point estimate. Every win rate carried a Wilson interval; the quantity
+*derived* from two of them carried none, so there was nothing to stop the noise
+being written down as a finding. It now carries an interval, and because seats
+are complementary within a mirror the edge reduces to a single proportion —
+`2p - 1` for the seat-on-the-play rate — so the bound is exact rather than an
+approximation of a difference of dependent proportions.
+
+The general form of the lesson, alongside "identical numbers are a red flag":
+**a number without an error bar is not a result, including one you computed from
+two numbers that had them.**
 
 ## Reviewing a single match
 
