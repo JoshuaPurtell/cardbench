@@ -38,7 +38,7 @@ fn play(seed: u64) -> (MatchTranscript, Vec<String>) {
         shuffle_seed: seed,
         ..DeckMatchConfig::default()
     };
-    let (result, events) =
+    let (result, events, _identities) =
         run_deck_matchup_capturing(config, AGGRO, MIDRANGE, pilots).expect("match runs");
     let manifest = MatchManifest {
         schema_version: TRANSCRIPT_SCHEMA.to_owned(),
@@ -227,4 +227,102 @@ fn transcripts_are_deterministic_for_a_seed() {
         first.to_jsonl().expect("serialise"),
         second.to_jsonl().expect("serialise")
     );
+}
+
+/// The registry must cover both seats, including the loser's cards.
+///
+/// This is the bug the campaign stats caught in their own capture: resolving
+/// identities only at the end of a match loses every object owned by the
+/// departing player, because CR 800.4a removes them. Half the seats in every
+/// decisive game reported zero cards drawn, which looked like a policy fact
+/// and was a measurement artefact.
+#[test]
+fn the_card_registry_covers_the_loser_as_well_as_the_winner() {
+    use cardbench_magic_session::stats::{CardIdentity, CardRegistry, summarize};
+
+    let index = shared_card_index();
+    let pilots = [
+        seat_policy(
+            PolicyVersion::latest(),
+            cardbench_magic_engine::PlayerId(0),
+            Archetype::Aggro,
+            index.clone(),
+        ),
+        seat_policy(
+            PolicyVersion::latest(),
+            cardbench_magic_engine::PlayerId(1),
+            Archetype::Midrange,
+            index,
+        ),
+    ];
+    let policies = [pilots[0].id().to_owned(), pilots[1].id().to_owned()];
+    let config = DeckMatchConfig {
+        shuffle_seed: 3,
+        ..DeckMatchConfig::default()
+    };
+    let (result, events, identities) =
+        run_deck_matchup_capturing(config, AGGRO, MIDRANGE, pilots).expect("match runs");
+    assert!(
+        result.winner.is_some(),
+        "the fixture must produce a decisive game, so one seat departs"
+    );
+
+    let owners: std::collections::BTreeSet<usize> =
+        identities.iter().map(|entry| entry.owner.0).collect();
+    assert_eq!(
+        owners.len(),
+        2,
+        "both seats' cards must be in the registry, including the loser's"
+    );
+    // Two 60-card decks: the registry must hold essentially all of them.
+    assert!(
+        identities.len() >= 120,
+        "expected at least both full decks, got {}",
+        identities.len()
+    );
+
+    let registry: CardRegistry = identities
+        .iter()
+        .map(|entry| {
+            (
+                entry.object.0,
+                CardIdentity {
+                    object: entry.object.0,
+                    definition: entry.definition.to_owned(),
+                    owner: u16::try_from(entry.owner.0).unwrap_or(u16::MAX),
+                    is_creature: true,
+                    is_land: false,
+                    mana_value: 0,
+                },
+            )
+        })
+        .collect();
+    let manifest = MatchManifest {
+        schema_version: TRANSCRIPT_SCHEMA.to_owned(),
+        decks: result.deck_ids.clone(),
+        policies,
+        shuffle_seed: 3,
+        opening_hand_size: result.config.opening_hand_size,
+        turns: result.turns,
+        winner: result
+            .winner
+            .map(|player| u16::try_from(player.0).unwrap_or(u16::MAX)),
+        termination: format!("{:?}", result.termination),
+        life: result.life,
+        accepted_policy_moves: result.accepted_policy_moves,
+        rejected_policy_moves: 0,
+        digest: result.digest.clone(),
+    };
+    let transcript = MatchTranscript {
+        manifest,
+        events: project_events(&events),
+    };
+    let stats = summarize(&transcript, &registry);
+    for seat in &stats.seats {
+        assert!(
+            seat.drew_total > 0,
+            "seat {} recorded no cards drawn, which no real game produces",
+            seat.seat
+        );
+    }
 }

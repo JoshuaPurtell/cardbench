@@ -22,5 +22,9 @@ name = "cardbench_magic_session"
 path = "src/lib.rs"
 
 [[bin]]
+name = "rav-campaign-stats"
+path = "src/bin/rav_campaign_stats.rs"
+
+[[bin]]
 name = "rav-match-review"
 path = "src/bin/rav_match_review.rs"

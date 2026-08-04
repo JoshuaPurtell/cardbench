@@ -190,6 +190,45 @@ never attacked, a match with no blocks. It found its first real result
 immediately — the Selesnya pilot declares no attacker at all across a 13-turn
 game it loses.
 
+## Campaign statistics
+
+```sh
+./scripts/check-batch.sh stats 30      # 300 games, all pairings
+```
+
+Win rates say which deck is better; these say what the pilots actually did.
+They exist because two improvement leads in a row came from inference rather
+than counting — a six-game sample and a static card list, both wrong — and both
+would have been caught here.
+
+At v5, 300 games:
+
+| deck | wins/150 | turns | drewCr | castCr | conv | lands | mana | atks | blks | abils |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| boros_aggro | 55 | 8.2 | 5.6 | 5.3 | 0.95 | 7.5 | 14.6 | 4.4 | **0.7** | 0.00 |
+| boros_burn | 62 | 7.1 | 5.6 | 3.9 | **0.70** | **5.8** | 15.2 | 3.2 | **0.8** | 0.00 |
+| golgari_midrange | 93 | 9.3 | 9.5 | 7.9 | 0.83 | 7.0 | 27.0 | 4.0 | 1.9 | 0.00 |
+| selesnya_midrange | 87 | 14.4 | 11.0 | 10.2 | 0.93 | 10.0 | **35.6** | 9.3 | 6.8 | 0.00 |
+
+What this says that no win rate does:
+
+- **`abils` is 0.00 everywhere.** v5's ability planner fires zero times across
+  300 games, confirming at campaign scale what one traced game suggested.
+- **Aggro and burn essentially never block** (0.7 and 0.8 per game against
+  Selesnya's 6.8), and they are the two losing decks. Aggro's archetype weights
+  set `own_life` to 0.08, which makes almost every block score negative. That is
+  a calibration hypothesis a win rate alone could never have pointed at.
+- **Burn converts only 70% of the creatures it draws** and makes the fewest land
+  drops per turn (5.8 over 7.1), so it strands its costlier bodies.
+- **Midrange out-resources aggro roughly two to one** in mana produced, which
+  frames the aggro deficit as much as a deck question as a policy one.
+
+The registry these numbers depend on was itself wrong on first attempt: object
+identities were resolved at end of match, and CR 800.4a had already removed
+every card owned by the loser, so half the seats reported drawing nothing.
+Identities are now snapshotted at setup and merged with an end-of-game pass, and
+a fidelity test asserts both seats appear.
+
 ## Running it
 
 ```sh

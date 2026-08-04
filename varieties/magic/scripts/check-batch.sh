@@ -15,6 +15,7 @@ usage:
   ./scripts/check-batch.sh protocol [test|clippy]
   ./scripts/check-batch.sh session [test|clippy]
   ./scripts/check-batch.sh ladder [SEED_PAIRS]
+  ./scripts/check-batch.sh stats [SEEDS]
   ./scripts/check-batch.sh matrix [SEED_PAIRS]
   ./scripts/check-batch.sh rav SHARD[/TOTAL] [test|clippy]
   ./scripts/check-batch.sh engine SHARD[/TOTAL] [test|clippy]
@@ -93,6 +94,7 @@ case "$command" in
       '4. session    engine-to-protocol projection and transcript fidelity tests' \
       '5. ladder     policy generation N vs N-1 across every constructed deck' \
       '6. matrix     constructed-deck matchup matrix with confidence intervals' \
+      '6b. stats     per-deck campaign statistics: what the pilots actually did' \
       '7. rav        deterministic slice of RAV integration-test targets' \
       '8. engine     deterministic slice of engine integration-test targets' \
       '9. exhaustive workspace tests/clippy (release-only; not run by this script)'
@@ -131,6 +133,11 @@ case "$command" in
     cd "$ROOT"
     cargo run --release --quiet -p cardbench-magic-policies --bin rav-policy-ladder \
       -- "${2:-25}"
+    ;;
+  stats)
+    cd "$ROOT"
+    cargo run --release --quiet -p cardbench-magic-session --bin rav-campaign-stats \
+      -- "${2:-30}"
     ;;
   matrix)
     cd "$ROOT"

@@ -17,6 +17,7 @@ use cardbench_magic_rav::{
     rav_activated_ability_bindings, rav_additional_spell_cost_bindings, rav_land_entry_bindings,
     rav_mana_ability_bindings,
 };
+use std::collections::BTreeMap;
 use std::sync::{Arc, OnceLock};
 
 use crate::{
@@ -262,7 +263,7 @@ pub fn run_deck_matchup_with(
     deck_p1_id: &str,
     pilots: [Box<dyn CodePolicy>; 2],
 ) -> Result<DeckMatchResult, String> {
-    run_deck_matchup_capturing(config, deck_p0_id, deck_p1_id, pilots).map(|(result, _)| result)
+    run_deck_matchup_capturing(config, deck_p0_id, deck_p1_id, pilots).map(|(result, ..)| result)
 }
 
 /// Runs one full-deck match and also returns the typed engine event log.
@@ -282,7 +283,7 @@ pub fn run_deck_matchup_capturing(
     deck_p0_id: &str,
     deck_p1_id: &str,
     pilots: [Box<dyn CodePolicy>; 2],
-) -> Result<(DeckMatchResult, Vec<GameEvent>), String> {
+) -> Result<(DeckMatchResult, Vec<GameEvent>, Vec<ObjectIdentity>), String> {
     if config.opening_hand_size == 0 {
         return Err("full-deck match requires a nonzero opening hand size".to_owned());
     }
@@ -306,6 +307,10 @@ pub fn run_deck_matchup_capturing(
     game.draw_opening_hand(PlayerId(1), config.opening_hand_size)
         .map_err(rules_error)?;
     game.begin_game().map_err(rules_error)?;
+    // Snapshot identities now, while every card still exists. The end-of-game
+    // pass below adds tokens created during play.
+    let mut identities = BTreeMap::new();
+    object_identities(&game, &mut identities);
     let mut policies = pilots;
     let mut attempted_policy_moves = 0;
     let mut accepted_policy_moves = 0;
@@ -318,7 +323,9 @@ pub fn run_deck_matchup_capturing(
             "after deck setup",
             &error,
         ));
-        return Ok(captured(
+        object_identities(&game, &mut identities);
+        return Ok(captured_with(
+            identities,
             &game,
             deck_ids,
             config,
@@ -418,7 +425,9 @@ pub fn run_deck_matchup_capturing(
         &game.event_log,
         config.shuffle_seed,
     ));
-    Ok(captured(
+    object_identities(&game, &mut identities);
+    Ok(captured_with(
+        identities,
         &game,
         deck_ids,
         config,
@@ -859,9 +868,57 @@ fn fail_closed_tournament(
     }
 }
 
+/// Identity of one object that appeared in a match, for transcript review.
+///
+/// The event log names objects but never says what they are, so no
+/// type-based statistic is derivable from a transcript alone. Resolving the
+/// ids once at the end costs nothing and makes the whole log queryable.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ObjectIdentity {
+    pub object: cardbench_magic_engine::ObjectId,
+    pub definition: &'static str,
+    pub owner: PlayerId,
+}
+
+/// Snapshots the identity of every object that currently exists.
+///
+/// Scans a bounded id range rather than the event log, and is called both at
+/// setup and at the end. That matters: CR 800.4a removes a departing player's
+/// objects, so an end-of-game scan alone silently loses every card owned by
+/// the loser -- which is half the seats in every decisive match, and would
+/// make any per-seat statistic quietly wrong rather than obviously missing.
+fn object_identities(
+    game: &Game,
+    into: &mut BTreeMap<cardbench_magic_engine::ObjectId, ObjectIdentity>,
+) {
+    // Two 60-card decks plus tokens. Ids are dense and allocated from one
+    // counter, so a bounded scan is complete without exposing the map.
+    for raw in 0..OBJECT_SCAN_LIMIT {
+        let object = cardbench_magic_engine::ObjectId(raw);
+        let Ok(card) = game.object(object) else {
+            continue;
+        };
+        let owner = card.owner;
+        let Ok(definition) = game.card_definition(object) else {
+            continue;
+        };
+        into.entry(object).or_insert(ObjectIdentity {
+            object,
+            definition: definition.id,
+            owner,
+        });
+    }
+}
+
+/// Upper bound for the identity scan: two 60-card decks leave ample room for
+/// tokens and virtual copies.
+const OBJECT_SCAN_LIMIT: u64 = 512;
+
 /// Pairs the ordinary result with the typed event log, so the capturing entry
 /// point and the plain one cannot drift apart.
-fn captured(
+#[allow(clippy::too_many_arguments)] // One receipt assembly point; a struct here would only rename the same fields.
+fn captured_with(
+    identities: BTreeMap<cardbench_magic_engine::ObjectId, ObjectIdentity>,
     game: &Game,
     deck_ids: [String; 2],
     config: DeckMatchConfig,
@@ -869,7 +926,7 @@ fn captured(
     attempted_policy_moves: u32,
     accepted_policy_moves: u32,
     engine_findings: Vec<EngineFinding>,
-) -> (DeckMatchResult, Vec<GameEvent>) {
+) -> (DeckMatchResult, Vec<GameEvent>, Vec<ObjectIdentity>) {
     let result = result_from_game(
         game,
         deck_ids,
@@ -879,7 +936,11 @@ fn captured(
         accepted_policy_moves,
         engine_findings,
     );
-    (result, game.event_log.clone())
+    (
+        result,
+        game.event_log.clone(),
+        identities.into_values().collect(),
+    )
 }
 
 fn result_from_game(

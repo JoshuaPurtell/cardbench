@@ -35,12 +35,14 @@
 
 pub mod critique;
 pub mod project;
+pub mod stats;
 pub mod transcript;
 
 pub use critique::{Critique, Finding, Severity, critique};
 pub use project::{
     EventFacts, ProjectedEvent, facts_for, project, project_events, project_for_transport,
 };
+pub use stats::{CardIdentity, CardRegistry, DeckAggregate, MatchStats, SeatStats};
 pub use transcript::{MatchManifest, MatchTranscript, TurnSummary, render_timeline, timeline};
 
 /// Schema identifier written into every transcript manifest.

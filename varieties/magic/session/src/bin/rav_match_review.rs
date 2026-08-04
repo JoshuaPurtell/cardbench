@@ -74,13 +74,14 @@ fn main() {
         shuffle_seed: seed,
         ..DeckMatchConfig::default()
     };
-    let (result, events) = match run_deck_matchup_capturing(config, &deck_a, &deck_b, pilots) {
-        Ok(pair) => pair,
-        Err(error) => {
-            eprintln!("match failed: {error}");
-            std::process::exit(1);
-        }
-    };
+    let (result, events, _identities) =
+        match run_deck_matchup_capturing(config, &deck_a, &deck_b, pilots) {
+            Ok(pair) => pair,
+            Err(error) => {
+                eprintln!("match failed: {error}");
+                std::process::exit(1);
+            }
+        };
 
     let manifest = MatchManifest {
         schema_version: TRANSCRIPT_SCHEMA.to_owned(),
