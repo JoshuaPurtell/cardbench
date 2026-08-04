@@ -120,27 +120,47 @@ model. They are reported separately so they cannot inflate `fallbacks`.
 `react-vs-code` against **v7**, 24 games each, `pairs=3`, `reasoning_effort=low`.
 Both seats play the same deck; v7 is also each model seat's fallback.
 
-| Model | Win rate vs v7 | Agency | Valid |
+| Model | effort | Win rate vs v7 | Agency |
 | --- | --- | --- | --- |
-| `openai/gpt-oss-120b` | 33.3% [18.0, 53.3] | 99.4% | ✓ |
-| `openai/gpt-oss-20b` | 29.2% [14.9, 49.2] | 100.0% | ✓ |
+| `openai/gpt-oss-120b` | low | 33.3% [18.0, 53.3] | 99.4% |
+| `openai/gpt-oss-120b` | high | 41.7% [24.5, 61.2] | 96.2% |
+| `openai/gpt-oss-20b` | low | 29.2% [14.9, 49.2] | 100.0% |
+| `openai/gpt-oss-20b` | high | 29.2% [14.9, 49.2] | 83.5% |
 
-Both lose to v7, and the two are not distinguishable from each other at this
-sample size. Agency near 100% is what makes the rates mean anything: no
-fallbacks, no engine refusals, no truncated replies.
+Every cell `valid=true`, `truncated=0`. All four lose to v7.
+
+**More thinking did not help.** 120b gained 8.4 points nominally with intervals
+that overlap almost entirely; 20b was identical to the decimal. High effort is
+also where the runs got fragile: 20b took 86 provider failures, so 16.5% of its
+open decisions were played by the fallback, which makes that cell the least
+trustworthy of the four. Raising effort raises latency, and latency buys
+timeouts.
+
+Head to head, both seats models, low effort:
+
+| | Win rate | Agency |
+| --- | --- | --- |
+| `gpt-oss-20b` (seat A) | 33.3% [18.0, 53.3] | 100.0% |
+| `gpt-oss-120b` (seat B) | 66.7% | 98.7% |
+
+120b is ahead in all three comparisons. No single one is established at n=24.
 
 ### The models collapse on the draw
 
-Pooling both models' seat splits — exact counts, not estimates:
+Three independent measurements, exact counts:
 
-| | wins | rate |
+| measurement | on the play | on the draw |
 | --- | --- | --- |
-| on the play | 12 / 24 | **50.0%** [31.4, 68.6] |
-| on the draw | 3 / 24 | **12.5%** [4.3, 31.0] |
+| vs v7, low effort (both models) | 12/24 = **50.0%** | 3/24 = **12.5%** |
+| vs v7, high effort (both models) | 13/24 = **54.2%** | 4/24 = **16.7%** |
+| 20b vs 120b (no code policy involved) | 6/12 = **50.0%** | 2/12 = **16.7%** |
 
-On the play these models hold parity with v7. On the draw they win one game in
-eight, and the intervals do not overlap. Pooling two models is informal, but
-the pattern is consistent across all four decks.
+In the head-to-head, where both seats are models, the player *on the play* won
+**16 of 24 games (66.7%)**. `POLICY_LADDER.md` puts the play advantage between
+code policies near **+4 points**. Between two model seats it is **+33**.
+
+Raising reasoning effort did not move it. Removing v7 from the match did not
+move it. A reasoning deficit should respond to more reasoning; this does not.
 
 The obvious hypothesis is not "the models are worse". Playing from behind is
 mostly defence, and defence is the weakest part of the menu: no multi-blocks,
