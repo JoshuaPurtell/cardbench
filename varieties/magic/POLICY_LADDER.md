@@ -71,39 +71,81 @@ absorbing four damage once; at six life it inverts.
 
 ## Measured results
 
-Definitive run, 150 seed pairs per rung for v2/v3 and 60 for v4 (300 and 120
-games per deck), paired seats throughout. "Rate" is the challenger's win rate;
-50% means the change did nothing.
+Definitive run: 120 seed pairs per deck per rung, 240 games per cell, ~950
+decisive games per rung, paired seats throughout. "Rate" is the challenger's
+win rate; 50% means the change did nothing.
 
-| Rung | Boros aggro | Selesnya midrange | Golgari midrange | Boros burn | Pooled | Significant? |
-| --- | --- | --- | --- | --- | --- | --- |
-| v2 vs v1 | 49.7% | 54.9% | 51.0% | 51.0% | **51.6%** [48.8, 54.5] | no |
-| v3 vs v2 | 51.3% | **59.4%** [53.7, 65.0] | 51.3% | 49.7% | **52.9%** [50.0, 55.7] | borderline |
-| v4 vs v3 | 56.7% | 60.2% | 57.5% | 60.0% | **58.5%** [54.0, 62.9] | **yes** |
+`clean` pools only the cells that measured without engine-refused proposals.
+It is the number to trust, and it is not always the flattering one.
+
+| Rung | Aggro | Selesnya | Golgari | Burn | Pooled | Clean | Verdict |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| v2 vs v1 | 49.6% | 56.0% | 51.2% | 50.8% | 51.9% [48.7, 55.0] | 50.6% [46.9, 54.2] | no change |
+| v3 vs v2 | 50.4% | 60.0% | 52.9% | 49.6% | 53.2% [50.0, 56.3] | 51.0% [47.3, 54.6] | not established |
+| v4 vs v3 | 57.1% | 60.8% | 57.5% | 60.0% | 58.7% [55.5, 61.9] | **58.2% [54.6, 61.7]** | **improvement** |
 
 Reading these honestly:
 
-- **v2 did essentially nothing.** Whole-set attack planning is correct — the
-  unit tests pin a board where v1 declines three free attackers and v2 takes
-  them — but the board state it fixes is rarer in these matchups than expected.
-  A correct change is not automatically a valuable one, and the ladder is what
-  distinguishes the two.
-- **v3 helped exactly where it was predicted to.** The +9.4 point gain is on
-  Selesnya midrange, the deck built around 2/5 bodies, and its interval
-  excludes 50%. The pooled figure is borderline because the other three decks
-  have almost no walls and were unaffected. That is the per-deck reporting
-  earning its keep: an aggregate alone would have called this "noise".
-- **v4 is the first unambiguous rung.** Positive on all four decks, pooled
-  interval excludes 50%, no regressions. Land sequencing turns out to be worth
-  more than either combat change.
+- **v2 did nothing measurable.** Whole-set attack planning is provably correct
+  — a unit test pins a board where v1 declines three free attackers and v2
+  takes them — and worth 0.6 points, well inside noise. A correct change is not
+  automatically a valuable one. This is the entire reason the ladder exists.
 
-One caveat, reported rather than hidden: v4's better mana development lengthens
-the Selesnya midrange mirror from 26 to 44 mean turns, which triggers the open
-engine defect `battlefield-attachment-illegal-target-invariant-false-positive`
-in roughly 18% of that cell's games. Those games ended by an engine refusal,
-not by play. The ladder reports `clean`, pooling only uncontaminated cells,
-alongside the raw aggregate; `is_improvement()` still requires every cell to be
-clean, so that rung is not claimed as a formal pass.
+- **v3 is not established.** Its only material gain is +10 points on Selesnya
+  midrange, which is exactly the deck whose cell is contaminated by the open
+  engine defect; on the three clean decks it is 51.0%, indistinguishable from
+  no change. The valued-blocking argument is sound and the direction is right,
+  but the evidence sits in the one cell that cannot currently be trusted. It is
+  reported as suggestive, not as a win.
+
+- **v4 is the one real rung.** 58.2% on clean cells with the interval excluding
+  50%, positive on all four decks, no regressions. Land sequencing — the
+  cheapest of the three changes — is worth more than both combat changes
+  together.
+
+The contamination is not incidental to v4: better mana development lengthens
+the Selesnya mirror from 26 to 46 mean turns, and the open defect
+`battlefield-attachment-illegal-target-invariant-false-positive` fires in 51 of
+240 games there, up from 6 at v2. `is_improvement()` still demands every cell
+be clean, so no rung is claimed as a formal pass; `is_clean_improvement()`
+reports what the uncontaminated evidence supports.
+
+## Deck matchup structure
+
+With v4 piloting both sides, 60 seed pairs per cell (120 games), every mirror
+calibrating at exactly 50.0%:
+
+| Deck | Win rate vs the field | n |
+| --- | --- | --- |
+| Selesnya midrange | **65.3%** [60.2, 70.0] | 360 |
+| Golgari midrange | **58.9%** [53.7, 63.9] | 360 |
+| Boros aggro | 44.2% [39.1, 49.3] | 360 |
+| Boros burn | 31.7% [27.1, 36.6] | 360 |
+
+Notable individual cells: Selesnya beats aggro 76.7%, Selesnya beats burn
+77.5%, aggro beats burn 68.3%, and Golgari edges Selesnya 58.3%. That is a
+hierarchy with one inversion at the top rather than a clean
+rock-paper-scissors, which is unsurprising given how thin the pool's burn is —
+the set contains two burn spells that can be aimed at a player.
+
+### An unexplained result worth flagging
+
+Every mirror shows a **negative play advantage**: the player on the play wins
+34-50% rather than the ~53% real Magic would predict. In a mirror the two
+figures sum to 100% by construction, so Selesnya's 34.0% on the play is a
+32-point swing toward the drawing seat.
+
+Two mechanisms plausibly contribute, and this work has not separated them:
+
+1. The engine correctly implements CR 103.8a — the starting player skips their
+   first draw — and these games run long enough (13 to 44 turns) that a card
+   is worth more than a turn of tempo.
+2. Every generation so far is one-ply and reactive. The seat acting second sees
+   a developed board before committing, which a deeper policy would exploit
+   less asymmetrically.
+
+Until it is separated, no claim is made that this reflects Magic rather than
+this policy family. It is the clearest open question the harness has surfaced.
 
 ## Running it
 
