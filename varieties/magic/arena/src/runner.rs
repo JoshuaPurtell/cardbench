@@ -363,13 +363,8 @@ pub fn run(
 
     let queue: Vec<Job> = (0..decks.len())
         .flat_map(|deck| {
-            (0..u64::from(pairs)).flat_map(move |seed| {
-                (0_usize..2).map(move |a_seat| Job {
-                    deck,
-                    seed,
-                    a_seat,
-                })
-            })
+            (0..u64::from(pairs))
+                .flat_map(move |seed| (0_usize..2).map(move |a_seat| Job { deck, seed, a_seat }))
         })
         .collect();
 

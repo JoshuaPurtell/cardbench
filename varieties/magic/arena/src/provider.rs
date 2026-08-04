@@ -281,9 +281,7 @@ fn content(raw: &str) -> Result<String, ProviderError> {
                  reasoning and never answered -- raise max_tokens or lower \
                  reasoning_effort"
             ),
-            ("length", None) => {
-                "empty message truncated by max_tokens -- raise it".to_owned()
-            }
+            ("length", None) => "empty message truncated by max_tokens -- raise it".to_owned(),
             (other, _) => format!("empty message (finish_reason={other})"),
         }));
     }
