@@ -15676,6 +15676,24 @@ impl Game {
             .collect()
     }
 
+    /// Returns the digest of the current public state.
+    ///
+    /// This is the same value the internal seal compares against, exposed so
+    /// an out-of-engine caller can name the exact state it observed.  Two
+    /// callers holding different digests are looking at different states, and
+    /// a command submitted against a digest that no longer matches must be
+    /// refused rather than applied.
+    ///
+    /// It is read-only and side-effect free: computing it neither seals nor
+    /// refreshes anything, so an observer cannot launder a mutation through
+    /// it.  It is deliberately not a sequence number — ordering is the
+    /// caller's to track, because the public event log is resettable for
+    /// measured scenario suffixes and could therefore move backwards.
+    #[must_use]
+    pub fn public_state_digest(&self) -> u64 {
+        self.public_state_integrity_digest()
+    }
+
     #[must_use]
     pub fn is_game_over(&self) -> bool {
         self.players.iter().filter(|player| !player.lost).count() <= 1
@@ -44351,6 +44369,55 @@ mod tests {
         assert_eq!(game.active_player, PlayerId(1));
         assert_eq!(game.step, Step::Upkeep);
         assert_eq!(game.priority, PlayerId(1));
+    }
+
+    /// The public digest is what an out-of-engine caller uses to name the
+    /// state it observed, so it must be stable when nothing changed, must move
+    /// when something did, and must agree between two identically played
+    /// games.
+    #[test]
+    fn public_state_digest_identifies_the_observed_state() {
+        let mut game = Game::new(Vec::<CardDefinition>::new(), 2).expect("two-player game");
+        let before = game.public_state_digest();
+        assert_eq!(
+            before,
+            game.public_state_digest(),
+            "reading the digest must not change it"
+        );
+
+        game.pass_priority(game.priority).expect("first pass");
+        let after = game.public_state_digest();
+        assert_ne!(
+            before, after,
+            "an accepted transition must produce a different digest"
+        );
+
+        let mut replayed = Game::new(Vec::<CardDefinition>::new(), 2).expect("two-player game");
+        assert_eq!(replayed.public_state_digest(), before);
+        replayed
+            .pass_priority(replayed.priority)
+            .expect("first pass");
+        assert_eq!(
+            replayed.public_state_digest(),
+            after,
+            "the digest must be reproducible across an identical replay"
+        );
+    }
+
+    /// A refused command must leave the digest untouched. This is the engine
+    /// side of "rejected commands produce no partial mutation".
+    #[test]
+    fn a_rejected_action_leaves_the_public_state_digest_unchanged() {
+        let mut game = Game::new(Vec::<CardDefinition>::new(), 2).expect("two-player game");
+        let before = game.public_state_digest();
+        let non_priority = game.next_player(game.priority);
+        game.pass_priority(non_priority)
+            .expect_err("a player without priority cannot pass it");
+        assert_eq!(
+            before,
+            game.public_state_digest(),
+            "a refused action must not move the observed state"
+        );
     }
 
     #[test]
