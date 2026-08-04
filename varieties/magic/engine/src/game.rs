@@ -463,7 +463,25 @@ pub struct CardView {
     /// Typed basic-land type line, when this card's expansion registered one.
     pub basic_land_type: Option<BasicLandType>,
     pub card_types: BTreeSet<CardType>,
+    /// Live keywords after every continuous effect, not the printed list. A
+    /// policy that reads printed keywords cannot see a granted
+    /// `CannotAttackOrBlock` or a granted evasion keyword, and will propose
+    /// declarations the engine must reject.
+    ///
+    /// Permanent characteristics are public information, so this crosses no
+    /// viewer boundary.
+    pub keywords: Vec<Keyword>,
+    /// Whether this creature came under its controller's control this turn and
+    /// therefore cannot attack or pay a tap cost. Distinct from `can_attack`,
+    /// which is also false for a tapped creature, a Defender, and a creature
+    /// whose controller is not active.
+    pub summoning_sick: bool,
     pub can_attack: bool,
+    /// Whether this creature could be declared as a blocker at all, ignoring
+    /// any individual attacker's evasion. Attacker-relative legality still
+    /// depends on the pair, so this is a necessary condition, not a sufficient
+    /// one.
+    pub can_block: bool,
 }
 
 /// Public identity and target provenance for one activated ability currently
@@ -43977,13 +43995,27 @@ impl Game {
             .map_or_else(BTreeSet::new, |definition| definition.mana_colors.clone());
         let basic_land_type = effective_definition
             .and_then(|definition| self.basic_land_types.get(definition).copied());
+        let on_battlefield = self.zone_of(card) == Some(Zone::Battlefield);
+        let is_creature = characteristics.card_types.contains(&CardType::Creature);
+        let summoning_sick = is_creature
+            && on_battlefield
+            && object.controller_changed_turn >= self.turn
+            && !characteristics.keywords.contains(&Keyword::Haste);
         let can_attack = controller == self.active_player
-            && self.zone_of(card) == Some(Zone::Battlefield)
+            && on_battlefield
             && !object.tapped
-            && (object.controller_changed_turn < self.turn
-                || characteristics.keywords.contains(&Keyword::Haste))
-            && characteristics.card_types.contains(&CardType::Creature)
+            && !summoning_sick
+            && is_creature
             && !characteristics.keywords.contains(&Keyword::Defender)
+            && !characteristics
+                .keywords
+                .contains(&Keyword::CannotAttackOrBlock);
+        // Blocking needs neither haste nor an untapped-since-arrival creature,
+        // so summoning sickness is deliberately absent here.
+        let can_block = on_battlefield
+            && is_creature
+            && !object.tapped
+            && !characteristics.keywords.contains(&Keyword::CannotBlock)
             && !characteristics
                 .keywords
                 .contains(&Keyword::CannotAttackOrBlock);
@@ -43996,7 +44028,10 @@ impl Game {
             mana_colors,
             basic_land_type,
             card_types: characteristics.card_types,
+            keywords: characteristics.keywords,
+            summoning_sick,
             can_attack,
+            can_block,
         })
     }
 
@@ -44015,7 +44050,12 @@ impl Game {
                 mana_colors: definition.mana_colors.clone(),
                 basic_land_type: self.basic_land_types.get(definition.id).copied(),
                 card_types: definition.card_types.clone(),
+                keywords: definition.keywords.clone(),
+                // A spell on the stack is not a permanent: it cannot be
+                // summoning sick and cannot be declared in combat.
+                summoning_sick: false,
                 can_attack: false,
+                can_block: false,
             });
         }
         self.card_view(stack_object.card)

@@ -121,27 +121,56 @@ fn the_card_view_reports_live_keywords_rather_than_printed_ones() {
 
 /// Summoning sickness gates tap costs on mana abilities, and a policy that
 /// cannot see it plans an illegal activation.
+///
+/// Setup-placed permanents arrive on turn one, so both creatures here start
+/// sick; the fact under test is that the flag clears with time and that a
+/// creature which arrives later is still sick.
 #[test]
 fn the_card_view_reports_summoning_sickness() {
     let owner = PlayerId(0);
+    let opponent = PlayerId(1);
     let mut game = Game::new([bear(), shackle()], 2).expect("fixture initializes");
     let established = game
         .add_card(owner, BEAR, Zone::Battlefield)
         .expect("creature enters");
+    for seat in [owner, opponent] {
+        for _ in 0..12 {
+            game.add_card(seat, BEAR, Zone::Library)
+                .expect("library filler enters");
+        }
+    }
     game.begin_game().expect("game begins");
 
     assert!(
-        !view_card(&game, owner, established).summoning_sick,
-        "a creature that started the game on the battlefield is not sick"
+        view_card(&game, owner, established).summoning_sick,
+        "a creature that arrived this turn is summoning sick"
     );
 
-    let fresh = game
-        .add_card(owner, BEAR, Zone::Battlefield)
-        .expect("a creature enters this turn");
     assert!(
-        view_card(&game, owner, fresh).summoning_sick,
-        "a creature that entered this turn is summoning sick"
+        view_card(&game, owner, established).can_block,
+        "summoning sickness does not stop a creature from blocking"
     );
+
+    let start_turn = game.turn;
+    advance_past_turn(&mut game, start_turn);
+    assert!(
+        !view_card(&game, owner, established).summoning_sick,
+        "a creature controlled since an earlier turn is no longer sick"
+    );
+    assert!(
+        view_card(&game, owner, established).can_block,
+        "an established untapped creature can still block"
+    );
+}
+
+/// Plays out priority until the turn counter has moved past `from`.
+fn advance_past_turn(game: &mut Game, from: u32) {
+    for _ in 0..400 {
+        if game.turn > from || game.is_game_over() {
+            return;
+        }
+        step_once(game);
+    }
 }
 
 /// Advances to the active player's precombat main phase.
@@ -165,14 +194,30 @@ fn resolve_stack(game: &mut Game) {
 
 fn step_once(game: &mut Game) {
     let actor = game.next_policy_player();
-    let pending_draw = game
-        .view_for_player(actor)
-        .ok()
-        .and_then(|view| view.draw_replacement_decision);
-    let action = pending_draw.map_or(PolicyAction::PassPriority, |decision| PolicyAction::Draw {
-        decision,
-        dredge: None,
-    });
+    let view = game.view_for_player(actor).ok();
+    let action = if let Some(decision) = view
+        .as_ref()
+        .and_then(|view| view.draw_replacement_decision)
+    {
+        PolicyAction::Draw {
+            decision,
+            dredge: None,
+        }
+    } else if game.step == Step::DeclareAttackers
+        && view.as_ref().is_some_and(|view| !view.attackers_declared)
+        && game.active_player == actor
+    {
+        PolicyAction::DeclareAttackers { attackers: vec![] }
+    } else if game.step == Step::DeclareBlockers
+        && view.as_ref().is_some_and(|view| !view.blockers_declared)
+        && game.active_player != actor
+    {
+        PolicyAction::DeclareBlockers {
+            assignments: vec![],
+        }
+    } else {
+        PolicyAction::PassPriority
+    };
     let _ = game.submit_policy_move(actor, "fixture", action);
 }
 
