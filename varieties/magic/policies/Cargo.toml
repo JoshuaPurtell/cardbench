@@ -40,3 +40,15 @@ path = "src/bin/rav_engine_audit.rs"
 [[bin]]
 name = "rav-reference-deck-matrix"
 path = "src/bin/rav_reference_deck_matrix.rs"
+
+[[bin]]
+name = "rav-card-pool"
+path = "src/bin/rav_card_pool.rs"
+
+[[bin]]
+name = "rav-archetype-matrix"
+path = "src/bin/rav_archetype_matrix.rs"
+
+[[bin]]
+name = "rav-policy-ladder"
+path = "src/bin/rav_policy_ladder.rs"
