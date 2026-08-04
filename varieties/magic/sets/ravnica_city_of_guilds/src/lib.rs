@@ -364,7 +364,14 @@ impl std::error::Error for ManifestValidationError {}
 pub struct DeckFixture {
     pub id: String,
     pub name: String,
+    /// The hand-written policy this fixture is piloted by, when it has one.
+    /// Coverage fixtures name a policy; constructed decks name an archetype
+    /// instead, so that a deck's measured strength is not an artifact of how
+    /// well someone wrote its bespoke pilot.
     pub policy: String,
+    /// The archetype a generic policy should pilot this deck as. Empty for
+    /// the legacy coverage fixtures.
+    pub archetype: String,
     pub deck: DeckList,
 }
 
@@ -456,6 +463,7 @@ pub fn load_catalog_coverage_decks() -> Result<Vec<DeckFixture>, ManifestValidat
             id: format!("rav_catalog_band_{:02}", index + 1),
             name: format!("RAV Catalog Band {:02}", index + 1),
             policy: CATALOG_POLICY_IDS[index % CATALOG_POLICY_IDS.len()].to_owned(),
+            archetype: String::new(),
             deck,
         });
     }
@@ -11023,7 +11031,27 @@ pub fn validate_shown_deck_pool() -> Result<(), ManifestValidationError> {
 /// the Rust policy development matches. The shown deck index is the source of
 /// truth, so adding another public deck does not require changing Rust loader code.
 pub fn load_reference_decks() -> Result<Vec<DeckFixture>, ManifestValidationError> {
-    let index_path = set_root().join("decks/reference_decks.toml");
+    load_deck_index("decks/reference_decks.toml")
+}
+
+/// Loads the constructed decks -- real 24-land, 36-spell lists intended to be
+/// played rather than to exercise rules coverage.
+///
+/// Kept separate from [`load_reference_decks`] deliberately. The reference
+/// fixtures are 44-52 lands with four to seven distinct cards and are
+/// load-bearing for the existing catalog gauntlets; mixing the two would make
+/// every matchup number a blend of "deck" and "coverage fixture".
+///
+/// # Errors
+///
+/// Returns an error when the index or any deck file is missing, malformed, or
+/// fails deck-construction validation.
+pub fn load_constructed_decks() -> Result<Vec<DeckFixture>, ManifestValidationError> {
+    load_deck_index("decks/constructed_decks.toml")
+}
+
+fn load_deck_index(relative: &str) -> Result<Vec<DeckFixture>, ManifestValidationError> {
+    let index_path = set_root().join(relative);
     let index = fs::read_to_string(&index_path)
         .map_err(|error| ManifestValidationError(format!("{}: {error}", index_path.display())))?;
     let mut filenames = Vec::new();
@@ -11041,7 +11069,7 @@ pub fn load_reference_decks() -> Result<Vec<DeckFixture>, ManifestValidationErro
     }
     if filenames.is_empty() {
         return Err(ManifestValidationError(format!(
-            "{}: reference deck index has no deck paths",
+            "{}: deck index has no deck paths",
             index_path.display()
         )));
     }
@@ -11058,6 +11086,7 @@ fn load_deck_fixture(filename: &str) -> Result<DeckFixture, ManifestValidationEr
     let mut id = String::new();
     let mut name = String::new();
     let mut policy = String::new();
+    let mut archetype = String::new();
     let mut mainboard = Vec::new();
     let mut current_card = None;
     let mut in_mainboard = false;
@@ -11072,6 +11101,8 @@ fn load_deck_fixture(filename: &str) -> Result<DeckFixture, ManifestValidationEr
             value.trim_matches('"').clone_into(&mut name);
         } else if let Some(value) = line.strip_prefix("policy = ") {
             value.trim_matches('"').clone_into(&mut policy);
+        } else if let Some(value) = line.strip_prefix("archetype = ") {
+            value.trim_matches('"').clone_into(&mut archetype);
         } else if in_mainboard && let Some(value) = line.strip_prefix("card = ") {
             current_card = Some(value.trim_matches('"'));
         } else if in_mainboard && let Some(value) = line.strip_prefix("count = ") {
@@ -11090,9 +11121,15 @@ fn load_deck_fixture(filename: &str) -> Result<DeckFixture, ManifestValidationEr
             });
         }
     }
-    if id.is_empty() || name.is_empty() || policy.is_empty() || mainboard.is_empty() {
+    if id.is_empty() || name.is_empty() || mainboard.is_empty() {
         return Err(ManifestValidationError(format!(
-            "{}: deck requires id, name, policy, and mainboard entries",
+            "{}: deck requires id, name, and mainboard entries",
+            path.display()
+        )));
+    }
+    if policy.is_empty() && archetype.is_empty() {
+        return Err(ManifestValidationError(format!(
+            "{}: deck must name either a policy or an archetype",
             path.display()
         )));
     }
@@ -11114,6 +11151,7 @@ fn load_deck_fixture(filename: &str) -> Result<DeckFixture, ManifestValidationEr
         id,
         name,
         policy,
+        archetype,
         deck,
     })
 }

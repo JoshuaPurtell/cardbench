@@ -12,16 +12,19 @@
 use cardbench_magic_engine::{Game, GameEvent, PlayerId, PolicyAction, PolicyMoveKind, RulesError};
 use cardbench_magic_rav::{
     DeckFixture, RAV_CATALOG_COVERAGE_DECK_COUNT, RAV_MAIN_SET_EXPECTED_PRINTING_COUNT,
-    RAV_MAIN_SET_EXPECTED_UNIQUE_NAME_COUNT, event_digest, load_catalog_coverage_decks,
-    load_reference_decks, new_rav_game,
+    RAV_MAIN_SET_EXPECTED_UNIQUE_NAME_COUNT, card_definitions, event_digest,
+    load_catalog_coverage_decks, load_constructed_decks, load_reference_decks, new_rav_game,
+    rav_additional_spell_cost_bindings, rav_land_entry_bindings, rav_mana_ability_bindings,
 };
+use std::sync::{Arc, OnceLock};
 
 use crate::{
-    BorosCharControlPolicy, BorosConvokeBurnPolicy, BorosRadianceAssaultPolicy, BorosTempoPolicy,
-    BorosTokenRallyPolicy, CatalogPolicyProfile, CodePolicy, DimirTransmuteAttritionPolicy,
-    DimirTransmuteConvokePolicy, DimirTransmuteHelixPolicy, GolgariAttritionPolicy,
-    GolgariDredgeGrindPolicy, GolgariWurmPressPolicy, RadianceConvokeAssaultPolicy,
-    RavCatalogPolicy, SelesnyaConvokePolicy, SelesnyaRadianceTokensPolicy, SelesnyaSiegePolicy,
+    Archetype, BorosCharControlPolicy, BorosConvokeBurnPolicy, BorosRadianceAssaultPolicy,
+    BorosTempoPolicy, BorosTokenRallyPolicy, CatalogPolicyProfile, CodePolicy,
+    DimirTransmuteAttritionPolicy, DimirTransmuteConvokePolicy, DimirTransmuteHelixPolicy,
+    GolgariAttritionPolicy, GolgariDredgeGrindPolicy, GolgariWurmPressPolicy,
+    RadianceConvokeAssaultPolicy, RavCatalogPolicy, SelesnyaConvokePolicy,
+    SelesnyaRadianceTokensPolicy, SelesnyaSiegePolicy,
 };
 
 /// Stable identifier for the public two-deck development match.
@@ -233,6 +236,31 @@ pub fn run_rav_deck_matchup(
     deck_p0_id: &str,
     deck_p1_id: &str,
 ) -> Result<DeckMatchResult, String> {
+    let decks = all_deck_fixtures()?;
+    let pilots: [Box<dyn CodePolicy>; 2] = [
+        pilot_for(PlayerId(0), expected_deck(&decks, deck_p0_id)?)?,
+        pilot_for(PlayerId(1), expected_deck(&decks, deck_p1_id)?)?,
+    ];
+    run_deck_matchup_with(config, deck_p0_id, deck_p1_id, pilots)
+}
+
+/// Runs one full-deck match with explicitly supplied pilots.
+///
+/// Separated from [`run_rav_deck_matchup`] so the ladder can seat two different
+/// policy generations on the same deck list; every other detail of setup,
+/// legality, and receipting is shared, which is what makes the two paths
+/// comparable.
+///
+/// # Errors
+///
+/// Returns an error when the configuration is degenerate, a deck id is unknown,
+/// or game setup fails.
+pub fn run_deck_matchup_with(
+    config: DeckMatchConfig,
+    deck_p0_id: &str,
+    deck_p1_id: &str,
+    pilots: [Box<dyn CodePolicy>; 2],
+) -> Result<DeckMatchResult, String> {
     if config.opening_hand_size == 0 {
         return Err("full-deck match requires a nonzero opening hand size".to_owned());
     }
@@ -240,8 +268,7 @@ pub fn run_rav_deck_matchup(
         return Err("full-deck match limits must both be nonzero".to_owned());
     }
 
-    let mut decks = load_reference_decks().map_err(|error| error.to_string())?;
-    decks.extend(load_catalog_coverage_decks().map_err(|error| error.to_string())?);
+    let decks = all_deck_fixtures()?;
     let deck_p0 = expected_deck(&decks, deck_p0_id)?;
     let deck_p1 = expected_deck(&decks, deck_p1_id)?;
     let deck_ids = [deck_p0.id.clone(), deck_p1.id.clone()];
@@ -257,10 +284,7 @@ pub fn run_rav_deck_matchup(
     game.draw_opening_hand(PlayerId(1), config.opening_hand_size)
         .map_err(rules_error)?;
     game.begin_game().map_err(rules_error)?;
-    let mut policies: [Box<dyn CodePolicy>; 2] = [
-        policy_for(PlayerId(0), &deck_p0.policy)?,
-        policy_for(PlayerId(1), &deck_p1.policy)?,
-    ];
+    let mut policies = pilots;
     let mut attempted_policy_moves = 0;
     let mut accepted_policy_moves = 0;
     let mut engine_findings = Vec::new();
@@ -401,6 +425,99 @@ fn run_rav_deck_matchup_verified(
         ));
     }
     Ok(first)
+}
+
+/// The shared card index, built once per process.
+///
+/// Rebuilding it per policy per game is a measurable share of a multi-thousand
+/// game campaign, and it is immutable, so one copy is shared by every seat.
+pub fn shared_card_index() -> Arc<crate::CardIndex> {
+    static INDEX: OnceLock<Arc<crate::CardIndex>> = OnceLock::new();
+    INDEX
+        .get_or_init(|| {
+            let definitions = card_definitions();
+            let mana: Vec<(&'static str, cardbench_magic_engine::ActivatedManaAbility)> =
+                rav_mana_ability_bindings()
+                    .into_iter()
+                    .map(|binding| (binding.card_definition, binding.ability))
+                    .collect();
+            let additional: Vec<&'static str> = rav_additional_spell_cost_bindings()
+                .into_iter()
+                .map(|binding| binding.card_definition)
+                .collect();
+            let entry: Vec<(&'static str, u8)> = rav_land_entry_bindings()
+                .into_iter()
+                .filter_map(|binding| {
+                    binding
+                        .optional_life_payment
+                        .map(|life| (binding.card_definition, life))
+                })
+                .collect();
+            Arc::new(crate::CardIndex::build(
+                &definitions,
+                &mana,
+                &additional,
+                &entry,
+            ))
+        })
+        .clone()
+}
+
+/// Every deck fixture the runners can seat: coverage fixtures, catalog bands,
+/// and constructed decks.
+fn all_deck_fixtures() -> Result<Vec<DeckFixture>, String> {
+    let mut decks = load_reference_decks().map_err(|error| error.to_string())?;
+    decks.extend(load_catalog_coverage_decks().map_err(|error| error.to_string())?);
+    decks.extend(load_constructed_decks().map_err(|error| error.to_string())?);
+    Ok(decks)
+}
+
+/// Builds the pilot for one seated deck.
+///
+/// A deck that names an archetype is piloted by the shared archetype policy; a
+/// legacy coverage fixture keeps its hand-written pilot. Archetype wins when
+/// both are present, because the whole point of the archetype lane is that the
+/// deck is measured independently of a bespoke pilot.
+fn pilot_for(player: PlayerId, deck: &DeckFixture) -> Result<Box<dyn CodePolicy>, String> {
+    if !deck.archetype.is_empty() {
+        let archetype = Archetype::parse(&deck.archetype).ok_or_else(|| {
+            format!(
+                "deck `{}` names unknown archetype `{}`",
+                deck.id, deck.archetype
+            )
+        })?;
+        return Ok(crate::archetypes::seat_policy(
+            crate::archetypes::PolicyVersion::latest(),
+            player,
+            archetype,
+            shared_card_index(),
+        ));
+    }
+    policy_for(player, &deck.policy)
+}
+
+/// Runs one matchup with each seat's policy version chosen explicitly.
+///
+/// The ladder needs to seat two *different generations* of the same archetype
+/// policy on the same deck list, which the archetype-driven path cannot express
+/// because it always picks the latest version.
+///
+/// # Errors
+///
+/// Returns an error when a deck id is unknown or setup fails.
+pub fn run_versioned_matchup(
+    config: DeckMatchConfig,
+    deck_p0_id: &str,
+    deck_p1_id: &str,
+    versions: [crate::archetypes::PolicyVersion; 2],
+    archetype: Archetype,
+    index: Arc<crate::CardIndex>,
+) -> Result<DeckMatchResult, String> {
+    let pilots: [Box<dyn CodePolicy>; 2] = [
+        crate::archetypes::seat_policy(versions[0], PlayerId(0), archetype, index.clone()),
+        crate::archetypes::seat_policy(versions[1], PlayerId(1), archetype, index),
+    ];
+    run_deck_matchup_with(config, deck_p0_id, deck_p1_id, pilots)
 }
 
 fn expected_deck<'a>(decks: &'a [DeckFixture], id: &str) -> Result<&'a DeckFixture, String> {

@@ -1,0 +1,67 @@
+schema_version = "cardbench.magic.deck.v1"
+id = "rav_selesnya_midrange"
+name = "RAV Selesnya Midrange"
+set = "RAV"
+format = "ravnica-block"
+archetype = "midrange"
+source = "CardBench-authored constructed deck; not a reproduction of a commercial decklist."
+
+# Efficient bodies and one piece of catch-all removal, built to win on board
+# rather than on speed. Birds of Paradise is the only accelerant the planner
+# can actually use: the signets need a nested payment solve it does not do.
+#
+# Faith's Fetters is the removal. It is an aura whose restriction lives in its
+# continuous changes rather than its keyword list, which is exactly the case
+# that would make a naive planner attach it to its own creature.
+
+[[mainboard]]
+card = "RAV-FOREST"
+count = 9
+
+[[mainboard]]
+card = "RAV-PLAINS"
+count = 9
+
+[[mainboard]]
+card = "RAV-TEMPLE-GARDEN"
+count = 4
+
+[[mainboard]]
+card = "RAV-SELESNYA-SANCTUARY"
+count = 2
+
+[[mainboard]]
+card = "RAV-BIRDS-OF-PARADISE"
+count = 4
+
+[[mainboard]]
+card = "RAV-WATCHWOLF"
+count = 4
+
+[[mainboard]]
+card = "RAV-SELESNYA-EVANGEL"
+count = 4
+
+[[mainboard]]
+card = "RAV-CIVIC-WAYFINDER"
+count = 4
+
+[[mainboard]]
+card = "RAV-CARVEN-CARYATID"
+count = 4
+
+[[mainboard]]
+card = "RAV-LOXODON-HIERARCH"
+count = 4
+
+[[mainboard]]
+card = "RAV-FAITHS-FETTERS"
+count = 4
+
+[[mainboard]]
+card = "RAV-BRAMBLE-ELEMENTAL"
+count = 4
+
+[[mainboard]]
+card = "RAV-SELESNYA-SAGITTARS"
+count = 4

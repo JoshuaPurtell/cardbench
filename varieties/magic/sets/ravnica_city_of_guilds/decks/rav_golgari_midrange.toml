@@ -1,0 +1,68 @@
+schema_version = "cardbench.magic.deck.v1"
+id = "rav_golgari_midrange"
+name = "RAV Golgari Midrange"
+set = "RAV"
+format = "ravnica-block"
+archetype = "midrange"
+source = "CardBench-authored constructed deck; not a reproduction of a commercial decklist."
+
+# A second midrange deck, in different colours from the Selesnya list, so a
+# policy change cannot be judged on one deck's quirks. Ravnica: City of Guilds
+# has no Gruul -- that guild arrives in Guildpact -- so the black/green pair is
+# the available contrast to green/white.
+#
+# Putrefy is the removal: unconditional, instant speed, and it targets an
+# artifact or creature, which exercises a different target requirement than
+# Selesnya's aura-based answer.
+
+[[mainboard]]
+card = "RAV-FOREST"
+count = 9
+
+[[mainboard]]
+card = "RAV-SWAMP"
+count = 9
+
+[[mainboard]]
+card = "RAV-OVERGROWN-TOMB"
+count = 4
+
+[[mainboard]]
+card = "RAV-GOLGARI-ROT-FARM"
+count = 2
+
+[[mainboard]]
+card = "RAV-BIRDS-OF-PARADISE"
+count = 4
+
+[[mainboard]]
+card = "RAV-ELVES-OF-DEEP-SHADOW"
+count = 4
+
+[[mainboard]]
+card = "RAV-PUTREFY"
+count = 4
+
+[[mainboard]]
+card = "RAV-CIVIC-WAYFINDER"
+count = 4
+
+[[mainboard]]
+card = "RAV-CARVEN-CARYATID"
+count = 4
+
+[[mainboard]]
+card = "RAV-SHAMBLING-SHELL"
+count = 4
+
+[[mainboard]]
+card = "RAV-GOLGARI-ROTWURM"
+count = 4
+
+[[mainboard]]
+card = "RAV-VULTUROUS-ZOMBIE"
+count = 4
+
+[[mainboard]]
+card = "RAV-SEWERDREG"
+count = 4
