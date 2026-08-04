@@ -9407,7 +9407,7 @@ impl Game {
             return result;
         }
         let Some(card) = self.players[player.0].library.last().copied() else {
-            self.lose_player(player, "attempted to draw from an empty library");
+            self.lose_player(player, "attempted to draw from an empty library")?;
             self.normalize_priority_after_elimination()?;
             self.record_game_end_if_needed();
             if resolves_pending_draw {
@@ -15504,12 +15504,15 @@ impl Game {
     /// Consumes one player's pending loss conditions at the SBA boundary.
     /// A failed draw has precedence in the receipt because it is the cause
     /// retained from the just-completed stack instruction.
-    fn apply_player_loss_state_based_action(&mut self, player: PlayerId) -> bool {
+    fn apply_player_loss_state_based_action(
+        &mut self,
+        player: PlayerId,
+    ) -> Result<bool, RulesError> {
         let attempted_empty_library_draw = self.pending_empty_library_draw_losses.remove(&player);
         if self.players[player.0].lost
             || (!attempted_empty_library_draw && self.players[player.0].life > 0)
         {
-            return false;
+            return Ok(false);
         }
         self.lose_player(
             player,
@@ -15518,8 +15521,8 @@ impl Game {
             } else {
                 "life total is zero or less"
             },
-        );
-        true
+        )?;
+        Ok(true)
     }
 
     /// Applies CR 704.5q to one live permanent. The pair is one indivisible
@@ -15642,7 +15645,7 @@ impl Game {
         loop {
             let mut changed = false;
             for player in 0..self.players.len() {
-                changed |= self.apply_player_loss_state_based_action(PlayerId(player));
+                changed |= self.apply_player_loss_state_based_action(PlayerId(player))?;
             }
             // CR 704.5q must run before the later creature toughness/lethal
             // checks. Derived P/T can otherwise look correct while both
@@ -44127,11 +44130,11 @@ impl Game {
         }
     }
 
-    fn lose_player(&mut self, player: PlayerId, reason: &'static str) {
+    fn lose_player(&mut self, player: PlayerId, reason: &'static str) -> Result<(), RulesError> {
         if !self.players[player.0].lost {
             self.players[player.0].lost = true;
             self.record_event(GameEvent::PlayerLost { player, reason });
-            self.remove_departing_players_objects(player);
+            self.remove_departing_players_objects(player)?;
             if self
                 .combat
                 .as_ref()
@@ -44163,6 +44166,7 @@ impl Game {
                 combat.first_strike_damage_sources.clear();
             }
         }
+        Ok(())
     }
 
     /// Applies the relevant portion of CR 800.4a for this ownership-only
@@ -44171,7 +44175,50 @@ impl Game {
     /// zone. This must occur inside the loss transition, not as a later policy
     /// action, so no stale object can receive priority or participate in SBA.
     #[allow(clippy::too_many_lines)] // One CR 800.4a transaction keeps ownership, control, stack, and LKI cleanup atomic.
-    fn remove_departing_players_objects(&mut self, player: PlayerId) {
+    /// Puts a surviving player's Auras into their graveyards when the
+    /// permanent they were attached to left the game with its owner.
+    ///
+    /// CR 800.4a removes every object the departing player owns, and CR 704.5m
+    /// then makes an Aura attached to nothing a state-based action. That SBA
+    /// pass does not always follow a departure -- the empty-library draw calls
+    /// `lose_player` directly -- so the cleanup happens here, where the
+    /// inconsistency is created, and every caller inherits it.
+    ///
+    /// Equipment is deliberately untouched: it survives unattached, and the
+    /// ordinary state-based action detaches it.
+    fn graveyard_auras_orphaned_by_departure(&mut self) -> Result<(), RulesError> {
+        let orphaned = self
+            .all_battlefield_cards()
+            .into_iter()
+            .filter(|attachment| {
+                let Ok(Some(binding)) = self.attachment_binding_for(*attachment) else {
+                    return false;
+                };
+                if binding.kind != AttachmentKind::Aura {
+                    return false;
+                }
+                let Ok(object) = self.object(*attachment) else {
+                    return false;
+                };
+                // Only a target that no longer exists at all. A target that is
+                // merely illegal is the ordinary SBA's business, not this one.
+                object
+                    .attached_to
+                    .is_some_and(|target| !self.objects.contains_key(&target))
+            })
+            .collect::<Vec<_>>();
+        for aura in orphaned {
+            self.record_event(GameEvent::StateBasedAction {
+                card: aura,
+                reason: "Aura's attached permanent left the game with its owner",
+            });
+            self.move_to_graveyard_or_remove_token(aura)?;
+        }
+        Ok(())
+    }
+
+    #[allow(clippy::too_many_lines)] // One ordered CR 800.4a sequence; splitting it hides the ordering.
+    fn remove_departing_players_objects(&mut self, player: PlayerId) -> Result<(), RulesError> {
         // CR 800.4a's control-effect clause precedes the object-control
         // clause below.  In particular, an opponent's creature temporarily
         // controlled by this player reverts before the non-owned-object loop
@@ -44407,6 +44454,7 @@ impl Game {
                         && stack_object.source_incarnation == *incarnation
                 })
             });
+        self.graveyard_auras_orphaned_by_departure()
     }
 
     fn record_game_end_if_needed(&mut self) {
@@ -44693,7 +44741,8 @@ mod tests {
             ..CombatState::default()
         });
 
-        game.lose_player(PlayerId(1), "fixture defender departure");
+        game.lose_player(PlayerId(1), "fixture defender departure")
+            .expect("fixture departure succeeds");
 
         game.validate_invariants().expect(
             "defender departure must not leave attacker keyword provenance after removing attackers from combat",
