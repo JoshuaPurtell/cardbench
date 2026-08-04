@@ -6801,6 +6801,42 @@ impl Game {
         let Some(definition) = self.effective_definition_id(card)? else {
             return Ok(None);
         };
+        self.attachment_binding_for_definition(definition)
+    }
+
+    /// Resolves an attachment binding for a card named by a *historical*
+    /// receipt, which may since have left the game entirely.
+    ///
+    /// CR 800.4a removes a departing player's objects rather than moving them
+    /// to a zone, so a permanent `AuraAttached` receipt can outlive its
+    /// object. Auditing that receipt through the live object map therefore
+    /// fails with `UnknownCard` and rolls back the very transition that caused
+    /// the departure.
+    ///
+    /// Retained departed-card provenance answers it instead, exactly as the
+    /// land-entry life-payment audit already does. An object that is missing
+    /// *without* that provenance is still a genuine inconsistency and is
+    /// reported unchanged.
+    fn historical_attachment_binding_for(
+        &self,
+        card: ObjectId,
+    ) -> Result<Option<AttachmentBinding>, RulesError> {
+        if self.objects.contains_key(&card) {
+            return self.attachment_binding_for(card);
+        }
+        let Some(definition) = self.departed_card_definitions.get(&card).copied() else {
+            return Err(RulesError::UnknownCard(card));
+        };
+        Ok(self.attachment_binding_for_definition(definition)?)
+    }
+
+    /// The attachment binding a definition carries, independent of any live
+    /// object. Shared by the live and historical lookups so the two cannot
+    /// disagree about what a card attaches like.
+    fn attachment_binding_for_definition(
+        &self,
+        definition: &'static str,
+    ) -> Result<Option<AttachmentBinding>, RulesError> {
         if let Some(binding) = self.attachment_bindings.get(definition) {
             return Ok(Some(binding.clone()));
         }
@@ -36573,7 +36609,7 @@ impl Game {
                 GameEvent::AuraAttached { aura, target } => (
                     *aura,
                     *target,
-                    self.attachment_binding_for(*aura)?
+                    self.historical_attachment_binding_for(*aura)?
                         .is_some_and(|binding| !binding.changes.is_empty()),
                 ),
                 GameEvent::EquipmentAttached {
