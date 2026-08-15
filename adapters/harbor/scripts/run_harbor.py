@@ -11,7 +11,25 @@ import os
 import shutil
 import subprocess
 import sys
+from collections.abc import Mapping
 from pathlib import Path
+from typing import Any
+
+_PROTOCOL_MISMATCH_PREFIX = "harbor_protocol_mismatch"
+_SEALED_MODEL_KEYS = frozenset({"model", "model_id"})
+_SEALED_VERSION_KEYS = frozenset({"multi_agent_version"})
+_REQUEST_IDENTITY_KEYS = frozenset(
+    {
+        "codex_config_toml_append",
+        "expected_model_id",
+        "expected_multi_agent_version",
+        "effective_model_name",
+        "model_name",
+    }
+)
+_TRACE_PATH_KEYS = ("bundle", "raw_codex_jsonl", "native_evaluation")
+_MAX_SEALED_FILES = 64
+_MAX_SEALED_FILE_BYTES = 20 * 1024 * 1024
 
 REPO = Path(__file__).resolve().parents[3]
 POKEMON = REPO / "varieties" / "pokemon"
@@ -36,6 +54,206 @@ FAMILIES = {
     "react": "react",
     "cybernetic": "cybernetic",
 }
+
+
+class HarborProtocolError(RuntimeError):
+    """Raised when sealed Harbor identity does not match the expected arm."""
+
+
+def _optional_identity(value: Any) -> str | None:
+    if value is None or isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)) and not isinstance(value, bool):
+        text = str(value).strip()
+    elif isinstance(value, str):
+        text = value.strip()
+    else:
+        return None
+    if not text or text.lower() in {"none", "null"}:
+        return None
+    return text
+
+
+def _normalize_model_id(value: Any) -> str | None:
+    text = _optional_identity(value)
+    if text is None:
+        return None
+    return text.split("/", 1)[-1]
+
+
+def _normalize_multi_agent_version(value: Any) -> str | None:
+    text = _optional_identity(value)
+    return None if text is None else text.lower()
+
+
+def expected_harbor_protocol_from_env(
+    env: Mapping[str, str] | None = None,
+) -> tuple[str | None, str | None]:
+    source = os.environ if env is None else env
+    return (
+        _normalize_model_id(source.get("CARDBENCH_HARBOR_EXPECTED_MODEL_ID")),
+        _normalize_multi_agent_version(
+            source.get("CARDBENCH_HARBOR_EXPECTED_MULTI_AGENT_VERSION")
+        ),
+    )
+
+
+def _collect_sealed_identity(
+    value: Any,
+    *,
+    models: set[str],
+    versions: set[str],
+    depth: int = 0,
+) -> None:
+    if depth > 12 or value is None:
+        return
+    if isinstance(value, Mapping):
+        for key, child in value.items():
+            name = str(key)
+            if name in _REQUEST_IDENTITY_KEYS:
+                continue
+            if name in _SEALED_MODEL_KEYS:
+                model = _normalize_model_id(child)
+                if model is not None:
+                    models.add(model)
+                continue
+            if name in _SEALED_VERSION_KEYS:
+                version = _normalize_multi_agent_version(child)
+                if version is not None:
+                    versions.add(version)
+                continue
+            _collect_sealed_identity(
+                child, models=models, versions=versions, depth=depth + 1
+            )
+        return
+    if isinstance(value, list):
+        for child in value[:200]:
+            _collect_sealed_identity(
+                child, models=models, versions=versions, depth=depth + 1
+            )
+
+
+def _load_json_document(path: Path) -> Any:
+    try:
+        if path.stat().st_size > _MAX_SEALED_FILE_BYTES:
+            return None
+        text = path.read_text(encoding="utf-8", errors="ignore")
+    except OSError:
+        return None
+    if path.suffix == ".jsonl" or path.name.endswith(".jsonl"):
+        records: list[Any] = []
+        for line in text.splitlines():
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                records.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+        return records
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        return None
+
+
+def _trace_file_paths(path: Path) -> list[Path]:
+    if not path.exists():
+        return []
+    if path.is_file():
+        return [path]
+    found: list[Path] = []
+    for child in sorted(path.rglob("*")):
+        if not child.is_file():
+            continue
+        name = child.name
+        if name.endswith(".jsonl") or "trace" in name or name == "manifest.json":
+            found.append(child)
+        if len(found) >= _MAX_SEALED_FILES:
+            break
+    return found
+
+
+def _search_roots(result_path: Path) -> list[Path]:
+    roots = [Path(str(result_path) + ".trace_v5.json")]
+    logs = result_path.parent / "logs"
+    roots.extend((logs / "trace_v5", logs / "agent"))
+    workspace = result_path.parent / "workspace"
+    roots.extend(
+        (
+            workspace / "logs" / "trace_v5",
+            workspace / "logs" / "agent",
+            workspace / ".codex" / "sessions",
+        )
+    )
+    unique: list[Path] = []
+    seen: set[Path] = set()
+    for root in roots:
+        resolved = root.expanduser()
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        unique.append(resolved)
+    return unique
+
+
+def collect_sealed_harbor_protocol(
+    result: Mapping[str, Any],
+    *,
+    result_path: Path | None = None,
+) -> tuple[set[str], set[str]]:
+    models: set[str] = set()
+    versions: set[str] = set()
+    metadata = result.get("metadata")
+    metadata = metadata if isinstance(metadata, Mapping) else {}
+    trace_v5 = metadata.get("trace_v5")
+    if isinstance(trace_v5, Mapping):
+        _collect_sealed_identity(trace_v5, models=models, versions=versions)
+        for key in _TRACE_PATH_KEYS:
+            raw_path = _optional_identity(trace_v5.get(key))
+            if raw_path:
+                for path in _trace_file_paths(Path(raw_path)):
+                    _collect_sealed_identity(
+                        _load_json_document(path), models=models, versions=versions
+                    )
+    if result_path is not None:
+        for root in _search_roots(result_path):
+            for path in _trace_file_paths(root):
+                _collect_sealed_identity(
+                    _load_json_document(path), models=models, versions=versions
+                )
+    return models, versions
+
+
+def assert_expected_harbor_protocol(
+    result: Mapping[str, Any],
+    *,
+    result_path: Path | None = None,
+    env: Mapping[str, str] | None = None,
+) -> None:
+    expected_model, expected_version = expected_harbor_protocol_from_env(env)
+    if expected_model is None and expected_version is None:
+        return
+    models, versions = collect_sealed_harbor_protocol(
+        result, result_path=result_path
+    )
+    failures: list[str] = []
+    if expected_model is not None:
+        sealed_model = ",".join(sorted(models)) if models else "null"
+        if expected_model not in models:
+            failures.append(
+                f"expected_model_id={expected_model} sealed={sealed_model}"
+            )
+    if expected_version is not None:
+        sealed_version = ",".join(sorted(versions)) if versions else "null"
+        if versions != {expected_version}:
+            failures.append(
+                f"expected_multi_agent_version={expected_version} sealed={sealed_version}"
+            )
+    if failures:
+        raise HarborProtocolError(
+            _PROTOCOL_MISMATCH_PREFIX + ":" + "; ".join(failures)
+        )
 
 
 def fresh_output(family: str, command: str) -> Path:
@@ -115,7 +333,15 @@ def score_command(
     raise ValueError(f"{family} is scaffold-only")
 
 
-def write_receipt(output: Path, family: str, command: str, agent_rc: int, verify_rc: int) -> None:
+def write_receipt(
+    output: Path,
+    family: str,
+    command: str,
+    agent_rc: int,
+    verify_rc: int,
+    *,
+    protocol_error: str | None = None,
+) -> None:
     result_path = output / "logs" / "verifier" / "result.json"
     if family == "engine":
         result_path = output / "logs" / "verifier" / "engine-check.json"
@@ -132,8 +358,14 @@ def write_receipt(output: Path, family: str, command: str, agent_rc: int, verify
         "verify_rc": verify_rc,
         "out_dir": str(output),
         "verifier": verifier,
-        "reward": float(verifier.get("harbor_reward", 0.0)),
     }
+    if protocol_error:
+        payload["reward"] = None
+        payload["contract_error"] = protocol_error
+        payload["error"] = protocol_error
+    else:
+        reward = verifier.get("harbor_reward")
+        payload["reward"] = None if reward is None else float(reward)
     for key in (
         "baseline_score",
         "best_score",
@@ -244,6 +476,18 @@ def run_codex(
         "codex_auth_source": "host_codex_auth_json",
         "env": {"CARDBENCH_WORKSPACE_ROOT": str(workspace)},
     }
+    append = str(os.environ.get("CARDBENCH_HARBOR_CODEX_CONFIG_TOML_APPEND") or "").strip()
+    if append:
+        payload["codex_config_toml_append"] = append
+    expected_model = str(
+        os.environ.get("CARDBENCH_HARBOR_EXPECTED_MODEL_ID") or ""
+    ).strip() or str(payload["harbor_agent"]["model_name"])
+    payload["expected_model_id"] = expected_model
+    expected_version = str(
+        os.environ.get("CARDBENCH_HARBOR_EXPECTED_MULTI_AGENT_VERSION") or ""
+    ).strip()
+    if expected_version:
+        payload["expected_multi_agent_version"] = expected_version
     rollout = output / "rollout.json"
     rollout.write_text(json.dumps(payload, indent=2) + "\n")
     agent_result = output / "rollout_result.json"
@@ -259,6 +503,26 @@ def run_codex(
             str(task_root),
         ]
     )
+    try:
+        agent_payload = json.loads(agent_result.read_text(encoding="utf-8"))
+        if not isinstance(agent_payload, dict):
+            agent_payload = {}
+    except (OSError, json.JSONDecodeError):
+        agent_payload = {}
+    try:
+        assert_expected_harbor_protocol(agent_payload, result_path=agent_result)
+    except HarborProtocolError as exc:
+        write_receipt(
+            output,
+            family,
+            "codex",
+            agent.returncode,
+            1,
+            protocol_error=str(exc),
+        )
+        print(f"receipt: {output / 'lane-receipt.json'}")
+        print(f"CardBench Harbor protocol mismatch: {exc}", file=sys.stderr)
+        return 1
     candidate = workspace / candidate_rel
     if candidate.exists():
         scored = subprocess.run(
