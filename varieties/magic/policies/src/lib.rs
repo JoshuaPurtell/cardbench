@@ -1,0 +1,166 @@
+//! Reference Rust policies for deterministic Magic engine development matches.
+
+#![forbid(unsafe_code)]
+
+mod archetype;
+mod archetypes;
+mod boros_char_control;
+mod boros_convoke_burn;
+mod boros_radiance_assault;
+mod boros_tempo;
+mod boros_token_rally;
+mod catalog_gauntlet;
+mod deck_match;
+mod development_match;
+mod dimir_transmute_attrition;
+mod dimir_transmute_convoke;
+mod dimir_transmute_helix;
+mod golgari_attrition;
+mod golgari_dredge_grind;
+mod golgari_wurm_press;
+mod ladder;
+mod matchup;
+pub mod planner;
+mod radiance_convoke_assault;
+mod ratings;
+mod selesnya_convoke;
+mod selesnya_radiance_tokens;
+mod selesnya_siege;
+mod trigger_campaign;
+
+pub use archetype::Archetype;
+pub use archetypes::{PolicyVersion, seat_policy};
+pub use boros_char_control::BorosCharControlPolicy;
+pub use boros_convoke_burn::BorosConvokeBurnPolicy;
+pub use boros_radiance_assault::BorosRadianceAssaultPolicy;
+pub use boros_tempo::BorosTempoPolicy;
+pub use boros_token_rally::BorosTokenRallyPolicy;
+pub(crate) use catalog_gauntlet::conservative_pending_decision;
+pub use catalog_gauntlet::{CatalogPolicyProfile, RavCatalogPolicy};
+pub use deck_match::{
+    CatalogGauntletResult, DeckMatchConfig, DeckMatchResult, DeckMatchSweepResult,
+    DeckMatchTermination, EngineFinding, EngineFindingKind, EngineTournamentFailure,
+    EngineTournamentResult, RAV_DECK_MATCH_ID, RAV_REFERENCE_DECK_MATRIX_ID,
+    run_deck_matchup_capturing, run_deck_matchup_with, run_rav_catalog_gauntlet,
+    run_rav_deck_matchup, run_rav_engine_tournament, run_rav_full_deck_match,
+    run_rav_full_deck_sweep, run_rav_reference_deck_matrix, run_versioned_matchup,
+    shared_card_index,
+};
+pub use development_match::{PolicyMatchResult, run_rav_reference_match};
+pub use dimir_transmute_attrition::DimirTransmuteAttritionPolicy;
+pub use dimir_transmute_convoke::DimirTransmuteConvokePolicy;
+pub use dimir_transmute_helix::DimirTransmuteHelixPolicy;
+pub use golgari_attrition::GolgariAttritionPolicy;
+pub use golgari_dredge_grind::GolgariDredgeGrindPolicy;
+pub use golgari_wurm_press::GolgariWurmPressPolicy;
+pub use ladder::{DeckVerdict, LadderStep, run_ladder, run_step};
+pub use matchup::{
+    Diagnostics, GameRecord, Interval, Matchup, Matrix, measure_matchup, measure_matrix,
+};
+pub use planner::{Aggression, Board, CardIndex, Weights};
+pub use radiance_convoke_assault::RadianceConvokeAssaultPolicy;
+pub use ratings::{
+    DEFAULT_RATING, ELO_K_FACTOR, EloLedger, EloMatchRecord, RatingStanding, expected_score,
+};
+pub use selesnya_convoke::SelesnyaConvokePolicy;
+pub use selesnya_radiance_tokens::SelesnyaRadianceTokensPolicy;
+pub use selesnya_siege::SelesnyaSiegePolicy;
+pub use trigger_campaign::{
+    RAV_OPTIONAL_TRIGGER_PROBE_ID, RAV_TRIGGER_ORDER_PROBE_ID, RAV_TRIGGER_PROBE_ID,
+    TriggerProbeResult, run_rav_optional_trigger_probe, run_rav_trigger_order_probe,
+    run_rav_trigger_probe,
+};
+
+use cardbench_magic_engine::{GameView, PolicyAction};
+
+/// Submission ABI for `cardbench/magic/code_policy` development runs.
+pub trait CodePolicy: Send {
+    fn id(&self) -> &'static str;
+    fn propose_move(&mut self, view: &GameView) -> PolicyAction;
+
+    /// Completes generic mandatory decisions that are not priority actions.
+    /// The conservative default covers every generic decision kind currently
+    /// exposed by the public engine view.
+    fn propose_pending_decision(&mut self, view: &GameView) -> Option<PolicyAction> {
+        catalog_gauntlet::conservative_pending_decision(view)
+    }
+
+    /// Completes an optional triggered ability without letting an older policy
+    /// accidentally submit a priority action while the choice is open. The
+    /// conservative shared behavior declines payment and targeting; strategy
+    /// policies can override it when accepting the trigger is part of the plan.
+    fn propose_optional_triggered_ability(&mut self, view: &GameView) -> PolicyAction {
+        let choice = view
+            .optional_triggered_ability_choice
+            .as_ref()
+            .expect("optional-trigger proposal requires a visible choice");
+        PolicyAction::ResolveOptionalTriggeredAbility {
+            decision: choice.decision,
+            source: choice.source,
+            ability: choice.ability,
+            pay: false,
+            target: None,
+        }
+    }
+
+    /// Chooses a draw replacement when the engine exposes that mandatory
+    /// decision. Policies that do not use replacement effects take the normal
+    /// draw by default.
+    fn propose_draw_replacement(&mut self, view: &GameView) -> PolicyAction {
+        PolicyAction::Draw {
+            decision: view
+                .draw_replacement_decision
+                .expect("draw replacement proposal requires its decision identity"),
+            dredge: None,
+        }
+    }
+
+    /// Completes a mandatory, controller-private library choice that was
+    /// opened in the middle of spell resolution. The conservative default
+    /// selects no cards, so a policy cannot accidentally pay life for hidden
+    /// cards it has not been implemented to evaluate.
+    fn propose_private_library_choice(&mut self, view: &GameView) -> PolicyAction {
+        let choice = view
+            .private_library_choice
+            .as_ref()
+            .expect("private-library choice proposal requires a visible choice");
+        PolicyAction::ChoosePrivateLibraryCards {
+            decision: choice.decision,
+            spell: choice.spell,
+            selected: Vec::new(),
+        }
+    }
+
+    /// Completes a mandatory private choice opened by a targeted activated
+    /// ability that inspects an opponent's library. With no card-evaluation
+    /// policy yet, the deterministic development default exiles the current
+    /// top candidate (or submits `None` when the target library is empty).
+    fn propose_private_opponent_library_choice(&mut self, view: &GameView) -> PolicyAction {
+        let choice = view
+            .private_opponent_library_choice
+            .as_ref()
+            .expect("private opponent-library choice proposal requires a visible choice");
+        PolicyAction::ChoosePrivateOpponentLibraryCardToExile {
+            decision: choice.decision,
+            source: choice.source,
+            ability: choice.ability,
+            selected: choice.cards.first().map(|card| card.id),
+        }
+    }
+
+    /// Completes a controller-private typed library search suspended during a
+    /// spell or ability resolution. The conservative default selects the
+    /// first legal candidate, or explicitly finds nothing when no candidate
+    /// exists. Policies that value particular cards can override this view.
+    fn propose_library_search_choice(&mut self, view: &GameView) -> PolicyAction {
+        let choice = view
+            .library_search_choice
+            .as_ref()
+            .expect("library-search choice proposal requires a visible choice");
+        PolicyAction::ChooseLibrarySearchCard {
+            decision: choice.decision,
+            source: choice.source,
+            selected: choice.cards.first().map(|card| card.id),
+        }
+    }
+}

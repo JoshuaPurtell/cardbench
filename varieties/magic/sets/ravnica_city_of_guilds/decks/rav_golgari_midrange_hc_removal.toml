@@ -1,0 +1,47 @@
+schema_version = "cardbench.magic.deck.v1"
+id = "rav_golgari_midrange_hc_removal"
+name = "RAV Golgari Midrange — Removal candidate"
+set = "RAV"
+format = "ravnica-block"
+archetype = "midrange"
+source = "Hill-climb candidate: replace the slow five-mana threat package with cheap instant removal."
+
+[[mainboard]]
+card = "RAV-FOREST"
+count = 9
+[[mainboard]]
+card = "RAV-SWAMP"
+count = 9
+[[mainboard]]
+card = "RAV-OVERGROWN-TOMB"
+count = 4
+[[mainboard]]
+card = "RAV-GOLGARI-ROT-FARM"
+count = 2
+[[mainboard]]
+card = "RAV-BIRDS-OF-PARADISE"
+count = 4
+[[mainboard]]
+card = "RAV-ELVES-OF-DEEP-SHADOW"
+count = 4
+[[mainboard]]
+card = "RAV-PUTREFY"
+count = 4
+[[mainboard]]
+card = "RAV-CIVIC-WAYFINDER"
+count = 4
+[[mainboard]]
+card = "RAV-CARVEN-CARYATID"
+count = 4
+[[mainboard]]
+card = "RAV-SHAMBLING-SHELL"
+count = 4
+[[mainboard]]
+card = "RAV-GOLGARI-ROTWURM"
+count = 4
+[[mainboard]]
+card = "RAV-LAST-GASP"
+count = 4
+[[mainboard]]
+card = "RAV-SEWERDREG"
+count = 4

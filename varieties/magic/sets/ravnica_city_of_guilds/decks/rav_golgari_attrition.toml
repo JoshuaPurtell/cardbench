@@ -1,0 +1,37 @@
+schema_version = "cardbench.magic.deck.v1"
+id = "rav_golgari_attrition"
+name = "RAV Golgari Attrition Development"
+set = "RAV"
+format = "ravnica-block"
+policy = "rav.golgari-attrition.v1"
+source = "CardBench-authored development deck; not a reproduction of a commercial decklist."
+
+# The public RAV slice intentionally contains a small executable card pool.
+# This green-heavy manabase supports the complete Brownscale/convoke plan while
+# retaining black mana for attrition interaction.
+[[mainboard]]
+card = "RAV-FOREST"
+count = 29
+
+[[mainboard]]
+card = "RAV-SWAMP"
+count = 15
+
+[[mainboard]]
+card = "RAV-GOLGARI-BROWNSCALE"
+count = 4
+
+[[mainboard]]
+card = "RAV-LAST-GASP"
+count = 4
+
+[[mainboard]]
+card = "RAV-SCATTER-THE-SEEDS"
+count = 4
+
+[[mainboard]]
+card = "RAV-SIEGE-WURM"
+count = 4
+
+[sideboard]
+count = 0

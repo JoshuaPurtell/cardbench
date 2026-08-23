@@ -1,0 +1,25 @@
+[package]
+name = "cardbench-magic-server"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Local human-playable WebSocket server for the CardBench Magic engine"
+
+[lints]
+workspace = true
+
+[dependencies]
+axum = { version = "0.7", features = ["ws", "json"] }
+cardbench-magic-engine = { path = "../engine" }
+cardbench-magic-policies = { path = "../policies" }
+cardbench-magic-rav = { path = "../sets/ravnica_city_of_guilds" }
+futures-util = "0.3"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+tokio = { version = "1", features = ["macros", "net", "rt-multi-thread", "sync"] }
+tower-http = { version = "0.5", features = ["cors"] }
+
+[[bin]]
+name = "rav-magic-server"
+path = "src/main.rs"

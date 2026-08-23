@@ -1,12 +1,18 @@
-schema_version = "cardbench.magic.expansion.v1"
+schema_version = "cardbench.magic.expansion.v2"
 id = "ravnica-city-of-guilds"
 name = "Ravnica: City of Guilds"
+set_code = "RAV"
 block = "ravnica"
 release_order = 1
-status = "reserved"
+release_date = "2005-10-07"
+status = "initial-executable-slice"
+guilds = ["Boros", "Dimir", "Golgari", "Selesnya"]
+keywords = ["convoke", "dredge", "radiance", "transmute"]
 
 [engine]
 ruleset = "magic"
+crate = "cardbench-magic-engine"
+fixture_crate = "cardbench-magic-rav"
 pin = ""
 
 [legality]
@@ -14,15 +20,21 @@ format = "block"
 minimum_deck_size = 60
 maximum_copies = 4
 sideboard_size = 15
+basic_lands_exempt = true
 
 [fixtures]
 shown_scenarios = ""
-heldout_scenarios = ""
+heldout_scenarios = "not-distributed"
 shown_decks = ""
-heldout_decks = ""
+heldout_decks = "not-distributed"
 
 [capabilities]
 stack = true
 priority = true
 layers = true
 multiplayer = false
+
+[provenance]
+card_art = "not-distributed"
+oracle_text = "not-distributed"
+license = "MIT for CardBench-authored code and fixture structure; Magic identifiers remain their owners' trademarks"

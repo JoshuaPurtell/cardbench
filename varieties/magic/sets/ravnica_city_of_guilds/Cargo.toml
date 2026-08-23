@@ -1,0 +1,25 @@
+[package]
+name = "cardbench-magic-rav"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Ravnica: City of Guilds CardBench fixture set and scenarios"
+
+[lints]
+workspace = true
+
+[dependencies]
+cardbench-magic-engine = { path = "../../engine" }
+
+[lib]
+name = "cardbench_magic_rav"
+path = "src/lib.rs"
+
+[[bin]]
+name = "rav-engine-parity"
+path = "src/bin/rav_engine_parity.rs"
+
+[[bin]]
+name = "rav-coverage-report"
+path = "src/bin/rav_coverage_report.rs"

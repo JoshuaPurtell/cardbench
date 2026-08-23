@@ -1,0 +1,30 @@
+schema_version = "cardbench.magic.deck-index.v1"
+set = "RAV"
+format = "ravnica-block"
+visibility = "shown"
+
+# Constructed decks, kept in a separate index from reference_decks.toml on
+# purpose. The reference decks are rules-coverage fixtures -- 44 to 52 lands in
+# a 60-card list, four to seven distinct cards -- and are load-bearing for the
+# existing catalog gauntlets. These are decks meant to be played, and they are
+# piloted by archetype rather than by a hand-written per-deck policy.
+
+[[deck]]
+id = "rav_boros_aggro"
+archetype = "aggro"
+path = "rav_boros_aggro.toml"
+
+[[deck]]
+id = "rav_selesnya_midrange"
+archetype = "midrange"
+path = "rav_selesnya_midrange.toml"
+
+[[deck]]
+id = "rav_boros_burn"
+archetype = "burn"
+path = "rav_boros_burn.toml"
+
+[[deck]]
+id = "rav_golgari_midrange"
+archetype = "midrange"
+path = "rav_golgari_midrange.toml"

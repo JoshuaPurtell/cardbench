@@ -1,0 +1,40 @@
+schema_version = "cardbench.magic.deck.v1"
+id = "rav_boros_radiance_assault"
+name = "RAV Boros Radiance Assault Development"
+set = "RAV"
+format = "ravnica-block"
+policy = "rav.boros-radiance-assault.v1"
+source = "CardBench-authored public development deck; not a reproduction of a commercial decklist."
+
+# A red-white aggressive fixture that splashes the executable green creature
+# package so the RAV radiance implementation is exercised in full games.
+[[mainboard]]
+card = "RAV-GOLGARI-BROWNSCALE"
+count = 4
+
+[[mainboard]]
+card = "RAV-RALLY-THE-RIGHTEOUS"
+count = 4
+
+[[mainboard]]
+card = "RAV-LIGHTNING-HELIX"
+count = 4
+
+[[mainboard]]
+card = "RAV-CHAR"
+count = 4
+
+[[mainboard]]
+card = "RAV-FOREST"
+count = 12
+
+[[mainboard]]
+card = "RAV-PLAINS"
+count = 14
+
+[[mainboard]]
+card = "RAV-MOUNTAIN"
+count = 18
+
+[sideboard]
+count = 0

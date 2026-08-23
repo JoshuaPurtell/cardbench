@@ -1,0 +1,47 @@
+schema_version = "cardbench.magic.deck.v1"
+id = "rav_selesnya_midrange_hc_curve"
+name = "RAV Selesnya Midrange — Curve candidate"
+set = "RAV"
+format = "ravnica-block"
+archetype = "midrange"
+source = "Hill-climb candidate: trade the token-ability package for evasive two-mana threats."
+
+[[mainboard]]
+card = "RAV-FOREST"
+count = 9
+[[mainboard]]
+card = "RAV-PLAINS"
+count = 9
+[[mainboard]]
+card = "RAV-TEMPLE-GARDEN"
+count = 4
+[[mainboard]]
+card = "RAV-SELESNYA-SANCTUARY"
+count = 2
+[[mainboard]]
+card = "RAV-BIRDS-OF-PARADISE"
+count = 4
+[[mainboard]]
+card = "RAV-WATCHWOLF"
+count = 4
+[[mainboard]]
+card = "RAV-COURIER-HAWK"
+count = 4
+[[mainboard]]
+card = "RAV-CIVIC-WAYFINDER"
+count = 4
+[[mainboard]]
+card = "RAV-CARVEN-CARYATID"
+count = 4
+[[mainboard]]
+card = "RAV-LOXODON-HIERARCH"
+count = 4
+[[mainboard]]
+card = "RAV-FAITHS-FETTERS"
+count = 4
+[[mainboard]]
+card = "RAV-BRAMBLE-ELEMENTAL"
+count = 4
+[[mainboard]]
+card = "RAV-SELESNYA-SAGITTARS"
+count = 4

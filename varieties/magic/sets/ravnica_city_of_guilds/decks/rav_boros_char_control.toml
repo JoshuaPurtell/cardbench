@@ -1,0 +1,29 @@
+schema_version = "cardbench.magic.deck.v1"
+id = "rav_boros_char_control"
+name = "RAV Boros Char Control Development"
+set = "RAV"
+format = "ravnica-block"
+policy = "rav.boros-char-control.v1"
+source = "CardBench-authored development deck; not a reproduction of a commercial decklist."
+
+# This initial rules slice deliberately limits this fixture to executable public
+# cards. The basic-land count keeps it legal while exposing draw, mana, stack,
+# self-damage, and deterministic-policy behavior to whole-deck probes.
+[[mainboard]]
+card = "RAV-PLAINS"
+count = 24
+
+[[mainboard]]
+card = "RAV-MOUNTAIN"
+count = 28
+
+[[mainboard]]
+card = "RAV-CHAR"
+count = 4
+
+[[mainboard]]
+card = "RAV-LIGHTNING-HELIX"
+count = 4
+
+[sideboard]
+count = 0

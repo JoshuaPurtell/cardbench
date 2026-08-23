@@ -1,0 +1,52 @@
+# Arena configuration.
+#
+# Everything about which model to call and how much to spend lives here rather
+# than in the environment. Only the API key comes from the environment, because
+# a key is a secret and this file is in version control.
+#
+# Read by `rav-arena`; override the path with `--config PATH`.
+
+# The model slug, exactly as the endpoint spells it. There is no default: a
+# wrong-but-plausible slug is worse than a refusal, because the run would fail
+# on every decision and quietly report the fallback policy's win rate.
+# Set it here or pass `--model`.
+#
+# Pinned to the dated build rather than `deepseek/deepseek-v4-flash`, which
+# floats: a result attributed to a moving slug is not reproducible.
+model = "deepseek/deepseek-v4-flash-0731"
+
+base_url = "https://openrouter.ai/api/v1"
+key_variable = "OPENROUTER_API_KEY"
+
+temperature = 0.3
+
+# Big enough to survive a reasoning model. At 512 both gpt-oss builds spend the
+# whole budget thinking and return an empty message, which the seat can only
+# treat as a failure -- so every decision falls back and the run silently
+# measures the fallback policy instead of the model.
+max_tokens = 2048
+
+# `low`, `medium`, `high`, or `none` to omit the field entirely. Ignored by
+# endpoints that do not reason. Measured on gpt-oss-20b: low answers in 5.4s,
+# unset takes 17.8s after 1699 reasoning tokens.
+reasoning_effort = "low"
+timeout = 60
+retries = 2
+
+# Consultations allowed per game per model seat.
+#
+# Measured with `rav-arena probe`: about 50 decisions per game are open, and
+# plan-following collapses each multi-step cast into one consultation, so 120
+# is well clear of the ceiling for a normal game. Lower it to cap spend; the
+# seat reports `budget_exhausted` when it bites, so a truncated run is never
+# mistaken for a complete one.
+budget = 120
+
+# Seed pairs per deck. Each pair is two games with the seats swapped, so this
+# is `pairs * 2 * 4` games. Deliberately small: the ladder's 60 pairs would be
+# 480 games and roughly 24,000 model calls.
+pairs = 3
+
+# Keep every prompt and reply. Off by default; a full run's transcripts are
+# large and only useful when something looks wrong.
+record = false

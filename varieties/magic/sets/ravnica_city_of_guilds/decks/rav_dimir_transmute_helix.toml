@@ -1,0 +1,36 @@
+schema_version = "cardbench.magic.deck.v1"
+id = "rav_dimir_transmute_helix"
+name = "RAV Dimir Transmute Helix Development"
+set = "RAV"
+format = "ravnica-block"
+policy = "rav.dimir-transmute-helix.v1"
+source = "CardBench-authored public development deck; not a reproduction of a commercial decklist."
+
+# Blue transmute is the fixture's organizing mechanic. It searches the
+# mana-value-two Helix package rather than treating Muddle as an empty spell.
+[[mainboard]]
+card = "RAV-MUDDLE-THE-MIXTURE"
+count = 4
+
+[[mainboard]]
+card = "RAV-LIGHTNING-HELIX"
+count = 4
+
+[[mainboard]]
+card = "RAV-CHAR"
+count = 4
+
+[[mainboard]]
+card = "RAV-ISLAND"
+count = 18
+
+[[mainboard]]
+card = "RAV-PLAINS"
+count = 16
+
+[[mainboard]]
+card = "RAV-MOUNTAIN"
+count = 14
+
+[sideboard]
+count = 0

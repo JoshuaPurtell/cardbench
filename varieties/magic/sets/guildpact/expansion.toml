@@ -1,0 +1,46 @@
+schema_version = "cardbench.magic.expansion.v2"
+id = "guildpact"
+name = "Guildpact"
+set_code = "GPT"
+block = "ravnica"
+release_order = 2
+release_date = "2006-02-03"
+status = "manifested-not-executable"
+guilds = ["Gruul", "Izzet", "Orzhov"]
+keywords = ["bloodthirst", "haunt", "replicate"]
+
+[engine]
+ruleset = "magic"
+crate = "cardbench-magic-engine"
+fixture_crate = "not-yet-created"
+pin = "workspace"
+
+[legality]
+format = "ravnica-block"
+minimum_deck_size = 60
+maximum_copies = 4
+sideboard_size = 15
+basic_lands_exempt = true
+
+[fixtures]
+shown_scenarios = "not-yet-created"
+heldout_scenarios = "not-distributed"
+shown_decks = "not-yet-created"
+heldout_decks = "not-distributed"
+
+[capabilities]
+zones = ["library", "hand", "battlefield", "graveyard", "exile", "stack"]
+stack = true
+priority = true
+turn_structure = true
+state_based_actions = true
+continuous_effect_layers = [4, 5, 6, 7]
+replacement_effects = []
+multiplayer = true
+
+[provenance]
+card_art = "not-distributed"
+oracle_text = "not-distributed"
+card_semantics = "no executable GPT card semantics are claimed by this manifest"
+rules_reference = "https://magic.wizards.com/en/rules"
+license = "MIT for CardBench-authored manifest structure; Magic identifiers remain their owners' trademarks"

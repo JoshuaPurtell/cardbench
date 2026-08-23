@@ -1,0 +1,41 @@
+schema_version = "cardbench.magic.deck.v1"
+id = "rav_radiance_convoke_assault"
+name = "RAV Radiance Convoke Assault Development"
+set = "RAV"
+format = "ravnica-block"
+policy = "rav.radiance-convoke-assault.v1"
+source = "CardBench-authored development deck; not a reproduction of a commercial decklist."
+
+# A three-color public development fixture for token creation, full convoke,
+# radiance/continuous-effect application, life swing, stack resolution, and
+# creature combat. It is deliberately not presented as a historical decklist.
+[[mainboard]]
+card = "RAV-FOREST"
+count = 25
+
+[[mainboard]]
+card = "RAV-PLAINS"
+count = 10
+
+[[mainboard]]
+card = "RAV-MOUNTAIN"
+count = 9
+
+[[mainboard]]
+card = "RAV-GOLGARI-BROWNSCALE"
+count = 4
+
+[[mainboard]]
+card = "RAV-SCATTER-THE-SEEDS"
+count = 4
+
+[[mainboard]]
+card = "RAV-RALLY-THE-RIGHTEOUS"
+count = 4
+
+[[mainboard]]
+card = "RAV-LIGHTNING-HELIX"
+count = 4
+
+[sideboard]
+count = 0

@@ -1,0 +1,582 @@
+//! Red regression: every rules-relevant zone change creates a fresh incarnation.
+//!
+//! This is deliberately synthetic.  It proves an engine property before any
+//! RAV card relies on it: a self-referential activated ability must not affect
+//! a new permanent that happens to retain the same public card object id.
+
+use std::collections::BTreeSet;
+
+use cardbench_magic_engine::{
+    AbilityActivation, ActivatedAbility, ActivatedAbilityBinding, BasicLandManaAbilityActivation,
+    BasicLandType, BasicLandTypeBinding, CardDefinition, CardType, CastPaymentManaAbility,
+    CastRequest, Color, ContinuousChange, CounterKind, Duration, Effect, Game, GameEvent, Keyword,
+    ManaCost, ManaPaymentSelection, PlayerId, Target, TriggerCondition, TriggeredAbility,
+    TriggeredAbilityBinding, Zone,
+};
+
+const SOURCE: &str = "INCARNATION-SOURCE";
+const DESTROY: &str = "INCARNATION-DESTROY";
+const RETURN: &str = "INCARNATION-RETURN";
+const PING: &str = "INCARNATION-PING";
+const LIBRARY_CARD: &str = "INCARNATION-LIBRARY-CARD";
+const FOREST: &str = "INCARNATION-FOREST";
+
+fn definition(
+    id: &'static str,
+    card_types: BTreeSet<CardType>,
+    mana_cost: ManaCost,
+    power: Option<i16>,
+    toughness: Option<i16>,
+    effects: Vec<Effect>,
+) -> CardDefinition {
+    CardDefinition {
+        id,
+        name: id,
+        set_code: "TST",
+        mana_cost,
+        colors: BTreeSet::new(),
+        mana_colors: BTreeSet::new(),
+        card_types,
+        is_basic_land: false,
+        supported_rules: &["object-incarnation-zone-change-probe"],
+        power,
+        toughness,
+        keywords: vec![],
+        effects,
+    }
+}
+
+fn definitions() -> Vec<CardDefinition> {
+    vec![
+        definition(
+            SOURCE,
+            BTreeSet::from([CardType::Creature]),
+            ManaCost::new(0),
+            Some(1),
+            Some(1),
+            vec![],
+        ),
+        definition(
+            DESTROY,
+            BTreeSet::from([CardType::Instant]),
+            ManaCost::new(0),
+            None,
+            None,
+            vec![Effect::DestroyTargetNonblackCreature],
+        ),
+        definition(
+            RETURN,
+            BTreeSet::from([CardType::Instant]),
+            ManaCost::new(1),
+            None,
+            None,
+            vec![
+                Effect::ReturnTargetCreatureCardToBattlefieldWithCounterIfManaColorSpent {
+                    color: Color::Red,
+                },
+            ],
+        ),
+        definition(
+            PING,
+            BTreeSet::from([CardType::Instant]),
+            ManaCost::new(0),
+            None,
+            None,
+            vec![Effect::DealDamage {
+                amount: 1,
+                target: cardbench_magic_engine::TargetRequirement::Player,
+            }],
+        ),
+        definition(
+            LIBRARY_CARD,
+            BTreeSet::from([CardType::Creature]),
+            ManaCost::new(0),
+            Some(1),
+            Some(1),
+            vec![],
+        ),
+        CardDefinition {
+            id: FOREST,
+            name: FOREST,
+            set_code: "TST",
+            mana_cost: ManaCost::new(0),
+            colors: BTreeSet::new(),
+            mana_colors: BTreeSet::from([Color::Green]),
+            card_types: BTreeSet::from([CardType::Land]),
+            is_basic_land: true,
+            supported_rules: &["object-incarnation-zone-change-probe"],
+            power: None,
+            toughness: None,
+            keywords: vec![],
+            effects: vec![],
+        },
+    ]
+}
+
+fn game() -> Game {
+    Game::new_with_all_bindings(
+        definitions(),
+        2,
+        [],
+        [BasicLandTypeBinding {
+            card_definition: FOREST,
+            land_type: BasicLandType::Forest,
+        }],
+        [],
+        [
+            ActivatedAbilityBinding {
+                card_definition: SOURCE,
+                ability: ActivatedAbility {
+                    id: "self-pump",
+                    mana_cost: ManaCost::new(0),
+                    tap_cost: false,
+                    sorcery_speed: false,
+                    additional_tap_creatures: 0,
+                    sacrifice_source: false,
+                    sacrifice_creatures: 0,
+                    sacrifice_lands: 0,
+                    discard_cards: 0,
+                    targets: vec![],
+                    effects: vec![Effect::ModifySourcePtUntilEndOfTurn {
+                        power: 1,
+                        toughness: 1,
+                    }],
+                },
+            },
+            ActivatedAbilityBinding {
+                card_definition: SOURCE,
+                ability: ActivatedAbility {
+                    id: "self-charge",
+                    mana_cost: ManaCost::new(0),
+                    tap_cost: false,
+                    sorcery_speed: false,
+                    additional_tap_creatures: 0,
+                    sacrifice_source: false,
+                    sacrifice_creatures: 0,
+                    sacrifice_lands: 0,
+                    discard_cards: 0,
+                    targets: vec![],
+                    effects: vec![Effect::AddCountersToSource {
+                        counter: CounterKind::Charge,
+                        amount: 1,
+                    }],
+                },
+            },
+            ActivatedAbilityBinding {
+                card_definition: SOURCE,
+                ability: ActivatedAbility {
+                    id: "self-flying",
+                    mana_cost: ManaCost::new(0),
+                    tap_cost: false,
+                    sorcery_speed: false,
+                    additional_tap_creatures: 0,
+                    sacrifice_source: false,
+                    sacrifice_creatures: 0,
+                    sacrifice_lands: 0,
+                    discard_cards: 0,
+                    targets: vec![],
+                    effects: vec![Effect::AddSourceKeywordUntilEndOfTurn {
+                        keyword: Keyword::Flying,
+                    }],
+                },
+            },
+        ],
+    )
+    .expect("fixture game initializes")
+}
+
+fn pass_pair(game: &mut Game) {
+    let first = game.priority;
+    game.pass_priority(first)
+        .expect("first priority pass succeeds");
+    let second = game.priority;
+    game.pass_priority(second)
+        .expect("second priority pass succeeds");
+}
+
+#[test]
+fn source_relative_keyword_grant_uses_the_live_source_incarnation() {
+    let caster = PlayerId(0);
+    let responder = PlayerId(1);
+    let mut live_game = game();
+    let source = live_game
+        .put_on_battlefield(caster, SOURCE)
+        .expect("source enters battlefield");
+    live_game.begin_game().expect("fixture game begins");
+    live_game.clear_event_log();
+
+    live_game
+        .activate_ability(
+            caster,
+            AbilityActivation {
+                source,
+                ability_id: "self-flying",
+                sacrifice_sources: vec![],
+                additional_tap_creatures: vec![],
+                discard_cards: vec![],
+                targets: vec![],
+            },
+        )
+        .expect("source-relative ability reaches the stack");
+    pass_pair(&mut live_game);
+    assert!(
+        live_game
+            .characteristics(source)
+            .expect("source remains live")
+            .keywords
+            .contains(&Keyword::Flying)
+    );
+    assert!(live_game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::ContinuousEffectCreated { source: effect_source, target, .. }
+            if *effect_source == source && *target == source
+    )));
+    live_game
+        .validate_invariants()
+        .expect("live source keyword effect preserves invariants");
+
+    let mut stale_game = game();
+    let stale_source = stale_game
+        .put_on_battlefield(caster, SOURCE)
+        .expect("stale source enters battlefield");
+    let stale_destroy = stale_game
+        .add_card(responder, DESTROY, Zone::Hand)
+        .expect("destroy enters responder hand");
+    stale_game.begin_game().expect("stale fixture begins");
+    stale_game.clear_event_log();
+    stale_game
+        .activate_ability(
+            caster,
+            AbilityActivation {
+                source: stale_source,
+                ability_id: "self-flying",
+                sacrifice_sources: vec![],
+                additional_tap_creatures: vec![],
+                discard_cards: vec![],
+                targets: vec![],
+            },
+        )
+        .expect("stale source ability reaches the stack");
+    stale_game
+        .pass_priority(caster)
+        .expect("caster yields response priority");
+    stale_game
+        .cast_spell(
+            responder,
+            CastRequest {
+                card: stale_destroy,
+                targets: vec![Target::Permanent(stale_source)],
+                convoke: vec![],
+                payment_mana_abilities: vec![],
+            },
+        )
+        .expect("response destroys the old source incarnation");
+    pass_pair(&mut stale_game);
+    assert_eq!(stale_game.zone_of(stale_source), Some(Zone::Graveyard));
+    pass_pair(&mut stale_game);
+    assert!(
+        !stale_game.event_log.iter().any(|event| matches!(
+            event,
+            GameEvent::ContinuousEffectCreated { source: effect_source, target, .. }
+                if *effect_source == stale_source && *target == stale_source
+        )),
+        "a departed source cannot create a continuous effect on its stale incarnation"
+    );
+    assert!(stale_game.event_log.iter().any(|event| matches!(
+        event,
+        GameEvent::AbilityResolved { source: event_source, ability, .. }
+            if *event_source == stale_source && *ability == "self-flying"
+    )));
+    println!(
+        "source_relative_keyword_event_log={:#?}",
+        stale_game.canonical_event_log()
+    );
+    stale_game
+        .validate_invariants()
+        .expect("stale source no-op preserves invariants");
+}
+
+#[test]
+#[allow(clippy::too_many_lines)] // Source-relative incarnation regression asserts the full response stack.
+fn source_relative_effect_cannot_modify_a_returned_source_incarnation() {
+    let caster = PlayerId(0);
+    let responder = PlayerId(1);
+    let mut game = game();
+    let source = game
+        .put_on_battlefield(caster, SOURCE)
+        .expect("source enters the battlefield");
+    let destroy = game
+        .add_card(responder, DESTROY, Zone::Hand)
+        .expect("destroy enters responder hand");
+    let return_spell = game
+        .add_card(caster, RETURN, Zone::Hand)
+        .expect("return spell enters caster hand");
+    let forest = game
+        .put_on_battlefield(caster, FOREST)
+        .expect("forest enters the battlefield");
+    game.begin_game().expect("fixture game begins");
+
+    let original_incarnation = game.object(source).expect("source exists").incarnation;
+    game.add_continuous_effect(
+        source,
+        source,
+        ContinuousChange::ModifyPowerToughness {
+            power: 1,
+            toughness: 1,
+        },
+        Duration::EndOfTurn(game.turn),
+    )
+    .expect("old incarnation receives a temporary modifier");
+    assert_eq!(
+        game.characteristics(source)
+            .expect("source has characteristics before leaving")
+            .power,
+        Some(2)
+    );
+    game.activate_ability(
+        caster,
+        AbilityActivation {
+            source,
+            ability_id: "self-charge",
+            sacrifice_sources: vec![],
+            additional_tap_creatures: vec![],
+            discard_cards: vec![],
+            targets: vec![],
+        },
+    )
+    .expect("self-counter ability is placed below the pump on the stack");
+    game.activate_ability(
+        caster,
+        AbilityActivation {
+            source,
+            ability_id: "self-pump",
+            sacrifice_sources: vec![],
+            additional_tap_creatures: vec![],
+            discard_cards: vec![],
+            targets: vec![],
+        },
+    )
+    .expect("self-pump is placed on the stack");
+    assert_eq!(
+        game.stack.last().map(|item| item.source_incarnation),
+        Some(original_incarnation),
+        "the stack retains the source incarnation at activation time"
+    );
+    game.pass_priority(caster)
+        .expect("caster passes to responder");
+    game.cast_spell(
+        responder,
+        CastRequest {
+            card: destroy,
+            targets: vec![Target::Permanent(source)],
+            convoke: vec![],
+            payment_mana_abilities: vec![],
+        },
+    )
+    .expect("destroy targets original source incarnation");
+    pass_pair(&mut game);
+    assert_eq!(game.zone_of(source), Some(Zone::Graveyard));
+
+    game.cast_spell_with_mana_spend(
+        caster,
+        CastRequest {
+            card: return_spell,
+            targets: vec![Target::Permanent(source)],
+            convoke: vec![],
+            payment_mana_abilities: vec![CastPaymentManaAbility::BasicLand(
+                BasicLandManaAbilityActivation {
+                    land: forest,
+                    color: Color::Green,
+                },
+            )],
+        },
+        ManaPaymentSelection {
+            generic: vec![Color::Green],
+            hybrid: vec![],
+        },
+    )
+    .expect("return spell targets the source card in its graveyard");
+    pass_pair(&mut game);
+    assert_eq!(game.zone_of(source), Some(Zone::Battlefield));
+    let returned_incarnation = game.object(source).expect("source returned").incarnation;
+    assert!(
+        returned_incarnation > original_incarnation,
+        "the returned permanent must be a new rules object"
+    );
+    assert_eq!(
+        game.stack.last().map(|item| item.source_incarnation),
+        Some(original_incarnation),
+        "a returned source may not rewrite the historical stack source"
+    );
+
+    pass_pair(&mut game);
+    pass_pair(&mut game);
+    eprintln!(
+        "incarnation source regression: original={original_incarnation}; returned={returned_incarnation}; source={source:?}; characteristics={:?}; events={:?}",
+        game.characteristics(source),
+        game.canonical_event_log(),
+    );
+    assert_eq!(
+        game.characteristics(source)
+            .expect("returned source has characteristics")
+            .power,
+        Some(1),
+        "the old ability must not modify the returned source incarnation"
+    );
+    assert_eq!(
+        game.object(source)
+            .expect("returned source exists")
+            .counters
+            .get(&CounterKind::Charge),
+        None,
+        "a generalized source-counter effect from the old incarnation must also no-op"
+    );
+    assert_eq!(
+        game.canonical_event_log()
+            .iter()
+            .filter(|event| {
+                event.contains("ContinuousEffectCreated")
+                    && event.contains(&format!("target: {source:?}"))
+            })
+            .count(),
+        1,
+        "only the old-incarnation modifier may have been created; the old ability must not create another on the returned incarnation"
+    );
+    assert!(
+        game.canonical_event_log()
+            .iter()
+            .any(|event| event.contains("ContinuousEffectExpired")),
+        "the continuous effect on the old incarnation must expire at departure"
+    );
+    game.validate_invariants()
+        .expect("failed source-relative resolution leaves a valid state");
+}
+
+#[test]
+fn a_dies_trigger_retains_battlefield_source_provenance_after_departure() {
+    let controller = PlayerId(0);
+    let mut game = Game::new_with_all_bindings_and_triggers(
+        definitions(),
+        2,
+        [],
+        [BasicLandTypeBinding {
+            card_definition: FOREST,
+            land_type: BasicLandType::Forest,
+        }],
+        [],
+        [],
+        [TriggeredAbilityBinding {
+            card_definition: SOURCE,
+            ability: TriggeredAbility {
+                id: "dies-life",
+                condition: TriggerCondition::Dies,
+                mana_cost: ManaCost::new(0),
+                optional: false,
+                targets: vec![],
+                effects: vec![Effect::GainLifeController { amount: 1 }],
+            },
+        }],
+    )
+    .expect("trigger fixture initializes");
+    let source = game
+        .put_on_battlefield(controller, SOURCE)
+        .expect("source enters battlefield");
+    game.begin_game().expect("fixture game begins");
+    let battlefield_incarnation = game.object(source).expect("source exists").incarnation;
+
+    game.add_continuous_effect(
+        source,
+        source,
+        ContinuousChange::ModifyPowerToughness {
+            power: -1,
+            toughness: -1,
+        },
+        Duration::EndOfTurn(game.turn),
+    )
+    .expect("SBA kills the source and stacks its dies trigger");
+    assert_eq!(game.zone_of(source), Some(Zone::Graveyard));
+    assert_eq!(
+        game.stack.last().map(|item| item.source_incarnation),
+        Some(battlefield_incarnation),
+        "a dies trigger must retain the dead battlefield incarnation, not its graveyard incarnation"
+    );
+    assert!(
+        game.object(source)
+            .expect("source remains allocated")
+            .incarnation
+            > battlefield_incarnation
+    );
+    assert!(
+        game.event_log.iter().any(|event| matches!(
+            event,
+            GameEvent::TriggeredAbilityStacked {
+                source: event_source,
+                source_incarnation,
+                ability: "dies-life",
+                ..
+            } if *event_source == source && *source_incarnation == battlefield_incarnation
+        )),
+        "the public trigger receipt must retain the historical battlefield incarnation"
+    );
+    pass_pair(&mut game);
+    assert_eq!(game.players[controller.0].life, 21);
+    game.validate_invariants()
+        .expect("historical dies-trigger provenance is invariant-valid");
+}
+
+#[test]
+fn entering_stack_and_leaving_library_advance_the_object_incarnation() {
+    let caster = PlayerId(0);
+    let opponent = PlayerId(1);
+    let mut game = game();
+    let ping = game
+        .add_card(caster, PING, Zone::Hand)
+        .expect("spell enters hand");
+    let library_card = game
+        .add_card(caster, LIBRARY_CARD, Zone::Library)
+        .expect("card enters library");
+    let hand_incarnation = game.object(ping).expect("spell exists").incarnation;
+    let library_incarnation = game
+        .object(library_card)
+        .expect("library card exists")
+        .incarnation;
+    // Setup supports opening-hand draws before the game becomes live.  This
+    // is still a real zone transition and must not be a special identity
+    // exception merely because it is eventless fixture setup.
+    game.draw_card(caster, None)
+        .expect("setup opening-hand draw succeeds");
+    let drawn_incarnation = game
+        .object(library_card)
+        .expect("drawn card remains allocated")
+        .incarnation;
+    game.begin_game().expect("fixture game begins");
+
+    game.cast_spell(
+        caster,
+        CastRequest {
+            card: ping,
+            targets: vec![Target::Player(opponent)],
+            convoke: vec![],
+            payment_mana_abilities: vec![],
+        },
+    )
+    .expect("spell is cast");
+    let stack_incarnation = game
+        .object(ping)
+        .expect("spell remains allocated")
+        .incarnation;
+    eprintln!(
+        "incarnation transition regression: hand={hand_incarnation}; stack={stack_incarnation}; library={library_incarnation}; hand_after_draw={drawn_incarnation}; events={:?}",
+        game.canonical_event_log(),
+    );
+    assert_eq!(
+        stack_incarnation,
+        hand_incarnation + 1,
+        "casting moves the physical card from hand to a new stack incarnation"
+    );
+    assert_eq!(
+        drawn_incarnation,
+        library_incarnation + 1,
+        "drawing moves the physical card from library to a new hand incarnation"
+    );
+}

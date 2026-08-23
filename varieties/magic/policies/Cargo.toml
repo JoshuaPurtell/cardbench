@@ -1,0 +1,62 @@
+[package]
+name = "cardbench-magic-policies"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+description = "Reference Rust code policies for the CardBench Magic variety"
+
+[lints]
+workspace = true
+
+[dependencies]
+cardbench-magic-engine = { path = "../engine" }
+cardbench-magic-rav = { path = "../sets/ravnica_city_of_guilds" }
+
+[lib]
+name = "cardbench_magic_policies"
+path = "src/lib.rs"
+
+[[bin]]
+name = "rav-policy-match"
+path = "src/bin/rav_policy_match.rs"
+
+[[bin]]
+name = "rav-deck-match"
+path = "src/bin/rav_deck_match.rs"
+
+[[bin]]
+name = "rav-deck-sweep"
+path = "src/bin/rav_deck_sweep.rs"
+
+[[bin]]
+name = "rav-engine-tournament"
+path = "src/bin/rav_engine_tournament.rs"
+
+[[bin]]
+name = "rav-engine-audit"
+path = "src/bin/rav_engine_audit.rs"
+
+[[bin]]
+name = "rav-reference-deck-matrix"
+path = "src/bin/rav_reference_deck_matrix.rs"
+
+[[bin]]
+name = "rav-card-pool"
+path = "src/bin/rav_card_pool.rs"
+
+[[bin]]
+name = "rav-archetype-matrix"
+path = "src/bin/rav_archetype_matrix.rs"
+
+[[bin]]
+name = "rav-policy-ladder"
+path = "src/bin/rav_policy_ladder.rs"
+
+[[bin]]
+name = "rav-deck-hillclimb"
+path = "src/bin/rav_deck_hillclimb.rs"
+
+[[bin]]
+name = "rav-ratings"
+path = "src/bin/rav_ratings.rs"

@@ -1,0 +1,68 @@
+schema_version = "cardbench.magic.deck.v1"
+id = "rav_boros_aggro"
+name = "RAV Boros Aggro"
+set = "RAV"
+format = "ravnica-block"
+archetype = "aggro"
+source = "CardBench-authored constructed deck; not a reproduction of a commercial decklist."
+
+# A real constructed list, unlike the coverage fixtures: 24 lands and 36
+# spells with a curve topping out at four. Every card is pilotable by the
+# shared planners -- no additional costs, no paid-bundle mana sources, no
+# "Hunted" creatures whose drawback gives the opponent a body the planner does
+# not model.
+#
+# Two Boros Garrisons only: the karoo enters tapped and bounces a land, which
+# an aggro deck pays for more than a midrange deck does.
+
+[[mainboard]]
+card = "RAV-MOUNTAIN"
+count = 9
+
+[[mainboard]]
+card = "RAV-PLAINS"
+count = 9
+
+[[mainboard]]
+card = "RAV-SACRED-FOUNDRY"
+count = 4
+
+[[mainboard]]
+card = "RAV-BOROS-GARRISON"
+count = 2
+
+[[mainboard]]
+card = "RAV-BOROS-RECRUIT"
+count = 4
+
+[[mainboard]]
+card = "RAV-SABERTOOTH-ALLEY-CAT"
+count = 4
+
+[[mainboard]]
+card = "RAV-BOROS-SWIFTBLADE"
+count = 4
+
+[[mainboard]]
+card = "RAV-THUNDERSONG-TRUMPETER"
+count = 4
+
+[[mainboard]]
+card = "RAV-SKYKNIGHT-LEGIONNAIRE"
+count = 4
+
+[[mainboard]]
+card = "RAV-NIGHTGUARD-PATROL"
+count = 4
+
+[[mainboard]]
+card = "RAV-ORDRUUN-COMMANDO"
+count = 4
+
+[[mainboard]]
+card = "RAV-LIGHTNING-HELIX"
+count = 4
+
+[[mainboard]]
+card = "RAV-CHAR"
+count = 4

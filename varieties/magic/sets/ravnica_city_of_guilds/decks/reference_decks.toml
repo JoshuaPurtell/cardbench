@@ -1,0 +1,79 @@
+schema_version = "cardbench.magic.deck-index.v1"
+set = "RAV"
+format = "ravnica-block"
+visibility = "shown"
+
+[[deck]]
+id = "rav_boros_helix"
+policy = "rav.boros-tempo.v1"
+path = "rav_boros_helix.toml"
+
+[[deck]]
+id = "rav_selesnya_convoke"
+policy = "rav.selesnya-convoke.v1"
+path = "rav_selesnya_convoke.toml"
+
+[[deck]]
+id = "rav_boros_char_control"
+policy = "rav.boros-char-control.v1"
+path = "rav_boros_char_control.toml"
+
+[[deck]]
+id = "rav_selesnya_siege"
+policy = "rav.selesnya-siege.v1"
+path = "rav_selesnya_siege.toml"
+
+[[deck]]
+id = "rav_golgari_attrition"
+policy = "rav.golgari-attrition.v1"
+path = "rav_golgari_attrition.toml"
+
+[[deck]]
+id = "rav_selesnya_radiance_tokens"
+policy = "rav.selesnya-radiance-tokens.v1"
+path = "rav_selesnya_radiance_tokens.toml"
+
+[[deck]]
+id = "rav_boros_convoke_burn"
+policy = "rav.boros-convoke-burn.v1"
+path = "rav_boros_convoke_burn.toml"
+
+[[deck]]
+id = "rav_boros_radiance_assault"
+policy = "rav.boros-radiance-assault.v1"
+path = "rav_boros_radiance_assault.toml"
+
+[[deck]]
+id = "rav_boros_token_rally"
+policy = "rav.boros-token-rally.v1"
+path = "rav_boros_token_rally.toml"
+
+[[deck]]
+id = "rav_golgari_dredge_grind"
+policy = "rav.golgari-dredge-grind.v1"
+path = "rav_golgari_dredge_grind.toml"
+
+[[deck]]
+id = "rav_golgari_wurm_press"
+policy = "rav.golgari-wurm-press.v1"
+path = "rav_golgari_wurm_press.toml"
+
+[[deck]]
+id = "rav_radiance_convoke_assault"
+policy = "rav.radiance-convoke-assault.v1"
+path = "rav_radiance_convoke_assault.toml"
+
+[[deck]]
+id = "rav_dimir_transmute_attrition"
+policy = "rav.dimir-transmute-attrition.v1"
+path = "rav_dimir_transmute_attrition.toml"
+
+[[deck]]
+id = "rav_dimir_transmute_convoke"
+policy = "rav.dimir-transmute-convoke.v1"
+path = "rav_dimir_transmute_convoke.toml"
+
+[[deck]]
+id = "rav_dimir_transmute_helix"
+policy = "rav.dimir-transmute-helix.v1"
+path = "rav_dimir_transmute_helix.toml"

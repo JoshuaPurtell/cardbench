@@ -1,0 +1,41 @@
+schema_version = "cardbench.magic.deck.v1"
+id = "rav_selesnya_radiance_tokens"
+name = "RAV Selesnya Radiance Tokens Development"
+set = "RAV"
+format = "ravnica-block"
+policy = "rav.selesnya-radiance-tokens.v1"
+source = "CardBench-authored development deck; not a reproduction of a commercial decklist."
+
+# Public executable-card fixture for token creation, convoke, radiance, untap,
+# continuous effects, combat, and state-based actions. It intentionally uses no
+# card art, rules prose, or unpublished/held-out card data.
+[[mainboard]]
+card = "RAV-GOLGARI-BROWNSCALE"
+count = 4
+
+[[mainboard]]
+card = "RAV-SCATTER-THE-SEEDS"
+count = 4
+
+[[mainboard]]
+card = "RAV-RALLY-THE-RIGHTEOUS"
+count = 4
+
+[[mainboard]]
+card = "RAV-SIEGE-WURM"
+count = 4
+
+[[mainboard]]
+card = "RAV-FOREST"
+count = 20
+
+[[mainboard]]
+card = "RAV-PLAINS"
+count = 12
+
+[[mainboard]]
+card = "RAV-MOUNTAIN"
+count = 12
+
+[sideboard]
+count = 0

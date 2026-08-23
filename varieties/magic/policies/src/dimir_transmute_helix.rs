@@ -1,0 +1,499 @@
+use cardbench_magic_engine::{
+    CardType, CastRequest, Color, DecisionSelection, GameView, ObjectId, PlayerId, PolicyAction,
+    Step, Target,
+};
+
+use crate::CodePolicy;
+
+/// A blue-led policy that uses Muddle as a visible-stack counterspell when it
+/// can, otherwise transmutes it through a real controller-only library search
+/// before deploying the searched Helix as a red-white payoff.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct DimirTransmuteHelixPolicy {
+    player: PlayerId,
+}
+
+impl DimirTransmuteHelixPolicy {
+    #[must_use]
+    pub const fn new(player: PlayerId) -> Self {
+        Self { player }
+    }
+}
+
+impl CodePolicy for DimirTransmuteHelixPolicy {
+    fn id(&self) -> &'static str {
+        "rav.dimir-transmute-helix.v1"
+    }
+
+    fn propose_move(&mut self, view: &GameView) -> PolicyAction {
+        if view.player != self.player || view.decision_player != self.player {
+            return PolicyAction::PassPriority;
+        }
+        if let Some(decision) = &view.pending_decision {
+            let selected = decision
+                .candidates
+                .iter()
+                .find(|card| card.definition == Some("RAV-LIGHTNING-HELIX"))
+                .map_or_else(Vec::new, |card| vec![card.id]);
+            return PolicyAction::SubmitDecision {
+                decision: decision.id,
+                selection: DecisionSelection::Objects(selected),
+            };
+        }
+        if let Some(action) = counterspell_response(view, self.player) {
+            return action;
+        }
+        if let Some(action) = prepare_counterspell_response(view, self.player) {
+            return action;
+        }
+        match view.step {
+            Step::DeclareAttackers
+                if view.active_player == self.player && !view.attackers_declared =>
+            {
+                return PolicyAction::DeclareAttackers { attackers: vec![] };
+            }
+            Step::DeclareBlockers
+                if view.active_player != self.player && !view.blockers_declared =>
+            {
+                return PolicyAction::DeclareBlockers {
+                    assignments: vec![],
+                };
+            }
+            Step::PrecombatMain | Step::PostcombatMain => {}
+            _ => return PolicyAction::PassPriority,
+        }
+        if view.active_player != self.player
+            || view.priority != self.player
+            || view.stack_depth != 0
+        {
+            return PolicyAction::PassPriority;
+        }
+
+        let has_muddle = has_card(view, "RAV-MUDDLE-THE-MIXTURE");
+        let has_helix = has_card(view, "RAV-LIGHTNING-HELIX");
+        let has_char = has_card(view, "RAV-CHAR");
+        if view.lands_played == 0
+            && let Some(land) = select_hand_land(
+                view,
+                desired_land_color(view, has_muddle, has_helix, has_char),
+            )
+        {
+            return PolicyAction::PlayLand { card: land };
+        }
+        if let Some(action) = transmute_for_helix(view) {
+            return action;
+        }
+        if let Some(card) = card_in_hand(view, "RAV-LIGHTNING-HELIX")
+            && can_pay_helix(view)
+        {
+            return cast(card, damage_target(view));
+        }
+        if let Some(card) = card_in_hand(view, "RAV-CHAR")
+            && view.own_life > 2
+            && can_pay_char(view)
+        {
+            return cast(card, damage_target(view));
+        }
+        if (has_muddle || has_helix || has_char)
+            && let Some(land) = select_battlefield_land(
+                view,
+                desired_mana_color(view, has_muddle, has_helix, has_char),
+            )
+        {
+            let desired = desired_mana_color(view, has_muddle, has_helix, has_char);
+            let color = desired
+                .filter(|color| land.mana_colors.contains(color))
+                .unwrap_or_else(|| *land.mana_colors.first().expect("basic land has color"));
+            return PolicyAction::ActivateManaAbility {
+                land: land.id,
+                color,
+            };
+        }
+        PolicyAction::PassPriority
+    }
+}
+
+fn transmute_for_helix(view: &GameView) -> Option<PolicyAction> {
+    if !can_pay_transmute(view) {
+        return None;
+    }
+    // A legal policy cannot inspect its hidden library merely for holding
+    // Transmute. It commits the ability based on the public hand and selects
+    // Lightning Helix only if the later private resolving search presents it.
+    card_in_hand(view, "RAV-MUDDLE-THE-MIXTURE").map(|card| PolicyAction::Transmute { card })
+}
+
+fn counterspell_response(view: &GameView, player: PlayerId) -> Option<PolicyAction> {
+    if view.priority != player || view.stack_depth == 0 || !can_pay_muddle(view) {
+        return None;
+    }
+    let muddle = card_in_hand(view, "RAV-MUDDLE-THE-MIXTURE")?;
+    let target = view.stack_spells.iter().find(|spell| {
+        spell.controller != player
+            && (spell.card_types.contains(&CardType::Instant)
+                || spell.card_types.contains(&CardType::Sorcery))
+    })?;
+    Some(cast(muddle, Target::Spell(target.id)))
+}
+
+/// Mana abilities are legal responses. Prepare the explicit `UU` payment only
+/// when the policy can complete it against a visible opposing spell, rather
+/// than passing away a real counter window or floating mana without a use.
+fn prepare_counterspell_response(view: &GameView, player: PlayerId) -> Option<PolicyAction> {
+    if view.priority != player || view.stack_depth == 0 || can_pay_muddle(view) {
+        return None;
+    }
+    card_in_hand(view, "RAV-MUDDLE-THE-MIXTURE")?;
+    view.stack_spells.iter().find(|spell| {
+        spell.controller != player
+            && (spell.card_types.contains(&CardType::Instant)
+                || spell.card_types.contains(&CardType::Sorcery))
+    })?;
+    let available_blue = view.mana_pool.amount(Color::Blue)
+        + u8::try_from(
+            view.own_battlefield
+                .iter()
+                .filter(|card| {
+                    !card.tapped
+                        && card.card_types.contains(&CardType::Land)
+                        && card.mana_colors.contains(&Color::Blue)
+                })
+                .count(),
+        )
+        .ok()?;
+    if available_blue < 2 {
+        return None;
+    }
+    let land = select_battlefield_land(view, Some(Color::Blue))?;
+    Some(PolicyAction::ActivateManaAbility {
+        land: land.id,
+        color: Color::Blue,
+    })
+}
+
+fn cast(card: ObjectId, target: Target) -> PolicyAction {
+    PolicyAction::Cast(CastRequest {
+        card,
+        targets: vec![target],
+        convoke: vec![],
+        payment_mana_abilities: vec![],
+    })
+}
+
+fn has_card(view: &GameView, definition: &str) -> bool {
+    card_in_hand(view, definition).is_some()
+}
+
+fn card_in_hand(view: &GameView, definition: &str) -> Option<ObjectId> {
+    view.hand
+        .iter()
+        .find(|card| card.definition == Some(definition))
+        .map(|card| card.id)
+}
+
+fn can_pay_transmute(view: &GameView) -> bool {
+    view.mana_pool.amount(Color::Blue) >= 2 && view.mana_pool.total() >= 3
+}
+
+fn can_pay_muddle(view: &GameView) -> bool {
+    view.mana_pool.amount(Color::Blue) >= 2 && view.mana_pool.total() >= 2
+}
+
+fn can_pay_helix(view: &GameView) -> bool {
+    view.mana_pool.amount(Color::White) >= 1
+        && view.mana_pool.amount(Color::Red) >= 1
+        && view.mana_pool.total() >= 2
+}
+
+fn can_pay_char(view: &GameView) -> bool {
+    view.mana_pool.amount(Color::Red) >= 1 && view.mana_pool.total() >= 3
+}
+
+fn damage_target(view: &GameView) -> Target {
+    view.opponent_battlefield
+        .iter()
+        .find(|card| card.card_types.contains(&CardType::Creature))
+        .map_or_else(
+            || {
+                Target::Player(
+                    view.opponent_life
+                        .first()
+                        .map_or(PlayerId(0), |(id, _)| *id),
+                )
+            },
+            |card| Target::Permanent(card.id),
+        )
+}
+
+fn desired_land_color(
+    view: &GameView,
+    has_muddle: bool,
+    has_helix: bool,
+    has_char: bool,
+) -> Option<Color> {
+    if has_muddle && lands_producing(view, Color::Blue) < 2 {
+        Some(Color::Blue)
+    } else if has_helix && lands_producing(view, Color::White) == 0 {
+        Some(Color::White)
+    } else if (has_helix || has_char) && lands_producing(view, Color::Red) == 0 {
+        Some(Color::Red)
+    } else {
+        None
+    }
+}
+
+fn desired_mana_color(
+    view: &GameView,
+    has_muddle: bool,
+    has_helix: bool,
+    has_char: bool,
+) -> Option<Color> {
+    if has_muddle && view.mana_pool.amount(Color::Blue) < 2 {
+        Some(Color::Blue)
+    } else if has_helix && view.mana_pool.amount(Color::White) == 0 {
+        Some(Color::White)
+    } else if (has_helix || has_char) && view.mana_pool.amount(Color::Red) == 0 {
+        Some(Color::Red)
+    } else {
+        None
+    }
+}
+
+fn lands_producing(view: &GameView, color: Color) -> usize {
+    view.own_battlefield
+        .iter()
+        .filter(|card| {
+            card.card_types.contains(&CardType::Land) && card.mana_colors.contains(&color)
+        })
+        .count()
+}
+
+fn select_hand_land(view: &GameView, desired: Option<Color>) -> Option<ObjectId> {
+    let mut lands = view
+        .hand
+        .iter()
+        .filter(|card| card.card_types.contains(&CardType::Land));
+    if let Some(color) = desired
+        && let Some(land) = lands.clone().find(|card| card.mana_colors.contains(&color))
+    {
+        return Some(land.id);
+    }
+    lands.next().map(|card| card.id)
+}
+
+fn select_battlefield_land(
+    view: &GameView,
+    desired: Option<Color>,
+) -> Option<&cardbench_magic_engine::CardView> {
+    let mut lands = view.own_battlefield.iter().filter(|card| {
+        !card.tapped && card.card_types.contains(&CardType::Land) && !card.mana_colors.is_empty()
+    });
+    if let Some(color) = desired
+        && let Some(land) = lands.clone().find(|card| card.mana_colors.contains(&color))
+    {
+        return Some(land);
+    }
+    lands.next()
+}
+
+#[cfg(test)]
+mod tests {
+    use cardbench_magic_engine::{Game, Zone};
+    use cardbench_magic_rav::card_definitions;
+
+    use super::*;
+
+    fn resolve_top_of_stack(game: &mut Game) {
+        let first = game.priority;
+        game.pass_priority(first).expect("first pass");
+        let second = game.priority;
+        game.pass_priority(second).expect("second pass resolves");
+    }
+
+    #[test]
+    fn submits_a_legal_controller_only_transmute_search() {
+        let mut game = Game::new(card_definitions(), 2).expect("RAV game");
+        let muddle = game
+            .add_card(PlayerId(0), "RAV-MUDDLE-THE-MIXTURE", Zone::Hand)
+            .expect("Muddle in hand");
+        let helix = game
+            .add_card(PlayerId(0), "RAV-LIGHTNING-HELIX", Zone::Library)
+            .expect("Helix in library");
+        game.add_card(PlayerId(1), "RAV-LIGHTNING-HELIX", Zone::Library)
+            .expect("opponent hidden card");
+        game.grant_mana(PlayerId(0), Color::Blue, 2)
+            .expect("blue mana");
+        game.grant_mana(PlayerId(0), Color::Green, 1)
+            .expect("generic mana");
+        let mut policy = DimirTransmuteHelixPolicy::new(PlayerId(0));
+        let view = game.view_for_player(PlayerId(0)).expect("controller view");
+        assert!(
+            view.transmute_searches.is_empty(),
+            "an unactivated Transmute card cannot reveal private library matches"
+        );
+        let action = policy.propose_move(&view);
+        assert_eq!(action, PolicyAction::Transmute { card: muddle });
+        game.submit_policy_move(PlayerId(0), policy.id(), action)
+            .expect("policy transmute proposal is legal");
+        assert_eq!(game.zone_of(muddle), Some(Zone::Graveyard));
+        assert_eq!(game.zone_of(helix), Some(Zone::Library));
+        resolve_top_of_stack(&mut game);
+        let decision = policy.propose_move(
+            &game
+                .view_for_player(PlayerId(0))
+                .expect("controller sees private search decision"),
+        );
+        assert!(matches!(decision, PolicyAction::SubmitDecision { .. }));
+        game.submit_policy_move(PlayerId(0), policy.id(), decision)
+            .expect("policy submits the private Transmute search");
+        assert_eq!(game.zone_of(helix), Some(Zone::Hand));
+        game.validate_invariants()
+            .expect("transmute policy submission preserves invariants");
+    }
+
+    #[test]
+    fn submits_the_searched_helix_through_the_real_engine() {
+        let mut game = Game::new(card_definitions(), 2).expect("RAV game");
+        let helix = game
+            .add_card(PlayerId(0), "RAV-LIGHTNING-HELIX", Zone::Hand)
+            .expect("Helix in hand");
+        game.grant_mana(PlayerId(0), Color::White, 1)
+            .expect("white mana");
+        game.grant_mana(PlayerId(0), Color::Red, 1)
+            .expect("red mana");
+        let mut policy = DimirTransmuteHelixPolicy::new(PlayerId(0));
+        let action = policy.propose_move(&game.view_for_player(PlayerId(0)).expect("view"));
+        assert_eq!(action, cast(helix, Target::Player(PlayerId(1))));
+        game.submit_policy_move(PlayerId(0), policy.id(), action)
+            .expect("Helix proposal is legal");
+        resolve_top_of_stack(&mut game);
+        assert_eq!(game.players[1].life, 17);
+        game.validate_invariants()
+            .expect("post-transmute payoff preserves invariants");
+    }
+
+    #[test]
+    fn submits_muddle_as_a_visible_stack_counterspell() {
+        let mut game = Game::new(card_definitions(), 2).expect("RAV game");
+        let muddle = game
+            .add_card(PlayerId(0), "RAV-MUDDLE-THE-MIXTURE", Zone::Hand)
+            .expect("Muddle in hand");
+        let char = game
+            .add_card(PlayerId(1), "RAV-CHAR", Zone::Hand)
+            .expect("opponent Char in hand");
+        game.grant_mana(PlayerId(0), Color::Blue, 2)
+            .expect("blue mana for Muddle");
+        game.grant_mana(PlayerId(1), Color::Red, 3)
+            .expect("red mana for Char");
+        game.pass_priority(PlayerId(0))
+            .expect("priority passes to the opponent");
+        game.cast_spell(
+            PlayerId(1),
+            CastRequest {
+                card: char,
+                targets: vec![Target::Player(PlayerId(0))],
+                convoke: vec![],
+                payment_mana_abilities: vec![],
+            },
+        )
+        .expect("opponent casts Char");
+        game.pass_priority(PlayerId(1))
+            .expect("the opponent passes after casting");
+
+        let mut policy = DimirTransmuteHelixPolicy::new(PlayerId(0));
+        let view = game
+            .view_for_player(PlayerId(0))
+            .expect("public stack view");
+        assert_eq!(view.stack_spells.len(), 1);
+        assert_eq!(view.stack_spells[0].id, char);
+        let action = policy.propose_move(&view);
+        assert_eq!(action, cast(muddle, Target::Spell(char)));
+        game.submit_policy_move(PlayerId(0), policy.id(), action)
+            .expect("policy counterspell proposal is legal");
+        resolve_top_of_stack(&mut game);
+
+        assert!(game.stack.is_empty());
+        assert_eq!(game.zone_of(char), Some(Zone::Graveyard));
+        assert_eq!(game.zone_of(muddle), Some(Zone::Graveyard));
+        assert_eq!(
+            game.players[0].life, 20,
+            "the countered Char dealt no damage"
+        );
+        assert!(game.event_log.iter().any(|event| matches!(
+            event,
+            cardbench_magic_engine::GameEvent::SpellCountered { card, source }
+                if *card == char && *source == muddle
+        )));
+        game.validate_invariants()
+            .expect("counterspell submission preserves invariants");
+    }
+
+    #[test]
+    fn activates_available_blue_mana_before_countering_a_stack_spell() {
+        let mut game = Game::new(card_definitions(), 2).expect("RAV game");
+        let muddle = game
+            .add_card(PlayerId(0), "RAV-MUDDLE-THE-MIXTURE", Zone::Hand)
+            .expect("Muddle in hand");
+        game.put_on_battlefield(PlayerId(0), "RAV-ISLAND")
+            .expect("first untapped Island");
+        game.put_on_battlefield(PlayerId(0), "RAV-ISLAND")
+            .expect("second untapped Island");
+        let char = game
+            .add_card(PlayerId(1), "RAV-CHAR", Zone::Hand)
+            .expect("opponent Char in hand");
+        game.grant_mana(PlayerId(1), Color::Red, 3)
+            .expect("red mana for Char");
+        game.pass_priority(PlayerId(0))
+            .expect("priority passes to the opponent");
+        game.cast_spell(
+            PlayerId(1),
+            CastRequest {
+                card: char,
+                targets: vec![Target::Player(PlayerId(0))],
+                convoke: vec![],
+                payment_mana_abilities: vec![],
+            },
+        )
+        .expect("opponent casts Char");
+        game.pass_priority(PlayerId(1))
+            .expect("the opponent passes after casting");
+
+        let mut policy = DimirTransmuteHelixPolicy::new(PlayerId(0));
+        for activation in 1..=2 {
+            let view = game
+                .view_for_player(PlayerId(0))
+                .expect("counterspell response view");
+            let action = policy.propose_move(&view);
+            assert!(
+                matches!(
+                    action,
+                    PolicyAction::ActivateManaAbility {
+                        color: Color::Blue,
+                        ..
+                    }
+                ),
+                "an untapped pair of Islands must be used before giving up a legal Muddle response; action: {action:?}; events: {:?}; view: {view:?}",
+                game.event_log
+            );
+            game.submit_policy_move(PlayerId(0), policy.id(), action)
+                .unwrap_or_else(|error| {
+                    panic!("counterspell mana activation {activation} failed: {error}")
+                });
+        }
+        let action = policy.propose_move(
+            &game
+                .view_for_player(PlayerId(0))
+                .expect("fully funded counterspell response view"),
+        );
+        assert_eq!(action, cast(muddle, Target::Spell(char)));
+        game.submit_policy_move(PlayerId(0), policy.id(), action)
+            .expect("policy submits Muddle after funding it");
+        resolve_top_of_stack(&mut game);
+        assert!(game.event_log.iter().any(|event| matches!(
+            event,
+            cardbench_magic_engine::GameEvent::SpellCountered { card, .. } if *card == char
+        )));
+        game.validate_invariants()
+            .expect("funded policy counterspell preserves engine invariants");
+    }
+}

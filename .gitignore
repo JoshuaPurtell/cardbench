@@ -7,3 +7,10 @@ __pycache__/
 .DS_Store
 .cargo/
 .codex/
+
+# Node build trees. A `git add -A` in this repo once swept 939 node_modules
+# files into a commit; these never belong in version control.
+node_modules/
+**/ui/dist/
+**/ui/.vite/
+**/*.tsbuildinfo
