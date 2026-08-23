@@ -402,7 +402,7 @@ impl MatchSession {
                     return;
                 }
             };
-            if view.decision_player != AI && self.game.priority != AI {
+            if view.decision_player != AI {
                 return;
             }
             let action = if view.draw_replacement_pending {
