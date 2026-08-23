@@ -270,7 +270,7 @@ def generate_benchmark_binary(ai_name: str, ai_module_path: Path, reference_algo
     )
 
     return f"""use tcg_ai::{{AiController, RandomAiV4}};
-use tcg_core::{{Action, CardInstance, CardMetaMap, GameState, PlayerId, StepResult}};
+use tcg_core::{{Action, CardInstance, CardMetaMap, GameEvent, GameState, PlayerId, StepResult}};
 use tcg_rules_ex::RulesetConfig;
 
 {reference_modules_code}
@@ -424,6 +424,12 @@ struct MatchOutcome {{
     opponent_prizes_taken: u8,
     tracked_evolutions: u16,
     opponent_evolutions: u16,
+    tracked_cards_drawn: u16,
+    tracked_pokemon_played: u16,
+    tracked_energy_attached: u16,
+    tracked_attacks_declared: u16,
+    total_damage_dealt: u32,
+    total_knockouts: u16,
 }}
 
 fn accepted_action(
@@ -498,6 +504,25 @@ fn summarize_match_outcomes(outcomes: &[MatchOutcome]) -> serde_json::Value {{
     }})
 }}
 
+fn raw_match_outcomes(outcomes: &[MatchOutcome]) -> Vec<serde_json::Value> {{
+    outcomes
+        .iter()
+        .map(|outcome| serde_json::json!({{
+            "won": outcome.tracked_won,
+            "turns": outcome.turns,
+            "prizes_taken": outcome.tracked_prizes_taken,
+            "opponent_prizes_taken": outcome.opponent_prizes_taken,
+            "evolutions": outcome.tracked_evolutions,
+            "cards_drawn": outcome.tracked_cards_drawn,
+            "pokemon_played": outcome.tracked_pokemon_played,
+            "energy_attached": outcome.tracked_energy_attached,
+            "attacks_declared": outcome.tracked_attacks_declared,
+            "total_damage_dealt": outcome.total_damage_dealt,
+            "total_knockouts": outcome.total_knockouts,
+        }}))
+        .collect()
+}}
+
 fn run_match_series(
     deck1: &[CardInstance],
     deck2: &[CardInstance],
@@ -536,6 +561,39 @@ fn run_match_series(
             let p1_prizes_taken = 6u8.saturating_sub(p1_prizes_remaining);
             let p2_prizes_taken = 6u8.saturating_sub(p2_prizes_remaining);
             let turns = game.turn.number;
+            let tracked_cards_drawn = game
+                .event_log
+                .iter()
+                .filter(|event| matches!(event, GameEvent::CardDrawn {{ player, .. }} if *player == count_player))
+                .count() as u16;
+            let tracked_pokemon_played = game
+                .event_log
+                .iter()
+                .filter(|event| matches!(event, GameEvent::PokemonPlayed {{ player, .. }} if *player == count_player))
+                .count() as u16;
+            let tracked_energy_attached = game
+                .event_log
+                .iter()
+                .filter(|event| matches!(event, GameEvent::EnergyAttached {{ player, .. }} if *player == count_player))
+                .count() as u16;
+            let tracked_attacks_declared = game
+                .event_log
+                .iter()
+                .filter(|event| matches!(event, GameEvent::AttackDeclared {{ player, .. }} if *player == count_player))
+                .count() as u16;
+            let total_damage_dealt = game
+                .event_log
+                .iter()
+                .filter_map(|event| match event {{
+                    GameEvent::DamageDealt {{ amount, .. }} => Some(*amount as u32),
+                    _ => None,
+                }})
+                .sum();
+            let total_knockouts = game
+                .event_log
+                .iter()
+                .filter(|event| matches!(event, GameEvent::PokemonKnockedOut {{ .. }}))
+                .count() as u16;
             let (tracked_won, tracked_prizes_taken, opponent_prizes_taken, tracked_evolutions, opponent_evolutions) =
                 if count_player == PlayerId::P1 {{
                     (
@@ -566,6 +624,12 @@ fn run_match_series(
                 opponent_prizes_taken,
                 tracked_evolutions,
                 opponent_evolutions,
+                tracked_cards_drawn,
+                tracked_pokemon_played,
+                tracked_energy_attached,
+                tracked_attacks_declared,
+                total_damage_dealt,
+                total_knockouts,
             }});
         }}
     }}
@@ -841,6 +905,7 @@ fn main() {{
                 }} else {{
                     0.0
                 }},
+                "event_telemetry": raw_match_outcomes(&side_stats.outcomes),
             }}));
         }}
 

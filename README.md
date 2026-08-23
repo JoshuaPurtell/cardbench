@@ -81,6 +81,20 @@ Each P0 run writes authority and visualization artifacts beneath
 `artifacts/`. Pixels are derived from event/state data and are never used as
 the score.
 
+### Public matrix packaging
+
+To publish a Craftax-shaped frontend package from a Harbor verify artifact:
+
+```bash
+python3 scripts/package_public_matrix.py \
+  --artifact artifacts/harbor/code_policy-verify-20260801T182535Z-67269 \
+  --out /path/to/frontend/public/evals/cardbench/v0
+```
+
+The package includes `matrix.json`, featured cell digests, board frames, and a
+Gemini 2.5 Flash Lite (`effort=low`) ReAct focus stub for the first planned
+play model.
+
 ## Layout
 
 - `varieties/pokemon/engine/` — pinned shared Rust engine

@@ -369,6 +369,12 @@ def write_artifacts(
                         "opponent_deck": candidate_cells[cell_id]["opponent_deck"],
                         "side": candidate_cells[cell_id]["side"],
                         "seed_base": candidate_cells[cell_id]["seed_base"],
+                        "baseline_event_telemetry": baseline_cells[cell_id].get(
+                            "event_telemetry", []
+                        ),
+                        "candidate_event_telemetry": candidate_cells[cell_id].get(
+                            "event_telemetry", []
+                        ),
                     }
                 )
                 + "\n"
