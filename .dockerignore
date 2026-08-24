@@ -1,0 +1,15 @@
+# Build context for adapters/harbor/bundles/*/environment/Dockerfile.
+#
+# `.sealed/` is DELIBERATELY NOT excluded: the trial image needs the heldout
+# split in `/task` to grade against. It is stripped from the `/workspace` copy
+# inside the Dockerfile instead, which is the only place the two copies differ.
+.git/
+**/.cache/
+artifacts/
+**/target/
+**/node_modules/
+**/__pycache__/
+**/*.pyc
+**/ui/dist/
+**/ui/.vite/
+.DS_Store
