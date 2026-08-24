@@ -175,8 +175,13 @@ def write_candidate_crate(candidate: Path, candidate_id: str, work_dir: Path) ->
 def build_candidate(work_dir: Path) -> Path:
     require_toolchain()
     environment = {**os.environ, "CARGO_TARGET_DIR": str(target_dir())}
+    # Offline is NOT forced here. The bake's prewarm runs this same function to
+    # populate CARGO_HOME, and `--offline` against an empty cache fails to
+    # resolve at all. The Dockerfile sets CARGO_NET_OFFLINE=true *after* the
+    # prewarm, which cargo honours on its own -- so the graded build is offline
+    # and the build that fills the cache is not.
     completed = subprocess.run(
-        ["cargo", "build", "--release", "--offline", "--bin", "candidate-sweep"],
+        ["cargo", "build", "--release", "--bin", "candidate-sweep"],
         cwd=work_dir,
         text=True,
         capture_output=True,
