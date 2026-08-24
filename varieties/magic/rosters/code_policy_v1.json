@@ -1,0 +1,58 @@
+{
+  "schema_version": "cardbench.magic.code_policy_roster.v1",
+  "roster_id": "code_policy_v1",
+  "task_id": "cardbench/magic/code_policy",
+  "description": "Fixed evaluation surface for the Magic code-policy family. The five train opponents are visible in the workspace and are the agent's feedback signal only. The heldout split is sealed: this file publishes its shape and its digest, never its composition.",
+  "submission": {
+    "artifacts": ["decklist.toml", "policy.rs"],
+    "abi": "cardbench_magic_policies::CodePolicy",
+    "note": "Deck and pilot are graded together. A strong pilot cannot rescue an incoherent deck and a tuned deck cannot rescue a pilot that never attacks, so grading either alone measures the wrong thing."
+  },
+  "reference": {
+    "id": "reference_v1",
+    "pilot": "v5",
+    "deck": "rav_selesnya_midrange",
+    "source": "policies/src/code_policy/reference.rs",
+    "note": "A named freeze of archetypes::v5, carrying v2 whole-set attack planning, v3 valued blocking, v4 land sequencing, and v5 activated abilities. The reference arm always plays this deck with this pilot; the candidate arm plays whatever the candidate submitted. That asymmetry is deliberate: this is a deck-and-pilot task, so the candidate's deck choice has to be part of what the delta measures."
+  },
+  "candidate_deck_pool": [
+    "rav_boros_aggro",
+    "rav_selesnya_midrange",
+    "rav_boros_burn",
+    "rav_golgari_midrange",
+    "rav_boros_burn_hc_hawk",
+    "rav_boros_burn_hc_curve",
+    "rav_boros_aggro_hc_hawk",
+    "rav_golgari_midrange_hc_removal",
+    "rav_selesnya_midrange_hc_curve",
+    "rav_selesnya_midrange_hc_armorer"
+  ],
+  "train": {
+    "opponents": [
+      { "id": "opp_t1", "pilot": "v1", "deck": "rav_boros_aggro" },
+      { "id": "opp_t2", "pilot": "v2", "deck": "rav_golgari_midrange" },
+      { "id": "opp_t3", "pilot": "v3", "deck": "rav_boros_burn" },
+      { "id": "opp_t4", "pilot": "v4", "deck": "rav_selesnya_midrange" },
+      { "id": "opp_t5", "pilot": "v5", "deck": "rav_boros_aggro" }
+    ],
+    "seeds": 30,
+    "seats": ["p0", "p1"],
+    "cell_count": 300,
+    "pairing": "cell = (candidate deck, candidate pilot, opponent, opponent deck, seat, seed). The candidate arm and the reference arm join on (opponent, opponent deck, seat, seed), which is the only coordinate they share.",
+    "note": "Spans the v1..v5 generations on the constructed control decks, so the frozen reference sits inside a measurable range rather than beating or losing to everything."
+  },
+  "heldout": {
+    "manifest": ".sealed/code_policy/heldout_v1.json",
+    "sha256": "10d654d131f0a5a2ba0fac6cec80b9f036c2a9c52541c70434a0e117e34d1865",
+    "opponent_count": 5,
+    "seeds": 30,
+    "cell_count": 300,
+    "seats": ["p0", "p1"],
+    "pairing": "identical to train",
+    "provenance_note": "Heldout opponents are (archetype-pilot generation, deck fixture) pairs drawn from generations and deck fixtures that are themselves present in this public repository. The seal therefore covers the *composition* of the split - which pilot flies which deck, in what order, over which seats and seeds - and not the secrecy of any individual source file. Receipts must say so and must not claim source-level secrecy. Disjoint from train by construction: no pilot generation and no deck fixture appears in both splits.",
+    "published_upstream": false
+  },
+  "score_metric": "cell_win_rate_delta",
+  "gate": "paired bootstrap over per-cell score deltas; lower bound of the 95% interval strictly above zero AND no significant per-opponent regression",
+  "fail_closed": "A sweep that does not reproduce this roster's cell set exactly - a missing cell, an extra cell, an unpaired cell, or a stall rate above 25% on either arm - scores zero rather than reporting the mean of the cells it managed to run."
+}

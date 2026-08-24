@@ -131,6 +131,8 @@ version = "0.1.0"
 dependencies = [
  "cardbench-magic-engine",
  "cardbench-magic-rav",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

@@ -10,6 +10,7 @@ mod boros_radiance_assault;
 mod boros_tempo;
 mod boros_token_rally;
 mod catalog_gauntlet;
+pub mod code_policy;
 mod deck_match;
 mod development_match;
 mod dimir_transmute_attrition;

@@ -12,6 +12,8 @@ workspace = true
 [dependencies]
 cardbench-magic-engine = { path = "../engine" }
 cardbench-magic-rav = { path = "../sets/ravnica_city_of_guilds" }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 
 [lib]
 name = "cardbench_magic_policies"
@@ -60,3 +62,7 @@ path = "src/bin/rav_deck_hillclimb.rs"
 [[bin]]
 name = "rav-ratings"
 path = "src/bin/rav_ratings.rs"
+
+[[bin]]
+name = "rav-code-policy-sweep"
+path = "src/bin/rav_code_policy_sweep.rs"
