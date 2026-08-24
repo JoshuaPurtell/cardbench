@@ -6,6 +6,9 @@
 //!   ranking origin. Every score is a delta against it, so it must not move.
 //! * [`roster`] — the fixed surface: five visible train opponents, five sealed
 //!   held-out opponents, and the cell coordinates both arms play.
+//! * [`cli`] — the command both the in-tree binary and a generated candidate
+//!   binary run, so a submitted policy is graded by exactly the argument
+//!   parsing, surface resolution and report format the in-tree one uses.
 //! * [`sweep`] — the scorer. Paired seats, Wilson intervals, per-opponent
 //!   reporting, fail-closed coverage, and a delta reward.
 //!
@@ -25,6 +28,7 @@
 //! gap between the two numbers is the overfitting the benchmark is there to
 //! expose.
 
+pub mod cli;
 pub mod reference;
 pub mod roster;
 pub mod sha256;

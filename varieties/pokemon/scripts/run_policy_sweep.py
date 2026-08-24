@@ -516,6 +516,28 @@ def write_artifacts(
         )
 
 
+def prewarm(splits: list[str]) -> None:
+    """Build the ranking origin at bake time, once per split.
+
+    Calls this module's own `build_binary` rather than reimplementing it:
+    `benchmark_ai` keys its target tree on a hash of (policy source, engine
+    path, opponent roster), and a prewarm that computed that key differently
+    would leave a tree nothing ever reads.
+    """
+
+    baseline = baseline_policy_path()
+    name = struct_name(baseline)
+    for split in splits:
+        surface = load_split(split)
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            roster = write_opponent_roster(surface, root / "opponent_roster.json")
+            binary = build_binary(baseline, name, roster, root / "baseline")
+        if not binary.is_file():
+            raise HarnessError(f"prewarm produced no binary for split={split}")
+        print(f"prewarmed {split}: {binary}")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--candidate", type=Path, required=True)

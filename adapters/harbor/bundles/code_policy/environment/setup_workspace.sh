@@ -34,7 +34,7 @@ if [[ -n "${LEAKED}" ]]; then
   echo "sealed heldout assets leaked into the agent workspace: ${LEAKED}" >&2
   exit 1
 fi
-if [[ ! -d "${TASK_REPO}/varieties/pokemon/.sealed/code_policy" ]]; then
+if [[ ! -d "${TASK_REPO}/varieties/${CARDBENCH_VARIETY:?CARDBENCH_VARIETY must be set}/.sealed/${CARDBENCH_FAMILY:-code_policy}" ]]; then
   echo "graded copy has no sealed heldout split: ${TASK_REPO}" >&2
   exit 1
 fi

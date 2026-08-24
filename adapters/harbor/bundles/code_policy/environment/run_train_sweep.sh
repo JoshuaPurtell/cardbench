@@ -30,7 +30,7 @@ if [[ ! -f "${CANDIDATE}" ]]; then
 fi
 
 if command -v cargo >/dev/null 2>&1; then
-  exec python3 "${WORKSPACE}/varieties/pokemon/scripts/run_policy_sweep.py" \
+  exec python3 "${WORKSPACE}/varieties/${CARDBENCH_VARIETY:?CARDBENCH_VARIETY must be set}/scripts/run_policy_sweep.py" \
     --candidate "${CANDIDATE}" --split train --output-root "${OUTPUT}"
 fi
 
@@ -56,7 +56,7 @@ exec docker run --rm --network none \
   -v "${HOST_WORKSPACE}:/workspace" \
   -e CARDBENCH_CARGO_CACHE=/opt/cardbench/cargo \
   "${IMAGE}" \
-  python3 /task/cardbench/varieties/pokemon/scripts/run_policy_sweep.py \
+  python3 "/task/cardbench/varieties/${CARDBENCH_VARIETY}/scripts/run_policy_sweep.py" \
   --candidate "/workspace/${CANDIDATE#"${WORKSPACE}"/}" \
   --split train \
   --output-root "/workspace/${OUTPUT#"${WORKSPACE}"/}"

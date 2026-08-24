@@ -47,7 +47,10 @@
 //! significantly. Deterministic given its fixed resampling seed, so two runs of
 //! the same sweep agree.
 
+use crate::archetype::Archetype;
 use crate::archetypes::seat_policy;
+use crate::planner::CardIndex;
+use std::sync::Arc;
 use crate::code_policy::roster::{Cell, Entrant, Seat, Surface};
 use crate::deck_match::{
     DeckMatchConfig, DeckMatchTermination, run_deck_matchup_with, shared_card_index,
@@ -257,6 +260,15 @@ impl SweepReport {
     }
 }
 
+/// Builds one seat for an entrant that is not a compiled-in generation.
+///
+/// The submission seam. Without it a candidate can only ever be a
+/// [`PolicyVersion`](crate::archetypes::PolicyVersion) variant that is already
+/// in this crate, which is fine for comparing generations to each other and
+/// useless for grading a policy someone else wrote.
+pub type SeatFactory<'a> =
+    &'a (dyn Fn(PlayerId, Archetype, Arc<CardIndex>) -> Box<dyn CodePolicy> + Sync);
+
 /// Plays every cell for one arm.
 ///
 /// # Errors
@@ -266,6 +278,25 @@ pub fn run_arm(
     surface: &Surface,
     entrant: &Entrant,
     config: &DeckMatchConfig,
+) -> Result<Arm, String> {
+    run_arm_with(surface, entrant, config, None)
+}
+
+/// [`run_arm`], with the entrant's seat optionally built by `seat` instead of
+/// resolved from `entrant.pilot`.
+///
+/// Only the entrant's seat is affected. Opponents are always the roster's
+/// pilots, and the reference arm is always the frozen generation — an origin a
+/// caller could substitute is not an origin.
+///
+/// # Errors
+///
+/// Propagates any setup failure from the match runner.
+pub fn run_arm_with(
+    surface: &Surface,
+    entrant: &Entrant,
+    config: &DeckMatchConfig,
+    seat: Option<SeatFactory>,
 ) -> Result<Arm, String> {
     let index = shared_card_index();
     let mut outcomes = Vec::new();
@@ -282,12 +313,19 @@ pub fn run_arm(
         decks[entrant_seat].clone_from(&entrant.deck);
         decks[opponent_seat].clone_from(&opponent.deck);
 
-        let entrant_pilot: Box<dyn CodePolicy> = seat_policy(
-            entrant.pilot,
-            PlayerId(entrant_seat),
-            entrant.archetype,
-            index.clone(),
-        );
+        // `entrant.pilot` is deliberately not consulted when a factory is
+        // supplied: a submitted candidate has no generation, and silently
+        // falling back to one would grade a compiled-in policy while reporting
+        // the candidate's label.
+        let entrant_pilot: Box<dyn CodePolicy> = match seat {
+            Some(build) => build(PlayerId(entrant_seat), entrant.archetype, index.clone()),
+            None => seat_policy(
+                entrant.pilot,
+                PlayerId(entrant_seat),
+                entrant.archetype,
+                index.clone(),
+            ),
+        };
         let opponent_pilot: Box<dyn CodePolicy> = seat_policy(
             opponent.pilot,
             PlayerId(opponent_seat),
@@ -355,7 +393,26 @@ pub fn run_sweep(
     candidate: &Entrant,
     config: &DeckMatchConfig,
 ) -> Result<SweepReport, String> {
-    let candidate_arm = run_arm(surface, candidate, config)?;
+    run_sweep_with(surface, candidate, config, None)
+}
+
+/// [`run_sweep`], with the candidate arm's seat optionally built by `seat`.
+///
+/// The reference arm never takes the factory. Both arms still play the same
+/// cells in the same order with the same seeds, which is what makes the
+/// per-cell pairing in [`score`] meaningful.
+///
+/// # Errors
+///
+/// Propagates any setup failure from the match runner. A coverage failure is
+/// **not** an error.
+pub fn run_sweep_with(
+    surface: &Surface,
+    candidate: &Entrant,
+    config: &DeckMatchConfig,
+    seat: Option<SeatFactory>,
+) -> Result<SweepReport, String> {
+    let candidate_arm = run_arm_with(surface, candidate, config, seat)?;
     let reference_arm = run_arm(surface, &surface.reference, config)?;
     Ok(score(surface, &candidate_arm, &reference_arm))
 }

@@ -53,7 +53,13 @@ RUN apt-get update \
 # gets `/workspace` and only `/workspace`, and the verifier reads exactly one
 # file from it: candidate/policy.rs.
 COPY . /task/cardbench
-COPY adapters/harbor/bundles/code_policy/instruction.md /task/instruction.md
+# One instruction document per variety, selected by the build arg. It was a
+# single file describing pokemon's `AiController` contract and its 384-cell
+# heldout split, which is not what a magic agent is doing; the bake now fails
+# rather than shipping the wrong task's instructions.
+COPY adapters/harbor/bundles/code_policy/instruction /task/instruction
+RUN test -f "/task/instruction/${CARDBENCH_VARIETY}.md" \
+ && cp "/task/instruction/${CARDBENCH_VARIETY}.md" /task/instruction.md
 COPY adapters/harbor/bundles/code_policy/tests/test.sh /task/tests/test.sh
 
 # The workspace copy, minus the sealed split. setup_workspace.sh fails the bake
@@ -83,45 +89,23 @@ ENV CARGO_NET_OFFLINE=true
 # instruction.md declares the roster the contract; the task id and the candidate
 # path are build args, so AGENTS.md is generated here rather than checked in
 # with values that could drift from the bake.
-RUN printf '%s\n' \
-    "# CardBench ${CARDBENCH_VARIETY} ${CARDBENCH_FAMILY}" \
-    "" \
-    "| key | value |" \
-    "| --- | --- |" \
-    "| task id | \`cardbench/${CARDBENCH_VARIETY}/${CARDBENCH_FAMILY}\` |" \
-    "| submission | \`${CANDIDATE_REL}\` (one file, one \`pub struct\`) |" \
-    "| roster / contract | \`varieties/${CARDBENCH_VARIETY}/rosters/${CARDBENCH_FAMILY}_v1.json\` |" \
-    "| ranking origin | \`varieties/${CARDBENCH_VARIETY}/candidates/reference/reference_policy_v2.rs\` |" \
-    "| train feedback | \`./run_train_sweep.sh\` |" \
-    "" \
-    "## Candidate contract" \
-    "" \
-    "A candidate is exactly ONE file: \`${CANDIDATE_REL}\`, defining one public" \
-    "struct with \`new(seed: u64) -> Self\` and an \`impl tcg_ai::AiController\`." \
-    "It is compiled into the benchmark binary, so it may use \`tcg_core\`," \
-    "\`tcg_ai\`, \`rand\` and \`rand_chacha\`; nothing else in this workspace is" \
-    "on its path." \
-    "" \
-    "## How you are scored" \
-    "" \
-    "On the HELDOUT split, which is not in this workspace: 4 decks and 8" \
-    "opponent policies you cannot see, 384 cells. Your policy and the ranking" \
-    "origin are run over identical cells and compared PAIRWISE, and the lift" \
-    "must clear a paired-bootstrap confidence interval. Beating the origin on" \
-    "an easier matchup earns nothing, and a handful of lucky cells does not" \
-    "clear the interval." \
-    "" \
-    "\`./run_train_sweep.sh\` scores the TRAIN split (5 visible decks, 5 visible" \
-    "opponents, 400 cells) and writes \`artifacts/train/per_cell.jsonl\`. That is" \
-    "feedback, not your score." \
-    "" \
-    "## Rules" \
-    "" \
-    "- The graded evaluator, roster and reference policies live outside this" \
-    "  workspace and are read from there. Editing your copies changes nothing" \
-    "  about your grade." \
-    "- Do not attempt to reconstruct the heldout split." \
-    > /workspace/AGENTS.md
+#
+# The prose is a template plus ONE FRAGMENT PER VARIETY rather than a printf
+# chain, because the candidate contracts are not variants of each other: pokemon
+# submits a struct implementing `tcg_ai::AiController` and is graded over 384
+# cells; magic submits a `build_policy` function returning a `CodePolicy` and is
+# graded over 300. A single chain described pokemon's and would have told a magic
+# agent to implement a trait that does not exist in its crate.
+RUN CONTRACT="/task/cardbench/adapters/harbor/bundles/code_policy/files/contract/${CARDBENCH_VARIETY}.md" \
+ && test -f "${CONTRACT}" \
+ && sed -e "s|@CARDBENCH_VARIETY@|${CARDBENCH_VARIETY}|g" \
+        -e "s|@CARDBENCH_FAMILY@|${CARDBENCH_FAMILY}|g" \
+        -e "s|@CANDIDATE_REL@|${CANDIDATE_REL}|g" \
+        -e "/@CONTRACT@/r ${CONTRACT}" \
+        -e "/@CONTRACT@/d" \
+        /task/cardbench/adapters/harbor/bundles/code_policy/files/AGENTS.md.tmpl \
+        > /workspace/AGENTS.md \
+ && ! grep -q '@[A-Z_]*@' /workspace/AGENTS.md
 
 # The platform runs the verifier as `bash -lc …`, and a LOGIN shell sources
 # /etc/profile, which overwrites PATH with the distro default and drops the rust

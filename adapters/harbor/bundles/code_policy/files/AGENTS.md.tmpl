@@ -1,0 +1,36 @@
+# CardBench @CARDBENCH_VARIETY@ @CARDBENCH_FAMILY@
+
+| key | value |
+| --- | --- |
+| task id | `cardbench/@CARDBENCH_VARIETY@/@CARDBENCH_FAMILY@` |
+| submission | `@CANDIDATE_REL@` |
+| roster / contract | `varieties/@CARDBENCH_VARIETY@/rosters/@CARDBENCH_FAMILY@_v1.json` |
+| train feedback | `./run_train_sweep.sh` |
+
+@CONTRACT@
+
+## How you are scored
+
+On the **held-out split, which is not in this workspace**. Your policy and the
+ranking origin are run over an identical grid of cells and compared **pairwise**,
+and the lift must clear a paired confidence interval.
+
+Two consequences worth internalising:
+
+* **Beating the origin on an easier matchup earns nothing.** Both arms play the
+  same opponents, seats and seeds, so the comparison already controls for that.
+* **A handful of lucky cells does not clear the interval.** Variance is what the
+  interval is measuring. A real improvement has to show up across the grid.
+
+`./run_train_sweep.sh` scores the TRAIN split and writes its artifacts for you to
+read. That is feedback, not your score — the gap between your train number and
+your held-out number is exactly the overfitting this benchmark exists to find.
+
+## Rules
+
+- The graded evaluator, the roster and the ranking origin live **outside this
+  workspace** and are read from there. Editing your copies changes nothing about
+  your grade — it only makes your own feedback lie to you.
+- Do not attempt to reconstruct the held-out split.
+- Add your submission at the path in the table above. It is the only file the
+  verifier reads out of this workspace.
