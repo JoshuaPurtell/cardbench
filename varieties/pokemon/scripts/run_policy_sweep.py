@@ -13,13 +13,25 @@ pairwise, so a lift has to survive a paired bootstrap rather than a difference o
 two blended win rates. Coverage is fail-closed: if the sweep does not reproduce
 the roster's cell set exactly, the run scores zero rather than reporting a
 partial result.
+
+The baseline is the RANKING ORIGIN and is named by the roster, not hardcoded
+here, so the origin and the cell set it was measured on cannot drift apart. It
+must be a competent policy: reward is ``candidate - baseline``, so an origin
+that loses to every opponent makes every candidate look good and the number
+stops carrying information. See ``docs/pokemon_code_policy_reference.md``.
+
+Every artifact reports per opponent as well as in aggregate, on both splits. A
+mean can hide "helps one opponent, collapses against another", which is the
+regression the design refuses to let a blended number swallow.
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -29,7 +41,6 @@ from pathlib import Path
 POKEMON_ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = POKEMON_ROOT.parents[1]
 BENCHMARK = POKEMON_ROOT / "policies" / "benchmark_ai.py"
-BASELINE = POKEMON_ROOT / "candidates" / "reference" / "baseline_policy.rs"
 ROSTER = POKEMON_ROOT / "rosters" / "code_policy_v1.json"
 SEALED = POKEMON_ROOT / ".sealed" / "code_policy"
 TRAIN_SERVER_DB = POKEMON_ROOT / "policies" / "data" / "server.sqlite"
@@ -51,6 +62,36 @@ MAX_STALL_FRACTION = 0.25
 
 class SweepError(RuntimeError):
     """Raised when the sweep cannot produce a trustworthy score."""
+
+class HarnessError(RuntimeError):
+    """The grade could not be attempted. NOT the candidate's fault.
+
+    A missing toolchain, an absent roster, a baseline fixture that is not on
+    disk: none of these are things a submission did. Reporting them as a scored
+    zero charges infrastructure to the candidate and is indistinguishable, in
+    the result, from a candidate that compiled and lost every cell. Raising this
+    instead makes the run report NO reward rather than a zero nobody earned.
+    """
+
+
+
+def baseline_policy_path() -> Path:
+    """The ranking origin, resolved from the roster rather than hardcoded.
+
+    Reward is ``candidate - baseline`` over identical cells, so the baseline is
+    the origin the whole benchmark is measured against. It is named in the
+    roster next to the cell set it was measured on, so the two cannot drift
+    apart; a sweep that cannot resolve it fails closed rather than silently
+    scoring against whatever file happens to be at the old path.
+    """
+    roster = json.loads(ROSTER.read_text())
+    relative = roster.get("baseline_policy")
+    if not relative:
+        raise HarnessError(f"{ROSTER}: roster names no baseline_policy (the ranking origin)")
+    path = (POKEMON_ROOT / relative).resolve()
+    if not path.is_file():
+        raise HarnessError(f"baseline policy missing: {path} (roster baseline_policy={relative})")
+    return path
 
 
 def struct_name(path: Path) -> str:
@@ -146,7 +187,28 @@ def load_split(split: str) -> dict:
 # --------------------------------------------------------------------------
 
 
+def require_toolchain() -> None:
+    """Fail as a HARNESS fault before mistaking an absent toolchain for bad code.
+
+    `build_binary` raises SweepError on any non-zero exit, which is right when
+    rustc rejected the candidate and wrong when there is no rustc. Both arrive
+    as "policy compile failed", so without this check a missing toolchain is
+    charged to the submission -- the platform invokes the verifier under
+    `bash -lc`, a login shell re-sources /etc/profile, cargo drops off PATH, and
+    a scored 0.0 reaches the leaderboard looking exactly like a candidate that
+    compiled and lost every cell.
+    """
+
+    missing = [tool for tool in ("cargo", "rustc") if shutil.which(tool) is None]
+    if missing:
+        raise HarnessError(
+            f"rust toolchain unavailable: {', '.join(missing)} not on PATH "
+            f"(PATH={os.environ.get('PATH', '')})"
+        )
+
+
 def build_binary(policy: Path, name: str, roster_path: Path, work_dir: Path) -> Path:
+    require_toolchain()
     manifest = work_dir / "manifest.json"
     completed = subprocess.run(
         [
@@ -303,6 +365,39 @@ def per_opponent_breakdown(cells: dict[str, dict]) -> list[dict]:
     ]
 
 
+def paired_per_opponent(
+    baseline_cells: dict[str, dict], candidate_cells: dict[str, dict], surface: dict
+) -> list[dict]:
+    """Baseline, candidate and delta per opponent, on both splits.
+
+    An aggregate delta hides "helps opponent A, hurts opponent B", which is the
+    regression shape the design refuses to let a mean swallow (§3.2). It is also
+    the only view that shows whether the reference is a usable ranking origin:
+    an origin that loses to every opponent is a floor, not an origin.
+    """
+    grouped: dict[str, list[str]] = defaultdict(list)
+    for cell in surface["cells"]:
+        grouped[cell["opponent_id"]].append(cell["cell_id"])
+
+    rows = []
+    for opponent, cell_ids in sorted(grouped.items()):
+        base = [float(baseline_cells[cid]["win_rate"]) for cid in cell_ids]
+        cand = [float(candidate_cells[cid]["win_rate"]) for cid in cell_ids]
+        stalled = sum(int(candidate_cells[cid].get("stalled", 0)) for cid in cell_ids)
+        attempted = sum(int(candidate_cells[cid]["matches"]) for cid in cell_ids)
+        rows.append(
+            {
+                "opponent_id": opponent,
+                "cells": len(cell_ids),
+                "baseline_win_rate": sum(base) / len(base),
+                "candidate_win_rate": sum(cand) / len(cand),
+                "delta": (sum(cand) - sum(base)) / len(cell_ids),
+                "candidate_stall_fraction": stalled / attempted if attempted else 0.0,
+            }
+        )
+    return rows
+
+
 def visual_state(score: float, opponent_score: float) -> dict:
     return {
         "player": {
@@ -341,7 +436,7 @@ def write_artifacts(
         "score_metric": "cell_win_rate",
         "rows": [
             {
-                "candidate_id": "baseline_policy",
+                "candidate_id": baseline_policy_path().stem,
                 "role": "baseline",
                 "score": scored["baseline_score"],
             },
@@ -352,6 +447,7 @@ def write_artifacts(
             },
         ],
     }
+    leaderboard["per_opponent"] = paired_per_opponent(baseline_cells, candidate_cells, surface)
     (output / "leaderboard.json").write_text(json.dumps(leaderboard, indent=2) + "\n")
 
     with (output / "per_cell.jsonl").open("w") as handle:
@@ -401,6 +497,9 @@ def write_artifacts(
             "delta": scored["delta"],
             "lift_verdict": verdict.to_payload(),
             "per_opponent": per_opponent_breakdown(candidate_cells),
+            "per_opponent_paired": paired_per_opponent(
+                baseline_cells, candidate_cells, surface
+            ),
             "per_cell": [
                 {
                     "cell_id": cell_id,
@@ -443,9 +542,10 @@ def main() -> int:
                 surface, temp_root / "opponent_roster.json"
             )
 
+            baseline = baseline_policy_path()
             baseline_cells = sweep_policy(
-                BASELINE,
-                struct_name(BASELINE),
+                baseline,
+                struct_name(baseline),
                 surface,
                 roster_path,
                 temp_root / "baseline",
@@ -492,11 +592,14 @@ def main() -> int:
             "evaluated_candidate_count": 1,
             "cell_count": len(scored["cell_ids"]),
             "lift_verdict": verdict.to_payload(),
+            "per_opponent": paired_per_opponent(baseline_cells, candidate_cells, surface),
             "leaderboard_path": str(output / "leaderboard.json"),
             "passed": passed,
             "harbor_reward": max(0.0, min(1.0, scored["delta"])) if passed else 0.0,
         }
-    except Exception as exc:  # noqa: BLE001 - every failure must still emit authority
+    except SweepError as exc:
+        # The candidate's fault -- it did not compile, defined no policy struct,
+        # or was not there. A scored zero is the right answer.
         result = {
             "schema_version": "cardbench.harbor.result.v1",
             "benchmark_family": FAMILY,
@@ -504,12 +607,37 @@ def main() -> int:
             "split": args.split,
             "passed": False,
             "harbor_reward": 0.0,
+            "reward_status": "scored",
             "error": str(exc),
+        }
+    except Exception as exc:  # noqa: BLE001 - anything unclassified is ours, not theirs
+        # The harness could not run. The canonical case is a missing Rust
+        # toolchain: the platform invokes the verifier under `bash -lc`, a login
+        # shell re-sources /etc/profile and drops cargo off PATH, and what
+        # reached the leaderboard was a scored 0.0 that looked exactly like a
+        # candidate losing every cell.
+        result = {
+            "schema_version": "cardbench.harbor.result.v1",
+            "benchmark_family": FAMILY,
+            "task_id": TASK_ID,
+            "split": args.split,
+            "passed": False,
+            "reward_status": "harness_failed",
+            "error": f"{type(exc).__name__}: {exc}",
         }
 
     result_path.write_text(json.dumps(result, indent=2) + "\n")
-    (output / "reward.txt").write_text(f"{result['harbor_reward']:.8f}\n")
     print(json.dumps(result, indent=2))
+
+    if result.get("reward_status") == "harness_failed":
+        # Deliberately no reward.txt. The platform reads that file for the
+        # number, so an absent one makes the run report no reward at all rather
+        # than banking a zero nobody earned. Exit 2, not 1: this trial sets
+        # `reward_on_nonzero_exit`, so exit 1 is the ordinary "candidate did not
+        # beat the baseline" grade and cannot also mean "no grade happened".
+        return 2
+
+    (output / "reward.txt").write_text(f"{result['harbor_reward']:.8f}\n")
     return 0 if result["passed"] else 1
 
 

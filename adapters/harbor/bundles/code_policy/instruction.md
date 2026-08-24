@@ -35,10 +35,18 @@ opponents are stronger than the train ones.
 ## Iterating
 
 ```bash
-# feedback signal (400 cells, ~40s)
-python3 varieties/pokemon/scripts/run_policy_sweep.py \
-  --candidate candidate/policy.rs --split train --output-root artifacts/train
+# feedback signal (400 cells)
+./run_train_sweep.sh
 ```
+
+Use the wrapper, not `run_policy_sweep.py` directly. The sweep compiles Rust,
+and depending on where this workspace is mounted you may be running somewhere
+that has no Rust toolchain; the wrapper detects that and re-runs the same sweep
+where a toolchain exists. Invoking the sweep directly works in some environments
+and fails in others, and the failure is not obvious.
+
+It grades the **train split only** — the heldout split is not in this workspace
+and no argument reaches it.
 
 Read `artifacts/train/per_cell.jsonl` to see which matchups you lose. The
 per-opponent and per-deck breakdowns are usually more informative than the
@@ -55,9 +63,19 @@ single blended number.
 
 ## Where the headroom is
 
-`candidates/reference/reference_policy_v1.rs` is the reference solution and it
-is deliberately unfinished. Two things it refuses to do, because doing them
-naively *stalls games* — and a stalled game scores as a loss:
+`candidates/reference/reference_policy_v2.rs` is the ranking origin: it measures
+64.9% on the train surface and beats all five train opponents, so a candidate has
+to be genuinely better rather than merely functional. `reference_policy_v1.rs`
+(35.6%) and `baseline_policy.rs` (28.9%) are kept as weaker predecessors to read,
+not as the bar.
+
+The single largest lever measured so far is **retreat discipline**: retreating
+whenever the active looks endangered costs 18.3 points, because retreat pays its
+cost by discarding energy — lost games ran 46 turns with 16 energy attached and
+only 8.7 attacks.
+
+The origin still refuses two things, because doing them naively *stalls games* —
+and a stalled game scores as a loss:
 
 - **Playing trainers** — measured 757/800 stalled games.
 - **Evolving from hand** — measured 271/800 stalled games.
