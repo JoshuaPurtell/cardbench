@@ -136,23 +136,30 @@ impl ProtocolCapabilities {
             protocol: PROTOCOL_NAME.to_owned(),
             schema: PROTOCOL_SCHEMA_VERSION,
             variety: "magic".to_owned(),
-            verified_seat_counts: vec![2],
+            verified_seat_counts: vec![2, 4],
             formats: [
                 (FormatCapability::Duel, SupportLevel::Supported),
                 (FormatCapability::FreeForAll, SupportLevel::Modelled),
-                (FormatCapability::Commander, SupportLevel::Absent),
-                (FormatCapability::TwoHeadedGiant, SupportLevel::Absent),
+                // M5b/M5c: `engine/tests/formats_m5.rs` defends the command
+                // zone, commander tax, 21 commander damage, shared team life,
+                // and the shared team turn against four-seat fixtures.
+                (FormatCapability::Commander, SupportLevel::Supported),
+                (FormatCapability::TwoHeadedGiant, SupportLevel::Supported),
                 (FormatCapability::BoosterDraft, SupportLevel::Absent),
             ]
             .into_iter()
             .collect(),
             features: [
+                // The engine records a defender per attacker, but rejects a
+                // combat whose attackers name different defenders, because
+                // blockers are still declared once by one authority. That is
+                // less than this capability promises, so it stays modelled.
                 (
                     FeatureCapability::ChosenAttackDefender,
                     SupportLevel::Modelled,
                 ),
                 (FeatureCapability::MultipleBlockers, SupportLevel::Absent),
-                (FeatureCapability::Teams, SupportLevel::Modelled),
+                (FeatureCapability::Teams, SupportLevel::Supported),
                 (
                     FeatureCapability::ExhaustiveLegalActions,
                     SupportLevel::Absent,

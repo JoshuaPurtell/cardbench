@@ -17,14 +17,20 @@ Three formats and one communication channel:
 | Deliverable | Depends on | Status today |
 | --- | --- | --- |
 | **Free-for-all** (3+ seats, no teams) | — | `Modelled` |
-| **Commander** (FFA + command zone) | free-for-all | `Absent` |
-| **Two-Headed Giant** (2v2, shared life) | teams | `Absent` |
+| **Commander** (FFA + command zone) | free-for-all | rust `Supported` — `engine/tests/formats_m5.rs` (command zone, tax, 21 commander damage); Harbor gold in `formats_gold/` |
+| **Two-Headed Giant** (2v2, shared life) | teams | rust `Supported` — `engine/tests/formats_m5.rs` (shared team life, shared team turn, team attacks); Harbor gold in `formats_gold/` |
 | **Public table talk** | nothing | does not exist |
 
 "Done" is not "it runs". This project's standard is that a capability is
 claimed only where a deterministic test defends it, enforced by
 `protocol/tests/schema_roundtrip.rs::capability_manifest_claims_only_what_is_implemented`.
 Flipping a `SupportLevel` without a fixture will fail that test, and it should.
+
+Harbor-grade format gold lives in `varieties/magic/formats_gold/` (shared team
+life, command zone, 21 commander damage). That Python slice never flipped rust
+`SupportLevel` on its own; the rust M5 fixtures in
+`engine/tests/formats_m5.rs` did, and the gold stays as an independent second
+statement of the same rules.
 
 The proof obligation is in §7: each format must produce a **calibrated mirror**
 (identical policies in every seat land on the uniform rate, within interval),
@@ -148,6 +154,12 @@ The hard one, and it is hard for one reason: **the turn is shared**.
 **Calibration gate:** a team mirror (all four seats identical policy) must land
 at **50%** per team.
 
+**Delivered (rust M5b).** `engine/tests/formats_m5.rs` defends shared team life
+through every life path, the shared team untap/turn, the per-teammate draw with
+the starting team's skipped first draw, team-targeted attacks, and either
+teammate blocking. Poison 15 and hidden-hand coordination are still deliberately
+unimplemented; the calibration mirror above is still owed.
+
 ### 5.3 Commander (M5c)
 
 Free-for-all plus four mechanics. None interact with the shared-turn problem,
@@ -168,6 +180,12 @@ which is why this is independent of 2HG.
 - **Deck rules.** 100-card singleton, colour identity. Enforce in `rav` deck
   validation, not in the engine.
 - **Starting life 40.**
+
+**Delivered (rust M5c).** `engine/tests/formats_m5.rs` defends the command zone,
+casting from it, +{2} tax per prior command-zone cast, 40 starting life, 21
+commander damage per `(damaged seat, commander ObjectId)`, and the zone-change
+replacement into the command zone. Deck rules — 100-card singleton and colour
+identity — remain out of the engine and unimplemented in `rav` validation.
 
 Ravnica alone has no legendary creature that makes a good commander pool —
 check `sets/ravnica_city_of_guilds` before designing decks. Guildpact and

@@ -214,12 +214,17 @@ claims.
 
 Machine-readable via `ProtocolCapabilities::current()`; the test above pins it.
 
-- **Verified seat counts:** `[2]`. The engine constructs more, but no
-  deterministic fixture covers more, so more is not claimed.
-- **Formats:** Duel `Supported`. Free-for-all `Modelled`. Commander,
-  Two-Headed Giant, booster draft `Absent`.
+- **Verified seat counts:** `[2, 4]`. Two is the duel fixtures; four is
+  `engine/tests/formats_m5.rs`. Three and five-plus are constructible and
+  untested, so they are not claimed.
+- **Formats:** Duel `Supported`. Commander and Two-Headed Giant `Supported`,
+  defended by `engine/tests/formats_m5.rs`. Free-for-all `Modelled` — the
+  format rules exist, but the pod orchestration and seat-partitioned views do
+  not. Booster draft `Absent`.
 - **Features:** scoped redaction `Supported`; canonical replay `Supported`;
-  chosen attack defender `Modelled`; teams `Modelled`; idempotent
+  teams `Supported` (shared life and shared turn); chosen attack defender
+  `Modelled` (a defender is recorded per attacker, but a combat that splits
+  across defenders is refused, because blockers are declared once); idempotent
   resubmission `Modelled` (the ledger exists; no orchestrator drives it yet);
   multiple blockers `Absent`; exhaustive legal actions `Absent`.
 

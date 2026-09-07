@@ -57,26 +57,57 @@ fn capability_manifest_claims_only_what_is_implemented() {
     use cardbench_magic_protocol::{FeatureCapability, FormatCapability};
 
     let capabilities = ProtocolCapabilities::current();
-    assert_eq!(capabilities.verified_seat_counts, vec![2]);
+    assert_eq!(
+        capabilities.verified_seat_counts,
+        vec![2, 4],
+        "two seats are the duel fixtures; four are the M5 format fixtures in \
+         engine/tests/formats_m5.rs"
+    );
     assert_eq!(
         capabilities.format(FormatCapability::Duel),
         SupportLevel::Supported
     );
-    for unimplemented in [
-        FormatCapability::Commander,
-        FormatCapability::TwoHeadedGiant,
-        FormatCapability::BoosterDraft,
+    // M5b/M5c landed the rules and the fixtures together. Each claim below is
+    // defended by a named deterministic test; if one is deleted, this must
+    // move back to `Absent` rather than the test being weakened.
+    for (implemented, fixture) in [
+        (
+            FormatCapability::Commander,
+            "formats_m5.rs::commander_unblocked_swing_reaches_21_and_eliminates",
+        ),
+        (
+            FormatCapability::TwoHeadedGiant,
+            "formats_m5.rs::two_headed_giant_unblocked_damage_hits_shared_team_life",
+        ),
     ] {
         assert_eq!(
-            capabilities.format(unimplemented),
-            SupportLevel::Absent,
-            "{unimplemented:?} has no rules implementation and must not be claimed"
+            capabilities.format(implemented),
+            SupportLevel::Supported,
+            "{implemented:?} is implemented and defended by engine/tests/{fixture}"
         );
     }
     assert_eq!(
+        capabilities.format(FormatCapability::BoosterDraft),
+        SupportLevel::Absent,
+        "BoosterDraft has no rules implementation and must not be claimed"
+    );
+    assert_eq!(
         capabilities.format(FormatCapability::FreeForAll),
         SupportLevel::Modelled,
-        "multi-seat is schema-modelled only until multi-seat fixtures exist"
+        "M5a's pod work -- seat-partitioned views and arity-general \
+         orchestration -- is still outstanding"
+    );
+    assert_eq!(
+        capabilities.feature(FeatureCapability::Teams),
+        SupportLevel::Supported,
+        "shared team life and the shared team turn are defended by \
+         engine/tests/formats_m5.rs"
+    );
+    assert_eq!(
+        capabilities.feature(FeatureCapability::ChosenAttackDefender),
+        SupportLevel::Modelled,
+        "the engine records a defender per attacker but rejects a combat that \
+         splits across defenders, which is less than this capability promises"
     );
     assert_eq!(
         capabilities.feature(FeatureCapability::ExhaustiveLegalActions),

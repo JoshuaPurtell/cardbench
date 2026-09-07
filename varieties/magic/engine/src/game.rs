@@ -393,6 +393,12 @@ pub enum PolicyAction {
     DeclareAttackers {
         attackers: Vec<ObjectId>,
     },
+    /// Declares attackers while naming what each one attacks. This is the
+    /// multi-seat form; `DeclareAttackers` keeps the derived defender that
+    /// every existing two-seat fixture was measured against.
+    DeclareAttackersAgainst {
+        attackers: Vec<(ObjectId, DefenderChoice)>,
+    },
     DeclareBlockers {
         assignments: Vec<CombatBlock>,
     },
@@ -443,7 +449,9 @@ impl PolicyAction {
             Self::ActivateAbility { .. } | Self::ActivateAbilityWithGeneralizedCosts { .. } => {
                 PolicyMoveKind::ActivateAbility
             }
-            Self::DeclareAttackers { .. } => PolicyMoveKind::DeclareAttackers,
+            Self::DeclareAttackers { .. } | Self::DeclareAttackersAgainst { .. } => {
+                PolicyMoveKind::DeclareAttackers
+            }
             Self::DeclareBlockers { .. } => PolicyMoveKind::DeclareBlockers,
             Self::ReportEngineWeakness { .. } => PolicyMoveKind::ReportEngineWeakness,
         }
@@ -779,10 +787,18 @@ struct CombatState {
     /// Blockers admitted against a black-only evasion attacker because they
     /// were black at blocker declaration.
     black_evasion_qualified_blockers: BTreeSet<ObjectId>,
-    /// This initial slice attacks the next living seat. It records that seat
-    /// at declaration time rather than recomputing turn order after a player
-    /// leaves in the middle of combat.
+    /// The representative defending seat. A two-seat duel derives it as the
+    /// next living seat and records it at declaration time rather than
+    /// recomputing turn order after a player leaves mid-combat. A chosen
+    /// declaration records the attacking player's choice instead.
     defending_player: Option<PlayerId>,
+    /// Every seat this combat is aimed at. A single seat outside team play; a
+    /// whole team when the attack named one. Blocker legality is membership in
+    /// this set, which is exactly `[defending_player]` for a duel.
+    defending_seats: Vec<PlayerId>,
+    /// The defender each attacker named. Absent for a derived declaration,
+    /// which keeps every existing two-seat receipt byte-identical.
+    attacker_defenders: BTreeMap<ObjectId, DefenderChoice>,
     attackers_declared: bool,
     blockers_declared: bool,
     /// Sources that assigned damage in the first-strike damage step. They
@@ -1354,6 +1370,77 @@ pub struct Game {
     combat_damage_preventions: Vec<CombatDamagePrevention>,
     global_combat_damage_preventions: Vec<GlobalCombatDamagePrevention>,
     combat_declaration_authorities: Vec<CombatDeclarationAuthority>,
+    /// Teammates who still owe their draw in a shared team turn. Each draw is
+    /// its own replacement decision, so they are opened one at a time in
+    /// seating order rather than as one simultaneous prompt.
+    pending_team_draws: Vec<PlayerId>,
+    /// Named-format rules that are inert until a caller configures them. An
+    /// unconfigured game is exactly the duel/free-for-all substrate that every
+    /// existing fixture and replay digest was measured against.
+    format: FormatRules,
+}
+
+/// A team of seats that share one life total and one turn.
+///
+/// A seat is deliberately not a team: `TeamId` indexes the configured team
+/// list, and a game with no configured teams has none at all rather than one
+/// singleton team per seat.
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct TeamId(pub usize);
+
+/// What one declared attacker is attacking. The engine mirrors the protocol's
+/// `DefenderDto` rather than inventing a second shape.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum DefenderChoice {
+    Player(PlayerId),
+    Team(TeamId),
+}
+
+/// The commander ledger for one designated object.
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct CommanderRecord {
+    /// The seat that designated this object. Commander tax and the
+    /// command-zone cast path are both owner-scoped.
+    owner: PlayerId,
+    /// Casts already made from the command zone. CR 903.8 taxes the next cast
+    /// by {2} for each of them.
+    command_zone_casts: u32,
+}
+
+/// Format rules layered over the base substrate. Every field is empty or
+/// `None` for an ordinary game, and every read path short-circuits on that.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+struct FormatRules {
+    /// Team membership indexed by seat. Empty means the game has no teams.
+    team_of_seat: Vec<TeamId>,
+    /// Seats per team, in seating order. Empty means the game has no teams.
+    teams: Vec<Vec<PlayerId>>,
+    /// Designated commanders keyed by object. `ObjectId` is stable across
+    /// zone changes, which is exactly the identity CR 903.10a needs.
+    commanders: BTreeMap<ObjectId, CommanderRecord>,
+    /// Combat damage each seat has been dealt by each commander object.
+    commander_damage: BTreeMap<(PlayerId, ObjectId), i32>,
+    /// The lethal commander-damage threshold, `None` outside Commander.
+    commander_damage_threshold: Option<i32>,
+}
+
+impl FormatRules {
+    fn has_teams(&self) -> bool {
+        !self.teams.is_empty()
+    }
+
+    fn team_of(&self, player: PlayerId) -> Option<TeamId> {
+        self.team_of_seat.get(player.0).copied()
+    }
+
+    /// Seats that share `player`'s life total. Without teams this is the seat
+    /// itself, which keeps every base-game life path byte-identical.
+    fn life_sharing_seats(&self, player: PlayerId) -> Vec<PlayerId> {
+        match self.team_of(player) {
+            Some(team) => self.teams[team.0].clone(),
+            None => vec![player],
+        }
+    }
 }
 
 impl Game {
@@ -1613,6 +1700,8 @@ impl Game {
             combat_damage_preventions: Vec::new(),
             global_combat_damage_preventions: Vec::new(),
             combat_declaration_authorities: Vec::new(),
+            pending_team_draws: Vec::new(),
+            format: FormatRules::default(),
         };
         // Construction is the first observable state-machine boundary. Do not
         // hand a caller a game whose immutable catalog or initial seats already
@@ -3323,9 +3412,287 @@ impl Game {
         life: i64,
     ) -> Result<(), RulesError> {
         self.player(player)?;
-        self.players[player.0].life = life;
+        for seat in self.format.life_sharing_seats(player) {
+            self.players[seat.0].life = life;
+        }
         self.refresh_public_state_integrity();
         Ok(())
+    }
+
+    // ---------------------------------------------------------------------
+    // Named formats (M5b Two-Headed Giant, M5c Commander)
+    //
+    // These are opt-in: a game that configures neither is exactly the duel
+    // and free-for-all substrate that every existing fixture measured.
+    // ---------------------------------------------------------------------
+
+    /// Seats the game into teams that share a life total and a turn.
+    ///
+    /// This is pregame setup, not a rules action. Every seat must appear in
+    /// exactly one team, and a team must be non-empty; a partition that does
+    /// not cover the table would leave `life_sharing_seats` inconsistent with
+    /// the loss state-based action.
+    pub fn configure_teams(
+        &mut self,
+        teams: &[Vec<PlayerId>],
+        starting_team_life: i64,
+    ) -> Result<(), RulesError> {
+        if self.started {
+            return Err(RulesError::IllegalAction(
+                "teams must be configured before the game begins",
+            ));
+        }
+        if teams.len() < 2 {
+            return Err(RulesError::IllegalAction(
+                "a team game needs at least two teams",
+            ));
+        }
+        let mut team_of_seat = vec![None; self.players.len()];
+        for (index, seats) in teams.iter().enumerate() {
+            if seats.is_empty() {
+                return Err(RulesError::IllegalAction("a team needs at least one seat"));
+            }
+            for seat in seats {
+                self.player(*seat)?;
+                if team_of_seat[seat.0].is_some() {
+                    return Err(RulesError::IllegalAction(
+                        "a seat cannot belong to two teams",
+                    ));
+                }
+                team_of_seat[seat.0] = Some(TeamId(index));
+            }
+        }
+        if team_of_seat.iter().any(Option::is_none) {
+            return Err(RulesError::IllegalAction(
+                "every seat must belong to a configured team",
+            ));
+        }
+        self.format.team_of_seat = team_of_seat.into_iter().flatten().collect();
+        self.format.teams = teams.to_vec();
+        for player in &mut self.players {
+            player.life = starting_team_life;
+        }
+        self.refresh_public_state_integrity();
+        self.validate_invariants()
+    }
+
+    /// Configures the Commander life total and its lethal commander-damage
+    /// threshold. Designating the commanders themselves is a separate call so
+    /// a fixture can seat a commander that starts on the battlefield.
+    pub fn configure_commander_format(
+        &mut self,
+        starting_life: i64,
+        commander_damage_threshold: i32,
+    ) -> Result<(), RulesError> {
+        if self.started {
+            return Err(RulesError::IllegalAction(
+                "the Commander format must be configured before the game begins",
+            ));
+        }
+        if commander_damage_threshold <= 0 {
+            return Err(RulesError::IllegalAction(
+                "the commander damage threshold must be positive",
+            ));
+        }
+        self.format.commander_damage_threshold = Some(commander_damage_threshold);
+        for player in &mut self.players {
+            player.life = starting_life;
+        }
+        self.refresh_public_state_integrity();
+        self.validate_invariants()
+    }
+
+    /// Designates one owned object as a seat's commander.
+    ///
+    /// A commander that is not already on the battlefield starts in the
+    /// command zone, which is where CR 903.6 puts it. A fixture that seats a
+    /// commander already in play keeps it there. The designation is keyed by
+    /// `ObjectId`, which is stable across every later zone change, so
+    /// commander damage survives the commander leaving and returning.
+    pub fn designate_commander(
+        &mut self,
+        player: PlayerId,
+        card: ObjectId,
+    ) -> Result<(), RulesError> {
+        if self.started {
+            return Err(RulesError::IllegalAction(
+                "commanders must be designated before the game begins",
+            ));
+        }
+        self.player(player)?;
+        if self.object(card)?.owner != player {
+            return Err(RulesError::IllegalAction(
+                "only an owned card may be designated as a commander",
+            ));
+        }
+        if self.format.commanders.contains_key(&card) {
+            return Err(RulesError::IllegalAction(
+                "this object is already a designated commander",
+            ));
+        }
+        self.format.commanders.insert(
+            card,
+            CommanderRecord {
+                owner: player,
+                command_zone_casts: 0,
+            },
+        );
+        if self.zone_of(card) != Some(Zone::Battlefield) {
+            self.remove_from_all_zones(card);
+            self.players[player.0].command.push(card);
+        }
+        self.refresh_public_state_integrity();
+        self.validate_invariants()
+    }
+
+    /// Explicit fixture seam for seating a partly-damaged Commander table.
+    ///
+    /// Like [`Self::set_fixture_player_life`] this is scenario setup, not a
+    /// rules action: it emits no damage receipt and is rejected once the game
+    /// is live, so a real commander-damage total can only ever be produced by
+    /// real combat damage.
+    pub fn set_fixture_commander_damage(
+        &mut self,
+        player: PlayerId,
+        commander: ObjectId,
+        amount: i32,
+    ) -> Result<(), RulesError> {
+        if self.started {
+            return Err(RulesError::IllegalAction(
+                "fixture commander damage is setup-only",
+            ));
+        }
+        self.player(player)?;
+        if !self.format.commanders.contains_key(&commander) {
+            return Err(RulesError::IllegalAction(
+                "only a designated commander accumulates commander damage",
+            ));
+        }
+        if amount < 0 {
+            return Err(RulesError::IllegalAction(
+                "commander damage cannot be negative",
+            ));
+        }
+        self.format
+            .commander_damage
+            .insert((player, commander), amount);
+        Ok(())
+    }
+
+    /// The team a seat belongs to, or `None` in a game with no teams.
+    #[must_use]
+    pub fn team_of(&self, player: PlayerId) -> Option<TeamId> {
+        self.format.team_of(player)
+    }
+
+    /// The seats on one team, in seating order.
+    #[must_use]
+    pub fn team_seats(&self, team: TeamId) -> &[PlayerId] {
+        self.format.teams.get(team.0).map_or(&[][..], Vec::as_slice)
+    }
+
+    /// The shared life total of one team. Teammates mirror one number, so any
+    /// living seat on the team reports it.
+    #[must_use]
+    pub fn team_life(&self, team: TeamId) -> Option<i64> {
+        let seats = self.format.teams.get(team.0)?;
+        seats.first().map(|seat| self.players[seat.0].life)
+    }
+
+    /// Whether a whole team has left the game.
+    #[must_use]
+    pub fn team_lost(&self, team: TeamId) -> bool {
+        self.format
+            .teams
+            .get(team.0)
+            .is_some_and(|seats| seats.iter().all(|seat| self.players[seat.0].lost))
+    }
+
+    /// The single surviving team, or `None` while more than one is alive.
+    /// This is the team analogue of [`Self::winner`]; a game with no teams has
+    /// no winning team even when it has a winning seat.
+    #[must_use]
+    pub fn winning_team(&self) -> Option<TeamId> {
+        if !self.format.has_teams() {
+            return None;
+        }
+        let mut alive = (0..self.format.teams.len())
+            .map(TeamId)
+            .filter(|team| !self.team_lost(*team));
+        let first = alive.next()?;
+        alive.next().is_none().then_some(first)
+    }
+
+    /// The command zone contents of one seat.
+    #[must_use]
+    pub fn command_zone(&self, player: PlayerId) -> &[ObjectId] {
+        self.players
+            .get(player.0)
+            .map_or(&[][..], |state| state.command.as_slice())
+    }
+
+    /// The generic mana CR 903.8 currently adds to casting `commander` from
+    /// the command zone: {2} for each prior command-zone cast.
+    #[must_use]
+    pub fn commander_tax(&self, commander: ObjectId) -> u32 {
+        self.format
+            .commanders
+            .get(&commander)
+            .map_or(0, |record| record.command_zone_casts * 2)
+    }
+
+    /// Combat damage `commander` has dealt to `player` across the whole game.
+    #[must_use]
+    pub fn commander_damage(&self, player: PlayerId, commander: ObjectId) -> i32 {
+        self.format
+            .commander_damage
+            .get(&(player, commander))
+            .copied()
+            .unwrap_or_default()
+    }
+
+    /// Whether one object is a designated commander.
+    #[must_use]
+    pub fn is_commander(&self, card: ObjectId) -> bool {
+        self.format.commanders.contains_key(&card)
+    }
+
+    /// Applies one life change to every seat that shares the recipient's life
+    /// total. Without teams this writes exactly the one seat, which is why
+    /// every base-game life receipt is unchanged.
+    fn adjust_life(&mut self, player: PlayerId, delta: i64) {
+        for seat in self.format.life_sharing_seats(player) {
+            self.players[seat.0].life += delta;
+        }
+    }
+
+    /// Seats currently taking the turn. In a team game the whole living team
+    /// untaps, draws, plays lands, and attacks as one turn.
+    fn active_seats(&self) -> Vec<PlayerId> {
+        match self.format.team_of(self.active_player) {
+            Some(team) => self.format.teams[team.0]
+                .iter()
+                .copied()
+                .filter(|seat| !self.players[seat.0].lost)
+                .collect(),
+            None => vec![self.active_player],
+        }
+    }
+
+    /// Whether a seat is taking the current turn, either as the active player
+    /// or as its teammate in a shared team turn.
+    fn is_active_seat(&self, player: PlayerId) -> bool {
+        player == self.active_player || self.active_seats().contains(&player)
+    }
+
+    /// Expands one defender choice into the seats it actually covers.
+    fn defending_seats_for(&self, choice: DefenderChoice) -> Vec<PlayerId> {
+        match choice {
+            DefenderChoice::Player(player) => vec![player],
+            DefenderChoice::Team(team) => {
+                self.format.teams.get(team.0).cloned().unwrap_or_default()
+            }
+        }
     }
 
     /// Expands one public deck list into a player's library and shuffles it with
@@ -3859,7 +4226,7 @@ impl Game {
         // protection checks must use this source-incarnation snapshot.
         let source_colors = self.characteristics(activation.source)?.colors;
         if ability.sorcery_speed
-            && (player != self.active_player || !self.step.is_main() || !self.stack.is_empty())
+            && (!self.is_active_seat(player) || !self.step.is_main() || !self.stack.is_empty())
         {
             return Err(RulesError::IllegalAction(
                 "this activated ability is allowed only during your main phase with an empty stack",
@@ -4126,16 +4493,18 @@ impl Game {
             });
         }
         if generalized_cost.life_payment > 0 {
-            let player_state = self
-                .players
-                .get_mut(player.0)
-                .ok_or(RulesError::UnknownPlayer(player))?;
-            player_state.life = player_state
-                .life
-                .checked_sub(i64::from(generalized_cost.life_payment))
-                .ok_or(RulesError::IllegalAction(
-                    "ability life payment underflowed",
-                ))?;
+            for seat in self.format.life_sharing_seats(player) {
+                let player_state = self
+                    .players
+                    .get_mut(seat.0)
+                    .ok_or(RulesError::UnknownPlayer(seat))?;
+                player_state.life = player_state
+                    .life
+                    .checked_sub(i64::from(generalized_cost.life_payment))
+                    .ok_or(RulesError::IllegalAction(
+                        "ability life payment underflowed",
+                    ))?;
+            }
             self.record_event(GameEvent::AbilityLifePaid {
                 player,
                 source: activation.source,
@@ -4565,7 +4934,7 @@ impl Game {
             self.move_to_graveyard_or_remove_token(activation.source)?;
         }
         if let Some(life_payment) = ability.life_payment {
-            self.players[player.0].life -= i64::from(life_payment);
+            self.adjust_life(player, -i64::from(life_payment));
         }
         if let Some((mana_cost, bundle, paid_pool)) = paid_bundle {
             self.players[player.0].mana_pool = paid_pool;
@@ -4658,6 +5027,8 @@ impl Game {
                 Some(Zone::Graveyard)
             } else if player.exile.contains(&card) {
                 Some(Zone::Exile)
+            } else if player.command.contains(&card) {
+                Some(Zone::Command)
             } else {
                 None
             }
@@ -5546,6 +5917,9 @@ impl Game {
             }
             PolicyAction::DeclareAttackers { attackers } => {
                 self.declare_attackers(player, &attackers)?;
+            }
+            PolicyAction::DeclareAttackersAgainst { attackers } => {
+                self.declare_attackers_against(player, &attackers)?;
             }
             PolicyAction::DeclareBlockers { assignments } => {
                 self.declare_blockers(player, &assignments)?;
@@ -7764,7 +8138,7 @@ impl Game {
         entry_life_payment: Option<bool>,
     ) -> Result<(), RulesError> {
         self.require_priority(player)?;
-        if player != self.active_player || !self.step.is_main() || !self.stack.is_empty() {
+        if !self.is_active_seat(player) || !self.step.is_main() || !self.stack.is_empty() {
             return Err(RulesError::IllegalAction(
                 "lands may be played only during your main phase with an empty stack",
             ));
@@ -7823,7 +8197,7 @@ impl Game {
         });
         self.players[player.0].lands_played += 1;
         if let Some(amount) = paid_life {
-            self.players[player.0].life -= i64::from(amount);
+            self.adjust_life(player, -i64::from(amount));
             self.record_event(GameEvent::LandEntryLifePaid {
                 player,
                 card,
@@ -8058,6 +8432,20 @@ impl Game {
         Ok(())
     }
 
+    /// Whether every seat this combat is aimed at has left the game. A duel
+    /// asks this about the one derived defender, exactly as before.
+    fn every_combat_defender_left(&self, combat: &CombatState) -> bool {
+        if combat.defending_seats.is_empty() {
+            return combat
+                .defending_player
+                .is_some_and(|player| self.players[player.0].lost);
+        }
+        combat
+            .defending_seats
+            .iter()
+            .all(|seat| self.players[seat.0].lost)
+    }
+
     /// The active player ordinarily makes combat declarations. A current-turn
     /// rules effect can instead install a separate, exact declaration authority.
     fn combat_declaration_authority(&self, default: PlayerId) -> PlayerId {
@@ -8074,7 +8462,90 @@ impl Game {
         player: PlayerId,
         attackers: &[ObjectId],
     ) -> Result<(), RulesError> {
-        self.atomic_transition(|game| game.declare_attackers_impl(player, attackers))
+        self.atomic_transition(|game| game.declare_attackers_impl(player, attackers, None))
+    }
+
+    /// Declares attackers while naming what each one attacks.
+    ///
+    /// Every attacker must name the same defending seat or team. Splitting one
+    /// combat across two defenders is legal Magic but is deliberately rejected
+    /// here: blockers are declared once, by one authority, and admitting a
+    /// split would make one seat declare blocks for another's creatures.
+    pub fn declare_attackers_against(
+        &mut self,
+        player: PlayerId,
+        attackers: &[(ObjectId, DefenderChoice)],
+    ) -> Result<(), RulesError> {
+        let declared = attackers
+            .iter()
+            .map(|(attacker, _)| *attacker)
+            .collect::<Vec<_>>();
+        let defenders = attackers
+            .iter()
+            .map(|(_, defender)| *defender)
+            .collect::<Vec<_>>();
+        self.atomic_transition(|game| {
+            game.declare_attackers_impl(player, &declared, Some(&defenders))
+        })
+    }
+
+    /// Resolves what one attack declaration is aimed at.
+    ///
+    /// A declaration with no named defender keeps the derived next-living-seat
+    /// behavior, which is what every existing fixture and replay digest was
+    /// measured against. A team game derives the opposing team instead,
+    /// because a teammate is never a legal defender.
+    fn resolve_attack_defenders(
+        &self,
+        defenders: Option<&[DefenderChoice]>,
+    ) -> Result<(Option<DefenderChoice>, Vec<PlayerId>), RulesError> {
+        let Some(defenders) = defenders else {
+            if let Some(team) = self.format.team_of(self.active_player) {
+                let opposing = (0..self.format.teams.len())
+                    .map(TeamId)
+                    .filter(|candidate| *candidate != team && !self.team_lost(*candidate))
+                    .collect::<Vec<_>>();
+                let [only] = opposing.as_slice() else {
+                    return Err(RulesError::IllegalAction(
+                        "a team attack must name which opposing team it attacks",
+                    ));
+                };
+                return Ok((
+                    Some(DefenderChoice::Team(*only)),
+                    self.defending_seats_for(DefenderChoice::Team(*only)),
+                ));
+            }
+            let derived = self.next_player(self.active_player);
+            return Ok((None, vec![derived]));
+        };
+        let Some(first) = defenders.first().copied() else {
+            // An empty declaration still needs a defender of record so the
+            // combat can end the way a declined attack always has.
+            return self.resolve_attack_defenders(None);
+        };
+        if defenders.iter().any(|choice| *choice != first) {
+            return Err(RulesError::IllegalAction(
+                "every attacker in one combat must attack the same seat or team",
+            ));
+        }
+        let seats = self.defending_seats_for(first);
+        if seats.is_empty() {
+            return Err(RulesError::IllegalAction("unknown defending team"));
+        }
+        for seat in &seats {
+            self.player(*seat)?;
+        }
+        if seats.iter().any(|seat| self.is_active_seat(*seat)) {
+            return Err(RulesError::IllegalAction(
+                "a seat cannot attack itself or its teammate",
+            ));
+        }
+        if seats.iter().all(|seat| self.players[seat.0].lost) {
+            return Err(RulesError::IllegalAction(
+                "a defender that already left the game cannot be attacked",
+            ));
+        }
+        Ok((Some(first), seats))
     }
 
     /// Applies a turn-based attack declaration inside the public transaction
@@ -8086,6 +8557,7 @@ impl Game {
         &mut self,
         player: PlayerId,
         attackers: &[ObjectId],
+        defenders: Option<&[DefenderChoice]>,
     ) -> Result<(), RulesError> {
         self.require_game_in_progress()?;
         if self.step != Step::DeclareAttackers
@@ -8102,14 +8574,29 @@ impl Game {
         {
             return Err(RulesError::IllegalAction("attackers were already declared"));
         }
-        let defending_player = self.next_player(self.active_player);
-        if !attackers.is_empty()
-            && self
-                .defending_player_is_protected_from_attacks(self.active_player, defending_player)?
-        {
+        if defenders.is_some_and(|defenders| defenders.len() != attackers.len()) {
             return Err(RulesError::IllegalAction(
-                "cannot attack a player protected by a static attack restriction",
+                "every declared attacker needs exactly one defender",
             ));
+        }
+        let (defender_choice, defending_seats) = self.resolve_attack_defenders(defenders)?;
+        let defending_player = defending_seats
+            .iter()
+            .copied()
+            .find(|seat| !self.players[seat.0].lost)
+            .unwrap_or_else(|| {
+                *defending_seats
+                    .first()
+                    .expect("a resolved defender always names at least one seat")
+            });
+        if !attackers.is_empty() {
+            for seat in &defending_seats {
+                if self.defending_player_is_protected_from_attacks(self.active_player, *seat)? {
+                    return Err(RulesError::IllegalAction(
+                        "cannot attack a player protected by a static attack restriction",
+                    ));
+                }
+            }
         }
         let mut seen = BTreeSet::new();
         let mut hasty_attackers = BTreeSet::new();
@@ -8130,7 +8617,9 @@ impl Game {
             let object = self.object(*attacker)?;
             let characteristics = self.characteristics(*attacker)?;
             let has_haste = characteristics.keywords.contains(&Keyword::Haste);
-            if self.controller_of(*attacker)? != self.active_player
+            // A team's turn is shared, so either teammate may attack with its
+            // own creatures. Without teams this is the active player alone.
+            if !self.is_active_seat(self.controller_of(*attacker)?)
                 || object.tapped
                 || (object.controller_changed_turn >= self.turn && !has_haste)
                 || !characteristics.card_types.contains(&CardType::Creature)
@@ -8207,6 +8696,13 @@ impl Game {
         combat.must_be_blocked_attackers = must_be_blocked_attackers;
         combat.landwalk_attackers = landwalk_attackers;
         combat.defending_player = Some(defending_player);
+        combat.defending_seats = defending_seats;
+        if let Some(choice) = defender_choice {
+            combat.attacker_defenders = attackers
+                .iter()
+                .map(|attacker| (*attacker, choice))
+                .collect();
+        }
         combat.attackers_declared = true;
         self.attacked_creature_incarnations_this_turn
             .extend(attacked_incarnations);
@@ -8248,7 +8744,15 @@ impl Game {
         assignments: &[CombatBlock],
     ) -> Result<(), RulesError> {
         self.require_game_in_progress()?;
-        let normal_defender = self.next_player(self.active_player);
+        // The declaring authority is the seat this combat was aimed at. A duel
+        // derives the same seat it always did; a team declares once for the
+        // whole team, which is faithful because teammates share every fact
+        // that a blocker declaration depends on.
+        let normal_defender = self
+            .combat
+            .as_ref()
+            .and_then(|combat| combat.defending_player)
+            .unwrap_or_else(|| self.next_player(self.active_player));
         if self.step != Step::DeclareBlockers
             || player != self.combat_declaration_authority(normal_defender)
         {
@@ -8266,6 +8770,14 @@ impl Game {
         let defending_player = combat.defending_player.ok_or(RulesError::IllegalAction(
             "combat is missing its defending player",
         ))?;
+        // Blocker legality is seat membership in the attacked group. Outside
+        // team play that group is exactly `[defending_player]`, so a duel and
+        // an existing pod fixture take an identical path.
+        let defending_seats = if combat.defending_seats.is_empty() {
+            vec![defending_player]
+        } else {
+            combat.defending_seats.clone()
+        };
         // Evasion and blocking requirements are checked now, after the
         // post-attackers priority window.  These are deliberately not the
         // attacker-declaration snapshots: an attacker can gain or lose a
@@ -8332,7 +8844,12 @@ impl Game {
             self.require_zone(assignment.blocker, Zone::Battlefield)?;
             let object = self.object(assignment.blocker)?;
             let characteristics = self.characteristics(assignment.blocker)?;
-            if self.controller_of(assignment.blocker)? != defending_player
+            // Every restriction below is a fact about the blocker's own
+            // controller. In a duel that seat is the defending player, so
+            // naming it explicitly changes nothing there and is correct for a
+            // team, where the blocker may belong to either teammate.
+            let blocker_controller = self.controller_of(assignment.blocker)?;
+            if !defending_seats.contains(&blocker_controller)
                 || object.tapped
                 || !characteristics.card_types.contains(&CardType::Creature)
                 || self.target_cannot_block_attacker(assignment.blocker, assignment.attacker)
@@ -8344,9 +8861,11 @@ impl Game {
                 || (characteristics
                     .keywords
                     .contains(&Keyword::CannotBlockUnlessControlsMountain)
-                    && !self
-                        .player_controls_basic_land_type(defending_player, BasicLandType::Mountain))
-                || (self.controller_saprolings_cannot_block(defending_player)
+                    && !self.player_controls_basic_land_type(
+                        blocker_controller,
+                        BasicLandType::Mountain,
+                    ))
+                || (self.controller_saprolings_cannot_block(blocker_controller)
                     && characteristics
                         .creature_subtypes
                         .contains(&CreatureSubtype::Saproling))
@@ -8388,7 +8907,7 @@ impl Game {
                 .get(&assignment.attacker)
                 .is_some_and(|land_types| {
                     land_types.iter().any(|land_type| {
-                        self.player_controls_basic_land_type(defending_player, *land_type)
+                        self.player_controls_basic_land_type(blocker_controller, *land_type)
                     })
                 })
             {
@@ -8408,7 +8927,10 @@ impl Game {
                 if blockers.contains(&candidate) {
                     return false;
                 }
-                if self.controller_of(candidate) != Ok(defending_player) {
+                let Ok(defending_player) = self.controller_of(candidate) else {
+                    return false;
+                };
+                if !defending_seats.contains(&defending_player) {
                     return false;
                 }
                 let Ok(object) = self.object(candidate) else {
@@ -8494,9 +9016,12 @@ impl Game {
             })
             .collect::<Vec<_>>();
         for (attacker, blocker) in source_relative_requirements {
+            let Ok(defending_player) = self.controller_of(blocker) else {
+                continue;
+            };
             if !combat.attackers.contains(&attacker)
                 || blocker_unblockable_attackers.contains(&attacker)
-                || self.controller_of(blocker) != Ok(defending_player)
+                || !defending_seats.contains(&defending_player)
             {
                 continue;
             }
@@ -8800,7 +9325,16 @@ impl Game {
                 "an opponent-owned card exiled by a live source cannot be cast",
             ));
         }
-        if !from_graveyard && effect_permission.is_none() {
+        // CR 903.4: a seat may cast its own designated commander from the
+        // command zone. Nothing else may be cast from there.
+        let from_command_zone = self
+            .format
+            .commanders
+            .get(&request.card)
+            .is_some_and(|record| {
+                record.owner == player && self.zone_of(request.card) == Some(Zone::Command)
+            });
+        if !from_graveyard && !from_command_zone && effect_permission.is_none() {
             self.require_zone(request.card, Zone::Hand)?;
         }
         let mut definition = self.card_definition(request.card)?.clone();
@@ -8864,7 +9398,7 @@ impl Game {
         if !definition.card_types.contains(&CardType::Instant)
             && !definition.keywords.contains(&Keyword::Flash)
             && !timing_exception
-            && (player != self.active_player || !self.step.is_main() || !self.stack.is_empty())
+            && (!self.is_active_seat(player) || !self.step.is_main() || !self.stack.is_empty())
         {
             return Err(RulesError::IllegalAction(
                 "non-instant spells require your main phase with an empty stack",
@@ -8949,6 +9483,26 @@ impl Game {
                 .checked_add(x_value)
                 .ok_or(RulesError::IllegalAction(
                     "chosen X overflows generic mana cost",
+                ))?;
+        }
+        // CR 903.8: {2} more for each prior cast of this commander from the
+        // command zone. The tax is part of the total cost, so it is added
+        // before cost reduction rather than paid separately.
+        let commander_tax = if from_command_zone {
+            self.commander_tax(request.card)
+        } else {
+            0
+        };
+        if commander_tax > 0 {
+            let tax = u8::try_from(commander_tax).map_err(|_| {
+                RulesError::IllegalAction("commander tax exceeds representable generic mana")
+            })?;
+            payment_definition.mana_cost.generic = payment_definition
+                .mana_cost
+                .generic
+                .checked_add(tax)
+                .ok_or(RulesError::IllegalAction(
+                    "commander tax overflows generic mana cost",
                 ))?;
         }
         let applied_generic_cost_reduction = self
@@ -9086,6 +9640,11 @@ impl Game {
                 card: request.card,
             });
         }
+        if from_command_zone {
+            if let Some(record) = self.format.commanders.get_mut(&request.card) {
+                record.command_zone_casts = record.command_zone_casts.saturating_add(1);
+            }
+        }
         if let Some(permission) = effect_permission {
             self.effect_created_cast_permissions.remove(&request.card);
             if permission.timing == CastTiming::AsThoughInstant {
@@ -9109,6 +9668,15 @@ impl Game {
             object: request.card,
             incarnation: source_incarnation,
         });
+        // Recorded after `SpellCast` so it never lands inside the ordered
+        // payment-receipt window that the cast-payment audit walks.
+        if from_command_zone {
+            self.record_event(GameEvent::CommanderCastFromCommandZone {
+                commander: request.card,
+                player,
+                tax: commander_tax,
+            });
+        }
         self.enqueue_creature_becomes_target_triggers(&spell_targets)?;
         if definition.card_types.contains(&CardType::Creature) {
             self.queue_cast_creature_triggers(
@@ -9391,7 +9959,7 @@ impl Game {
         // direct draws are prohibited, not marker cleanup.
         let resolves_pending_draw = self.pending_draw_replacement == Some(player);
         if self.started
-            && (self.step != Step::Draw || player != self.active_player || !resolves_pending_draw)
+            && (self.step != Step::Draw || !self.is_active_seat(player) || !resolves_pending_draw)
         {
             return Err(RulesError::IllegalAction(
                 "a live draw requires the active player's pending draw-step decision",
@@ -9465,7 +10033,7 @@ impl Game {
         self.require_game_in_progress()?;
         if self.pending_draw_replacement != Some(player)
             || self.step != Step::Draw
-            || player != self.active_player
+            || !self.is_active_seat(player)
         {
             return Err(RulesError::IllegalAction(
                 "this player has no pending draw replacement decision",
@@ -9477,6 +10045,7 @@ impl Game {
         } else {
             self.draw_card(player, None)?;
         }
+        self.open_next_team_turn_draw()?;
         self.consecutive_passes = 0;
         self.validate_invariants()
     }
@@ -9573,7 +10142,7 @@ impl Game {
         ))?;
         self.pending_private_library_choice = None;
         if life_payment > 0 {
-            self.players[player.0].life -= i64::from(life_payment);
+            self.adjust_life(player, -i64::from(life_payment));
             self.record_event(GameEvent::LifePaid {
                 source: spell,
                 player,
@@ -14815,6 +15384,41 @@ impl Game {
         self.pending_draw_replacement_decision = None;
     }
 
+    /// Opens the shared team turn's draws, one replacement decision at a time.
+    ///
+    /// A team does not share its draw: each living teammate draws for itself.
+    /// The starting *team* skips its first draw, which is the Two-Headed Giant
+    /// analogue of CR 103.8a. That rule is written separately from the
+    /// two-player check because the two-player arity check *is* CR 103.8a and
+    /// must keep applying only to duels.
+    fn open_team_turn_draws(&mut self) -> Result<(), RulesError> {
+        self.pending_team_draws.clear();
+        if self.turn == 1 {
+            return Ok(());
+        }
+        let mut queue = self.active_seats();
+        if queue.is_empty() {
+            return Ok(());
+        }
+        let first = queue.remove(0);
+        self.pending_team_draws = queue;
+        self.open_pending_draw_replacement(first)
+    }
+
+    /// Hands the shared team turn's draw to the next teammate that owes one.
+    fn open_next_team_turn_draw(&mut self) -> Result<(), RulesError> {
+        if self.pending_draw_replacement.is_some() {
+            return Ok(());
+        }
+        while !self.pending_team_draws.is_empty() {
+            let seat = self.pending_team_draws.remove(0);
+            if !self.players[seat.0].lost && self.step == Step::Draw && !self.is_game_over() {
+                return self.open_pending_draw_replacement(seat);
+            }
+        }
+        Ok(())
+    }
+
     /// Completes APNAP trigger placement without turning a controller's
     /// mandatory order/target choice into a priority action. The saved holder
     /// is restored only after the last placement has either stacked or been
@@ -14919,7 +15523,7 @@ impl Game {
         card: ObjectId,
     ) -> Result<(), RulesError> {
         self.require_priority(player)?;
-        if player != self.active_player || !self.step.is_main() || !self.stack.is_empty() {
+        if !self.is_active_seat(player) || !self.step.is_main() || !self.stack.is_empty() {
             return Err(RulesError::IllegalAction(
                 "transmute is allowed only during your main phase with an empty stack",
             ));
@@ -15018,7 +15622,7 @@ impl Game {
         found: Option<ObjectId>,
     ) -> Result<(), RulesError> {
         self.require_priority(player)?;
-        if player != self.active_player || !self.step.is_main() || !self.stack.is_empty() {
+        if !self.is_active_seat(player) || !self.step.is_main() || !self.stack.is_empty() {
             return Err(RulesError::IllegalAction(
                 "transmute is allowed only during your main phase with an empty stack",
             ));
@@ -15512,8 +16116,11 @@ impl Game {
         player: PlayerId,
     ) -> Result<bool, RulesError> {
         let attempted_empty_library_draw = self.pending_empty_library_draw_losses.remove(&player);
+        let lethal_commander_damage = self.has_lethal_commander_damage(player);
         if self.players[player.0].lost
-            || (!attempted_empty_library_draw && self.players[player.0].life > 0)
+            || (!attempted_empty_library_draw
+                && !lethal_commander_damage
+                && self.players[player.0].life > 0)
         {
             return Ok(false);
         }
@@ -15521,11 +16128,26 @@ impl Game {
             player,
             if attempted_empty_library_draw {
                 "attempted to draw from an empty library"
+            } else if lethal_commander_damage {
+                "took lethal commander damage"
             } else {
                 "life total is zero or less"
             },
         )?;
         Ok(true)
+    }
+
+    /// CR 903.10a: a seat dealt the threshold in combat damage by one
+    /// commander loses. This is `false` in every format that configured no
+    /// threshold, so it never runs in an ordinary game.
+    fn has_lethal_commander_damage(&self, player: PlayerId) -> bool {
+        let Some(threshold) = self.format.commander_damage_threshold else {
+            return false;
+        };
+        self.format
+            .commander_damage
+            .iter()
+            .any(|((damaged, _), total)| *damaged == player && *total >= threshold)
     }
 
     /// Applies CR 704.5q to one live permanent. The pair is one indivisible
@@ -15760,6 +16382,15 @@ impl Game {
 
     #[must_use]
     pub fn is_game_over(&self) -> bool {
+        if self.format.has_teams() {
+            // A team game ends when one team is left, not one seat: two
+            // living teammates are still a contest of one.
+            return (0..self.format.teams.len())
+                .map(TeamId)
+                .filter(|team| !self.team_lost(*team))
+                .count()
+                <= 1;
+        }
         self.players.iter().filter(|player| !player.lost).count() <= 1
     }
 
@@ -16170,8 +16801,8 @@ impl Game {
         ) {
             (Some(player), Some(decision))
                 if self.step != Step::Draw
-                    || player != self.active_player
-                    || player != self.priority
+                    || !self.is_active_seat(player)
+                    || !self.is_active_seat(self.priority)
                     || self.consecutive_passes != 0
                     || self.players[player.0].lost
                     || decision.0 == 0
@@ -16651,6 +17282,7 @@ impl Game {
                 (Zone::Battlefield, &player.battlefield),
                 (Zone::Graveyard, &player.graveyard),
                 (Zone::Exile, &player.exile),
+                (Zone::Command, &player.command),
             ] {
                 for card in cards {
                     if locations.insert(*card, zone).is_some() {
@@ -18585,12 +19217,39 @@ impl Game {
                     "declared combat is missing its defending player",
                 ))?;
                 self.player(defending_player)?;
-                if defending_player == self.active_player {
+                if self.is_active_seat(defending_player) {
                     return Err(RulesError::IllegalAction(
                         "combat defender cannot equal the active player",
                     ));
                 }
-            } else if combat.defending_player.is_some() {
+                for seat in &combat.defending_seats {
+                    self.player(*seat)?;
+                    if self.is_active_seat(*seat) {
+                        return Err(RulesError::IllegalAction(
+                            "a seat taking the turn cannot be one of its own defenders",
+                        ));
+                    }
+                }
+                if !combat.defending_seats.is_empty()
+                    && !combat.defending_seats.contains(&defending_player)
+                {
+                    return Err(RulesError::IllegalAction(
+                        "the combat's representative defender left its defending group",
+                    ));
+                }
+                if combat
+                    .attacker_defenders
+                    .keys()
+                    .any(|attacker| !combat.attackers.contains(attacker))
+                {
+                    return Err(RulesError::IllegalAction(
+                        "a recorded defender choice names an undeclared attacker",
+                    ));
+                }
+            } else if combat.defending_player.is_some()
+                || !combat.defending_seats.is_empty()
+                || !combat.attacker_defenders.is_empty()
+            {
                 return Err(RulesError::IllegalAction(
                     "undeclared combat has a defending player",
                 ));
@@ -25967,7 +26626,7 @@ impl Game {
                             "optional triggered life payment is not payable",
                         ));
                     }
-                    game.players[player.0].life -= i64::from(life_payment);
+                    game.adjust_life(player, -i64::from(life_payment));
                     game.record_event(GameEvent::LifePaid {
                         source: choice.source,
                         player,
@@ -28275,7 +28934,7 @@ impl Game {
         match target {
             Target::Player(player) => {
                 self.player(player)?;
-                self.players[player.0].life -= i64::from(amount);
+                self.adjust_life(player, -i64::from(amount));
                 self.record_event(GameEvent::DamageDealtToPlayer {
                     source,
                     player,
@@ -28709,10 +29368,37 @@ impl Game {
                 _ => None,
             })
             .collect::<Vec<_>>();
+        for (recipient, dealt) in &recipients {
+            self.record_commander_combat_damage(source, *recipient, *dealt);
+        }
         for (recipient, dealt) in recipients {
             self.enqueue_combat_damage_to_player_triggers(source, recipient, dealt)?;
         }
         Ok(())
+    }
+
+    /// Accumulates CR 903.10a commander damage for one combat packet.
+    ///
+    /// The ledger is keyed by the damaged seat and the commander's `ObjectId`,
+    /// which is stable across every zone change, so a commander that dies and
+    /// is recast keeps the damage it already dealt.
+    fn record_commander_combat_damage(&mut self, source: ObjectId, player: PlayerId, amount: i32) {
+        if amount <= 0 || !self.format.commanders.contains_key(&source) {
+            return;
+        }
+        let total = self
+            .format
+            .commander_damage
+            .entry((player, source))
+            .or_default();
+        *total = total.saturating_add(amount);
+        let total = *total;
+        self.record_event(GameEvent::CommanderDamageDealt {
+            commander: source,
+            player,
+            amount,
+            total,
+        });
     }
 
     /// Lists every represented replacement for one prospective combat-damage
@@ -29304,7 +29990,7 @@ impl Game {
         }
         let remaining = amount - prevented;
         if remaining > 0 {
-            self.players[player.0].life -= i64::from(remaining);
+            self.adjust_life(player, -i64::from(remaining));
             self.record_event(GameEvent::DamageDealtToPlayer {
                 source,
                 player,
@@ -29492,7 +30178,7 @@ impl Game {
                         Target::Player(player) if !self.players[player.0].lost => player,
                         other => return Err(RulesError::IllegalTarget(other)),
                     };
-                self.players[player.0].life -= i64::from(*amount);
+                self.adjust_life(player, -i64::from(*amount));
                 self.record_event(GameEvent::LifeLost {
                     source,
                     player,
@@ -29500,7 +30186,7 @@ impl Game {
                 });
             }
             Effect::LoseLifeController { amount } => {
-                self.players[controller.0].life -= i64::from(*amount);
+                self.adjust_life(controller, -i64::from(*amount));
                 self.record_event(GameEvent::LifeLost {
                     source,
                     player: controller,
@@ -29527,7 +30213,7 @@ impl Game {
                         counter: *counter,
                         amount,
                     });
-                    self.players[controller.0].life -= i64::from(amount);
+                    self.adjust_life(controller, -i64::from(amount));
                     self.record_event(GameEvent::LifeLost {
                         source,
                         player: controller,
@@ -29551,7 +30237,7 @@ impl Game {
                     })
                     .collect::<Result<Vec<_>, RulesError>>()?;
                 for (player, amount) in losses.into_iter().filter(|(_, amount)| *amount > 0) {
-                    self.players[player.0].life -= i64::from(amount);
+                    self.adjust_life(player, -i64::from(amount));
                     self.record_event(GameEvent::LifeLost {
                         source,
                         player,
@@ -29695,7 +30381,7 @@ impl Game {
                     self.move_to_zone(card, Zone::Graveyard)?;
                 }
                 if amount > 0 {
-                    self.players[controller.0].life += i64::from(amount);
+                    self.adjust_life(controller, i64::from(amount));
                     self.record_event(GameEvent::LifeGained {
                         player: controller,
                         amount,
@@ -30239,7 +30925,7 @@ impl Game {
                         controller,
                         amount,
                     });
-                    self.players[controller.0].life += i64::from(amount);
+                    self.adjust_life(controller, i64::from(amount));
                     self.record_event(GameEvent::LifeGained {
                         player: controller,
                         amount,
@@ -30263,7 +30949,7 @@ impl Game {
                 }
             }
             Effect::GainLifeController { amount } => {
-                self.players[controller.0].life += i64::from(*amount);
+                self.adjust_life(controller, i64::from(*amount));
                 self.record_event(GameEvent::LifeGained {
                     player: controller,
                     amount: *amount,
@@ -30286,7 +30972,7 @@ impl Game {
                     )
                 })?;
                 if amount > 0 {
-                    self.players[controller.0].life += i64::from(amount);
+                    self.adjust_life(controller, i64::from(amount));
                     self.record_event(GameEvent::LifeGained {
                         player: controller,
                         amount,
@@ -30302,7 +30988,7 @@ impl Game {
                     )
                 })?;
                 if amount > 0 {
-                    self.players[controller.0].life += i64::from(amount);
+                    self.adjust_life(controller, i64::from(amount));
                     self.record_event(GameEvent::LifeGained {
                         player: controller,
                         amount,
@@ -30330,7 +31016,7 @@ impl Game {
                     )
                 })?;
                 if amount > 0 {
-                    self.players[controller.0].life += i64::from(amount);
+                    self.adjust_life(controller, i64::from(amount));
                     self.record_event(GameEvent::LifeGained {
                         player: controller,
                         amount,
@@ -30499,7 +31185,7 @@ impl Game {
                 self.move_to_zone(card, Zone::Hand)?;
                 if mana_value > 0 {
                     let amount = i16::from(mana_value);
-                    self.players[controller.0].life -= i64::from(amount);
+                    self.adjust_life(controller, -i64::from(amount));
                     self.record_event(GameEvent::LifeLost {
                         source,
                         player: controller,
@@ -31858,7 +32544,7 @@ impl Game {
                 }
                 let target_controller = self.controller_of(target)?;
                 self.move_to_zone(target, Zone::Hand)?;
-                self.players[target_controller.0].life -= i64::from(*amount);
+                self.adjust_life(target_controller, -i64::from(*amount));
                 self.record_event(GameEvent::LifeLost {
                     source,
                     player: target_controller,
@@ -32854,10 +33540,7 @@ impl Game {
         let skip_combat = matches!(self.step, Step::DeclareAttackers | Step::DeclareBlockers)
             && self.combat.as_ref().is_some_and(|combat| {
                 combat.attackers_declared
-                    && (combat.attackers.is_empty()
-                        || combat
-                            .defending_player
-                            .is_some_and(|player| self.players[player.0].lost))
+                    && (combat.attackers.is_empty() || self.every_combat_defender_left(combat))
             });
         // CR 508.8: no attackers means there is no declare-blockers or
         // combat-damage step. Likewise, when the fixed defending player
@@ -32876,7 +33559,7 @@ impl Game {
             self.step.next()
         };
         if self.step == Step::Untap {
-            self.active_player = self.next_player(self.active_player);
+            self.active_player = self.next_active_player();
             self.turn += 1;
             self.noncreature_spell_casters_this_turn.clear();
             self.attacked_creature_incarnations_this_turn.clear();
@@ -32919,34 +33602,45 @@ impl Game {
         }
         match self.step {
             Step::Untap => {
-                self.players[self.active_player.0].lands_played = 0;
-                let battlefield = self
-                    .all_battlefield_cards()
-                    .into_iter()
-                    .filter(|card| self.controller_of(*card) == Ok(self.active_player))
-                    .collect::<Vec<_>>();
-                let mut untapped = Vec::new();
-                for card in battlefield {
-                    let object = self
-                        .objects
-                        .get_mut(&card)
-                        .ok_or(RulesError::UnknownCard(card))?;
-                    if object.tapped {
-                        object.tapped = false;
-                        untapped.push(card);
+                // A team's turn is shared: every living teammate untaps and
+                // regains its land drop. Without teams this loop is exactly
+                // the active player, so an ordinary turn's receipts are
+                // unchanged.
+                for seat in self.active_seats() {
+                    self.players[seat.0].lands_played = 0;
+                    let battlefield = self
+                        .all_battlefield_cards()
+                        .into_iter()
+                        .filter(|card| self.controller_of(*card) == Ok(seat))
+                        .collect::<Vec<_>>();
+                    let mut untapped = Vec::new();
+                    for card in battlefield {
+                        let object = self
+                            .objects
+                            .get_mut(&card)
+                            .ok_or(RulesError::UnknownCard(card))?;
+                        if object.tapped {
+                            object.tapped = false;
+                            untapped.push(card);
+                        }
                     }
-                }
-                if !untapped.is_empty() {
-                    self.record_event(GameEvent::PermanentsUntapped {
-                        player: self.active_player,
-                        cards: untapped,
-                    });
+                    if !untapped.is_empty() {
+                        self.record_event(GameEvent::PermanentsUntapped {
+                            player: seat,
+                            cards: untapped,
+                        });
+                    }
                 }
             }
             Step::Draw => {
                 // CR 103.8a/103.8c: only a two-player game's starting player
                 // skips its first draw. Multiplayer games do not skip it.
-                if self.players.len() != 2 || self.turn != 1 || self.active_player != PlayerId(0) {
+                if self.format.has_teams() {
+                    self.open_team_turn_draws()?;
+                } else if self.players.len() != 2
+                    || self.turn != 1
+                    || self.active_player != PlayerId(0)
+                {
                     self.open_pending_draw_replacement(self.active_player)?;
                 }
             }
@@ -33193,12 +33887,25 @@ impl Game {
                 "combat damage before attackers and blockers were declared",
             ));
         }
-        let defending_player = combat.defending_player.ok_or(RulesError::IllegalAction(
+        let declared_defender = combat.defending_player.ok_or(RulesError::IllegalAction(
             "combat damage is missing its defending player",
         ))?;
-        if self.players[defending_player.0].lost {
+        let defending_seats = if combat.defending_seats.is_empty() {
+            vec![declared_defender]
+        } else {
+            combat.defending_seats.clone()
+        };
+        if defending_seats.iter().all(|seat| self.players[seat.0].lost) {
             return Ok(());
         }
+        // Damage aimed at a team lands on the team's shared life through any
+        // living member; the receipt names that seat so the packet stays
+        // attributable.
+        let defending_player = defending_seats
+            .iter()
+            .copied()
+            .find(|seat| !self.players[seat.0].lost)
+            .unwrap_or(declared_defender);
         let first_strike_sources = if first_strike {
             let sources = combat
                 .attackers
@@ -33522,6 +34229,7 @@ impl Game {
             combat.trampling_attackers.remove(&card);
             combat.must_be_blocked_attackers.remove(&card);
             combat.landwalk_attackers.remove(&card);
+            combat.attacker_defenders.remove(&card);
             if let Some(former_blockers) = combat.blockers.remove(&card) {
                 for blocker in former_blockers {
                     // A removed attacker has no live blocker group. Keeping
@@ -34382,6 +35090,31 @@ impl Game {
         self.move_to_zone_with_zone_transition_observers(card, zone, true, true)
     }
 
+    /// Applies CR 903.9a to one prospective zone change and returns the zone
+    /// the card actually reaches. Every non-commander move is returned
+    /// unchanged, which is why an ordinary game never sees this rule.
+    fn commander_zone_replacement(
+        &mut self,
+        card: ObjectId,
+        previous_zone: Option<Zone>,
+        zone: Zone,
+    ) -> Zone {
+        if previous_zone != Some(Zone::Battlefield)
+            || !matches!(zone, Zone::Graveyard | Zone::Exile)
+        {
+            return zone;
+        }
+        let Some(record) = self.format.commanders.get(&card) else {
+            return zone;
+        };
+        let owner = record.owner;
+        self.record_event(GameEvent::CommanderReturnedToCommandZone {
+            commander: card,
+            player: owner,
+        });
+        Zone::Command
+    }
+
     /// Moves one permanent into the battlefield during a larger simultaneous
     /// entry event.  The caller snapshots which replacement sources existed
     /// before the batch, then applies those entry restrictions to every
@@ -34469,6 +35202,11 @@ impl Game {
     ) -> Result<(), RulesError> {
         let object = self.object(card)?.clone();
         let previous_zone = self.zone_of(card);
+        // CR 903.9a: a commander that would go from the battlefield to a
+        // graveyard or exile goes to the command zone instead. This is a
+        // replacement, so the card never reaches the replaced zone and no
+        // "dies" event is observed for it.
+        let zone = self.commander_zone_replacement(card, previous_zone, zone);
         // A token never acquires a normal non-graveyard zone identity.  This
         // covers bounce, exile, and library-return effects while preserving
         // the dedicated graveyard path, which additionally records Dies
@@ -35089,6 +35827,7 @@ impl Game {
             Zone::Battlefield => state.battlefield.push(card),
             Zone::Graveyard => state.graveyard.push(card),
             Zone::Exile => state.exile.push(card),
+            Zone::Command => state.command.push(card),
         }
         Ok(())
     }
@@ -35100,6 +35839,7 @@ impl Game {
             player.battlefield.retain(|candidate| *candidate != card);
             player.graveyard.retain(|candidate| *candidate != card);
             player.exile.retain(|candidate| *candidate != card);
+            player.command.retain(|candidate| *candidate != card);
         }
     }
 
@@ -41558,6 +42298,29 @@ impl Game {
         }
     }
 
+    /// The seat that takes the next turn.
+    ///
+    /// Without teams this is the next living seat, unchanged. With teams the
+    /// turn belongs to a team, so it passes to the next team with a living
+    /// seat rather than to the current active player's teammate.
+    fn next_active_player(&self) -> PlayerId {
+        let Some(team) = self.format.team_of(self.active_player) else {
+            return self.next_player(self.active_player);
+        };
+        let team_count = self.format.teams.len();
+        for offset in 1..=team_count {
+            let candidate = TeamId((team.0 + offset) % team_count);
+            if let Some(seat) = self.format.teams[candidate.0]
+                .iter()
+                .copied()
+                .find(|seat| !self.players[seat.0].lost)
+            {
+                return seat;
+            }
+        }
+        self.next_player(self.active_player)
+    }
+
     fn next_player(&self, player: PlayerId) -> PlayerId {
         for offset in 1..=self.players.len() {
             let candidate = PlayerId((player.0 + offset) % self.players.len());
@@ -44011,7 +44774,7 @@ impl Game {
             && on_battlefield
             && object.controller_changed_turn >= self.turn
             && !characteristics.keywords.contains(&Keyword::Haste);
-        let can_attack = controller == self.active_player
+        let can_attack = self.is_active_seat(controller)
             && on_battlefield
             && !object.tapped
             && !summoning_sick
@@ -44141,11 +44904,9 @@ impl Game {
             self.players[player.0].lost = true;
             self.record_event(GameEvent::PlayerLost { player, reason });
             self.remove_departing_players_objects(player)?;
-            if self
-                .combat
-                .as_ref()
-                .is_some_and(|combat| combat.defending_player == Some(player))
-            {
+            if self.combat.as_ref().is_some_and(|combat| {
+                combat.defending_player == Some(player) && self.every_combat_defender_left(combat)
+            }) {
                 // CR 800.4a / 506.4a: creatures attacking a player who left
                 // the game are removed from combat. Do not redirect them to
                 // the next living seat merely because turn order changed.
@@ -44163,6 +44924,7 @@ impl Game {
                 combat.trampling_attackers.clear();
                 combat.must_be_blocked_attackers.clear();
                 combat.landwalk_attackers.clear();
+                combat.attacker_defenders.clear();
                 combat.blockers.clear();
                 combat.damage_ordered_attackers.clear();
                 combat.removed_from_combat.clear();

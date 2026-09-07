@@ -4122,6 +4122,10 @@ pub enum Zone {
     Battlefield,
     Graveyard,
     Exile,
+    /// CR 408: the command zone. It exists only for formats that place an
+    /// object there; an ordinary duel never puts a card into it, so every
+    /// existing replay digest is unchanged by this variant.
+    Command,
 }
 
 /// The public zone from which an effect-created cast is authorized.  It is
@@ -5136,6 +5140,9 @@ pub struct PlayerState {
     pub battlefield: Vec<ObjectId>,
     pub graveyard: Vec<ObjectId>,
     pub exile: Vec<ObjectId>,
+    /// CR 408.1. Empty in every format that designates no command-zone object,
+    /// which keeps the public state digest of an ordinary duel unchanged.
+    pub command: Vec<ObjectId>,
     pub mana_pool: ManaPool,
     pub lands_played: u8,
     pub lost: bool,
@@ -5151,6 +5158,7 @@ impl PlayerState {
             battlefield: Vec::new(),
             graveyard: Vec::new(),
             exile: Vec::new(),
+            command: Vec::new(),
             mana_pool: ManaPool::default(),
             lands_played: 0,
             lost: false,
@@ -6504,6 +6512,27 @@ pub enum GameEvent {
     PlayerLost {
         player: PlayerId,
         reason: &'static str,
+    },
+    /// CR 903.10a. `total` is the running total this commander has dealt to
+    /// this seat across the whole game, not just this combat.
+    CommanderDamageDealt {
+        commander: ObjectId,
+        player: PlayerId,
+        amount: i32,
+        total: i32,
+    },
+    /// CR 903.9a. A commander that would leave the battlefield for a graveyard
+    /// or exile went to the command zone instead.
+    CommanderReturnedToCommandZone {
+        commander: ObjectId,
+        player: PlayerId,
+    },
+    /// CR 903.8. A commander was cast from the command zone; `tax` is the
+    /// generic mana its prior command-zone casts added to this one.
+    CommanderCastFromCommandZone {
+        commander: ObjectId,
+        player: PlayerId,
+        tax: u32,
     },
     GameEnded {
         winner: Option<PlayerId>,

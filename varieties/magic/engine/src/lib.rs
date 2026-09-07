@@ -11,9 +11,9 @@ mod model;
 
 pub use game::{
     ActivatedAbilityStackView, CardView, CastRequest, ConvokeContribution, ConvokePayment,
-    DamageReplacementChoiceView, Game, GameView, LibrarySearchChoiceView, PendingDecisionView,
-    PolicyAction, PrivateLibraryChoiceView, RevealedLibraryTopView, RulesError,
-    TransmuteSearchView, TriggeredAbilityEffectObjectChoiceView,
+    DamageReplacementChoiceView, DefenderChoice, Game, GameView, LibrarySearchChoiceView,
+    PendingDecisionView, PolicyAction, PrivateLibraryChoiceView, RevealedLibraryTopView,
+    RulesError, TeamId, TransmuteSearchView, TriggeredAbilityEffectObjectChoiceView,
 };
 pub use model::{
     AbilityActivation, AbilityCostPayment, ActivatedAbility, ActivatedAbilityBinding,

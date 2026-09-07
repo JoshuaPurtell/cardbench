@@ -23,6 +23,11 @@ cargo run -p cardbench-magic-policies --bin rav_card_gauntlet
 cargo run -p cardbench-magic-policies --bin rav-engine-audit
 ```
 
+**Two-Headed Giant** and **mini-Commander** are `Supported` in the rust engine,
+defended by `engine/tests/formats_m5.rs` (shared team life and turn, command
+zone, commander tax, 21 commander damage). `formats_gold/` holds the
+Harbor-grade Python gold for the same rules. See `MULTIPLAYER_HANDOFF.md`.
+
 ### Local playable board
 
 The local board is a thin Vite client over the real Rust engine. It seats a
