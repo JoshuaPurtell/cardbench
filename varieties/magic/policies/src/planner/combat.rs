@@ -427,6 +427,7 @@ mod tests {
 
     fn board(mine: Vec<Permanent>, theirs: Vec<Permanent>, my_life: i64, their_life: i64) -> Board {
         Board {
+            commanders: vec![],
             me: PlayerId(0),
             my_life,
             opponents: vec![Opponent {

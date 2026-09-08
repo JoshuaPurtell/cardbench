@@ -53,10 +53,12 @@ fn greater_mossdog_public_trace_is_the_complete_dredge_then_cast_receipt() {
             "ObjectIncarnationAdvanced { object: ObjectId(1), incarnation: 2 }",
             "Dredged { player: PlayerId(0), card: ObjectId(1), count: 3 }",
             "SpellCast { player: PlayerId(0), card: ObjectId(1) }",
+            "ObjectIncarnationAdvanced { object: ObjectId(1), incarnation: 3 }",
             "PriorityPassed { player: PlayerId(0) }",
             "PriorityPassed { player: PlayerId(1) }",
             "SpellResolved { card: ObjectId(1) }",
             "CardMoved { card: ObjectId(1), to: Battlefield }",
+            "ObjectIncarnationAdvanced { object: ObjectId(1), incarnation: 4 }",
         ]
     );
 }
@@ -103,9 +105,13 @@ fn greater_mossdog_dredge_uses_the_live_draw_step_decision_boundary() {
         game.canonical_event_log(),
         [
             format!("CardMoved {{ card: {third:?}, to: Graveyard }}"),
+            format!("ObjectIncarnationAdvanced {{ object: {third:?}, incarnation: 2 }}"),
             format!("CardMoved {{ card: {second:?}, to: Graveyard }}"),
+            format!("ObjectIncarnationAdvanced {{ object: {second:?}, incarnation: 2 }}"),
             format!("CardMoved {{ card: {first:?}, to: Graveyard }}"),
+            format!("ObjectIncarnationAdvanced {{ object: {first:?}, incarnation: 2 }}"),
             format!("CardMoved {{ card: {mossdog:?}, to: Hand }}"),
+            format!("ObjectIncarnationAdvanced {{ object: {mossdog:?}, incarnation: 2 }}"),
             format!("Dredged {{ player: {player:?}, card: {mossdog:?}, count: 3 }}"),
         ]
     );

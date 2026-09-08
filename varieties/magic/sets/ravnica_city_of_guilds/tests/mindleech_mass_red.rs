@@ -62,7 +62,7 @@ fn mindleech_mass_requires_exact_combat_player_discard_definition() {
     assert_eq!(definition.name, "Mindleech Mass");
     assert_eq!(
         definition.mana_cost,
-        ManaCost::with_colors(5, [Color::Blue, Color::Black])
+        ManaCost::with_colors(5, [Color::Blue, Color::Black, Color::Black])
     );
     assert_eq!(
         definition.colors,

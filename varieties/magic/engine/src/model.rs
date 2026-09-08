@@ -2189,6 +2189,9 @@ pub enum Effect {
     DealDamageToEachCreatureAndPlayer {
         amount: i16,
     },
+    DealDamageToEachTappedCreatureAndPlayer {
+        amount: i16,
+    },
     /// Deal a fixed amount to each surviving player, without affecting
     /// creatures. This remains distinct from the all-creature batch so
     /// recipient damage and state-based actions are auditable.
@@ -2227,6 +2230,8 @@ pub enum Effect {
     /// battlefield when the instruction resolves. The count includes tokens
     /// and creatures controlled by every living player.
     GainLifeForEachCreature,
+    GainLifeForEachControlledCreature,
+    UntapControllerCreaturesIfManaColorSpent { color: Color },
     /// Gain life equal to the number of creature cards currently in the
     /// resolving controller's graveyard. This is a resolution-time zone
     /// count, distinct from a battlefield creature count.
@@ -2605,6 +2610,8 @@ pub enum Effect {
     /// separate from a generic destruction effect so the X-bound survives
     /// cast validation and resolution auditing.
     DestroyTargetCreatureWithManaValueAtMostChosenX,
+    /// Disembowel: the targeted creature's mana value must equal X exactly.
+    DestroyTargetCreatureWithManaValueEqualToChosenX,
     /// Tap one targeted creature as this spell or ability resolves. A creature
     /// that is already tapped remains a legal target but creates no duplicate
     /// tap receipt.
@@ -2747,6 +2754,9 @@ pub enum Effect {
     /// This remains distinct from the narrower instant/sorcery counter effect
     /// used by cards whose printed target restriction is narrower.
     CounterTargetSpell,
+    /// Counter the spell, replacing its graveyard destination with its owner's
+    /// hand. Commander hand replacement is chosen before this instruction.
+    CounterTargetSpellToOwnersHand,
     /// Counter one targeted noncreature spell. This has the same terminal
     /// counter lifecycle as `CounterTargetSpell`, but keeps a triggered
     /// ability's retained target requirement narrow and replay-auditable.
@@ -3036,6 +3046,7 @@ impl Effect {
         matches!(
             self,
             Self::DrawControllerIfManaColorSpent { .. }
+                | Self::UntapControllerCreaturesIfManaColorSpent { .. }
                 | Self::ModifyAllCreaturesPtUntilEndOfTurnIfManaColorSpent { .. }
                 | Self::ReturnTargetCreatureCardToBattlefieldWithCounterIfManaColorSpent { .. }
                 | Self::CounterTargetPhysicalSpellThenMillItsControllerByManaValueIfManaColorSpent { .. }
@@ -3056,6 +3067,7 @@ impl Effect {
         matches!(
             self,
             Self::DestroyTargetCreatureWithManaValueAtMostChosenX
+                | Self::DestroyTargetCreatureWithManaValueEqualToChosenX
                 | Self::AddControllerDamageShieldEqualToChosenXUntilEndOfTurn
                 | Self::MillTargetPlayerAndGainLifeControllerEqualToChosenX
                 | Self::RadianceDealChosenXDamageToCreaturesAndGainLifeEqualToDamageDealt
@@ -3072,6 +3084,17 @@ impl Effect {
                     ..
                 }
         )
+    }
+
+    /// Target restrictions specific to X, distinct from X as an effect amount.
+    #[must_use]
+    pub fn chosen_x_allows_mana_value(&self, mana_value: i16, x: u8) -> bool {
+        match self {
+            Self::DestroyTargetCreatureWithManaValueAtMostChosenX => mana_value <= i16::from(x),
+            Self::DestroyTargetCreatureWithManaValueEqualToChosenX => mana_value == i16::from(x),
+            Self::TargetedBundle { effects, .. } => effects.iter().all(|effect| effect.chosen_x_allows_mana_value(mana_value, x)),
+            _ => true,
+        }
     }
 
     /// Whether this instruction requires a five-color choice submitted as
@@ -3132,7 +3155,8 @@ impl Effect {
             | Self::AddPlusOneCounterToTarget
             | Self::PutTargetCreatureOnOwnersLibraryTop
             | Self::ReplaceTargetCreatureColorsWithChosenColorUntilEndOfTurn
-            | Self::DestroyTargetCreatureWithManaValueAtMostChosenX => {
+            | Self::DestroyTargetCreatureWithManaValueAtMostChosenX
+            | Self::DestroyTargetCreatureWithManaValueEqualToChosenX => {
                 Some(TargetRequirement::Creature)
             }
             Self::ExileTargetCreatureBlockingOrBlockedBySource => {
@@ -3220,6 +3244,7 @@ impl Effect {
                 Some(TargetRequirement::InstantOrSorcerySpell)
             }
             Self::CounterTargetSpell
+            | Self::CounterTargetSpellToOwnersHand
             | Self::CounterTargetSpellUnlessControllerPays { .. }
             | Self::CounterTargetSpellUnlessControllerDiscardsHand => {
                 Some(TargetRequirement::Spell)
@@ -3263,10 +3288,13 @@ impl Effect {
             | Self::SacrificeCapturedPlayerUntappedLand { .. }
             | Self::DealDamageAfterOptionalManaPayment { .. }
             | Self::DealDamageToEachCreatureAndPlayer { .. }
+            | Self::DealDamageToEachTappedCreatureAndPlayer { .. }
             | Self::DealDamageToEachPlayer { .. }
             | Self::DealDamageToEachNonFlyingCreature { .. }
             | Self::GainLifeController { .. }
             | Self::GainLifeForEachCreature
+            | Self::GainLifeForEachControlledCreature
+            | Self::UntapControllerCreaturesIfManaColorSpent { .. }
             | Self::GainLifeForEachCreatureCardInControllerGraveyard
             | Self::GainLifeForEachControlledCreatureOfColor { .. }
             | Self::GainLifeControllerFromSourceDamage
@@ -4286,6 +4314,14 @@ pub enum DecisionVisibility {
 /// continuation substrate without adding more pending booleans to `Game`.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum DecisionKind {
+    /// No-priority as-enter choice during Warp World's permanent batches.
+    WarpWorldEntry,
+    /// Owner orders the publicly revealed remainder top-to-bottom at bottom.
+    WarpWorldBottom,
+    /// CR 903.9a: owner may move a newly arrived graveyard/exile commander.
+    CommanderReturn,
+    /// CR 903.9b: replace a prospective hand/library move before it occurs.
+    CommanderZoneReplacement,
     LibrarySearch,
     /// A private library search whose selected instant must be cast before
     /// the suspended source ability finishes resolving. The one submission
@@ -4590,6 +4626,42 @@ pub enum QuantityReplacementResolution {
 /// decision paths while preserving their existing effect-specific receipts.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum DecisionContinuation {
+    WarpWorld {
+        stack: StackObjectId,
+        effect_index: usize,
+    },
+    CommanderDredgeReplacement {
+        player: PlayerId,
+        commander: ObjectId,
+        incarnation: u64,
+        amount: u8,
+    },
+    CommanderActivationReplacement {
+        commander: ObjectId,
+        incarnation: u64,
+    },
+    CommanderDrawReplacement {
+        player: PlayerId,
+        commander: ObjectId,
+        incarnation: u64,
+    },
+    CommanderZoneReplacement {
+        stack: StackObjectId,
+        effect_index: usize,
+        commander: ObjectId,
+        incarnation: u64,
+        /// None is the represented spell stack (not a player zone).
+        from: Option<Zone>,
+        to: Zone,
+        optional_trigger: Option<(bool, Option<Target>)>,
+        counter_payment: Option<bool>,
+        counter_discard: Option<bool>,
+    },
+    CommanderReturn {
+        commander: ObjectId,
+        incarnation: u64,
+        zone: Zone,
+    },
     LibrarySearch {
         source: ObjectId,
         /// Exact instruction cursor at which the private search suspended.
@@ -5820,6 +5892,12 @@ pub enum GameEvent {
         player: PlayerId,
         top_to_bottom: Vec<ObjectId>,
     },
+    /// Warp World's already-public revealed remainder, in selected order
+    /// from the highest of the bottom cards to the bottommost card.
+    WarpWorldBottomOrdered {
+        player: PlayerId,
+        top_to_bottom: Vec<ObjectId>,
+    },
     /// A source ability committed one private hand snapshot to the bottom of
     /// its controller's library in policy-selected bottom-to-top order, then
     /// began exactly that many ordinary draws. Card identities remain out of
@@ -6216,6 +6294,12 @@ pub enum GameEvent {
     },
     /// A spell was countered by a resolving effect, rather than because every
     /// target became illegal under the rules.
+    /// A counter effect replaces its ordinary graveyard destination with hand.
+    /// Immediately precedes the matching physical SpellCountered receipt.
+    CounteredSpellHandReplacement {
+        card: ObjectId,
+        source: ObjectId,
+    },
     SpellCountered {
         card: ObjectId,
         source: ObjectId,
@@ -6521,8 +6605,8 @@ pub enum GameEvent {
         amount: i32,
         total: i32,
     },
-    /// CR 903.9a. A commander that would leave the battlefield for a graveyard
-    /// or exile went to the command zone instead.
+    /// Commander moved to the command zone after its owner's choice: either
+    /// a graveyard/exile SBA return or a hand/library zone replacement.
     CommanderReturnedToCommandZone {
         commander: ObjectId,
         player: PlayerId,

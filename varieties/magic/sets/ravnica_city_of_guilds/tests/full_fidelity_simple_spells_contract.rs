@@ -316,7 +316,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-INDUCE-PARANOIA",
             vec![
                 Effect::CounterTargetPhysicalSpellThenMillItsControllerByManaValueIfManaColorSpent {
-                    color: Color::Blue,
+                    color: Color::Black,
                 },
             ],
         ),
@@ -416,7 +416,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
         ),
         (
             "RAV-DISEMBOWEL",
-            vec![Effect::DestroyTargetCreatureWithManaValueAtMostChosenX],
+            vec![Effect::DestroyTargetCreatureWithManaValueEqualToChosenX],
         ),
         (
             "RAV-PSYCHIC-DRAIN",
@@ -599,7 +599,7 @@ fn full_fidelity_manifest_records_only_ability_complete_cards() {
             "RAV-CLEANSING-BEAM",
             ManaCost::with_colors(4, [Color::Red]),
             [Color::Red].into_iter().collect::<BTreeSet<_>>(),
-            [CardType::Sorcery].into_iter().collect(),
+            [CardType::Instant].into_iter().collect(),
         ),
         (
             "RAV-RALLY-THE-RIGHTEOUS",

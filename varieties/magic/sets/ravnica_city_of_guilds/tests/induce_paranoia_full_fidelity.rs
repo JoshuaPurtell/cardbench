@@ -25,6 +25,15 @@ fn game_with_rav_bindings() -> Game {
 #[test]
 #[allow(clippy::too_many_lines)] // The counter/mill response trace is the contract.
 fn induce_paranoia_counters_a_physical_spell_then_mills_that_spells_controller() {
+    check_counter_and_mill(true);
+}
+
+#[test]
+fn induce_paranoia_without_black_counters_without_milling() {
+    check_counter_and_mill(false);
+}
+
+fn check_counter_and_mill(spend_black: bool) {
     let caster = PlayerId(0);
     let responder = PlayerId(1);
     let mut game = game_with_rav_bindings();
@@ -52,6 +61,8 @@ fn induce_paranoia_counters_a_physical_spell_then_mills_that_spells_controller()
                 .expect("Induce Paranoia blue source")
         })
         .collect::<Vec<_>>();
+    let fourth = game.put_on_battlefield(responder,
+        if spend_black { "RAV-SWAMP" } else { "RAV-ISLAND" }).unwrap();
 
     game.begin_game().expect("game begins");
     for _ in 0..2 {
@@ -80,6 +91,8 @@ fn induce_paranoia_counters_a_physical_spell_then_mills_that_spells_controller()
         game.activate_mana_ability(responder, island, Color::Blue)
             .expect("blue mana");
     }
+    let fourth_color = if spend_black { Color::Black } else { Color::Blue };
+    game.activate_mana_ability(responder, fourth, fourth_color).unwrap();
     game.cast_spell_with_mana_spend(
         responder,
         CastRequest {
@@ -89,11 +102,11 @@ fn induce_paranoia_counters_a_physical_spell_then_mills_that_spells_controller()
             payment_mana_abilities: vec![],
         },
         ManaPaymentSelection {
-            generic: vec![Color::Blue, Color::Blue],
+            generic: vec![Color::Blue, fourth_color],
             hybrid: vec![],
         },
     )
-    .expect("Induce Paranoia casts with its explicit blue receipt");
+    .expect("Induce Paranoia casts with its explicit mana-spend receipt");
     game.pass_priority(responder).expect("responder passes");
     game.pass_priority(caster)
         .expect("Induce Paranoia resolves");
@@ -103,9 +116,12 @@ fn induce_paranoia_counters_a_physical_spell_then_mills_that_spells_controller()
         game.canonical_event_log()
     );
     assert_eq!(game.zone_of(watchwolf), Some(Zone::Graveyard));
-    assert_eq!(game.zone_of(library_top), Some(Zone::Graveyard));
-    assert_eq!(game.zone_of(library_bottom), Some(Zone::Graveyard));
+    let library_destination = if spend_black { Zone::Graveyard } else { Zone::Library };
+    assert_eq!(game.zone_of(library_top), Some(library_destination));
+    assert_eq!(game.zone_of(library_bottom), Some(library_destination));
     assert_eq!(game.zone_of(induce), Some(Zone::Graveyard));
+    game.validate_invariants().unwrap();
+    if !spend_black { return; }
 
     let counter_index = game
         .event_log

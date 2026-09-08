@@ -9,7 +9,7 @@ fn shadow_of_doubt_requires_turn_scoped_library_search_prevention_and_a_draw() {
         .expect("Shadow of Doubt definition exists");
     assert_eq!(
         definition.mana_cost,
-        ManaCost::with_colors(0, [Color::Blue, Color::Black])
+        ManaCost::with_hybrid(0, [], [cardbench_magic_engine::HybridManaSymbol { first: Color::Blue, second: Color::Black }, cardbench_magic_engine::HybridManaSymbol { first: Color::Blue, second: Color::Black }])
     );
     assert_eq!(definition.colors, [Color::Blue, Color::Black].into());
     assert_eq!(definition.card_types, [CardType::Instant].into());

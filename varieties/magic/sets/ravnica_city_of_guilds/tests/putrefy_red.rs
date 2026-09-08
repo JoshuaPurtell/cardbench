@@ -18,7 +18,7 @@ fn putrefy_is_not_silently_catalog_only_when_its_target_and_regeneration_rules_a
     );
     assert_eq!(
         spell.mana_cost,
-        ManaCost::with_colors(0, [Color::Black, Color::Green])
+        ManaCost::with_colors(1, [Color::Black, Color::Green])
     );
     assert!(
         spell

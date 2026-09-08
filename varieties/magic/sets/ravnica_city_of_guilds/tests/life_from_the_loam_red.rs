@@ -14,7 +14,7 @@ fn life_from_the_loam_has_dredge_and_policy_submitted_land_recursion() {
     assert_eq!(definition.name, "Life from the Loam");
     assert_eq!(
         definition.mana_cost,
-        ManaCost::with_colors(1, [Color::Green, Color::Green])
+        ManaCost::with_colors(1, [Color::Green])
     );
     assert_eq!(
         definition.card_types,

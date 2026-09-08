@@ -354,6 +354,7 @@ mod tests {
 
     fn board(permanents: Vec<Permanent>) -> Board {
         Board {
+            commanders: vec![],
             me: cardbench_magic_engine::PlayerId(0),
             my_life: 20,
             opponents: vec![Opponent {

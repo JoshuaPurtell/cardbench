@@ -16,7 +16,7 @@ fn infectious_host_exposes_its_targeted_dies_life_loss_slice() {
         .into_iter()
         .find(|definition| definition.id == "RAV-INFECTIOUS-HOST")
         .expect("Infectious Host definition exists");
-    assert_eq!(host.mana_cost, ManaCost::with_colors(1, [Color::Black]));
+    assert_eq!(host.mana_cost, ManaCost::with_colors(2, [Color::Black]));
     assert_eq!(host.card_types, [CardType::Creature].into_iter().collect());
     assert_eq!((host.power, host.toughness), (Some(1), Some(1)));
     assert!(

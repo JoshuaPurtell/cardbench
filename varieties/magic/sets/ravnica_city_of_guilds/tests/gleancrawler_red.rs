@@ -64,7 +64,7 @@ fn gleancrawler_requires_exact_controller_end_step_return_definition() {
     assert_eq!(definition.name, "Gleancrawler");
     assert_eq!(
         definition.mana_cost,
-        ManaCost::with_colors(3, [Color::Black, Color::Green])
+        ManaCost::with_hybrid(3, [], [cardbench_magic_engine::HybridManaSymbol { first: Color::Black, second: Color::Green }, cardbench_magic_engine::HybridManaSymbol { first: Color::Black, second: Color::Green }, cardbench_magic_engine::HybridManaSymbol { first: Color::Black, second: Color::Green }])
     );
     assert_eq!(
         definition.colors,
@@ -102,11 +102,13 @@ fn gleancrawler_returns_only_its_controllers_creature_cards_that_died_this_turn(
     let swamp = game
         .put_on_battlefield(controller, "RAV-SWAMP")
         .expect("removal mana source setup");
+    let printed_cost_generic = game.put_on_battlefield(controller, "RAV-SWAMP").unwrap();
 
     game.begin_game().expect("game begins");
     advance_to_step(&mut game, Step::PrecombatMain);
     game.activate_mana_ability(controller, swamp, Color::Black)
         .expect("Swamp produces black mana");
+    game.activate_mana_ability(controller, printed_cost_generic, Color::Black).unwrap();
     game.cast_spell(
         controller,
         CastRequest {

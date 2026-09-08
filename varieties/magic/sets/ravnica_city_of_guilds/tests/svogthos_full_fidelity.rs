@@ -118,6 +118,7 @@ fn svogthos_animation_uses_current_captured_controller_graveyard_count() {
     let opponent_swamp = game
         .put_on_battlefield(PlayerId(1), "RAV-SWAMP")
         .expect("opponent black payment source begins on battlefield");
+    let generic_swamp = game.put_on_battlefield(PlayerId(1), "RAV-SWAMP").unwrap();
     game.begin_game().expect("game starts");
     game.clear_event_log();
 
@@ -168,6 +169,7 @@ fn svogthos_animation_uses_current_captured_controller_graveyard_count() {
         .expect("animation controller gives opponent priority");
     game.activate_mana_ability(PlayerId(1), opponent_swamp, Color::Black)
         .expect("opponent makes removal payment");
+    game.activate_mana_ability(PlayerId(1), generic_swamp, Color::Black).unwrap();
     game.cast_spell(
         PlayerId(1),
         CastRequest {

@@ -245,6 +245,7 @@ fn cyclopean_snare_never_returns_a_source_that_left_before_resolution() {
             .expect("red response mana enters"),
         game.put_on_battlefield(PlayerId(1), "RAV-PLAINS")
             .expect("generic response mana enters"),
+        game.put_on_battlefield(PlayerId(1), "RAV-PLAINS").unwrap(),
     ];
     game.begin_game().expect("game starts");
     advance_to_precombat_main(&mut game);
@@ -270,6 +271,7 @@ fn cyclopean_snare_never_returns_a_source_that_left_before_resolution() {
         .expect("red response mana is available");
     game.activate_mana_ability(PlayerId(1), response_lands[1], Color::White)
         .expect("generic response mana is available");
+    game.activate_mana_ability(PlayerId(1), response_lands[2], Color::White).unwrap();
     game.cast_spell(
         PlayerId(1),
         CastRequest {

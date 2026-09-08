@@ -13,37 +13,37 @@ use cardbench_magic_rav::{
 };
 
 #[test]
-fn blockbuster_requires_exact_artifact_and_global_damage_activation() {
+fn blockbuster_requires_printed_enchantment_and_sacrifice_activation() {
     let blockbuster = card_definitions()
         .into_iter()
         .find(|definition| definition.id == "RAV-BLOCKBUSTER")
         .expect("Blockbuster definition exists");
     assert_eq!(blockbuster.name, "Blockbuster");
-    assert_eq!(blockbuster.mana_cost, ManaCost::new(4));
-    assert_eq!(blockbuster.colors, BTreeSet::<Color>::new());
-    assert_eq!(blockbuster.card_types, BTreeSet::from([CardType::Artifact]));
+    assert_eq!(blockbuster.mana_cost, ManaCost::with_colors(3, [Color::Red, Color::Red]));
+    assert_eq!(blockbuster.colors, BTreeSet::from([Color::Red]));
+    assert_eq!(blockbuster.card_types, BTreeSet::from([CardType::Enchantment]));
     assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&blockbuster.id));
     assert!(
         blockbuster
             .supported_rules
-            .contains(&"tap-global-creature-and-player-damage")
+            .contains(&"sacrifice-tapped-creature-and-player-damage")
     );
 
     assert!(rav_activated_ability_bindings().iter().any(|binding| {
         binding.card_definition == blockbuster.id
             && binding.ability
                 == ActivatedAbility {
-                    id: "tap-global-creature-and-player-damage",
-                    mana_cost: ManaCost::new(3),
-                    tap_cost: true,
+                    id: "sacrifice-tapped-creature-and-player-damage",
+                    mana_cost: ManaCost::with_colors(1, [Color::Red]),
+                    tap_cost: false,
                     sorcery_speed: false,
                     additional_tap_creatures: 0,
-                    sacrifice_source: false,
+                    sacrifice_source: true,
                     sacrifice_creatures: 0,
                     sacrifice_lands: 0,
                     discard_cards: 0,
                     targets: vec![],
-                    effects: vec![Effect::DealDamageToEachCreatureAndPlayer { amount: 3 }],
+                    effects: vec![Effect::DealDamageToEachTappedCreatureAndPlayer { amount: 3 }],
                 }
     }));
 }
@@ -70,7 +70,7 @@ fn pass_pair(game: &mut Game) {
 }
 
 #[test]
-fn blockbuster_damage_batch_hits_each_creature_and_player_before_sbas() {
+fn blockbuster_sacrifice_hits_only_tapped_creatures_and_each_player() {
     let mut game = Game::new_with_all_bindings(
         card_definitions(),
         2,
@@ -89,17 +89,18 @@ fn blockbuster_damage_batch_hits_each_creature_and_player_before_sbas() {
     let opposing_creature = game
         .put_on_battlefield(PlayerId(1), "RAV-WATCHWOLF")
         .expect("opposing creature begins on battlefield");
+    game.set_tapped_for_setup(opposing_creature, true).unwrap();
     game.begin_game().expect("fixture starts game");
     pass_pair(&mut game);
     pass_pair(&mut game);
-    game.add_mana_from_action(PlayerId(0), Color::Colorless, 3)
+    game.add_mana_from_action(PlayerId(0), Color::Red, 2)
         .expect("generic activation mana is a legal action");
     game.activate_ability(
         PlayerId(0),
         AbilityActivation {
             source: blockbuster,
-            ability_id: "tap-global-creature-and-player-damage",
-            sacrifice_sources: vec![],
+            ability_id: "sacrifice-tapped-creature-and-player-damage",
+            sacrifice_sources: vec![blockbuster],
             additional_tap_creatures: vec![],
             discard_cards: vec![],
             targets: vec![],
@@ -109,12 +110,12 @@ fn blockbuster_damage_batch_hits_each_creature_and_player_before_sbas() {
     pass_pair(&mut game);
 
     println!("Blockbuster trace: {:#?}", game.canonical_event_log());
-    assert!(game.object(blockbuster).expect("artifact persists").tapped);
+    assert_eq!(game.zone_of(blockbuster), Some(Zone::Graveyard));
     assert_eq!(game.players[0].life, 17);
     assert_eq!(game.players[1].life, 17);
-    assert_eq!(game.zone_of(own_creature), Some(Zone::Graveyard));
+    assert_eq!(game.zone_of(own_creature), Some(Zone::Battlefield));
     assert_eq!(game.zone_of(opposing_creature), Some(Zone::Graveyard));
-    for creature in [own_creature, opposing_creature] {
+    for creature in [opposing_creature] {
         assert!(game.event_log.iter().any(|event| matches!(
             event,
             GameEvent::DamageDealtToPermanent { source, permanent, amount }
@@ -131,7 +132,7 @@ fn blockbuster_damage_batch_hits_each_creature_and_player_before_sbas() {
     assert!(game.event_log.iter().any(|event| matches!(
         event,
         GameEvent::AbilityResolved { source, ability, .. }
-            if *source == blockbuster && *ability == "tap-global-creature-and-player-damage"
+            if *source == blockbuster && *ability == "sacrifice-tapped-creature-and-player-damage"
     )));
     game.validate_invariants()
         .expect("global activation preserves invariant state");

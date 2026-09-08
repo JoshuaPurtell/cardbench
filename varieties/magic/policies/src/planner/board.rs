@@ -555,6 +555,9 @@ pub struct Board {
     pub attackers_declared: bool,
     pub blockers_declared: bool,
     pub hand: Vec<HandCard>,
+    /// Own command-zone spells with the current tax included in their cost.
+    /// These are not available for discards, transmute, or land plays.
+    pub commanders: Vec<HandCard>,
     /// Every permanent I control.
     pub mine: Vec<Permanent>,
     /// Every permanent an opponent controls, still carrying its controller.
@@ -590,7 +593,7 @@ impl Board {
                 // Prefer the live view's mana colours: a land whose type was
                 // changed on the battlefield produces what the view says, not
                 // what the printed definition says.
-                controller_is_opponent: card.controller != view.player,
+                controller_is_opponent: card.controller != view.player && !view.teammates.contains(&card.controller),
                 source: if card.mana_colors.is_empty() {
                     facts.and_then(|facts| facts.source.clone())
                 } else {
@@ -624,7 +627,7 @@ impl Board {
                 .collect(),
             turn: view.turn,
             step: view.step,
-            is_my_turn: view.active_player == view.player,
+            is_my_turn: view.active_player == view.player || view.teammates.contains(&view.active_player),
             lands_played: view.lands_played,
             stack_depth: view.stack_depth,
             attackers_declared: view.attackers_declared,
@@ -642,9 +645,28 @@ impl Board {
                     })
                 })
                 .collect(),
-            mine: view.own_battlefield.iter().map(permanent).collect(),
+            mine: view.own_battlefield.iter().chain(view.teammate_battlefield.iter().filter(|_| {
+                view.decision_player == view.player
+                    && ((view.step == Step::DeclareAttackers && !view.attackers_declared)
+                        || (view.step == Step::DeclareBlockers && !view.blockers_declared))
+            })).map(permanent).collect(),
+            commanders: view.command_zone.iter().filter(|card| card.controller == view.player)
+                .filter_map(|card| {
+                    let definition = card.definition?;
+                    let mut facts = index.get(definition)?.clone();
+                    let tax = *view.commander_taxes.get(&card.id).unwrap_or(&0);
+                    facts.cost.generic = facts.cost.generic.checked_add(u8::try_from(tax).ok()?)?;
+                    Some(HandCard { object: card.id, definition, facts })
+                }).collect(),
             theirs: view.opponent_battlefield.iter().map(permanent).collect(),
-            attackers: view.combat_attackers.iter().map(permanent).collect(),
+            attackers: view.combat_attackers.iter().filter(|card| {
+                view.active_player == view.player || view.teammates.contains(&view.active_player)
+                    || view.combat_defenders.iter().find(|(id, _)| *id == card.id).is_none_or(|(_, defender)|
+                        match defender {
+                            cardbench_magic_engine::DefenderChoice::Player(player) => *player == view.player || view.teammates.contains(player),
+                            cardbench_magic_engine::DefenderChoice::Team(_) => true,
+                        })
+            }).map(permanent).collect(),
             floating,
         }
     }
@@ -662,6 +684,10 @@ impl Board {
             .iter()
             .copied()
             .min_by_key(|opponent| opponent.life)
+    }
+
+    pub fn castable_cards(&self) -> impl Iterator<Item = &HandCard> {
+        self.hand.iter().chain(self.commanders.iter())
     }
 
     /// My creatures, excluding lands and noncreature permanents.

@@ -17,7 +17,7 @@ fn nullstone_gargoyle_requires_first_noncreature_spell_each_turn_counter_trigger
         .expect("Nullstone Gargoyle definition exists");
 
     assert_eq!(gargoyle.name, "Nullstone Gargoyle");
-    assert_eq!(gargoyle.mana_cost, ManaCost::new(5));
+    assert_eq!(gargoyle.mana_cost, ManaCost::new(9));
     assert!(gargoyle.colors.is_empty());
     assert_eq!(
         gargoyle.card_types,

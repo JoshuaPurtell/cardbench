@@ -74,6 +74,7 @@ fn putrefy_destroys_an_artifact_creature_without_consuming_its_regeneration_shie
     let swamp = game
         .put_on_battlefield(PlayerId(0), "RAV-SWAMP")
         .expect("Swamp begins on battlefield");
+    let printed_cost_generic = game.put_on_battlefield(PlayerId(0), "RAV-SWAMP").unwrap();
     let putrefy = game
         .add_card(PlayerId(0), "RAV-PUTREFY", Zone::Hand)
         .expect("Putrefy begins in hand");
@@ -99,6 +100,7 @@ fn putrefy_destroys_an_artifact_creature_without_consuming_its_regeneration_shie
         .expect("Forest pays Putrefy");
     game.activate_mana_ability(PlayerId(0), swamp, Color::Black)
         .expect("Swamp pays Putrefy");
+    game.activate_mana_ability(PlayerId(0), printed_cost_generic, Color::Black).unwrap();
     game.cast_spell(
         PlayerId(0),
         CastRequest {
@@ -136,7 +138,8 @@ fn putrefy_public_scenario_records_destruction_without_regeneration_use() {
         .find(|scenario| scenario.id == "rav_putrefy_bypasses_regeneration")
         .expect("Putrefy public scenario exists");
     println!("Putrefy public trace: {:?}", trace.event_log);
-    assert_eq!(trace.digest, "fnv1a64:8e2aa574113519a9");
+    // Updated fixture pays Putrefy's printed 1BG cost with a third land.
+    assert_eq!(trace.digest, "fnv1a64:3a3127a26735cf8a");
     assert!(
         trace
             .event_log

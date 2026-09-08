@@ -48,6 +48,7 @@ fn perplex_controller_may_save_the_target_spell_by_discarding_its_complete_hand(
     let target_swamp = game
         .put_on_battlefield(PlayerId(1), "RAV-SWAMP")
         .expect("target caster's black source enters");
+    let printed_cost_generic = game.put_on_battlefield(PlayerId(1), "RAV-SWAMP").unwrap();
     game.begin_game().expect("game begins");
     move_to_first_main(&mut game);
 
@@ -55,6 +56,7 @@ fn perplex_controller_may_save_the_target_spell_by_discarding_its_complete_hand(
         .expect("sorcery-speed player passes to instant-speed opponent");
     game.activate_mana_ability(PlayerId(1), target_swamp, Color::Black)
         .expect("target caster produces black mana");
+    game.activate_mana_ability(PlayerId(1), printed_cost_generic, Color::Black).unwrap();
     game.cast_spell(
         PlayerId(1),
         CastRequest {

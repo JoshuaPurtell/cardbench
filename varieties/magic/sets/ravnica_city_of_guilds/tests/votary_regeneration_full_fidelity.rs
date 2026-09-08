@@ -36,7 +36,7 @@ fn votary_regenerates_an_opponents_artifact_creature_from_smash() {
     let forest = game
         .put_on_battlefield(PlayerId(0), "RAV-FOREST")
         .expect("Forest begins on the battlefield");
-    let mountains = (0..2)
+    let mountains = (0..3)
         .map(|_| {
             game.put_on_battlefield(PlayerId(0), "RAV-MOUNTAIN")
                 .expect("Mountain begins on the battlefield")

@@ -78,6 +78,52 @@ fn pass_pair(game: &mut Game) {
 }
 
 #[test]
+fn curio_retains_the_selected_commander_across_the_owners_replacement_choice() {
+    for accept in [false, true] {
+        let owner = PlayerId(0);
+        let mut game = game();
+        game.configure_commander_format(40, 21).unwrap();
+        let forest = game.put_on_battlefield(owner, "RAV-FOREST").unwrap();
+        let plains = game.put_on_battlefield(owner, "RAV-PLAINS").unwrap();
+        let commander = game.put_on_battlefield(owner, "RAV-TOLSIMIR-WOLFBLOOD").unwrap();
+        game.designate_commander(owner, commander).unwrap();
+        let curio = game.put_on_battlefield(owner, "RAV-CLOUDSTONE-CURIO").unwrap();
+        let entering = game.add_card(owner, "RAV-WATCHWOLF", Zone::Hand).unwrap();
+        for player in [owner, PlayerId(1)] {
+            game.add_card(player, "RAV-FOREST", Zone::Library).unwrap();
+        }
+        game.begin_game().unwrap();
+        for _ in 0..8 {
+            if game.step == cardbench_magic_engine::Step::PrecombatMain { break; }
+            pass_pair(&mut game);
+        }
+        assert_eq!(game.step, cardbench_magic_engine::Step::PrecombatMain);
+        game.activate_mana_ability(owner, forest, Color::Green).unwrap();
+        game.activate_mana_ability(owner, plains, Color::White).unwrap();
+        game.cast_spell(owner, CastRequest { card: entering, targets: vec![],
+            convoke: vec![], payment_mana_abilities: vec![] }).unwrap();
+        pass_pair(&mut game);
+        pass_pair(&mut game);
+        let selection = game.view_for_player(owner).unwrap().pending_decision.unwrap();
+        assert_eq!(selection.kind, DecisionKind::TriggeredEffectObject);
+        game.submit_decision(owner, selection.id, DecisionSelection::Objects(vec![commander])).unwrap();
+        let replacement = game.view_for_player(owner).unwrap().pending_decision.unwrap();
+        assert_eq!(replacement.kind, DecisionKind::CommanderZoneReplacement);
+        assert_ne!(selection.id, replacement.id);
+        assert_eq!(game.zone_of(commander), Some(Zone::Battlefield));
+        assert!(game.pass_priority(owner).is_err());
+        game.submit_decision(owner, replacement.id,
+            DecisionSelection::Objects(if accept { vec![commander] } else { vec![] })).unwrap();
+        assert_eq!(game.zone_of(commander), Some(if accept { Zone::Command } else { Zone::Hand }));
+        assert_eq!(game.zone_of(entering), Some(Zone::Battlefield));
+        assert_eq!(game.event_log.iter().filter(|event| matches!(event,
+            GameEvent::AbilityResolved { source, .. } if *source == curio)).count(), 1);
+        assert!(game.view_for_player(owner).unwrap().pending_decision.is_none());
+        game.validate_invariants().unwrap();
+    }
+}
+
+#[test]
 fn cloudstone_curio_retains_entry_types_and_bounces_only_a_chosen_other_controlled_permanent() {
     let mut game = game();
     let curio = game

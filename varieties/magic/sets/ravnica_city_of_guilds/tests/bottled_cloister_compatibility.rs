@@ -78,6 +78,66 @@ fn add_library_buffers(game: &mut Game) {
     }
 }
 
+// Real-card rules regression, not a benchmark deck or grading workload.
+#[test]
+fn cloister_commander_return_is_optional_and_precedes_every_linked_move() {
+    use cardbench_magic_engine::{DecisionKind, DecisionSelection};
+    for accept in [false, true] {
+        let owner = PlayerId(0);
+        let mut game = rav_game();
+        game.configure_commander_format(40, 21).unwrap();
+        let cloister = game.put_on_battlefield(owner, "RAV-BOTTLED-CLOISTER").unwrap();
+        let commander = game.put_on_battlefield(owner, "RAV-TOLSIMIR-WOLFBLOOD").unwrap();
+        game.designate_commander(owner, commander).unwrap();
+        let bounce = game.add_card(owner, "RAV-CLUTCH-OF-THE-UNDERCITY", Zone::Hand).unwrap();
+        let mut mana = Vec::new();
+        for (land, color) in [("RAV-ISLAND", Color::Blue), ("RAV-ISLAND", Color::Blue),
+            ("RAV-SWAMP", Color::Black), ("RAV-SWAMP", Color::Black)] {
+            mana.push((game.put_on_battlefield(owner, land).unwrap(), color));
+        }
+        let ordinary = game.add_card(owner, "RAV-WATCHWOLF", Zone::Hand).unwrap();
+        add_library_buffers(&mut game);
+        game.begin_game().unwrap();
+        pass_pair(&mut game);
+        for (land, color) in mana { game.activate_mana_ability(owner, land, color).unwrap(); }
+        game.cast_spell(owner, CastRequest { card: bounce, targets: vec![Target::Permanent(commander)],
+            convoke: vec![], payment_mana_abilities: vec![] }).unwrap();
+        pass_pair(&mut game);
+        let bounce_choice = game.view_for_player(owner).unwrap().pending_decision.unwrap();
+        game.submit_decision(owner, bounce_choice.id, DecisionSelection::Objects(vec![])).unwrap();
+        assert_eq!(game.zone_of(commander), Some(Zone::Hand));
+        advance_to_upkeep(&mut game, 2, PlayerId(1));
+        pass_pair(&mut game);
+        let arrival = game.view_for_player(owner).unwrap().pending_decision.unwrap();
+        assert_eq!(arrival.kind, DecisionKind::CommanderReturn);
+        game.submit_decision(owner, arrival.id, DecisionSelection::Objects(vec![])).unwrap();
+        advance_to_upkeep(&mut game, 3, owner);
+        let before = game.event_log.len();
+        pass_pair(&mut game);
+        let replacement = game.view_for_player(owner).unwrap().pending_decision.unwrap();
+        assert_eq!(replacement.kind, DecisionKind::CommanderZoneReplacement);
+        assert_eq!(game.zone_of(commander), Some(Zone::Exile));
+        assert_eq!(game.zone_of(ordinary), Some(Zone::Exile));
+        assert!(!game.event_log[before..].iter().any(|event| matches!(event,
+            GameEvent::CardMoved { to: Zone::Hand, .. })));
+        game.submit_decision(owner, replacement.id,
+            DecisionSelection::Objects(if accept { vec![commander] } else { vec![] })).unwrap();
+        assert_eq!(game.zone_of(commander), Some(if accept { Zone::Command } else { Zone::Hand }));
+        assert_eq!(game.zone_of(ordinary), Some(Zone::Hand));
+        let (return_at, returned) = game.event_log.iter().enumerate().skip(before).find_map(|(index, event)| {
+            if let GameEvent::LinkedHandExileReturned { source, cards, .. } = event {
+                (*source == cloister).then_some((index, cards))
+            } else { None }
+        }).unwrap();
+        assert_eq!(returned.contains(&commander), !accept);
+        assert!(returned.contains(&ordinary));
+        assert!(game.event_log[return_at + 1..].iter().any(|event| matches!(event,
+            GameEvent::CardMoved { card, to: Zone::Hand } if !returned.contains(card))));
+        assert!(game.submit_decision(owner, replacement.id, DecisionSelection::Objects(vec![])).is_err());
+        game.validate_invariants().unwrap();
+    }
+}
+
 #[test]
 fn cloister_exiles_its_current_hand_then_returns_it_before_the_controller_draws() {
     let mut game = rav_game();
@@ -214,6 +274,7 @@ fn cloister_departure_expires_an_unreturnable_private_hand_group() {
     let second_mountain = game
         .put_on_battlefield(PlayerId(1), "RAV-MOUNTAIN")
         .expect("second red source enters setup");
+    let third_mountain = game.put_on_battlefield(PlayerId(1), "RAV-MOUNTAIN").unwrap();
     add_library_buffers(&mut game);
 
     game.begin_game().expect("game begins");
@@ -235,6 +296,7 @@ fn cloister_departure_expires_an_unreturnable_private_hand_group() {
         .expect("opponent produces red mana");
     game.activate_mana_ability(PlayerId(1), second_mountain, Color::Red)
         .expect("opponent produces generic payment mana");
+    game.activate_mana_ability(PlayerId(1), third_mountain, Color::Red).unwrap();
     game.cast_spell(
         PlayerId(1),
         CastRequest {

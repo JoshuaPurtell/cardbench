@@ -58,7 +58,7 @@ fn two_attached_token_auras_can_capture_one_combat_packet_without_rollback() {
         .expect("second Aura setup");
     game.grant_mana(controller, Color::Green, 6)
         .expect("green payment setup");
-    game.grant_mana(controller, Color::Blue, 6)
+    game.grant_mana(controller, Color::White, 6)
         .expect("blue payment setup");
     for aura in [first_aura, second_aura] {
         game.cast_spell(

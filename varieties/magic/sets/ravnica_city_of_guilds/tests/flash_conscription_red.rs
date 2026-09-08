@@ -19,7 +19,7 @@ fn flash_conscription_requires_temporary_control_untap_and_haste() {
         .expect("Flash Conscription definition exists");
 
     assert_eq!(definition.name, "Flash Conscription");
-    assert_eq!(definition.mana_cost, ManaCost::with_colors(3, [Color::Red]));
+    assert_eq!(definition.mana_cost, ManaCost::with_colors(5, [Color::Red]));
     assert_eq!(definition.colors, BTreeSet::from([Color::Red]));
     assert_eq!(definition.card_types, BTreeSet::from([CardType::Instant]));
     assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&definition.id));
@@ -64,7 +64,7 @@ fn flash_conscription_changes_control_untaps_and_grants_haste() {
         .expect("target creature enters battlefield");
     game.set_tapped_for_setup(target, true)
         .expect("target creature is tapped for setup");
-    game.grant_mana(PlayerId(0), Color::Red, 4)
+    game.grant_mana(PlayerId(0), Color::Red, 6)
         .expect("spell mana is available");
     game.clear_event_log();
 
@@ -120,7 +120,7 @@ fn flash_conscription_uses_one_target_occurrence_for_its_ordered_bundle() {
         .expect("target creature enters battlefield");
     game.set_tapped_for_setup(target, true)
         .expect("target creature is tapped for setup");
-    game.grant_mana(PlayerId(0), Color::Red, 4)
+    game.grant_mana(PlayerId(0), Color::Red, 6)
         .expect("spell mana is available");
 
     game.cast_spell(

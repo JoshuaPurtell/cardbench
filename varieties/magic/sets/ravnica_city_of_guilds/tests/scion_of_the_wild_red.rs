@@ -10,7 +10,7 @@ fn scion_of_the_wild_requires_live_controller_creature_count_characteristics() {
 
     assert_eq!(
         definition.mana_cost,
-        ManaCost::with_colors(2, [Color::Green])
+        ManaCost::with_colors(1, [Color::Green, Color::Green])
     );
     assert_eq!(definition.colors, [Color::Green].into());
     assert_eq!(definition.card_types, [CardType::Creature].into());

@@ -32,7 +32,7 @@ fn smash_definition_declares_artifact_destruction_and_draw() {
         .expect("Smash definition exists");
     assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&smash.id));
     assert_eq!(smash.name, "Smash");
-    assert_eq!(smash.mana_cost, ManaCost::with_colors(1, [Color::Red]));
+    assert_eq!(smash.mana_cost, ManaCost::with_colors(2, [Color::Red]));
     assert_eq!(smash.card_types, [CardType::Instant].into());
     assert_eq!(
         smash.effects,
@@ -54,7 +54,7 @@ fn smash_destroys_an_artifact_then_draws_one_card() {
     let drawn = game
         .add_card(PlayerId(0), "RAV-FOREST", Zone::Library)
         .expect("draw card enters library");
-    game.grant_mana(PlayerId(0), Color::Red, 2)
+    game.grant_mana(PlayerId(0), Color::Red, 3)
         .expect("Smash mana");
     game.clear_event_log();
 

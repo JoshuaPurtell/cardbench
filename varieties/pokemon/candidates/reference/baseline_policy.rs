@@ -5,7 +5,15 @@ use rand::SeedableRng;
 use tcg_core::{Action, Attack, CardInstanceId, GameView, Prompt};
 use tcg_ai::traits::AiController;
 
-/// TemplateAi - Pokemon TCG AI (~25% win rate baseline)
+/// TemplateAi — the LEGACY ranking origin, retained only for provenance.
+///
+/// Measured over the 400-cell train surface: 28.9% cell win rate, losing to all
+/// five train opponents (random_ai_v1 33.1%, v2 33.1%, v3 19.4%, v4 16.2%,
+/// simple_heuristic_v1 42.5%). A ranking origin that loses to everything makes
+/// every candidate look good and measures nothing, so the roster's
+/// `baseline_policy` now points at `reference_policy_v2.rs` (64.9%). This file
+/// is no longer scored against; it is kept as the "before" number and as the
+/// regression fixture that proves the sweep can tell two policies apart.
 pub struct TemplateAi {
     rng: ChaCha8Rng,
 }

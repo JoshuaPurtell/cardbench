@@ -118,7 +118,7 @@ impl ArchetypePolicyV4 {
             }
         }
         let mut needed: [u32; 6] = [0; 6];
-        for card in &board.hand {
+        for card in board.castable_cards() {
             for color in &card.facts.cost.colored {
                 needed[color.index()] += 1;
             }
@@ -213,7 +213,7 @@ impl ArchetypePolicyV4 {
         let weights = self.weights();
         let mut best: Option<(f32, ObjectId, CastRequest, Vec<ManaTap>)> = None;
 
-        for card in &board.hand {
+        for card in board.castable_cards() {
             let facts = &card.facts;
             if facts.is_land || facts.unsupported {
                 continue;

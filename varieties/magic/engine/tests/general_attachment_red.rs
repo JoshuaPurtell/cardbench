@@ -45,6 +45,45 @@ fn attachment_changes() -> Vec<ContinuousChange> {
     }]
 }
 
+#[test]
+fn shroud_does_not_prevent_direct_aura_entry_or_remove_an_attachment() {
+    let mut game = attachment_keyword_fixture(Keyword::Shroud);
+    let creature = game.put_on_battlefield(PlayerId(0), CREATURE).unwrap();
+    let aura = game.add_card(PlayerId(0), AURA, Zone::Hand).unwrap();
+    game.begin_game().unwrap();
+    game.enter_attachment_without_cast(aura, creature).unwrap();
+    assert_eq!(game.object(aura).unwrap().attached_to, Some(creature));
+    game.check_state_based_actions().unwrap();
+    assert_eq!(game.zone_of(aura), Some(Zone::Battlefield));
+    game.validate_invariants().unwrap();
+}
+
+#[test]
+fn protection_still_prevents_non_targeting_aura_entry() {
+    use cardbench_magic_engine::Color;
+    let mut game = attachment_keyword_fixture(Keyword::Protection(Color::Red));
+    let creature = game.put_on_battlefield(PlayerId(0), CREATURE).unwrap();
+    let aura = game.add_card(PlayerId(0), AURA, Zone::Hand).unwrap();
+    game.begin_game().unwrap();
+    assert!(game.enter_attachment_without_cast(aura, creature).is_err());
+    assert_eq!(game.zone_of(aura), Some(Zone::Hand));
+}
+
+fn attachment_keyword_fixture(keyword: Keyword) -> Game {
+    let mut creature = definition(CREATURE, CardType::Creature, vec![]);
+    creature.keywords.push(keyword);
+    let mut aura = definition(AURA, CardType::Enchantment, vec![Effect::AttachSourceToTarget {
+        target: TargetRequirement::Creature, changes: vec![],
+    }]);
+    aura.colors.insert(cardbench_magic_engine::Color::Red);
+    let mut game = Game::new([creature, aura], 2).unwrap();
+    game.register_attachment_bindings([AttachmentBinding {
+        card_definition: AURA, kind: AttachmentKind::Aura,
+        target: TargetRequirement::Creature, changes: vec![], granted_activated_abilities: vec![],
+    }]).unwrap();
+    game
+}
+
 fn fixture() -> Game {
     let mut game = Game::new_with_all_bindings(
         vec![

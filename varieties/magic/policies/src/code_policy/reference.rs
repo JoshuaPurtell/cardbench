@@ -161,6 +161,8 @@ mod tests {
         );
     }
 
-    /// Recorded from the mirror above. Not a magic number: it is the receipt.
-    const REFERENCE_FREEZE_DIGEST: &str = "fnv1a64:5df7b930a827f3c3";
+    /// Same frozen policy, rerun after the RAV printed-characteristic rules
+    /// correction. Historical engine receipt: fnv1a64:5df7b930a827f3c3.
+    /// This rebase is not a new policy-performance score.
+    const REFERENCE_FREEZE_DIGEST: &str = "fnv1a64:9d9db75c31fad20a";
 }

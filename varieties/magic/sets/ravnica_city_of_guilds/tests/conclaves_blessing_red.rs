@@ -69,7 +69,7 @@ fn conclaves_blessing_recalculates_from_the_enchanted_creatures_controller() {
         .expect("opponent removal setup");
     game.grant_mana(PlayerId(0), Color::White, 4)
         .expect("Conclave's Blessing payment exists");
-    game.grant_mana(PlayerId(1), Color::Black, 1)
+    game.grant_mana(PlayerId(1), Color::Black, 2)
         .expect("Last Gasp payment exists");
 
     game.cast_spell(PlayerId(0), request(blessing, Some(target)))

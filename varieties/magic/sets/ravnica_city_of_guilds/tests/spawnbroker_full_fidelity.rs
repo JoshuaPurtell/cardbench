@@ -47,7 +47,7 @@ struct SpawnbrokerFixture {
     broker: cardbench_magic_engine::ObjectId,
     recruit: cardbench_magic_engine::ObjectId,
     large_opponent: cardbench_magic_engine::ObjectId,
-    opponent_swamp: cardbench_magic_engine::ObjectId,
+    opponent_swamp: [cardbench_magic_engine::ObjectId; 2],
     last_gasp: cardbench_magic_engine::ObjectId,
 }
 
@@ -68,9 +68,8 @@ fn fixture() -> SpawnbrokerFixture {
                 .expect("Island enters")
         })
         .collect::<Vec<_>>();
-    let opponent_swamp = game
-        .put_on_battlefield(PlayerId(1), "RAV-SWAMP")
-        .expect("opponent Swamp enters");
+    let opponent_swamp = [game.put_on_battlefield(PlayerId(1), "RAV-SWAMP").unwrap(),
+        game.put_on_battlefield(PlayerId(1), "RAV-SWAMP").unwrap()];
     let last_gasp = game
         .add_card(PlayerId(1), LAST_GASP, Zone::Hand)
         .expect("Last Gasp starts in opponent hand");
@@ -123,6 +122,17 @@ fn submit_target_pair(
         DecisionSelection::Targets(vec![Target::Permanent(broker), Target::Permanent(opponent)]),
     )
     .expect("legal exchange target pair is submitted");
+}
+
+#[test]
+fn public_target_completion_preserves_slots_and_dependent_power_limit() {
+    let SpawnbrokerFixture { mut game, broker, recruit, large_opponent, .. } = fixture();
+    let decision = game.view_for_player(PlayerId(0)).unwrap().pending_decision.unwrap();
+    assert!(decision.target_candidates.contains(&Target::Permanent(large_opponent)));
+    let targets = decision.legal_target_selection.unwrap();
+    assert_eq!(targets, vec![Target::Permanent(broker), Target::Permanent(recruit)]);
+    game.submit_decision(PlayerId(0), decision.id, DecisionSelection::Targets(targets)).unwrap();
+    game.validate_invariants().unwrap();
 }
 
 #[test]
@@ -179,8 +189,7 @@ fn spawnbroker_exchanges_two_targets_and_the_other_half_survives_source_departur
 
     game.pass_priority(PlayerId(0))
         .expect("original controller passes");
-    game.activate_mana_ability(PlayerId(1), opponent_swamp, Color::Black)
-        .expect("opponent has black mana");
+    for swamp in opponent_swamp { game.activate_mana_ability(PlayerId(1), swamp, Color::Black).unwrap(); }
     game.cast_spell(
         PlayerId(1),
         CastRequest {
@@ -296,8 +305,7 @@ fn spawnbroker_never_partially_exchanges_when_a_selected_target_leaves_before_re
     // the opponent gets the ordinary priority window to remove the recruit.
     game.pass_priority(PlayerId(0))
         .expect("controller yields priority after target selection");
-    game.activate_mana_ability(PlayerId(1), opponent_swamp, Color::Black)
-        .expect("opponent has black mana for the response");
+    for swamp in opponent_swamp { game.activate_mana_ability(PlayerId(1), swamp, Color::Black).unwrap(); }
     game.cast_spell(
         PlayerId(1),
         CastRequest {

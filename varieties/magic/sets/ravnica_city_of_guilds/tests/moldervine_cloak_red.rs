@@ -136,7 +136,7 @@ fn moldervine_cloak_is_countered_if_its_target_leaves_the_battlefield_on_the_sta
         .expect("response setup");
     game.grant_mana(PlayerId(0), Color::Green, 3)
         .expect("Cloak mana");
-    game.grant_mana(PlayerId(1), Color::Green, 1)
+    game.grant_mana(PlayerId(1), Color::Green, 2)
         .expect("response green mana");
     game.grant_mana(PlayerId(1), Color::Black, 1)
         .expect("response black mana");

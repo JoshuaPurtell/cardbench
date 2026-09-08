@@ -139,9 +139,28 @@ pub fn build(view: &GameView, index: &CardIndex) -> Menu {
     // advance the step without one.
     match view.step {
         Step::DeclareAttackers if board.is_my_turn && !view.attackers_declared => {
+            let mut candidates = attack_candidates(&board);
+            if board.opponents.len() > 1 {
+                let original = candidates.clone();
+                for candidate in original {
+                    let [PolicyAction::DeclareAttackers { attackers }] = candidate.plan.as_slice() else { continue; };
+                    if attackers.is_empty() { continue; }
+                    for opponent in &board.opponents {
+                        candidates.push(Candidate::single(format!("{} against seat {}", candidate.label, opponent.seat.0),
+                            PolicyAction::DeclareAttackersAgainst { attackers: attackers.iter().map(|card|
+                                (*card, cardbench_magic_engine::DefenderChoice::Player(opponent.seat))).collect() }));
+                    }
+                    if attackers.len() > 1 {
+                        candidates.push(Candidate::single(format!("{} split across opponents", candidate.label),
+                            PolicyAction::DeclareAttackersAgainst { attackers: attackers.iter().enumerate().map(|(i, card)|
+                                (*card, cardbench_magic_engine::DefenderChoice::Player(board.opponents[i % board.opponents.len()].seat))).collect() }));
+                    }
+                }
+            }
+            candidates.truncate(MENU_LIMIT);
             return Menu {
                 occasion: Occasion::DeclareAttackers,
-                candidates: attack_candidates(&board),
+                candidates,
             };
         }
         Step::DeclareBlockers if !board.is_my_turn && !view.blockers_declared => {
@@ -225,7 +244,7 @@ fn land_candidates(board: &Board, candidates: &mut Vec<Candidate>) {
 }
 
 fn cast_candidates(board: &Board, candidates: &mut Vec<Candidate>) {
-    for card in &board.hand {
+    for card in board.castable_cards() {
         let facts = &card.facts;
         if facts.is_land || facts.unsupported {
             continue;
@@ -662,6 +681,7 @@ mod tests {
         // The board projection carries no colour, so a colour-restricted
         // requirement must decline rather than guess.
         let board = Board {
+            commanders: vec![],
             me: cardbench_magic_engine::PlayerId(0),
             my_life: 20,
             opponents: Vec::new(),

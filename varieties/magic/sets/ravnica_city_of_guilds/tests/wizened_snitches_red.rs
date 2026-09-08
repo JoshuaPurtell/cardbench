@@ -116,6 +116,7 @@ fn wizened_snitches_reveals_only_current_library_tops_and_revokes_on_departure()
     let last_gasp = game
         .add_card(player, "RAV-LAST-GASP", Zone::Hand)
         .expect("removal spell exists");
+    let generic_swamp = game.put_on_battlefield(player, "RAV-SWAMP").expect("generic source exists");
 
     let expected_initial = vec![
         (opponent, player_top.0, Some("RAV-CHAR")),
@@ -138,6 +139,7 @@ fn wizened_snitches_reveals_only_current_library_tops_and_revokes_on_departure()
 
     game.activate_mana_ability(player, swamp, Color::Black)
         .expect("Swamp produces Black");
+    game.activate_mana_ability(player, generic_swamp, Color::Black).expect("generic mana");
     game.cast_spell(
         player,
         CastRequest {

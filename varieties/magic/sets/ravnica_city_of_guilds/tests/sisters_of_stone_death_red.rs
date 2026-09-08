@@ -20,7 +20,7 @@ fn sisters_of_stone_death_requires_the_full_source_linked_combat_definition() {
     assert_eq!(definition.name, "Sisters of Stone Death");
     assert_eq!(
         definition.mana_cost,
-        ManaCost::with_colors(4, [Color::Black, Color::Green])
+        ManaCost::with_colors(4, [Color::Black, Color::Black, Color::Green, Color::Green])
     );
     assert_eq!(
         definition.colors,

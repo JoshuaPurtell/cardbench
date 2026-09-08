@@ -101,6 +101,7 @@ fn woodwraith_corrupter_animates_a_forest_independently_of_its_source_lifetime()
     let putrefy = game
         .add_card(PlayerId(1), "RAV-PUTREFY", Zone::Hand)
         .expect("removal spell enters opponent hand");
+    let generic_swamp = game.put_on_battlefield(PlayerId(1), "RAV-SWAMP").expect("generic source exists");
     for player in [PlayerId(0), PlayerId(1)] {
         for _ in 0..3 {
             game.add_card(player, "RAV-PLAINS", Zone::Library)
@@ -154,6 +155,7 @@ fn woodwraith_corrupter_animates_a_forest_independently_of_its_source_lifetime()
         .expect("animated Forest retains its intrinsic mana ability");
     game.activate_mana_ability(PlayerId(1), non_forest, Color::Black)
         .expect("opponent's Swamp produces black mana");
+    game.activate_mana_ability(PlayerId(1), generic_swamp, Color::Black).expect("generic mana");
     game.cast_spell(
         PlayerId(1),
         cardbench_magic_engine::CastRequest {

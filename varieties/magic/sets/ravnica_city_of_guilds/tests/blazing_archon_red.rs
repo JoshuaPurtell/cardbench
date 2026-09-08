@@ -116,6 +116,8 @@ fn blazing_archon_rejects_attacks_atomically_then_stops_on_battlefield_departure
         removal_game
             .put_on_battlefield(PlayerId(0), "RAV-SWAMP")
             .expect("second Swamp setup"),
+        removal_game.put_on_battlefield(PlayerId(0), "RAV-SWAMP").unwrap(),
+        removal_game.put_on_battlefield(PlayerId(0), "RAV-SWAMP").unwrap(),
     ];
     for card in [archon, attacker] {
         removal_game

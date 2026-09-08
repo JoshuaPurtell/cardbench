@@ -318,7 +318,7 @@ mod tests {
         let target = game
             .put_on_battlefield(PlayerId(1), "RAV-GOLGARI-BROWNSCALE")
             .expect("opposing Brownscale");
-        game.grant_mana(PlayerId(0), Color::Black, 1)
+        game.grant_mana(PlayerId(0), Color::Black, 2)
             .expect("black mana");
 
         let mut policy = GolgariAttritionPolicy::new(PlayerId(0));

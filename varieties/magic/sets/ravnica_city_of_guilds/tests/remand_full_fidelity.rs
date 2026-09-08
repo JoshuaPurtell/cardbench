@@ -1,7 +1,8 @@
 //! Event-log contract for Remand's any-spell counter and draw sequence.
 
 use cardbench_magic_engine::{
-    AbilityActivation, CastRequest, Color, Game, GameEvent, PlayerId, RulesError, Target, Zone,
+    AbilityActivation, CastRequest, Color, DecisionKind, DecisionSelection, Game, GameEvent,
+    PlayerId, RulesError, Step, Target, Zone,
 };
 use cardbench_magic_rav::{
     RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, rav_activated_ability_bindings,
@@ -20,6 +21,65 @@ fn game_with_rav_bindings() -> Game {
         rav_triggered_ability_bindings(),
     )
     .expect("RAV game builds")
+}
+
+/// Rules regression using executable RAV cards, not a benchmark workload.
+#[test]
+fn remand_commander_owner_choice_precedes_draw_and_preserves_command_tax() {
+    for accept in [false, true] {
+        let mut game = cardbench_magic_rav::new_rav_game(4).unwrap();
+        game.configure_commander_format(40, 21).unwrap();
+        let commander = game.add_card(PlayerId(0), "RAV-TOLSIMIR-WOLFBLOOD", Zone::Hand).unwrap();
+        game.designate_commander(PlayerId(0), commander).unwrap();
+        let remand = game.add_card(PlayerId(1), "RAV-REMAND", Zone::Hand).unwrap();
+        for seat in 0..4 {
+            for _ in 0..8 { game.add_card(PlayerId(seat), "RAV-FOREST", Zone::Library).unwrap(); }
+        }
+        let draw_count = game.player(PlayerId(1)).unwrap().library.len();
+        let lands = (0..14).map(|n| game.put_on_battlefield(PlayerId(0),
+            if n == 0 || n == 6 { "RAV-PLAINS" } else { "RAV-FOREST" }).unwrap()).collect::<Vec<_>>();
+        let islands = (0..2).map(|_| game.put_on_battlefield(PlayerId(1), "RAV-ISLAND").unwrap()).collect::<Vec<_>>();
+        game.begin_game().unwrap();
+        while game.step != Step::PrecombatMain {
+            if game.view_for_player(game.active_player).unwrap().draw_replacement_pending {
+                game.resolve_pending_draw(game.active_player, None).unwrap();
+            } else {
+                game.pass_priority(game.priority).unwrap();
+            }
+        }
+        for (n, land) in lands.iter().take(6).enumerate() {
+            game.activate_mana_ability(PlayerId(0), *land, if n == 0 { Color::White } else { Color::Green }).unwrap();
+        }
+        game.cast_spell(PlayerId(0), CastRequest { card: commander, targets: vec![], convoke: vec![], payment_mana_abilities: vec![] }).unwrap();
+        game.pass_priority(PlayerId(0)).unwrap();
+        for island in islands { game.activate_mana_ability(PlayerId(1), island, Color::Blue).unwrap(); }
+        game.cast_spell(PlayerId(1), CastRequest { card: remand, targets: vec![Target::Spell(commander)], convoke: vec![], payment_mana_abilities: vec![] }).unwrap();
+        for _ in 0..4 { game.pass_priority(game.priority).unwrap(); }
+        let choice = game.view_for_player(PlayerId(0)).unwrap().pending_decision.unwrap();
+        assert_eq!(choice.kind, DecisionKind::CommanderZoneReplacement);
+        assert_eq!(game.player(PlayerId(1)).unwrap().library.len(), draw_count);
+        assert_eq!(game.zone_of(commander), None, "the commander is still a spell");
+        assert!(game.pass_priority(PlayerId(0)).is_err());
+        assert!(game.submit_decision(PlayerId(1), choice.id, DecisionSelection::Objects(vec![])).is_err());
+        game.submit_decision(PlayerId(0), choice.id, DecisionSelection::Objects(if accept { vec![commander] } else { vec![] })).unwrap();
+        assert_eq!(game.zone_of(commander), Some(if accept { Zone::Command } else { Zone::Hand }));
+        assert_eq!(game.commander_tax(commander), 2);
+        assert_eq!(game.player(PlayerId(1)).unwrap().library.len(), draw_count - 1);
+        assert_eq!(game.zone_of(remand), Some(Zone::Graveyard));
+        assert!(game.submit_decision(PlayerId(0), choice.id, DecisionSelection::Objects(vec![])).is_err());
+        assert!(!game.event_log.iter().any(|event| matches!(event,
+            GameEvent::CardMoved { card, to: Zone::Graveyard } if *card == commander)));
+        assert_eq!(game.event_log.iter().filter(|event| matches!(event,
+            GameEvent::SpellCountered { card, source } if *card == commander && *source == remand)).count(), 1);
+        while game.priority != PlayerId(0) { game.pass_priority(game.priority).unwrap(); }
+        for (n, land) in lands.iter().skip(6).take(if accept { 8 } else { 6 }).enumerate() {
+            game.activate_mana_ability(PlayerId(0), *land, if n == 0 { Color::White } else { Color::Green }).unwrap();
+        }
+        game.cast_spell(PlayerId(0), CastRequest { card: commander, targets: vec![], convoke: vec![], payment_mana_abilities: vec![] }).unwrap();
+        assert_eq!(game.commander_tax(commander), if accept { 4 } else { 2 },
+            "casting from hand neither charges nor increments command-zone tax");
+        game.validate_invariants().unwrap();
+    }
 }
 
 #[test]
@@ -87,7 +147,7 @@ fn remand_counters_a_creature_spell_then_draws_its_controller() {
     game.pass_priority(PlayerId(0)).expect("Remand resolves");
     println!("remand_event_log={:#?}", game.canonical_event_log());
 
-    assert_eq!(game.zone_of(watchwolf), Some(Zone::Graveyard));
+    assert_eq!(game.zone_of(watchwolf), Some(Zone::Hand));
     assert_eq!(game.zone_of(drawn), Some(Zone::Hand));
     assert!(game.event_log.iter().any(|event| matches!(event, GameEvent::SpellCountered { card, source } if *card == watchwolf && *source == remand)));
     game.validate_invariants()

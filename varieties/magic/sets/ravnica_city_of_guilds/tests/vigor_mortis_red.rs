@@ -140,7 +140,7 @@ fn vigor_mortis_counter_clears_on_death_before_a_later_reentry() {
     let target = game
         .add_card(PlayerId(0), "RAV-WATCHWOLF", Zone::Graveyard)
         .expect("creature target setup");
-    game.grant_mana(PlayerId(0), Color::Black, 8)
+    game.grant_mana(PlayerId(0), Color::Black, 10)
         .expect("black payment supply");
     game.grant_mana(PlayerId(0), Color::Green, 2)
         .expect("green first-cast supply");

@@ -20,7 +20,7 @@ fn audited_simple_spells_keep_their_precise_compatibility_boundaries() {
             "RAV-DRYADS-CARESS",
             &[
                 "full-rules-fidelity",
-                "graveyard-creature-count-life-gain-and-target-return",
+                "battlefield-creature-life-gain-and-white-spend-untap",
             ] as &[_],
         ),
         (

@@ -238,6 +238,7 @@ fn flame_fusillade_activation_resolves_after_its_recipient_leaves_in_response() 
     let swamp = game
         .put_on_battlefield(opponent, "RAV-SWAMP")
         .expect("response payment land setup");
+    let printed_cost_generic = game.put_on_battlefield(opponent, "RAV-SWAMP").unwrap();
     game.begin_game().expect("game begins");
     advance_to_precombat_main(&mut game);
     game.clear_event_log();
@@ -264,6 +265,7 @@ fn flame_fusillade_activation_resolves_after_its_recipient_leaves_in_response() 
         .expect("controller gives the opponent a response window");
     game.activate_mana_ability(opponent, swamp, Color::Black)
         .expect("response payment mana");
+    game.activate_mana_ability(opponent, printed_cost_generic, Color::Black).unwrap();
     game.cast_spell(
         opponent,
         CastRequest {

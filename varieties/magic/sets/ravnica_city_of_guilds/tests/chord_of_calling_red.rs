@@ -48,7 +48,7 @@ fn chord_uses_convoke_and_chosen_x_then_waits_for_a_private_exact_search_selecti
     let opponent_hidden = game
         .add_card(PlayerId(1), "RAV-WATCHWOLF", Zone::Library)
         .expect("opponent hidden card setup");
-    let convokers = (0..8)
+    let convokers = (0..5)
         .map(|_| {
             game.put_on_battlefield(PlayerId(0), "RAV-GOLGARI-BROWNSCALE")
                 .expect("green convoker setup")
@@ -80,7 +80,7 @@ fn chord_uses_convoke_and_chosen_x_then_waits_for_a_private_exact_search_selecti
             hybrid: vec![],
         },
     )
-    .expect("Chord pays all eight symbols through Convoke");
+    .expect("Chord pays X=2 plus GGG through five Convoke contributors");
     game.pass_priority(PlayerId(0))
         .expect("caster passes to the opponent");
     game.pass_priority(PlayerId(1))
@@ -223,7 +223,7 @@ fn chord_may_legally_fail_to_find_after_seeing_matching_private_candidates() {
     let candidate = game
         .add_card(PlayerId(0), "RAV-BOROS-RECRUIT", Zone::Library)
         .expect("matching candidate setup");
-    let convokers = (0..7)
+    let convokers = (0..4)
         .map(|_| {
             game.put_on_battlefield(PlayerId(0), "RAV-GOLGARI-BROWNSCALE")
                 .expect("green convoker setup")
@@ -314,7 +314,7 @@ fn chord_battlefield_entry_queues_the_selected_creatures_etb_after_its_terminal_
     let drawn = game
         .add_card(PlayerId(0), "RAV-WATCHWOLF", Zone::Library)
         .expect("draw card setup");
-    let convokers = (0..9)
+    let convokers = (0..6)
         .map(|_| {
             game.put_on_battlefield(PlayerId(0), "RAV-GOLGARI-BROWNSCALE")
                 .expect("green convoker setup")

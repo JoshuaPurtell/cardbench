@@ -44,7 +44,7 @@ fn halcyon_glaze_requires_creature_spell_self_animation() {
     assert_eq!(definition.name, "Halcyon Glaze");
     assert_eq!(
         definition.mana_cost,
-        ManaCost::with_colors(2, [Color::Blue])
+        ManaCost::with_colors(1, [Color::Blue, Color::Blue])
     );
     assert_eq!(definition.colors, BTreeSet::from([Color::Blue]));
     assert_eq!(

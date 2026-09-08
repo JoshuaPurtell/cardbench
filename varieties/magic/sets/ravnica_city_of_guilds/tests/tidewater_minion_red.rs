@@ -15,7 +15,7 @@ fn tidewater_minion_requires_target_permanent_untap_and_self_defender_removal() 
         .expect("Tidewater Minion definition exists");
 
     assert_eq!(minion.name, "Tidewater Minion");
-    assert_eq!(minion.mana_cost, ManaCost::with_colors(3, [Color::Blue]));
+    assert_eq!(minion.mana_cost, ManaCost::with_colors(3, [Color::Blue, Color::Blue]));
     assert_eq!(minion.colors, BTreeSet::from([Color::Blue]));
     assert_eq!(minion.card_types, BTreeSet::from([CardType::Creature]));
     assert_eq!((minion.power, minion.toughness), (Some(4), Some(4)));

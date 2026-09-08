@@ -24,7 +24,7 @@ fn definition(id: &str) -> cardbench_magic_engine::CardDefinition {
 #[test]
 fn stasis_cell_is_full_fidelity_aura() {
     let cell = definition("RAV-STASIS-CELL");
-    assert_eq!(cell.mana_cost, ManaCost::with_colors(1, [Color::Blue]));
+    assert_eq!(cell.mana_cost, ManaCost::with_colors(4, [Color::Blue]));
     assert_eq!(
         cell.card_types,
         [CardType::Enchantment].into_iter().collect()
@@ -64,7 +64,7 @@ fn stasis_cell_reattaches_and_moves_its_restrictions() {
     let cell = game
         .add_card(PlayerId(0), "RAV-STASIS-CELL", Zone::Hand)
         .expect("Cell enters hand");
-    let islands = (0..5)
+    let islands = (0..8)
         .map(|_| {
             game.put_on_battlefield(PlayerId(0), "RAV-ISLAND")
                 .expect("Island enters")
@@ -76,7 +76,7 @@ fn stasis_cell_reattaches_and_moves_its_restrictions() {
         game.pass_priority(PlayerId(0)).expect("active pass");
         game.pass_priority(PlayerId(1)).expect("opponent pass");
     }
-    for island in islands.iter().take(2) {
+    for island in islands.iter().take(5) {
         game.activate_mana_ability(PlayerId(0), *island, Color::Blue)
             .expect("blue mana");
     }
@@ -127,7 +127,7 @@ fn stasis_cell_reattaches_and_moves_its_restrictions() {
     game.pass_priority(PlayerId(1))
         .expect("pass back to Cell controller");
 
-    for island in islands.iter().skip(2) {
+    for island in islands.iter().skip(5) {
         game.activate_mana_ability(PlayerId(0), *island, Color::Blue)
             .expect("generic activation mana");
     }

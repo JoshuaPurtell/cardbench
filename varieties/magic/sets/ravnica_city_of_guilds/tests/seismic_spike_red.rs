@@ -15,8 +15,8 @@ fn seismic_spike_requires_land_destruction_and_two_red_mana() {
         .into_iter()
         .find(|definition| definition.id == "RAV-SEISMIC-SPIKE")
         .expect("Seismic Spike definition exists");
-    assert_eq!(definition.mana_cost.generic, 3);
-    assert_eq!(definition.mana_cost.colored, vec![Color::Red]);
+    assert_eq!(definition.mana_cost.generic, 2);
+    assert_eq!(definition.mana_cost.colored, vec![Color::Red, Color::Red]);
     assert_eq!(
         definition.card_types,
         [CardType::Sorcery].into_iter().collect()

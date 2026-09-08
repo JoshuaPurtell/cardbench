@@ -8,12 +8,15 @@
 
 mod game;
 mod model;
+mod commander;
+pub use commander::{CommanderCardRules, CommanderCatalog, CommanderDeck, CommanderDeckError};
 
 pub use game::{
     ActivatedAbilityStackView, CardView, CastRequest, ConvokeContribution, ConvokePayment,
     DamageReplacementChoiceView, DefenderChoice, Game, GameView, LibrarySearchChoiceView,
     PendingDecisionView, PolicyAction, PrivateLibraryChoiceView, RevealedLibraryTopView,
     RulesError, TeamId, TransmuteSearchView, TriggeredAbilityEffectObjectChoiceView,
+    LondonPregame, MulliganChoice, PregameEvent, PregamePrompt,
 };
 pub use model::{
     AbilityActivation, AbilityCostPayment, ActivatedAbility, ActivatedAbilityBinding,

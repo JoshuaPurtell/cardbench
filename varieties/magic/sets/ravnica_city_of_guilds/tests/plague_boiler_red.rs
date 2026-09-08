@@ -48,7 +48,7 @@ fn pass_pair(game: &mut Game) {
 fn plague_boiler_requires_its_exact_counter_and_sacrifice_contract() {
     let boiler = definition("RAV-PLAGUE-BOILER");
     assert_eq!(boiler.name, "Plague Boiler");
-    assert_eq!(boiler.mana_cost, ManaCost::new(1));
+    assert_eq!(boiler.mana_cost, ManaCost::new(3));
     assert_eq!(boiler.colors, BTreeSet::<Color>::new());
     assert_eq!(boiler.card_types, BTreeSet::from([CardType::Artifact]));
     assert!(

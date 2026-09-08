@@ -61,11 +61,11 @@ fn pollenbright_wings_has_an_exact_aura_and_attached_combat_trigger_definition()
     assert_eq!(definition.name, "Pollenbright Wings");
     assert_eq!(
         definition.mana_cost,
-        ManaCost::with_colors(4, [Color::Green, Color::Blue])
+        ManaCost::with_colors(4, [Color::Green, Color::White])
     );
     assert_eq!(
         definition.colors,
-        BTreeSet::from([Color::Green, Color::Blue])
+        BTreeSet::from([Color::Green, Color::White])
     );
     assert_eq!(
         definition.card_types,
@@ -96,7 +96,7 @@ fn pollenbright_wings_uses_committed_attached_creature_combat_damage_as_its_toke
         .expect("Aura setup");
     game.grant_mana(controller, Color::Green, 3)
         .expect("green payment setup");
-    game.grant_mana(controller, Color::Blue, 3)
+    game.grant_mana(controller, Color::White, 3)
         .expect("blue payment setup");
     game.cast_spell(
         controller,

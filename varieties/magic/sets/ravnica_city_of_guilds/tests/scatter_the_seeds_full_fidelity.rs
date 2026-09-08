@@ -128,22 +128,24 @@ fn scatter_the_seeds_direct_trace_creates_three_typed_tokens_before_resolution_r
     }
 
     let events = game.canonical_event_log();
-    assert_eq!(events.len(), 11);
+    assert_eq!(events.len(), 13, "{events:#?}");
     assert!(
         events[0..3]
             .iter()
             .all(|event| event.contains("ConvokeUsed"))
     );
     assert!(events[3].contains("SpellCast"));
-    assert!(events[4].contains("PriorityPassed"));
+    assert_eq!(events[4], "ObjectIncarnationAdvanced { object: ObjectId(1), incarnation: 2 }");
     assert!(events[5].contains("PriorityPassed"));
+    assert!(events[6].contains("PriorityPassed"));
     assert!(
-        events[6..9]
+        events[7..10]
             .iter()
             .all(|event| event.contains("TokenCreated"))
     );
-    assert!(events[9].contains("SpellResolved"));
-    assert!(events[10].contains("CardMoved"));
+    assert!(events[10].contains("SpellResolved"));
+    assert_eq!(events[11], "CardMoved { card: ObjectId(1), to: Graveyard }");
+    assert_eq!(events[12], "ObjectIncarnationAdvanced { object: ObjectId(1), incarnation: 3 }");
     game.validate_invariants()
         .expect("direct Scatter trace preserves engine invariants");
 }

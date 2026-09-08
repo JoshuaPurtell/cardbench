@@ -83,11 +83,13 @@ fn quickchange_replaces_all_target_colors_then_draws_and_expires_at_cleanup() {
     let island = game
         .put_on_battlefield(caster, "RAV-ISLAND")
         .expect("blue source setup");
+    let printed_cost_generic = game.put_on_battlefield(caster, "RAV-ISLAND").unwrap();
 
     game.begin_game().expect("game begins");
     advance_to(&mut game, 1, Step::PrecombatMain);
     game.activate_mana_ability(caster, island, Color::Blue)
         .expect("blue mana payment");
+    game.activate_mana_ability(caster, printed_cost_generic, Color::Blue).unwrap();
     game.submit_policy_move(
         caster,
         "rav-quickchange-full-fidelity.v1",
@@ -170,7 +172,7 @@ fn quickchange_rejects_colorless_choice_without_mutating_the_cast_transaction() 
     let quickchange = game
         .add_card(PlayerId(0), "RAV-QUICKCHANGE", Zone::Hand)
         .expect("Quickchange setup");
-    game.grant_mana(PlayerId(0), Color::Blue, 1)
+    game.grant_mana(PlayerId(0), Color::Blue, 2)
         .expect("pre-game mana setup");
     let before_events = game.event_log.clone();
 
@@ -196,7 +198,7 @@ fn quickchange_rejects_colorless_choice_without_mutating_the_cast_transaction() 
             .expect("caster remains")
             .mana_pool
             .amount(Color::Blue),
-        1,
+        2,
         "invalid color choice cannot consume payment mana"
     );
     assert_eq!(
@@ -225,9 +227,9 @@ fn quickchange_with_a_stale_creature_target_is_countered_by_rules_without_a_draw
     let undrawn = game
         .add_card(caster, "RAV-PLAINS", Zone::Library)
         .expect("would-be draw setup");
-    game.grant_mana(caster, Color::Blue, 1)
+    game.grant_mana(caster, Color::Blue, 2)
         .expect("Quickchange mana setup");
-    game.grant_mana(opponent, Color::Black, 1)
+    game.grant_mana(opponent, Color::Black, 2)
         .expect("response mana setup");
 
     game.submit_policy_move(

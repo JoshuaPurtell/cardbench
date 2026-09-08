@@ -15,7 +15,7 @@ fn concerted_effort_requires_its_upkeep_shared_keyword_contract() {
     assert_eq!(definition.name, "Concerted Effort");
     assert_eq!(
         definition.mana_cost,
-        ManaCost::with_colors(3, [Color::White])
+        ManaCost::with_colors(2, [Color::White, Color::White])
     );
     assert_eq!(definition.colors, BTreeSet::from([Color::White]));
     assert_eq!(

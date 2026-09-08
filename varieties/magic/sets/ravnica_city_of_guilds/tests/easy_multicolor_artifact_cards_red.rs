@@ -91,12 +91,14 @@ fn centaur_safeguard_dies_then_its_controller_can_accept_three_life() {
     let swamp = game
         .put_on_battlefield(PlayerId(1), "RAV-SWAMP")
         .expect("Swamp enters before the measured game");
+    let printed_cost_generic = game.put_on_battlefield(PlayerId(1), "RAV-SWAMP").unwrap();
     game.begin_game().expect("game starts");
     advance_to_precombat_main(&mut game);
     game.pass_priority(PlayerId(0))
         .expect("opponent receives priority");
     game.activate_mana_ability(PlayerId(1), swamp, Color::Black)
         .expect("opponent produces black mana");
+    game.activate_mana_ability(PlayerId(1), printed_cost_generic, Color::Black).unwrap();
     game.cast_spell(
         PlayerId(1),
         cardbench_magic_engine::CastRequest {

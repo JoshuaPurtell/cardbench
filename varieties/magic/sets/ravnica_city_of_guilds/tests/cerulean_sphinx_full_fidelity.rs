@@ -222,6 +222,7 @@ fn cerulean_sphinx_departure_response_leaves_old_ability_auditable_no_op() {
     let response_forest = game
         .put_on_battlefield(PlayerId(1), "RAV-FOREST")
         .expect("response green mana source setup");
+    let response_generic = game.put_on_battlefield(PlayerId(1), "RAV-FOREST").unwrap();
     game.begin_game().expect("game starts");
     advance_to_precombat_main(&mut game);
     game.clear_event_log();
@@ -235,6 +236,7 @@ fn cerulean_sphinx_departure_response_leaves_old_ability_auditable_no_op() {
         .expect("response black mana is available");
     game.activate_mana_ability(PlayerId(1), response_forest, Color::Green)
         .expect("response green mana is available");
+    game.activate_mana_ability(PlayerId(1), response_generic, Color::Green).unwrap();
     game.cast_spell(
         PlayerId(1),
         CastRequest {

@@ -1,66 +1,41 @@
-//! Red contract for Dryad's Caress: its graveyard creature count and selected
-//! creature-card return must both survive spell targeting and resolution.
-
-use cardbench_magic_engine::{CastRequest, Color, Game, GameEvent, PlayerId, Target, Zone};
+//! Printed Dryad's Caress counts battlefield creatures and conditionally untaps.
+use cardbench_magic_engine::{CastRequest, Color, Game, ManaPaymentSelection, PlayerId, Zone};
 use cardbench_magic_rav::{RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions};
 
 #[test]
-fn dryads_caress_requires_graveyard_count_and_creature_return_fidelity() {
-    let definition = card_definitions()
-        .into_iter()
-        .find(|definition| definition.id == "RAV-DRYADS-CARESS")
-        .expect("Dryad's Caress exists");
-    assert!(
-        definition
-            .supported_rules
-            .contains(&"graveyard-creature-count-life-gain-and-target-return"),
-        "Dryad's Caress must expose both printed graveyard instructions"
-    );
-    assert!(
-        definition.effects.len() >= 2,
-        "Dryad's Caress needs a count-based life gain and an exact creature-card return"
-    );
-    assert!(
-        RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&definition.id),
-        "Dryad's Caress is not full fidelity until both effects are represented"
-    );
+fn dryads_caress_requires_battlefield_count_and_white_spend_untap() {
+    let definition = card_definitions().into_iter().find(|card| card.id == "RAV-DRYADS-CARESS").unwrap();
+    assert!(definition.supported_rules.contains(&"battlefield-creature-life-gain-and-white-spend-untap"));
+    assert_eq!(definition.effects.len(), 2);
+    assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&definition.id));
 }
 
 #[test]
-fn dryads_caress_counts_only_controller_creature_cards_then_returns_the_target() {
-    let controller = PlayerId(0);
-    let mut game = Game::new(card_definitions(), 2).expect("catalog validates");
-    let returned = game
-        .add_card(controller, "RAV-WATCHWOLF", Zone::Graveyard)
-        .expect("returned creature starts in graveyard");
-    game.add_card(controller, "RAV-GOLGARI-BROWNSCALE", Zone::Graveyard)
-        .expect("second creature starts in graveyard");
-    game.add_card(controller, "RAV-CHAR", Zone::Graveyard)
-        .expect("noncreature starts in graveyard");
-    let caress = game
-        .add_card(controller, "RAV-DRYADS-CARESS", Zone::Hand)
-        .expect("Caress starts in hand");
-    game.grant_mana(controller, Color::Green, 5)
-        .expect("spell payment mana");
-    game.cast_spell(
-        controller,
-        CastRequest {
-            card: caress,
-            targets: vec![Target::Permanent(returned)],
-            convoke: vec![],
-            payment_mana_abilities: vec![],
-        },
-    )
-    .expect("Caress casts with a creature-card target");
-    game.pass_priority(PlayerId(0)).expect("caster passes");
-    game.pass_priority(PlayerId(1)).expect("spell resolves");
-
-    assert_eq!(game.player(controller).expect("controller").life, 22);
-    assert_eq!(game.zone_of(returned), Some(Zone::Hand));
-    assert!(game.event_log.iter().any(|event| matches!(
-        event,
-        GameEvent::LifeGained { player, amount: 2 } if *player == controller
-    )));
-    game.validate_invariants()
-        .expect("Dryad's Caress trace is invariant-safe");
+fn dryads_caress_counts_both_seats_and_untaps_only_own_creatures_if_white_was_spent() {
+    for white in [false, true] {
+        let mut game = Game::new(card_definitions(), 2).unwrap();
+        let controller = PlayerId(0);
+        let mine = game.put_on_battlefield(controller, "RAV-WATCHWOLF").unwrap();
+        let theirs = game.put_on_battlefield(PlayerId(1), "RAV-WATCHWOLF").unwrap();
+        let land = game.put_on_battlefield(controller, "RAV-FOREST").unwrap();
+        let grave = game.add_card(controller, "RAV-WATCHWOLF", Zone::Graveyard).unwrap();
+        for card in [mine, theirs, land] { game.set_tapped_for_setup(card, true).unwrap(); }
+        let spell = game.add_card(controller, "RAV-DRYADS-CARESS", Zone::Hand).unwrap();
+        game.grant_mana(controller, Color::Green, if white { 5 } else { 6 }).unwrap();
+        if white { game.grant_mana(controller, Color::White, 1).unwrap(); }
+        let mut generic = vec![Color::Green; 3];
+        generic.push(if white { Color::White } else { Color::Green });
+        game.cast_spell_with_mana_spend(controller, CastRequest { card: spell,
+            targets: vec![], convoke: vec![], payment_mana_abilities: vec![] },
+            ManaPaymentSelection { generic, hybrid: vec![] }).unwrap();
+        game.pass_priority(controller).unwrap();
+        game.pass_priority(PlayerId(1)).unwrap();
+        assert_eq!(game.player(controller).unwrap().life, 22);
+        assert_eq!(game.object(mine).unwrap().tapped, !white);
+        assert!(game.object(theirs).unwrap().tapped);
+        assert!(game.object(land).unwrap().tapped);
+        assert_eq!(game.zone_of(grave), Some(Zone::Graveyard));
+        assert_eq!(game.zone_of(spell), Some(Zone::Graveyard));
+        game.validate_invariants().unwrap();
+    }
 }

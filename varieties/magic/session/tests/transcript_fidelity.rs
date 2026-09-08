@@ -18,6 +18,24 @@ const AGGRO: &str = "rav_boros_aggro";
 const MIDRANGE: &str = "rav_selesnya_midrange";
 
 fn play(seed: u64) -> (MatchTranscript, Vec<String>) {
+    play_fixture(seed, false)
+}
+
+struct NeverAttack(Box<dyn cardbench_magic_policies::CodePolicy>);
+
+impl cardbench_magic_policies::CodePolicy for NeverAttack {
+    fn id(&self) -> &'static str { "test.never-attack" }
+    fn propose_move(&mut self, view: &cardbench_magic_engine::GameView) -> cardbench_magic_engine::PolicyAction {
+        use cardbench_magic_engine::PolicyAction;
+        match self.0.propose_move(view) {
+            PolicyAction::DeclareAttackers { .. } => PolicyAction::DeclareAttackers { attackers: vec![] },
+            PolicyAction::DeclareAttackersAgainst { .. } => PolicyAction::DeclareAttackersAgainst { attackers: vec![] },
+            action => action,
+        }
+    }
+}
+
+fn play_fixture(seed: u64, passive_second_seat: bool) -> (MatchTranscript, Vec<String>) {
     let index = shared_card_index();
     let pilots = [
         seat_policy(
@@ -33,6 +51,11 @@ fn play(seed: u64) -> (MatchTranscript, Vec<String>) {
             index,
         ),
     ];
+    let [first, second] = pilots;
+    let second: Box<dyn cardbench_magic_policies::CodePolicy> = if passive_second_seat {
+        Box::new(NeverAttack(second))
+    } else { second };
+    let pilots = [first, second];
     let policies = [pilots[0].id().to_owned(), pilots[1].id().to_owned()];
     let config = DeckMatchConfig {
         shuffle_seed: seed,
@@ -200,7 +223,9 @@ fn a_clean_decisive_game_reports_no_defect() {
 /// which is exactly what this fixture does.
 #[test]
 fn the_critique_catches_a_seat_that_never_attacks() {
-    let (transcript, _) = play(3);
+    // PolicyVersion::latest() evolves; explicitly enforce the behavior this
+    // test needs instead of assuming the current opponent remains passive.
+    let (transcript, _) = play_fixture(3, true);
     let findings = critique(&transcript);
     let passive: Vec<_> = findings
         .findings

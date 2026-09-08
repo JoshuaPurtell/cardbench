@@ -296,7 +296,7 @@ mod tests {
         let victim = game
             .put_on_battlefield(PlayerId(1), "RAV-GOLGARI-BROWNSCALE")
             .expect("victim");
-        game.grant_mana(PlayerId(0), Color::Black, 1)
+        game.grant_mana(PlayerId(0), Color::Black, 2)
             .expect("black mana");
         let mut policy = DimirTransmuteAttritionPolicy::new(PlayerId(0));
         let action = policy.propose_move(&game.view_for_player(PlayerId(0)).expect("view"));

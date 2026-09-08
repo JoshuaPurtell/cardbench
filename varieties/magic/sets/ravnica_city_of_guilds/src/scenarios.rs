@@ -142,10 +142,15 @@ enum Section {
 }
 
 pub(crate) fn run_public_scenarios() -> Result<Vec<ScenarioResult>, String> {
-    public_scenario_specifications()?
-        .iter()
-        .map(execute_scenario)
-        .collect::<Result<Vec<_>, _>>()
+    let mut results = Vec::new();
+    let mut failures = Vec::new();
+    for specification in public_scenario_specifications()? {
+        match execute_scenario(&specification) {
+            Ok(result) => results.push(result),
+            Err(error) => failures.push(error),
+        }
+    }
+    if failures.is_empty() { Ok(results) } else { Err(failures.join("\n")) }
 }
 
 /// Executes one named public scenario without first replaying the whole

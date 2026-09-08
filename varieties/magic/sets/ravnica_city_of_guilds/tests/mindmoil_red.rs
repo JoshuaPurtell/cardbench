@@ -63,7 +63,7 @@ fn mindmoil_requires_exact_cast_trigger_hand_bottom_draw_definition() {
     assert_eq!(definition.name, "Mindmoil");
     assert_eq!(
         definition.mana_cost,
-        ManaCost::with_colors(3, [Color::Red, Color::Red])
+        ManaCost::with_colors(4, [Color::Red])
     );
     assert_eq!(definition.colors, BTreeSet::from([Color::Red]));
     assert_eq!(
@@ -112,11 +112,13 @@ fn mindmoil_privately_orders_exact_hand_then_draws_the_same_count() {
     let swamp = game
         .put_on_battlefield(controller, "RAV-SWAMP")
         .expect("spell payment setup");
+    let printed_cost_generic = game.put_on_battlefield(controller, "RAV-SWAMP").unwrap();
 
     game.begin_game().expect("game begins");
     advance_to_step(&mut game, Step::PrecombatMain);
     game.activate_mana_ability(controller, swamp, Color::Black)
         .expect("Swamp pays the cast");
+    game.activate_mana_ability(controller, printed_cost_generic, Color::Black).unwrap();
     game.cast_spell(
         controller,
         CastRequest {

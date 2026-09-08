@@ -52,20 +52,20 @@ fn seeds_of_strength_preserves_three_separate_target_modifiers() {
 }
 
 #[test]
-fn dryads_caress_uses_the_exact_graveyard_creature_effects() {
+fn dryads_caress_uses_the_printed_battlefield_count_and_white_spend_effects() {
     let caress = definition("RAV-DRYADS-CARESS");
     assert_eq!(
         caress.supported_rules,
         [
             "full-rules-fidelity",
-            "graveyard-creature-count-life-gain-and-target-return",
+            "battlefield-creature-life-gain-and-white-spend-untap",
         ]
     );
     assert_eq!(
         caress.effects,
         vec![
-            Effect::GainLifeForEachCreatureCardInControllerGraveyard,
-            Effect::ReturnTargetCreatureCardToHand,
+            Effect::GainLifeForEachCreature,
+            Effect::UntapControllerCreaturesIfManaColorSpent { color: Color::White },
         ]
     );
 

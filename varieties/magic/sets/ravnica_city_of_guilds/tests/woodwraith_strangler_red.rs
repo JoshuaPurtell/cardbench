@@ -29,7 +29,7 @@ fn woodwraith_strangler_requires_graveyard_exile_regeneration() {
         BTreeSet::from([Color::Black, Color::Green])
     );
     assert_eq!(definition.card_types, BTreeSet::from([CardType::Creature]));
-    assert_eq!((definition.power, definition.toughness), (Some(3), Some(2)));
+    assert_eq!((definition.power, definition.toughness), (Some(2), Some(2)));
     assert!(
         RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&definition.id),
         "Woodwraith Strangler cannot be complete while its graveyard-exile regeneration is absent"

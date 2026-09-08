@@ -91,12 +91,14 @@ fn golgari_thug_death_trigger_is_ability_complete() {
     let swamp = game
         .put_on_battlefield(PlayerId(1), "RAV-SWAMP")
         .expect("opponent mana source exists");
+    let generic_swamp = game.put_on_battlefield(PlayerId(1), "RAV-SWAMP").unwrap();
     advance_to_precombat_main(&mut game);
 
     game.pass_priority(PlayerId(0))
         .expect("active player gives opponent priority");
     game.activate_mana_ability(PlayerId(1), swamp, Color::Black)
         .expect("opponent produces black mana");
+    game.activate_mana_ability(PlayerId(1), generic_swamp, Color::Black).unwrap();
     game.cast_spell(
         PlayerId(1),
         CastRequest {

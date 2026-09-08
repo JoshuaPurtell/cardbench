@@ -18,7 +18,20 @@ POKEMON = REPO / "varieties" / "pokemon"
 MAGIC = REPO / "varieties" / "magic"
 EVALS = Path(os.environ.get("CARDBENCH_EVALS_ROOT", Path.home() / "Documents" / "GitHub" / "evals"))
 CODEX_RUNNER = EVALS / "core" / "harbor" / "runner" / "codex_harbor_runner.py"
-REFERENCE_POLICY = POKEMON / "candidates" / "reference" / "reference_policy_v1.rs"
+# The oracle the `verify` lane submits as a candidate. It must be at least as
+# strong as the roster's ranking origin, or the lane reports a loss for the
+# reference solution itself.
+#
+# CURRENTLY UNSATISFIABLE, DELIBERATELY. The origin is now reference_policy_v2
+# (64.9% on the train surface); v1 measures 35.6% and lost to it by 29 points.
+# Pointing here at v2 makes oracle == origin, so the lane reports delta 0.0 --
+# an honest "no lift" rather than a wrong "the reference is worse than the
+# baseline". The lane stays red until a genuinely stronger policy exists; the
+# one-ply greedy ladder plateaus around 65%, so that needs a better design, not
+# a tuned copy. Do NOT resolve this by weakening the origin back to v1: an
+# incompetent origin makes every candidate look good and the benchmark stops
+# measuring anything.
+REFERENCE_POLICY = POKEMON / "candidates" / "reference" / "reference_policy_v2.rs"
 REFERENCE_DECK = POKEMON / "decks" / "gardevoir_delta_control.json"
 CARDS = POKEMON / "cards"
 SEALED = Path(os.environ.get("CARDBENCH_SEALED_ROOT", CARDS / ".sealed"))

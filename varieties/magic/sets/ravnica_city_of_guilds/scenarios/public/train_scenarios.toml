@@ -607,7 +607,7 @@ zone = "library"
 [[scenario.mana]]
 player = 0
 color = "blue"
-amount = 1
+amount = 2
 
 [[scenario.action]]
 kind = "cast"
@@ -691,7 +691,7 @@ digest = "fnv1a64:c8d601a41abb5ac1"
 [[scenario]]
 id = "rav_dryads_caress_life"
 seed = 0
-description = "Count the controller's creature cards in graveyard for life, then return the targeted creature card."
+description = "Count battlefield creatures for life; a green-only payment does not grant the white-spend untap."
 
 [[scenario.card]]
 label = "caress"
@@ -703,13 +703,13 @@ zone = "hand"
 label = "returned"
 owner = 0
 definition = "RAV-WATCHWOLF"
-zone = "graveyard"
+zone = "battlefield"
 
 [[scenario.card]]
 label = "other_creature"
 owner = 0
 definition = "RAV-GOLGARI-BROWNSCALE"
-zone = "graveyard"
+zone = "battlefield"
 
 [[scenario.card]]
 label = "noncreature"
@@ -720,13 +720,13 @@ zone = "graveyard"
 [[scenario.mana]]
 player = 0
 color = "green"
-amount = 5
+amount = 6
 
 [[scenario.action]]
 kind = "cast"
 player = 0
 card = "caress"
-targets = ["permanent:returned"]
+mana_spend = ["generic:green", "generic:green", "generic:green", "generic:green"]
 
 [[scenario.action]]
 kind = "pass"
@@ -738,9 +738,9 @@ player = 1
 
 [scenario.expected]
 life = [22, 20]
-zones = ["caress:graveyard", "returned:hand", "other_creature:graveyard", "noncreature:graveyard"]
+zones = ["caress:graveyard", "returned:battlefield", "other_creature:battlefield", "noncreature:graveyard"]
 event_markers = ["LifeGained", "SpellResolved"]
-digest = "fnv1a64:913ef45634bdb5c0"
+digest = "fnv1a64:6f60f297263a6d22"
 
 [[scenario]]
 id = "rav_fiery_conclusion_sacrifice_damage"
@@ -1188,7 +1188,7 @@ zone = "battlefield"
 [[scenario.mana]]
 player = 0
 color = "black"
-amount = 1
+amount = 2
 
 [[scenario.action]]
 kind = "cast"
@@ -1604,7 +1604,7 @@ digest = "fnv1a64:d55b48973736e61d"
 [[scenario]]
 id = "rav_root_kin_ally_convoke_cast"
 seed = 0
-description = "Convoke Root-Kin Ally with two Green contributions and one generic contribution, then resolve the supported 3/3 creature. Its contributor-only enter-the-battlefield counter trigger is covered by a focused Rust contract."
+description = "Convoke Root-Kin Ally with two Green contributions and one generic contribution, then resolve the supported 3/3 creature. Its printed tap-two-creatures activation is covered by a focused Rust contract."
 
 [[scenario.card]]
 label = "ally"
@@ -1633,7 +1633,7 @@ zone = "battlefield"
 [[scenario.mana]]
 player = 0
 color = "red"
-amount = 1
+amount = 3
 
 [[scenario.action]]
 kind = "cast"
@@ -3843,7 +3843,7 @@ zone = "hand"
 [[scenario.mana]]
 player = 0
 color = "green"
-amount = 7
+amount = 8
 
 [[scenario.action]]
 kind = "cast"
@@ -7524,7 +7524,7 @@ zone = "hand"
 [[scenario.mana]]
 player = 0
 color = "black"
-amount = 1
+amount = 2
 
 [[scenario.action]]
 kind = "cast"
@@ -9991,6 +9991,12 @@ owner = 0
 definition = "RAV-PUTREFY"
 zone = "hand"
 
+[[scenario.card]]
+label = "forest3"
+owner = 0
+definition = "RAV-FOREST"
+zone = "battlefield"
+
 [[scenario.action]]
 kind = "begin_game"
 player = 0
@@ -10045,6 +10051,12 @@ card = "swamp"
 color = "black"
 
 [[scenario.action]]
+kind = "activate_mana_ability"
+player = 0
+card = "forest3"
+color = "green"
+
+[[scenario.action]]
 kind = "cast"
 player = 0
 card = "putrefy"
@@ -10066,7 +10078,7 @@ priority = 0
 mana = ["0:green:0", "0:black:0"]
 event_markers = ["RegenerationShieldCreated", "SpellCast", "CardDestroyed", "AbilityResolved", "SpellResolved"]
 event_absent = ["RegenerationShieldUsed"]
-digest = "fnv1a64:8e2aa574113519a9"
+digest = "fnv1a64:3a3127a26735cf8a"
 
 [[scenario]]
 id = "rav_golgari_rotwurm_creature_sacrifice_life_loss"
@@ -11533,7 +11545,7 @@ zone = "graveyard"
 [[scenario.mana]]
 player = 0
 color = "green"
-amount = 3
+amount = 2
 
 [[scenario.action]]
 kind = "cast"

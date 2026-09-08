@@ -53,6 +53,10 @@ fn ability(
 }
 
 fn fixture() -> Game {
+    fixture_with_source_return(false)
+}
+
+fn fixture_with_source_return(return_source: bool) -> Game {
     let mut game = Game::new_with_all_bindings(
         [
             creature(SOURCE),
@@ -104,8 +108,8 @@ fn fixture() -> Game {
                 counter: CounterKind::Charge,
                 amount: 2,
             }],
-            return_source_to_hand: false,
-            return_controlled_permanents: 1,
+            return_source_to_hand: return_source,
+            return_controlled_permanents: u8::from(!return_source),
             detach_source_equipment: false,
             put_hand_cards_on_library_top: 0,
             exile_controller_graveyard_creature_cards: 0,
@@ -140,6 +144,54 @@ fn activate_seed(game: &mut Game, source: ObjectId, target: ObjectId) {
     )
     .expect("seed ability stacks");
     pass_pair(game);
+}
+
+#[test]
+fn commander_activation_replacement_preserves_costs_until_all_choices_are_collected() {
+    use cardbench_magic_engine::{DecisionKind, DecisionSelection};
+    for accept in [false, true] {
+        for return_source in [false, true] {
+            let mut game = fixture_with_source_return(return_source);
+            game.configure_commander_format(40, 21).unwrap();
+            let player = PlayerId(0);
+            let source = game.put_on_battlefield(player, SOURCE).unwrap();
+            let bearer = game.put_on_battlefield(player, COUNTER_BEARER).unwrap();
+            let returned = if return_source { source } else { game.put_on_battlefield(player, RETURNED).unwrap() };
+            game.designate_commander(player, returned).unwrap();
+            game.begin_game().unwrap();
+            activate_seed(&mut game, source, bearer);
+            game.add_mana_from_action(player, Color::Blue, 4).unwrap();
+            let pool = game.player(player).unwrap().mana_pool.clone();
+            let counters = game.object(bearer).unwrap().counters.clone();
+            let before = game.event_log.len();
+            game.activate_ability_with_generalized_costs(player, GeneralizedAbilityActivation {
+                activation: AbilityActivation { source, ability_id: "pay-everything",
+                    sacrifice_sources: vec![], additional_tap_creatures: vec![], discard_cards: vec![], targets: vec![] },
+                cost_payment: AbilityCostPayment { counter_sources: vec![bearer], return_permanents: vec![returned],
+                    chosen_x: Some(3), ..Default::default() },
+                mana_payment_selection: None,
+            }).unwrap();
+            let decision = game.view_for_player(player).unwrap().pending_decision.unwrap();
+            assert_eq!(decision.kind, DecisionKind::CommanderZoneReplacement);
+            assert_eq!(game.zone_of(returned), Some(Zone::Battlefield));
+            assert_eq!(game.player(player).unwrap().life, 40);
+            assert_eq!(game.player(player).unwrap().mana_pool, pool);
+            assert_eq!(game.object(bearer).unwrap().counters, counters);
+            assert!(game.stack.is_empty());
+            assert!(game.pass_priority(player).is_err());
+            game.submit_decision(player, decision.id,
+                DecisionSelection::Objects(if accept { vec![returned] } else { vec![] })).unwrap();
+            assert_eq!(game.zone_of(returned), Some(if accept { Zone::Command } else { Zone::Hand }));
+            assert_eq!(game.player(player).unwrap().life, 38);
+            assert_eq!(game.stack.len(), 1);
+            assert_eq!(game.event_log[before..].iter().filter(|event| matches!(event,
+                GameEvent::AbilityManaPaid { ability: "pay-everything", .. })).count(), 1);
+            pass_pair(&mut game);
+            assert_eq!(game.player(player).unwrap().life, 39);
+            assert!(game.submit_decision(player, decision.id, DecisionSelection::Objects(vec![])).is_err());
+            game.validate_invariants().unwrap();
+        }
+    }
 }
 
 #[test]

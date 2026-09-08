@@ -85,7 +85,10 @@ pub enum FormatCapability {
     Duel,
     /// Three or more seats, every seat its own team.
     FreeForAll,
+    /// The bounded M5 Commander fixture profile, not arbitrary legal EDH.
     Commander,
+    /// Full Commander rules and card coverage. Never infer this from M5.
+    CommanderEdh,
     TwoHeadedGiant,
     BoosterDraft,
 }
@@ -144,16 +147,17 @@ impl ProtocolCapabilities {
                 // zone, commander tax, 21 commander damage, shared team life,
                 // and the shared team turn against four-seat fixtures.
                 (FormatCapability::Commander, SupportLevel::Supported),
+                // CommanderEdh remains omitted (format() fails closed to
+                // Absent), preserving the existing v1 wire manifest keys.
                 (FormatCapability::TwoHeadedGiant, SupportLevel::Supported),
                 (FormatCapability::BoosterDraft, SupportLevel::Absent),
             ]
             .into_iter()
             .collect(),
             features: [
-                // The engine records a defender per attacker, but rejects a
-                // combat whose attackers name different defenders, because
-                // blockers are still declared once by one authority. That is
-                // less than this capability promises, so it stays modelled.
+                // Native split-defender combat is implemented; keep this
+                // modelled until protocol projection and orchestration have
+                // their independent end-to-end conformance receipts.
                 (
                     FeatureCapability::ChosenAttackDefender,
                     SupportLevel::Modelled,

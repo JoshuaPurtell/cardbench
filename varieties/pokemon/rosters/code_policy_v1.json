@@ -58,7 +58,9 @@
     "provenance_note": "Heldout opponents lift JoshuaPurtell/engine-bench-tcg algo_bench results, which are public. Sealing covers the composition of the split - which policies, which decks, which cells, which seeds - not the secrecy of any individual source file. Receipts must not claim source-level secrecy. 8 of 11 upstream policies are used; 3 were dropped because they need behaviour-changing rewrites to compile against the current engine ABI rather than the mechanical port the builder applies.",
     "pairing": "ordered deck pairs: the candidate pilots candidate_deck, the opponent pilots opponent_deck; side is the seat"
   },
-  "baseline_policy": "candidates/reference/baseline_policy.rs",
+  "baseline_policy": "candidates/reference/reference_policy_v2.rs",
   "score_metric": "cell_win_rate_delta",
-  "reference_policy": "candidates/reference/reference_policy_v1.rs"
+  "reference_policy": "candidates/reference/reference_policy_v1.rs",
+  "baseline_policy_note": "The baseline is the RANKING ORIGIN: reward is candidate - baseline over identical cells, so an incompetent baseline makes every candidate look good and the benchmark measures nothing. reference_policy_v2 measures 64.9% cell win rate over this train surface and beats every train opponent; the previous origin, candidates/reference/baseline_policy.rs (TemplateAi), measured 28.9% and lost to all five. See docs/pokemon_code_policy_reference.md for the per-opponent table.",
+  "legacy_baseline_policy": "candidates/reference/baseline_policy.rs"
 }

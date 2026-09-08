@@ -131,6 +131,7 @@ fn leashling_cannot_return_a_source_that_left_before_its_ability_resolves() {
     let swamp = game
         .put_on_battlefield(PlayerId(1), "RAV-SWAMP")
         .expect("response mana setup");
+    let printed_cost_generic = game.put_on_battlefield(PlayerId(1), "RAV-SWAMP").unwrap();
     game.begin_game().expect("game starts");
 
     game.activate_ability_with_generalized_costs(
@@ -159,6 +160,7 @@ fn leashling_cannot_return_a_source_that_left_before_its_ability_resolves() {
         .expect("activating player gives the opponent priority");
     game.activate_mana_ability(PlayerId(1), swamp, Color::Black)
         .expect("response black mana");
+    game.activate_mana_ability(PlayerId(1), printed_cost_generic, Color::Black).unwrap();
     game.cast_spell(
         PlayerId(1),
         CastRequest {

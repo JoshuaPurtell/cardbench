@@ -22,14 +22,7 @@ fn lurking_informant_requires_target_player_top_library_may_graveyard_activation
     assert_eq!(informant.name, "Lurking Informant");
     assert_eq!(
         informant.mana_cost,
-        ManaCost::with_hybrid(
-            1,
-            BTreeSet::new(),
-            [HybridManaSymbol {
-                first: Color::Blue,
-                second: Color::Black,
-            }],
-        )
+        ManaCost::with_hybrid(1, [], [cardbench_magic_engine::HybridManaSymbol { first: Color::Blue, second: Color::Black }])
     );
     assert_eq!(
         informant.colors,

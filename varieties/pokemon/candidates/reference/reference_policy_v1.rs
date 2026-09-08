@@ -1,4 +1,19 @@
-// CardBench Pokemon code-policy reference solution.
+// CardBench Pokemon code-policy reference solution — SUPERSEDED, see below.
+//
+// !! STALE AS AN ORACLE. This file was the Harbor `verify` lane's reference
+// !! solution back when the ranking origin was `baseline_policy.rs` (28.9% cell
+// !! win rate). The origin is now `reference_policy_v2.rs` at 64.9%, and this
+// !! policy measures 35.6% — it LOSES to the origin by -0.293 (bootstrap CI
+// !! [-0.334, -0.251], `ci_below_zero`). `adapters/harbor/scripts/run_harbor.py`
+// !! still points `REFERENCE_POLICY` here, so the verify lane will now fail
+// !! until that pointer moves to a policy that actually beats the origin.
+// !! Two defects measured in this file, both fixed in v2:
+// !!   * `defender_remaining_hp` returns `hp - damage_counters`, but counters
+// !!     are worth 10 damage each, so the lethal check almost never fired.
+// !!   * it answers none of the search / discard / reorder prompts, so 16.5% of
+// !!     its games stalled and scored as non-wins.
+//
+// Original header follows.
 //
 // This is the policy the Harbor `verify` lane runs to prove the rig works: it
 // must beat candidates/reference/baseline_policy.rs (TemplateAi, ~29% cell win

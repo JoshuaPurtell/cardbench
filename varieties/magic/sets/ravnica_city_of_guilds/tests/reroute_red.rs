@@ -6,7 +6,7 @@
 
 use cardbench_magic_engine::{
     AbilityActivation, CardType, CastRequest, Color, DecisionKind, DecisionSelection, Game,
-    GameEvent, HybridManaSymbol, ManaCost, PlayerId, Step, Target, Zone,
+    GameEvent, ManaCost, PlayerId, Step, Target, Zone,
 };
 use cardbench_magic_rav::{
     RAV_FULL_FIDELITY_DEFINITION_IDS, card_definitions, rav_activated_ability_bindings,
@@ -26,14 +26,7 @@ fn reroute_is_a_full_fidelity_hybrid_instant() {
     let reroute = definition("RAV-REROUTE");
     assert_eq!(
         reroute.mana_cost,
-        ManaCost::with_hybrid(
-            0,
-            [],
-            [HybridManaSymbol {
-                first: Color::Blue,
-                second: Color::Red,
-            }],
-        )
+        ManaCost::with_colors(1, [Color::Red])
     );
     assert_eq!(
         reroute.card_types,
@@ -82,9 +75,10 @@ fn reroute_retargets_one_exact_lower_activated_stack_item_then_draws() {
     let drawn = game
         .add_card(PlayerId(0), "RAV-GLASS-GOLEM", Zone::Library)
         .expect("draw setup");
-    let island = game
-        .put_on_battlefield(PlayerId(0), "RAV-ISLAND")
+    let mountain = game
+        .put_on_battlefield(PlayerId(0), "RAV-MOUNTAIN")
         .expect("Reroute mana setup");
+    let generic_mountain = game.put_on_battlefield(PlayerId(0), "RAV-MOUNTAIN").unwrap();
     let first_rotwurm = game
         .put_on_battlefield(PlayerId(0), "RAV-GOLGARI-ROTWURM")
         .expect("first Rotwurm setup");
@@ -144,8 +138,9 @@ fn reroute_retargets_one_exact_lower_activated_stack_item_then_draws() {
                 && ability.targets == [Target::Player(PlayerId(0))])
     );
 
-    game.activate_mana_ability(PlayerId(0), island, Color::Blue)
-        .expect("blue mana ability");
+    game.activate_mana_ability(PlayerId(0), mountain, Color::Red)
+        .expect("red mana ability");
+    game.activate_mana_ability(PlayerId(0), generic_mountain, Color::Red).unwrap();
     game.cast_spell(
         PlayerId(0),
         CastRequest {

@@ -110,7 +110,7 @@ fn target_that_leaves_battlefield_counters_the_pending_spell_by_rules() {
     let victim = game
         .put_on_battlefield(PlayerId(1), "RAV-GOLGARI-BROWNSCALE")
         .expect("Brownscale is a targetable creature");
-    game.grant_mana(PlayerId(0), Color::Black, 1)
+    game.grant_mana(PlayerId(0), Color::Black, 2)
         .expect("Last Gasp mana");
     game.grant_mana(PlayerId(1), Color::Red, 3)
         .expect("Char mana");

@@ -192,6 +192,7 @@ fn necroplasm_sweep_uses_last_known_counter_value_after_source_departure() {
     let swamp = game
         .put_on_battlefield(PlayerId(0), "RAV-SWAMP")
         .expect("black mana source begins on battlefield");
+    let printed_cost_generic = game.put_on_battlefield(PlayerId(0), "RAV-SWAMP").unwrap();
     let last_gasp = game
         .add_card(PlayerId(0), "RAV-LAST-GASP", Zone::Hand)
         .expect("Last Gasp begins in hand");
@@ -224,6 +225,7 @@ fn necroplasm_sweep_uses_last_known_counter_value_after_source_departure() {
 
     game.activate_mana_ability(PlayerId(0), swamp, Color::Black)
         .expect("the controller can make black mana while the sweep is pending");
+    game.activate_mana_ability(PlayerId(0), printed_cost_generic, Color::Black).unwrap();
 
     game.cast_spell(
         PlayerId(0),

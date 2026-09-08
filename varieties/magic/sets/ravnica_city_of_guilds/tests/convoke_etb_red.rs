@@ -35,7 +35,7 @@ fn advance_to_precombat_main(game: &mut Game) {
 }
 
 #[test]
-fn conclave_phalanx_counts_only_its_controllers_white_creatures_at_etb_resolution() {
+fn conclave_phalanx_counts_its_controllers_creatures_of_every_color_at_etb_resolution() {
     let caster = PlayerId(0);
     let opponent = PlayerId(1);
     let mut game = game();
@@ -46,6 +46,7 @@ fn conclave_phalanx_counts_only_its_controllers_white_creatures_at_etb_resolutio
         .expect("white-green controller creature");
     game.put_on_battlefield(caster, "RAV-COURIER-HAWK")
         .expect("white controller creature");
+    game.put_on_battlefield(caster, "RAV-GOLGARI-BROWNSCALE").unwrap();
     game.put_on_battlefield(opponent, "RAV-COURIER-HAWK")
         .expect("opponent white creature");
     advance_to_precombat_main(&mut game);
@@ -70,9 +71,9 @@ fn conclave_phalanx_counts_only_its_controllers_white_creatures_at_etb_resolutio
     game.pass_priority(opponent).expect("opponent resolves ETB");
 
     println!("Conclave Phalanx red trace: {:?}", game.event_log);
-    assert_eq!(game.player(caster).expect("caster exists").life, 23);
+    assert_eq!(game.player(caster).expect("caster exists").life, 24);
     assert!(game.event_log.iter().any(|event| {
-        matches!(event, GameEvent::LifeGained { player, amount } if *player == caster && *amount == 3)
+        matches!(event, GameEvent::LifeGained { player, amount } if *player == caster && *amount == 4)
     }));
     assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&"RAV-CONCLAVE-PHALANX"));
     game.validate_invariants()
@@ -80,123 +81,40 @@ fn conclave_phalanx_counts_only_its_controllers_white_creatures_at_etb_resolutio
 }
 
 #[test]
-fn root_kin_ally_counters_exact_convoke_contributors_but_not_other_creatures() {
-    let caster = PlayerId(0);
-    let opponent = PlayerId(1);
+fn root_kin_convoke_does_not_invent_enter_the_battlefield_counters() {
     let mut game = game();
-    let ally = game
-        .add_card(caster, "RAV-ROOT-KIN-ALLY", Zone::Hand)
-        .expect("Root-Kin Ally exists");
-    let first = game
-        .put_on_battlefield(caster, "RAV-GOLGARI-BROWNSCALE")
-        .expect("first green contributor");
-    let second = game
-        .put_on_battlefield(caster, "RAV-GOLGARI-BROWNSCALE")
-        .expect("second green contributor");
-    let bystander = game
-        .put_on_battlefield(caster, "RAV-WATCHWOLF")
-        .expect("non-convoking bystander");
+    let ally = game.add_card(PlayerId(0), "RAV-ROOT-KIN-ALLY", Zone::Hand).unwrap();
+    let first = game.put_on_battlefield(PlayerId(0), "RAV-GOLGARI-BROWNSCALE").unwrap();
+    let second = game.put_on_battlefield(PlayerId(0), "RAV-GOLGARI-BROWNSCALE").unwrap();
     advance_to_precombat_main(&mut game);
-    game.add_mana_from_action(caster, Color::Green, 2)
-        .expect("colored Root-Kin mana is available");
-    game.clear_event_log();
-
-    game.cast_spell(
-        caster,
-        CastRequest {
-            card: ally,
-            targets: vec![],
-            convoke: vec![
-                ConvokePayment {
-                    creature: first,
-                    contribution: ConvokeContribution::Generic,
-                },
-                ConvokePayment {
-                    creature: second,
-                    contribution: ConvokeContribution::Generic,
-                },
-            ],
-            payment_mana_abilities: vec![],
-        },
-    )
-    .expect("Root-Kin Ally casts through two contributors");
-    game.pass_priority(caster).expect("caster passes spell");
-    game.pass_priority(opponent)
-        .expect("opponent passes spell and stacks ETB");
-    game.pass_priority(caster).expect("caster passes ETB");
-    game.pass_priority(opponent).expect("opponent resolves ETB");
-
-    println!("Root-Kin Ally red trace: {:?}", game.event_log);
-    assert_eq!(
-        game.object(first)
-            .expect("first contributor remains")
-            .counters
-            .get(&cardbench_magic_engine::CounterKind::PlusOnePlusOne),
-        Some(&1)
-    );
-    assert_eq!(
-        game.object(second)
-            .expect("second contributor remains")
-            .counters
-            .get(&cardbench_magic_engine::CounterKind::PlusOnePlusOne),
-        Some(&1)
-    );
-    assert!(
-        game.object(bystander)
-            .expect("bystander remains")
-            .counters
-            .is_empty(),
-        "only creatures that actually convoked Root-Kin Ally receive counters"
-    );
-    assert!(RAV_FULL_FIDELITY_DEFINITION_IDS.contains(&"RAV-ROOT-KIN-ALLY"));
-    game.validate_invariants()
-        .expect("Root-Kin Ally ETB stays invariant-valid");
+    game.add_mana_from_action(PlayerId(0), Color::Green, 4).unwrap();
+    game.cast_spell(PlayerId(0), CastRequest { card: ally, targets: vec![],
+        convoke: [first, second].into_iter().map(|creature| ConvokePayment {
+            creature, contribution: ConvokeContribution::Generic }).collect(),
+        payment_mana_abilities: vec![] }).unwrap();
+    game.pass_priority(PlayerId(0)).unwrap();
+    game.pass_priority(PlayerId(1)).unwrap();
+    assert!(game.stack.is_empty());
+    for card in [first, second, ally] { assert!(game.object(card).unwrap().counters.is_empty()); }
+    game.validate_invariants().unwrap();
 }
 
 #[test]
-fn root_kin_ally_etb_resolves_without_fabricating_a_convoke_contributor() {
-    let caster = PlayerId(0);
-    let opponent = PlayerId(1);
+fn root_kin_taps_two_controlled_creatures_for_temporary_plus_two() {
+    use cardbench_magic_engine::AbilityActivation;
     let mut game = game();
-    let ally = game
-        .add_card(caster, "RAV-ROOT-KIN-ALLY", Zone::Hand)
-        .expect("Root-Kin Ally exists");
-    let bystander = game
-        .put_on_battlefield(caster, "RAV-WATCHWOLF")
-        .expect("ordinary noncontributing creature");
+    let ally = game.put_on_battlefield(PlayerId(0), "RAV-ROOT-KIN-ALLY").unwrap();
+    let first = game.put_on_battlefield(PlayerId(0), "RAV-GOLGARI-BROWNSCALE").unwrap();
+    let second = game.put_on_battlefield(PlayerId(0), "RAV-WATCHWOLF").unwrap();
     advance_to_precombat_main(&mut game);
-    game.add_mana_from_action(caster, Color::Green, 4)
-        .expect("full Root-Kin mana is available");
-    game.clear_event_log();
-
-    game.cast_spell(
-        caster,
-        CastRequest {
-            card: ally,
-            targets: vec![],
-            convoke: vec![],
-            payment_mana_abilities: vec![],
-        },
-    )
-    .expect("Root-Kin casts without Convoke");
-    game.pass_priority(caster).expect("caster passes spell");
-    game.pass_priority(opponent)
-        .expect("opponent passes spell and stacks the empty ETB");
-    game.pass_priority(caster).expect("caster passes empty ETB");
-    game.pass_priority(opponent)
-        .expect("opponent resolves empty ETB without a fabricated contributor");
-
-    println!("Root-Kin Ally no-Convoke trace: {:?}", game.event_log);
-    assert!(
-        game.object(bystander)
-            .expect("bystander remains")
-            .counters
-            .is_empty()
-    );
-    assert!(game.event_log.iter().any(|event| {
-        matches!(event, GameEvent::AbilityResolved { ability, .. }
-            if *ability == "etb-counter-exact-convoke-contributors")
-    }));
-    game.validate_invariants()
-        .expect("empty Convoke provenance stays invariant-valid");
+    game.activate_ability(PlayerId(0), AbilityActivation { source: ally,
+        ability_id: "tap-two-creatures-pump-self", sacrifice_sources: vec![],
+        additional_tap_creatures: vec![first, second], discard_cards: vec![], targets: vec![] }).unwrap();
+    assert!(game.object(first).unwrap().tapped && game.object(second).unwrap().tapped);
+    assert_eq!(game.characteristics(ally).unwrap().power, Some(3));
+    game.pass_priority(PlayerId(0)).unwrap();
+    game.pass_priority(PlayerId(1)).unwrap();
+    assert_eq!(game.characteristics(ally).unwrap().power, Some(5));
+    assert!(game.object(ally).unwrap().counters.is_empty());
+    game.validate_invariants().unwrap();
 }

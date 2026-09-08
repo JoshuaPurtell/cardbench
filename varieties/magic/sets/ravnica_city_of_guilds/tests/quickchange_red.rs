@@ -12,7 +12,7 @@ fn quickchange_requires_target_color_replacement_and_controller_draw() {
 
     assert_eq!(
         definition.mana_cost,
-        ManaCost::with_colors(0, [Color::Blue])
+        ManaCost::with_colors(1, [Color::Blue])
     );
     assert_eq!(
         definition.card_types,

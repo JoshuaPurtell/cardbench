@@ -106,8 +106,7 @@ fn capability_manifest_claims_only_what_is_implemented() {
     assert_eq!(
         capabilities.feature(FeatureCapability::ChosenAttackDefender),
         SupportLevel::Modelled,
-        "the engine records a defender per attacker but rejects a combat that \
-         splits across defenders, which is less than this capability promises"
+        "native split combat still needs protocol projection and orchestration authority"
     );
     assert_eq!(
         capabilities.feature(FeatureCapability::ExhaustiveLegalActions),

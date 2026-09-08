@@ -42,7 +42,7 @@ fn dark_heart_of_the_wood_requires_its_exact_enchantment_definition() {
         .expect("Dark Heart of the Wood definition exists");
 
     assert_eq!(heart.name, "Dark Heart of the Wood");
-    assert_eq!(heart.mana_cost, ManaCost::with_colors(0, [Color::Green]));
+    assert_eq!(heart.mana_cost, ManaCost::with_colors(0, [Color::Black, Color::Green]));
     assert_eq!(
         heart.card_types,
         [CardType::Enchantment].into_iter().collect()

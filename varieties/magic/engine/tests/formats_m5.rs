@@ -185,6 +185,17 @@ fn pass_living_players(game: &mut Game) {
             return;
         }
         let player = game.priority;
+        let owner = game.next_policy_player();
+        if let Some(decision) = game.view_for_player(owner).unwrap().pending_decision {
+            if decision.kind == cardbench_magic_engine::DecisionKind::CommanderReturn {
+                let cards = decision.candidates.iter().map(|card| card.id).collect();
+                game.submit_policy_move(owner, POLICY, PolicyAction::SubmitDecision {
+                    decision: decision.id,
+                    selection: cardbench_magic_engine::DecisionSelection::Objects(cards),
+                }).expect("fixture owner elects command-zone return");
+                return;
+            }
+        }
         game.submit_policy_move(player, POLICY, PolicyAction::PassPriority)
             .expect("each living player may pass once");
     }
@@ -862,7 +873,7 @@ fn only_the_owner_casts_its_commander_from_the_command_zone() {
 /// CR 903.9a: a commander that would die goes to the command zone instead, and
 /// its next cast is taxed.
 #[test]
-fn a_dying_commander_is_replaced_into_the_command_zone() {
+fn a_dying_commander_may_return_to_the_command_zone_after_dying() {
     let mut game = commander_game();
     let agrus = designate_on_battlefield(&mut game, PlayerId(1), AGRUS);
     let wall = game
@@ -897,7 +908,7 @@ fn a_dying_commander_is_replaced_into_the_command_zone() {
     assert_eq!(
         game.zone_of(agrus),
         Some(Zone::Command),
-        "a commander that would die goes to the command zone instead"
+        "the owner elected to return the commander after it died"
     );
     assert_eq!(
         game.command_zone(PlayerId(1)),
