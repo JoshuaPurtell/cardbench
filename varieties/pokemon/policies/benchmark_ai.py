@@ -538,11 +538,17 @@ fn run_match_series(
     for match_num in 0..num_matches {{
         stats.attempted += 1;
         let seed = seed_base + match_num as u64;
+        let rules = match std::env::var("CARDBENCH_POKEMON_FORMAT").as_deref() {{
+            Ok("limited-40") => RulesetConfig::limited_40(),
+            Ok("") | Err(_) => RulesetConfig::default(),
+            Ok(other) => panic!("unsupported CARDBENCH_POKEMON_FORMAT: {{}}", other),
+        }};
+        let prize_cards = rules.prize_cards_per_player();
         let game = GameState::new_with_card_meta(
             deck1.to_vec(),
             deck2.to_vec(),
             seed,
-            RulesetConfig::default(),
+            rules,
             card_meta.clone(),
         );
 
@@ -558,8 +564,8 @@ fn run_match_series(
             let p1_view = game.view_for_player(PlayerId::P1);
             let p1_prizes_remaining = p1_view.my_prizes_count as u8;
             let p2_prizes_remaining = p1_view.opponent_prizes_count as u8;
-            let p1_prizes_taken = 6u8.saturating_sub(p1_prizes_remaining);
-            let p2_prizes_taken = 6u8.saturating_sub(p2_prizes_remaining);
+            let p1_prizes_taken = prize_cards.saturating_sub(p1_prizes_remaining);
+            let p2_prizes_taken = prize_cards.saturating_sub(p2_prizes_remaining);
             let turns = game.turn.number;
             let tracked_cards_drawn = game
                 .event_log
