@@ -7,6 +7,30 @@ commit = "17a59455d6a7e13fc4e1bcc9a32809800196ec2b"
 target = "varieties/pokemon/engine"
 notes = "Public EX folder contract, E2 engine semantics, and per-set create_hooks_for composition."
 
+# Versioned Pokemon engine lanes are append-only. The default/frozen lane above
+# remains byte-pinned for existing CG100 and draft-build-play-v2 evidence. New
+# expansion work selects an explicit lane rather than repinning that workspace.
+[[pokemon_engine_lane]]
+id = "pokemon-ex-v1-frozen"
+status = "frozen_qualified"
+remote = "https://github.com/JoshuaPurtell/setbench-engine-core.git"
+commit = "17a59455d6a7e13fc4e1bcc9a32809800196ec2b"
+vendored_path = "varieties/pokemon/engine"
+tcg_core_tree = "5bc02a7d338b31757b4fd48861f0ab9c589692bd"
+tcg_rules_ex_tree = "58959f5f074bcf5bb5cf523fe0206e5f50516610"
+consumers = ["crystal_guardians_v1", "draft_build_play_v2"]
+
+[[pokemon_engine_lane]]
+id = "pokemon-ex-power-keepers-v1"
+status = "qualified_candidate"
+remote = "https://github.com/JoshuaPurtell/setbench-engine-core.git"
+commit = "6e135b69f9adcc5ad21bc3b4ef733e762c7cc275"
+tcg_core_tree = "5002b706e778a852313575fafb7583c630a81ccf"
+tcg_rules_ex_tree = "58959f5f074bcf5bb5cf523fe0206e5f50516610"
+scaffold_tree = "758dac5b2177518447fd40b58d610db9706eded8"
+consumers = ["power_keepers_v1"]
+notes = "Generic engine primitives only. Expansion implementations and evaluator authority are not distributed in CardBench."
+
 [[source]]
 name = "setbench"
 remote = "https://github.com/JoshuaPurtell/setbench.git"

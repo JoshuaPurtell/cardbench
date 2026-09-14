@@ -62,6 +62,7 @@ the score.
 ## Layout
 
 - `varieties/pokemon/engine/` — pinned shared Rust engine
+- `engine_pins.toml` — append-only, versioned Pokemon engine lanes; see `docs/pokemon_engine_lanes.md`
 - `varieties/pokemon/cards/` — single-card specs, public stubs, and sealed hashes
 - `varieties/pokemon/sets/` — expansion manifests and legacy public reference kits; fresh heldout authority stays sealed
 - `varieties/pokemon/policies/` — stable policy ABI and reference policies
