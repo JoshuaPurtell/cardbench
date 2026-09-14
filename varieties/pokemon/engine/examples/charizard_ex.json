@@ -1,0 +1,23 @@
+{
+  "set": "CG",
+  "number": "100/100",
+  "name": "Charizard ex",
+  "supertype": "Pokemon",
+  "tags": ["PokemonEx"],
+  "stage": "Stage2",
+  "evolves_from": "Charmeleon",
+  "hp": 150,
+  "types": ["Fire"],
+  "weakness": [{"type": "Water", "value": "x2"}],
+  "resistance": [],
+  "retreat": 3,
+  "attacks": [
+    {
+      "name": "Flame Tail",
+      "cost": ["Fire", "Colorless", "Colorless"],
+      "damage": 50,
+      "effect_ast": {}
+    }
+  ],
+  "powers": []
+}

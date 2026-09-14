@@ -1,5 +1,5 @@
 use jsonschema::{Draft, JSONSchema};
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 use serde_json::Value;
 use thiserror::Error;
 
@@ -104,7 +104,25 @@ pub fn compile_card(conn: &Connection, card_json: &Value) -> Result<String, Card
             ?1, ?2, ?3, ?4, ?5, ?6, ?7,
             ?8, ?9, ?10, ?11, ?12, ?13, ?14,
             ?15, ?16, ?17, ?18
-        )",
+        )
+        ON CONFLICT(card_def_id) DO UPDATE SET
+            set_id = excluded.set_id,
+            number = excluded.number,
+            name = excluded.name,
+            supertype = excluded.supertype,
+            subtypes_json = excluded.subtypes_json,
+            tags_json = excluded.tags_json,
+            stage = excluded.stage,
+            evolves_from = excluded.evolves_from,
+            hp = excluded.hp,
+            types_json = excluded.types_json,
+            weakness_json = excluded.weakness_json,
+            resist_json = excluded.resist_json,
+            retreat_cost = excluded.retreat_cost,
+            trainer_kind = excluded.trainer_kind,
+            energy_kind = excluded.energy_kind,
+            script_kind = excluded.script_kind,
+            script_payload = excluded.script_payload",
         params![
             card_def_id,
             set_id,
@@ -125,6 +143,11 @@ pub fn compile_card(conn: &Connection, card_json: &Value) -> Result<String, Card
             "Dsl",
             script_payload
         ],
+    )?;
+
+    conn.execute(
+        "DELETE FROM attacks WHERE card_def_id = ?1",
+        params![card_def_id],
     )?;
 
     if supertype == "Pokemon" {
@@ -160,6 +183,10 @@ pub fn compile_card(conn: &Connection, card_json: &Value) -> Result<String, Card
             }
         }
         if let Some(powers) = card_json.get("powers").and_then(Value::as_array) {
+            conn.execute(
+                "DELETE FROM powers WHERE card_def_id = ?1",
+                params![card_def_id],
+            )?;
             for (idx, power) in powers.iter().enumerate() {
                 let kind = power
                     .get("kind")
@@ -178,6 +205,11 @@ pub fn compile_card(conn: &Connection, card_json: &Value) -> Result<String, Card
                 )?;
             }
         }
+    } else {
+        conn.execute(
+            "DELETE FROM powers WHERE card_def_id = ?1",
+            params![card_def_id],
+        )?;
     }
 
     Ok(card_def_id)

@@ -1,0 +1,8 @@
+{
+  "set": "DF",
+  "number": "87/101",
+  "name": "Professor Cozmo's Discovery",
+  "supertype": "Trainer",
+  "trainer_kind": "Supporter",
+  "effect_ast": { "op": "DrawCards", "count": 3 }
+}

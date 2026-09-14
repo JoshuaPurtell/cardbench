@@ -1,0 +1,12 @@
+{
+  "set": "TEST",
+  "number": "3",
+  "name": "Draw Trainer",
+  "supertype": "Trainer",
+  "trainer_kind": "Item",
+  "effect_ast": {
+    "op": "DrawCards",
+    "player": "Current",
+    "count": 3
+  }
+}

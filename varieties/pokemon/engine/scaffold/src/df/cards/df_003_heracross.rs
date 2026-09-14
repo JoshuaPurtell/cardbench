@@ -10,8 +10,8 @@
 //! ## Attack: Extra Claws - [F][M] - 30+
 //! If the Defending Pokemon is Pokemon-ex, this attack does 30 damage plus 20 more damage.
 
-use tcg_core::{CardInstanceId, GameState, Stage};
-use tcg_core::runtime_hooks::def_id_matches;
+use tcg_core::runtime_hooks::{def_id_matches, AttackOverrides};
+use tcg_core::{Attack, CardInstanceId, GameState, Stage};
 
 /// Card identifiers
 pub const SET: &str = "DF";
@@ -77,6 +77,37 @@ pub fn extra_claws_bonus(game: &GameState, defender_id: CardInstanceId) -> i32 {
     } else {
         0
     }
+}
+
+fn body_active(game: &GameState, pokemon_id: CardInstanceId) -> bool {
+    let Some(owner) = game.owner_for_pokemon(pokemon_id) else {
+        return false;
+    };
+    game.is_pokebody_active(owner, pokemon_id, false)
+}
+
+pub fn attack_overrides(
+    game: &GameState,
+    attack: &Attack,
+    attacker_id: CardInstanceId,
+    defender_id: CardInstanceId,
+) -> AttackOverrides {
+    let mut overrides = AttackOverrides::default();
+    if shining_horn_prevents_damage(
+        game,
+        attacker_id,
+        defender_id,
+        body_active(game, defender_id),
+    ) {
+        overrides.prevent_damage = true;
+    }
+    let Some(attacker) = game.current_player().find_pokemon(attacker_id) else {
+        return overrides;
+    };
+    if def_id_matches(&attacker.card.def_id, SET, NUMBER) && attack.name == "Extra Claws" {
+        overrides.pre_weakness_modifier += extra_claws_bonus(game, defender_id);
+    }
+    overrides
 }
 
 // ============================================================================

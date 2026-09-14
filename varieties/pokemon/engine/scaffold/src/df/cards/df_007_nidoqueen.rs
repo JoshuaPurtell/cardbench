@@ -14,7 +14,7 @@
 //! You can't add more than 60 damage in this way.
 
 use tcg_core::{CardInstanceId, GameState, PlayerId, Prompt, SelectionDestination};
-use crate::df::runtime::count_pokemon_in_discard;
+use crate::df::helpers::count_pokemon_in_discard;
 
 /// Card identifiers
 pub const SET: &str = "DF";
@@ -129,6 +129,26 @@ fn find_owner(game: &GameState, card_id: CardInstanceId) -> Option<(PlayerId, us
 // ============================================================================
 // Tests
 // ============================================================================
+
+
+use tcg_core::runtime_hooks::{def_id_matches, AttackOverrides};
+use tcg_core::Attack;
+
+pub fn attack_overrides(
+    game: &GameState,
+    attack: &Attack,
+    attacker_id: CardInstanceId,
+    _defender_id: CardInstanceId,
+) -> AttackOverrides {
+    let mut overrides = AttackOverrides::default();
+    let Some(attacker) = game.current_player().find_pokemon(attacker_id) else {
+        return overrides;
+    };
+    if def_id_matches(&attacker.card.def_id, SET, NUMBER) && attack.name == "Vengeance" {
+        overrides.pre_weakness_modifier += vengeance_bonus(game, attacker_id);
+    }
+    overrides
+}
 
 #[cfg(test)]
 mod tests {

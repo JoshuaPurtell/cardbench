@@ -1,0 +1,8 @@
+{
+  "set": "DF",
+  "number": "94/101",
+  "name": "Switch",
+  "supertype": "Trainer",
+  "trainer_kind": "Item",
+  "effect_ast": { "op": "SwitchActive" }
+}

@@ -1,0 +1,22 @@
+{
+  "set": "DF",
+  "number": "108/101",
+  "name": "Torchic Star",
+  "supertype": "Pokemon",
+  "tags": ["PokemonStar"],
+  "stage": "Basic",
+  "hp": 70,
+  "types": ["Fire"],
+  "weakness": [{"type": "Water", "value": "x2"}],
+  "resistance": [],
+  "retreat": 1,
+  "attacks": [
+    {
+      "name": "Star Peck",
+      "cost": ["Colorless"],
+      "damage": 20,
+      "effect_ast": {}
+    }
+  ],
+  "powers": []
+}

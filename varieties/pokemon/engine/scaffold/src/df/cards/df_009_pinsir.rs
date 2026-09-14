@@ -8,8 +8,8 @@
 //! damage done to Pinsir by attacks is reduced by 30 (after applying
 //! Weakness and Resistance).
 
-use tcg_core::{CardInstanceId, GameState};
-use tcg_core::runtime_hooks::def_id_matches;
+use tcg_core::runtime_hooks::{def_id_matches, AttackOverrides};
+use tcg_core::{Attack, CardInstanceId, GameState};
 
 /// Card identifiers
 pub const SET: &str = "DF";
@@ -52,6 +52,25 @@ pub fn armor_damage_reduction(
 // ============================================================================
 // Tests
 // ============================================================================
+
+
+
+use crate::df::helpers::body_active;
+
+pub fn attack_overrides(
+    game: &GameState,
+    _attack: &Attack,
+    _attacker_id: CardInstanceId,
+    defender_id: CardInstanceId,
+) -> AttackOverrides {
+    let mut overrides = AttackOverrides::default();
+    overrides.damage_modifier += armor_damage_reduction(
+        game,
+        defender_id,
+        body_active(game, defender_id),
+    );
+    overrides
+}
 
 #[cfg(test)]
 mod tests {

@@ -160,6 +160,7 @@ impl PokemonSelector {
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(default)]
 pub struct CardSelector {
     pub name: Option<String>,
     pub is_pokemon: Option<bool>,

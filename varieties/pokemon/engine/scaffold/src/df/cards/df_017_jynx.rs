@@ -17,6 +17,37 @@ pub const SET: &str = "DF";
 pub const NUMBER: u32 = 17;
 pub const NAME: &str = "Jynx δ";
 
+use tcg_core::{GameState, PokemonSelector, PokemonSlot, StatModifierEntry, StatModifierKind, Type};
+use crate::df::helpers::owner_for_source;
+
+
+pub fn apply_stages_of_evolution(game: &mut GameState, slot: &PokemonSlot) {
+    if !game.is_evolved(slot.card.id) {
+        return;
+    }
+    let owner = match owner_for_source(game, slot.card.id) {
+        Some(player) => player,
+        None => return,
+    };
+    let mut modifier = StatModifierEntry::new_amount(StatModifierKind::RetreatCost, -1);
+    modifier.source = Some(slot.card.id);
+    modifier.selector = Some(PokemonSelector {
+        owner: Some(owner),
+        type_any: vec![Type::Fire, Type::Psychic],
+        ..PokemonSelector::default()
+    });
+    game.add_stat_modifier(modifier);
+}
+
+
+use tcg_core::runtime_hooks::def_id_matches;
+
+pub fn register_triggers(game: &mut GameState, slot: &PokemonSlot) {
+    if def_id_matches(&slot.card.def_id, SET, NUMBER) {
+        apply_stages_of_evolution(game, slot);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

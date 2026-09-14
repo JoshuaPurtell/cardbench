@@ -52,6 +52,7 @@ impl Default for ContinuousTiming {
 pub enum Predicate {
     Always,
     Never,
+    StadiumOwnedBy { player: TargetPlayer },
 }
 
 fn default_continuous_effect() -> Box<EffectAst> {
@@ -162,6 +163,10 @@ pub enum EffectAst {
         max: Option<u32>,
         #[serde(default)]
         end_turn: bool,
+    },
+    AttachEnergyFromHand {
+        player: TargetPlayer,
+        count: u32,
     },
     DevolvePokemon {
         target: Target,
@@ -379,6 +384,97 @@ pub fn execute_effect_with_source(
     execute_effect_with_source_and_targets(game, effect, source_id, None)
 }
 
+/// Printed Weakness/Resistance for damage an effect does to an Active Pokémon. Inside an
+/// attack it uses that attack's types and overrides (so e.g. a "no Weakness" Poké-Body also
+/// covers effect damage); outside an attack it falls back to the source Pokémon.
+fn printed_weakness_resistance(
+    game: &GameState,
+    source_id: Option<CardInstanceId>,
+    target_id: CardInstanceId,
+    amount: u32,
+) -> u32 {
+    let slot = match game.slot_by_id(target_id) {
+        Some(slot) => slot,
+        None => return amount,
+    };
+    let attack = game.resolving_attack.clone().or_else(|| match &game.pending_attack {
+        Some(crate::game::PendingAttack::PreDamage { attacker_id, attack, .. }) => {
+            Some((*attacker_id, attack.clone()))
+        }
+        _ => None,
+    });
+    let (types, ignore_weakness, ignore_resistance) = match attack {
+        Some((attacker_id, attack)) => {
+            let overrides = crate::apply_attack_overrides(game, &attack, attacker_id, target_id);
+            (
+                game.weakness_types_for(attacker_id, &attack),
+                overrides.ignore_weakness,
+                overrides.ignore_resistance,
+            )
+        }
+        None => {
+            let types = match source_id {
+                Some(id) => {
+                    let effective = game.effective_types_for(id);
+                    if effective.len() >= 2 && game.type_override_for(id).is_none() {
+                        effective
+                    } else {
+                        game.slot_by_id(id)
+                            .and_then(|source| {
+                                source
+                                    .attacks
+                                    .first()
+                                    .map(|attack| game.attack_type_for(id, attack))
+                                    .or_else(|| source.types.first().copied())
+                            })
+                            .map(|type_| vec![type_])
+                            .unwrap_or_else(|| vec![Type::Colorless])
+                    }
+                }
+                None => vec![Type::Colorless],
+            };
+            let ignore_weakness = source_id.is_some_and(|id| game.ignore_weakness_for(id, target_id));
+            let ignore_resistance =
+                source_id.is_some_and(|id| game.ignore_resistance_for(id, target_id));
+            (types, ignore_weakness, ignore_resistance)
+        }
+    };
+    let mut damage = amount;
+    if !ignore_weakness {
+        if let Some(weakness) = slot.weakness {
+            if types.contains(&weakness.type_) {
+                damage = damage.saturating_mul(weakness.multiplier as u32);
+            }
+        }
+    }
+    if !ignore_resistance {
+        if let Some(resistance) = slot.resistance {
+            if types.contains(&resistance.type_) {
+                damage = damage.saturating_sub(resistance.value as u32);
+            }
+        }
+    }
+    damage
+}
+
+/// During an attack, a switch the attack's effects would force on a protected Active
+/// Pokémon does not happen.
+fn switch_prevented(game: &GameState, player: TargetPlayer) -> bool {
+    let attacker_id = match game.resolving_attack.as_ref() {
+        Some((attacker_id, _)) => *attacker_id,
+        None => return false,
+    };
+    let owner = match player {
+        TargetPlayer::Current => game.turn.player,
+        TargetPlayer::Opponent => other_player(game.turn.player),
+    };
+    let index = if owner == PlayerId::P1 { 0 } else { 1 };
+    game.players[index]
+        .active
+        .as_ref()
+        .is_some_and(|slot| game.prevents_attack_effects(attacker_id, slot.card.id))
+}
+
 pub fn execute_effect_with_source_and_targets(
     game: &mut GameState,
     effect: &EffectAst,
@@ -389,21 +485,34 @@ pub fn execute_effect_with_source_and_targets(
         EffectAst::NoOp => Ok(EffectOutcome::Applied),
         EffectAst::TextOnly { .. } => Ok(EffectOutcome::Applied),
         EffectAst::DealDamage { target, amount } => {
-            let counters = (*amount / 10) as u16;
             for target_id in resolve_target_ids(game, *target, selected_targets)? {
+                let mut damage = *amount;
+                let active = game.players.iter().any(|player| {
+                    player.active.as_ref().map(|slot| slot.card.id) == Some(target_id)
+                });
+                if active {
+                    damage = printed_weakness_resistance(game, source_id, target_id, damage);
+                }
+                let counters = (damage / 10) as u16;
                 let _ = game.place_damage_counters(target_id, counters, source_id, false);
             }
             Ok(EffectOutcome::Applied)
         }
         EffectAst::DealDamageIfDamaged { target, base, bonus } => {
             for target_id in resolve_target_ids(game, *target, selected_targets)? {
-                let mut total = *base;
+                let mut damage = *base;
                 if let Some(slot) = game.slot_by_id(target_id) {
                     if slot.damage_counters > 0 {
-                        total = total.saturating_add(*bonus);
+                        damage = damage.saturating_add(*bonus);
                     }
                 }
-                let counters = (total / 10) as u16;
+                let active = game.players.iter().any(|player| {
+                    player.active.as_ref().map(|slot| slot.card.id) == Some(target_id)
+                });
+                if active {
+                    damage = printed_weakness_resistance(game, source_id, target_id, damage);
+                }
+                let counters = (damage / 10) as u16;
                 let _ = game.place_damage_counters(target_id, counters, source_id, false);
             }
             Ok(EffectOutcome::Applied)
@@ -523,9 +632,16 @@ pub fn execute_effect_with_source_and_targets(
                 .and_then(|id| game.slot_by_id(id))
                 .map(|slot| slot.damage_counters as u32)
                 .unwrap_or(0);
-            let total = base.saturating_add(per_counter.saturating_mul(attacker_counters));
-            let counters = (total / 10) as u16;
+            let damage = base.saturating_add(per_counter.saturating_mul(attacker_counters));
             for target_id in resolve_target_ids(game, *target, selected_targets)? {
+                let mut applied = damage;
+                let active = game.players.iter().any(|player| {
+                    player.active.as_ref().map(|slot| slot.card.id) == Some(target_id)
+                });
+                if active {
+                    applied = printed_weakness_resistance(game, source_id, target_id, applied);
+                }
+                let counters = (applied / 10) as u16;
                 let _ = game.place_damage_counters(target_id, counters, source_id, false);
             }
             Ok(EffectOutcome::Applied)
@@ -554,8 +670,14 @@ pub fn execute_effect_with_source_and_targets(
                 if energy_count == 0 {
                     continue;
                 }
-                let total = per_energy.saturating_mul(energy_count);
-                let counters = (total / 10) as u16;
+                let mut applied = per_energy.saturating_mul(energy_count);
+                let active = game.players.iter().any(|player| {
+                    player.active.as_ref().map(|slot| slot.card.id) == Some(target_id)
+                });
+                if active {
+                    applied = printed_weakness_resistance(game, source_id, target_id, applied);
+                }
+                let counters = (applied / 10) as u16;
                 let _ = game.place_damage_counters(target_id, counters, source_id, false);
             }
             Ok(EffectOutcome::Applied)
@@ -770,8 +892,9 @@ pub fn execute_effect_with_source_and_targets(
             Ok(EffectOutcome::Applied)
         }
         EffectAst::PlaceDamageCounters { target, counters } => {
+            // Placing damage counters is not damage: damage prevention does not stop it.
             for target_id in resolve_target_ids(game, *target, selected_targets)? {
-                let _ = game.place_damage_counters(target_id, *counters as u16, source_id, false);
+                let _ = game.place_damage_counters(target_id, *counters as u16, source_id, true);
             }
             Ok(EffectOutcome::Applied)
         }
@@ -783,7 +906,7 @@ pub fn execute_effect_with_source_and_targets(
                     *base
                 };
                 if counters > 0 {
-                    let _ = game.place_damage_counters(target_id, counters as u16, source_id, false);
+                    let _ = game.place_damage_counters(target_id, counters as u16, source_id, true);
                 }
             }
             Ok(EffectOutcome::Applied)
@@ -841,6 +964,12 @@ pub fn execute_effect_with_source_and_targets(
                 .cloned()
                 .collect();
             if matching_cards.is_empty() {
+                // "Shuffle your deck afterward" holds even when nothing matches.
+                if *shuffle {
+                    let seed = game.rng.next_u64();
+                    let index = if player_id == PlayerId::P1 { 0 } else { 1 };
+                    game.players[index].shuffle_deck(seed);
+                }
                 return Ok(EffectOutcome::Applied);
             }
             let options: Vec<_> = matching_cards.iter().map(|card| card.id).collect();
@@ -949,6 +1078,38 @@ pub fn execute_effect_with_source_and_targets(
                 });
             Ok(EffectOutcome::Prompt(prompt))
         }
+        EffectAst::AttachEnergyFromHand { player, count } => {
+            let player_id = match player {
+                TargetPlayer::Current => game.turn.player,
+                TargetPlayer::Opponent => other_player(game.turn.player),
+            };
+            let index = match player_id {
+                PlayerId::P1 => 0,
+                PlayerId::P2 => 1,
+            };
+            let ids = game.players[index].hand.order();
+            let mut attached = 0;
+            for id in ids {
+                if attached >= *count as usize {
+                    break;
+                }
+                let Some(card) = game.players[index].hand.get(id).cloned() else { continue };
+                let meta = game.card_meta.get(&card.def_id);
+                if !meta.map(|m| m.is_energy).unwrap_or(false) {
+                    continue;
+                }
+                let Some(active_id) = game.players[index].active.as_ref().map(|slot| slot.card.id) else { continue };
+                if !crate::custom_abilities::can_attach_energy(game, player_id, id, active_id) {
+                    continue;
+                }
+                let Some(card) = game.players[index].hand.remove(id) else { continue };
+                if let Some(slot) = game.players[index].active.as_mut() {
+                    slot.attached_energy.push(card);
+                    attached += 1;
+                }
+            }
+            Ok(EffectOutcome::Applied)
+        }
         EffectAst::DevolvePokemon {
             target,
             heal_counters,
@@ -1042,7 +1203,7 @@ pub fn execute_effect_with_source_and_targets(
         }
         EffectAst::ApplySpecialCondition { target, condition } => {
             for target_id in resolve_target_ids(game, *target, selected_targets)? {
-                if game.holon_energy_gl_prevents_special_conditions(target_id) {
+                if (game.hooks().prevents_special_conditions)(game, target_id) {
                     continue;
                 }
                 let slot = match find_slot_mut(game, target_id) {
@@ -1403,6 +1564,10 @@ pub fn execute_effect_with_source_and_targets(
                         PlayerId::P1 => 0,
                         PlayerId::P2 => 1,
                     };
+                    game.pending_broadcast_events.push(crate::GameEvent::ToolDiscarded {
+                        player: tool.owner,
+                        tool_id: tool.id,
+                    });
                     game.players[owner_index].discard.add(tool);
                 }
             }
@@ -1427,6 +1592,9 @@ pub fn execute_effect_with_source_and_targets(
             Ok(EffectOutcome::Applied)
         }
         EffectAst::SwitchActive { player } => {
+            if switch_prevented(game, player.unwrap_or(TargetPlayer::Current)) {
+                return Ok(EffectOutcome::Applied);
+            }
             let clear_on_bench = game.rules.special_conditions_clear_on_bench();
             let target = match player.unwrap_or(TargetPlayer::Current) {
                 TargetPlayer::Current => game.current_player_mut(),
@@ -1447,6 +1615,9 @@ pub fn execute_effect_with_source_and_targets(
             Ok(EffectOutcome::Applied)
         }
         EffectAst::SwitchToTarget { player } => {
+            if switch_prevented(game, *player) {
+                return Ok(EffectOutcome::Applied);
+            }
             let target_id = match selected_targets {
                 Some(targets) if targets.len() == 1 => targets[0],
                 _ => return Err(EffectError::TargetNotFound),
@@ -1580,11 +1751,12 @@ pub fn execute_effect_with_source_and_targets(
                 return Ok(EffectOutcome::Applied);
             }
             options.sort_by_key(|id| id.value());
-            let prompt = Prompt::ChoosePokemonInPlay {
+            let prompt = Prompt::ChoosePokemonTargets {
                 player: player_id,
-                options,
                 min: *min as usize,
                 max: *max as usize,
+                valid_targets: options,
+                effect_description: String::new(),
             };
             game.set_pending_effect_prompt(prompt.clone(), player_id, effect.as_ref().clone(), source_id);
             Ok(EffectOutcome::Prompt(prompt))
@@ -1870,8 +2042,15 @@ pub fn execute_effect_with_source_and_targets(
             if power_name.is_empty() {
                 return Err(EffectError::UnimplementedEffect("CustomEffectMissingName"));
             }
+            let prompt_version = game.pending_prompt_version;
             if crate::execute_custom_power(game, &power_name, source_id) {
-                Ok(EffectOutcome::Applied)
+                // A custom effect that opened a prompt is still resolving.
+                Ok(match game.pending_prompt.as_ref() {
+                    Some(pending) if game.pending_prompt_version != prompt_version => {
+                        EffectOutcome::Prompt(pending.prompt.clone())
+                    }
+                    _ => EffectOutcome::Applied,
+                })
             } else {
                 Err(EffectError::UnimplementedEffect("CustomEffect"))
             }
@@ -1894,10 +2073,24 @@ pub fn execute_effect_with_source_and_targets(
             predicate,
             then_effect,
             else_effect,
-        } => match predicate {
-            Predicate::Always => execute_effect_with_source_and_targets(game, then_effect, source_id, selected_targets),
-            Predicate::Never => execute_effect_with_source_and_targets(game, else_effect, source_id, selected_targets),
-        },
+        } => {
+            let take = match predicate {
+                Predicate::Always => true,
+                Predicate::Never => false,
+                Predicate::StadiumOwnedBy { player } => {
+                    let want = match player {
+                        TargetPlayer::Current => game.turn.player,
+                        TargetPlayer::Opponent => other_player(game.turn.player),
+                    };
+                    game.stadium_in_play().map(|card| card.owner == want).unwrap_or(false)
+                }
+            };
+            if take {
+                execute_effect_with_source_and_targets(game, then_effect, source_id, selected_targets)
+            } else {
+                execute_effect_with_source_and_targets(game, else_effect, source_id, selected_targets)
+            }
+        }
         EffectAst::MoveAttachedEnergy {
             source,
             target_selector,
@@ -2050,6 +2243,12 @@ fn resolve_target_ids(
             ids.extend(targets.iter().copied());
         }
     }
+    // Attack effect prevention is decided per recipient (frozen groupa patch): a protected
+    // Pokémon is skipped, the attack's effects on everything else still happen.
+    if let Some((attacker_id, _)) = game.resolving_attack.as_ref() {
+        let attacker_id = *attacker_id;
+        ids.retain(|id| !game.prevents_attack_effects(attacker_id, *id));
+    }
     Ok(ids)
 }
 
@@ -2089,17 +2288,17 @@ mod tests {
         let mut deck2 = Vec::new();
         for i in 0..60 {
             deck1.push(CardInstance::new(
-                CardDefId::new(format!("CG-{i:03}")),
+                CardDefId::new(format!("TEST-A-{i:03}")),
                 PlayerId::P1,
             ));
             deck2.push(CardInstance::new(
-                CardDefId::new(format!("DF-{i:03}")),
+                CardDefId::new(format!("TEST-B-{i:03}")),
                 PlayerId::P2,
             ));
         }
         let mut game = GameState::new(deck1, deck2, 12345, RulesetConfig::default());
-        let active1 = CardInstance::new(CardDefId::new("CG-999"), PlayerId::P1);
-        let active2 = CardInstance::new(CardDefId::new("DF-999"), PlayerId::P2);
+        let active1 = CardInstance::new(CardDefId::new("TEST-A-999"), PlayerId::P1);
+        let active2 = CardInstance::new(CardDefId::new("TEST-B-999"), PlayerId::P2);
         game.players[0].active = Some(PokemonSlot::new(active1));
         game.players[1].active = Some(PokemonSlot::new(active2));
         game.turn.player = PlayerId::P1;
@@ -2153,7 +2352,7 @@ mod tests {
     fn test_effect_devolve_pokemon() {
         let mut card_meta = CardMetaMap::new();
         card_meta.insert(
-            CardDefId::new("CG-010"),
+            CardDefId::new("TEST-010"),
             CardMeta {
                 name: "Stage 1".to_string(),
                 is_basic: false,
@@ -2181,7 +2380,7 @@ mod tests {
             },
         );
         card_meta.insert(
-            CardDefId::new("CG-001"),
+            CardDefId::new("TEST-001"),
             CardMeta {
                 name: "Basic".to_string(),
                 is_basic: true,
@@ -2215,8 +2414,8 @@ mod tests {
             RulesetConfig::default(),
             card_meta,
         );
-        let basic = CardInstance::new(CardDefId::new("CG-001"), PlayerId::P1);
-        let mut stage1 = PokemonSlot::new(CardInstance::new(CardDefId::new("CG-010"), PlayerId::P1));
+        let basic = CardInstance::new(CardDefId::new("TEST-001"), PlayerId::P1);
+        let mut stage1 = PokemonSlot::new(CardInstance::new(CardDefId::new("TEST-010"), PlayerId::P1));
         stage1.stage = Stage::Stage1;
         stage1.damage_counters = 4;
         stage1.evolution_stack.push(basic.clone());
@@ -2421,7 +2620,7 @@ mod tests {
     #[test]
     fn test_switch_active_effect() {
         let mut game = setup_game_with_actives();
-        let bench_card = CardInstance::new(CardDefId::new("CG-998"), PlayerId::P1);
+        let bench_card = CardInstance::new(CardDefId::new("TEST-998"), PlayerId::P1);
         game.players[0].bench.push(PokemonSlot::new(bench_card.clone()));
         let active_before = game.players[0].active.as_ref().unwrap().card.id;
 

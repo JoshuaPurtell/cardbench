@@ -8,6 +8,10 @@ license = "MIT"
 [lib]
 path = "scaffold/src/lib.rs"
 
+[features]
+default = []
+cg_private = []
+
 [dependencies]
 serde_json = "1.0"
 rand_core = "0.6"

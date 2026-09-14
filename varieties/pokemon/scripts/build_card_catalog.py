@@ -45,7 +45,7 @@ def main() -> int:
         "schema_version": "cardbench.card-suite.v1",
         "suite_id": "pokemon-ex-era-single-card-v1",
         "task_id": "cardbench/pokemon/card",
-        "engine_pin": "9d2a9f33c48ec155b626e8858d330e72e73b17fb",
+        "engine_pin": "821680873a607ad6dfbac9749f15a7c7505ff822",
         "sealed_namespace": "pokemon/card",
         "instances": entries,
     }

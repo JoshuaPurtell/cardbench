@@ -11,7 +11,8 @@
 //! Does 30 damage plus 10 more damage for each Pokemon you have in play
 //! that has δ on its card.
 
-use tcg_core::{CardInstanceId, GameState, PlayerId};
+use tcg_core::runtime_hooks::{def_id_matches, AttackOverrides};
+use tcg_core::{Attack, CardInstanceId, GameState, PlayerId};
 
 /// Card identifiers
 pub const SET: &str = "DF";
@@ -59,6 +60,24 @@ fn count_delta_pokemon_in_play(game: &GameState, attacker_id: CardInstanceId) ->
 // ============================================================================
 // Tests
 // ============================================================================
+
+
+
+pub fn attack_overrides(
+    game: &GameState,
+    attack: &Attack,
+    attacker_id: CardInstanceId,
+    _defender_id: CardInstanceId,
+) -> AttackOverrides {
+    let mut overrides = AttackOverrides::default();
+    let Some(attacker) = game.current_player().find_pokemon(attacker_id) else {
+        return overrides;
+    };
+    if def_id_matches(&attacker.card.def_id, SET, NUMBER) && attack.name == "Delta Circle" {
+        overrides.pre_weakness_modifier += delta_circle_bonus(game, attacker_id);
+    }
+    overrides
+}
 
 #[cfg(test)]
 mod tests {

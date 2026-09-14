@@ -1,0 +1,8 @@
+{
+  "set": "DF",
+  "number": "101/101",
+  "name": "Metal Energy",
+  "supertype": "Energy",
+  "energy_kind": "Basic",
+  "provides": ["Metal"]
+}

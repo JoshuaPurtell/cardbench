@@ -1,0 +1,8 @@
+{
+  "set": "DF",
+  "number": "95/101",
+  "name": "Holon Ruins",
+  "supertype": "Trainer",
+  "trainer_kind": "Stadium",
+  "effect_ast": { "op": "ContinuousEffect" }
+}

@@ -23,7 +23,7 @@ use crate::modifiers::{
     resolve_stat_amount,
 };
 use crate::selectors::{CardSelector, PokemonSelector};
-use crate::{Action, ActionError, Attack, Stage};
+use crate::{Action, ActionError, Attack};
 use serde_json::Value;
 use crate::player::{PlayerState, PokemonSlot};
 use crate::zone::{CardInstance, Zone, ZoneKind, ZoneRef};
@@ -117,6 +117,12 @@ pub struct GameState {
     pub(crate) pending_effect_ast: Option<crate::EffectAst>,
     pub(crate) pending_effect_source_id: Option<crate::ids::CardInstanceId>,
     pub(crate) pending_attack: Option<PendingAttack>,
+    /// Attacker and attack being resolved. Attack effects read it for the attack's
+    /// Weakness/Resistance rules and for per-recipient effect prevention.
+    pub(crate) resolving_attack: Option<(crate::ids::CardInstanceId, Attack)>,
+    /// Version of the prompt the current action answers. That prompt is still set while its
+    /// arm runs; only a newer prompt should hold back finishing an attack or settling KOs.
+    pub(crate) answering_prompt_version: Option<u64>,
     pub(crate) pending_trainer: Option<CardInstance>,
     pub(crate) pending_retreat_to: Option<crate::ids::CardInstanceId>,
     pub(crate) setup_steps: [SetupStep; 2],
@@ -575,6 +581,8 @@ impl GameState {
             rng: ChaCha8Rng::seed_from_u64(seed),
             event_log: vec![GameEvent::GameStarted { seed }],
             pending_broadcast_events: Vec::new(),
+            resolving_attack: None,
+            answering_prompt_version: None,
             pending_prompt: None,
             pending_prompt_version: 0,
             pending_custom_effect_id: None,
@@ -943,8 +951,48 @@ impl GameState {
     }
 
     pub fn set_pending_prompt(&mut self, prompt: Prompt, for_player: PlayerId) {
+        let prompt = self.normalize_prompt(prompt);
         self.pending_prompt = Some(PendingPrompt { prompt, for_player });
         self.pending_prompt_version = self.pending_prompt_version.saturating_add(1);
+    }
+
+    /// Keep prompts answerable: a target prompt never asks for more targets than it
+    /// offers, and a search onto the Bench never asks for more cards than fit.
+    /// True when a prompt other than the one being answered is pending.
+    pub(crate) fn has_new_pending_prompt(&self) -> bool {
+        self.pending_prompt.is_some()
+            && self.answering_prompt_version != Some(self.pending_prompt_version)
+    }
+
+    fn normalize_prompt(&self, mut prompt: Prompt) -> Prompt {
+        match &mut prompt {
+            Prompt::ChoosePokemonTargets { min, max, valid_targets, .. } => {
+                *max = (*max).min(valid_targets.len());
+                *min = (*min).min(*max);
+            }
+            Prompt::ChoosePokemonInPlay { min, max, options, .. } => {
+                *max = (*max).min(options.len());
+                *min = (*min).min(*max);
+            }
+            Prompt::ChooseCardsFromDeck { player, count, min, max, destination, .. } => {
+                if matches!(destination, SelectionDestination::Bench) {
+                    let free = 5usize.saturating_sub(self.players[Self::player_index(*player)].bench.len());
+                    let cap = max.unwrap_or(*count).min(free);
+                    *count = (*count).min(free);
+                    *max = Some(cap);
+                    if let Some(required) = min.as_mut() {
+                        *required = (*required).min(cap);
+                    }
+                }
+            }
+            Prompt::ChooseCardsFromDiscard { count, max, options, .. } => {
+                let cap = options.len();
+                *max = Some(max.unwrap_or(*count).min(cap));
+                *count = (*count).min(cap);
+            }
+            _ => {}
+        }
+        prompt
     }
 
     pub fn pending_prompt_for(&self, player: PlayerId) -> Option<&Prompt> {
@@ -961,6 +1009,7 @@ impl GameState {
         effect_id: String,
         source_id: Option<crate::ids::CardInstanceId>,
     ) {
+        let prompt = self.normalize_prompt(prompt);
         self.pending_prompt = Some(PendingPrompt { prompt, for_player });
         self.pending_prompt_version = self.pending_prompt_version.saturating_add(1);
         self.pending_custom_effect_id = Some(effect_id);
@@ -974,6 +1023,7 @@ impl GameState {
         effect_ast: crate::EffectAst,
         source_id: Option<crate::ids::CardInstanceId>,
     ) {
+        let prompt = self.normalize_prompt(prompt);
         self.pending_prompt = Some(PendingPrompt { prompt, for_player });
         self.pending_prompt_version = self.pending_prompt_version.saturating_add(1);
         self.pending_effect_ast = Some(effect_ast);
@@ -1252,15 +1302,17 @@ impl GameState {
     }
 
     fn execute_triggered_effect(&mut self, effect: &TriggeredEffect) {
-        let power_name = effect
-            .event
-            .power_name()
-            .map(|name| name.to_string())
-            .or_else(|| power_name_from_effect_id(&effect.effect_id));
+        let power_name = power_name_from_effect_id(&effect.effect_id).or_else(|| {
+            effect.event.power_name().map(|name| name.to_string())
+        });
         let Some(power_name) = power_name else {
             return;
         };
-        let _ = crate::execute_custom_power(self, &power_name, effect.source_id);
+        let target_id = match &effect.event {
+            TriggerEvent::OnPowerActivated { source_id, .. } => *source_id,
+            _ => effect.source_id,
+        };
+        let _ = crate::execute_custom_power(self, &power_name, target_id);
     }
 
     pub fn register_triggers_for_all_in_play(&mut self) {
@@ -1598,22 +1650,17 @@ impl GameState {
             Some(slot) => slot,
             None => return false,
         };
+        let attached = slot.attached_energy.clone();
         let mut energy_types = Vec::new();
-        for energy in &slot.attached_energy {
+        for energy in &attached {
             let provides = self.energy_provides(energy);
-            let is_boost_energy =
-                crate::custom_abilities::def_id_matches(&energy.def_id, "DF", 87);
-            let is_scramble_energy =
-                crate::custom_abilities::def_id_matches(&energy.def_id, "DF", 89);
-            let mut units = crate::cg_engine::energy_units(slot, energy, &provides);
-            if is_boost_energy {
-                units = 3;
-            } else if is_scramble_energy {
-                let prize_diff = self.prize_diff_for(attacker_id);
-                if prize_diff > 0 && slot.stage != Stage::Basic && !slot.is_ex {
-                    units = 3;
-                }
+            let mut units = (self.hooks().energy_units)(self, attacker_id, energy, &provides);
+            // Printed special Energy that provides 2 Energy at a time is identified by the
+            // card's hooks().is_double_rainbow; the engine never names the card.
+            if (self.hooks().is_double_rainbow)(&energy.def_id) {
+                units = 2;
             }
+            units = (self.hooks().energy_units_override)(self, slot, energy, units);
             for _ in 0..units {
                 energy_types.push(provides.clone());
             }
@@ -1628,29 +1675,46 @@ impl GameState {
         if required_total < required_specific {
             return false;
         }
-        let mut used = vec![false; energy_types.len()];
-        for required in attack
+        // Bipartite matching (frozen Charizard patch): a flexible Energy must not
+        // greedily take the only unit a later typed requirement can use.
+        let requirements: Vec<crate::Type> = attack
             .cost
             .types
             .iter()
             .filter(|type_| **type_ != crate::Type::Colorless)
-        {
-            let mut matched = false;
-            for (idx, provides) in energy_types.iter().enumerate() {
-                if used[idx] {
+            .copied()
+            .collect();
+        fn augment(
+            requirement: usize,
+            requirements: &[crate::Type],
+            energy: &[Vec<crate::Type>],
+            assigned: &mut [Option<usize>],
+            seen: &mut [bool],
+        ) -> bool {
+            for index in 0..energy.len() {
+                if seen[index] || !energy[index].contains(&requirements[requirement]) {
                     continue;
                 }
-                if provides.contains(required) {
-                    used[idx] = true;
-                    matched = true;
-                    break;
+                seen[index] = true;
+                let free = match assigned[index] {
+                    None => true,
+                    Some(other) => augment(other, requirements, energy, assigned, seen),
+                };
+                if free {
+                    assigned[index] = Some(requirement);
+                    return true;
                 }
             }
-            if !matched {
+            false
+        }
+        let mut assigned: Vec<Option<usize>> = vec![None; energy_types.len()];
+        for requirement in 0..requirements.len() {
+            let mut seen = vec![false; energy_types.len()];
+            if !augment(requirement, &requirements, &energy_types, &mut assigned, &mut seen) {
                 return false;
             }
         }
-        let remaining_energy = used.iter().filter(|used| !**used).count();
+        let remaining_energy = assigned.iter().filter(|slot| slot.is_none()).count();
         let required_colorless = required_total - required_specific;
         remaining_energy >= required_colorless
     }
@@ -1700,34 +1764,44 @@ impl GameState {
             None => return 0,
         };
         let base = (slot.retreat_cost as i32 + self.retreat_cost_modifier(pokemon_id)).max(0);
-        if base > 0 && self.holon_energy_wp_reduces_retreat(slot) {
-            return 0;
-        }
-        base
+        (self.hooks().retreat_cost_override)(self, pokemon_id, base)
     }
 
-    pub fn discard_double_rainbow_if_basic(
-        &mut self,
-        pokemon_id: crate::ids::CardInstanceId,
-    ) -> bool {
-        let owner = match self.owner_for_pokemon(pokemon_id) {
-            Some(player) => player,
-            None => return false,
-        };
-        let owner_index = match owner {
-            PlayerId::P1 => 0,
-            PlayerId::P2 => 1,
-        };
-        let slot = match self.players[owner_index].find_pokemon_mut(pokemon_id) {
-            Some(slot) => slot,
-            None => return false,
-        };
-        let discarded = crate::cg_engine::discard_double_rainbow_if_basic(slot);
-        let removed_any = !discarded.is_empty();
-        for energy in discarded {
-            self.players[owner_index].discard.add(energy);
+    /// Discard the Pokémon Tool attached to `pokemon_id`, logging `ToolDiscarded`.
+    pub fn discard_attached_tool(&mut self, pokemon_id: crate::ids::CardInstanceId) -> bool {
+        let tool = self
+            .players
+            .iter_mut()
+            .find_map(|player| player.find_pokemon_mut(pokemon_id))
+            .and_then(|slot| slot.attached_tool.take());
+        match tool {
+            Some(tool) => {
+                self.pending_broadcast_events.push(GameEvent::ToolDiscarded {
+                    player: tool.owner,
+                    tool_id: tool.id,
+                });
+                let index = Self::player_index(tool.owner);
+                self.players[index].discard.add(tool);
+                true
+            }
+            None => false,
         }
-        removed_any
+    }
+
+    /// Discard the Stadium in play, logging `StadiumDiscarded`.
+    pub fn discard_stadium_in_play(&mut self) -> bool {
+        match self.stadium_in_play.take() {
+            Some(stadium) => {
+                self.pending_broadcast_events.push(GameEvent::StadiumDiscarded {
+                    player: stadium.owner,
+                    stadium_id: stadium.id,
+                });
+                let index = Self::player_index(stadium.owner);
+                self.players[index].discard.add(stadium);
+                true
+            }
+            None => false,
+        }
     }
 
     pub fn is_evolved(&self, pokemon_id: crate::ids::CardInstanceId) -> bool {
@@ -1767,7 +1841,9 @@ impl GameState {
             }
             (devolved, slot.card.id)
         };
-        self.discard_double_rainbow_if_basic(new_id);
+        // Attachments that depend on evolution state (e.g. Special Energy that needs an
+        // Evolved Pokémon) are re-checked by the card hooks, not by core.
+        crate::apply_tool_stadium_effects(self);
         self.players[owner_index].discard.add(devolved.clone());
         self.clear_triggers_for(devolved.id);
         self.clear_restrictions_for_source(devolved.id);
@@ -1801,6 +1877,12 @@ impl GameState {
         if options.is_empty() {
             return false;
         }
+        // Printed "search for N" cannot start when the pile has fewer than N matches.
+        if options.len() < min {
+            return false;
+        }
+        let max = max.min(options.len());
+        let count = count.min(options.len());
         self.pending_attach_from_discard = Some(PendingAttachFromDiscard {
             player,
             count,
@@ -1894,104 +1976,6 @@ impl GameState {
         true
     }
 
-    pub fn holon_energy_wp_prevents_attack_effects(
-        &self,
-        attacker_id: crate::ids::CardInstanceId,
-        defender_id: crate::ids::CardInstanceId,
-    ) -> bool {
-        let attacker_owner = match self.owner_for_pokemon(attacker_id) {
-            Some(owner) => owner,
-            None => return false,
-        };
-        let defender_owner = match self.owner_for_pokemon(defender_id) {
-            Some(owner) => owner,
-            None => return false,
-        };
-        if attacker_owner == defender_owner {
-            return false;
-        }
-        let slot = match self.slot_by_id(defender_id) {
-            Some(slot) => slot,
-            None => return false,
-        };
-        if slot.is_ex {
-            return false;
-        }
-        let has_holon_wp = slot.attached_energy.iter().any(|energy| {
-            self.card_meta
-                .get(&energy.def_id)
-                .map(|meta| meta.name == "Holon Energy WP")
-                .unwrap_or(false)
-        });
-        if !has_holon_wp {
-            return false;
-        }
-        slot.attached_energy.iter().any(|energy| {
-            self.card_meta
-                .get(&energy.def_id)
-                .map(|meta| {
-                    meta.energy_kind.as_deref() == Some("Basic")
-                        && meta.provides.contains(&crate::Type::Water)
-                })
-                .unwrap_or(false)
-        })
-    }
-
-    pub fn holon_energy_gl_prevents_special_conditions(
-        &self,
-        pokemon_id: crate::ids::CardInstanceId,
-    ) -> bool {
-        let slot = match self.slot_by_id(pokemon_id) {
-            Some(slot) => slot,
-            None => return false,
-        };
-        if slot.is_ex {
-            return false;
-        }
-        let has_holon_gl = slot.attached_energy.iter().any(|energy| {
-            self.card_meta
-                .get(&energy.def_id)
-                .map(|meta| meta.name == "Holon Energy GL")
-                .unwrap_or(false)
-        });
-        if !has_holon_gl {
-            return false;
-        }
-        slot.attached_energy.iter().any(|energy| {
-            self.card_meta
-                .get(&energy.def_id)
-                .map(|meta| {
-                    meta.energy_kind.as_deref() == Some("Basic")
-                        && meta.provides.contains(&crate::Type::Grass)
-                })
-                .unwrap_or(false)
-        })
-    }
-
-    fn holon_energy_wp_reduces_retreat(&self, slot: &PokemonSlot) -> bool {
-        if slot.is_ex {
-            return false;
-        }
-        let has_holon_wp = slot.attached_energy.iter().any(|energy| {
-            self.card_meta
-                .get(&energy.def_id)
-                .map(|meta| meta.name == "Holon Energy WP")
-                .unwrap_or(false)
-        });
-        if !has_holon_wp {
-            return false;
-        }
-        slot.attached_energy.iter().any(|energy| {
-            self.card_meta
-                .get(&energy.def_id)
-                .map(|meta| {
-                    meta.energy_kind.as_deref() == Some("Basic")
-                        && meta.provides.contains(&crate::Type::Psychic)
-                })
-                .unwrap_or(false)
-        })
-    }
-
     pub fn ignore_weakness_for(
         &self,
         attacker_id: crate::ids::CardInstanceId,
@@ -2072,13 +2056,7 @@ impl GameState {
         attacker_id: crate::ids::CardInstanceId,
         defender_id: crate::ids::CardInstanceId,
     ) -> bool {
-        if self.holon_energy_wp_prevents_attack_effects(attacker_id, defender_id) {
-            return true;
-        }
         if self.detect_prevents_damage(attacker_id, defender_id) {
-            return true;
-        }
-        if crate::cg_engine::prevents_attack_effects(self, attacker_id, defender_id) {
             return true;
         }
         if (self.hooks().prevents_attack_effects)(self, attacker_id, defender_id) {
@@ -2121,6 +2099,29 @@ impl GameState {
         }
         self.type_override_for(attacker_id)
             .unwrap_or(attack.attack_type)
+    }
+
+    /// Types used for Weakness and Resistance. An attack-type or type override wins;
+    /// otherwise a Pokémon with two or more types attacks as all of them.
+    pub fn weakness_types_for(
+        &self,
+        attacker_id: crate::ids::CardInstanceId,
+        attack: &Attack,
+    ) -> Vec<crate::Type> {
+        let single = self.attack_type_for(attacker_id, attack);
+        let overridden = self
+            .resolve_stat_type(StatModifierKind::AttackTypeOverride, attacker_id)
+            .is_some_and(|types| !types.is_empty())
+            || self.type_override_for(attacker_id).is_some();
+        if overridden {
+            return vec![single];
+        }
+        let types = self.effective_types_for(attacker_id);
+        if types.len() >= 2 {
+            types
+        } else {
+            vec![single]
+        }
     }
 
     pub fn effective_types_for(
@@ -2503,7 +2504,7 @@ impl GameState {
     fn tool_discard_timing(&self, tool: &CardInstance) -> Option<&str> {
         self.tool_effect(tool)
             .and_then(|effect| effect.get("discard").and_then(Value::as_str))
-            .or_else(|| crate::cg_engine::tool_discard_timing_override(&tool.def_id))
+            .or_else(|| (self.hooks().tool_discard_timing_override)(self, &tool.def_id))
     }
 
     fn apply_between_turns_effects(&mut self) {
@@ -2521,6 +2522,14 @@ impl GameState {
                 break;
             }
         }
+    }
+
+    fn settle_between_turns_custom_knockouts(&mut self) {
+        let outcomes =
+            crate::check_knockouts_all_with_cause(self, crate::KnockoutCause::BetweenTurns);
+        let mut events: Vec<GameEvent> = self.pending_broadcast_events.drain(..).collect();
+        events.extend(self.collect_knockout_events(&outcomes));
+        self.event_log.extend(events);
     }
 
     fn apply_between_turns_damage_entry(&mut self, player: PlayerId, amount: u16) {
@@ -2871,7 +2880,7 @@ impl GameState {
         if !meta.is_pokemon {
             return false;
         }
-        self.player_has_holon_veil(card.owner)
+        (self.hooks().treats_pokemon_as_delta)(self, card.owner)
     }
 
     pub fn pokemon_is_delta(&self, pokemon_id: crate::ids::CardInstanceId) -> bool {
@@ -2920,18 +2929,6 @@ impl GameState {
         };
         target_slot.damage_counters = target_slot.damage_counters.saturating_add(1);
         true
-    }
-
-    fn player_has_holon_veil(&self, player: PlayerId) -> bool {
-        let player_state = match player {
-            PlayerId::P1 => &self.players[0],
-            PlayerId::P2 => &self.players[1],
-        };
-        player_state
-            .active
-            .iter()
-            .chain(player_state.bench.iter())
-            .any(|slot| crate::custom_abilities::def_id_matches(&slot.card.def_id, "DF", 1))
     }
 
     pub fn slot_from_card(&self, card: CardInstance) -> PokemonSlot {
@@ -3154,6 +3151,10 @@ impl GameState {
         if options.is_empty() {
             return false;
         }
+        let required = min.unwrap_or(count);
+        if required > 0 && options.len() < required {
+            return false;
+        }
         let prompt = Prompt::ChooseCardsFromDiscard {
             player,
             count,
@@ -3289,7 +3290,11 @@ impl GameState {
             None => return false,
         };
         if let Some(evolves_from) = meta.evolves_from.as_ref() {
-            return target_meta.name == *evolves_from;
+            fn species(name: &str) -> String {
+                name.replace(" δ", "").replace("δ", "").replace(" ex", "").trim().to_string()
+            }
+            return target_meta.name == *evolves_from
+                || species(&target_meta.name) == species(evolves_from);
         }
         false
     }
@@ -3303,7 +3308,13 @@ impl GameState {
             .current_player()
             .find_pokemon(source_id)
             .or_else(|| self.opponent_player().find_pokemon(source_id))?;
-        (self.hooks().power_effect_id_for)(&slot.card.def_id, power_name)
+        if let Some(id) = (self.hooks().power_effect_id_for)(&slot.card.def_id, power_name) {
+            return Some(id);
+        }
+        if power_name.is_empty() {
+            return None;
+        }
+        Some(format!("{}:{}", slot.card.def_id, power_name))
     }
 
     fn zone_for(&self, zone: ZoneRef) -> &Zone {
@@ -3371,7 +3382,10 @@ impl GameState {
 
         let had_prompt = self.pending_prompt.is_some();
         let prompt_version_before = self.pending_prompt_version;
-        let mut events = match crate::execute(self, action.clone()) {
+        self.answering_prompt_version = if had_prompt { Some(prompt_version_before) } else { None };
+        let result = crate::execute(self, action.clone());
+        self.answering_prompt_version = None;
+        let mut events = match result {
             Ok(events) => events,
             Err(err) => {
                 self.update_invariants();
@@ -3382,7 +3396,12 @@ impl GameState {
         if !self.pending_broadcast_events.is_empty() {
             events.extend(self.pending_broadcast_events.drain(..));
         }
-        self.event_log.extend(events.clone());
+        if self.pending_attack.is_none() {
+            self.resolving_attack = None;
+        }
+        // Coin flips ride pending_broadcast so they land after AttackDeclared in this
+        // same action (attack windows look from AttackDeclared to the next TurnStarted).
+        self.event_log.extend(events.iter().cloned());
         if had_prompt && self.pending_prompt_version == prompt_version_before {
             self.pending_prompt = None;
             self.pending_custom_effect_id = None;
@@ -3423,6 +3442,15 @@ impl GameState {
     }
 
     pub fn step(&mut self) -> StepResult {
+        let result = self.step_inner();
+        // Effects resolved inside a step (between-turns checkup, triggers, coin flips)
+        // reach the log now, not after the next action.
+        let drained: Vec<GameEvent> = self.pending_broadcast_events.drain(..).collect();
+        self.event_log.extend(drained);
+        result
+    }
+
+    fn step_inner(&mut self) -> StepResult {
         if let Some((winner, _reason)) = self.finished {
             return StepResult::GameOver { winner };
         }
@@ -3500,6 +3528,12 @@ impl GameState {
 
         match self.turn.phase {
             Phase::Setup => {
+                let mut coin = ChaCha8Rng::seed_from_u64(self.rng_seed);
+                self.turn.player = if coin.next_u64() % 2 == 0 {
+                    PlayerId::P1
+                } else {
+                    PlayerId::P2
+                };
                 self.turn.phase = Phase::StartOfTurn;
                 StepResult::Continue
             }
@@ -3547,6 +3581,15 @@ impl GameState {
             }
             Phase::Main => StepResult::Continue,
             Phase::Attack => {
+                // An attack that is still resolving is finished, never re-declared.
+                if self.pending_attack.is_some() {
+                    let mut events = Vec::new();
+                    if crate::action::finish_pending_attack(self, &mut events) {
+                        self.event_log.extend(events);
+                    }
+                    self.update_invariants();
+                    return StepResult::Continue;
+                }
                 // Only show attacks the player can actually use (has enough energy for)
                 let usable_attacks = self.get_usable_attacks(self.turn.player);
                 if usable_attacks.len() > 1 {
@@ -3583,6 +3626,9 @@ impl GameState {
                     player: self.turn.player,
                 });
                 self.resolve_triggers();
+                // Custom and triggered between-turn effects run after checkup's KO
+                // pass and may themselves place lethal counters.
+                self.settle_between_turns_custom_knockouts();
                 self.apply_between_turns_effects();
                 if let Some((winner, _)) = self.finished {
                     return StepResult::GameOver { winner };
@@ -3734,6 +3780,7 @@ impl GameState {
             player: self.turn.player,
         });
         self.resolve_triggers();
+        self.settle_between_turns_custom_knockouts();
         self.apply_between_turns_effects();
         if let Some((_, reason)) = self.finished {
             return Some(reason);
@@ -3780,9 +3827,8 @@ impl GameState {
 
     pub fn flip_coin_for(&mut self, player: PlayerId) -> bool {
         let heads = self.rng.gen_bool(0.5);
-        let event = GameEvent::CoinFlipped { player, heads };
-        self.event_log.push(event.clone());
-        self.pending_broadcast_events.push(event);
+        self.pending_broadcast_events
+            .push(GameEvent::CoinFlipped { player, heads });
         heads
     }
 
@@ -3913,7 +3959,7 @@ mod tests {
     fn create_test_deck(count: usize, player: PlayerId) -> Vec<CardInstance> {
         let mut deck = Vec::with_capacity(count);
         for i in 0..count {
-            let def_id = CardDefId::new(format!("CG-{i:03}"));
+            let def_id = CardDefId::new(format!("TEST-{i:03}"));
             deck.push(CardInstance::new(def_id, player));
         }
         deck
@@ -3949,7 +3995,7 @@ mod tests {
         let deck1 = create_test_deck(60, PlayerId::P1);
         let deck2 = create_test_deck(60, PlayerId::P2);
         let mut game = GameState::new(deck1, deck2, 3, RulesetConfig::default());
-        let attacker_id = CardInstance::new(CardDefId::new("CG-001"), PlayerId::P1);
+        let attacker_id = CardInstance::new(CardDefId::new("TEST-001"), PlayerId::P1);
         let mut slot = PokemonSlot::new(attacker_id.clone());
         slot.types = vec![Type::Water];
         game.players[0].active = Some(slot);
@@ -3974,7 +4020,7 @@ mod tests {
         let deck1 = create_test_deck(60, PlayerId::P1);
         let deck2 = create_test_deck(60, PlayerId::P2);
         let mut game = GameState::new(deck1, deck2, 4, RulesetConfig::default());
-        let mut slot = PokemonSlot::new(CardInstance::new(CardDefId::new("CG-010"), PlayerId::P1));
+        let mut slot = PokemonSlot::new(CardInstance::new(CardDefId::new("TEST-010"), PlayerId::P1));
         slot.stage = Stage::Stage1;
         let slot_id = slot.card.id;
         game.players[0].active = Some(slot);
@@ -3985,7 +4031,7 @@ mod tests {
     fn test_holon_veil_marks_pokemon_delta_in_play() {
         let mut card_meta = CardMetaMap::new();
         card_meta.insert(
-            CardDefId::new("DF-1"),
+            CardDefId::new("TEST-DELTA-1"),
             CardMeta {
                 name: "Ampharos Delta".to_string(),
                 is_basic: false,
@@ -4013,7 +4059,7 @@ mod tests {
             },
         );
         card_meta.insert(
-            CardDefId::new("CG-050"),
+            CardDefId::new("TEST-NORMAL-1"),
             CardMeta {
                 name: "Non-Delta".to_string(),
                 is_basic: true,
@@ -4047,11 +4093,14 @@ mod tests {
             RulesetConfig::default(),
             card_meta,
         );
-        let ampharos = PokemonSlot::new(CardInstance::new(CardDefId::new("DF-1"), PlayerId::P1));
-        let other = PokemonSlot::new(CardInstance::new(CardDefId::new("CG-050"), PlayerId::P1));
+        let ampharos = PokemonSlot::new(CardInstance::new(CardDefId::new("TEST-DELTA-1"), PlayerId::P1));
+        let other = PokemonSlot::new(CardInstance::new(CardDefId::new("TEST-NORMAL-1"), PlayerId::P1));
         let other_id = other.card.id;
         game.players[0].active = Some(ampharos);
         game.players[0].bench.push(other);
+        let mut hooks = crate::runtime_hooks::RuntimeHooks::empty();
+        hooks.treats_pokemon_as_delta = |_, player| player == PlayerId::P1;
+        game.set_hooks(hooks);
 
         assert!(game.pokemon_is_delta(other_id));
         let mut selector = PokemonSelector::default();
@@ -4068,7 +4117,7 @@ mod tests {
     fn test_devolve_pokemon_heals_and_discards() {
         let mut card_meta = CardMetaMap::new();
         card_meta.insert(
-            CardDefId::new("CG-010"),
+            CardDefId::new("TEST-010"),
             CardMeta {
                 name: "Stage 1".to_string(),
                 is_basic: false,
@@ -4096,7 +4145,7 @@ mod tests {
             },
         );
         card_meta.insert(
-            CardDefId::new("CG-001"),
+            CardDefId::new("TEST-001"),
             CardMeta {
                 name: "Basic".to_string(),
                 is_basic: true,
@@ -4130,8 +4179,8 @@ mod tests {
             RulesetConfig::default(),
             card_meta,
         );
-        let basic = CardInstance::new(CardDefId::new("CG-001"), PlayerId::P1);
-        let mut stage1 = PokemonSlot::new(CardInstance::new(CardDefId::new("CG-010"), PlayerId::P1));
+        let basic = CardInstance::new(CardDefId::new("TEST-001"), PlayerId::P1);
+        let mut stage1 = PokemonSlot::new(CardInstance::new(CardDefId::new("TEST-010"), PlayerId::P1));
         stage1.stage = Stage::Stage1;
         stage1.damage_counters = 5;
         stage1.add_special_condition(tcg_rules_ex::SpecialCondition::Asleep);
@@ -4199,7 +4248,7 @@ mod tests {
         let mut game = GameState::new(deck1, deck2, 12345, RulesetConfig::default());
 
         let mut attacker = crate::PokemonSlot::new(crate::CardInstance::new(
-            crate::CardDefId::new("CG-100"),
+            crate::CardDefId::new("TEST-A-100"),
             PlayerId::P1,
         ));
         attacker.hp = 20;
@@ -4207,7 +4256,7 @@ mod tests {
         game.players[0].bench.clear();
 
         let mut defender = crate::PokemonSlot::new(crate::CardInstance::new(
-            crate::CardDefId::new("DF-100"),
+            crate::CardDefId::new("TEST-B-100"),
             PlayerId::P2,
         ));
         defender.hp = 20;
@@ -4216,7 +4265,7 @@ mod tests {
         game.players[1].bench.clear();
         for _ in 0..2 {
             let mut slot = crate::PokemonSlot::new(crate::CardInstance::new(
-                crate::CardDefId::new("CG-990"),
+                crate::CardDefId::new("TEST-A-990"),
                 PlayerId::P2,
             ));
             slot.hp = 20;
@@ -4260,7 +4309,7 @@ mod tests {
 
         for game in [&mut game1, &mut game2] {
             let mut attacker = crate::PokemonSlot::new(crate::CardInstance::new(
-                crate::CardDefId::new("CG-101"),
+                crate::CardDefId::new("TEST-A-101"),
                 PlayerId::P1,
             ));
             attacker.hp = 20;
@@ -4268,7 +4317,7 @@ mod tests {
             game.players[0].bench.clear();
 
             let mut defender = crate::PokemonSlot::new(crate::CardInstance::new(
-                crate::CardDefId::new("DF-101"),
+                crate::CardDefId::new("TEST-B-101"),
                 PlayerId::P2,
             ));
             defender.hp = 20;
@@ -4277,7 +4326,7 @@ mod tests {
             game.players[1].bench.clear();
             for _ in 0..2 {
                 let mut slot = crate::PokemonSlot::new(crate::CardInstance::new(
-                    crate::CardDefId::new("CG-991"),
+                    crate::CardDefId::new("TEST-A-991"),
                     PlayerId::P2,
                 ));
                 slot.hp = 20;

@@ -20,6 +20,30 @@ pub const SET: &str = "DF";
 pub const NUMBER: u32 = 94;
 pub const NAME: &str = "Kingdra ex δ";
 
+
+use tcg_core::runtime_hooks::AttackOverrides;
+use tcg_core::{Attack, CardInstanceId, GameState, Stage};
+use crate::df::helpers::player_has_card;
+
+pub fn attack_overrides(
+    game: &GameState,
+    _attack: &Attack,
+    _attacker_id: CardInstanceId,
+    defender_id: CardInstanceId,
+) -> AttackOverrides {
+    let mut overrides = AttackOverrides::default();
+    let Some(defender) = game.opponent_player().find_pokemon(defender_id) else {
+        return overrides;
+    };
+    if defender.is_ex
+        && defender.stage == Stage::Stage2
+        && player_has_card(game, defender_id, SET, NUMBER, true)
+    {
+        overrides.pre_weakness_modifier -= 10;
+    }
+    overrides
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

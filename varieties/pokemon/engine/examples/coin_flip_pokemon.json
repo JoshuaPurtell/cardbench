@@ -1,0 +1,28 @@
+{
+  "set": "TEST",
+  "number": "2",
+  "name": "Coin Flip Pokemon",
+  "supertype": "Pokemon",
+  "stage": "Basic",
+  "hp": 60,
+  "types": ["Colorless"],
+  "retreat": 1,
+  "attacks": [
+    {
+      "name": "Flip Hit",
+      "cost": ["Colorless"],
+      "effect_ast": {
+        "op": "FlipCoins",
+        "count": 1,
+        "on_heads": {
+          "op": "DealDamage",
+          "target": "OppActive",
+          "amount": 20
+        },
+        "on_tails": {
+          "op": "NoOp"
+        }
+      }
+    }
+  ]
+}

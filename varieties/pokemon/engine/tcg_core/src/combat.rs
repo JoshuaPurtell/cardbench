@@ -63,21 +63,22 @@ pub fn execute_attack(game: &mut GameState, attack: &Attack) -> Result<(), Comba
     let ignore_weakness = game.ignore_weakness_for(attacker_id, defender_id);
     let ignore_resistance = game.ignore_resistance_for(attacker_id, defender_id);
     let post_weakness = game.damage_after_weakness_modifier(attacker_id, defender_id);
+    let attack_types = game.weakness_types_for(attacker_id, attack);
     let defender = game
         .opponent_player_mut()
         .active
         .as_mut()
         .ok_or(CombatError::MissingDefender)?;
-    let base_damage = calculate_damage_with_flags(attack, defender, ignore_weakness, ignore_resistance);
+    let base_damage = calculate_damage_for_types(
+        attack.damage,
+        defender,
+        &attack_types,
+        ignore_weakness,
+        ignore_resistance,
+    );
     let adjusted = (base_damage as i32 + post_weakness).max(0) as u16;
     let damage = apply_damage_modifier(adjusted, modifier);
     let damage_counters_to_add = (damage / 10) as u16;
-
-    eprintln!(
-        "[execute_attack] {} attacking with '{}': base_damage={}, modifier={}, post_weakness={}, final_damage={} ({} counters)",
-        attack.name, attack.name, base_damage, modifier, post_weakness, damage, damage_counters_to_add
-    );
-
     defender.damage_counters = defender
         .damage_counters
         .saturating_add(damage_counters_to_add);
@@ -105,17 +106,35 @@ pub fn calculate_damage_with_flags(
     ignore_weakness: bool,
     ignore_resistance: bool,
 ) -> u16 {
-    let mut damage = attack.damage;
+    calculate_damage_for_types(
+        attack.damage,
+        defender,
+        &[attack.attack_type],
+        ignore_weakness,
+        ignore_resistance,
+    )
+}
+
+/// Printed Weakness and Resistance apply when any of the attacking Pokémon's types
+/// matches, so a dual-type attacker is checked against every type it has.
+pub fn calculate_damage_for_types(
+    base: u16,
+    defender: &PokemonSlot,
+    attack_types: &[Type],
+    ignore_weakness: bool,
+    ignore_resistance: bool,
+) -> u16 {
+    let mut damage = base;
     if !ignore_weakness {
         if let Some(weakness) = defender.weakness {
-            if weakness.type_ == attack.attack_type {
+            if attack_types.contains(&weakness.type_) {
                 damage = damage.saturating_mul(weakness.multiplier as u16);
             }
         }
     }
     if !ignore_resistance {
         if let Some(resistance) = defender.resistance {
-            if resistance.type_ == attack.attack_type {
+            if attack_types.contains(&resistance.type_) {
                 damage = damage.saturating_sub(resistance.value);
             }
         }
@@ -221,7 +240,15 @@ pub fn check_knockout_for_with_cause(
         game.players[knocked_index].discard.add(energy);
     }
     if let Some(tool) = knocked_out.attached_tool.take() {
+        game.pending_broadcast_events.push(crate::GameEvent::ToolDiscarded {
+            player: tool.owner,
+            tool_id: tool.id,
+        });
         game.players[knocked_index].discard.add(tool);
+    }
+    // Lower evolution stages leave play with the Knocked Out Pokémon.
+    for prior in knocked_out.evolution_stack.drain(..) {
+        game.players[knocked_index].discard.add(prior);
     }
 
     // Track if the knocked out player needs to choose a new active (don't auto-promote)
@@ -344,7 +371,15 @@ fn knockout_pokemon_by_id(
         game.players[knocked_index].discard.add(energy);
     }
     if let Some(tool) = knocked_out.attached_tool.take() {
+        game.pending_broadcast_events.push(crate::GameEvent::ToolDiscarded {
+            player: tool.owner,
+            tool_id: tool.id,
+        });
         game.players[knocked_index].discard.add(tool);
+    }
+    // Lower evolution stages leave play with the Knocked Out Pokémon.
+    for prior in knocked_out.evolution_stack.drain(..) {
+        game.players[knocked_index].discard.add(prior);
     }
 
     // Track if the knocked out player needs to choose a new active
@@ -399,7 +434,7 @@ mod tests {
         resistance: Option<Resistance>,
         is_ex: bool,
     ) -> PokemonSlot {
-        let card = CardInstance::new(CardDefId::new("CG-999"), player);
+        let card = CardInstance::new(CardDefId::new("TEST-999"), player);
         let mut slot = PokemonSlot::new(card);
         slot.hp = hp;
         slot.weakness = weakness;
@@ -414,11 +449,11 @@ mod tests {
         let mut deck2 = Vec::new();
         for i in 0..60 {
             deck1.push(CardInstance::new(
-                CardDefId::new(format!("CG-{i:03}")),
+                CardDefId::new(format!("TEST-A-{i:03}")),
                 PlayerId::P1,
             ));
             deck2.push(CardInstance::new(
-                CardDefId::new(format!("DF-{i:03}")),
+                CardDefId::new(format!("TEST-B-{i:03}")),
                 PlayerId::P2,
             ));
         }
@@ -435,7 +470,7 @@ mod tests {
     #[test]
     fn test_attack_execution() {
         let mut game = setup_game_with_actives();
-        let energy = CardInstance::new(CardDefId::new("DF-001"), PlayerId::P1);
+        let energy = CardInstance::new(CardDefId::new("TEST-ENERGY-001"), PlayerId::P1);
         game.players[0]
             .active
             .as_mut()
@@ -469,7 +504,7 @@ mod tests {
             value: 20,
         });
 
-        let energy = CardInstance::new(CardDefId::new("DF-001"), PlayerId::P1);
+        let energy = CardInstance::new(CardDefId::new("TEST-ENERGY-001"), PlayerId::P1);
         game.players[0]
             .active
             .as_mut()

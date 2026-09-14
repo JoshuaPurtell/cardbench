@@ -3,8 +3,9 @@ schema_version = "cardbench.engine-pins.v1"
 [[source]]
 name = "setbench-engine-core"
 remote = "https://github.com/JoshuaPurtell/setbench-engine-core.git"
-commit = "9d2a9f33c48ec155b626e8858d330e72e73b17fb"
+commit = "821680873a607ad6dfbac9749f15a7c7505ff822"
 target = "varieties/pokemon/engine"
+notes = "Public EX folder contract, E2 engine semantics, and per-set create_hooks_for composition."
 
 [[source]]
 name = "setbench"

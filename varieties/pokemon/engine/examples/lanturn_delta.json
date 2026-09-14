@@ -1,0 +1,23 @@
+{
+  "set": "CG",
+  "number": "15/100",
+  "name": "Lanturn Delta",
+  "supertype": "Pokemon",
+  "tags": ["DeltaSpecies"],
+  "stage": "Stage1",
+  "evolves_from": "Chinchou",
+  "hp": 80,
+  "types": ["Lightning", "Metal"],
+  "weakness": [{"type": "Fighting", "value": "x2"}],
+  "resistance": [],
+  "retreat": 1,
+  "attacks": [
+    {
+      "name": "Confuse Ray",
+      "cost": ["Lightning", "Colorless"],
+      "damage": 20,
+      "effect_ast": { "op": "ApplySpecialCondition", "condition": "Confused" }
+    }
+  ],
+  "powers": []
+}

@@ -1,0 +1,21 @@
+{
+  "set": "CG",
+  "number": "BASIC",
+  "name": "Test Basic",
+  "supertype": "Pokemon",
+  "tags": [],
+  "stage": "Basic",
+  "hp": 60,
+  "types": ["Colorless"],
+  "weakness": [],
+  "resistance": [],
+  "retreat": 1,
+  "attacks": [
+    {
+      "name": "Tackle",
+      "cost": ["Colorless"],
+      "damage": 10,
+      "effect_ast": {"op": "NoOp"}
+    }
+  ]
+}

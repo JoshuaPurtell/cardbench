@@ -3,7 +3,7 @@
 #[cfg(test)]
 mod setbench_train_eventlog_eval {
     use super::*;
-    use crate::{attack_effect_ast, create_hooks};
+    use crate::{attack_effect_ast, create_hooks_for};
     use serde_json::{json, Value};
     use std::collections::BTreeMap;
     use std::fs;
@@ -960,7 +960,7 @@ mod setbench_train_eventlog_eval {
         let deck_p2 = build_deck(&deck_p2_cards, PlayerId::P2);
         let rules = RulesetConfig::default();
         let card_meta = build_card_meta();
-        let hooks = create_hooks();
+        let hooks = create_hooks_for(&["DF"]);
         let mut game = GameState::new_with_hooks(deck_p1, deck_p2, spec.seed, rules, card_meta, hooks);
         let mut prepared = false;
 

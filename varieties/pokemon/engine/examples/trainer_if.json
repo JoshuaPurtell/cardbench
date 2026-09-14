@@ -1,0 +1,19 @@
+{
+  "set": "TEST",
+  "number": "5",
+  "name": "Conditional Trainer",
+  "supertype": "Trainer",
+  "trainer_kind": "Item",
+  "effect_ast": {
+    "op": "If",
+    "predicate": "Always",
+    "then_effect": {
+      "op": "DrawCards",
+      "player": "Current",
+      "count": 2
+    },
+    "else_effect": {
+      "op": "NoOp"
+    }
+  }
+}

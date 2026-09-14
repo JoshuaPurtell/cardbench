@@ -1,0 +1,21 @@
+{
+  "set": "TEST",
+  "number": "1",
+  "name": "Basic Damage Pokemon",
+  "supertype": "Pokemon",
+  "stage": "Basic",
+  "hp": 60,
+  "types": ["Colorless"],
+  "retreat": 1,
+  "attacks": [
+    {
+      "name": "Hit",
+      "cost": ["Colorless"],
+      "effect_ast": {
+        "op": "DealDamage",
+        "target": "OppActive",
+        "amount": 20
+      }
+    }
+  ]
+}

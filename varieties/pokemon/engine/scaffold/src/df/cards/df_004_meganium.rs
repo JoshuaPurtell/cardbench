@@ -111,6 +111,23 @@ fn find_owner(game: &GameState, card_id: CardInstanceId) -> Option<PlayerId> {
 // Tests
 // ============================================================================
 
+
+use tcg_core::{PokemonSlot, TriggerKind, TriggerPredicate, TriggerSubscription};
+use tcg_core::runtime_hooks::def_id_matches;
+
+pub fn register_triggers(game: &mut GameState, slot: &PokemonSlot) {
+    if !def_id_matches(&slot.card.def_id, SET, NUMBER) {
+        return;
+    }
+    game.register_trigger(TriggerSubscription {
+        source_id: slot.card.id,
+        trigger: TriggerKind::OnEvolveFromHand,
+        predicate: TriggerPredicate::Always,
+        effect_id: evolutionary_call_effect_id(),
+        match_subject: true,
+    });
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

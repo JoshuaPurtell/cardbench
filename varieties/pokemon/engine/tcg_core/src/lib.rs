@@ -21,7 +21,8 @@ mod restrictions;
 mod replacements;
 mod triggers;
 mod custom_abilities;
-pub mod cg_engine;
+#[cfg(test)]
+mod e2_tests;
 pub mod timers;
 pub mod runtime_hooks;
 
@@ -29,6 +30,7 @@ pub use action::{can_execute, execute, Action, ActionError};
 pub use combat::{
     apply_damage_modifier,
     calculate_damage,
+    calculate_damage_for_types,
     calculate_damage_with_flags,
     check_knockouts,
     check_knockouts_all,

@@ -49,7 +49,7 @@ mod tests {
         let mut deck = Vec::with_capacity(count);
         for i in 0..count {
             deck.push(CardInstance::new(
-                CardDefId::new(format!("CG-{i:03}")),
+                CardDefId::new(format!("TEST-{i:03}")),
                 player,
             ));
         }
@@ -63,12 +63,12 @@ mod tests {
         let mut game = Game::new(deck1, deck2, 12345);
 
         let mut attacker = PokemonSlot::new(CardInstance::new(
-            CardDefId::new("CG-900"),
+            CardDefId::new("TEST-900"),
             PlayerId::P1,
         ));
         attacker.hp = 20;
         let mut defender = PokemonSlot::new(CardInstance::new(
-            CardDefId::new("DF-900"),
+            CardDefId::new("TEST-901"),
             PlayerId::P2,
         ));
         defender.hp = 20;

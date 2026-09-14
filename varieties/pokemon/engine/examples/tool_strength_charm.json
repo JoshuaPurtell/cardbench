@@ -1,0 +1,8 @@
+{
+  "set": "CG",
+  "number": "80/100",
+  "name": "Strength Charm",
+  "supertype": "Trainer",
+  "trainer_kind": "Tool",
+  "effect_ast": { "op": "ModifyDamage", "amount": 10 }
+}
