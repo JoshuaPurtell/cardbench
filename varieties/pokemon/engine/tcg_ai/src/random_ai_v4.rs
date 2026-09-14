@@ -1014,12 +1014,7 @@ impl AiController for RandomAiV4 {
                     return vec![Action::EndTurn];
                 }
                 if let Some(name) = attacks.iter().max().cloned() {
-                    actions.push(Action::DeclareAttack {
-                        attack: Attack {
-                            name,
-                            ..Self::dummy_attack()
-                        },
-                    });
+                    actions.push(Action::ChooseDefenderAttack { attack_name: name });
                 }
                 let mut names = attacks.clone();
                 names.shuffle(&mut self.rng);
@@ -1292,4 +1287,15 @@ mod prompt_response_tests {
     #[test] fn discard_for_draw_effect() { assert!(matches!(answer(Prompt::DiscardForDrawEffect { player: PlayerId::P1, count: 1, options: vec![CardInstanceId::new(30)], base_draw: 1, bonus_draw_condition: "none".into(), bonus_draw: 0 }), Action::DiscardCardsFromHand { card_ids } if card_ids == vec![CardInstanceId::new(30)])); }
     #[test] fn choose_number() { assert!(matches!(answer(Prompt::ChooseNumber { player: PlayerId::P1, min: 1, max: 4, effect_description: "number".into() }), Action::ChooseNumber { number: 4 })); }
     #[test] fn choose_draw_count() { assert!(matches!(answer(Prompt::ChooseDrawCount { player: PlayerId::P1, min: 0, max: 3 }), Action::ChooseNumber { number: 3 })); }
+    #[test]
+    fn choose_defender_attack_uses_prompt_response_action() {
+        assert!(matches!(
+            answer(Prompt::ChooseDefenderAttack {
+                player: PlayerId::P1,
+                defender_id: CardInstanceId::new(10),
+                attacks: vec!["Bite".into(), "Scratch".into()],
+            }),
+            Action::ChooseDefenderAttack { attack_name } if attack_name == "Scratch"
+        ));
+    }
 }
